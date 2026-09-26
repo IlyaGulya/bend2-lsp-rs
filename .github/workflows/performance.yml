@@ -1,0 +1,38 @@
+name: performance
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Install Valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes valgrind
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+      - name: Install matching Iai-Callgrind runner
+        run: cargo install --locked --version 0.16.1 iai-callgrind-runner
+      - name: Measure main baseline
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags origin "$BASE_SHA"
+          git checkout "$BASE_SHA"
+          cargo bench --locked --bench analysis -- --save-baseline=main --callgrind-args='--cache-sim=yes'
+      - name: Compare pull request with main
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          git checkout "$CANDIDATE_SHA"
+          cargo bench --locked --bench analysis -- --baseline=main --callgrind-args='--cache-sim=yes' --callgrind-limits='ir=2%,i1mr=3%,ilmr=3%'

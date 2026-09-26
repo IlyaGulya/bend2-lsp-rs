@@ -48,7 +48,7 @@ mod protocol {
             let mut child = command.spawn().expect("start Bend LSP");
             let stdin = child.stdin.take().expect("LSP stdin");
             let stdout = child.stdout.take().expect("LSP stdout");
-            let reader = thread::spawn(move || read_messages(stdout, sender));
+            let reader = thread::spawn(move || read_messages(stdout, &sender));
             Self {
                 child,
                 stdin: Some(stdin),
@@ -166,7 +166,7 @@ mod protocol {
         }
     }
 
-    fn read_messages(stdout: impl Read, sender: mpsc::Sender<Value>) {
+    fn read_messages(stdout: impl Read, sender: &mpsc::Sender<Value>) {
         let mut reader = BufReader::new(stdout);
         loop {
             let mut content_length = None;
@@ -199,6 +199,15 @@ mod protocol {
                 return;
             }
         }
+    }
+
+    fn semantic_token_number(value: &Value) -> u32 {
+        u32::try_from(
+            value
+                .as_u64()
+                .expect("semantic token field must be an unsigned integer"),
+        )
+        .expect("semantic token field must fit the LSP u32 field")
     }
 
     fn path_with_prefix(prefix: &Path) -> OsString {
@@ -760,19 +769,21 @@ mod protocol {
         let mut line = 0;
         let mut character = 0;
         let tokens: Vec<(u32, u32, u32, u32)> = data
-            .chunks_exact(5)
+            .as_chunks::<5>()
+            .0
+            .iter()
             .map(|token| {
-                line += token[0].as_u64().unwrap() as u32;
+                line += semantic_token_number(&token[0]);
                 character = if token[0] == 0 {
-                    character + token[1].as_u64().unwrap() as u32
+                    character + semantic_token_number(&token[1])
                 } else {
-                    token[1].as_u64().unwrap() as u32
+                    semantic_token_number(&token[1])
                 };
                 (
                     line,
                     character,
-                    token[2].as_u64().unwrap() as u32,
-                    token[3].as_u64().unwrap() as u32,
+                    semantic_token_number(&token[2]),
+                    semantic_token_number(&token[3]),
                 )
             })
             .collect();
@@ -791,6 +802,35 @@ mod protocol {
         }
         client.finish();
     }
+    fn request_delimiter_action(
+        client: &mut LspClient,
+        uri: &str,
+        requested_range: &Value,
+        only: Option<&str>,
+    ) -> Value {
+        let mut context = json!({"diagnostics":[{
+            "range":{
+                "start":{"line":1,"character":2},
+                "end":{"line":1,"character":3}
+            },
+            "severity":1,
+            "code":"parsing",
+            "source":"bend2",
+            "message":"Unclosed '('."
+        }]});
+        if let Some(only) = only {
+            context["only"] = json!([only]);
+        }
+        client.request(
+            "textDocument/codeAction",
+            json!({
+                "textDocument":{"uri":uri},
+                "range":requested_range,
+                "context":context
+            }),
+        )
+    }
+
     #[test]
     fn code_action_offers_closing_a_reported_unclosed_delimiter() {
         let temp = tempdir().expect("temporary workspace");
@@ -812,25 +852,14 @@ mod protocol {
                 "text":source
             }}),
         );
-        let response = client.request(
-            "textDocument/codeAction",
-            json!({
-                "textDocument":{"uri":uri},
-                "range":{
-                    "start":{"line":1,"character":2},
-                    "end":{"line":1,"character":3}
-                },
-                "context":{"diagnostics":[{
-                    "range":{
-                        "start":{"line":1,"character":2},
-                        "end":{"line":1,"character":3}
-                    },
-                    "severity":1,
-                    "code":"parsing",
-                    "source":"bend2",
-                    "message":"Unclosed '('."
-                }]}
+        let response = request_delimiter_action(
+            &mut client,
+            &uri,
+            &json!({
+                "start":{"line":1,"character":2},
+                "end":{"line":1,"character":3}
             }),
+            None,
         );
         assert!(
             response["result"]
@@ -845,53 +874,28 @@ mod protocol {
                 })),
             "an unclosed-delimiter diagnostic must offer a safe insertion fix: {response}"
         );
-        let outside_range = client.request(
-            "textDocument/codeAction",
-            json!({
-                "textDocument":{"uri":uri},
-                "range":{
-                    "start":{"line":0,"character":0},
-                    "end":{"line":0,"character":10}
-                },
-                "context":{"diagnostics":[{
-                    "range":{
-                        "start":{"line":1,"character":2},
-                        "end":{"line":1,"character":3}
-                    },
-                    "severity":1,
-                    "code":"parsing",
-                    "source":"bend2",
-                    "message":"Unclosed '('."
-                }]}
+        let outside_range = request_delimiter_action(
+            &mut client,
+            &uri,
+            &json!({
+                "start":{"line":0,"character":0},
+                "end":{"line":0,"character":10}
             }),
+            None,
         );
         assert_eq!(
             outside_range["result"].as_array().map(Vec::len),
             Some(0),
             "a quick fix must not be offered outside the requested range: {outside_range}"
         );
-        let filtered = client.request(
-            "textDocument/codeAction",
-            json!({
-                "textDocument":{"uri":uri},
-                "range":{
-                    "start":{"line":1,"character":2},
-                    "end":{"line":1,"character":3}
-                },
-                "context":{
-                    "diagnostics":[{
-                        "range":{
-                            "start":{"line":1,"character":2},
-                            "end":{"line":1,"character":3}
-                        },
-                        "severity":1,
-                        "code":"parsing",
-                        "source":"bend2",
-                        "message":"Unclosed '('."
-                    }],
-                    "only":["source"]
-                }
+        let filtered = request_delimiter_action(
+            &mut client,
+            &uri,
+            &json!({
+                "start":{"line":1,"character":2},
+                "end":{"line":1,"character":3}
             }),
+            Some("source"),
         );
         assert_eq!(
             filtered["result"].as_array().map(Vec::len),
@@ -1416,8 +1420,7 @@ mod protocol {
         client.finish();
     }
 
-    #[test]
-    fn prelude_symbols_support_hover_navigation_and_completion() {
+    fn open_prelude_document() -> (tempfile::TempDir, LspClient) {
         let temp = tempdir().expect("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).expect("create workspace");
@@ -1430,19 +1433,24 @@ mod protocol {
         .expect("write compiler with Base source");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
             .expect("make compiler executable");
-        let uri = "untitled:prelude.bend";
-        let source = "import Base\ndef main() -> Builtin:\n  List.map\n";
         let mut client = LspClient::spawn(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
             json!({"textDocument":{
-                "uri":uri,
+                "uri":"untitled:prelude.bend",
                 "languageId":"bend",
                 "version":1,
-                "text":source
+                "text":"import Base\ndef main() -> Builtin:\n  List.map\n"
             }}),
         );
+        (temp, client)
+    }
+
+    #[test]
+    fn prelude_symbols_support_hover_navigation_and_completion() {
+        let (_temp, mut client) = open_prelude_document();
+        let uri = "untitled:prelude.bend";
         let hover = client.request(
             "textDocument/hover",
             json!({
@@ -1855,7 +1863,7 @@ mod protocol {
             }),
         );
         assert!(client.diagnostics_for(&uri, true, Duration::from_secs(5)));
-        let still_running = std::process::Command::new("/bin/kill")
+        let still_running = Command::new("/bin/kill")
             .arg("-0")
             .arg(&pid)
             .stdout(Stdio::null())
@@ -1863,7 +1871,7 @@ mod protocol {
             .status()
             .is_ok_and(|status| status.success());
         if still_running {
-            let _ = std::process::Command::new("/bin/kill")
+            let _ = Command::new("/bin/kill")
                 .arg(&pid)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -1931,7 +1939,7 @@ mod protocol {
         let deadline = Instant::now() + Duration::from_secs(2);
         let mut still_running = true;
         while still_running && Instant::now() < deadline {
-            still_running = std::process::Command::new("/bin/kill")
+            still_running = Command::new("/bin/kill")
                 .arg("-0")
                 .arg(&pid)
                 .stdout(Stdio::null())
@@ -1943,7 +1951,7 @@ mod protocol {
             }
         }
         if still_running {
-            let _ = std::process::Command::new("/bin/kill")
+            let _ = Command::new("/bin/kill")
                 .arg(&pid)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -2077,7 +2085,7 @@ mod protocol {
             client.child.try_wait().expect("poll LSP process").is_some(),
             "exit without shutdown must terminate while stdin remains open"
         );
-        let still_running = std::process::Command::new("/bin/kill")
+        let still_running = Command::new("/bin/kill")
             .arg("-0")
             .arg(&pid)
             .stdout(Stdio::null())
@@ -2085,7 +2093,7 @@ mod protocol {
             .status()
             .is_ok_and(|status| status.success());
         if still_running {
-            let _ = std::process::Command::new("/bin/kill")
+            let _ = Command::new("/bin/kill")
                 .arg(&pid)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -2096,6 +2104,101 @@ mod protocol {
             "exit must cancel the running compiler child {pid}"
         );
     }
+    fn assert_call_hierarchy(client: &mut LspClient, uri: &str) {
+        let root = client.request(
+            "textDocument/prepareCallHierarchy",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":6,"character":5}
+            }),
+        );
+        assert_eq!(root["result"][0]["name"], "root", "{root}");
+        let outgoing = client.request(
+            "callHierarchy/outgoingCalls",
+            json!({"item":root["result"][0]}),
+        );
+        assert!(
+            outgoing["result"]
+                .as_array()
+                .is_some_and(|calls| calls.iter().any(|call| call["to"]["name"] == "leaf")),
+            "outgoing calls should find the invoked declaration: {outgoing}"
+        );
+        assert!(
+            outgoing["result"]
+                .as_array()
+                .is_some_and(|calls| calls.iter().any(|call| call["to"]["name"] == "external")),
+            "outgoing calls should resolve imported declarations: {outgoing}"
+        );
+        let leaf = client.request(
+            "textDocument/prepareCallHierarchy",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":4,"character":5}
+            }),
+        );
+        let incoming = client.request(
+            "callHierarchy/incomingCalls",
+            json!({"item":leaf["result"][0]}),
+        );
+        assert!(
+            incoming["result"]
+                .as_array()
+                .is_some_and(|calls| calls.iter().any(|call| call["from"]["name"] == "root")),
+            "incoming calls should identify the caller declaration: {incoming}"
+        );
+        let external = outgoing["result"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|call| call["to"]["name"] == "external")
+            .expect("outgoing calls should include the imported function")["to"]
+            .clone();
+        let external_incoming =
+            client.request("callHierarchy/incomingCalls", json!({"item":external}));
+        assert!(
+            external_incoming["result"]
+                .as_array()
+                .is_some_and(|calls| calls.iter().any(|call| call["from"]["name"] == "root")),
+            "incoming calls should resolve imported declarations: {external_incoming}"
+        );
+    }
+
+    fn assert_type_hierarchy(client: &mut LspClient, uri: &str) {
+        let shape = client.request(
+            "textDocument/prepareTypeHierarchy",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":8,"character":14}
+            }),
+        );
+        assert_eq!(shape["result"][0]["name"], "Shape", "{shape}");
+        let subtypes = client.request("typeHierarchy/subtypes", json!({"item":shape["result"][0]}));
+        assert!(
+            subtypes["result"].as_array().is_some_and(|items| {
+                items.iter().any(|item| item["name"] == "Circle")
+                    && items.iter().any(|item| item["name"] == "Square")
+            }),
+            "algebraic constructors should appear under their declaring type: {subtypes}"
+        );
+        let circle = client.request(
+            "textDocument/prepareTypeHierarchy",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":2,"character":4}
+            }),
+        );
+        let supertypes = client.request(
+            "typeHierarchy/supertypes",
+            json!({"item":circle["result"][0]}),
+        );
+        assert!(
+            supertypes["result"]
+                .as_array()
+                .is_some_and(|items| items.iter().any(|item| item["name"] == "Shape")),
+            "a constructor should link back to its declaring type: {supertypes}"
+        );
+    }
+
     #[test]
     fn call_and_algebraic_type_hierarchies_follow_declarations_and_calls() {
         let temp = tempdir().expect("temporary workspace");
@@ -2151,95 +2254,8 @@ mod protocol {
                 "text":source
             }}),
         );
-        let root = client.request(
-            "textDocument/prepareCallHierarchy",
-            json!({
-                "textDocument":{"uri":uri},
-                "position":{"line":6,"character":5}
-            }),
-        );
-        assert_eq!(root["result"][0]["name"], "root", "{root}");
-        let outgoing = client.request(
-            "callHierarchy/outgoingCalls",
-            json!({"item":root["result"][0]}),
-        );
-        assert!(
-            outgoing["result"]
-                .as_array()
-                .is_some_and(|calls| calls.iter().any(|call| call["to"]["name"] == "leaf")),
-            "outgoing calls should find the invoked declaration: {outgoing}"
-        );
-        assert!(
-            outgoing["result"]
-                .as_array()
-                .is_some_and(|calls| calls.iter().any(|call| call["to"]["name"] == "external")),
-            "outgoing calls should resolve imported declarations: {outgoing}"
-        );
-        let leaf = client.request(
-            "textDocument/prepareCallHierarchy",
-            json!({
-                "textDocument":{"uri":uri},
-                "position":{"line":4,"character":5}
-            }),
-        );
-        let incoming = client.request(
-            "callHierarchy/incomingCalls",
-            json!({"item":leaf["result"][0]}),
-        );
-        assert!(
-            incoming["result"]
-                .as_array()
-                .is_some_and(|calls| calls.iter().any(|call| call["from"]["name"] == "root")),
-            "incoming calls should identify the caller declaration: {incoming}"
-        );
-        let external = outgoing["result"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|call| call["to"]["name"] == "external")
-            .expect("outgoing calls should include the imported function")["to"]
-            .clone();
-        let external_incoming =
-            client.request("callHierarchy/incomingCalls", json!({"item":external}));
-        assert!(
-            external_incoming["result"]
-                .as_array()
-                .is_some_and(|calls| { calls.iter().any(|call| call["from"]["name"] == "root") }),
-            "incoming calls should resolve imported declarations: {external_incoming}"
-        );
-        let shape = client.request(
-            "textDocument/prepareTypeHierarchy",
-            json!({
-                "textDocument":{"uri":uri},
-                "position":{"line":8,"character":14}
-            }),
-        );
-        assert_eq!(shape["result"][0]["name"], "Shape", "{shape}");
-        let subtypes = client.request("typeHierarchy/subtypes", json!({"item":shape["result"][0]}));
-        assert!(
-            subtypes["result"].as_array().is_some_and(|items| {
-                items.iter().any(|item| item["name"] == "Circle")
-                    && items.iter().any(|item| item["name"] == "Square")
-            }),
-            "algebraic constructors should appear under their declaring type: {subtypes}"
-        );
-        let circle = client.request(
-            "textDocument/prepareTypeHierarchy",
-            json!({
-                "textDocument":{"uri":uri},
-                "position":{"line":2,"character":4}
-            }),
-        );
-        let supertypes = client.request(
-            "typeHierarchy/supertypes",
-            json!({"item":circle["result"][0]}),
-        );
-        assert!(
-            supertypes["result"]
-                .as_array()
-                .is_some_and(|items| items.iter().any(|item| item["name"] == "Shape")),
-            "a constructor should link back to its declaring type: {supertypes}"
-        );
+        assert_call_hierarchy(&mut client, &uri);
+        assert_type_hierarchy(&mut client, &uri);
         client.finish();
     }
     #[test]

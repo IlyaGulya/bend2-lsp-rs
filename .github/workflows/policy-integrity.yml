@@ -1,0 +1,39 @@
+name: policy-integrity
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  protect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require maintainer approval for policy changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          POLICY_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'policy-approved') }}
+        run: |
+          set -euo pipefail
+          changed_files="$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
+          protected_files=()
+          while IFS= read -r path; do
+            case "$path" in
+              .gitignore|Cargo.toml|Cargo.lock|rust-toolchain.toml|deny.toml|.config/nextest.toml|.github/workflows/*|.github/CODEOWNERS|scripts/quality*|scripts/check-policy*|scripts/install-tools.sh|benches/*|perf-baseline/*|docs/performance-policy.md|AGENTS.md)
+                protected_files+=("$path")
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          if ((${#protected_files[@]} > 0)); then
+            printf 'Protected policy files changed:\n'
+            printf '  %s\n' "${protected_files[@]}"
+            if [[ "$POLICY_APPROVED" != "true" ]]; then
+              echo 'A maintainer must apply the policy-approved label after reviewing these changes.' >&2
+              exit 1
+            fi
+          fi

@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- Rust 1.85 or newer
+- Rust 1.98.1, pinned by `rust-toolchain.toml`
 - Bend 2 CLI (`bend`) on `PATH` for compiler checks and `Base` source
 
 Build and run:
@@ -37,6 +37,21 @@ Formatting preserves the token stream, comments, blank lines, line endings, and 
 ## Editor configuration
 
 Launch `bend2-lsp` over stdio and associate `.bend` files with language ID `bend` (or `bend2`). Workspace settings `bend2-lsp.compilerPath` and `bend2-lsp.compilerArguments` select the compiler executable and arguments.
+
+## Development quality and performance
+
+Install the pinned Rust quality tools and run the authoritative local gate:
+
+```sh
+./scripts/install-tools.sh
+./scripts/quality
+```
+
+The gate checks formatting, rustc, Clippy, tests, feature combinations, and dependency policy. Workspace lints deny warnings, Clippy `all`/`pedantic`/`perf`, production `unwrap()`/`expect()`, inline lint suppressions, and unsafe code.
+
+Release builds use optimization level 3, fat LTO, one codegen unit, and stripped symbols. Linux CI compares the benchmarked source-analysis paths with the pull request base using Callgrind; this is not a measurement of end-to-end editor latency. See [performance policy](docs/performance-policy.md).
+
+The policy-integrity workflow requires a maintainer-applied `policy-approved` label for enforcement-file changes; create that label in GitHub before relying on the gate. For non-bypassable enforcement, configure `main` rulesets to require `quality / quality`, `performance / compare`, and `policy-integrity / protect`, pull requests/review, up-to-date branches, and no force-push or bypass. GitHub host settings cannot be committed as repository files. This checkout has no Git remote, so its ruleset and reviewer identity are not configured here.
 
 ## Upstream
 

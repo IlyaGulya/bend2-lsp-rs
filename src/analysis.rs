@@ -84,6 +84,7 @@ pub fn imports(source: &str) -> Vec<Import> {
     imports
 }
 
+#[must_use]
 pub fn inlay_hints(source: &str, range: Range) -> Vec<InlayHint> {
     let declarations: Vec<TopLevelSymbol> = lines(source)
         .iter()
@@ -217,7 +218,7 @@ fn call_argument_starts(source: &str, open: usize) -> Vec<usize> {
         index += if byte.is_ascii() {
             1
         } else {
-            source[index..].chars().next().unwrap().len_utf8()
+            source[index..].chars().next().map_or(1, char::len_utf8)
         };
     }
     starts
@@ -231,6 +232,7 @@ fn position_in_range(position: Position, range: Range) -> bool {
     after_start && before_end
 }
 
+#[must_use]
 pub fn folding_ranges(source: &str) -> Vec<FoldingRange> {
     let lines = lines(source);
     let mut ranges = Vec::new();
@@ -250,9 +252,9 @@ pub fn folding_ranges(source: &str) -> Vec<FoldingRange> {
         }
         if let Some(end_line) = end {
             ranges.push(FoldingRange {
-                start_line: index as u32,
+                start_line: u32::try_from(index).unwrap_or(u32::MAX),
                 start_character: None,
-                end_line: end_line as u32,
+                end_line: u32::try_from(end_line).unwrap_or(u32::MAX),
                 end_character: None,
                 kind: Some(FoldingRangeKind::Region),
                 collapsed_text: None,
@@ -262,6 +264,7 @@ pub fn folding_ranges(source: &str) -> Vec<FoldingRange> {
     ranges
 }
 
+#[must_use]
 pub fn selection_range(source: &str, position: Position) -> SelectionRange {
     let offset = offset_at(source, position);
     let line_start = source[..offset].rfind('\n').map_or(0, |index| index + 1);
@@ -329,6 +332,7 @@ fn offset_at(source: &str, position: Position) -> usize {
     source.len()
 }
 
+#[must_use]
 pub fn semantic_tokens(source: &str) -> Vec<SemanticToken> {
     let declarations: Vec<(String, u32)> = lines(source)
         .iter()
@@ -346,6 +350,32 @@ pub fn semantic_tokens(source: &str) -> Vec<SemanticToken> {
             )
         })
         .collect();
+    let raw = semantic_token_spans(source, &declarations);
+    let mut tokens = Vec::with_capacity(raw.len());
+    let mut previous = Position::new(0, 0);
+    for (start, end, token_type) in raw {
+        let start = position_at(source, start);
+        let end = position_at(source, end);
+        if start.line != end.line || start.character == end.character {
+            continue;
+        }
+        tokens.push(SemanticToken {
+            delta_line: start.line - previous.line,
+            delta_start: if start.line == previous.line {
+                start.character - previous.character
+            } else {
+                start.character
+            },
+            length: end.character - start.character,
+            token_type,
+            token_modifiers_bitset: 0,
+        });
+        previous = start;
+    }
+    tokens
+}
+
+fn semantic_token_spans(source: &str, declarations: &[(String, u32)]) -> Vec<(usize, usize, u32)> {
     let bytes = source.as_bytes();
     let mut raw = Vec::<(usize, usize, u32)>::new();
     let mut index = 0;
@@ -419,35 +449,13 @@ pub fn semantic_tokens(source: &str) -> Vec<SemanticToken> {
             index += if byte.is_ascii() {
                 1
             } else {
-                source[index..].chars().next().unwrap().len_utf8()
+                source[index..].chars().next().map_or(1, char::len_utf8)
             };
             continue;
         };
         raw.push((start, index, token_type));
     }
-
-    let mut tokens = Vec::with_capacity(raw.len());
-    let mut previous = Position::new(0, 0);
-    for (start, end, token_type) in raw {
-        let start = position_at(source, start);
-        let end = position_at(source, end);
-        if start.line != end.line || start.character == end.character {
-            continue;
-        }
-        tokens.push(SemanticToken {
-            delta_line: start.line - previous.line,
-            delta_start: if start.line == previous.line {
-                start.character - previous.character
-            } else {
-                start.character
-            },
-            length: end.character - start.character,
-            token_type,
-            token_modifiers_bitset: 0,
-        });
-        previous = start;
-    }
-    tokens
+    raw
 }
 
 pub fn signature_help(source: &str, offset: usize) -> Option<SignatureHelp> {
@@ -464,7 +472,8 @@ pub fn signature_help(source: &str, offset: usize) -> Option<SignatureHelp> {
         .into_iter()
         .map(str::to_owned)
         .collect();
-    let active_parameter = active_parameter.min(parameters.len().saturating_sub(1) as u32);
+    let active_parameter =
+        active_parameter.min(u32::try_from(parameters.len().saturating_sub(1)).unwrap_or(u32::MAX));
     Some(SignatureHelp {
         signatures: vec![SignatureInformation {
             label: declaration.detail,
@@ -523,10 +532,10 @@ fn active_call(source: &str, offset: usize) -> Option<(String, u32)> {
             if delimiters.last().is_some_and(|entry| entry.0 == expected) {
                 delimiters.pop();
             }
-        } else if byte == b',' {
-            if let Some((b'(', _, commas)) = delimiters.last_mut() {
-                *commas += 1;
-            }
+        } else if byte == b','
+            && let Some((b'(', _, commas)) = delimiters.last_mut()
+        {
+            *commas += 1;
         }
         index += if byte.is_ascii() {
             1
@@ -577,6 +586,7 @@ fn split_parameters(parameters: &str) -> Vec<&str> {
     result
 }
 
+#[must_use]
 pub fn completion_items(source: &str, prefix: &str) -> Vec<CompletionItem> {
     let mut items: Vec<CompletionItem> = lines(source)
         .iter()
@@ -607,6 +617,7 @@ pub fn completion_items(source: &str, prefix: &str) -> Vec<CompletionItem> {
     items
 }
 
+#[must_use]
 pub fn module_completion_items(source: &str, prefix: &str) -> Vec<CompletionItem> {
     lines(source)
         .iter()
@@ -626,6 +637,7 @@ pub fn module_completion_items(source: &str, prefix: &str) -> Vec<CompletionItem
         .collect()
 }
 
+#[must_use]
 pub fn qualified_completion_items(
     source: &str,
     qualifier: &str,
@@ -698,7 +710,7 @@ pub fn identifier_ranges(source: &str, name: &str) -> Vec<Range> {
                 }
             }
             _ => {
-                let width = source[index..].chars().next().unwrap().len_utf8();
+                let width = source[index..].chars().next().map_or(1, char::len_utf8);
                 index += width;
             }
         }
@@ -706,7 +718,7 @@ pub fn identifier_ranges(source: &str, name: &str) -> Vec<Range> {
     ranges
 }
 
-#[allow(deprecated)]
+#[must_use]
 pub fn workspace_symbols(
     source: &str,
     uri: &tower_lsp::lsp_types::Url,
@@ -737,6 +749,7 @@ pub fn workspace_symbols(
         .collect()
 }
 
+#[must_use]
 pub fn declaration_range(source: &str, name: &str) -> Option<Range> {
     let lines = lines(source);
     let declaration = lines
@@ -751,6 +764,7 @@ pub fn declaration_range(source: &str, name: &str) -> Option<Range> {
     ))
 }
 
+#[must_use]
 pub fn type_declaration_range(source: &str, name: &str) -> Option<Range> {
     let lines = lines(source);
     let declaration = lines
@@ -765,6 +779,7 @@ pub fn type_declaration_range(source: &str, name: &str) -> Option<Range> {
     ))
 }
 
+#[must_use]
 pub fn parameter_type(source: &str, parameter_name: &str) -> Option<String> {
     for (index, line) in lines(source).iter().enumerate() {
         if line.indent != 0 {
@@ -794,6 +809,7 @@ pub fn parameter_type(source: &str, parameter_name: &str) -> Option<String> {
     None
 }
 
+#[must_use]
 pub fn parameter_type_declaration_range(source: &str, parameter_name: &str) -> Option<Range> {
     let type_expression = parameter_type(source, parameter_name)?;
     let lines = lines(source);
@@ -815,6 +831,7 @@ pub fn parameter_type_declaration_range(source: &str, parameter_name: &str) -> O
     ))
 }
 
+#[must_use]
 pub fn declaration_hover(source: &str, name: &str) -> Option<String> {
     let declaration = lines(source)
         .iter()
@@ -829,7 +846,7 @@ pub fn declaration_hover(source: &str, name: &str) -> Option<String> {
     Some(format!("```bend\n{name}: {ty}\n```"))
 }
 
-#[allow(deprecated)]
+#[must_use]
 pub fn document_symbols(source: &str) -> Vec<DocumentSymbol> {
     let lines = lines(source);
     let declarations: Vec<TopLevelSymbol> = lines
@@ -935,7 +952,6 @@ fn top_level_symbol(index: usize, line: &Line<'_>) -> Option<TopLevelSymbol> {
     })
 }
 
-#[allow(deprecated)]
 fn constructor_symbols(
     source: &str,
     lines: &[Line<'_>],
@@ -1014,12 +1030,16 @@ fn position_at(source: &str, offset: usize) -> Position {
         boundary -= 1;
     }
     let prefix = &source[..boundary];
-    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() as u32;
-    let character = prefix
-        .rsplit('\n')
-        .next()
-        .unwrap_or("")
-        .encode_utf16()
-        .count() as u32;
+    let line =
+        u32::try_from(prefix.bytes().filter(|byte| *byte == b'\n').count()).unwrap_or(u32::MAX);
+    let character = u32::try_from(
+        prefix
+            .rsplit('\n')
+            .next()
+            .unwrap_or("")
+            .encode_utf16()
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
     Position::new(line, character)
 }

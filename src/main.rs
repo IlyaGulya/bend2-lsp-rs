@@ -22,7 +22,34 @@ use tower::Service;
 use tower_lsp::{
     Client, LanguageServer, LspService, Server,
     jsonrpc::{Request, Response, Result},
-    lsp_types::*,
+    lsp_types::{
+        CallHierarchyIncomingCall, CallHierarchyIncomingCallsParams, CallHierarchyItem,
+        CallHierarchyOutgoingCall, CallHierarchyOutgoingCallsParams, CallHierarchyPrepareParams,
+        CallHierarchyServerCapability, CodeAction, CodeActionKind, CodeActionOrCommand,
+        CodeActionParams, CodeActionProviderCapability, CodeActionResponse, CodeLens,
+        CodeLensOptions, CodeLensParams, CompletionItem, CompletionItemKind, CompletionOptions,
+        CompletionParams, CompletionResponse, Diagnostic, DiagnosticSeverity,
+        DidChangeConfigurationParams, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
+        DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+        DocumentFormattingParams, DocumentHighlight, DocumentHighlightKind,
+        DocumentHighlightParams, DocumentLink, DocumentLinkOptions, DocumentLinkParams,
+        DocumentOnTypeFormattingOptions, DocumentOnTypeFormattingParams,
+        DocumentRangeFormattingParams, DocumentSymbol, DocumentSymbolParams,
+        DocumentSymbolResponse, FoldingRange, FoldingRangeParams, FoldingRangeProviderCapability,
+        GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams,
+        HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams, InlayHint,
+        InlayHintParams, Location, MarkupContent, MarkupKind, MessageType, NumberOrString, OneOf,
+        Position, Range, ReferenceParams, Registration, RenameParams, SelectionRange,
+        SelectionRangeParams, SelectionRangeProviderCapability, SemanticTokenType, SemanticTokens,
+        SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
+        SemanticTokensParams, SemanticTokensResult, SemanticTokensServerCapabilities,
+        ServerCapabilities, ServerInfo, SignatureHelp, SignatureHelpOptions, SignatureHelpParams,
+        SymbolInformation, SymbolKind, TextDocumentSyncCapability, TextDocumentSyncKind,
+        TextDocumentSyncOptions, TextEdit, TypeDefinitionProviderCapability, TypeHierarchyItem,
+        TypeHierarchyPrepareParams, TypeHierarchySubtypesParams, TypeHierarchySupertypesParams,
+        WorkDoneProgressOptions, WorkspaceEdit, WorkspaceFoldersServerCapabilities,
+        WorkspaceServerCapabilities, WorkspaceSymbolParams,
+    },
 };
 use url::Url;
 mod analysis;
@@ -114,6 +141,8 @@ struct BaseModule {
     _directory: Arc<tempfile::TempDir>,
 }
 
+type AnalysisTasks = Arc<AsyncMutex<HashMap<Url, (u64, JoinHandle<()>)>>>;
+
 #[derive(Clone)]
 struct Backend {
     client: Client,
@@ -127,7 +156,7 @@ struct Backend {
     base_module: Arc<RwLock<Option<BaseModule>>>,
     base_module_attempted: Arc<RwLock<bool>>,
     base_module_load: Arc<AsyncMutex<()>>,
-    analysis_tasks: Arc<AsyncMutex<HashMap<Url, (u64, JoinHandle<()>)>>>,
+    analysis_tasks: AnalysisTasks,
     next_analysis_id: Arc<AtomicU64>,
     compiler_semaphore: Arc<Semaphore>,
     compiler_results: Arc<RwLock<HashMap<PathBuf, CachedCompilerResult>>>,
@@ -548,9 +577,9 @@ impl Backend {
                 .iter()
                 .any(|item| item.code == Some(NumberOrString::String("holes".into())))
             {
-                if !self
+                if self
                     .document(&uri)
-                    .is_some_and(|current| current.version == version)
+                    .is_none_or(|current| current.version != version)
                 {
                     return;
                 }
@@ -559,10 +588,10 @@ impl Backend {
                 for (source_path, item) in compiler {
                     if normalize_path(&source_path) == root_path {
                         diagnostics.push(item);
-                    } else if let Ok(source_uri) = Url::from_file_path(&source_path) {
-                        if self.document(&source_uri).is_none() {
-                            imported.entry(source_uri).or_default().push(item);
-                        }
+                    } else if let Ok(source_uri) = Url::from_file_path(&source_path)
+                        && self.document(&source_uri).is_none()
+                    {
+                        imported.entry(source_uri).or_default().push(item);
                     }
                 }
                 self.replace_import_diagnostics(uri.clone(), version, imported)
@@ -692,11 +721,9 @@ fn call_sites(source: &str, name: &str) -> Vec<Range> {
         .collect()
 }
 
-fn range_contains_range(container: Range, contained: Range) -> bool {
-    (container.start.line, container.start.character)
-        <= (contained.start.line, contained.start.character)
-        && (contained.end.line, contained.end.character)
-            <= (container.end.line, container.end.character)
+fn range_contains_range(outer: Range, inner: Range) -> bool {
+    (outer.start.line, outer.start.character) <= (inner.start.line, inner.start.character)
+        && (inner.end.line, inner.end.character) <= (outer.end.line, outer.end.character)
 }
 
 fn call_hierarchy_item(uri: Url, symbol: DocumentSymbol) -> CallHierarchyItem {
@@ -744,6 +771,94 @@ fn type_hierarchy_item(uri: Url, symbol: DocumentSymbol) -> TypeHierarchyItem {
     }
 }
 
+fn server_capabilities() -> ServerCapabilities {
+    ServerCapabilities {
+        text_document_sync: Some(TextDocumentSyncCapability::Options(
+            TextDocumentSyncOptions {
+                open_close: Some(true),
+                change: Some(TextDocumentSyncKind::INCREMENTAL),
+                ..Default::default()
+            },
+        )),
+        document_formatting_provider: Some(OneOf::Left(true)),
+        document_range_formatting_provider: Some(OneOf::Left(true)),
+        document_on_type_formatting_provider: Some(DocumentOnTypeFormattingOptions {
+            first_trigger_character: "\n".into(),
+            more_trigger_character: None,
+        }),
+        hover_provider: Some(HoverProviderCapability::Simple(true)),
+        definition_provider: Some(OneOf::Left(true)),
+        document_symbol_provider: Some(OneOf::Left(true)),
+        type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
+        references_provider: Some(OneOf::Left(true)),
+        rename_provider: Some(OneOf::Left(true)),
+        document_highlight_provider: Some(OneOf::Left(true)),
+        completion_provider: Some(CompletionOptions {
+            trigger_characters: Some(vec![".".into()]),
+            ..Default::default()
+        }),
+        signature_help_provider: Some(SignatureHelpOptions {
+            trigger_characters: Some(vec!["(".into(), ",".into()]),
+            retrigger_characters: Some(vec![")".into()]),
+            ..Default::default()
+        }),
+        call_hierarchy_provider: Some(CallHierarchyServerCapability::Simple(true)),
+        workspace_symbol_provider: Some(OneOf::Left(true)),
+        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
+        code_lens_provider: Some(CodeLensOptions {
+            resolve_provider: Some(false),
+        }),
+        inlay_hint_provider: Some(OneOf::Left(true)),
+        folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
+        selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
+        document_link_provider: Some(DocumentLinkOptions {
+            work_done_progress_options: WorkDoneProgressOptions::default(),
+            resolve_provider: Some(false),
+        }),
+        semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
+            SemanticTokensOptions {
+                work_done_progress_options: WorkDoneProgressOptions::default(),
+                legend: SemanticTokensLegend {
+                    token_types: vec![
+                        SemanticTokenType::NAMESPACE,
+                        SemanticTokenType::TYPE,
+                        SemanticTokenType::CLASS,
+                        SemanticTokenType::ENUM,
+                        SemanticTokenType::INTERFACE,
+                        SemanticTokenType::STRUCT,
+                        SemanticTokenType::TYPE_PARAMETER,
+                        SemanticTokenType::PARAMETER,
+                        SemanticTokenType::VARIABLE,
+                        SemanticTokenType::PROPERTY,
+                        SemanticTokenType::ENUM_MEMBER,
+                        SemanticTokenType::EVENT,
+                        SemanticTokenType::FUNCTION,
+                        SemanticTokenType::METHOD,
+                        SemanticTokenType::MACRO,
+                        SemanticTokenType::KEYWORD,
+                        SemanticTokenType::MODIFIER,
+                        SemanticTokenType::COMMENT,
+                        SemanticTokenType::STRING,
+                        SemanticTokenType::NUMBER,
+                        SemanticTokenType::OPERATOR,
+                    ],
+                    token_modifiers: Vec::new(),
+                },
+                range: Some(false),
+                full: Some(SemanticTokensFullOptions::Bool(true)),
+            },
+        )),
+        workspace: Some(WorkspaceServerCapabilities {
+            workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                supported: Some(true),
+                change_notifications: Some(OneOf::Left(true)),
+            }),
+            file_operations: None,
+        }),
+        ..Default::default()
+    }
+}
+
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
@@ -784,93 +899,7 @@ impl LanguageServer for Backend {
             *watch_registration = supports_watch_registration;
         }
         Ok(InitializeResult {
-            capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Options(
-                    TextDocumentSyncOptions {
-                        open_close: Some(true),
-                        change: Some(TextDocumentSyncKind::INCREMENTAL),
-                        ..Default::default()
-                    },
-                )),
-                document_formatting_provider: Some(OneOf::Left(true)),
-                document_range_formatting_provider: Some(OneOf::Left(true)),
-                document_on_type_formatting_provider: Some(DocumentOnTypeFormattingOptions {
-                    first_trigger_character: "\n".into(),
-                    more_trigger_character: None,
-                }),
-                hover_provider: Some(HoverProviderCapability::Simple(true)),
-                definition_provider: Some(OneOf::Left(true)),
-                document_symbol_provider: Some(OneOf::Left(true)),
-                type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
-                references_provider: Some(OneOf::Left(true)),
-                rename_provider: Some(OneOf::Left(true)),
-                document_highlight_provider: Some(OneOf::Left(true)),
-                completion_provider: Some(CompletionOptions {
-                    trigger_characters: Some(vec![".".into()]),
-                    ..Default::default()
-                }),
-                signature_help_provider: Some(SignatureHelpOptions {
-                    trigger_characters: Some(vec!["(".into(), ",".into()]),
-                    retrigger_characters: Some(vec![")".into()]),
-                    ..Default::default()
-                }),
-                call_hierarchy_provider: Some(CallHierarchyServerCapability::Simple(true)),
-                workspace_symbol_provider: Some(OneOf::Left(true)),
-                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-                code_lens_provider: Some(CodeLensOptions {
-                    resolve_provider: Some(false),
-                }),
-                inlay_hint_provider: Some(OneOf::Left(true)),
-                folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
-                selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
-                document_link_provider: Some(DocumentLinkOptions {
-                    work_done_progress_options: WorkDoneProgressOptions::default(),
-                    resolve_provider: Some(false),
-                }),
-                semantic_tokens_provider: Some(
-                    SemanticTokensServerCapabilities::SemanticTokensOptions(
-                        SemanticTokensOptions {
-                            work_done_progress_options: WorkDoneProgressOptions::default(),
-                            legend: SemanticTokensLegend {
-                                token_types: vec![
-                                    SemanticTokenType::NAMESPACE,
-                                    SemanticTokenType::TYPE,
-                                    SemanticTokenType::CLASS,
-                                    SemanticTokenType::ENUM,
-                                    SemanticTokenType::INTERFACE,
-                                    SemanticTokenType::STRUCT,
-                                    SemanticTokenType::TYPE_PARAMETER,
-                                    SemanticTokenType::PARAMETER,
-                                    SemanticTokenType::VARIABLE,
-                                    SemanticTokenType::PROPERTY,
-                                    SemanticTokenType::ENUM_MEMBER,
-                                    SemanticTokenType::EVENT,
-                                    SemanticTokenType::FUNCTION,
-                                    SemanticTokenType::METHOD,
-                                    SemanticTokenType::MACRO,
-                                    SemanticTokenType::KEYWORD,
-                                    SemanticTokenType::MODIFIER,
-                                    SemanticTokenType::COMMENT,
-                                    SemanticTokenType::STRING,
-                                    SemanticTokenType::NUMBER,
-                                    SemanticTokenType::OPERATOR,
-                                ],
-                                token_modifiers: Vec::new(),
-                            },
-                            range: Some(false),
-                            full: Some(SemanticTokensFullOptions::Bool(true)),
-                        },
-                    ),
-                ),
-                workspace: Some(WorkspaceServerCapabilities {
-                    workspace_folders: Some(WorkspaceFoldersServerCapabilities {
-                        supported: Some(true),
-                        change_notifications: Some(OneOf::Left(true)),
-                    }),
-                    file_operations: None,
-                }),
-                ..Default::default()
-            },
+            capabilities: server_capabilities(),
             server_info: Some(ServerInfo {
                 name: "bend2-lsp".into(),
                 version: Some(env!("CARGO_PKG_VERSION").into()),
@@ -1151,7 +1180,7 @@ impl LanguageServer for Backend {
             .bytes()
             .take_while(|byte| matches!(byte, b' ' | b'\t'))
             .count();
-        if &current_line[..current_indent] == desired {
+        if current_line[..current_indent] == desired {
             return Ok(Some(Vec::new()));
         }
         Ok(Some(vec![TextEdit {
@@ -1747,7 +1776,7 @@ impl LanguageServer for Backend {
                     .and_then(|target| Url::from_file_path(target).ok())
             };
             if let Some(uri) = target_uri
-                && (uri.to_file_path().ok().is_some_and(|path| path.exists())
+                && (uri.to_file_path().is_ok_and(|path| path.exists())
                     || self.document(&uri).is_some())
             {
                 return Ok(Some(GotoDefinitionResponse::Scalar(Location {
@@ -1999,7 +2028,7 @@ impl StdinChannel {
     fn new() -> Self {
         let (sender, receiver) = mpsc::channel(4);
         std::thread::spawn(move || {
-            let stdin = std::io::stdin();
+            let stdin = io::stdin();
             let mut stdin = stdin.lock();
             loop {
                 let mut chunk = vec![0; 8192];
@@ -2083,7 +2112,7 @@ async fn main() {
         exit,
     };
     tokio::select! {
-        _ = Server::new(StdinChannel::new(), stdout, socket).serve(service) => {}
+        () = Server::new(StdinChannel::new(), stdout, socket).serve(service) => {}
         _ = exit_rx.changed() => {}
     }
     cancel_task_handles(&analysis_tasks).await;
@@ -2133,7 +2162,10 @@ fn position_at(text: &str, offset: usize) -> Position {
         .unwrap_or("")
         .encode_utf16()
         .count();
-    Position::new(line as u32, col as u32)
+    Position::new(
+        u32::try_from(line).unwrap_or(u32::MAX),
+        u32::try_from(col).unwrap_or(u32::MAX),
+    )
 }
 
 fn position_in_range(position: Position, range: Range) -> bool {
@@ -2268,7 +2300,7 @@ fn code_end_offset(text: &str, start: usize) -> usize {
     let mut quote = None;
     let mut escaped = false;
     while offset < text.len() {
-        let character = text[offset..].chars().next().unwrap();
+        let character = text[offset..].chars().next().unwrap_or_default();
         let next = offset + character.len_utf8();
         if let Some(current) = quote {
             offset = next;
@@ -2359,54 +2391,7 @@ async fn compiler_diagnostics(
             return vec![(root, diag(text, 0, 0, message, "compiler-unavailable"))];
         }
     };
-    let diagnostics = if output.status.success() {
-        Vec::new()
-    } else {
-        let raw = if output.stderr.is_empty() {
-            &output.stdout
-        } else {
-            &output.stderr
-        };
-        let raw = String::from_utf8_lossy(raw);
-        let detail = raw.split("\nLocation:").next().unwrap_or(&raw).trim();
-        let message = detail.strip_prefix("Error:\n").unwrap_or(detail).trim();
-        if message.is_empty() {
-            Vec::new()
-        } else {
-            let marker = raw.lines().find_map(|line| {
-                let (line_number, code) = line.split_once(">|")?;
-                Some((
-                    line_number.trim().parse::<usize>().ok()?,
-                    code.strip_prefix(' ')
-                        .unwrap_or(code)
-                        .trim_end_matches('\r'),
-                ))
-            });
-            let location = marker.and_then(|(line, excerpt)| {
-                let mut matches = sources.iter().filter_map(|(source_path, source_text)| {
-                    let (start, end) = source_line_range(source_text, line.saturating_sub(1))?;
-                    (source_text.get(start..end)? == excerpt)
-                        .then(|| (source_path.clone(), source_text.clone(), start, end))
-                });
-                let unique = matches.next()?;
-                matches.next().is_none().then_some(unique)
-            });
-            let (source_path, source_text, start, end) =
-                location.unwrap_or_else(|| (root.clone(), text.to_owned(), 0, 0));
-            let lowered = message.to_ascii_lowercase();
-            let code = if ["import", "file", "hash", "namespace", "cycle", "bend_hub"]
-                .iter()
-                .any(|needle| lowered.contains(needle))
-            {
-                "imports"
-            } else if lowered.contains("expected : 'def'") {
-                "parsing"
-            } else {
-                "checking"
-            };
-            vec![(source_path, diag(&source_text, start, end, message, code))]
-        }
-    };
+    let diagnostics = compiler_output_diagnostics(&root, text, &sources, &output);
     if cacheable && let Ok(mut results) = cache.write() {
         if !results.contains_key(&root)
             && results.len() >= 32
@@ -2424,6 +2409,60 @@ async fn compiler_diagnostics(
     }
     diagnostics
 }
+fn compiler_output_diagnostics(
+    root: &Path,
+    text: &str,
+    sources: &[(PathBuf, String)],
+    output: &std::process::Output,
+) -> Vec<(PathBuf, Diagnostic)> {
+    if output.status.success() {
+        return Vec::new();
+    }
+    let raw = if output.stderr.is_empty() {
+        &output.stdout
+    } else {
+        &output.stderr
+    };
+    let raw = String::from_utf8_lossy(raw);
+    let detail = raw.split("\nLocation:").next().unwrap_or(&raw).trim();
+    let message = detail.strip_prefix("Error:\n").unwrap_or(detail).trim();
+    if message.is_empty() {
+        return Vec::new();
+    }
+    let marker = raw.lines().find_map(|line| {
+        let (line_number, code) = line.split_once(">|")?;
+        Some((
+            line_number.trim().parse::<usize>().ok()?,
+            code.strip_prefix(' ')
+                .unwrap_or(code)
+                .trim_end_matches('\r'),
+        ))
+    });
+    let location = marker.and_then(|(line, excerpt)| {
+        let mut matches = sources.iter().filter_map(|(source_path, source_text)| {
+            let (start, end) = source_line_range(source_text, line.saturating_sub(1))?;
+            (source_text.get(start..end)? == excerpt)
+                .then(|| (source_path.clone(), source_text.clone(), start, end))
+        });
+        let unique = matches.next()?;
+        matches.next().is_none().then_some(unique)
+    });
+    let (source_path, source_text, start, end) =
+        location.unwrap_or_else(|| (root.to_path_buf(), text.to_owned(), 0, 0));
+    let lowered = message.to_ascii_lowercase();
+    let code = if ["import", "file", "hash", "namespace", "cycle", "bend_hub"]
+        .iter()
+        .any(|needle| lowered.contains(needle))
+    {
+        "imports"
+    } else if lowered.contains("expected : 'def'") {
+        "parsing"
+    } else {
+        "checking"
+    };
+    vec![(source_path, diag(&source_text, start, end, message, code))]
+}
+
 fn cacheable_sources(sources: &[(PathBuf, String)]) -> bool {
     sources.iter().all(|(source_path, source)| {
         analysis::imports(source).into_iter().all(|import| {
@@ -2433,8 +2472,7 @@ fn cacheable_sources(sources: &[(PathBuf, String)]) -> bool {
             }
             source_path
                 .parent()
-                .map(|parent| normalize_path(&parent.join(path)).is_file())
-                .unwrap_or(false)
+                .is_some_and(|parent| normalize_path(&parent.join(path)).is_file())
         })
     })
 }
@@ -2484,7 +2522,7 @@ fn stage_path(root: &Path, staging: &Path) -> PathBuf {
     for component in root.components() {
         match component {
             Component::Prefix(prefix) => {
-                result.push(prefix.as_os_str().to_string_lossy().replace(':', "_"))
+                result.push(prefix.as_os_str().to_string_lossy().replace(':', "_"));
             }
             Component::RootDir | Component::CurDir => {}
             Component::ParentDir => result.push("_parent"),
@@ -2676,10 +2714,10 @@ fn static_hover(token: &str) -> Option<String> {
 }
 fn token_at(text: &str, offset: usize) -> String {
     for token in ["{==}", "<&>", "->", "=>", "==", "!=", "&0", "&1", "&2"] {
-        if let Some(start) = text[..floor_char_boundary(text, offset)].rfind(token) {
-            if start + token.len() >= offset {
-                return token.into();
-            }
+        if let Some(start) = text[..floor_char_boundary(text, offset)].rfind(token)
+            && start + token.len() >= offset
+        {
+            return token.into();
         }
     }
     let bytes = text.as_bytes();
@@ -2775,13 +2813,16 @@ fn format_bend(source: &str, tab_size: usize, spaces: bool) -> String {
         let width = indent
             .chars()
             .fold(0, |n, c| if c == '\t' { n + (8 - n % 8) } else { n + 1 });
-        while stack.len() > 1 && width < *stack.last().unwrap() {
+        while stack.len() > 1 && width < stack.last().copied().unwrap_or_default() {
             stack.pop();
         }
-        if width > *stack.last().unwrap() {
+        let previous_width = stack.last().copied().unwrap_or_default();
+        if width > previous_width {
             stack.push(width);
-        } else if width != *stack.last().unwrap() {
-            *stack.last_mut().unwrap() = width;
+        } else if width != previous_width
+            && let Some(last_width) = stack.last_mut()
+        {
+            *last_width = width;
         }
         depths.push(stack.len() - 1);
     }
@@ -2870,6 +2911,62 @@ fn split_comment(s: &str) -> Option<(&str, &str)> {
     }
     quote.is_none().then_some((s, ""))
 }
+fn lex_import_path(
+    code: &str,
+    chars: &[(usize, char)],
+    mut index: usize,
+) -> Option<(Token, usize)> {
+    while index < chars.len() && chars[index].1.is_whitespace() {
+        index += 1;
+    }
+    let start = chars.get(index)?.0;
+    while index < chars.len() && !chars[index].1.is_whitespace() {
+        index += 1;
+    }
+    let end = chars.get(index).map_or(code.len(), |(offset, _)| *offset);
+    Some((
+        Token {
+            text: code[start..end].into(),
+            kind: 0,
+            gap: true,
+        },
+        index,
+    ))
+}
+
+fn lex_number(chars: &[(usize, char)], mut index: usize) -> usize {
+    index += 1;
+    while index < chars.len() && chars[index].1.is_ascii_digit() {
+        index += 1;
+    }
+    if index + 1 < chars.len() && chars[index].1 == '.' && chars[index + 1].1.is_ascii_digit() {
+        index += 1;
+        while index < chars.len() && chars[index].1.is_ascii_digit() {
+            index += 1;
+        }
+    }
+    if index < chars.len() && matches!(chars[index].1, 'e' | 'E') {
+        let next = index + 1;
+        let exponent = next < chars.len() && chars[next].1.is_ascii_digit()
+            || next + 1 < chars.len()
+                && matches!(chars[next].1, '+' | '-')
+                && chars[next + 1].1.is_ascii_digit();
+        if exponent {
+            index += 1;
+            if index < chars.len() && matches!(chars[index].1, '+' | '-') {
+                index += 1;
+            }
+            while index < chars.len() && chars[index].1.is_ascii_digit() {
+                index += 1;
+            }
+        }
+    }
+    if index < chars.len() && chars[index].1 == 'n' {
+        index += 1;
+    }
+    index
+}
+
 fn lex(code: &str) -> Vec<Token> {
     const MULTI: [&str; 17] = [
         "<&>", ".|.", ".^.", ".&.", "==", "!=", "->", "<-", "=>", "&&", "||", "++", "<>", "<=",
@@ -2884,27 +2981,13 @@ fn lex(code: &str) -> Vec<Token> {
             .last()
             .is_some_and(|token: &Token| token.text == "import")
         {
-            while i < chars.len() && chars[i].1.is_whitespace() {
-                i += 1;
-            }
-            if i < chars.len() {
-                let start = chars[i].0;
-                while i < chars.len() && !chars[i].1.is_whitespace() {
-                    i += 1;
-                }
-                let end = if i < chars.len() {
-                    chars[i].0
-                } else {
-                    code.len()
-                };
-                tokens.push(Token {
-                    text: code[start..end].into(),
-                    kind: 0,
-                    gap: true,
-                });
-                had_gap = false;
-                continue;
-            }
+            let Some((token, next_index)) = lex_import_path(code, &chars, i) else {
+                break;
+            };
+            tokens.push(token);
+            i = next_index;
+            had_gap = false;
+            continue;
         }
         let c = chars[i].1;
         if c.is_whitespace() {
@@ -2942,35 +3025,7 @@ fn lex(code: &str) -> Vec<Token> {
             }
         } else if c.is_ascii_digit() {
             kind = 1;
-            i += 1;
-            while i < chars.len() && chars[i].1.is_ascii_digit() {
-                i += 1;
-            }
-            if i + 1 < chars.len() && chars[i].1 == '.' && chars[i + 1].1.is_ascii_digit() {
-                i += 1;
-                while i < chars.len() && chars[i].1.is_ascii_digit() {
-                    i += 1;
-                }
-            }
-            if i < chars.len() && matches!(chars[i].1, 'e' | 'E') {
-                let next = i + 1;
-                let exponent = next < chars.len() && chars[next].1.is_ascii_digit()
-                    || next + 1 < chars.len()
-                        && matches!(chars[next].1, '+' | '-')
-                        && chars[next + 1].1.is_ascii_digit();
-                if exponent {
-                    i += 1;
-                    if i < chars.len() && matches!(chars[i].1, '+' | '-') {
-                        i += 1;
-                    }
-                    while i < chars.len() && chars[i].1.is_ascii_digit() {
-                        i += 1;
-                    }
-                }
-            }
-            if i < chars.len() && chars[i].1 == 'n' {
-                i += 1;
-            }
+            i = lex_number(&chars, i);
         } else if c == '?'
             && chars
                 .get(i + 1)

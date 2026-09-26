@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+check_tool_version() {
+    local tool="$1" expected="$2" actual="$3"
+    if [[ "$actual" != *"$expected"* ]]; then
+        printf 'Expected %s version %s; got: %s\n' "$tool" "$expected" "$actual" >&2
+        printf 'Run ./scripts/install-tools.sh\n' >&2
+        exit 1
+    fi
+}
+
+check_tool_version cargo-nextest 0.9.131 "$(cargo-nextest nextest --version)"
+check_tool_version cargo-deny 0.20.2 "$(cargo deny --version)"
+check_tool_version cargo-hack 0.6.45 "$(cargo hack --version)"
+
+printf '== policy ==\n'
+python3 scripts/check-policy.py
+
+printf '== format ==\n'
+cargo fmt --all -- --check
+
+printf '== rustc ==\n'
+cargo check --workspace --all-targets --all-features --locked
+
+printf '== clippy (all targets; test panic helpers permitted) ==\n'
+cargo clippy --workspace --all-targets --all-features --locked -- \
+    -D warnings -A clippy::unwrap_used -A clippy::expect_used
+
+printf '== clippy (production binary; panic helpers denied) ==\n'
+cargo clippy --package bend2-lsp --bin bend2-lsp --all-features --locked -- -D warnings
+
+printf '== tests ==\n'
+cargo nextest run --workspace --all-features --locked --profile ci
+
+printf '== feature combinations ==\n'
+cargo hack check --workspace --feature-powerset --locked
+
+printf '== dependencies ==\n'
+cargo deny check

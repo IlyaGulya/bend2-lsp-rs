@@ -1,0 +1,6 @@
+nextest-version = "0.9.131"
+
+[profile.ci]
+fail-fast = false
+retries = 2
+flaky-result = "fail"
