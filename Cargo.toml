@@ -1,0 +1,19 @@
+[package]
+name = "bend2-lsp"
+version = "0.1.1"
+edition = "2024"
+description = "Rust language server for Bend 2"
+license = "Apache-2.0"
+
+[[bin]]
+name = "bend2-lsp"
+path = "src/main.rs"
+
+[dependencies]
+tower-lsp = "0.20"
+tower = { version = "0.4", default-features = false }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "sync"] }
+url = "2"
+tempfile = "3"
+serde_json = "1"
+
