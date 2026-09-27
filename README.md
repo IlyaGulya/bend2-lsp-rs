@@ -38,6 +38,26 @@ Formatting preserves the token stream, comments, blank lines, line endings, and 
 
 Launch `bend2-lsp` over stdio and associate `.bend` files with language ID `bend` (or `bend2`). Workspace settings `bend2-lsp.compilerPath` and `bend2-lsp.compilerArguments` select the compiler executable and arguments.
 
+## Persistent Linux Docker environment
+
+The ARM64 Compose service keeps the pinned Rust toolchain, quality tools, Valgrind runner, Cargo downloads, and compiled project artifacts available across runs.
+
+Build and start it once:
+
+```sh
+docker compose up -d --build rust
+```
+
+For later runs, reuse the existing service and named cache volumes:
+
+```sh
+docker compose exec rust ./scripts/quality
+docker compose exec rust cargo bench --locked --bench analysis -- \
+  --callgrind-args='--cache-sim=yes'
+```
+
+Use `docker compose stop rust` and `docker compose start rust` to pause and resume the same container. Rebuild only after changing `Dockerfile`; avoid `docker compose down -v` and `docker volume prune` when retaining caches matters.
+
 ## Development quality and performance
 
 Install the pinned Rust quality tools and run the authoritative local gate:

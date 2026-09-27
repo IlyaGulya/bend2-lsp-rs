@@ -1,0 +1,28 @@
+name: bend2-lsp-rs
+
+services:
+  rust:
+    platform: linux/arm64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    init: true
+    restart: unless-stopped
+    command: ["sleep", "infinity"]
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - project-target:/workspace/target
+
+volumes:
+  cargo-registry:
+  cargo-git:
+  project-target:

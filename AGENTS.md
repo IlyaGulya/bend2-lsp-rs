@@ -24,6 +24,10 @@ Never:
 
 Central lint-policy exceptions belong in the workspace manifest with a concrete reason. The current `deprecated` exception is limited to LSP compatibility fields required by `tower-lsp 0.20`.
 
+## Persistent Docker workflow
+
+Use the `rust` service in `compose.yaml` for Linux checks and Callgrind. Build it initially with `docker compose up -d --build rust`; for routine work, run commands with `docker compose exec rust ...` and retain the named Cargo registry, Git, and target volumes. Pause and resume with `docker compose stop rust` / `docker compose start rust`. Do not use ephemeral `docker run --rm`, `docker compose down -v`, or volume pruning for routine runs. Rebuild only when the container definition or tool image changes.
+
 ## Performance-sensitive changes
 
 Measure the baseline before changing a hot path. Keep a performance change only when the Linux Callgrind comparison in CI demonstrates the intended result or a maintainer explicitly approves the regression. Update the benchmark when the changed path is not represented. The benchmark measures source-analysis functions directly; it does not claim to measure editor latency or the complete LSP process.
