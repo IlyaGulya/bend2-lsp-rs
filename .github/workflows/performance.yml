@@ -26,13 +26,32 @@ jobs:
       - name: Measure main baseline
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CANDIDATE_SHA: ${{ github.sha }}
+          BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
         run: |
           git fetch --no-tags origin "$BASE_SHA"
           git checkout "$BASE_SHA"
-          cargo bench --locked --bench analysis -- --save-baseline=main --callgrind-args='--cache-sim=yes'
+          cargo bench --locked --bench analysis -- \
+            --save-baseline=main \
+            --callgrind-args='--cache-sim=yes' \
+            --output-format=json \
+            --save-summary=pretty-json
+          git show "$CANDIDATE_SHA:scripts/performance_policy.py" > "$RUNNER_TEMP/performance_policy.py"
+          python3 "$RUNNER_TEMP/performance_policy.py" \
+            target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            --write-baseline-manifest="$BASELINE_MANIFEST"
       - name: Compare pull request with main
         env:
           CANDIDATE_SHA: ${{ github.sha }}
+          BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
         run: |
           git checkout "$CANDIDATE_SHA"
-          cargo bench --locked --bench analysis -- --baseline=main --callgrind-args='--cache-sim=yes' --callgrind-limits='ir=2%,i1mr=3%,ilmr=3%'
+          cargo bench --locked --bench analysis -- \
+            --baseline=main \
+            --callgrind-args='--cache-sim=yes' \
+            --callgrind-limits='ir=2%' \
+            --output-format=json \
+            --save-summary=pretty-json
+          python3 scripts/performance_policy.py \
+            target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main

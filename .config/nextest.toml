@@ -1,6 +1,8 @@
 nextest-version = "0.9.131"
 
 [profile.ci]
+# Protocol latency tests run full server processes; serialize them to avoid host-load flakes.
+test-threads = 1
 fail-fast = false
 retries = 2
 flaky-result = "fail"

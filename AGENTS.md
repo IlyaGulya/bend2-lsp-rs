@@ -34,6 +34,51 @@ Measure the baseline before changing a hot path. Keep a performance change only 
 
 The release profile uses optimization level 3, fat LTO, one codegen unit, and symbol stripping. CPU-specific code generation and PGO remain unset until deployment hardware and a representative workload are defined.
 
+## Snapshot/index-only feature queries
+
+LSP feature handlers and warm analysis queries MUST use immutable
+`DocumentSnapshot` data; workspace-wide and cross-file queries MUST use
+`Workspace` indexes. New semantic information MUST be added to
+`SyntaxIndex`, `OccurrenceIndex`, workspace indexes, or an equivalent
+compact indexed structure during cold snapshot/index construction. A feature
+query MUST NOT repeat a full-source semantic scan over `&str`.
+
+Full-source lexical or semantic scans are allowed during cold snapshot/index
+construction. Prepare data there for reuse by warm queries.
+
+Keep the formatter on its separate lexical scanner. Do not combine it with the
+analysis scanner until exact-equivalence tests and benchmarks prove that the
+shared scanner preserves formatter behavior and has an acceptable tradeoff.
+
+Measure and gate cold snapshot construction separately from warm analysis
+queries. The `cold_snapshot_build_*` and `*_warm` benchmarks in
+[`benches/analysis.rs`](benches/analysis.rs) exercise these paths. The active
+Callgrind regression policy is in
+[`docs/performance-policy.md`](docs/performance-policy.md). New LSP feature
+work MUST follow this invariant.
+
+Forbidden:
+
+- Add a hover, completion, references, inlay-hint, code-lens, or hierarchy
+  handler that loops over every byte or character in the full source.
+- Reparse declarations, parameters, identifiers, comments, or imports from
+  `&str` in a feature query when the snapshot or workspace indexes already
+  contain that information.
+- Rebuild semantic representations during each warm query when they can be
+  prepared once during snapshot construction.
+
+Allowed:
+
+- Look up `FileId`, `SymbolId`, `NameId`, or `TextRange` through existing
+  indexes.
+- Add compact metadata to `SyntaxIndex`, `OccurrenceIndex`, or workspace
+  indexes during cold construction.
+- Convert UTF-16 positions through `LineIndex`.
+- Resolve workspace dependencies through import and reverse-import indexes.
+- Keep the formatter on its separate scanner under the exception above.
+- Scan a bounded local slice when this avoids a second full-document semantic
+  pass and benchmark evidence supports the tradeoff.
+
 ## Policy-file changes
 
 Changes to enforcement files require the `policy-approved` label in the pull request. The `policy-integrity` workflow uses the base-branch workflow definition and does not check out or execute pull-request code. Repository administrators must also protect `main` with a ruleset requiring `quality / quality`, `performance / compare`, and `policy-integrity / protect`, requiring pull requests and review, blocking force pushes, and disallowing bypass. Those server-side rules cannot be activated from this local repository.

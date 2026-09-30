@@ -2,16 +2,32 @@
 
 ## Scope
 
-The project benchmarks selected source-analysis functions directly because the
-package is a binary-only crate. `benches/analysis.rs` includes `src/analysis.rs`
-as a private module, so benchmark code can call production functions without
-changing the application's public API or extracting a library. The benchmark
-covers `semantic_tokens`, `completion_items`, and `identifier_ranges`; it does
-not measure the complete LSP process, request handling, or compiler execution.
+The package exposes the `bend2_lsp` library for core analysis and workspace
+indexes; the `bend2-lsp` binary keeps the LSP/server adapter private. The
+benchmark calls these production library APIs directly. The group
+covers cold snapshot construction for small (2,552-byte), medium (32,429-byte),
+and large (260,429-byte) sources; warm semantic-token, completion, identifier,
+reference, call-hierarchy, and inlay-hint queries; ASCII/Unicode position
+conversion; folding on 100-, 1,000-, and 10,000-line inputs; and a generated 100-file
+workspace with 601 declarations and 4,758 call sites. Workspace measurements
+include initial graph loading, cross-file references, one dependency revision,
+and a 16-revision burst. Warm snapshots and loaded workspace fixtures are
+constructed in Iai benchmark argument setup, outside the measured query; cold
+snapshot benchmarks include construction.
+Integration tests compare exact semantic-token, identifier-range, and completion
+outputs with legacy goldens at all three source sizes; medium and large
+goldens come from the pre-index implementation in commit `bc8cd4f`.
+
+A separate LSP protocol stress test pipelines 32 hover requests during a
+1,041,744-byte document edit that stages a snapshot and prints p50/p95/max response
+latency. This test measures that specific local process scenario, not general
+editor latency. Callgrind does not measure the complete LSP process or compiler
+execution; real Bend CLI timings are measured separately.
 
 The bench uses the fixed Bend fixture in `benches/fixtures/analyzer_input.bend`
-and `std::hint::black_box` for inputs and results. It uses Iai-Callgrind's
-`#[library_benchmark]`, `library_benchmark_group!`, and `main!` APIs.
+for analysis queries and generated workspace/folding fixtures for graph
+workloads. It uses Iai-Callgrind's `#[library_benchmark]`,
+`library_benchmark_group!`, and `main!` APIs.
 
 ## Crate, runner, and build setup
 
@@ -23,30 +39,97 @@ Iai-Callgrind requires debug symbols. The release profile strips symbols, so `Ca
 
 Callgrind records `Ir` (instructions executed). Available cache events include `I1mr` (L1 instruction-cache read misses) and `ILmr` (last-level instruction-cache instruction misses); the `EventKind` reference defines cache events as requiring cache simulation (`--cache-sim=yes`) ([EventKind 0.16.1](https://docs.rs/iai-callgrind/0.16.1/iai_callgrind/enum.EventKind.html)). The documented default Callgrind metrics include cache-hit metrics, but for explicit instruction-cache miss limits configure cache simulation explicitly.
 
-The `performance` workflow enforces percentage soft limits of 2% for `Ir` (instructions) and 3% each for `I1mr` and `ILmr` (instruction-cache misses). These are policy ceilings, not measured results; change them only through maintainer-reviewed policy updates.
+The active `performance` workflow enforces these regression limits:
 
-```sh
-cargo bench --bench analysis -- \
-  --baseline=main \
-  --callgrind-args='--cache-sim=yes' \
-  --callgrind-limits='ir=2%,i1mr=3%,ilmr=3%'
-```
+- `Ir`: Iai relative limit `candidate × 100 ≤ baseline × 102` (+2%).
+- `I1mr` and `ILmr`: `scripts/performance_policy.py` allows
+  `max(ceil(baseline × 0.03), 3 events)` additional misses.
 
-The workflow passes these limits at invocation, overriding any benchmark-file limits. An over-limit regression fails the benchmark with exit code 3. This gate measures instruction counts and instruction-cache misses; it does not claim cycle or allocation measurements. For Cachegrind as the selected tool, the separate options are `--cachegrind-limits` / `IAI_CALLGRIND_CACHEGRIND_LIMITS`. [Upstream regression guide (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/regressions.md) · [CLI reference (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/basics.md)
+The workflow enables cache simulation and emits JSON summaries in both the
+base and candidate runs. The base run writes an authoritative manifest of
+unique canonical `(function_name, id)` pairs. Candidate comparison requires
+every baseline ID exactly once with paired metrics, compares `Ir`, `I1mr`, and
+`ILmr` for every baseline benchmark, and fails on missing/duplicate IDs or
+malformed metrics. Candidate-only IDs are reported as new workloads without
+comparison; after merge, they appear in the next base manifest and become
+required. There is no fixed workload count. Iai applies only the `Ir` limit;
+the script enforces all three metric limits and the complete baseline set.
+The policy measures instruction events and instruction-cache misses, not
+cycles or allocation counts. For Cachegrind as the selected tool, the separate
+options are `--cachegrind-limits` / `IAI_CALLGRIND_CACHEGRIND_LIMITS`.
+[Upstream regression guide (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/regressions.md) · [CLI reference (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/basics.md)
 
-By default, consecutive runs are compared. To compare a candidate to a stable named reference, first save it on the reference revision, then make that named baseline available to the candidate run:
+To compare a candidate to a stable named reference, save its baseline and
+summaries on the reference revision, then generate the manifest from that
+summary tree:
 
 ```sh
 # On the reference revision
-cargo bench --bench analysis -- --save-baseline=main
-
-# On the candidate revision, with the saved target/iai data available
-cargo bench --bench analysis -- --baseline=main \
+cargo bench --bench analysis -- \
+  --save-baseline=main \
   --callgrind-args='--cache-sim=yes' \
-  --callgrind-limits='ir=2%,i1mr=3%,ilmr=3%'
+  --output-format=json \
+  --save-summary=pretty-json
+python3 scripts/performance_policy.py \
+  target/iai/bend2-lsp/analysis/analysis_hot_paths \
+  --write-baseline-manifest=target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
+
+# On the candidate revision, with the baseline data and manifest available
+cargo bench --bench analysis -- \
+  --baseline=main \
+  --callgrind-args='--cache-sim=yes' \
+  --callgrind-limits='ir=2%' \
+  --output-format=json \
+  --save-summary=pretty-json
+python3 scripts/performance_policy.py \
+  target/iai/bend2-lsp/analysis/analysis_hot_paths \
+  --baseline-manifest=target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json \
+  --baseline-name=main
 ```
 
-`--save-baseline=NAME` compares to an existing named baseline if present and then replaces it; `--baseline=NAME` compares without replacing. Baselines are benchmark output data (by default under `target/iai`), so CI must preserve/pass that data or generate it from the chosen reference revision. Merely requesting a baseline comparison is distinct from setting a threshold; limits make an over-limit regression fail. [Baseline guide (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/baselines.md) · [CLI reference (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/basics.md)
+The workflow runs the candidate revision's manifest writer after the base
+checkout, before checking out the candidate. This keeps the baseline ID set
+authoritative while allowing the new writer to be used before the change is
+merged.
+
+`--save-baseline=NAME` compares to an existing named baseline if present and
+then replaces it; `--baseline=NAME` compares without replacing. Baselines are
+benchmark output data (by default under `target/iai`), so CI must preserve/pass
+that data or generate it from the chosen reference revision. The Iai gate
+rejects an over-limit `Ir` regression with exit code 3; the custom comparator
+independently enforces all three metric limits and the complete baseline ID set,
+rejecting duplicate/missing IDs and malformed summaries.
+[Baseline guide (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/baselines.md) · [CLI reference (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/basics.md)
+
+### Active cache-event floor
+
+Cache misses are discrete counts. A percentage-only gate is misleading near
+zero: an increase from 2 to 3 is one event but appears as +50%. The absolute
+floor applies only to `I1mr` and `ILmr`; `Ir` remains a relative +2% limit with
+no absolute allowance.
+
+The comparator implementation and tests are
+[`scripts/performance_policy.py`](../scripts/performance_policy.py) and
+[`scripts/test_performance_policy.py`](../scripts/test_performance_policy.py).
+The tests run from `scripts/quality` and use temporary synthetic
+`summary.json` files in Iai 0.16.1 shape. They cover `[candidate, baseline]`
+ordering; selected-baseline filtering; 25→25, 25→36 with 11 new, 36→36,
+36→35 missing, and 36→37 with one new; duplicate baseline and candidate IDs;
+candidate-only `Left` summaries; hard errors for missing `Ir`/`I1mr`/`ILmr`,
+absent pairs in paired summaries, and malformed paired metrics; cache `0→3`
+pass and `0→4` fail; the `2→3`, `2→6`, `62→65`, `62→66`, `1000→1029`, and
+`1000→1031` cache boundaries; and the unchanged `Ir` +2% boundary.
+
+The active workflow is
+[`performance.yml`](../.github/workflows/performance.yml). The comparator and
+its tests are protected paths in
+[`policy-integrity.yml`](../.github/workflows/policy-integrity.yml); edits to
+the enforcement require maintainer `policy-approved`.
+
+The earlier 25-row saved-profile dry-run is not acceptance evidence for `.21`.
+The fresh exact legacy comparison with baseline
+`rbt21_legacy_4669c65_policy_fresh2` passed **25/25** under this policy on
+2026-09-29. Full `./scripts/quality` passed, and local issue `.21` is closed.
 
 ## CI and local platform constraints
 
@@ -54,6 +137,297 @@ This is not intrinsically Linux-only: Iai-Callgrind requires Valgrind and theref
 
 The native macOS/arm64 host is not a supported Valgrind platform. The persistent `rust` service in [`compose.yaml`](../compose.yaml) runs Linux/ARM64 with the pinned toolchain, Valgrind, Iai runner, and named Cargo/build-cache volumes, so the benchmark can run in Docker without treating macOS itself as supported ([Valgrind supported platforms](https://valgrind.org/info/platforms.html)).
 
-The committed [`performance` workflow](../.github/workflows/performance.yml) saves a `main` baseline from the pull request's base SHA in ignored `target/iai`, then compares the pull-request merge revision with the stated limits. It runs only for pull requests targeting `main` and measures the three analyzer calls in `benches/analysis.rs`, not end-to-end LSP latency.
+The committed [`performance` workflow](../.github/workflows/performance.yml)
+saves a `main` baseline and its benchmark-ID manifest from the pull request's
+base SHA in ignored `target/iai`, then compares all manifest IDs and reports
+candidate-only IDs. The workflow runs only for pull requests targeting `main`
+and measures the selected benchmark group in `benches/analysis.rs`, not
+end-to-end LSP latency.
 
-A local Linux/ARM64 Docker run completed all three benchmarks; after restarting the persistent service, Cargo reused the compiled bench artifact. This was a harness smoke test without a saved `main` baseline, not a regression comparison. The PR workflow is the gate that compares against the base SHA and applies limits. GitHub branch protection is server-side and remains unconfigured because this local checkout has no remote.
+## Legacy compatibility baseline (.21)
+
+The 2026-09-28 comparison ran on Linux/ARM64 from legacy production SHA
+`4669c65`; production sources in that worktree were unchanged. A temporary
+benchmark-only adapter used the same current fixtures and benchmark IDs; its
+source is not included in this six-path policy change. Fixture SHA-256:
+small `d2f018dbc359ab0231fb19eb094c42a1298cd60a71416490fd05e3783dcab1f3`,
+medium `d50c8644b6ad233da6606a77bdae8409326134f99838b726a50cbc042debf7e9`,
+large `3a031f0c3ca50a4bf5e84955afb45edc2caf37b048af6f96fac07af8bdbb6472`.
+
+The original legacy baseline is `rbt21_legacy_4669c65_fullcompat` (25
+historically matching IDs). Its candidate counterpart,
+`rbt21_candidate_4669c65_compat`, is preserved as historical data. The
+2026-09-29 corrected comparison uses
+`rbt21_legacy_4669c65_sparse_unicode`, with 25 IDs matching the current suite.
+The Unicode position fixture is 40,623 bytes: the medium fixture plus a
+4,096-`é` line. Earlier baselines remain in the persistent Docker `target/iai`
+volume. The 22/25 run below is historical evidence under the former
+percentage-only cache gate, not acceptance evidence for the active policy.
+
+The adapter measures legacy `analysis` queries directly. It copies the old
+server's private position helpers and single-document call-site scan from
+`src/main.rs`; references use the old declaration-plus-identifier scan.
+Per-case Iai setup runs each position conversion before Callgrind collection
+for both implementations; the Unicode query ends at the 4,096-`é` line's EOF
+and exercises sparse-checkpoint lookup. Snapshot construction remains a
+separate cold workload. Twenty-five workloads match. Historical `N/A` applies
+to the three cold snapshot-build rows and four workspace DB rows (initial build,
+invalidation, cross-file references, burst revisions): the legacy server had
+neither `DocumentSnapshot` construction nor the current indexed `WorkspaceDb`
+API.
+
+| Workload | Legacy Ir/I1mr/ILmr | Current Ir/I1mr/ILmr | Δ Ir/I1mr/ILmr | Historical gate |
+|---|---:|---:|---:|---:|
+| Semantic tokens — small | 150,442/98/95 | 20,471/8/5 | −86.39%/−91.84%/−94.74% | PASS |
+| Semantic tokens — medium | 2,085,956/95/78 | 177,882/14/6 | −91.47%/−85.26%/−92.31% | PASS |
+| Semantic tokens — large | 14,586,618/75/73 | 526,573/13/10 | −96.39%/−82.67%/−86.30% | PASS |
+| Completion — small | 77,646/115/110 | 28,630/26/22 | −63.13%/−77.39%/−80.00% | PASS |
+| Completion — medium | 674,328/135/116 | 182,461/28/22 | −72.94%/−79.26%/−81.03% | PASS |
+| Completion — large | 4,874,244/150/131 | 621,154/37/30 | −87.26%/−75.33%/−77.10% | PASS |
+| Identifier ranges — small | 70,891/40/40 | 786/15/15 | −98.89%/−62.50%/−62.50% | PASS |
+| Identifier ranges — medium | 727,572/40/40 | 796/19/15 | −99.89%/−52.50%/−62.50% | PASS |
+| Identifier ranges — large | 3,830,955/40/40 | 821/20/15 | −99.98%/−50.00%/−62.50% | PASS |
+| References — small | 317,778/116/112 | 2,582/16/15 | −99.19%/−86.21%/−86.61% | PASS |
+| References — medium | 110,222,535/116/112 | 57,540/24/19 | −99.95%/−79.31%/−83.04% | PASS |
+| References — large | 2,586,256,972/116/112 | 169,400/23/19 | −99.99%/−80.17%/−83.04% | PASS |
+| Call hierarchy — small | 692,457/117/113 | 1,856/17/16 | −99.73%/−85.47%/−85.84% | PASS |
+| Call hierarchy — medium | 222,710,699/117/113 | 70,306/24/20 | −99.97%/−79.49%/−82.30% | PASS |
+| Call hierarchy — large | 3,950,475,855/116/113 | 207,766/24/20 | −99.99%/−79.31%/−82.30% | PASS |
+| Inlay hints — small | 48,032/62/59 | 9,441/65/61 | −80.34%/+4.84%/+3.39% | FAIL |
+| Inlay hints — medium | 184,567/76/73 | 24,558/35/29 | −86.69%/−53.95%/−60.27% | PASS |
+| Inlay hints — large | 693,650/74/71 | 71,611/36/33 | −89.68%/−51.35%/−53.52% | PASS |
+| ASCII position conversion | 5,529/3/3 | 135/2/2 | −97.56%/−33.33%/−33.33% | PASS |
+| ASCII offset conversion | 18,240/2/2 | 56/3/3 | −99.69%/+50.00%/+50.00% | FAIL |
+| Unicode position conversion | 145,101/2/2 | 277/2/2 | −99.81%/0.00%/0.00% | PASS |
+| Unicode offset conversion | 232,588/2/2 | 90,211/3/3 | −61.21%/+50.00%/+50.00% | FAIL |
+| Folding — 100 lines | 43,205/69/68 | 13,194/21/19 | −69.46%/−69.57%/−72.06% | PASS |
+| Folding — 1,000 lines | 409,314/69/68 | 121,694/25/21 | −70.27%/−63.77%/−69.12% | PASS |
+| Folding — 10,000 lines | 4,095,720/108/92 | 1,206,359/26/23 | −70.55%/−75.93%/−75.00% | PASS |
+
+The 2026-09-29 25-row comparison below was evaluated under the then-active
+`Ir=2%`, `I1mr=3%`, and `ILmr=3%` percentage limits. Twenty-two rows passed;
+three failed: small inlay hints missed the cache limits at 65/61 versus 62/59
+events, while ASCII and Unicode offset conversion each rose from 2 to 3 cache
+misses. The ASCII offset result is a strong instruction reduction (18,240 to
+56 Ir, −99.69%); its failure is only one additional miss per cache event at a
+2-event baseline. This historical 22/25 result motivated the active floor and
+is not acceptance evidence for it. Production offset code was unchanged. The
+fresh 2026-09-29 comparison used unmodified legacy production commit `4669c65`
+with baseline `rbt21_legacy_4669c65_policy_fresh2`; the comparator reported
+`25/25 matched workloads passed; 11 summaries did not match the selected
+baseline.` Full `./scripts/quality` passed; `.21` is closed.
+
+Exact ordered-output parity passed for all 1,600 medium and 4,800 large hints.
+`analysis::inlay_hints` now returns each argument position and its parameter
+name `TextRange`; `InlayHint::label` and the server adapter materialize the
+same `"name: "` LSP label. The warm query benchmark measures the indexed
+analysis query, not the adapter's per-response label `String` allocation.
+Thus the query no longer allocates temporary parameter strings or output
+labels, but label strings are still required when constructing the LSP reply.
+
+Allocator-heavy costs moved out of the warm query. Before the change, the
+medium and large profiles were dominated by deallocation and allocator
+bookkeeping; after it, sorting hints is the largest measured cost center:
+
+| Workload | Query Ir before → after | Dominant allocator costs before | Allocator costs after |
+|---|---:|---|---|
+| Medium | 343,400 → 24,558 | `_int_free` 159,750 (46.52%); `malloc_consolidate` 68,093 (19.83%); `free'2` 54,384 (15.84%); `unlink_chunk` 34,299 (9.99%) | `_int_free` 184 (0.75%); `_int_malloc'2` 175 (0.71%); `malloc` 92 (0.37%) |
+| Large | 720,860 → 71,611 | `_int_free` 479,692 (66.54%); `free'2` 163,201 (22.64%) | `malloc` 92 (0.13%); `_int_free` 92 (0.13%) |
+
+The after profiles put stable sorting at 11,200 Ir (45.61%) for medium and
+33,600 Ir (46.92%) for large. Parameter names reuse the existing contiguous
+binding storage; the cold `IndexedSymbol` metadata adds 16 bytes per symbol
+without adding allocation blocks. The measured snapshot deltas are recorded
+below. This warm query reduction is proportionate to the measured cold and
+memory cost; the `.21` policy decision is closed.
+
+The historical comparison used a temporary adapter and saved Iai/Callgrind
+data from the Linux container. Neither artifact is included in this six-path
+policy change, so these measurements are historical evidence rather than a
+standalone reproduction recipe.
+
+The candidate comparison stores per-benchmark JSON summaries and Callgrind
+outputs under the shared `/workspace/target/iai/bend2-lsp/analysis/` volume.
+
+## UTF-16 position mapping and snapshot memory
+
+`LineIndex::position` binary-searches `line_starts` to locate a line. ASCII
+lines then compute the character offset as `offset - line_start`; a packed
+bitset uses one bit per line to select that path. Non-ASCII lines use sparse
+checkpoints every 32 Unicode scalars: each stores an absolute byte offset and
+line-relative UTF-16 units, then conversion encodes at most 31 scalars after
+the preceding checkpoint. The checkpoint vector contains entries only for
+non-ASCII lines. No unsafe code is used.
+
+The repeatable profile harness performs 100,000 EOF position queries after
+building a `LineIndex`; its Unicode input appends one 4,096-`é` comment line
+to the medium fixture. DHAT 3.19.0 reports whole-process allocation totals,
+including the input builder and runtime:
+
+| Mode | Input bytes | Total allocated | Peak live heap |
+|---|---:|---:|---:|
+| ASCII position | 2,552 | 4,797 bytes / 21 blocks | 1,736 bytes / 3 blocks |
+| Unicode position | 40,623 | 128,838 bytes / 35 blocks | 75,790 bytes / 7 blocks |
+
+The Unicode comment contributes 128 retained checkpoints (2,048 bytes of
+checkpoint payload at 16 bytes each); 100,000 repeated queries add no
+allocations. The position-mode peak includes the process and input, not only
+the line-index vectors.
+
+The final matched Callgrind run uses prewarmed conversion inputs; the Unicode
+case ends at the EOF of the 4,096-`é` line, exercising sparse checkpoint
+lookup. Values are `Ir/I1mr/ILmr`; conversion rows compare the legacy adapter
+to the current implementation:
+
+| Query | Legacy | Current |
+|---|---:|---:|
+| ASCII position | 5,529 / 3 / 3 | 135 / 2 / 2 |
+| ASCII offset | 18,240 / 2 / 2 | 56 / 3 / 3 |
+| Unicode position | 145,101 / 2 / 2 | 277 / 2 / 2 |
+| Unicode offset | 232,588 / 2 / 2 | 90,211 / 3 / 3 |
+
+Cold `DocumentSnapshot::new` profiles use one snapshot per process; source
+sizes are the same small/medium/large fixtures as the Callgrind suite. These
+whole-process figures include parser/index storage, the owned source, and
+runtime allocations, so they are comparative process measurements rather than
+an isolated `DocumentSnapshot` retained-size measurement:
+
+| Snapshot input | Total allocated before → after | Peak live heap before → after | Total/peak blocks before → after |
+|---|---:|---:|---:|
+| Small, 2,552 bytes | 386,790 → 389,366 (+2,576; +0.67%) | 211,874 → 212,898 (+1,024; +0.48%) | 200/91 → 200/91 |
+| Medium, 32,429 bytes | 3,985,124 → 3,996,468 (+11,344; +0.28%) | 2,168,490 → 2,172,586 (+4,096; +0.19%) | 368/237 → 368/237 |
+| Large, 260,429 bytes | 13,938,083 → 13,980,403 (+42,320; +0.30%) | 7,577,945 → 7,594,329 (+16,384; +0.22%) | 792/637 → 792/637 |
+| Medium plus Unicode line, 40,623 bytes | 4,103,095 → 4,114,439 (+11,344; +0.28%) | 2,243,815 → 2,247,911 (+4,096; +0.18%) | 377/239 → 377/239 |
+
+The legacy adapter has no snapshot-construction counterpart. The cold-build
+Callgrind counts before and after adding parameter spans are:
+
+| Snapshot input | Ir before → after | I1mr before → after | ILmr before → after |
+|---|---:|---:|---:|
+| Small, 2,552 bytes | 627,647 → 625,801 | 639 → 638 | 591 → 590 |
+| Medium, 32,429 bytes | 6,569,209 → 6,567,392 | 634 → 623 | 580 → 576 |
+| Large, 260,429 bytes | 27,527,697 → 27,535,063 | 638 → 622 | 581 → 577 |
+
+Reproduce with the persistent Linux/ARM64 Valgrind container:
+
+```sh
+docker compose exec -T rust cargo build --locked --example line_index_profile
+docker compose exec -T rust valgrind --tool=dhat \
+  --dhat-out-file=/workspace/target/line-index-position-ascii.json \
+  /workspace/target/debug/examples/line_index_profile position-ascii
+```
+
+Repeat with `position-unicode`, `snapshot-small`, `snapshot-medium`,
+`snapshot-large`, and `snapshot-medium-unicode`; inspect `Total` and
+`At t-gmax` in DHAT output. The `.21` Callgrind table above gives direct
+instruction/cache-event costs for conversion and cold snapshot construction.
+
+## Bend 2 CLI fallback measurement
+
+The installed compiler reports `bend 2.0.32`; `bend --help` exposes file
+checking through `bend <file.bend> --check-only`. Upstream's
+[Bend 2 limitations](https://github.com/bendlang/bend#limitations) explicitly
+state “no incremental builds.” The [CLI entry point](https://github.com/bendlang/bend/blob/main/bend2/main.ts#L229-L301)
+loads a `Book` for each `cli_file` check. Upstream does export lower-level
+TypeScript functions such as [`book_load`](https://github.com/bendlang/bend/blob/main/bend2/bend.ts#L952-L952)
+and `parse_book`, but does not document a stable incremental compiler service
+or persistent-worker contract. The server therefore keeps the CLI fallback;
+no daemon was added.
+
+The ignored manual test
+`tests/lsp_protocol.rs::measure_actual_bend_compiler_cache_fallback` wraps the
+installed Bend executable, counts invocations, and forwards the staged graph
+to the real CLI. The generated workspace has 98 shared dependency files and
+one root-private file per root; each of the two roots reaches exactly 100
+source files. One unrelated file is outside both graphs.
+
+Setting `BEND2_LSP_COMPILER_METRICS_FILE` on the server appends one row per
+compiler check: cache state, staged file/byte counts, staging duration,
+`Command::output` child duration, and compiler-diagnostics total. Metrics-file
+I/O is excluded from `total_ns`; unset, production-default operation performs
+no metric-file I/O. Durations below were recorded on macOS 25.6/arm64 with
+Bend 2.0.32. Per-check values are comma-separated in compiler completion
+order. `child_ms` is the awaited configured command duration; in this
+measurement the counting shell wrapper forwards to Bend, so it includes the
+wrapper overhead. LSP wall time runs from the notification to matching
+`publishDiagnostics` and includes the 250 ms debounce. The duplicate
+same-revision row instead ends at the ordered hover response.
+
+| Scenario | Bend process Δ | Checks | Staged files / bytes | Staging ms per check | Child ms per check | Compiler total ms per check | LSP wall ms |
+|---|---:|---|---:|---:|---:|---:|---:|
+| First root, 100-file graph | 1 | miss | 100 / 5,359 | 6.905 | 52.781 | 63.993 | 326.733 |
+| Duplicate `didChange` at same revision | 0 | no check | 0 / 0 | — | — | — | 0.770 |
+| Distinct second root | 1 | miss | 100 / 5,372 | 6.962 | 41.551 | 51.968 | 308.182 |
+| Identical text, newer revision | 0 | hit | 0 / 0 | 0 | 0 | 0.110 | 254.839 |
+| Unrelated file edit | 0 | 2 hits | 0 / 0 | 0, 0 | 0, 0 | 1.521, 1.480 | 268.458 |
+| Shared dependency edit | 2 | 2 misses | 200 / 10,731 | 9.056, 9.417 | 40.967, 44.224 | 53.707, 58.001 | 317.887 |
+| Compiler executable stamp change | 2 | 2 misses | 200 / 10,731 | 9.983, 10.764 | 51.416, 54.486 | 65.330, 69.574 | 323.941 |
+| Compiler path/configuration change | 2 | 2 misses | 200 / 10,731 | 9.783, 10.368 | 57.965, 61.740 | 72.127, 76.440 | 328.253 |
+
+The same-revision duplicate schedules no check; the newer-revision identical
+text and unrelated-file scenarios each avoid Bend execution and staging on
+cache hits. Dependency, compiler-stamp, and compiler-path invalidation each
+stage both 100-file graphs (200 files and 10,731 aggregate source bytes).
+Staging elapsed time includes `spawn_blocking` queueing and staging setup/copy;
+compiler total includes semaphore wait, cache/stamp work, staging, child,
+diagnostic parsing, and cache update. Timings are single-run local evidence,
+not an SLA. The check asserts empty diagnostics for every real Bend result and
+the expected per-check cache/file/byte/timing values; no sleeps are used.
+
+`.19` fallback acceptance is evidenced by the measured process and staging
+savings, cache hits, invalidation behavior, and empty diagnostics on both
+100-file roots. Reproduce on a host with Bend 2 on `PATH`:
+
+```sh
+cargo test --locked --test lsp_protocol measure_actual_bend_compiler_cache_fallback -- --ignored --nocapture
+```
+
+The manual test is ignored during ordinary suites because it requires the
+installed real Bend CLI.
+
+## Folding scaling evidence
+
+The 2026-09-29 Linux/ARM64 run used Rust 1.98.1, Valgrind 3.19.0, and exact
+100/1,000/10,000-line sources without a trailing newline. The fixture is built
+outside the measured query. Callgrind recorded:
+
+| Lines | Instructions (Ir) | Ir / line | Scale from prior size |
+|---:|---:|---:|---:|
+| 100 | 13,194 | 131.94 | — |
+| 1,000 | 121,694 | 121.69 | 9.22× for 10× input |
+| 10,000 | 1,206,359 | 120.64 | 9.91× for 10× input |
+
+The 100× input increase costs 91.4× instructions, consistent with O(lines).
+The legacy-compatible folding values are from the historical pre-floor
+comparison; their Iai gate used the former `Ir=2%`, `I1mr=3%`, and `ILmr=3%`
+The fresh `.21` acceptance comparison used the active cache-event floor and
+historically compared 25/25 workloads. That suite size is historical, not an
+active fixed-count requirement.
+
+Allocation counts came from Valgrind DHAT and are attributed to
+`folding_ranges`, excluding snapshot construction. The scan counts nonempty
+ranges, then allocates the returned `Vec<FoldingRange>` once at exact
+capacity. Auxiliary vectors remain distinct from the returned result:
+
+| Lines | Range vector allocations (bytes) | Active stack allocations (bytes) | Returned Vec allocations (bytes) | Total allocations in `folding_ranges` |
+|---:|---:|---:|---:|---:|
+| 100 | 1 (2,400) | 1 (64) | 1 (800) | 3 |
+| 1,000 | 1 (24,000) | 1 (64) | 1 (8,000) | 3 |
+| 10,000 | 1 (240,000) | 1 (64) | 1 (80,000) | 3 |
+
+The returned vector still requires one allocation for nonempty output; exact
+capacity removes its geometric growth reallocations. Total allocation count
+stays constant at three per call, while the two auxiliary vectors are also
+one allocation each. This meets the issue's no-growth-allocation criterion;
+no acceptance limits changed. Reproduce a profile with:
+
+```sh
+docker compose exec -T rust cargo build --locked --example folding_allocations
+docker compose exec -T rust valgrind --tool=dhat \
+  --dhat-out-file=/workspace/target/folding-100-fold.json \
+  /workspace/target/debug/examples/folding_allocations 100 fold
+```
+
+Repeat with `1000` and `10000`; inspect only allocation stacks containing
+`folding_ranges`. DHAT allocation events are separate from Callgrind
+instruction events.

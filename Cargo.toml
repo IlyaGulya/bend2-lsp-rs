@@ -44,10 +44,13 @@ path = "src/main.rs"
 [dependencies]
 tower-lsp = "0.20"
 tower = { version = "0.4", default-features = false }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "sync"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "sync", "signal"] }
 url = "2"
 tempfile = "3"
 serde_json = "1"
+tracing = { version = "0.1.44", features = ["attributes"] }
+tracing-chrome = "0.7.2"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["registry"] }
 
 [dev-dependencies]
 iai-callgrind = "=0.16.1"
@@ -55,6 +58,7 @@ iai-callgrind = "=0.16.1"
 [[bench]]
 name = "analysis"
 harness = false
+
 
 
 [lints]

@@ -1,6 +1,6 @@
 # Bend 2 language server (Rust)
 
-`bend2-lsp` is a Rust LSP for Bend 2, built with `tower-lsp` and Tokio. It uses the installed `bend` command as its only compiler integration; editor features that do not need compiler checking use a small source-based scanner.
+`bend2-lsp` is a Rust LSP for Bend 2, built with `tower-lsp` and Tokio. It uses the installed `bend` command as its only compiler integration; each document revision also builds one immutable syntax index shared by source-based editor features.
 
 ## Requirements
 
@@ -24,9 +24,13 @@ Type hierarchy is dynamically registered when the client supports it. For Bend a
 
 ## Compiler integration and limits
 
-Compiler checks stage the open source and its reachable relative imports in a temporary tree, preferring open buffers over disk. Changes to imported buffers and watched files trigger dependent-document checks. Repeated identical local source graphs reuse their compiler result.
+Compiler checks stage the open source and its reachable relative imports in a temporary tree, preferring open buffers over disk. Changes to imported buffers and watched files trigger dependent-document checks. Results are cached for fully resolved local source graphs up to 1 MiB, with at most 32 roots retained; the key includes compiler path/arguments/stamp, graph paths/import edges, and snapshot contents. Byte-identical text reuses a cached result across document revisions. Hub, absolute, `Base`, unresolved, and larger graphs bypass this cache.
 
-`bend2-lsp` invokes `bend [compilerArguments] <staged-entry> --check-only`. The CLI exposes human-readable diagnostics, not a structured Rust API or a persistent worker. Its current checker stops at the first compiler error, so one check can publish at most one compiler diagnostic; independent lexical diagnostics can still be reported together. The server maps CLI locations from source excerpts and falls back to the root document start when the excerpt cannot be matched unambiguously.
+Cache misses stage on a bounded blocking pool (four compiler permits), then `bend2-lsp` invokes `bend [compilerArguments] <staged-entry> --check-only`. The CLI exposes human-readable diagnostics, not a structured Rust API or a persistent worker. Its current checker stops at the first compiler error, so one check can publish at most one compiler diagnostic; independent lexical diagnostics can still be reported together. The server maps CLI locations from source excerpts and falls back to the root document start when the excerpt cannot be matched unambiguously.
+Document snapshot construction, watched-file reads, and import graph staging are
+gated by a separate four-permit semaphore before entering Tokio's shared
+blocking pool.
+Document-scoped requests wait for the latest revision and local reachable imports. Workspace-wide requests use the committed database view; pending document revisions are invisible and do not delay those requests.
 
 `Base` declarations are loaded with `bend base` and cached for navigation. Hub package navigation uses the local Bend library cache (`BEND_LIB`, or the Bend home library); Hub fetching remains the CLI's responsibility, so navigation requires the package to be cached.
 
@@ -37,6 +41,10 @@ Formatting preserves the token stream, comments, blank lines, line endings, and 
 ## Editor configuration
 
 Launch `bend2-lsp` over stdio and associate `.bend` files with language ID `bend` (or `bend2`). Workspace settings `bend2-lsp.compilerPath` and `bend2-lsp.compilerArguments` select the compiler executable and arguments.
+
+## Performance tracing
+
+Opt-in Chrome/Perfetto tracing uses `BEND2_LSP_TRACE`; capture setup, privacy guarantees, span meanings, and profiler guidance are in [docs/tracing.md](docs/tracing.md).
 
 ## Persistent Linux Docker environment
 
@@ -75,4 +83,4 @@ The policy-integrity workflow requires a maintainer-applied `policy-approved` la
 
 ## Upstream
 
-The upstream TypeScript server bundles the Bend compiler. This Rust implementation keeps the CLI boundary explicit: compiler diagnostics remain limited to the installed CLI's output, while source-based editor features do not claim compiler-derived type information.
+The upstream TypeScript server bundles the Bend compiler. This Rust implementation keeps the CLI boundary explicit: compiler diagnostics remain limited to the installed CLI's output, while indexed source features do not claim compiler-derived type information.

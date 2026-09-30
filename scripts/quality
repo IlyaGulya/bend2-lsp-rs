@@ -19,6 +19,8 @@ check_tool_version cargo-hack 0.6.45 "$(cargo hack --version)"
 
 printf '== policy ==\n'
 python3 scripts/check-policy.py
+printf '== active performance comparator tests ==\n'
+python3 scripts/test_performance_policy.py
 
 printf '== format ==\n'
 cargo fmt --all -- --check

@@ -1,133 +1,95 @@
 #[cfg(unix)]
+#[path = "support/lsp_client.rs"]
+mod lsp_client;
+mod support;
+
+#[cfg(unix)]
 mod protocol {
+    use super::{lsp_client::LspClient, support::Must};
     use serde_json::{Value, json};
     use std::{
-        collections::VecDeque,
+        collections::HashMap,
         ffi::OsString,
+        fmt::Write as _,
         fs,
-        io::{BufRead, BufReader, Read, Write},
+        io::{BufRead, BufReader, Write},
         os::unix::fs::PermissionsExt,
         path::{Path, PathBuf},
-        process::{Child, ChildStdin, Command, Stdio},
+        process::{Command, Stdio},
         sync::mpsc::{self, Receiver},
-        thread::{self, JoinHandle},
+        thread,
         time::{Duration, Instant},
     };
     use tempfile::tempdir;
     use url::Url;
 
-    struct LspClient {
-        child: Child,
-        stdin: Option<ChildStdin>,
-        messages: Receiver<Value>,
-        buffered: VecDeque<Value>,
-        reader: Option<JoinHandle<()>>,
-        next_id: i64,
+    fn spawn_client(compiler_dir: &Path) -> LspClient {
+        spawn_with_optional_bend_lib_and_metrics(compiler_dir, None, None)
     }
 
-    impl LspClient {
-        fn spawn(compiler_dir: &Path) -> Self {
-            Self::spawn_with_optional_bend_lib(compiler_dir, None)
-        }
+    fn spawn_with_bend_lib(compiler_dir: &Path, bend_lib: &Path) -> LspClient {
+        spawn_with_optional_bend_lib_and_metrics(compiler_dir, Some(bend_lib), None)
+    }
 
-        fn spawn_with_bend_lib(compiler_dir: &Path, bend_lib: &Path) -> Self {
-            Self::spawn_with_optional_bend_lib(compiler_dir, Some(bend_lib))
-        }
+    fn spawn_with_compiler_metrics(compiler_dir: &Path, metrics_path: &Path) -> LspClient {
+        spawn_with_optional_bend_lib_and_metrics(compiler_dir, None, Some(metrics_path))
+    }
 
-        fn spawn_with_optional_bend_lib(compiler_dir: &Path, bend_lib: Option<&Path>) -> Self {
-            let (sender, messages) = mpsc::channel();
-            let mut command = Command::new(env!("CARGO_BIN_EXE_bend2-lsp"));
-            command
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .env("PATH", path_with_prefix(compiler_dir));
-            if let Some(bend_lib) = bend_lib {
-                command.env("BEND_LIB", bend_lib);
-            }
-            let mut child = command.spawn().expect("start Bend LSP");
-            let stdin = child.stdin.take().expect("LSP stdin");
-            let stdout = child.stdout.take().expect("LSP stdout");
-            let reader = thread::spawn(move || read_messages(stdout, &sender));
-            Self {
-                child,
-                stdin: Some(stdin),
-                messages,
-                buffered: VecDeque::new(),
-                reader: Some(reader),
-                next_id: 1,
-            }
+    fn spawn_with_optional_bend_lib_and_metrics(
+        compiler_dir: &Path,
+        bend_lib: Option<&Path>,
+        metrics_path: Option<&Path>,
+    ) -> LspClient {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_bend2-lsp"));
+        command
+            .stderr(Stdio::null())
+            .env("PATH", path_with_prefix(compiler_dir));
+        if let Some(metrics_path) = metrics_path {
+            command.env("BEND2_LSP_COMPILER_METRICS_FILE", metrics_path);
         }
-
-        fn send(&mut self, message: &Value) {
-            let body = serde_json::to_vec(message).expect("serialize JSON-RPC message");
-            let stdin = self.stdin.as_mut().expect("open LSP stdin");
-            write!(stdin, "Content-Length: {}\r\n\r\n", body.len()).expect("write LSP header");
-            stdin.write_all(&body).expect("write LSP body");
-            stdin.flush().expect("flush LSP message");
+        if let Some(bend_lib) = bend_lib {
+            command.env("BEND_LIB", bend_lib);
         }
+        LspClient::spawn(command)
+    }
 
-        fn notify(&mut self, method: &str, params: Value) {
-            let mut message = json!({"jsonrpc":"2.0", "method":method});
-            if !params.is_null() {
-                message["params"] = params;
-            }
-            self.send(&message);
+    fn request_burst_results(
+        client: &mut LspClient,
+        requests: &[(&str, Value)],
+    ) -> Vec<(Value, Duration)> {
+        let mut pending = HashMap::with_capacity(requests.len());
+        for (method, params) in requests {
+            let id = client.send_request(method, params.clone());
+            pending.insert(id, Instant::now());
         }
-
-        fn request(&mut self, method: &str, params: Value) -> Value {
-            let id = self.next_id;
-            self.next_id += 1;
-            let mut message = json!({"jsonrpc":"2.0", "id":id, "method":method});
-            if !params.is_null() {
-                message["params"] = params;
-            }
-            self.send(&message);
-            self.receive_matching(Duration::from_secs(5), |message| message["id"] == id)
-                .unwrap_or_else(|| panic!("timed out waiting for {method} response"))
-        }
-
-        fn receive_matching(
-            &mut self,
-            timeout: Duration,
-            predicate: impl Fn(&Value) -> bool,
-        ) -> Option<Value> {
-            if let Some(index) = self.buffered.iter().position(&predicate) {
-                return self.buffered.remove(index);
-            }
-            let deadline = Instant::now() + timeout;
-            loop {
-                let remaining = deadline.saturating_duration_since(Instant::now());
-                if remaining.is_zero() {
-                    return None;
-                }
-                let Ok(message) = self.messages.recv_timeout(remaining) else {
-                    return None;
-                };
-                if predicate(&message) {
-                    return Some(message);
-                }
-                self.buffered.push_back(message);
-            }
-        }
-
-        fn initialize(&mut self, root: &Path) {
-            let root_uri = Url::from_directory_path(root).expect("workspace URI");
-            let response = self.request(
-                "initialize",
-                json!({
-                    "processId":null,
-                    "rootUri":root_uri,
-                    "capabilities":{},
-                    "workspaceFolders":[{"uri":root_uri,"name":"test"}]
-                }),
+        let mut responses = Vec::with_capacity(pending.len());
+        for _ in 0..pending.len() {
+            let (message, received) = client
+                .receive_matching_timed(Duration::from_secs(10), |message| {
+                    message
+                        .get("id")
+                        .and_then(Value::as_i64)
+                        .is_some_and(|id| pending.contains_key(&id))
+                })
+                .must_be("receive pipelined LSP response");
+            assert!(
+                message.get("error").is_none(),
+                "LSP request failed: {message}"
             );
-            assert!(response["result"]["capabilities"].is_object());
-            self.notify("initialized", json!({}));
+            let id = message["id"]
+                .as_i64()
+                .must_be("pipelined response ID must be an integer");
+            let sent = pending
+                .remove(&id)
+                .must_be("pipelined request must have a send timestamp");
+            responses.push((message, received.duration_since(sent)));
         }
+        responses
+    }
 
-        fn diagnostics_for(&mut self, uri: &str, empty: bool, timeout: Duration) -> bool {
-            self.receive_matching(timeout, |message| {
+    fn diagnostics_for(client: &mut LspClient, uri: &str, empty: bool, timeout: Duration) -> bool {
+        client
+            .receive_matching(timeout, |message| {
                 message["method"] == "textDocument/publishDiagnostics"
                     && message["params"]["uri"] == uri
                     && message["params"]["diagnostics"]
@@ -135,115 +97,191 @@ mod protocol {
                         .is_some_and(|items| items.is_empty() == empty)
             })
             .is_some()
-        }
-
-        fn finish(mut self) {
-            let response = self.request("shutdown", Value::Null);
-            assert!(
-                response.get("error").is_none(),
-                "shutdown failed: {response}"
-            );
-            self.notify("exit", Value::Null);
-            self.stdin.take();
-            let status = self.child.wait().expect("wait for LSP exit");
-            assert!(status.success(), "LSP exited with {status}");
-            if let Some(reader) = self.reader.take() {
-                reader.join().expect("join LSP output reader");
-            }
-        }
-    }
-
-    impl Drop for LspClient {
-        fn drop(&mut self) {
-            self.stdin.take();
-            if self.child.try_wait().ok().flatten().is_none() {
-                let _ = self.child.kill();
-                let _ = self.child.wait();
-            }
-            if let Some(reader) = self.reader.take() {
-                let _ = reader.join();
-            }
-        }
-    }
-
-    fn read_messages(stdout: impl Read, sender: &mpsc::Sender<Value>) {
-        let mut reader = BufReader::new(stdout);
-        loop {
-            let mut content_length = None;
-            loop {
-                let mut line = String::new();
-                match reader.read_line(&mut line) {
-                    Ok(0) | Err(_) => return,
-                    Ok(_) => {}
-                }
-                if line == "\r\n" || line == "\n" {
-                    break;
-                }
-                if let Some((name, value)) = line.split_once(':')
-                    && name.eq_ignore_ascii_case("content-length")
-                {
-                    content_length = value.trim().parse::<usize>().ok();
-                }
-            }
-            let Some(content_length) = content_length else {
-                return;
-            };
-            let mut body = vec![0; content_length];
-            if reader.read_exact(&mut body).is_err() {
-                return;
-            }
-            let Ok(message) = serde_json::from_slice(&body) else {
-                return;
-            };
-            if sender.send(message).is_err() {
-                return;
-            }
-        }
     }
 
     fn semantic_token_number(value: &Value) -> u32 {
         u32::try_from(
             value
                 .as_u64()
-                .expect("semantic token field must be an unsigned integer"),
+                .must_be("semantic token field must be an unsigned integer"),
         )
-        .expect("semantic token field must fit the LSP u32 field")
+        .must_be("semantic token field must fit the LSP u32 field")
     }
 
     fn path_with_prefix(prefix: &Path) -> OsString {
         let old = std::env::var_os("PATH").unwrap_or_default();
         let paths = std::iter::once(prefix.to_path_buf()).chain(std::env::split_paths(&old));
-        std::env::join_paths(paths).expect("construct test PATH")
+        std::env::join_paths(paths).must_be("construct test PATH")
     }
 
     fn install_compiler_stub(dir: &Path) -> PathBuf {
-        fs::create_dir_all(dir).expect("create stub bin directory");
+        fs::create_dir_all(dir).must_be("create stub bin directory");
         let executable = dir.join("bend");
         fs::write(
             &executable,
             "#!/bin/sh\ndep=\"${1%/*}/dep.bend\"\nif grep -q 'dep\\.bend as Dep$' \"$1\" && grep -q '^BAD$' \"$dep\"; then\n  printf 'Error:\\nsynthetic imported error\\nLocation:\\n1>| BAD\\n' >&2\n  exit 1\nfi\nexit 0\n",
-        )
-        .expect("write compiler stub");
+        ).must_be("write compiler stub");
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))
-            .expect("make compiler stub executable");
+            .must_be("make compiler stub executable");
         dir.to_path_buf()
+    }
+    fn create_fifo(path: &Path) {
+        assert!(
+            Command::new("mkfifo")
+                .arg(path)
+                .status()
+                .must_be("create compiler synchronization FIFO")
+                .success(),
+            "mkfifo failed for {}",
+            path.display()
+        );
+    }
+
+    fn read_fifo_line(path: PathBuf) -> Receiver<String> {
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let mut line = String::new();
+            BufReader::new(fs::File::open(path).must_be("open compiler synchronization FIFO"))
+                .read_line(&mut line)
+                .must_be("read compiler synchronization FIFO");
+            sender
+                .send(line.trim_end().to_owned())
+                .must_be("send compiler synchronization event");
+        });
+        receiver
+    }
+
+    fn write_fifo_line(path: &Path, line: &str) {
+        let mut fifo = fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .must_be("open compiler release FIFO");
+        fifo.write_all(line.as_bytes())
+            .must_be("write compiler release FIFO");
+        fifo.flush().must_be("flush compiler release FIFO");
+    }
+
+    fn shell_quote(path: &Path) -> String {
+        format!("'{}'", path.to_string_lossy().replace('\'', "'\\''"))
+    }
+
+    fn install_blocked_diagnostics_compiler(
+        dir: &Path,
+        started_fifo: &Path,
+        blocked_fifo: &Path,
+        release_fifo: &Path,
+        completion_fifo: &Path,
+    ) -> PathBuf {
+        fs::create_dir_all(dir).must_be("create blocked compiler directory");
+        let executable = dir.join("bend");
+        let script = format!(
+            "#!/bin/sh\nif grep -q '^# BLOCKED_V1$' \"$1\"; then\n  (\n    IFS= read -r _ < {release}\n    printf 'released\\n' > {released}\n  ) >/dev/null 2>&1 &\n  printf '%s\\n' \"$$\" > {started}\n  IFS= read -r _ < {blocked}\nfi\ndep=\"${{1%/*}}/dep.bend\"\nif grep -q '^BAD$' \"$1\"; then\n  printf 'Error:\\nstale root compiler error\\nLocation:\\n2>| BAD\\n' >&2\n  exit 1\nfi\nif grep -q 'dep[.]bend as Dep$' \"$1\" && grep -q '^BAD$' \"$dep\"; then\n  printf 'Error:\\nstale imported compiler error\\nLocation:\\n1>| BAD\\n' >&2\n  exit 1\nfi\nexit 0\n",
+            release = shell_quote(release_fifo),
+            released = shell_quote(completion_fifo),
+            started = shell_quote(started_fifo),
+            blocked = shell_quote(blocked_fifo),
+        );
+        fs::write(&executable, script).must_be("write blocked compiler stub");
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))
+            .must_be("make blocked compiler executable");
+        dir.to_path_buf()
+    }
+
+    fn compiler_run_count(path: &Path) -> usize {
+        fs::read_to_string(path)
+            .must_be("read compiler invocation count")
+            .lines()
+            .count()
+    }
+    fn wait_for_clean_diagnostics(client: &mut LspClient, uri: &str) {
+        assert!(
+            diagnostics_for(client, uri, true, Duration::from_secs(5)),
+            "expected empty diagnostics for {uri}"
+        );
+    }
+
+    fn open_clean_document(client: &mut LspClient, uri: &str, source: &str) {
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,
+                "languageId":"bend",
+                "version":1,
+                "text":source
+            }}),
+        );
+        wait_for_clean_diagnostics(client, uri);
+    }
+
+    fn change_clean_document(client: &mut LspClient, uri: &str, version: i32, source: &str) {
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":uri,"version":version},
+                "contentChanges":[{"text":source}]
+            }),
+        );
+        wait_for_clean_diagnostics(client, uri);
+    }
+
+    fn notify_watched_file_change(client: &mut LspClient, uri: &str) {
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":uri,"type":2}]}),
+        );
+    }
+
+    fn configure_counting_compiler(client: &mut LspClient, compiler: &Path) {
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{
+                "compilerPath":compiler.to_string_lossy(),
+                "compilerArguments":[]
+            }}}),
+        );
+    }
+
+    fn assert_compiler_runs(path: &Path, expected: usize, scenario: &str) {
+        assert_eq!(compiler_run_count(path), expected, "{scenario}");
+    }
+
+    fn process_is_running(pid: &str) -> bool {
+        if let Ok(stat) = fs::read_to_string(format!("/proc/{pid}/stat"))
+            && let Some((_, fields)) = stat.rsplit_once(") ")
+        {
+            return fields
+                .split_whitespace()
+                .next()
+                .is_some_and(|state| state != "Z" && state != "X");
+        }
+        Command::new("/bin/kill")
+            .arg("-0")
+            .arg(pid)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|status| status.success())
     }
 
     #[test]
     fn fixing_a_closed_import_clears_its_published_diagnostic() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         let main_text = "import dep.bend as Dep\ndef main: Type\n  Dep.value\n";
-        fs::write(&main_path, main_text).expect("write root source");
-        fs::write(&dependency_path, "BAD\n").expect("write broken dependency");
+        fs::write(&main_path, main_text).must_be("write root source");
+        fs::write(&dependency_path, "BAD\n").must_be("write broken dependency");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let main_uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
+        let main_uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
 
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -254,15 +292,20 @@ mod protocol {
                 "text":main_text
             }}),
         );
-        assert!(client.diagnostics_for(&dependency_uri, false, Duration::from_secs(5)));
+        assert!(diagnostics_for(
+            &mut client,
+            &dependency_uri,
+            false,
+            Duration::from_secs(5)
+        ));
 
-        fs::write(&dependency_path, "def value: Type\n  1\n").expect("fix dependency on disk");
+        fs::write(&dependency_path, "def value: Type\n  1\n").must_be("fix dependency on disk");
         client.notify(
-            "textDocument/didChange",
-            json!({"textDocument":{"uri":main_uri,"version":2},"contentChanges":[{"text":main_text}]}),
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":dependency_uri,"type":2}]}),
         );
         assert!(
-            client.diagnostics_for(&dependency_uri, true, Duration::from_secs(2)),
+            diagnostics_for(&mut client, &dependency_uri, true, Duration::from_secs(2)),
             "fixing a closed imported file must publish an empty diagnostic list for that URI"
         );
         client.finish();
@@ -270,23 +313,29 @@ mod protocol {
 
     #[test]
     fn shared_import_diagnostic_remains_until_every_root_is_clean() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let first_path = workspace.join("first.bend");
         let second_path = workspace.join("second.bend");
         let dependency_path = workspace.join("dep.bend");
         let importing_text = "import dep.bend as Dep\ndef main: Type\n  Dep.value\n";
         let clean_text = "def main: Type\n  1\n";
-        fs::write(&first_path, importing_text).expect("write first root");
-        fs::write(&second_path, importing_text).expect("write second root");
-        fs::write(&dependency_path, "BAD\n").expect("write broken dependency");
+        fs::write(&first_path, importing_text).must_be("write first root");
+        fs::write(&second_path, importing_text).must_be("write second root");
+        fs::write(&dependency_path, "BAD\n").must_be("write broken dependency");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let first_uri = Url::from_file_path(&first_path).unwrap().to_string();
-        let second_uri = Url::from_file_path(&second_path).unwrap().to_string();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
+        let first_uri = Url::from_file_path(&first_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let second_uri = Url::from_file_path(&second_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
 
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         for uri in [&first_uri, &second_uri] {
             client.notify(
@@ -299,7 +348,12 @@ mod protocol {
                 }}),
             );
         }
-        assert!(client.diagnostics_for(&dependency_uri, false, Duration::from_secs(5)));
+        assert!(diagnostics_for(
+            &mut client,
+            &dependency_uri,
+            false,
+            Duration::from_secs(5)
+        ));
         let second_checked = client.receive_matching(Duration::from_secs(5), |message| {
             message["method"] == "textDocument/publishDiagnostics"
                 && message["params"]["uri"] == second_uri
@@ -324,30 +378,42 @@ mod protocol {
             "updated first root analysis did not finish"
         );
         assert!(
-            !client.diagnostics_for(&dependency_uri, true, Duration::from_millis(500)),
+            !diagnostics_for(
+                &mut client,
+                &dependency_uri,
+                true,
+                Duration::from_millis(500)
+            ),
             "one clean root must not clear another root's imported diagnostic"
         );
 
-        fs::write(&dependency_path, "def value: Type\n  1\n").expect("fix shared dependency");
+        fs::write(&dependency_path, "def value: Type\n  1\n").must_be("fix shared dependency");
         client.notify(
-            "textDocument/didChange",
-            json!({"textDocument":{"uri":second_uri,"version":2},"contentChanges":[{"text":importing_text}]}),
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":dependency_uri,"type":2}]}),
         );
-        assert!(client.diagnostics_for(&dependency_uri, true, Duration::from_secs(2)));
+        assert!(diagnostics_for(
+            &mut client,
+            &dependency_uri,
+            true,
+            Duration::from_secs(2)
+        ));
         client.finish();
     }
     #[test]
     fn document_symbols_expose_top_level_declarations_and_constructors() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def add(x: U32, y: U32) -> U32:\n  (x + y : U32)\ntype Shape is Data:\n  Circle{r: U32}\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
 
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -364,7 +430,7 @@ mod protocol {
         );
         let symbols = response["result"]
             .as_array()
-            .expect("documentSymbol must return symbols");
+            .must_be("documentSymbol must return symbols");
         assert!(
             symbols.iter().any(|symbol| symbol["name"] == "add"),
             "missing function symbol: {symbols:?}"
@@ -372,7 +438,7 @@ mod protocol {
         let shape = symbols
             .iter()
             .find(|symbol| symbol["name"] == "Shape")
-            .expect("missing type symbol");
+            .must_be("missing type symbol");
         assert!(
             shape["children"]
                 .as_array()
@@ -383,16 +449,18 @@ mod protocol {
     }
     #[test]
     fn hover_on_a_function_name_shows_its_signature() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source =
             "def add(x: U32, y: U32) -> U32:\n  (x + y : U32)\ndef main: U32\n  add(1, 2)\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -407,7 +475,7 @@ mod protocol {
             "textDocument/hover",
             json!({
                 "textDocument":{"uri":uri},
-                "position":{"line":3,"character":5}
+                "position":{"line":3,"character":4}
             }),
         );
         assert!(
@@ -420,7 +488,7 @@ mod protocol {
             "textDocument/definition",
             json!({
                 "textDocument":{"uri":uri},
-                "position":{"line":3,"character":5}
+                "position":{"line":3,"character":4}
             }),
         );
         assert_eq!(
@@ -431,15 +499,17 @@ mod protocol {
     }
     #[test]
     fn type_definition_resolves_an_annotation_to_its_type() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "type Shape is Data:\n  Circle{}\ndef consume(item: Shape) -> U32:\n  1\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -465,15 +535,17 @@ mod protocol {
     }
     #[test]
     fn completion_offers_matching_local_functions() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def add(x: U32, y: U32) -> U32:\n  (x + y : U32)\ndef main: U32\n  ad\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -500,16 +572,353 @@ mod protocol {
         client.finish();
     }
     #[test]
-    fn references_and_rename_cover_declaration_and_call_sites() {
-        let temp = tempdir().expect("temporary workspace");
+    fn immediate_hover_observes_the_latest_did_change_revision() {
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let initial = "def revision_one: U32\n  1\n";
+        fs::write(&main_path, initial).must_be("write initial source");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, initial);
+
+        let large = include_str!("../benches/fixtures/analyzer_large.bend");
+        let revised = format!("def revision_two: U32\n  2\n{large}");
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":revised}]}),
+        );
+        let hover = client.request(
+            "textDocument/hover",
+            json!({"textDocument":{"uri":uri},"position":{"line":0,"character":5}}),
+        );
+        let value = hover["result"]["contents"]["value"]
+            .as_str()
+            .must_be("hover result for revision two");
+        assert!(
+            value.contains("def revision_two: U32") && !value.contains("revision_one"),
+            "hover after didChange(v2) must not read v1: {hover}"
+        );
+        client.finish();
+    }
+    #[test]
+    fn immediate_document_symbol_and_completion_observe_latest_revision() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let initial = "def revision_one: U32\n  1\n";
+        fs::write(&main_path, initial).must_be("write initial source");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, initial);
+
+        let revised = "def revision_two: U32\n  2\ndef caller: U32\n  revi\n";
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":revised}]}),
+        );
+        let requests = [
+            (
+                "textDocument/documentSymbol",
+                json!({"textDocument":{"uri":uri}}),
+            ),
+            (
+                "textDocument/completion",
+                json!({"textDocument":{"uri":uri},"position":{"line":3,"character":6}}),
+            ),
+        ];
+        let responses = request_burst_results(&mut client, &requests);
+        assert!(
+            responses.iter().any(|(response, _)| {
+                response["result"]
+                    .as_array()
+                    .is_some_and(|items| items.iter().any(|item| item["name"] == "revision_two"))
+            }),
+            "document symbols after didChange(v2) must expose revision_two: {responses:?}"
+        );
+        assert!(
+            responses.iter().any(|(response, _)| {
+                response["result"]
+                    .as_array()
+                    .is_some_and(|items| items.iter().any(|item| item["label"] == "revision_two"))
+            }),
+            "completion after didChange(v2) must use v2 declarations: {responses:?}"
+        );
+        client.finish();
+    }
+    #[test]
+    fn superseded_did_change_cannot_overwrite_newer_revision() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let initial = "def revision_one: U32\n  1\n";
+        fs::write(&main_path, initial).must_be("write initial source");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, initial);
+
+        let large = include_str!("../benches/fixtures/analyzer_large.bend");
+        let revision_two = format!("def revision_two: U32\n  2\n{large}");
+        let revision_three = format!("def revision_three: U32\n  3\n{large}");
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":revision_two}]}),
+        );
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":uri,"version":3},"contentChanges":[{"text":revision_three}]}),
+        );
+        let hover = client.request(
+            "textDocument/hover",
+            json!({"textDocument":{"uri":uri},"position":{"line":0,"character":5}}),
+        );
+        let value = hover["result"]["contents"]["value"]
+            .as_str()
+            .must_be("hover result for revision three");
+        assert!(
+            value.contains("def revision_three: U32") && !value.contains("revision_two"),
+            "superseded v2 must never replace v3: {hover}"
+        );
+        client.finish();
+    }
+    const PENDING_IMPORT_CALLS: usize = 1_200;
+
+    fn open_pending_importer_fixture() -> (tempfile::TempDir, LspClient, String, String) {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let importer_path = workspace.join("main.bend");
+        let module_path = workspace.join("dep.bend");
+        let module = "def clamp(x: U32) -> U32:\n  x\n";
+        let mut importer = String::from("import dep.bend as Dep\n");
+        for index in 0..PENDING_IMPORT_CALLS {
+            write!(importer, "def use_{index}: U32\n  Dep.clamp(1)\n")
+                .must_be("append importing call");
+        }
+        fs::write(&importer_path, &importer).must_be("write importing source");
+        fs::write(&module_path, module).must_be("write declaration module");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let importer_uri = Url::from_file_path(&importer_path)
+            .must_be("valid importer URI")
+            .to_string();
+        let module_uri = Url::from_file_path(&module_path)
+            .must_be("valid module URI")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":importer_uri,"languageId":"bend","version":1,"text":importer
+            }}),
+        );
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":module_uri,"languageId":"bend","version":1,"text":module
+            }}),
+        );
+        (temp, client, importer_uri, module_uri)
+    }
+
+    #[test]
+    fn immediate_workspace_symbols_include_preceding_pending_importer() {
+        let (_temp, mut client, importer_uri, _module_uri) = open_pending_importer_fixture();
+        let response = client.request("workspace/symbol", json!({"query":"use_1199"}));
+        assert!(
+            response["result"]
+                .as_array()
+                .is_some_and(|items| items.iter().any(|item| {
+                    item["name"] == "use_1199" && item["location"]["uri"] == importer_uri
+                })),
+            "immediate workspace symbols must include the pending importer's declaration: {response}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn immediate_incoming_calls_include_preceding_pending_importer() {
+        let (_temp, mut client, importer_uri, module_uri) = open_pending_importer_fixture();
+        let item = json!({
+            "name":"clamp",
+            "kind":12,
+            "uri":module_uri,
+            "range":{"start":{"line":0,"character":0},"end":{"line":1,"character":3}},
+            "selectionRange":{"start":{"line":0,"character":4},"end":{"line":0,"character":9}}
+        });
+        let response = client.request("callHierarchy/incomingCalls", json!({"item":item}));
+        let callers = response["result"]
+            .as_array()
+            .must_be("incoming calls must return an array");
+        assert_eq!(
+            callers.len(),
+            PENDING_IMPORT_CALLS,
+            "immediate incoming calls must include each pending caller: {response}"
+        );
+        assert!(
+            callers
+                .iter()
+                .all(|call| call["from"]["uri"] == importer_uri)
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn immediate_outgoing_calls_resolve_preceding_pending_target_open() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let caller_path = workspace.join("main.bend");
+        let target_path = workspace.join("dep.bend");
+        let caller = "import dep.bend as Dep\ndef main: U32\n  Dep.clamp(1)\n";
+        fs::write(&caller_path, caller).must_be("write caller");
+        fs::write(&target_path, "def old(x: U32) -> U32:\n  x\n").must_be("write old target");
+        let caller_uri = Url::from_file_path(&caller_path)
+            .must_be("valid caller URI")
+            .to_string();
+        let target_uri = Url::from_file_path(&target_path)
+            .must_be("valid target URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{"uri":caller_uri,"languageId":"bend","version":1,"text":caller}}),
+        );
+        let prepared = client.request(
+            "textDocument/prepareCallHierarchy",
+            json!({"textDocument":{"uri":caller_uri},"position":{"line":1,"character":5}}),
+        );
+        let caller_item = prepared["result"][0].clone();
+        assert_eq!(
+            caller_item["name"], "main",
+            "caller must be prepared: {prepared}"
+        );
+        let mut target = String::new();
+        for index in 0..PENDING_IMPORT_CALLS {
+            write!(target, "def slow_{index}: U32\n  1\n").must_be("append pending target");
+        }
+        target.push_str("def clamp(x: U32) -> U32:\n  x\n");
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{"uri":target_uri,"languageId":"bend","version":1,"text":target}}),
+        );
+        let response = client.request("callHierarchy/outgoingCalls", json!({"item":caller_item}));
+        assert!(
+            response["result"].as_array().is_some_and(|calls| calls
+                .iter()
+                .any(|call| { call["to"]["name"] == "clamp" && call["to"]["uri"] == target_uri })),
+            "outgoing calls must resolve the accepted target update: {response}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn immediate_references_include_preceding_pending_importer() {
+        let (_temp, mut client, importer_uri, module_uri) = open_pending_importer_fixture();
+        let params = json!({
+            "textDocument":{"uri":module_uri},
+            "position":{"line":0,"character":6},
+            "context":{"includeDeclaration":true}
+        });
+        let immediate = client.request("textDocument/references", params.clone());
+        let check = |response: &Value| {
+            let locations = response["result"]
+                .as_array()
+                .must_be("references must be a location array");
+            assert_eq!(
+                locations.len(),
+                PENDING_IMPORT_CALLS + 1,
+                "references must include every preceding open document"
+            );
+            assert!(locations.iter().any(|location| {
+                location["uri"] == module_uri
+                    && location["range"]["start"] == json!({"line":0,"character":4})
+                    && location["range"]["end"] == json!({"line":0,"character":9})
+            }));
+            let call_lines = locations
+                .iter()
+                .filter(|location| location["uri"] == importer_uri)
+                .map(|location| {
+                    assert_eq!(location["range"]["start"]["character"], 6);
+                    assert_eq!(location["range"]["end"]["character"], 11);
+                    location["range"]["start"]["line"]
+                        .as_u64()
+                        .must_be("call line number")
+                })
+                .collect::<std::collections::BTreeSet<_>>();
+            assert_eq!(
+                call_lines,
+                (0..PENDING_IMPORT_CALLS)
+                    .map(|index| 2 + 2 * index as u64)
+                    .collect()
+            );
+        };
+        check(&immediate);
+        check(&client.request("textDocument/references", params));
+        client.finish();
+    }
+
+    #[test]
+    fn immediate_rename_includes_preceding_pending_importer() {
+        let (_temp, mut client, importer_uri, module_uri) = open_pending_importer_fixture();
+        let response = client.request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":module_uri},
+                "position":{"line":0,"character":6},
+                "newName":"limit"
+            }),
+        );
+        let changes = response["result"]["changes"]
+            .as_object()
+            .must_be("rename must produce workspace edits");
+        assert_eq!(changes.len(), 2);
+        let importer_edits = changes[&importer_uri]
+            .as_array()
+            .must_be("rename must edit importing document");
+        assert_eq!(importer_edits.len(), PENDING_IMPORT_CALLS);
+        assert!(importer_edits.iter().all(|edit| edit["newText"] == "limit"));
+        let declaration_edits = changes[&module_uri]
+            .as_array()
+            .must_be("rename must edit declaration module");
+        assert_eq!(declaration_edits.len(), 1);
+        assert_eq!(
+            declaration_edits[0]["range"]["start"],
+            json!({"line":0,"character":4})
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn references_and_rename_cover_declaration_and_call_sites() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def add(x: U32) -> U32:\n  x\ndef main: U32\n  add(1)\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -550,15 +959,17 @@ mod protocol {
     }
     #[test]
     fn workspace_symbols_filter_open_document_declarations() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def add(x: U32) -> U32:\n  x\ntype Shape is Data:\n  Circle{}\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -568,6 +979,16 @@ mod protocol {
                 "version":1,
                 "text":source
             }}),
+        );
+        let document_symbols = client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":uri}}),
+        );
+        assert!(
+            document_symbols["result"]
+                .as_array()
+                .is_some_and(|symbols| symbols.iter().any(|symbol| symbol["name"] == "add")),
+            "open document symbols must be committed before workspace-wide search"
         );
         let response = client.request("workspace/symbol", json!({"query":"add"}));
         assert!(
@@ -580,15 +1001,17 @@ mod protocol {
     }
     #[test]
     fn incremental_change_preserves_unedited_source() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def main: U32\n  1\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -605,10 +1028,23 @@ mod protocol {
                 "textDocument":{"uri":uri,"version":2},
                 "contentChanges":[{
                     "range":{
-                        "start":{"line":1,"character":2},
-                        "end":{"line":1,"character":3}
+                        "start":{"line":0,"character":0},
+                        "end":{"line":0,"character":0}
                     },
-                    "text":"2"
+                    "text":"# prefix\n"
+                }]
+            }),
+        );
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":uri,"version":3},
+                "contentChanges":[{
+                    "range":{
+                        "start":{"line":1,"character":4},
+                        "end":{"line":1,"character":8}
+                    },
+                    "text":"new"
                 }]
             }),
         );
@@ -617,20 +1053,21 @@ mod protocol {
             json!({"textDocument":{"uri":uri}}),
         );
         assert!(
-            response["result"]
-                .as_array()
-                .is_some_and(|items| items.iter().any(|item| item["name"] == "main")),
-            "incremental edits must retain untouched declarations: {response}"
+            response["result"].as_array().is_some_and(|items| {
+                items.iter().any(|item| item["name"] == "new")
+                    && !items.iter().any(|item| item["name"] == "old")
+            }),
+            "the second incremental edit must use the revised line index: {response}"
         );
         client.finish();
     }
     #[test]
     fn exit_notification_terminates_server_without_stdin_eof() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         let response = client.request("shutdown", Value::Null);
         assert!(
@@ -642,7 +1079,7 @@ mod protocol {
         let deadline = Instant::now() + Duration::from_secs(2);
         let mut exited = false;
         while Instant::now() < deadline {
-            if client.child.try_wait().expect("poll LSP process").is_some() {
+            if client.try_wait().is_some() {
                 exited = true;
                 break;
             }
@@ -655,13 +1092,13 @@ mod protocol {
     }
     #[test]
     fn untitled_documents_support_symbols_and_completion() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let source = "def value: U32\n  1\ndef main: U32\n  val\n";
         let uri = "untitled:scratch.bend";
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -699,16 +1136,18 @@ mod protocol {
     }
     #[test]
     fn signature_help_selects_the_active_parameter() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source =
             "def add(x: U32, y: U32) -> U32:\n  (x + y : U32)\ndef main: U32\n  add(1, 2)\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -740,15 +1179,17 @@ mod protocol {
     }
     #[test]
     fn semantic_tokens_classify_declaration_names() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def echo(value: U32) -> String:\n  \"🦀\" # comment\n  42\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -765,7 +1206,7 @@ mod protocol {
         );
         let data = response["result"]["data"]
             .as_array()
-            .expect("semantic token data");
+            .must_be("semantic token data");
         let mut line = 0;
         let mut character = 0;
         let tokens: Vec<(u32, u32, u32, u32)> = data
@@ -833,15 +1274,17 @@ mod protocol {
 
     #[test]
     fn code_action_offers_closing_a_reported_unclosed_delimiter() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def main: U32\n  (1 # trailing comment\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -906,18 +1349,22 @@ mod protocol {
     }
     #[test]
     fn folding_selection_and_document_links_follow_source_ranges() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         let source = "import ./dep.bend as Dep\ndef main: U32\n  Dep.value\n";
-        fs::write(&main_path, source).expect("write source");
-        fs::write(&dependency_path, "def value: U32\n  1\n").expect("write dependency");
+        fs::write(&main_path, source).must_be("write source");
+        fs::write(&dependency_path, "def value: U32\n  1\n").must_be("write dependency");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -963,15 +1410,17 @@ mod protocol {
     }
     #[test]
     fn range_and_on_type_formatting_return_local_edits() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def first : U32:\n    1\ndef second: U32\n    2\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1021,16 +1470,18 @@ mod protocol {
     }
     #[test]
     fn inlay_hints_name_call_arguments_and_lenses_count_references() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source =
             "def add(x: U32, y: U32) -> U32:\n  (x + y : U32)\ndef main: U32\n  add(1, 2)\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1069,15 +1520,17 @@ mod protocol {
     }
     #[test]
     fn parameter_hover_and_type_navigation_use_declared_type() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "type Shape is Data:\n  Circle{}\ndef consume(item: Shape) -> U32:\n  item\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1105,18 +1558,22 @@ mod protocol {
     }
     #[test]
     fn watched_import_changes_recheck_open_dependents() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         let source = "import Base # builtin prelude\nimport ./dep.bend as Dep\ndef main: Type\n  Dep.value\n";
-        fs::write(&main_path, source).expect("write source");
-        fs::write(&dependency_path, "def value: Type\n  1\n").expect("write dependency");
+        fs::write(&main_path, source).must_be("write source");
+        fs::write(&dependency_path, "def value: Type\n  1\n").must_be("write dependency");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let main_uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let main_uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1127,26 +1584,31 @@ mod protocol {
                 "text":source
             }}),
         );
-        assert!(client.diagnostics_for(&main_uri, true, Duration::from_secs(5)));
-        fs::write(&dependency_path, "BAD\n").expect("break dependency");
+        assert!(diagnostics_for(
+            &mut client,
+            &main_uri,
+            true,
+            Duration::from_secs(5)
+        ));
+        fs::write(&dependency_path, "BAD\n").must_be("break dependency");
         client.notify(
             "workspace/didChangeWatchedFiles",
             json!({"changes":[{"uri":dependency_uri,"type":2}]}),
         );
         assert!(
-            client.diagnostics_for(&dependency_uri, false, Duration::from_secs(5)),
+            diagnostics_for(&mut client, &dependency_uri, false, Duration::from_secs(5)),
             "a watched imported-file change must recheck and publish diagnostics: {dependency_uri}"
         );
         client.finish();
     }
     #[test]
     fn advertises_workspace_folders_and_registers_bend_file_watcher() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let root_uri = Url::from_directory_path(&workspace).unwrap();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let root_uri = Url::from_directory_path(&workspace).must_be("valid test fixture value");
+        let mut client = spawn_client(&compiler_dir);
         let initialized = client.request(
             "initialize",
             json!({
@@ -1173,7 +1635,7 @@ mod protocol {
             .receive_matching(Duration::from_secs(5), |message| {
                 message["method"] == "client/registerCapability"
             })
-            .expect("server should register Bend file watching");
+            .must_be("server should register Bend file watching");
         assert_eq!(
             registration["params"]["registrations"][0]["method"],
             "workspace/didChangeWatchedFiles"
@@ -1191,23 +1653,24 @@ mod protocol {
     }
     #[test]
     fn configuration_selects_compiler_and_rechecks_open_documents() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def main: Type\n  1\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let custom_compiler = temp.path().join("configured-bend");
         fs::write(
             &custom_compiler,
-            "#!/bin/sh\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--report-error\" ]; then\n    printf 'Error:\\nconfigured compiler error\\nLocation:\\n1>| def main: Type\\n' >&2\n    exit 1\n  fi\ndone\nexit 0\n",
-        )
-        .expect("write custom compiler");
+            "#!/bin/sh\nprintf 'run\\n' >> \"$0.runs\"\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--report-error\" ]; then\n    printf 'Error:\\nconfigured compiler error\\nLocation:\\n1>| def main: Type\\n' >&2\n    exit 1\n  fi\ndone\nexit 0\n",
+        ).must_be("write custom compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
-            .expect("make custom compiler executable");
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+            .must_be("make custom compiler executable");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "workspace/didChangeConfiguration",
@@ -1237,7 +1700,22 @@ mod protocol {
                 "text":source
             }}),
         );
-        assert!(client.diagnostics_for(&uri, true, Duration::from_secs(5)));
+        wait_for_clean_diagnostics(&mut client, &uri);
+        let compiler_runs = custom_compiler.with_extension("runs");
+        assert_eq!(compiler_run_count(&compiler_runs), 1);
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{
+                "compilerPath":custom_compiler,
+                "compilerArguments":[]
+            }}}),
+        );
+        wait_for_clean_diagnostics(&mut client, &uri);
+        assert_eq!(
+            compiler_run_count(&compiler_runs),
+            1,
+            "rechecking the same source graph and compiler config must reuse cached diagnostics"
+        );
         client.notify(
             "workspace/didChangeConfiguration",
             json!({"settings":{"bend2-lsp":{
@@ -1263,20 +1741,27 @@ mod protocol {
                 .is_some(),
             "configuration changes must recheck documents with the configured compiler"
         );
+        assert_eq!(
+            compiler_run_count(&compiler_runs),
+            2,
+            "changing compiler arguments must invalidate the cached result"
+        );
         client.finish();
     }
     #[test]
     fn missing_configured_compiler_publishes_actionable_diagnostic() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let source = "def main: Type\n  1\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let missing_compiler = workspace.join("missing-bend");
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "workspace/didChangeConfiguration",
@@ -1306,7 +1791,7 @@ mod protocol {
                                 .any(|item| item["code"] == "compiler-unavailable")
                         })
             })
-            .expect("missing compiler should be visible to the editor");
+            .must_be("missing compiler should be visible to the editor");
         assert!(
             diagnostics["params"]["diagnostics"][0]["message"]
                 .as_str()
@@ -1317,17 +1802,19 @@ mod protocol {
     }
     #[test]
     fn untitled_imports_resolve_from_workspace_without_materializing_source() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let dependency_path = workspace.join("dep.bend");
-        fs::write(&dependency_path, "def value: Type\n  1\n").expect("write dependency");
+        fs::write(&dependency_path, "def value: Type\n  1\n").must_be("write dependency");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let uri = "untitled:scratch.bend";
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
         let source =
             "import Base # prelude\nimport ./dep.bend as Dep\ndef main: Type\n  Dep.value\n";
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1338,40 +1825,49 @@ mod protocol {
                 "text":source
             }}),
         );
-        assert!(client.diagnostics_for(uri, true, Duration::from_secs(5)));
-        fs::write(&dependency_path, "BAD\n").expect("break dependency");
+        assert!(diagnostics_for(
+            &mut client,
+            uri,
+            true,
+            Duration::from_secs(5)
+        ));
+        fs::write(&dependency_path, "BAD\n").must_be("break dependency");
         client.notify(
             "workspace/didChangeWatchedFiles",
             json!({"changes":[{"uri":dependency_uri,"type":2}]}),
         );
         assert!(
-            client.diagnostics_for(&dependency_uri, false, Duration::from_secs(5)),
+            diagnostics_for(&mut client, &dependency_uri, false, Duration::from_secs(5)),
             "untitled importers must be rechecked when workspace files change"
         );
         assert!(
-            fs::read_dir(&workspace).unwrap().all(|entry| !entry
-                .unwrap()
-                .file_name()
-                .to_string_lossy()
-                .starts_with(".bend2-lsp-virtual-")),
+            fs::read_dir(&workspace)
+                .must_be("workspace directory")
+                .all(|entry| !entry
+                    .must_be("workspace directory entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".bend2-lsp-virtual-")),
             "virtual source staging must not create files in the workspace"
         );
         client.finish();
     }
     #[test]
     fn workspace_folder_removal_updates_untitled_import_root() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let first_root = temp.path().join("first");
         let second_root = temp.path().join("second");
-        fs::create_dir_all(&first_root).expect("create first workspace root");
-        fs::create_dir_all(&second_root).expect("create second workspace root");
+        fs::create_dir_all(&first_root).must_be("create first workspace root");
+        fs::create_dir_all(&second_root).must_be("create second workspace root");
         let dependency_path = second_root.join("dep.bend");
-        fs::write(&dependency_path, "def value: Type\n  1\n").expect("write dependency");
-        let first_uri = Url::from_directory_path(&first_root).unwrap();
-        let second_uri = Url::from_directory_path(&second_root).unwrap();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
+        fs::write(&dependency_path, "def value: Type\n  1\n").must_be("write dependency");
+        let first_uri = Url::from_directory_path(&first_root).must_be("valid test fixture value");
+        let second_uri = Url::from_directory_path(&second_root).must_be("valid test fixture value");
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         let initialized = client.request(
             "initialize",
             json!({
@@ -1421,19 +1917,18 @@ mod protocol {
     }
 
     fn open_prelude_document() -> (tempfile::TempDir, LspClient) {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let custom_compiler = compiler_dir.join("bend");
         fs::write(
             &custom_compiler,
             "#!/bin/sh\nif [ \"$1\" = base ]; then\n  printf 'type Builtin is Data:\\n  Builtin{}\\ndef List.map(x: U32) -> U32:\\n  x\\n'\n  exit 0\nfi\nexit 0\n",
-        )
-        .expect("write compiler with Base source");
+        ).must_be("write compiler with Base source");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
-            .expect("make compiler executable");
-        let mut client = LspClient::spawn(&compiler_dir);
+            .must_be("make compiler executable");
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1473,12 +1968,17 @@ mod protocol {
         );
         let base_uri = definition["result"]["uri"]
             .as_str()
-            .expect("Base definition URI")
+            .must_be("Base definition URI")
             .to_owned();
         assert!(
-            fs::read_to_string(Url::parse(&base_uri).unwrap().to_file_path().unwrap())
-                .expect("read Base definition source")
-                .contains("def List.map(x: U32) -> U32"),
+            fs::read_to_string(
+                Url::parse(&base_uri)
+                    .must_be("Base definition URL")
+                    .to_file_path()
+                    .must_be("Base definition path")
+            )
+            .must_be("read Base definition source")
+            .contains("def List.map(x: U32) -> U32"),
             "Base navigation must point at readable source: {definition}"
         );
         let type_definition = client.request(
@@ -1532,29 +2032,33 @@ mod protocol {
 
     #[test]
     fn cached_hub_imports_support_navigation_and_workspace_indexing() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         let bend_lib = temp.path().join("bend-lib");
         let hash = "0123456789abcdef0123456789abcdef";
         let package = bend_lib.join(format!("0x{hash}"));
         let names = bend_lib.join("names");
-        fs::create_dir_all(&workspace).expect("create workspace");
-        fs::create_dir_all(&package).expect("create cached Hub package");
-        fs::create_dir_all(&names).expect("create named-package cache");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::create_dir_all(&package).must_be("create cached Hub package");
+        fs::create_dir_all(&names).must_be("create named-package cache");
         let dependency_path = package.join("main.bend");
         fs::write(&dependency_path, "def exported(arg: U32) -> U32:\n  arg\n")
-            .expect("write cached Hub module");
+            .must_be("write cached Hub module");
         fs::write(names.join("sample@1.0.0.0"), format!("0x{hash}\n"))
-            .expect("write cached Hub name mapping");
+            .must_be("write cached Hub name mapping");
         let main_path = workspace.join("main.bend");
         let source = format!(
             "import 0x{hash}/main.bend as Hash\nimport sample@1.0.0.0/main.bend as P\ndef main() -> U32:\n  P.exported(1)\n"
         );
-        fs::write(&main_path, &source).expect("write root source");
+        fs::write(&main_path, &source).must_be("write root source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let main_uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
-        let mut client = LspClient::spawn_with_bend_lib(&compiler_dir, &bend_lib);
+        let main_uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_with_bend_lib(&compiler_dir, &bend_lib);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1569,6 +2073,16 @@ mod protocol {
             "textDocument":{"uri":main_uri},
             "position":{"line":3,"character":5}
         });
+        let symbols = client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":main_uri}}),
+        );
+        assert!(
+            symbols["result"]
+                .as_array()
+                .is_some_and(|items| items.iter().any(|item| item["name"] == "main")),
+            "the opened root document should be available before semantic hover: {symbols}"
+        );
         let hover = client.request("textDocument/hover", position.clone());
         assert!(
             hover["result"]["contents"]["value"]
@@ -1619,19 +2133,23 @@ mod protocol {
 
     #[test]
     fn imported_symbols_support_hover_navigation_and_member_completion() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         let source = "import Base # prelude\nimport ./dep.bend as Dep\ndef main() -> U32:\n  Dep.exported(1)\n";
-        fs::write(&main_path, source).expect("write root source");
+        fs::write(&main_path, source).must_be("write root source");
         fs::write(&dependency_path, "def exported(arg: U32) -> U32:\n  arg\n")
-            .expect("write dependency");
+            .must_be("write dependency");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let main_uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let main_uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1686,19 +2204,23 @@ mod protocol {
     }
     #[test]
     fn references_and_rename_follow_imports_without_touching_text_or_comments() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
-        let main_source = "import ./dep.bend as Dep\ndef main() -> U32:\n  Dep.value()\n# Dep.value comment\ndef note() -> String:\n  \"Dep.value\"\n";
+        let main_source = "import ./dep.bend as Dep\ndef main() -> U32:\n  Dep.value()\n# Dep.value comment\ndef note() -> String:\n  \"Dep.value\"\ndef shadow(Dep):\n  Dep.value()\n";
         let dependency_source = "def value() -> U32:\n  1\ndef local() -> U32:\n  value()\n";
-        fs::write(&main_path, main_source).expect("write root source");
-        fs::write(&dependency_path, dependency_source).expect("write dependency");
+        fs::write(&main_path, main_source).must_be("write root source");
+        fs::write(&dependency_path, dependency_source).must_be("write dependency");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let main_uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let main_uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         for (uri, source) in [
             (main_uri.as_str(), main_source),
@@ -1714,6 +2236,8 @@ mod protocol {
                 }}),
             );
         }
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        wait_for_clean_diagnostics(&mut client, &dependency_uri);
         let references = client.request(
             "textDocument/references",
             json!({
@@ -1769,19 +2293,90 @@ mod protocol {
         client.finish();
     }
     #[test]
-    fn type_navigation_resolves_qualified_imported_types() {
-        let temp = tempdir().expect("temporary workspace");
+    fn references_and_rename_respect_parameter_shadowing() {
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let source = "def target() -> U32:\n  0\ndef wrapper(target):\n  target()\ndef main: U32\n  target()\n";
+        fs::write(&main_path, source).must_be("write source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,
+                "languageId":"bend",
+                "version":1,
+                "text":source
+            }}),
+        );
+
+        let references = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":3,"character":4},
+                "context":{"includeDeclaration":true}
+            }),
+        );
+        let locations = references["result"].as_array().must_be("local references");
+        assert_eq!(
+            locations.len(),
+            2,
+            "only parameter declaration and use: {references}"
+        );
+        assert!(locations.iter().all(|location| {
+            [2, 3].contains(
+                &location["range"]["start"]["line"]
+                    .as_u64()
+                    .must_be("LSP reference line"),
+            )
+        }));
+
+        let rename = client.request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":3,"character":4},
+                "newName":"callback"
+            }),
+        );
+        let edits = rename["result"]["changes"][&uri]
+            .as_array()
+            .must_be("local rename edits");
+        assert_eq!(edits.len(), 2, "rename only the local binding: {rename}");
+        assert!(edits.iter().all(|edit| {
+            [2, 3].contains(
+                &edit["range"]["start"]["line"]
+                    .as_u64()
+                    .must_be("LSP rename line"),
+            )
+        }));
+        client.finish();
+    }
+    #[test]
+    fn type_navigation_resolves_qualified_imported_types() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let types_path = workspace.join("types.bend");
         let source = "import ./types.bend as Types\ndef consume(shape: Types.Shape) -> U32:\n  1\n";
-        fs::write(&main_path, source).expect("write source");
-        fs::write(&types_path, "type Shape is Data:\n  Circle{}\n").expect("write types");
+        fs::write(&main_path, source).must_be("write source");
+        fs::write(&types_path, "type Shape is Data:\n  Circle{}\n").must_be("write types");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let types_uri = Url::from_file_path(&types_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let types_uri = Url::from_file_path(&types_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "textDocument/didOpen",
@@ -1808,13 +2403,13 @@ mod protocol {
     }
     #[test]
     fn newer_document_version_cancels_obsolete_compiler_process() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let slow_source = "# slow\n\ndef main() -> U32:\n  1\n";
         let current_source = "def main() -> U32:\n  2\n";
-        fs::write(&main_path, slow_source).expect("write slow source");
+        fs::write(&main_path, slow_source).must_be("write slow source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let pid_path = temp.path().join("slow-compiler.pid");
         let custom_compiler = temp.path().join("slow-bend");
@@ -1824,12 +2419,13 @@ mod protocol {
                 "#!/bin/sh\nif grep -q '^# slow$' \"$1\"; then\n  echo $$ > '{}'\n  exec sleep 30\nfi\nexit 0\n",
                 pid_path.display()
             ),
-        )
-        .expect("write slow compiler");
+        ).must_be("write slow compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
-            .expect("make slow compiler executable");
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+            .must_be("make slow compiler executable");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "workspace/didChangeConfiguration",
@@ -1852,7 +2448,7 @@ mod protocol {
             thread::sleep(Duration::from_millis(10));
         }
         let pid = fs::read_to_string(&pid_path)
-            .expect("slow compiler should have started")
+            .must_be("slow compiler should have started")
             .trim()
             .to_owned();
         client.notify(
@@ -1862,14 +2458,13 @@ mod protocol {
                 "contentChanges":[{"text":current_source}]
             }),
         );
-        assert!(client.diagnostics_for(&uri, true, Duration::from_secs(5)));
-        let still_running = Command::new("/bin/kill")
-            .arg("-0")
-            .arg(&pid)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
+        assert!(diagnostics_for(
+            &mut client,
+            &uri,
+            true,
+            Duration::from_secs(5)
+        ));
+        let still_running = process_is_running(&pid);
         if still_running {
             let _ = Command::new("/bin/kill")
                 .arg(&pid)
@@ -1883,14 +2478,240 @@ mod protocol {
         );
         client.finish();
     }
+    struct BlockedCompiler {
+        compiler_dir: PathBuf,
+        started: Receiver<String>,
+        completion: Receiver<String>,
+        release_request: PathBuf,
+    }
+
+    impl BlockedCompiler {
+        fn new(temp_dir: &Path) -> Self {
+            let started_fifo = temp_dir.join("compiler-started");
+            let blocked_fifo = temp_dir.join("compiler-blocked");
+            let release_request = temp_dir.join("compiler-release");
+            let completion_signal = temp_dir.join("compiler-released");
+            for fifo in [
+                &started_fifo,
+                &blocked_fifo,
+                &release_request,
+                &completion_signal,
+            ] {
+                create_fifo(fifo);
+            }
+            let started = read_fifo_line(started_fifo.clone());
+            let completion = read_fifo_line(completion_signal.clone());
+            let compiler_dir = install_blocked_diagnostics_compiler(
+                &temp_dir.join("bin"),
+                &started_fifo,
+                &blocked_fifo,
+                &release_request,
+                &completion_signal,
+            );
+            Self {
+                compiler_dir,
+                started,
+                completion,
+                release_request,
+            }
+        }
+
+        fn wait_until_started(&self, reason: &str) {
+            let compiler_pid = self
+                .started
+                .recv_timeout(Duration::from_secs(5))
+                .must_be(reason);
+            assert!(!compiler_pid.is_empty());
+        }
+
+        fn release(&self) {
+            write_fifo_line(&self.release_request, "release\n");
+            assert_eq!(
+                self.completion
+                    .recv_timeout(Duration::from_secs(5))
+                    .must_be("release observer must finish"),
+                "released"
+            );
+        }
+    }
+
+    #[test]
+    fn blocked_superseded_root_diagnostics_do_not_publish_after_v2() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        fs::write(&main_path, "# BLOCKED_V1\nBAD\n").must_be("write v1 source");
+
+        let blocked_compiler = BlockedCompiler::new(temp.path());
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&blocked_compiler.compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,
+                "languageId":"bend",
+                "version":1,
+                "text":"# BLOCKED_V1\nBAD\n"
+            }}),
+        );
+        blocked_compiler.wait_until_started("v1 compiler must reach its barrier");
+
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":uri,"version":2},
+                "contentChanges":[{"text":"def main() -> U32:\n  2\n"}]
+            }),
+        );
+        assert!(
+            client
+                .receive_matching(Duration::from_secs(5), |message| {
+                    message["method"] == "textDocument/publishDiagnostics"
+                        && message["params"]["uri"] == uri
+                        && message["params"]["version"] == 2
+                        && message["params"]["diagnostics"]
+                            .as_array()
+                            .is_some_and(Vec::is_empty)
+                })
+                .is_some(),
+            "v2 root diagnostics must complete before releasing v1"
+        );
+
+        blocked_compiler.release();
+        let _ = client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":uri}}),
+        );
+        assert!(
+            client
+                .receive_matching(Duration::ZERO, |message| {
+                    message["method"] == "textDocument/publishDiagnostics"
+                        && message["params"]["uri"] == uri
+                        && message["params"]["version"] == 1
+                })
+                .is_none(),
+            "superseded root diagnostics for v1 must not publish after v2"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn blocked_superseded_import_diagnostics_do_not_restore_stale_errors() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        let source_v1 = "import ./dep.bend as Dep\ndef main: Type\n  Dep.value\n";
+        let source_v2 = "# BLOCKED_V1\nimport ./dep.bend as Dep\ndef main: Type\n  Dep.value\n";
+        let source_v3 = "def main() -> U32:\n  2\n";
+        fs::write(&main_path, source_v1).must_be("write initial root source");
+        fs::write(&dependency_path, "BAD\n").must_be("write broken dependency");
+
+        let blocked_compiler = BlockedCompiler::new(temp.path());
+        let main_uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&blocked_compiler.compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":main_uri,
+                "languageId":"bend",
+                "version":1,
+                "text":source_v1
+            }}),
+        );
+        assert!(
+            client
+                .receive_matching(Duration::from_secs(5), |message| {
+                    message["method"] == "textDocument/publishDiagnostics"
+                        && message["params"]["uri"] == dependency_uri
+                        && message["params"]["diagnostics"]
+                            .as_array()
+                            .is_some_and(|diagnostics| !diagnostics.is_empty())
+                })
+                .is_some(),
+            "initial imported diagnostic must be present before the race"
+        );
+
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":main_uri,"version":2},
+                "contentChanges":[{"text":source_v2}]
+            }),
+        );
+        blocked_compiler.wait_until_started("v2 compiler must reach its barrier");
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":main_uri,"version":3},
+                "contentChanges":[{"text":source_v3}]
+            }),
+        );
+        assert!(
+            client
+                .receive_matching(Duration::from_secs(5), |message| {
+                    message["method"] == "textDocument/publishDiagnostics"
+                        && message["params"]["uri"] == main_uri
+                        && message["params"]["version"] == 3
+                        && message["params"]["diagnostics"]
+                            .as_array()
+                            .is_some_and(Vec::is_empty)
+                })
+                .is_some(),
+            "v3 root diagnostics must complete before releasing v2"
+        );
+        assert!(
+            client
+                .receive_matching(Duration::from_secs(5), |message| {
+                    message["method"] == "textDocument/publishDiagnostics"
+                        && message["params"]["uri"] == dependency_uri
+                        && message["params"]["diagnostics"]
+                            .as_array()
+                            .is_some_and(Vec::is_empty)
+                })
+                .is_some(),
+            "v3 must clear imported diagnostics from the prior committed result"
+        );
+
+        blocked_compiler.release();
+        let _ = client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":main_uri}}),
+        );
+        assert!(
+            client
+                .receive_matching(Duration::ZERO, |message| {
+                    message["method"] == "textDocument/publishDiagnostics"
+                        && message["params"]["uri"] == dependency_uri
+                        && message["params"]["diagnostics"]
+                            .as_array()
+                            .is_some_and(|diagnostics| !diagnostics.is_empty())
+                })
+                .is_none(),
+            "superseded imported diagnostics must not restore the v2 error after v3"
+        );
+        client.finish();
+    }
+
     #[test]
     fn closing_document_cancels_running_compiler_process() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let slow_source = "# slow\n\ndef main() -> U32:\n  1\n";
-        fs::write(&main_path, slow_source).expect("write slow source");
+        fs::write(&main_path, slow_source).must_be("write slow source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let pid_path = temp.path().join("slow-compiler.pid");
         let custom_compiler = temp.path().join("slow-bend");
@@ -1901,11 +2722,13 @@ mod protocol {
                 pid_path.display()
             ),
         )
-        .expect("write slow compiler");
+        .must_be("write slow compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
-            .expect("make slow compiler executable");
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+            .must_be("make slow compiler executable");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "workspace/didChangeConfiguration",
@@ -1928,24 +2751,18 @@ mod protocol {
             thread::sleep(Duration::from_millis(10));
         }
         let pid = fs::read_to_string(&pid_path)
-            .expect("slow compiler should have started")
+            .must_be("slow compiler should have started")
             .trim()
             .to_owned();
         client.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}));
         assert!(
-            client.diagnostics_for(&uri, true, Duration::from_secs(5)),
+            diagnostics_for(&mut client, &uri, true, Duration::from_secs(5)),
             "closing a document should immediately clear its diagnostics"
         );
         let deadline = Instant::now() + Duration::from_secs(2);
         let mut still_running = true;
         while still_running && Instant::now() < deadline {
-            still_running = Command::new("/bin/kill")
-                .arg("-0")
-                .arg(&pid)
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .is_ok_and(|status| status.success());
+            still_running = process_is_running(&pid);
             if still_running {
                 thread::sleep(Duration::from_millis(10));
             }
@@ -1966,11 +2783,11 @@ mod protocol {
 
     #[test]
     fn compiler_process_concurrency_is_bounded() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         let active_dir = temp.path().join("active");
-        fs::create_dir_all(&workspace).expect("create workspace");
-        fs::create_dir_all(&active_dir).expect("create compiler activity directory");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::create_dir_all(&active_dir).must_be("create compiler activity directory");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let custom_compiler = temp.path().join("counting-bend");
         fs::write(
@@ -1982,11 +2799,10 @@ mod protocol {
                 active_dir.display(),
                 active_dir.display()
             ),
-        )
-        .expect("write counting compiler");
+        ).must_be("write counting compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
-            .expect("make counting compiler executable");
-        let mut client = LspClient::spawn(&compiler_dir);
+            .must_be("make counting compiler executable");
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "workspace/didChangeConfiguration",
@@ -1999,8 +2815,10 @@ mod protocol {
         let uris: Vec<String> = (0..8)
             .map(|index| {
                 let path = workspace.join(format!("file-{index}.bend"));
-                fs::write(&path, source).expect("write workspace source");
-                Url::from_file_path(path).unwrap().to_string()
+                fs::write(&path, source).must_be("write workspace source");
+                Url::from_file_path(path)
+                    .must_be("valid test fixture value")
+                    .to_string()
             })
             .collect();
         for uri in &uris {
@@ -2016,7 +2834,7 @@ mod protocol {
         }
         for uri in &uris {
             assert!(
-                client.diagnostics_for(uri, true, Duration::from_secs(10)),
+                diagnostics_for(&mut client, uri, true, Duration::from_secs(10)),
                 "every queued document should be checked: {uri}"
             );
         }
@@ -2027,13 +2845,91 @@ mod protocol {
         client.finish();
     }
     #[test]
-    fn exit_without_shutdown_cancels_compiler_child_and_keeps_stdin_open() {
-        let temp = tempdir().expect("temporary workspace");
+    fn sigterm_without_shutdown_cancels_active_compiler_and_flushes_trace() {
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let source = "def main() -> U32:\n  1\n";
+        fs::write(&main_path, source).must_be("write source");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("source URI")
+            .to_string();
+        let started_fifo = temp.path().join("compiler-started");
+        let release_fifo = temp.path().join("compiler-release");
+        create_fifo(&started_fifo);
+        create_fifo(&release_fifo);
+        let started = read_fifo_line(started_fifo.clone());
+        let compiler = temp.path().join("blocked-bend");
+        fs::write(
+            &compiler,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$$\" > {}\nIFS= read -r _ < {}\n",
+                shell_quote(&started_fifo),
+                shell_quote(&release_fifo),
+            ),
+        )
+        .must_be("write blocked compiler");
+        fs::set_permissions(&compiler, fs::Permissions::from_mode(0o755))
+            .must_be("make blocked compiler executable");
+
+        let trace_path = temp.path().join("active-sigterm.json");
+        let stderr_path = temp.path().join("server-stderr.txt");
+        let mut command = Command::new(env!("CARGO_BIN_EXE_bend2-lsp"));
+        command
+            .env("BEND2_LSP_TRACE", &trace_path)
+            .stderr(Stdio::from(
+                fs::File::create(&stderr_path).must_be("capture server stderr"),
+            ));
+        let mut client = LspClient::spawn(command);
+        client.initialize(&workspace);
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{
+                "compilerPath":compiler,
+                "compilerArguments":[]
+            }}}),
+        );
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,
+                "languageId":"bend",
+                "version":1,
+                "text":source
+            }}),
+        );
+        let pid = started
+            .recv_timeout(Duration::from_secs(5))
+            .must_be("compiler must start before SIGTERM");
+        client.sigterm();
+        let status = client
+            .wait_timeout(Duration::from_secs(2))
+            .must_be("SIGTERM must terminate with stdin still open");
+        assert!(status.success(), "SIGTERM is graceful shutdown: {status}");
+        let still_running = process_is_running(&pid);
+        if still_running {
+            let _ = Command::new("/bin/kill").arg(&pid).status();
+        }
+        assert!(!still_running, "SIGTERM must reap compiler child {pid}");
+        let stderr = fs::read_to_string(&stderr_path).must_be("read captured server stderr");
+        assert!(!stderr.contains("panicked"), "server panicked: {stderr}");
+        let trace = fs::read_to_string(&trace_path).must_be("read finalized trace");
+        let events: Vec<Value> = serde_json::from_str(&trace).must_be("parse complete trace JSON");
+        assert!(
+            events.iter().any(|event| event["name"] == "compiler.child"),
+            "trace must retain the active compiler span"
+        );
+    }
+
+    #[test]
+    fn exit_without_shutdown_cancels_compiler_child_and_keeps_stdin_open() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let slow_source = "# slow\n\ndef main() -> U32:\n  1\n";
-        fs::write(&main_path, slow_source).expect("write slow source");
+        fs::write(&main_path, slow_source).must_be("write slow source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let pid_path = temp.path().join("slow-compiler.pid");
         let custom_compiler = temp.path().join("slow-bend");
@@ -2043,12 +2939,13 @@ mod protocol {
                 "#!/bin/sh\nif grep -q '^# slow$' \"$1\"; then\n  echo $$ > '{}'\n  exec sleep 30\nfi\nexit 0\n",
                 pid_path.display()
             ),
-        )
-        .expect("write slow compiler");
+        ).must_be("write slow compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
-            .expect("make slow compiler executable");
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+            .must_be("make slow compiler executable");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "workspace/didChangeConfiguration",
@@ -2071,18 +2968,16 @@ mod protocol {
             thread::sleep(Duration::from_millis(10));
         }
         let pid = fs::read_to_string(&pid_path)
-            .expect("slow compiler should have started")
+            .must_be("slow compiler should have started")
             .trim()
             .to_owned();
         client.notify("exit", Value::Null);
         let deadline = Instant::now() + Duration::from_secs(2);
-        while client.child.try_wait().expect("poll LSP process").is_none()
-            && Instant::now() < deadline
-        {
+        while client.try_wait().is_none() && Instant::now() < deadline {
             thread::sleep(Duration::from_millis(10));
         }
         assert!(
-            client.child.try_wait().expect("poll LSP process").is_some(),
+            client.try_wait().is_some(),
             "exit without shutdown must terminate while stdin remains open"
         );
         let still_running = Command::new("/bin/kill")
@@ -2148,10 +3043,10 @@ mod protocol {
         );
         let external = outgoing["result"]
             .as_array()
-            .unwrap()
+            .must_be("valid test fixture value")
             .iter()
             .find(|call| call["to"]["name"] == "external")
-            .expect("outgoing calls should include the imported function")["to"]
+            .must_be("outgoing calls should include the imported function")["to"]
             .clone();
         let external_incoming =
             client.request("callHierarchy/incomingCalls", json!({"item":external}));
@@ -2201,24 +3096,26 @@ mod protocol {
 
     #[test]
     fn call_and_algebraic_type_hierarchies_follow_declarations_and_calls() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         let dependency_source = "def external(x: U32) -> U32:\n  x\n";
-        fs::write(&dependency_path, dependency_source).expect("write dependency");
+        fs::write(&dependency_path, dependency_source).must_be("write dependency");
         let source = "import ./dep.bend as Dep\ntype Shape is Data:\n  Circle{}\n  Square{}\ndef leaf(x: U32) -> U32:\n  x\ndef root(x: U32) -> U32:\n  leaf(x) + Dep.external(x)\ndef shape(x: Shape) -> U32:\n  x\n";
-        fs::write(&main_path, source).expect("write source");
+        fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         let initialized = client.request(
             "initialize",
             json!({
                 "processId":null,
-                "rootUri":Url::from_directory_path(&workspace).unwrap(),
-                "workspaceFolders":[{"uri":Url::from_directory_path(&workspace).unwrap(),"name":"test"}],
+                "rootUri":Url::from_directory_path(&workspace).must_be("workspace URI"),
+                "workspaceFolders":[{"uri":Url::from_directory_path(&workspace).must_be("workspace folder URI"),"name":"test"}],
                 "capabilities":{"textDocument":{"typeHierarchy":{"dynamicRegistration":true}}}
             }),
         );
@@ -2231,7 +3128,7 @@ mod protocol {
             .receive_matching(Duration::from_secs(5), |message| {
                 message["method"] == "client/registerCapability"
             })
-            .expect("server should dynamically register type hierarchy");
+            .must_be("server should dynamically register type hierarchy");
         assert_eq!(
             registration["params"]["registrations"][0]["method"],
             "textDocument/prepareTypeHierarchy"
@@ -2259,10 +3156,10 @@ mod protocol {
         client.finish();
     }
     #[test]
-    fn identical_source_graph_reuses_compiler_result() {
-        let temp = tempdir().expect("temporary workspace");
+    fn compiler_cache_reuses_graphs_and_invalidates_exact_inputs() {
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler = temp.path().join("counting-bend");
         let calls = temp.path().join("calls");
         fs::write(
@@ -2272,89 +3169,701 @@ mod protocol {
                 calls.display()
             ),
         )
-        .expect("write counting compiler");
+        .must_be("write counting compiler");
         fs::set_permissions(&compiler, fs::Permissions::from_mode(0o755))
-            .expect("make counting compiler executable");
-        let main_path = workspace.join("main.bend");
+            .must_be("make counting compiler executable");
+
         let dependency_path = workspace.join("dep.bend");
-        let dependency_uri = Url::from_file_path(&dependency_path).unwrap().to_string();
-        fs::write(&dependency_path, "def value: U32\n  1\n").expect("write dependency");
+        let unrelated_path = workspace.join("unrelated.bend");
+        let main_path = workspace.join("main.bend");
+        let second_path = workspace.join("second.bend");
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("dependency URI")
+            .to_string();
+        let unrelated_uri = Url::from_file_path(&unrelated_path)
+            .must_be("unrelated URI")
+            .to_string();
+        let uri = Url::from_file_path(&main_path)
+            .must_be("main URI")
+            .to_string();
+        let second_uri = Url::from_file_path(&second_path)
+            .must_be("second root URI")
+            .to_string();
+        fs::write(&dependency_path, "def value: U32\n  1\n").must_be("write dependency");
+        fs::write(&unrelated_path, "def isolated: U32\n  1\n").must_be("write unrelated file");
         let source = "import ./dep.bend as Dep\ndef main: U32\n  Dep.value\n";
-        fs::write(&main_path, source).expect("write source");
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
+        let second_source = "import ./dep.bend as Dep\ndef second: U32\n  Dep.value\n";
+        fs::write(&main_path, source).must_be("write first root");
+        fs::write(&second_path, second_source).must_be("write second root");
+
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let mut client = LspClient::spawn(&compiler_dir);
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
-        client.notify(
-            "workspace/didChangeConfiguration",
-            json!({"settings":{"bend2-lsp":{
-                "compilerPath":compiler,
-                "compilerArguments":[]
-            }}}),
+        configure_counting_compiler(&mut client, &compiler);
+        open_clean_document(&mut client, &uri, source);
+        assert_compiler_runs(&calls, 1, "the first graph must spawn Bend");
+        open_clean_document(&mut client, &second_uri, second_source);
+        assert_compiler_runs(&calls, 2, "a distinct root has its own cached result");
+
+        change_clean_document(&mut client, &uri, 2, source);
+        assert_compiler_runs(
+            &calls,
+            2,
+            "identical text at a newer revision must reuse the result",
         );
+
+        fs::write(&unrelated_path, "def isolated: U32\n  2\n").must_be("change unrelated file");
+        notify_watched_file_change(&mut client, &unrelated_uri);
+        change_clean_document(&mut client, &uri, 3, source);
+        change_clean_document(&mut client, &second_uri, 2, second_source);
+        assert_compiler_runs(
+            &calls,
+            2,
+            "an unrelated file update must not invalidate either root",
+        );
+
+        fs::write(&dependency_path, "def value: U32\n  2\n").must_be("change dependency");
+        notify_watched_file_change(&mut client, &dependency_uri);
+        wait_for_clean_diagnostics(&mut client, &uri);
+        wait_for_clean_diagnostics(&mut client, &second_uri);
+        assert_compiler_runs(
+            &calls,
+            4,
+            "the shared dependency must invalidate exactly its two root graphs",
+        );
+
+        let mut compiler_source =
+            fs::read_to_string(&compiler).must_be("read compiler before stamp change");
+        compiler_source.push_str("# compiler stamp changed\n");
+        fs::write(&compiler, compiler_source).must_be("change compiler stamp");
+        configure_counting_compiler(&mut client, &compiler);
+        wait_for_clean_diagnostics(&mut client, &uri);
+        wait_for_clean_diagnostics(&mut client, &second_uri);
+        assert_compiler_runs(
+            &calls,
+            6,
+            "changing the compiler stamp must invalidate both cached root graphs",
+        );
+        client.finish();
+    }
+    const BEND_CACHE_FILE_COUNT: usize = 102;
+
+    struct BendCacheFiles {
+        root: PathBuf,
+        second: PathBuf,
+        dependency: PathBuf,
+        unrelated: PathBuf,
+    }
+
+    fn create_bend_cache_files(workspace: &Path) -> BendCacheFiles {
+        use std::fmt::Write as _;
+
+        fs::create_dir_all(workspace).must_be("create workspace");
+        for index in 0..BEND_CACHE_FILE_COUNT {
+            let mut source = String::new();
+            if index < 2 {
+                for target in 2..100 {
+                    let alias = if target == 99 {
+                        "Common".to_owned()
+                    } else {
+                        format!("File{target:03}")
+                    };
+                    writeln!(source, "import ./f{target:03}.bend as {alias}")
+                        .must_be("generate root imports");
+                }
+                let private = 100 + index;
+                writeln!(source, "import ./f{private:03}.bend as Private")
+                    .must_be("generate private import");
+                source.push_str(if index == 0 {
+                    "def main: U32\n  1\n"
+                } else {
+                    "def second: U32\n  Common.value\n"
+                });
+            } else if index == 99 {
+                source.push_str("def value: U32\n  1\n");
+            } else if index >= 100 {
+                writeln!(source, "def private_{index:03}: U32\n  1")
+                    .must_be("generate private module");
+            } else {
+                writeln!(source, "def worker_{index:03}: U32\n  1")
+                    .must_be("generate workspace source");
+            }
+            fs::write(workspace.join(format!("f{index:03}.bend")), source)
+                .must_be("write generated workspace source");
+        }
+
+        let unrelated = workspace.join("unrelated.bend");
+        fs::write(&unrelated, "def isolated: U32\n  1\n").must_be("write unrelated file");
+        BendCacheFiles {
+            root: workspace.join("f000.bend"),
+            second: workspace.join("f001.bend"),
+            dependency: workspace.join("f099.bend"),
+            unrelated,
+        }
+    }
+
+    fn create_bend_counting_wrappers(temp_dir: &Path, calls: &Path) -> (PathBuf, PathBuf) {
+        let bend = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+            .map(|directory| directory.join("bend"))
+            .find(|path| path.is_file())
+            .must_be("locate installed Bend CLI");
+        let version = Command::new(&bend)
+            .arg("version")
+            .output()
+            .must_be("query installed Bend CLI version");
+        assert!(version.status.success(), "Bend version command failed");
+        eprintln!(
+            "BEND_CACHE_MEASURE bend_version={}",
+            String::from_utf8_lossy(&version.stdout).trim()
+        );
+
+        let script = format!(
+            "#!/bin/sh\nprintf 'called\\n' >> {}\n{} \"$@\"\n",
+            shell_quote(calls),
+            shell_quote(&bend)
+        );
+        let primary_wrapper = temp_dir.join("bend-wrapper-a");
+        let alternate_wrapper = temp_dir.join("bend-wrapper-b");
+        for wrapper in [&primary_wrapper, &alternate_wrapper] {
+            fs::write(wrapper, &script).must_be("write Bend counting wrapper");
+            fs::set_permissions(wrapper, fs::Permissions::from_mode(0o755))
+                .must_be("make Bend wrapper executable");
+        }
+        (primary_wrapper, alternate_wrapper)
+    }
+
+    fn report_bend_measurement(scenario: &str, before: usize, started: Instant, calls: &Path) {
+        let total = compiler_run_count(calls);
+        eprintln!(
+            "BEND_CACHE_MEASURE scenario={scenario} process_delta={} process_total={total} wall_ms={:.3}",
+            total - before,
+            started.elapsed().as_secs_f64() * 1_000.0
+        );
+    }
+
+    fn compiler_metric_field<'a>(line: &'a str, field: &str) -> &'a str {
+        let prefix = format!("{field}=");
+        line.split_whitespace()
+            .find_map(|part| part.strip_prefix(&prefix))
+            .must_be("compiler metric field")
+    }
+
+    fn wait_for_bend_diagnostics(client: &mut LspClient, uri: &str, version: i32) {
+        let diagnostics = client
+            .receive_matching(Duration::from_secs(60), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == uri
+                    && message["params"]["version"] == version
+            })
+            .must_be("receive real Bend diagnostics");
+        assert!(
+            diagnostics["params"]["diagnostics"]
+                .as_array()
+                .is_some_and(Vec::is_empty),
+            "installed Bend reported diagnostics: {diagnostics}"
+        );
+    }
+
+    struct BendCacheMeasurement {
+        client: LspClient,
+        calls: PathBuf,
+        metrics: PathBuf,
+        metrics_reported: usize,
+        root_uri: String,
+        second_uri: String,
+        dependency_uri: String,
+        unrelated_uri: String,
+        root_source: String,
+        second_source: String,
+        dependency_path: PathBuf,
+        unrelated_path: PathBuf,
+        primary_compiler_wrapper: PathBuf,
+        alternate_compiler_wrapper: PathBuf,
+        _temp: tempfile::TempDir,
+    }
+
+    impl BendCacheMeasurement {
+        fn new() -> Self {
+            let temp = tempdir().must_be("temporary workspace");
+            let workspace = temp.path().join("workspace");
+            let files = create_bend_cache_files(&workspace);
+            let calls = temp.path().join("bend-calls");
+            fs::write(&calls, "").must_be("create compiler call log");
+            let metrics = temp.path().join("compiler-metrics");
+            fs::write(&metrics, "").must_be("create compiler metrics log");
+            let (primary_compiler_wrapper, alternate_compiler_wrapper) =
+                create_bend_counting_wrappers(temp.path(), &calls);
+            let root_uri = Url::from_file_path(&files.root)
+                .must_be("root URI")
+                .to_string();
+            let second_uri = Url::from_file_path(&files.second)
+                .must_be("second root URI")
+                .to_string();
+            let dependency_uri = Url::from_file_path(&files.dependency)
+                .must_be("dependency URI")
+                .to_string();
+            let unrelated_uri = Url::from_file_path(&files.unrelated)
+                .must_be("unrelated URI")
+                .to_string();
+            let root_source = fs::read_to_string(&files.root).must_be("read root source");
+            let second_source =
+                fs::read_to_string(&files.second).must_be("read second root source");
+            let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+            let mut client = spawn_with_compiler_metrics(&compiler_dir, &metrics);
+            client.initialize(&workspace);
+            configure_counting_compiler(&mut client, &primary_compiler_wrapper);
+
+            Self {
+                client,
+                calls,
+                metrics,
+                metrics_reported: 0,
+                root_uri,
+                second_uri,
+                dependency_uri,
+                unrelated_uri,
+                root_source,
+                second_source,
+                dependency_path: files.dependency,
+                unrelated_path: files.unrelated,
+                primary_compiler_wrapper,
+                alternate_compiler_wrapper,
+                _temp: temp,
+            }
+        }
+
+        fn assert_runs(&self, expected: usize, scenario: &str) {
+            assert_compiler_runs(&self.calls, expected, scenario);
+        }
+
+        fn report(
+            &mut self,
+            scenario: &str,
+            before: usize,
+            started: Instant,
+            expected_checks: usize,
+            expected_cache_hit: Option<bool>,
+            expected_staged_files: Option<usize>,
+        ) {
+            report_bend_measurement(scenario, before, started, &self.calls);
+            let lines: Vec<_> = fs::read_to_string(&self.metrics)
+                .must_be("read compiler metrics")
+                .lines()
+                .map(str::to_owned)
+                .collect();
+            let new_lines = lines
+                .get(self.metrics_reported..)
+                .must_be("compiler metrics must not be truncated");
+            assert_eq!(
+                new_lines.len(),
+                expected_checks,
+                "unexpected compiler metric rows for {scenario}"
+            );
+            for line in new_lines {
+                assert!(line.starts_with("BEND2_COMPILER_METRIC "));
+                if let Some(expected) = expected_cache_hit {
+                    assert_eq!(
+                        compiler_metric_field(line, "cache"),
+                        if expected { "hit" } else { "miss" },
+                        "cache state for {scenario}: {line}"
+                    );
+                }
+                let staged_files: u128 = compiler_metric_field(line, "staged_files")
+                    .parse()
+                    .must_be("parse staged file count");
+                if let Some(expected) = expected_staged_files {
+                    assert_eq!(staged_files, expected as u128, "{scenario}: {line}");
+                }
+                let staged_bytes: u128 = compiler_metric_field(line, "staged_bytes")
+                    .parse()
+                    .must_be("parse staged byte count");
+                let staging_ns: u128 = compiler_metric_field(line, "staging_ns")
+                    .parse()
+                    .must_be("parse staging duration");
+                let child_ns: u128 = compiler_metric_field(line, "child_ns")
+                    .parse()
+                    .must_be("parse child duration");
+                let total_ns: u128 = compiler_metric_field(line, "total_ns")
+                    .parse()
+                    .must_be("parse total diagnostics duration");
+                assert!(total_ns > 0, "total diagnostics duration: {line}");
+                if staged_files == 0 {
+                    assert_eq!((staged_bytes, staging_ns, child_ns), (0, 0, 0), "{line}");
+                } else {
+                    assert!(staged_bytes > 0, "staged bytes: {line}");
+                    assert!(staging_ns > 0, "staging duration: {line}");
+                    assert!(child_ns > 0, "child duration: {line}");
+                }
+                eprintln!("BEND_CACHE_CHECK scenario={scenario} {line}");
+            }
+            self.metrics_reported = lines.len();
+        }
+
+        fn measure_initial_scenarios(&mut self) {
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            self.client.notify(
+                "textDocument/didOpen",
+                json!({"textDocument":{
+                    "uri":self.root_uri,
+                    "languageId":"bend",
+                    "version":1,
+                    "text":self.root_source
+                }}),
+            );
+            wait_for_bend_diagnostics(&mut self.client, &self.root_uri, 1);
+            self.assert_runs(1, "first 100-file graph check");
+            self.report(
+                "first_root_100_file_graph",
+                before,
+                started,
+                1,
+                Some(false),
+                Some(100),
+            );
+
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            self.client.notify(
+                "textDocument/didChange",
+                json!({"textDocument":{"uri":self.root_uri,"version":1},"contentChanges":[{"text":self.root_source}]}),
+            );
+            let _barrier = self.client.request(
+                "textDocument/hover",
+                json!({"textDocument":{"uri":self.root_uri},"position":{"line":0,"character":0}}),
+            );
+            self.assert_runs(1, "identical same-version notification");
+            self.report("identical_same_revision", before, started, 0, None, None);
+
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            self.client.notify(
+                "textDocument/didOpen",
+                json!({"textDocument":{
+                    "uri":self.second_uri,
+                    "languageId":"bend",
+                    "version":1,
+                    "text":self.second_source
+                }}),
+            );
+            wait_for_bend_diagnostics(&mut self.client, &self.second_uri, 1);
+            self.assert_runs(2, "distinct root check");
+            self.report("distinct_root", before, started, 1, Some(false), Some(100));
+
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            self.client.notify(
+                "textDocument/didChange",
+                json!({"textDocument":{"uri":self.root_uri,"version":2},"contentChanges":[{"text":self.root_source}]}),
+            );
+            wait_for_bend_diagnostics(&mut self.client, &self.root_uri, 2);
+            self.assert_runs(2, "identical text at a newer revision");
+            self.report(
+                "same_text_new_revision",
+                before,
+                started,
+                1,
+                Some(true),
+                Some(0),
+            );
+        }
+
+        fn measure_workspace_edits(&mut self) {
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            fs::write(&self.unrelated_path, "def isolated: U32\n  2\n")
+                .must_be("change unrelated file");
+            notify_watched_file_change(&mut self.client, &self.unrelated_uri);
+            self.client.notify(
+                "textDocument/didChange",
+                json!({"textDocument":{"uri":self.root_uri,"version":3},"contentChanges":[{"text":self.root_source}]}),
+            );
+            self.client.notify(
+                "textDocument/didChange",
+                json!({"textDocument":{"uri":self.second_uri,"version":2},"contentChanges":[{"text":self.second_source}]}),
+            );
+            wait_for_bend_diagnostics(&mut self.client, &self.root_uri, 3);
+            wait_for_bend_diagnostics(&mut self.client, &self.second_uri, 2);
+            self.assert_runs(2, "unrelated file edit");
+            self.report(
+                "unrelated_file_edit",
+                before,
+                started,
+                2,
+                Some(true),
+                Some(0),
+            );
+
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            fs::write(&self.dependency_path, "def value: U32\n  2\n")
+                .must_be("change shared dependency");
+            notify_watched_file_change(&mut self.client, &self.dependency_uri);
+            wait_for_bend_diagnostics(&mut self.client, &self.root_uri, 3);
+            wait_for_bend_diagnostics(&mut self.client, &self.second_uri, 2);
+            self.assert_runs(4, "shared dependency edit invalidates both roots");
+            self.report(
+                "shared_dependency_edit",
+                before,
+                started,
+                2,
+                Some(false),
+                Some(100),
+            );
+        }
+
+        fn measure_compiler_changes(&mut self) {
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            let mut wrapper = fs::OpenOptions::new()
+                .append(true)
+                .open(&self.primary_compiler_wrapper)
+                .must_be("open compiler wrapper for stamp change");
+            writeln!(wrapper, "# compiler stamp changed").must_be("change compiler stamp");
+            configure_counting_compiler(&mut self.client, &self.primary_compiler_wrapper);
+            wait_for_bend_diagnostics(&mut self.client, &self.root_uri, 3);
+            wait_for_bend_diagnostics(&mut self.client, &self.second_uri, 2);
+            self.assert_runs(6, "compiler stamp change invalidates both roots");
+            self.report(
+                "compiler_stamp_change",
+                before,
+                started,
+                2,
+                Some(false),
+                Some(100),
+            );
+
+            let before = compiler_run_count(&self.calls);
+            let started = Instant::now();
+            configure_counting_compiler(&mut self.client, &self.alternate_compiler_wrapper);
+            wait_for_bend_diagnostics(&mut self.client, &self.root_uri, 3);
+            wait_for_bend_diagnostics(&mut self.client, &self.second_uri, 2);
+            self.assert_runs(8, "compiler path change invalidates both roots");
+            self.report(
+                "compiler_path_change",
+                before,
+                started,
+                2,
+                Some(false),
+                Some(100),
+            );
+        }
+
+        fn finish(self) {
+            self.client.finish();
+        }
+    }
+
+    #[ignore = "requires Bend CLI on PATH; emits local timing samples"]
+    #[test]
+    fn measure_actual_bend_compiler_cache_fallback() {
+        let mut measurement = BendCacheMeasurement::new();
+        measurement.measure_initial_scenarios();
+        measurement.measure_workspace_edits();
+        measurement.measure_compiler_changes();
+        measurement.finish();
+    }
+
+    #[test]
+    fn large_staging_edits_keep_hover_requests_responsive() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let changing_path = workspace.join("changing.bend");
+        let observed_path = workspace.join("observed.bend");
+        let changing_initial = "def initial_change: U32\n  1\n";
+        let observed_initial = "def revision_one: U32\n  1\n";
+        fs::write(&changing_path, changing_initial).must_be("write changing source");
+        fs::write(&observed_path, observed_initial).must_be("write observed source");
+        let changing_uri = Url::from_file_path(&changing_path)
+            .must_be("changing document URI")
+            .to_string();
+        let observed_uri = Url::from_file_path(&observed_path)
+            .must_be("observed document URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &changing_uri, changing_initial);
+        open_clean_document(&mut client, &observed_uri, observed_initial);
+
+        let latest = "def latest_committed: U32\n  2\n";
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":observed_uri,"version":2},"contentChanges":[{"text":latest}]}),
+        );
+        let confirmed = client.request(
+            "textDocument/hover",
+            json!({"textDocument":{"uri":observed_uri},"position":{"line":0,"character":5}}),
+        );
+        assert!(
+            confirmed["result"]["contents"]["value"]
+                .as_str()
+                .is_some_and(|value| value.contains("latest_committed")),
+            "observed document must be committed at v2 before the large edit: {confirmed}"
+        );
+
+        let large = include_str!("../benches/fixtures/analyzer_large.bend");
+        let revised = format!("def large_edit: U32\n  1\n{large}\n{large}\n{large}\n{large}");
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":changing_uri,"version":2},
+                "contentChanges":[{"text":revised}]
+            }),
+        );
+        let hover = json!({
+            "textDocument":{"uri":observed_uri},
+            "position":{"line":0,"character":5}
+        });
+        let requests: Vec<(&str, Value)> = (0..32)
+            .map(|_| ("textDocument/hover", hover.clone()))
+            .collect();
+        let responses = request_burst_results(&mut client, &requests);
+        let mut latencies = responses
+            .iter()
+            .map(|(_, latency)| *latency)
+            .collect::<Vec<_>>();
+        latencies.sort_unstable();
+        let p50 = latencies[(latencies.len() - 1) / 2];
+        let p95 = latencies[(latencies.len() * 95).div_ceil(100) - 1];
+        let max = *latencies.last().must_be("hover latency samples");
+        eprintln!(
+            "large-edit unrelated protocol hover latency: p50={}us p95={}us max={}us",
+            p50.as_micros(),
+            p95.as_micros(),
+            max.as_micros()
+        );
+        assert!(
+            p95 < Duration::from_secs(1),
+            "large staging edit blocked unrelated hover requests: p95={p95:?}, max={max:?}"
+        );
+        for (response, _) in responses {
+            assert!(
+                response["result"]["contents"]["value"]
+                    .as_str()
+                    .is_some_and(|value| value.contains("latest_committed")),
+                "concurrent reads must see the latest committed preceding revision: {response}"
+            );
+        }
+        let diagnostics = client
+            .receive_matching(Duration::from_secs(20), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == changing_uri
+                    && message["params"]["version"] == 2
+            })
+            .must_be("diagnostics for the committed large revision");
+        assert!(
+            diagnostics["params"]["diagnostics"]
+                .as_array()
+                .is_some_and(Vec::is_empty)
+        );
+        client.finish();
+    }
+    #[test]
+    fn unrelated_large_open_does_not_delay_committed_document_queries() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let opening_path = workspace.join("opening.bend");
+        let observed_path = workspace.join("observed.bend");
+        let observed_source = "def stable_document: U32\n  1\n";
+        fs::write(&observed_path, observed_source).must_be("write observed source");
+        let opening_uri = Url::from_file_path(&opening_path)
+            .must_be("opening document URI")
+            .to_string();
+        let observed_uri = Url::from_file_path(&observed_path)
+            .must_be("observed document URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &observed_uri, observed_source);
+
+        let large = include_str!("../benches/fixtures/analyzer_large.bend");
+        let opening_source = format!("{large}\n{large}\n{large}\n{large}");
         client.notify(
             "textDocument/didOpen",
             json!({"textDocument":{
-                "uri":uri,
+                "uri":opening_uri,
                 "languageId":"bend",
                 "version":1,
-                "text":source
+                "text":opening_source
             }}),
         );
-        assert!(client.diagnostics_for(&uri, true, Duration::from_secs(5)));
-        client.notify(
-            "textDocument/didChange",
-            json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":source}]}),
+        let hover = json!({
+            "textDocument":{"uri":observed_uri},
+            "position":{"line":0,"character":5}
+        });
+        let requests: Vec<(&str, Value)> = (0..32)
+            .map(|_| ("textDocument/hover", hover.clone()))
+            .collect();
+        let responses = request_burst_results(&mut client, &requests);
+        let mut latencies = responses
+            .iter()
+            .map(|(_, latency)| *latency)
+            .collect::<Vec<_>>();
+        latencies.sort_unstable();
+        let p50 = latencies[(latencies.len() - 1) / 2];
+        let p95 = latencies[(latencies.len() * 95).div_ceil(100) - 1];
+        let max = *latencies.last().must_be("hover latency samples");
+        eprintln!(
+            "unrelated-open protocol hover latency: p50={}us p95={}us max={}us",
+            p50.as_micros(),
+            p95.as_micros(),
+            max.as_micros()
         );
-        assert!(client.diagnostics_for(&uri, true, Duration::from_secs(5)));
-        assert_eq!(
-            fs::read_to_string(&calls)
-                .expect("compiler invocation log")
-                .lines()
-                .count(),
-            1,
-            "unchanged root and dependency sources should reuse the compiler result"
+        assert!(
+            p95 < Duration::from_secs(1),
+            "unrelated large open delayed committed-document queries: p95={p95:?}, max={max:?}"
         );
-        fs::write(&dependency_path, "def value: U32\n  2\n").expect("update dependency");
-        client.notify(
-            "workspace/didChangeWatchedFiles",
-            json!({"changes":[{"uri":dependency_uri,"type":2}]}),
-        );
-        assert!(client.diagnostics_for(&uri, true, Duration::from_secs(5)));
-        assert_eq!(
-            fs::read_to_string(&calls)
-                .expect("compiler invocation log")
-                .lines()
-                .count(),
-            2,
-            "changing a closed dependency must invalidate the cached result"
+        for (response, _) in responses {
+            assert!(
+                response["result"]["contents"]["value"]
+                    .as_str()
+                    .is_some_and(|value| value.contains("stable_document")),
+                "query must read the already committed document during another open: {response}"
+            );
+        }
+        let diagnostics = client
+            .receive_matching(Duration::from_secs(20), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == opening_uri
+                    && message["params"]["version"] == 1
+            })
+            .must_be("diagnostics for the large opened document");
+        assert!(
+            diagnostics["params"]["diagnostics"]
+                .as_array()
+                .is_some_and(Vec::is_empty)
         );
         client.finish();
     }
     #[test]
     fn ambiguous_compiler_excerpt_falls_back_to_root_without_misattributing_import_errors() {
-        let temp = tempdir().expect("temporary workspace");
+        let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
-        fs::create_dir_all(&workspace).expect("create workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
         let first_dependency = workspace.join("first.bend");
         let second_dependency = workspace.join("second.bend");
         let source = "import ./first.bend as First\nimport ./second.bend as Second\ndef main: U32\n  First.value\n";
         let repeated_excerpt = "def value: U32\n  1\n";
-        fs::write(&main_path, source).expect("write root source");
-        fs::write(&first_dependency, repeated_excerpt).expect("write first dependency");
-        fs::write(&second_dependency, repeated_excerpt).expect("write second dependency");
+        fs::write(&main_path, source).must_be("write root source");
+        fs::write(&first_dependency, repeated_excerpt).must_be("write first dependency");
+        fs::write(&second_dependency, repeated_excerpt).must_be("write second dependency");
         let compiler = temp.path().join("ambiguous-bend");
         fs::write(
             &compiler,
             "#!/bin/sh\nprintf 'Error:\\nambiguous compiler error\\nLocation:\\n1>| def value: U32\\n' >&2\nexit 1\n",
-        )
-        .expect("write compiler");
+        ).must_be("write compiler");
         fs::set_permissions(&compiler, fs::Permissions::from_mode(0o755))
-            .expect("make compiler executable");
+            .must_be("make compiler executable");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
-        let uri = Url::from_file_path(&main_path).unwrap().to_string();
-        let mut client = LspClient::spawn(&compiler_dir);
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         client.notify(
             "workspace/didChangeConfiguration",
@@ -2386,7 +3895,7 @@ mod protocol {
                             })
                         })
             })
-            .expect("ambiguous excerpt should fall back to a root diagnostic");
+            .must_be("ambiguous excerpt should fall back to a root diagnostic");
         assert!(
             diagnostics["params"]["diagnostics"]
                 .as_array()
