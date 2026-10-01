@@ -1,0 +1,97 @@
+name: release-binaries
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: native (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: X64
+            target: x86_64-unknown-linux-gnu
+            python: python3
+          - runner: ubuntu-24.04-arm
+            arch: ARM64
+            target: aarch64-unknown-linux-gnu
+            python: python3
+          - runner: macos-15-intel
+            arch: X64
+            target: x86_64-apple-darwin
+            python: python3
+          - runner: macos-15
+            arch: ARM64
+            target: aarch64-apple-darwin
+            python: python3
+          - runner: windows-2022
+            arch: X64
+            target: x86_64-pc-windows-msvc
+            python: python
+          - runner: windows-11-arm
+            arch: ARM64
+            target: aarch64-pc-windows-msvc
+            python: python
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_SHA: ${{ inputs.sha }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_CHANNEL: ${{ inputs.channel }}
+      RELEASE_TARGET: ${{ matrix.target }}
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      PYTHON: ${{ matrix.python }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - name: Verify exact source and native runner
+        env:
+          ACTUAL_ARCH: ${{ runner.arch }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$ACTUAL_ARCH" = "$EXPECTED_ARCH"
+          "$PYTHON" scripts/release.py verify
+      - name: Verify release integrity regression cases
+        run: '"$PYTHON" -m unittest discover -s scripts -p test_release.py'
+      - name: Install pinned native Rust toolchain
+        run: |
+          rustup toolchain install "1.98.1-$RELEASE_TARGET" --profile minimal
+          rustup override set "1.98.1-$RELEASE_TARGET"
+          rustc -vV
+          test "$(rustc -vV | while IFS= read -r line; do case "$line" in 'host: '*) printf '%s' "${line#host: }";; esac; done)" = "$RELEASE_TARGET"
+      - name: Build locked optimized binary
+        run: cargo build --locked --release --bin bend2-lsp
+      - name: Package binary and extract candidate for E2E
+        run: '"$PYTHON" scripts/release.py package'
+      - name: Run full native release test suite
+        run: cargo test --locked --release
+      - name: Mandatory native E2E against packaged release binary
+        run: cargo test --locked --test release_e2e
+      - name: Upload tested archive and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ inputs.channel }}-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true

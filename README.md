@@ -2,15 +2,31 @@
 
 `bend2-lsp` is a Rust LSP for Bend 2, built with `tower-lsp` and Tokio. It uses the installed `bend` command as its only compiler integration; each document revision also builds one immutable syntax index shared by source-based editor features.
 
-## Requirements
+## Installation
 
-- Rust 1.98.1, pinned by `rust-toolchain.toml`
-- Bend 2 CLI (`bend`) on `PATH` for compiler checks and `Base` source
+Prebuilt binaries are prepared for Windows, macOS, and GNU/Linux on both x86_64
+and ARM64. Download the archive matching your OS/CPU from the repository's GitHub
+**Releases** page, verify its SHA-256 checksum, extract it, and put `bend2-lsp`
+(Windows: `bend2-lsp.exe`) on `PATH` or configure your editor with its absolute
+path. Stable releases use `vMAJOR.MINOR.PATCH`; development builds are immutable
+`nightly-YYYY-MM-DD-<sha>` prereleases. Each published archive must pass native
+release-profile tests and packaged-binary LSP E2E on its own architecture.
 
-Build and run:
+The binaries do **not** include Bend 2. Install a supported Bend 2 CLI (`bend`)
+for compiler checks and `Base` source; its availability on your platform is
+independent of the server's binary support. Linux archives require GNU/glibc;
+macOS archives are separate Intel/Apple Silicon binaries. Signing and
+notarization are not provided yet.
+
+See [binary release installation and setup](docs/releases.md) for checksum
+commands, supported runners and limits, licensing, the release App secrets, and
+administrator settings required to enable publication. Preparing these files
+does not activate GitHub settings or publish a release.
+
+To build from source, use Rust 1.98.1, pinned by `rust-toolchain.toml`:
 
 ```sh
-cargo build --release
+cargo build --locked --release
 ./target/release/bend2-lsp
 ```
 
@@ -79,7 +95,7 @@ The gate checks formatting, rustc, Clippy, tests, feature combinations, and depe
 
 Release builds use optimization level 3, fat LTO, one codegen unit, and stripped symbols. Linux CI compares the benchmarked source-analysis paths with the pull request base using Callgrind; this is not a measurement of end-to-end editor latency. See [performance policy](docs/performance-policy.md).
 
-The policy-integrity workflow requires a maintainer-applied `policy-approved` label for enforcement-file changes; create that label in GitHub before relying on the gate. For non-bypassable enforcement, configure `main` rulesets to require `quality / quality`, `performance / compare`, and `policy-integrity / protect`, pull requests/review, up-to-date branches, and no force-push or bypass. GitHub host settings cannot be committed as repository files. This checkout has no Git remote, so its ruleset and reviewer identity are not configured here.
+The policy-integrity workflow requires a maintainer-applied `policy-approved` label for enforcement-file changes; create that label in GitHub before relying on the gate. For non-bypassable enforcement, configure `main` rulesets to require `quality / quality`, `performance / compare`, and `policy-integrity / protect`, pull requests/review, up-to-date branches, and no force-push or bypass. Performance and policy-integrity are PR-only gates; release automation consumes successful push quality runs and relies on these rules to enforce PR review and performance. GitHub host settings cannot be committed as repository files. See [release setup](docs/releases.md#one-time-repository-setup) for administrator operations; no settings are changed by preparing this checkout.
 
 ## Upstream
 

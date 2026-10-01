@@ -1,6 +1,7 @@
 #[cfg(unix)]
 #[path = "support/lsp_client.rs"]
 mod lsp_client;
+#[cfg(unix)]
 mod support;
 
 #[cfg(unix)]
