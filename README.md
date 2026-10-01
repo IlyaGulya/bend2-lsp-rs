@@ -93,6 +93,8 @@ Install the pinned quality tools (Rust/Cargo and Go are required) and run the au
 ```
 
 The gate includes `actionlint` 1.7.12, `ghalint` 1.5.6, and `zizmor` 1.30.1.
+Version checks accept both `1.7.12` and the upstream `v1.7.12` display format,
+but reject different versions and prereleases.
 Run `./scripts/check-workflows` for workflow-only verification. It rejects
 `pull_request_target`, unpinned external actions, excessive permissions,
 persisted checkout credentials, and unsafe expression interpolation. The three

@@ -21,13 +21,14 @@ class ToolVersionTests(unittest.TestCase):
         )
 
     def test_exact_version_formats(self):
-        for reported in ("0.20.2", "cargo-deny 0.20.2", "0.20.2\nbuild details"):
+        for reported in ("0.20.2", "v0.20.2", "cargo-deny 0.20.2", "actionlint v0.20.2", "0.20.2\nbuild details"):
             with self.subTest(reported=reported):
                 self.assertEqual(self.check_version(reported).returncode, 0)
 
     def test_wrong_or_unavailable_versions_fail(self):
         for reported in (
             "cargo-deny 0.20.20", "cargo-deny 0.20.2-beta", "cargo-deny 0.20.1",
+            "v0.20.20", "v0.20.2-beta",
             "unknown", "cargo-deny\n0.20.2",
         ):
             with self.subTest(reported=reported):
