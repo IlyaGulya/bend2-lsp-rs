@@ -15,8 +15,8 @@ GitHub Actions checks are mandatory in `scripts/quality`: pinned `actionlint`,
 credential persistence, secret scope, and injection risks. `pull_request_target`
 is forbidden. Do not add broad audit exclusions or expose privileged tokens to
 pull-request code. Trusted `workflow_run` jobs must validate repository identity,
-event, branch, and exact source SHA before privileged operations; a policy
-evaluator may inspect PR metadata but must never execute PR code or artifacts.
+event, branch, and exact source SHA before privileged operations. Privileged
+jobs must never execute PR code or consume PR artifacts.
 
 ## Policy boundaries
 
@@ -86,7 +86,3 @@ Allowed:
 - Keep the formatter on its separate scanner under the exception above.
 - Scan a bounded local slice when this avoids a second full-document semantic
   pass and benchmark evidence supports the tradeoff.
-
-## Policy-file changes
-
-Changes to enforcement files require the `policy-approved` label in the pull request. The `policy-integrity` workflow uses the default-branch workflow definition through `workflow_run` and does not check out or execute pull-request code. It publishes the `protect` check on the validated PR head. Label additions/removals automatically retrigger unprivileged quality and then trusted policy evaluation; dispatch `policy-integrity` on the default branch with `pr_number` for direct reevaluation. Repository administrators must also protect `main` with a ruleset requiring `quality`, `compare`, and `protect`, requiring pull requests and review, blocking force pushes, and disallowing bypass. Those server-side rules cannot be activated from this local repository.

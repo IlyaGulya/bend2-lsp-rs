@@ -15,7 +15,7 @@ from pathlib import Path
 import sys
 import re
 
-trusted_triggers = {"nightly.yml", "release.yml", "policy-integrity.yml"}
+trusted_triggers = {"nightly.yml", "release.yml"}
 for prefix in ("", ".", ".github/"):
     for suffix in (".yml", ".yaml"):
         config = Path(f"{prefix}ghalint{suffix}")

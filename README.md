@@ -97,9 +97,10 @@ Version checks accept both `1.7.12` and the upstream `v1.7.12` display format,
 but reject different versions and prereleases.
 Run `./scripts/check-workflows` for workflow-only verification. It rejects
 `pull_request_target`, unpinned external actions, excessive permissions,
-persisted checkout credentials, and unsafe expression interpolation. The three
+persisted checkout credentials, and unsafe expression interpolation. The two
 trusted `workflow_run` triggers have individually documented audit exceptions;
-none checks out or executes untrusted PR code with write permissions.
+neither checks out or executes untrusted PR code with write permissions.
+External JavaScript actions use Node.js 24 and remain pinned to full commit SHAs.
 GitHub's self-repository `$/` workflow references retain an exact compatibility
 exception for actionlint's older grammar; zizmor still checks those references.
 
@@ -107,7 +108,7 @@ The gate checks formatting, rustc, Clippy, tests, feature combinations, and depe
 
 Release builds use optimization level 3, fat LTO, one codegen unit, and stripped symbols. Linux CI compares the benchmarked source-analysis paths with the pull request base using Callgrind; this is not a measurement of end-to-end editor latency. See [performance policy](docs/performance-policy.md).
 
-The policy-integrity workflow requires a maintainer-applied `policy-approved` label for enforcement-file changes; create that label in GitHub before relying on the gate. It runs trusted default-branch code after PR quality completes and publishes `protect` on the validated PR head. Adding or removing labels automatically retriggers unprivileged quality and then trusted policy evaluation; dispatch policy-integrity on the default branch with `pr_number` for direct reevaluation. For non-bypassable enforcement, configure `main` rulesets to require `quality`, `compare`, and `protect`, pull requests/review, up-to-date branches, and no force-push or bypass. Release automation consumes successful push quality runs and relies on these rules for PR review and performance enforcement. GitHub host settings cannot be committed as repository files. See [release setup](docs/releases.md#one-time-repository-setup); no server settings are changed by preparing this checkout.
+Use ordinary maintainer PR review alongside CI. For non-bypassable enforcement, configure `main` rulesets to require `quality` and `compare`, pull requests/review, up-to-date branches, and no force-push or bypass. Release automation consumes successful push quality runs and relies on those server-side rules for PR review and performance enforcement; those rules are not activated by these repository files.
 
 ## Upstream
 

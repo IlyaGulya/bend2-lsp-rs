@@ -121,10 +121,9 @@ pass and `0→4` fail; the `2→3`, `2→6`, `62→65`, `62→66`, `1000→1029`
 `1000→1031` cache boundaries; and the unchanged `Ir` +2% boundary.
 
 The active workflow is
-[`performance.yml`](../.github/workflows/performance.yml). The comparator and
-its tests are protected paths in
-[`policy-integrity.yml`](../.github/workflows/policy-integrity.yml); edits to
-the enforcement require maintainer `policy-approved`.
+[`performance.yml`](../.github/workflows/performance.yml). Changes to the
+comparator and its tests require ordinary maintainer PR review; changes to
+metrics, thresholds, or the baseline workflow still require maintainer approval.
 
 The earlier 25-row saved-profile dry-run is not acceptance evidence for `.21`.
 The fresh exact legacy comparison with baseline

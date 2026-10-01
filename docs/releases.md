@@ -89,11 +89,10 @@ becomes public. A failed build, E2E, or upload leaves it draft-only.
 
 The quality gate also runs pinned actionlint, ghalint, and zizmor. Privileged
 consumers use individually guarded `workflow_run` events; no workflow uses
-`pull_request_target`. The policy evaluator runs default-branch code without
-checking out PR code and publishes `protect` on the exact validated PR head.
-**The Callgrind comparison and policy evaluation cover PRs**; release workflows
-do not rerun them on pushes. Their mandatory enforcement depends on server-side
-branch rules. A successful push quality run does not prove those rules exist.
+`pull_request_target`. **The Callgrind comparison covers PRs**; release workflows
+do not rerun it on pushes. Mandatory CI and maintainer review enforcement depend
+on server-side branch rules. A successful push quality run does not prove those
+rules exist.
 
 ## One-time repository setup
 
@@ -123,15 +122,11 @@ files. Do not commit a private key or token.
    token, not `GITHUB_TOKEN`, creates release PRs; this lets their normal PR
    workflows run despite GitHub's recursion restriction on `GITHUB_TOKEN`
    events. Publication jobs alone request `contents: write`. There is no
-   automated approval, merge, policy label, or setting change in these files.
-5. Create the `policy-approved` label. Protect `main` with a ruleset requiring
-   pull requests, independent human review, up-to-date branches, `quality`,
-   `compare`, and `protect`. Block force pushes and bypass, including bypass by
-   the release App. Release PRs change protected Cargo policy files, so a
-   maintainer must review those changes and apply `policy-approved`. The App
-   does not apply that label. Label changes automatically retrigger unprivileged
-   quality and then trusted policy evaluation. Dispatch `policy-integrity` on the
-   default branch with `pr_number` to reevaluate directly without a full quality run.
+   automated approval, merge, or setting change in these files.
+5. Protect `main` with a ruleset requiring pull requests, maintainer review,
+   up-to-date branches, `quality`, and `compare`. Block force pushes and bypass,
+   including bypass by the release App. Review release PRs through the ordinary
+   GitHub review process before merging.
 6. Merge the prepared files through the normal reviewed PR process, then merge
    Conventional Commits (`fix:`, `feat:`, or breaking-change markers). Observe
    the `quality`, `nightly`, and `release` runs. Review and merge the release PR
