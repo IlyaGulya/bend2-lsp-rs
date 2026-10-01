@@ -1,115 +1,228 @@
-# Bend 2 language server (Rust)
+# Bend 2 language server
 
-`bend2-lsp` is a Rust LSP for Bend 2, built with `tower-lsp` and Tokio. It uses the installed `bend` command as its only compiler integration; each document revision also builds one immutable syntax index shared by source-based editor features.
+`bend2-lsp` adds navigation, completion, diagnostics, and formatting for **Bend 2**
+to editors that support the Language Server Protocol (LSP).
 
-## Installation
+The server is a standalone Rust executable. It uses its own source indexes for
+editor features and your installed `bend` CLI for compiler checks. **Bend is not
+bundled with the server.**
 
-Prebuilt binaries are prepared for Windows, macOS, and GNU/Linux on both x86_64
-and ARM64. Download the executable matching your OS/CPU from the repository's
-GitHub **Releases** page and its adjacent `.sha256` file, verify the checksum,
-and put it on `PATH` as `bend2-lsp` (Windows: `bend2-lsp.exe`) or configure your
-editor with its absolute path. Stable releases use `vMAJOR.MINOR.PATCH`;
-development builds are immutable `nightly-YYYY-MM-DD-<sha>` prereleases.
-Each published executable must pass native release-profile tests and LSP E2E
-on its own architecture; E2E runs the exact file uploaded to the release.
+## Quick start
 
-The binaries do **not** include Bend 2. Install a supported Bend 2 CLI (`bend`)
-for compiler checks and `Base` source; its availability on your platform is
-independent of the server's binary support. Linux executables require GNU/glibc;
-macOS executables are separate Intel/Apple Silicon binaries. Signing and
-notarization are not provided yet.
+1. Install the Bend 2 CLI and make `bend` available to your editor, not just your
+   terminal. You can also configure an absolute compiler path below.
+2. Download the executable for your OS and CPU from
+   [Releases](https://github.com/IlyaGulya/bend2-lsp-rs/releases), together with its
+   adjacent `.sha256` file. Verify the checksum before installing.
+3. Rename the executable to `bend2-lsp` (`bend2-lsp.exe` on Windows). On macOS and
+   Linux, make it executable with `chmod +x bend2-lsp`.
+4. Configure your editor to launch it over **stdio** for `.bend` files, using
+   language ID `bend` or `bend2`. Open a Bend file.
 
-See [binary release installation and setup](docs/releases.md) for checksum
-commands, supported runners and limits, licensing, the release App secrets, and
-administrator settings required to enable publication. Preparing these files
-does not activate GitHub settings or publish a release.
+| OS | Available binaries | Notes |
+| --- | --- | --- |
+| Linux | x86_64, ARM64 | GNU/glibc; not a musl/Alpine build |
+| macOS | Intel, Apple Silicon | Choose the matching CPU architecture |
+| Windows | x64, ARM64 | Native `.exe` binaries |
 
-To build from source, use Rust 1.98.1, pinned by `rust-toolchain.toml`:
+Release assets are executables, not archives. Stable releases use `vX.Y.Z`;
+nightlies are development prereleases named `nightly-<date>-<commit>`.
+All six release binaries must pass native tests and LSP E2E before publication.
+
+Signing and macOS notarization are not provided. Older OS versions are not
+certified merely because a binary exists for that OS. See
+[installation details](docs/releases.md#installing-an-executable) for checksum
+commands, platform requirements, and security prompts.
+
+## Editor setup
+
+Use these values in your editor's LSP configuration:
+
+| Setting | Value |
+| --- | --- |
+| Server command | `bend2-lsp`, or its absolute path |
+| Transport | stdio |
+| File extension | `.bend` |
+| Language ID | `bend` or `bend2` |
+
+The server is an LSP process, not an interactive CLI. Running it directly can
+appear to do nothing: it is waiting for protocol messages on stdin. It does not
+provide a `--version` command; its version is returned during LSP initialization.
+
+### Compiler settings
+
+The defaults are `compilerPath: "bend"` and `compilerArguments: []`. To override
+them, have your client send this settings object through
+`workspace/didChangeConfiguration`:
+
+```json
+{
+  "bend2-lsp": {
+    "compilerPath": "/absolute/path/to/bend",
+    "compilerArguments": []
+  }
+}
+```
+
+This is an LSP settings payload, not a configuration file the server reads from
+disk. Your editor may have a different way to express it. `initializationOptions`
+is not used for these settings.
+
+Arguments are passed as individual strings, not interpreted by a shell. The
+server appends the staged source path and `--check-only` itself. The same
+configured executable and argument prefix are also used for `bend base`.
+Changing these settings clears the cached `Base` module and rechecks open files.
+
+## Supported LSP features
+
+“Supported” means the feature is implemented; its UI still depends on your
+editor. Source-based features are **not** a full compiler type checker.
+
+| Feature | Support and scope |
+| --- | --- |
+| Diagnostics | Local lexical checks plus errors from the installed Bend CLI; see limitations below |
+| Completion | Local names, keywords, imported module members, and indexed `Base` declarations |
+| Signature help | Function parameters and the active argument |
+| Hover | Declaration-derived information; not inferred types for arbitrary expressions |
+| Go to definition | Indexed local declarations and resolved imports |
+| Go to type definition | Declaration-derived type navigation |
+| Find references | Indexed symbol occurrences in the loaded workspace graph |
+| Rename | Symbol rename across indexed, loaded documents; not file/module rename |
+| Document highlights | Matching symbol occurrences in the current document |
+| Document symbols | Outline of declarations in a document |
+| Workspace symbols | Search over indexed workspace documents; not a scan of every file on disk |
+| Semantic highlighting | Full-document semantic tokens |
+| Code actions | Limited quick fixes for missing closing delimiters |
+| Inlay hints | Argument-name hints; not inferred-type hints |
+| Code lenses | Reference counts |
+| Call hierarchy | Incoming/outgoing calls through indexed declarations and local imports |
+| Type hierarchy | Algebraic data types and their constructors; requires client dynamic registration |
+| Formatting | Whole document, selected range, and on-type formatting triggered by newline |
+| Folding | Foldable source regions |
+| Selection ranges | Expand selection through enclosing source ranges |
+| Document links | Import navigation |
+| Incremental editing | Unsaved changes are used by source features and staged compiler checks |
+| Workspace folders | Multiple roots and workspace-folder changes |
+| Watched files | Rechecks affected documents when the client sends file-change notifications; dynamic watcher registration when supported |
+
+Local imports are indexed for cross-file features. `Base` comes from `bend base`.
+Hub package navigation uses packages already present in the local Bend library
+cache (`BEND_LIB` or the Bend home library); the server does not fetch packages.
+Untitled and virtual documents also support source-based features. Their text is
+staged in temporary files for compiler checks, rather than saved into your project.
+
+Formatting normalizes indentation and token spacing while preserving tokens,
+comments, line endings, and whether the file ends with a newline. It honors
+`tabSize` and `insertSpaces` and declines unsafe rewrites.
+
+## Not supported
+
+- **Full compiler-powered semantic analysis:** expression type inference,
+  compiler-derived hover/completion, and inferred-type inlay hints.
+- **Go to implementation** and the separate LSP **go to declaration** request.
+  Go to definition is supported.
+- **General refactorings:** extract function, organize imports, automatic import
+  insertion, and compiler-driven quick fixes.
+- **File-operation hooks:** automatic import updates when files are created,
+  renamed, or deleted through LSP file-operation requests.
+- **Whole-project discovery:** indexing every unrelated file on disk or fetching
+  missing Hub packages automatically.
+- **Pull diagnostics** (`textDocument/diagnostic`, `workspace/diagnostic`).
+  Diagnostics are pushed through `textDocument/publishDiagnostics`.
+- **Semantic token range/delta requests**, completion-item resolution, and
+  on-type formatting triggers other than newline.
+- **Build/run/debug integration:** the server does not replace Bend's CLI or a
+  debug adapter.
+- **Bend version negotiation:** no supported-version range, startup version
+  check, or automatic compiler installation/update.
+
+## Bend compatibility and diagnostics
+
+There is **no hard pin to a particular Bend version**. The server runs the Bend
+executable you configure and expects these CLI operations to remain compatible:
+
+```text
+bend [compilerArguments] <staged-file.bend> --check-only
+bend [compilerArguments] base
+```
+
+A newer compiler is not rejected simply for being newer. That is not a promise
+of forward compatibility: CLI changes, new language syntax, or a different
+error-output format can break compiler integration or source-based features.
+The server has its own syntax index, so acceptance by the compiler does not
+necessarily mean a new language construct is understood by every editor feature.
+
+Compiler diagnostics are parsed from human-readable output, not a structured
+compiler API. The current integration can report at most one compiler diagnostic
+per check; independent lexical diagnostics can appear alongside it. Locations
+are matched using source excerpts. If a match is ambiguous, the diagnostic falls
+back to the start of the root document rather than pointing at the wrong import.
+
+Checks use the latest unsaved buffers and reachable relative imports in a
+temporary tree. Changes are debounced by 250 ms; superseded checks are cancelled.
+If the compiler is unavailable, compiler checks cannot work, but source-based
+editor features do not require the compiler. `Base` navigation does require it.
+
+### Troubleshooting
+
+- **No features at all:** check the server command, `.bend` association, language
+  ID, and your editor's LSP log.
+- **Compiler cannot be started:** a GUI editor may not inherit your terminal's
+  `PATH`. Set an absolute `compilerPath`.
+- **No `Base` completions/navigation:** check that the configured compiler can
+  run `bend base` successfully.
+- **No Hub package navigation:** ensure the package is present in the local Bend
+  library cache and the editor sees the correct environment.
+- **Error points at the start of a file:** the compiler's output could not be
+  mapped unambiguously; read the diagnostic message for the compiler error.
+- **A feature is missing from the UI:** check both the support table above and
+  your editor's support. Type hierarchy needs dynamic registration in particular.
+
+## Development
+
+The Rust toolchain is pinned in `rust-toolchain.toml` (currently 1.98.1).
 
 ```sh
 cargo build --locked --release
-./target/release/bend2-lsp
 ```
 
-The server accepts the `bend` and `bend2` language IDs and uses incremental document sync. Diagnostics are debounced by 250 ms. File, untitled, and virtual documents support the same source-based navigation and editing features; virtual text is staged in a temporary directory, not written into the workspace.
-
-## Editor features
-
-The server provides completion (including imported module members and `Base`), signature help, declaration-derived hover and type navigation, definitions, references, rename, document highlights, document/workspace symbols, semantic tokens, delimiter quick fixes, argument-name inlay hints, reference-count code lenses, folding, selection ranges, import document links, and call hierarchy.
-
-Type hierarchy is dynamically registered when the client supports it. For Bend algebraic data types, the declared type is the parent and its constructors are the children. Call and type hierarchy follow indexed local imports.
-
-## Compiler integration and limits
-
-Compiler checks stage the open source and its reachable relative imports in a temporary tree, preferring open buffers over disk. Changes to imported buffers and watched files trigger dependent-document checks. Results are cached for fully resolved local source graphs up to 1 MiB, with at most 32 roots retained; the key includes compiler path/arguments/stamp, graph paths/import edges, and snapshot contents. Byte-identical text reuses a cached result across document revisions. Hub, absolute, `Base`, unresolved, and larger graphs bypass this cache.
-
-Cache misses stage on a bounded blocking pool (four compiler permits), then `bend2-lsp` invokes `bend [compilerArguments] <staged-entry> --check-only`. The CLI exposes human-readable diagnostics, not a structured Rust API or a persistent worker. Its current checker stops at the first compiler error, so one check can publish at most one compiler diagnostic; independent lexical diagnostics can still be reported together. The server maps CLI locations from source excerpts and falls back to the root document start when the excerpt cannot be matched unambiguously.
-Document snapshot construction, watched-file reads, and import graph staging are
-gated by a separate four-permit semaphore before entering Tokio's shared
-blocking pool.
-Document-scoped requests wait for the latest revision and local reachable imports. Workspace-wide requests use the committed database view; pending document revisions are invisible and do not delay those requests.
-
-`Base` declarations are loaded with `bend base` and cached for navigation. Hub package navigation uses the local Bend library cache (`BEND_LIB`, or the Bend home library); Hub fetching remains the CLI's responsibility, so navigation requires the package to be cached.
-
-## Formatting
-
-Formatting preserves the token stream, comments, blank lines, line endings, and final-newline state while normalizing indentation and token spacing. The scanner declines to rewrite input it cannot safely fingerprint. Full-document, range, and newline-triggered formatting honor `tabSize` and `insertSpaces`.
-
-## Editor configuration
-
-Launch `bend2-lsp` over stdio and associate `.bend` files with language ID `bend` (or `bend2`). Workspace settings `bend2-lsp.compilerPath` and `bend2-lsp.compilerArguments` select the compiler executable and arguments.
-
-## Performance tracing
-
-Opt-in Chrome/Perfetto tracing uses `BEND2_LSP_TRACE`; capture setup, privacy guarantees, span meanings, and profiler guidance are in [docs/tracing.md](docs/tracing.md).
-
-## Persistent Linux Docker environment
-
-The ARM64 Compose service keeps the pinned Rust toolchain, quality tools, Valgrind runner, Cargo downloads, and compiled project artifacts available across runs.
-
-Build and start it once:
-
-```sh
-docker compose up -d --build rust
-```
-
-For later runs, reuse the existing service and named cache volumes:
-
-```sh
-docker compose exec rust ./scripts/quality
-docker compose exec rust cargo bench --locked --bench analysis -- \
-  --callgrind-args='--cache-sim=yes'
-```
-
-Use `docker compose stop rust` and `docker compose start rust` to pause and resume the same container. Rebuild only after changing `Dockerfile`; avoid `docker compose down -v` and `docker volume prune` when retaining caches matters.
-
-## Development quality and performance
-
-Install the pinned quality tools (Rust/Cargo and Go are required) and run the authoritative local gate:
+The server executable is `target/release/bend2-lsp` (`.exe` on Windows).
+Before submitting a change, install the pinned helper tools and run the full gate:
 
 ```sh
 ./scripts/install-tools.sh
 ./scripts/quality
 ```
 
-The gate includes `actionlint` 1.7.12, `ghalint` 1.5.6, and `zizmor` 1.30.1.
-Version checks accept both `1.7.12` and the upstream `v1.7.12` display format,
-but reject different versions and prereleases.
-Run `./scripts/check-workflows` for workflow-only verification. It rejects
-`pull_request_target`, unpinned external actions, excessive permissions,
-persisted checkout credentials, and unsafe expression interpolation. The two
-trusted `workflow_run` triggers have individually documented audit exceptions;
-neither checks out or executes untrusted PR code with write permissions.
-External JavaScript actions use Node.js 24 and remain pinned to full commit SHAs.
-GitHub's self-repository `$/` workflow references retain an exact compatibility
-exception for actionlint's older grammar; zizmor still checks those references.
+Installing the helpers requires Rust/Cargo and Go. The gate covers formatting,
+rustc, Clippy, tests, feature combinations, dependency policy, and GitHub Actions
+security checks (`actionlint`, `ghalint`, `zizmor`).
 
-The gate checks formatting, rustc, Clippy, tests, feature combinations, and dependency policy. Workspace lints deny warnings, Clippy `all`/`pedantic`/`perf`, production `unwrap()`/`expect()`, inline lint suppressions, and unsafe code.
+For the persistent ARM64 Linux environment:
 
-Release builds use optimization level 3, fat LTO, one codegen unit, and stripped symbols. Linux CI compares the benchmarked source-analysis paths with the pull request base using Callgrind; this is not a measurement of end-to-end editor latency. See [performance policy](docs/performance-policy.md).
+```sh
+docker compose up -d --build rust
+docker compose exec rust ./scripts/quality
+```
 
-Use ordinary maintainer PR review alongside CI. For non-bypassable enforcement, configure `main` rulesets to require `quality` and `compare`, pull requests/review, up-to-date branches, and no force-push or bypass. Release automation consumes successful push quality runs and relies on those server-side rules for PR review and performance enforcement; those rules are not activated by these repository files.
+Keep the named Cargo and target volumes. Use `docker compose stop rust` /
+`docker compose start rust` for routine pause/resume; rebuild only when the
+container definition changes.
 
-## Upstream
+Further details:
 
-The upstream TypeScript server bundles the Bend compiler. This Rust implementation keeps the CLI boundary explicit: compiler diagnostics remain limited to the installed CLI's output, while indexed source features do not claim compiler-derived type information.
+- [Performance policy and Callgrind gates](docs/performance-policy.md) — measures
+  analysis paths, not end-to-end editor latency.
+- [Tracing with Chrome/Perfetto](docs/tracing.md) — opt-in through `BEND2_LSP_TRACE`.
+- [Release automation and repository setup](docs/releases.md) — ordinary PR
+  review plus CI; server-side branch rules must be configured separately.
+
+## Implementation
+
+Built with `tower-lsp` and Tokio. Cold document construction prepares immutable
+syntax and occurrence indexes; warm feature requests reuse snapshots and
+workspace indexes. The formatter keeps its own lexical scanner.
+
+Unlike the upstream TypeScript server, this implementation does not bundle Bend.
+The installed CLI is the only compiler integration; navigation and editing
+features otherwise operate on indexed source.
