@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 """Package native binaries and publish only complete, SHA-verified releases."""
 
-import gzip
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
-import tarfile
 import tomllib
 import urllib.error
 import urllib.request
-import zipfile
 
 TARGETS = (
     "x86_64-unknown-linux-gnu",
@@ -126,9 +123,14 @@ def candidate():
         output.write(f"tag={tag}\npublish={str(publish).lower()}\n")
 
 
-def archive_name(tag, target):
-    suffix = ".zip" if "windows" in target else ".tar.gz"
+def asset_name(tag, target):
+    suffix = ".exe" if "windows" in target else ""
     return f"bend2-lsp-{tag}-{target}{suffix}"
+
+
+def file_sha256(path):
+    with path.open("rb") as source:
+        return hashlib.file_digest(source, "sha256").hexdigest()
 
 
 def package():
@@ -139,94 +141,87 @@ def package():
     tag = os.environ["RELEASE_TAG"]
     executable = "bend2-lsp.exe" if "windows" in target else "bend2-lsp"
     binary = Path("target/release") / executable
-    root = f"bend2-lsp-{tag}-{target}"
+    dist = Path("dist")
+    dist.mkdir(exist_ok=True)
+    asset = dist / asset_name(tag, target)
+    for path in (asset, Path(f"{asset}.sha256"), Path(f"{asset}.metadata.json")):
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise ValueError(f"release artifact must be a regular file: {path.name}")
+    shutil.copyfile(binary, asset)
+    asset.chmod(0o755)
+    checksum = file_sha256(asset)
+    Path(f"{asset}.sha256").write_text(f"{checksum}  {asset.name}\n", encoding="utf-8", newline="\n")
+    # CI-only metadata binds the source identity to the exact tested/uploaded bytes.
     metadata = {
         "source_sha": os.environ["RELEASE_SHA"],
         "tag": tag,
         "version": version,
         "target": target,
         "channel": os.environ["RELEASE_CHANNEL"],
+        "asset": asset.name,
+        "sha256": checksum,
     }
-    files = {
-        executable: binary.read_bytes(),
-        "LICENSE": Path("LICENSE").read_bytes(),
-        "README.md": Path("README.md").read_bytes(),
-        "RELEASE-METADATA.json": (json.dumps(metadata, indent=2) + "\n").encode(),
-    }
-    dist = Path("dist")
-    dist.mkdir(exist_ok=True)
-    archive = dist / archive_name(tag, target)
-    if "windows" in target:
-        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
-            for name, content in files.items():
-                member = zipfile.ZipInfo(f"{root}/{name}", date_time=(1980, 1, 1, 0, 0, 0))
-                member.compress_type = zipfile.ZIP_DEFLATED
-                member.external_attr = (0o755 if name == executable else 0o644) << 16
-                output.writestr(member, content)
-        with zipfile.ZipFile(archive) as packaged:
-            tested_bytes = packaged.read(f"{root}/{executable}")
-    else:
-        with archive.open("wb") as raw:
-            with gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as compressed:
-                with tarfile.open(fileobj=compressed, mode="w") as output:
-                    for name, content in files.items():
-                        member = tarfile.TarInfo(f"{root}/{name}")
-                        member.size = len(content)
-                        member.mode = 0o755 if name == executable else 0o644
-                        output.addfile(member, io.BytesIO(content))
-        with tarfile.open(archive, "r:gz") as packaged:
-            member = packaged.extractfile(f"{root}/{executable}")
-            if member is None:
-                raise ValueError("archive has no executable")
-            tested_bytes = member.read()
-    checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
-    Path(f"{archive}.sha256").write_text(f"{checksum}  {archive.name}\n")
-    # Exercise the bytes read back from the actual archive, not an unrelated cargo binary.
-    smoke = Path(os.environ["RUNNER_TEMP"]) / "release-e2e" / executable
-    smoke.parent.mkdir(parents=True, exist_ok=True)
-    smoke.write_bytes(tested_bytes)
-    smoke.chmod(0o755)
-    with Path(os.environ["GITHUB_ENV"]).open("a") as output:
-        output.write(f"BEND2_LSP_TEST_BINARY={smoke.resolve()}\n")
-    print(f"Packaged {archive}; E2E executable: {smoke}")
+    Path(f"{asset}.metadata.json").write_text(
+        json.dumps(metadata, indent=2) + "\n", encoding="utf-8", newline="\n",
+    )
+    with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8", newline="\n") as output:
+        output.write(f"BEND2_LSP_TEST_BINARY={asset.resolve()}\n")
+    print(f"Packaged {asset}; E2E executable: {asset.resolve()}")
 
 
 def validate_artifacts(tag, version):
     dist = Path("dist")
     expected = set()
+    public = set()
     checksums = []
     for target in TARGETS:
-        name = archive_name(tag, target)
-        expected.update((name, f"{name}.sha256"))
-        archive = dist / name
-        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        name = asset_name(tag, target)
+        public.update((name, f"{name}.sha256"))
+        expected.update((name, f"{name}.sha256", f"{name}.metadata.json"))
+        asset = dist / name
+        for path in (asset, dist / f"{name}.sha256", dist / f"{name}.metadata.json"):
+            if path.is_symlink() or not path.is_file():
+                raise ValueError(f"release artifact must be a regular file: {path.name}")
+        digest = file_sha256(asset)
         checksum = f"{digest}  {name}\n"
         if (dist / f"{name}.sha256").read_text() != checksum:
-            raise ValueError(f"archive checksum mismatch: {name}")
+            raise ValueError(f"executable checksum mismatch: {name}")
         checksums.append(checksum)
-        metadata_path = f"bend2-lsp-{tag}-{target}/RELEASE-METADATA.json"
-        if name.endswith(".zip"):
-            with zipfile.ZipFile(archive) as packaged:
-                metadata = json.loads(packaged.read(metadata_path))
-        else:
-            with tarfile.open(archive, "r:gz") as packaged:
-                member = packaged.extractfile(metadata_path)
-                if member is None:
-                    raise ValueError(f"missing release metadata: {name}")
-                metadata = json.load(member)
+        metadata = json.loads((dist / f"{name}.metadata.json").read_text())
         if metadata != {
             "source_sha": os.environ["RELEASE_SHA"],
             "tag": tag,
             "version": version,
             "target": target,
             "channel": os.environ["RELEASE_CHANNEL"],
+            "asset": name,
+            "sha256": digest,
         }:
-            raise ValueError(f"archive identity mismatch: {name}")
+            raise ValueError(f"executable identity mismatch: {name}")
     actual = {entry.name for entry in dist.iterdir()}
-    if actual != expected:
+    # Revalidating the same complete directory is safe; never trust its old manifest.
+    if actual not in (expected, expected | {"SHA256SUMS"}):
         raise ValueError("release artifacts are incomplete or contain unexpected files")
-    (dist / "SHA256SUMS").write_text("".join(checksums))
-    return sorted(expected | {"SHA256SUMS"})
+    manifest = dist / "SHA256SUMS"
+    if manifest.is_symlink() or (manifest.exists() and not manifest.is_file()):
+        raise ValueError("checksum manifest must be a regular file")
+    manifest.write_text("".join(checksums), encoding="utf-8", newline="\n")
+    return sorted(public | {"SHA256SUMS"})
+
+
+def validate_uploaded_assets(release, assets, allow_missing=False):
+    uploaded = {asset["name"]: asset for asset in release["assets"]}
+    expected = set(assets)
+    if len(uploaded) != len(release["assets"]) or not set(uploaded) <= expected:
+        raise ValueError("uploaded asset set contains unexpected or duplicate assets")
+    missing = expected - set(uploaded)
+    if missing and not allow_missing:
+        raise ValueError("uploaded asset set does not match all six tested targets")
+    for name, asset in uploaded.items():
+        path = Path("dist") / name
+        if asset.get("digest") != f"sha256:{file_sha256(path)}" or asset["size"] != path.stat().st_size:
+            raise ValueError(f"uploaded asset bytes do not match tested artifact: {name}")
+    return sorted(missing)
 
 
 def publish():
@@ -245,8 +240,7 @@ def publish():
         if actual_sha != sha or release["prerelease"] != nightly:
             raise ValueError("existing release identity or channel mismatch")
         if not release["draft"]:
-            if {asset["name"] for asset in release["assets"]} != set(assets):
-                raise ValueError("published release is incomplete; refusing to mutate it")
+            validate_uploaded_assets(release, assets)
             print(f"{tag} is already public at {sha}; leaving all assets unchanged")
             return
     else:
@@ -257,7 +251,7 @@ def publish():
             "target_commitish": sha,
             "name": tag,
             "body": f"Native nightly binaries from `{sha}`.\n\n"
-                    "All six targets passed the full release suite and packaged-binary E2E. "
+                    "All six targets passed the full release suite and direct-executable E2E. "
                     "See docs/releases.md for platform and installation limits.",
             "draft": True,
             "prerelease": True,
@@ -265,14 +259,27 @@ def publish():
         })
     if tag_sha(tag) != sha:
         raise ValueError("release tag changed before artifact upload")
-    subprocess.run([
-        "gh", "release", "upload", tag,
-        *[str(Path("dist") / name) for name in assets],
-        "--clobber", "--repo", os.environ["GITHUB_REPOSITORY"],
-    ], check=True)
+    # A retry may resume a partial draft, but must never replace existing assets.
+    release = api(f"releases/{release['id']}")
+    if release["prerelease"] != nightly:
+        raise ValueError("existing release channel changed before artifact upload")
+    missing = validate_uploaded_assets(release, assets, allow_missing=release["draft"])
+    if not release["draft"]:
+        print(f"{tag} became public at {sha}; leaving all assets unchanged")
+        return
+    if missing:
+        subprocess.run([
+            "gh", "release", "upload", tag,
+            *[str(Path("dist") / name) for name in missing],
+            "--repo", os.environ["GITHUB_REPOSITORY"],
+        ], check=True)
     uploaded = api(f"releases/{release['id']}")
-    if {asset["name"] for asset in uploaded["assets"]} != set(assets):
-        raise ValueError("uploaded asset set does not match all six tested targets")
+    validate_uploaded_assets(uploaded, assets)
+    if uploaded["prerelease"] != nightly:
+        raise ValueError("existing release channel changed before publication")
+    if not uploaded["draft"]:
+        print(f"{tag} became public at {sha}; leaving all assets unchanged")
+        return
     if tag_sha(tag) != sha:
         raise ValueError("release tag changed before publication")
     if nightly and api("branches/main")["commit"]["sha"] != sha:
@@ -283,7 +290,7 @@ def publish():
         "prerelease": nightly,
         "make_latest": "false" if nightly else "true",
     })
-    print(f"Published {tag} at {sha} with six tested native archives and SHA256SUMS")
+    print(f"Published {tag} at {sha} with six tested native executables and SHA256SUMS")
 
 
 if __name__ == "__main__":

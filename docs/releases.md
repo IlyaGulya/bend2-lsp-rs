@@ -39,14 +39,14 @@ also bump the minor version.
 
 ## Native platforms and gates
 
-| Archive target | Native GitHub-hosted runner | Format |
+| Executable target | Native GitHub-hosted runner | Extension |
 | --- | --- | --- |
-| `x86_64-unknown-linux-gnu` | `ubuntu-24.04` | `.tar.gz` |
-| `aarch64-unknown-linux-gnu` | `ubuntu-24.04-arm` | `.tar.gz` |
-| `x86_64-apple-darwin` | `macos-15-intel` | `.tar.gz` |
-| `aarch64-apple-darwin` | `macos-15` | `.tar.gz` |
-| `x86_64-pc-windows-msvc` | `windows-2022` | `.zip` |
-| `aarch64-pc-windows-msvc` | `windows-11-arm` | `.zip` |
+| `x86_64-unknown-linux-gnu` | `ubuntu-24.04` | none |
+| `aarch64-unknown-linux-gnu` | `ubuntu-24.04-arm` | none |
+| `x86_64-apple-darwin` | `macos-15-intel` | none |
+| `aarch64-apple-darwin` | `macos-15` | none |
+| `x86_64-pc-windows-msvc` | `windows-2022` | `.exe` |
+| `aarch64-pc-windows-msvc` | `windows-11-arm` | `.exe` |
 
 The reusable `release-binaries` workflow checks both runner architecture and the
 Rust compiler's host triple; it does not cross-compile or run x86 binaries under
@@ -55,13 +55,14 @@ runs, in order:
 
 ```sh
 cargo build --locked --release --bin bend2-lsp
-# scripts/release.py packages the binary and reads it back from the archive.
-# BEND2_LSP_TEST_BINARY points to that extracted, optimized executable.
-cargo test --locked --release
-cargo test --locked --test release_e2e
+# scripts/release.py copies the final executable and hashes its bytes.
+# BEND2_LSP_TEST_BINARY points to that exact release asset.
+cargo nextest run --workspace --all-features --locked --release --profile ci
+cargo test --doc --locked --release
+cargo nextest run --locked --test release_e2e --profile ci
 ```
 
-Release archive/version integrity regression tests also run on each native
+Executable/version integrity regression tests also run on each native
 runner with `python -m unittest discover -s scripts -p test_release.py`
 (`python3` on Unix).
 
@@ -75,21 +76,24 @@ controlled compiler fixture. It does not download or certify an upstream Bend
 compiler on each platform. Existing Unix integration tests remain Unix-only;
 the portable release E2E is mandatory everywhere, including both Windows
 architectures. Full release-profile tests additionally run natively on all six
-runners. No failed test is retried or waived by release automation.
+runners. Nextest uses quality's serialized CI profile: retries collect failure
+evidence, but `flaky-result = "fail"` rejects a flaky test even if its retry passes.
+Doctests still run separately.
 
-Publication depends on the entire matrix succeeding. The publisher then verifies
-all six archives, their checksums, embedded version/channel/SHA/target metadata,
-and the tag's resolved commit. It uploads assets into a draft and checks the
-complete uploaded asset set before making the release public. A failed build,
-E2E, or upload leaves the stable release draft-only; there is no partial public
-stable release. Publishing a nightly follows the same all-target barrier.
+Publication depends on the entire matrix succeeding. The publisher verifies
+all six executables, their checksums, internal version/channel/SHA/target/filename
+metadata, and the tag's resolved commit. Metadata stays in CI artifacts; public
+assets are six executables, six checksum files, and `SHA256SUMS`. Assets upload
+into a draft and their remote sizes and SHA-256 digests must match before it
+becomes public. A failed build, E2E, or upload leaves it draft-only.
 
-Existing quality, policy-integrity, and performance workflows are unchanged.
-**The Callgrind performance comparison and policy-integrity checks are PR-only**;
-these release workflows do not rerun them on pushes. Their enforcement relies on
-maintainers configuring the non-bypassable `main` ruleset described below. A
-successful push quality run alone does not prove that the server-side PR rules
-were configured or followed.
+The quality gate also runs pinned actionlint, ghalint, and zizmor. Privileged
+consumers use individually guarded `workflow_run` events; no workflow uses
+`pull_request_target`. The policy evaluator runs default-branch code without
+checking out PR code and publishes `protect` on the exact validated PR head.
+**The Callgrind comparison and policy evaluation cover PRs**; release workflows
+do not rerun them on pushes. Their mandatory enforcement depends on server-side
+branch rules. A successful push quality run does not prove those rules exist.
 
 ## One-time repository setup
 
@@ -121,12 +125,13 @@ files. Do not commit a private key or token.
    events. Publication jobs alone request `contents: write`. There is no
    automated approval, merge, policy label, or setting change in these files.
 5. Create the `policy-approved` label. Protect `main` with a ruleset requiring
-   pull requests, independent human review, up-to-date branches, `quality /
-   quality`, `performance / compare`, and `policy-integrity / protect`. Block
-   force pushes and bypass, including bypass by the release App. Release PRs
-   change protected Cargo policy files, so a maintainer must review those
-   changes and apply `policy-approved` before merging. The App does not apply
-   that label. Review the workflow-setup PR under the same policy.
+   pull requests, independent human review, up-to-date branches, `quality`,
+   `compare`, and `protect`. Block force pushes and bypass, including bypass by
+   the release App. Release PRs change protected Cargo policy files, so a
+   maintainer must review those changes and apply `policy-approved`. The App
+   does not apply that label. Label changes automatically retrigger unprivileged
+   quality and then trusted policy evaluation. Dispatch `policy-integrity` on the
+   default branch with `pr_number` to reevaluate directly without a full quality run.
 6. Merge the prepared files through the normal reviewed PR process, then merge
    Conventional Commits (`fix:`, `feat:`, or breaking-change markers). Observe
    the `quality`, `nightly`, and `release` runs. Review and merge the release PR
@@ -147,55 +152,55 @@ run to retrigger the consumers. A manually dispatched quality run is intentional
 not a publication trigger. Rerun all release jobs rather than only a publisher
 whose required artifacts may have expired (workflow artifacts are kept 14 days).
 
-Draft assets can be replaced on retry, but public release assets and tags are
-never moved or overwritten. Stable candidate discovery uses the existing draft
-and exact tag SHA, so it does not depend on release-please reporting
-`release_created` again. Already public, complete releases are left untouched.
+Draft retries upload only missing assets and reject differing existing bytes.
+Public release assets and tags are never moved or overwritten. Stable candidate
+discovery uses the existing draft and exact tag SHA, so it does not depend on
+release-please reporting `release_created` again. Complete public releases stay untouched.
 A tag pointing to a different SHA or an incomplete public asset set is an error,
 not permission to replace history. Never manually publish a failed draft to
 bypass the native matrix. A repaired source change needs a new reviewed commit,
 quality run, and appropriate release PR/version, rather than retagging a released
 version.
 
-## Installing an archive
+## Installing an executable
 
 Choose a stable release on the repository's GitHub **Releases** page, or explicitly
-choose a nightly prerelease. Download the archive matching your OS and CPU plus
-its `.sha256` file (or `SHA256SUMS`). Asset names are
-`bend2-lsp-<tag>-<target>.tar.gz` or `.zip`. Verify before extracting:
+choose a nightly prerelease. Download the executable matching your OS and CPU
+plus its `.sha256` file (or `SHA256SUMS`). Names are `bend2-lsp-<tag>-<target>`,
+with `.exe` appended for Windows. New releases contain no archives; previously
+published archived releases remain unchanged.
 
 ```sh
 # Linux: substitute the exact downloaded filename.
-sha256sum --check bend2-lsp-<tag>-<target>.tar.gz.sha256
+sha256sum --check bend2-lsp-<tag>-<target>.sha256
 # macOS:
-shasum -a 256 --check bend2-lsp-<tag>-<target>.tar.gz.sha256
+shasum -a 256 --check bend2-lsp-<tag>-<target>.sha256
+chmod +x bend2-lsp-<tag>-<target>
 ```
 
 On Windows PowerShell, compare the actual hash against the first field of the
 sidecar file, and stop if they differ:
 
 ```powershell
-$archive = 'bend2-lsp-<tag>-<target>.zip'
-$expected = (Get-Content "$archive.sha256").Split(' ')[0]
-if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
-    throw 'Archive checksum mismatch'
+$binary = 'bend2-lsp-<tag>-<target>.exe'
+$expected = (Get-Content "$binary.sha256").Split(' ')[0]
+if ((Get-FileHash $binary -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+    throw 'Executable checksum mismatch'
 }
-Expand-Archive $archive -DestinationPath .
 ```
 
-Each archive has one directory containing `bend2-lsp` (or `bend2-lsp.exe`), the
-Apache-2.0 `LICENSE`, this project's README, and `RELEASE-METADATA.json`. Keep the
-license with redistributed binaries. The archive does not bundle the Bend
-compiler, an editor extension, or a complete third-party license inventory;
-redistributors must account for their dependencies' license obligations as well.
+The executable does not bundle the Bend compiler or an editor extension. The
+Apache-2.0 license remains available as this repository's `LICENSE`; retain a
+copy with redistributed binaries and account for dependency license obligations.
 SHA-256 provides integrity relative to the downloaded checksum, not an
 independent publisher signature. **No code signing, Apple notarization,
 Authenticode signature, or provenance attestation is provided yet.** Windows
 SmartScreen or macOS Gatekeeper may warn; follow local security policy rather
 than automatically disabling protections.
 
-Extract and place the executable on `PATH` (or point your editor at its absolute
-path). On Unix, preserve its executable permission. Configure `.bend` files to
+Place the executable on `PATH` as `bend2-lsp` (Windows: `bend2-lsp.exe`), or point
+your editor at its absolute path. On Unix, set its executable permission.
+Configure `.bend` files to
 use language ID `bend` or `bend2` and launch the server over stdio. The process is
 an LSP endpoint, not an interactive shell command or a `--version` health probe.
 

@@ -5,17 +5,18 @@
 ## Installation
 
 Prebuilt binaries are prepared for Windows, macOS, and GNU/Linux on both x86_64
-and ARM64. Download the archive matching your OS/CPU from the repository's GitHub
-**Releases** page, verify its SHA-256 checksum, extract it, and put `bend2-lsp`
-(Windows: `bend2-lsp.exe`) on `PATH` or configure your editor with its absolute
-path. Stable releases use `vMAJOR.MINOR.PATCH`; development builds are immutable
-`nightly-YYYY-MM-DD-<sha>` prereleases. Each published archive must pass native
-release-profile tests and packaged-binary LSP E2E on its own architecture.
+and ARM64. Download the executable matching your OS/CPU from the repository's
+GitHub **Releases** page and its adjacent `.sha256` file, verify the checksum,
+and put it on `PATH` as `bend2-lsp` (Windows: `bend2-lsp.exe`) or configure your
+editor with its absolute path. Stable releases use `vMAJOR.MINOR.PATCH`;
+development builds are immutable `nightly-YYYY-MM-DD-<sha>` prereleases.
+Each published executable must pass native release-profile tests and LSP E2E
+on its own architecture; E2E runs the exact file uploaded to the release.
 
 The binaries do **not** include Bend 2. Install a supported Bend 2 CLI (`bend`)
 for compiler checks and `Base` source; its availability on your platform is
-independent of the server's binary support. Linux archives require GNU/glibc;
-macOS archives are separate Intel/Apple Silicon binaries. Signing and
+independent of the server's binary support. Linux executables require GNU/glibc;
+macOS executables are separate Intel/Apple Silicon binaries. Signing and
 notarization are not provided yet.
 
 See [binary release installation and setup](docs/releases.md) for checksum
@@ -84,18 +85,27 @@ Use `docker compose stop rust` and `docker compose start rust` to pause and resu
 
 ## Development quality and performance
 
-Install the pinned Rust quality tools and run the authoritative local gate:
+Install the pinned quality tools (Rust/Cargo and Go are required) and run the authoritative local gate:
 
 ```sh
 ./scripts/install-tools.sh
 ./scripts/quality
 ```
 
+The gate includes `actionlint` 1.7.12, `ghalint` 1.5.6, and `zizmor` 1.30.1.
+Run `./scripts/check-workflows` for workflow-only verification. It rejects
+`pull_request_target`, unpinned external actions, excessive permissions,
+persisted checkout credentials, and unsafe expression interpolation. The three
+trusted `workflow_run` triggers have individually documented audit exceptions;
+none checks out or executes untrusted PR code with write permissions.
+GitHub's self-repository `$/` workflow references retain an exact compatibility
+exception for actionlint's older grammar; zizmor still checks those references.
+
 The gate checks formatting, rustc, Clippy, tests, feature combinations, and dependency policy. Workspace lints deny warnings, Clippy `all`/`pedantic`/`perf`, production `unwrap()`/`expect()`, inline lint suppressions, and unsafe code.
 
 Release builds use optimization level 3, fat LTO, one codegen unit, and stripped symbols. Linux CI compares the benchmarked source-analysis paths with the pull request base using Callgrind; this is not a measurement of end-to-end editor latency. See [performance policy](docs/performance-policy.md).
 
-The policy-integrity workflow requires a maintainer-applied `policy-approved` label for enforcement-file changes; create that label in GitHub before relying on the gate. For non-bypassable enforcement, configure `main` rulesets to require `quality / quality`, `performance / compare`, and `policy-integrity / protect`, pull requests/review, up-to-date branches, and no force-push or bypass. Performance and policy-integrity are PR-only gates; release automation consumes successful push quality runs and relies on these rules to enforce PR review and performance. GitHub host settings cannot be committed as repository files. See [release setup](docs/releases.md#one-time-repository-setup) for administrator operations; no settings are changed by preparing this checkout.
+The policy-integrity workflow requires a maintainer-applied `policy-approved` label for enforcement-file changes; create that label in GitHub before relying on the gate. It runs trusted default-branch code after PR quality completes and publishes `protect` on the validated PR head. Adding or removing labels automatically retriggers unprivileged quality and then trusted policy evaluation; dispatch policy-integrity on the default branch with `pr_number` for direct reevaluation. For non-bypassable enforcement, configure `main` rulesets to require `quality`, `compare`, and `protect`, pull requests/review, up-to-date branches, and no force-push or bypass. Release automation consumes successful push quality runs and relies on these rules for PR review and performance enforcement. GitHub host settings cannot be committed as repository files. See [release setup](docs/releases.md#one-time-repository-setup); no server settings are changed by preparing this checkout.
 
 ## Upstream
 

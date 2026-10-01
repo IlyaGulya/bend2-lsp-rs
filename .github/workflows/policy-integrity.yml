@@ -1,39 +1,207 @@
 name: policy-integrity
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+  # Trusted default-branch definition; API-only PR checks, with no checkout or artifacts.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows: [quality]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to reevaluate after changing policy-approved
+        required: true
+        type: string
 
-permissions:
-  pull-requests: read
+permissions: {}
+
+# Serialize reevaluations so a previous label snapshot cannot overwrite a newer check.
+concurrency:
+  group: policy-integrity
+  cancel-in-progress: false
 
 jobs:
   protect:
+    # workflow_dispatch can select a ref; never execute a non-default-branch definition.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      checks: write
+      pull-requests: read
     steps:
-      - name: Require maintainer approval for policy changes
+      # No checkout, artifacts, caches, or execution of code from the originating run.
+      - name: Publish trusted policy check on the live pull request head
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          POLICY_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'policy-approved') }}
+          TRUSTED_REPOSITORY_ID: ${{ github.repository_id }}
         run: |
-          set -euo pipefail
-          changed_files="$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
-          protected_files=()
-          while IFS= read -r path; do
-            case "$path" in
-              .gitignore|.dockerignore|Dockerfile|compose.yaml|Cargo.toml|Cargo.lock|rust-toolchain.toml|deny.toml|.config/nextest.toml|.github/workflows/*|.github/CODEOWNERS|scripts/quality*|scripts/check-policy*|scripts/install-tools.sh|scripts/performance_policy.py|scripts/test_performance_policy.py|benches/*|perf-baseline/*|docs/performance-policy.md|AGENTS.md)
-                protected_files+=("$path")
-                ;;
-            esac
-          done <<< "$changed_files"
+          python3 - <<'PY'
+          import fnmatch
+          import json
+          import os
+          import re
+          import urllib.request
 
-          if ((${#protected_files[@]} > 0)); then
-            printf 'Protected policy files changed:\n'
-            printf '  %s\n' "${protected_files[@]}"
-            if [[ "$POLICY_APPROVED" != "true" ]]; then
-              echo 'A maintainer must apply the policy-approved label after reviewing these changes.' >&2
-              exit 1
-            fi
-          fi
+          repository = os.environ["GITHUB_REPOSITORY"]
+          repository_id = int(os.environ["TRUSTED_REPOSITORY_ID"])
+          api_root = os.environ["GITHUB_API_URL"]
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as source:
+              event = json.load(source)
+
+          def api(path, method="GET", data=None):
+              request = urllib.request.Request(
+                  f"{api_root}/repos/{repository}/{path}",
+                  data=None if data is None else json.dumps(data).encode(),
+                  method=method,
+                  headers={
+                      "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          def pages(path):
+              page = 1
+              while True:
+                  separator = "&" if "?" in path else "?"
+                  items = api(f"{path}{separator}per_page=100&page={page}")
+                  yield from items
+                  if len(items) < 100:
+                      break
+                  page += 1
+
+          def trusted_repo(value):
+              return (
+                  isinstance(value, dict)
+                  and value.get("id") == repository_id
+                  and value.get("full_name") == repository
+              )
+
+          def valid_pr(pr):
+              return pr.get("state") == "open" and trusted_repo(pr["base"].get("repo"))
+
+          if not trusted_repo(event.get("repository")):
+              raise RuntimeError("Event does not belong to the trusted repository")
+
+          run = None
+          if os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch":
+              number = event.get("inputs", {}).get("pr_number", "")
+              if not re.fullmatch(r"[1-9][0-9]*", number):
+                  raise RuntimeError("pr_number must be a positive integer")
+              pr = api(f"pulls/{int(number)}")
+              if not valid_pr(pr):
+                  raise RuntimeError("Pull request is not open in the trusted repository")
+              pull_requests = [pr]
+          else:
+              # These fields are GitHub's webhook metadata, never originating-run outputs.
+              run = event["workflow_run"]
+              if (
+                  not trusted_repo(run.get("repository"))
+                  or run.get("event") != "pull_request"
+                  or run.get("status") != "completed"
+                  or run.get("path") != ".github/workflows/quality.yml"
+              ):
+                  print("Ignoring a run outside the trusted quality pull-request workflow")
+                  raise SystemExit(0)
+              sha = run["head_sha"]
+              if not re.fullmatch(r"[0-9a-f]{40}", sha):
+                  raise RuntimeError("Invalid quality run head SHA")
+              head_repo = run.get("head_repository")
+              if not isinstance(head_repo, dict) or not isinstance(head_repo.get("id"), int):
+                  raise RuntimeError("Quality run lacks a verifiable head repository")
+              # Fork workflow_run payloads may have an empty pull_requests array.
+              # Resolve associations through the base repository API instead of artifacts.
+              candidates = pages(f"commits/{sha}/pulls")
+              pull_requests = []
+              for candidate in candidates:
+                  pr = api(f"pulls/{int(candidate['number'])}")
+                  pr_head_repo = pr["head"].get("repo") or {}
+                  if (
+                      valid_pr(pr)
+                      and pr["head"]["sha"] == sha
+                      and pr["head"]["ref"] == run["head_branch"]
+                      and pr_head_repo.get("id") == head_repo["id"]
+                      and pr_head_repo.get("full_name") == head_repo.get("full_name")
+                  ):
+                      pull_requests.append(pr)
+              if not pull_requests:
+                  print("No live pull request matches the run repository, branch, and exact head")
+                  raise SystemExit(0)
+
+          patterns = (
+              ".gitignore", ".dockerignore", "Dockerfile", "compose.yaml",
+              "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "deny.toml",
+              ".config/nextest.toml", ".github/workflows/*", ".github/CODEOWNERS",
+              "scripts/quality*", "scripts/check-policy*", "scripts/install-tools.sh",
+              "scripts/check-workflows*", "scripts/check-tool-version.sh",
+              "scripts/test_check_policy.py", "scripts/test_tool_versions.py",
+              "scripts/test_workflow*", "scripts/test_check_workflows*",
+              "scripts/performance_policy.py", "scripts/test_performance_policy.py",
+              "benches/*", "perf-baseline/*", "docs/performance-policy.md", "AGENTS.md",
+          )
+          for pr in pull_requests:
+              number = pr["number"]
+              sha = pr["head"]["sha"]
+              if not re.fullmatch(r"[0-9a-f]{40}", sha):
+                  raise RuntimeError("Invalid live pull request head SHA")
+              check = api("check-runs", "POST", {
+                  "name": "protect",
+                  "head_sha": sha,
+                  "status": "in_progress",
+                  "details_url": (
+                      f"{os.environ['GITHUB_SERVER_URL']}/{repository}/actions/runs/"
+                      f"{os.environ['GITHUB_RUN_ID']}"
+                  ),
+                  "output": {
+                      "title": "Checking current policy approval",
+                      "summary": f"Evaluating pull request #{number} with the trusted workflow.",
+                  },
+              })
+              conclusion = "failure"
+              title = "Policy evaluation failed"
+              try:
+                  # GitHub caps this endpoint at 3,000 files; fail closed on larger PRs.
+                  if pr["changed_files"] > 3000:
+                      raise RuntimeError("Pull request exceeds GitHub's complete file-list limit")
+                  changed_files = list(pages(f"pulls/{number}/files"))
+                  if len(changed_files) != pr["changed_files"]:
+                      raise RuntimeError("Pull request file list is incomplete or changed")
+                  protected = sorted({
+                      path
+                      for changed in changed_files
+                      for path in (changed["filename"], changed.get("previous_filename"))
+                      if path and any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+                  })
+                  # Refresh labels after fetching files; do not trust a webhook label snapshot.
+                  current = api(f"pulls/{number}")
+                  if (
+                      not valid_pr(current)
+                      or current["head"]["sha"] != sha
+                      or current["base"]["sha"] != pr["base"]["sha"]
+                      or current["changed_files"] != pr["changed_files"]
+                  ):
+                      raise RuntimeError("Pull request changed during policy evaluation; reevaluate")
+                  approved = any(label["name"] == "policy-approved" for label in current["labels"])
+                  conclusion = "failure" if protected and not approved else "success"
+                  title = "Maintainer approval required" if conclusion == "failure" else "Policy approved"
+                  summary = (
+                      "A maintainer must apply policy-approved after reviewing protected changes."
+                      if conclusion == "failure"
+                      else "Current labels and the complete changed-file list satisfy the policy."
+                  )
+                  if protected:
+                      summary += "\n\nProtected paths:\n" + "\n".join(f"- `{path}`" for path in protected)
+                  if run is not None:
+                      summary += f"\n\nQuality run conclusion: {run.get('conclusion')}. Quality is required separately."
+              except Exception as error:
+                  summary = f"Policy evaluation failed closed: {error}"
+              api(f"check-runs/{check['id']}", "PATCH", {
+                  "status": "completed",
+                  "conclusion": conclusion,
+                  "output": {"title": title, "summary": summary.encode("utf-8")[:60000].decode("utf-8", errors="ignore")},
+              })
+              print(f"Pull request #{number}: protect={conclusion} on {sha}")
+          PY

@@ -4,17 +4,19 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   compare:
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Install Valgrind
         run: |
           sudo apt-get update
@@ -46,12 +48,18 @@ jobs:
           BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
         run: |
           git checkout "$CANDIDATE_SHA"
+          benchmark_status=0
           cargo bench --locked --bench analysis -- \
             --baseline=main \
             --callgrind-args='--cache-sim=yes' \
             --callgrind-limits='ir=2%' \
             --output-format=json \
-            --save-summary=pretty-json
+            --save-summary=pretty-json || benchmark_status=$?
+          # Iai exits 3 for a regression. Still report the independent cache gates.
+          if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
+            exit "$benchmark_status"
+          fi
           python3 scripts/performance_policy.py \
             target/iai/bend2-lsp/analysis/analysis_hot_paths \
             --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main
+          exit "$benchmark_status"

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+export PATH="$HOME/go/bin:$PATH"
+source scripts/check-tool-version.sh
+
+check_tool_version actionlint 1.7.12 "$(actionlint --version)"
+check_tool_version ghalint 1.5.6 "$(ghalint version)"
+check_tool_version zizmor 1.30.1 "$(zizmor --version)"
+
+python3 - <<'PY'
+from pathlib import Path
+import sys
+import re
+
+trusted_triggers = {"nightly.yml", "release.yml", "policy-integrity.yml"}
+for prefix in ("", ".", ".github/"):
+    for suffix in (".yml", ".yaml"):
+        config = Path(f"{prefix}ghalint{suffix}")
+        if config.exists():
+            sys.exit(f"{config}: ghalint exclusions are forbidden")
+
+for path in sorted(Path(".github/workflows").iterdir()):
+    if path.suffix not in {".yml", ".yaml"}:
+        continue
+    source = path.read_text(encoding="utf-8")
+    if "pull_request_target" in source:
+        sys.exit(f"{path}: pull_request_target is forbidden; use unprivileged pull_request")
+    for line in source.splitlines():
+        if re.search(r"zizmor\s*:\s*ignore", line, re.IGNORECASE):
+            if path.name not in trusted_triggers or line != "  workflow_run: # zizmor: ignore[dangerous-triggers]":
+                sys.exit(f"{path}: only the documented trusted-trigger audit exceptions are allowed")
+PY
+# actionlint 1.7.12 predates GitHub's July 2026 self-repository syntax.
+# Exempt only its obsolete grammar error for this exact reusable workflow;
+# zizmor still checks the original reference and every other syntax error fails.
+actionlint -ignore '^reusable workflow call "\$/\.github/workflows/release-binaries\.yml" at "uses" is not following the format '
+unset GHALINT_CONFIG
+ghalint run
+ghalint run-action
+zizmor --offline --strict-collection --no-config --no-progress .github/workflows

@@ -1,13 +1,13 @@
 name: release
 
 on:
-  workflow_run:
+  # Only a successful same-repository main push can reach privileged release jobs.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [quality]
     types: [completed]
     branches: [main]
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: release-main
@@ -15,13 +15,16 @@ concurrency:
 
 jobs:
   prepare:
+    permissions:
+      contents: read
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_repository.id == github.repository_id &&
-      github.event.workflow_run.repository.full_name == github.repository
+      github.event.workflow_run.repository.full_name == github.repository &&
+      github.event.workflow_run.repository.id == github.repository_id
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
@@ -56,9 +59,11 @@ jobs:
           RELEASE_CHANNEL: stable
         run: python3 scripts/release.py candidate
   binaries:
+    permissions:
+      contents: read
     needs: prepare
     if: needs.prepare.outputs.publish == 'true'
-    uses: ./.github/workflows/release-binaries.yml
+    uses: $/.github/workflows/release-binaries.yml
     with:
       sha: ${{ github.event.workflow_run.head_sha }}
       tag: ${{ needs.prepare.outputs.tag }}

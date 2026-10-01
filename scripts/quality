@@ -4,14 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-check_tool_version() {
-    local tool="$1" expected="$2" actual="$3"
-    if [[ "$actual" != *"$expected"* ]]; then
-        printf 'Expected %s version %s; got: %s\n' "$tool" "$expected" "$actual" >&2
-        printf 'Run ./scripts/install-tools.sh\n' >&2
-        exit 1
-    fi
-}
+source scripts/check-tool-version.sh
 
 check_tool_version cargo-nextest 0.9.131 "$(cargo-nextest nextest --version)"
 check_tool_version cargo-deny 0.20.2 "$(cargo deny --version)"
@@ -19,8 +12,14 @@ check_tool_version cargo-hack 0.6.45 "$(cargo hack --version)"
 
 printf '== policy ==\n'
 python3 scripts/check-policy.py
+python3 -m unittest discover -s scripts -p test_check_policy.py
+python3 -m unittest discover -s scripts -p test_tool_versions.py
+printf '== workflow security ==\n'
+./scripts/check-workflows
 printf '== active performance comparator tests ==\n'
 python3 scripts/test_performance_policy.py
+printf '== release integrity ==\n'
+python3 -m unittest discover -s scripts -p test_release.py
 
 printf '== format ==\n'
 cargo fmt --all -- --check
@@ -42,4 +41,4 @@ printf '== feature combinations ==\n'
 cargo hack check --workspace --feature-powerset --locked
 
 printf '== dependencies ==\n'
-cargo deny check
+cargo deny check --deny index-failure
