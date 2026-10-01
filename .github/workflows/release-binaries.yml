@@ -78,7 +78,7 @@ jobs:
           rustup toolchain install "1.98.1-$RELEASE_TARGET" --profile minimal
           rustup override set "1.98.1-$RELEASE_TARGET"
           rustc -vV
-          test "$(rustc -vV | while IFS= read -r line; do case "$line" in 'host: '*) printf '%s' "${line#host: }";; esac; done)" = "$RELEASE_TARGET"
+          "$PYTHON" -c 'import os, subprocess; host = next(line.removeprefix("host: ") for line in subprocess.check_output(["rustc", "-vV"], text=True).splitlines() if line.startswith("host: ")); assert host == os.environ["RELEASE_TARGET"], host'
       - name: Build locked optimized binary
         run: cargo build --locked --release --bin bend2-lsp
       - name: Package binary and extract candidate for E2E

@@ -65,6 +65,11 @@ Release archive/version integrity regression tests also run on each native
 runner with `python -m unittest discover -s scripts -p test_release.py`
 (`python3` on Unix).
 
+Git attributes preserve LF checkout bytes for benchmark source fixtures on
+Windows, keeping byte-offset golden comparisons identical across platforms.
+Native Rust host verification uses Python rather than Bash-version-specific
+command-substitution parsing.
+
 The dedicated portable E2E test exercises the real stdio LSP process using a
 controlled compiler fixture. It does not download or certify an upstream Bend
 compiler on each platform. Existing Unix integration tests remain Unix-only;
