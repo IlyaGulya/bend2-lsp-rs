@@ -1,17 +1,13 @@
 # Changelog
 
-## Unreleased
-
-### Bug Fixes
-
-- Omit release tags from future executable and checksum filenames; retain version/SHA checks in release metadata and leave published assets unchanged.
-
 ## [0.2.3](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.2...v0.2.3) (2026-10-02)
 
 
 ### Bug Fixes
 
 * omit release versions from asset filenames ([#6](https://github.com/IlyaGulya/bend2-lsp-rs/issues/6)) ([20910ec](https://github.com/IlyaGulya/bend2-lsp-rs/commit/20910ecb625ef9f14caaf50d9ce26aae7622a12b))
+
+- Retain version/SHA checks in release metadata; previously published assets remain unchanged.
 
 ## [0.2.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.1...v0.2.2) (2026-10-02)
 
