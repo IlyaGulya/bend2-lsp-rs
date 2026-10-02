@@ -15,6 +15,9 @@ include initial graph loading, cross-file references, one dependency revision,
 and a 16-revision burst. Warm snapshots and loaded workspace fixtures are
 constructed in Iai benchmark argument setup, outside the measured query; cold
 snapshot benchmarks include construction.
+The owned `LoadedWorkspace` argument to `workspace_references` is destroyed
+inside the measured function, including its database snapshots and temporary
+source tree. Its total is therefore not a query-only instruction count.
 Integration tests compare exact semantic-token, identifier-range, and completion
 outputs with legacy goldens at all three source sizes; medium and large
 goldens come from the pre-index implementation in commit `bc8cd4f`.
@@ -30,6 +33,9 @@ assertions catch prolonged blocking, not small latency regressions. The separate
 paired latency reports below measure the actual LSP process, but not editor
 rendering or real Bend compiler execution; real Bend CLI timings are measured
 separately. Callgrind continues to measure analysis functions, not the full process.
+The compare job preserves its raw baseline/candidate profiles, summaries, and
+baseline manifest for 14 days, including failed comparisons. This artifact
+retention runs after the unchanged gate and does not turn a failure into success.
 
 The bench uses the fixed Bend fixture in `benches/fixtures/analyzer_input.bend`
 for analysis queries and generated workspace/folding fixtures for graph
@@ -130,6 +136,55 @@ docker compose exec -T rust python3 scripts/calibration_report.py \
 This smoke has insufficient statistical coverage. CI additionally enforces
 exactly seven discovery jobs, three validation jobs, and five complete series
 per job with the reporter's `--expected-*-jobs` and `--expected-pairs` options.
+
+## Functional-fix performance acceptance (PR #4)
+
+The maintainer authorized adequate, expected regressions for the correctness
+release in [PR #4](https://github.com/IlyaGulya/bend2-lsp-rs/pull/4).
+This is a bounded acceptance of the observations below, not a threshold increase,
+performance-improvement claim, or new automatic waiver mechanism. The normal
+compare remains failed; its result is preserved rather than retried away.
+
+The [final functional-source comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37032755314)
+at branch commit `290a09b` passed 23 of 33 existing workloads. Workspace
+references changed from 1,885,916 to 2,083,170 instructions (+10.4593%).
+Nine other workloads exceeded cache allowances by 4–8 events. The three new
+parameter-annotation cases have no old baseline. Cold snapshot construction
+and all other existing instruction gates passed.
+
+The [raw-profile preservation run](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37034499320)
+kept the same measured source and commands at branch commit `26d78dd`.
+Workspace references measured 1,886,186 → 2,083,147 instructions.
+Callgrind attributes 920,933 → 1,115,786 instructions to destruction of
+`WorkspaceDb`: 194,853 of the total 196,961-instruction increase (98.93%).
+The increase is principally allocator consolidation during fixture teardown,
+not additional semantic scanning. The remaining measured work changed
+965,253 → 967,361 instructions (+0.218%). This subtraction is diagnostic only;
+the original total remains the authoritative benchmark metric. The precise
+source of the changed heap topology is not established.
+
+The source-identical calibration's maximum held-out workspace-reference
+instruction increase was 0.0444%, with no exceedances. Thus the total +10.46%
+is not accepted as ordinary A/A noise. The source retains existing snapshot
+and binding layouts; the new annotation query inspects indexed local tokens.
+No full-source feature scan or optional incoming-call optimization is retained.
+
+The same CI comparison preserved seven paired real-LSP rounds, based on
+`654ac603d8c411832b855429bfe3f977bfc8956b` and candidate merge SHA
+`c5c96f7da21d4bf43bf829e51ab72f56447ed9c9`. Warm p50 remained about
+0.089 ms; large open/edit p50 remained about 21 ms. During a large edit,
+unrelated-hover p50 changed 0.975 → 1.179 ms (+0.204 ms), and p95 changed
+1.102 → 1.236 ms. These finite samples do not certify tail reliability or
+editor latency, but bound the observed process-level cost of the revision and
+child-lifecycle correctness changes.
+
+The accepted tradeoff is the measured fixture-teardown cost, small absolute
+cache-event increases, and sub-millisecond busy-query overhead in return for
+correct lexical navigation, revision readiness, watched import edges, and
+owned-child cleanup. Global instruction/cache gates, baseline selection,
+existing benchmark rows, fail-if-flaky policy, and native-release gates are
+unchanged. This acceptance does not authorize later unrelated regressions.
+
 
 ## End-to-end LSP latency reports
 
