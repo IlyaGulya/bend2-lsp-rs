@@ -123,9 +123,9 @@ def candidate():
         output.write(f"tag={tag}\npublish={str(publish).lower()}\n")
 
 
-def asset_name(tag, target):
+def asset_name(target):
     suffix = ".exe" if "windows" in target else ""
-    return f"bend2-lsp-{tag}-{target}{suffix}"
+    return f"bend2-lsp-{target}{suffix}"
 
 
 def file_sha256(path):
@@ -143,7 +143,7 @@ def package():
     binary = Path("target/release") / executable
     dist = Path("dist")
     dist.mkdir(exist_ok=True)
-    asset = dist / asset_name(tag, target)
+    asset = dist / asset_name(target)
     for path in (asset, Path(f"{asset}.sha256"), Path(f"{asset}.metadata.json")):
         if path.is_symlink() or (path.exists() and not path.is_file()):
             raise ValueError(f"release artifact must be a regular file: {path.name}")
@@ -175,7 +175,7 @@ def validate_artifacts(tag, version):
     public = set()
     checksums = []
     for target in TARGETS:
-        name = asset_name(tag, target)
+        name = asset_name(target)
         public.update((name, f"{name}.sha256"))
         expected.update((name, f"{name}.sha256", f"{name}.metadata.json"))
         asset = dist / name
