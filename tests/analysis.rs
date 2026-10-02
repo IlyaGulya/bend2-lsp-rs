@@ -532,3 +532,41 @@ fn constructor_definitions_preserve_source_order_when_names_were_seen_earlier() 
         }
     }
 }
+
+#[test]
+fn inlay_hints_order_nested_calls_and_limit_labels_to_declared_parameters() {
+    let source = "def pair(first: U32, second: U32) -> U32:\n  first\n\
+                  def unary(only: U32) -> U32:\n  only\n\
+                  def main() -> U32:\n  unary(pair(5, 6))\n  pair(1)\n  pair(2, 3, 4)\n  0\n";
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let labels = |range| {
+        bend2_lsp::analysis::inlay_hints(&snapshot, range)
+            .into_iter()
+            .map(|hint| {
+                let (line, column) = snapshot.line_index.position(source, hint.position);
+                (line, column, hint.label(source))
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        labels(TextRange::new(0, source.len())),
+        vec![
+            (5, 8, "only: ".to_owned()),
+            (5, 13, "first: ".to_owned()),
+            (5, 16, "second: ".to_owned()),
+            (6, 7, "first: ".to_owned()),
+            (7, 7, "first: ".to_owned()),
+            (7, 10, "second: ".to_owned()),
+        ]
+    );
+    assert_eq!(
+        labels(TextRange::new(
+            snapshot.line_index.offset(source, 5, 13),
+            snapshot.line_index.offset(source, 5, 16),
+        )),
+        vec![
+            (5, 13, "first: ".to_owned()),
+            (5, 16, "second: ".to_owned())
+        ]
+    );
+}

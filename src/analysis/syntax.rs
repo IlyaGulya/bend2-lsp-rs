@@ -513,6 +513,55 @@ impl SyntaxIndex {
     }
 
     #[must_use]
+    pub fn binding_type_range(&self, source: &str, id: SymbolId) -> Option<TextRange> {
+        let binding = self.binding_by_id(id)?;
+        let owner = self.symbols.get(binding.owner.0)?;
+        let binding_index = id.0.checked_sub(self.symbols.len())?;
+        if !owner.parameter_span.contains(binding_index)
+            || self.token_text(source, TokenId(binding.declaration.0 + 1)) != Some(":")
+        {
+            return None;
+        }
+        let open = self
+            .delimiter_context
+            .get(binding.declaration.0)
+            .copied()
+            .flatten()?;
+        let close = self
+            .delimiter_pairs
+            .binary_search_by_key(&open, |pair| pair.open)
+            .map_or_else(
+                |_| {
+                    self.tokens
+                        .partition_point(|token| token.range.start < owner.detail_range.end)
+                },
+                |index| self.delimiter_pairs[index].close.0,
+            );
+        let start = binding.declaration.0 + 2;
+        let tokens = self.tokens.get(start..close)?;
+        // Parameter identity and nesting are already indexed. Inspect only the
+        // local type-token span, never reparse a declaration or the source file.
+        let end = tokens
+            .iter()
+            .enumerate()
+            .position(|(offset, token)| {
+                let index = start + offset;
+                token.kind == TokenKind::Punctuation
+                    && self.delimiter_context[index] == Some(open)
+                    && self.token_text(source, TokenId(index)) == Some(",")
+            })
+            .unwrap_or(tokens.len());
+        let annotation = &tokens[..end];
+        let first = annotation
+            .iter()
+            .find(|token| token.kind != TokenKind::Comment)?;
+        let last = annotation
+            .iter()
+            .rfind(|token| token.kind != TokenKind::Comment)?;
+        Some(TextRange::new(first.range.start, last.range.end))
+    }
+
+    #[must_use]
     pub fn diagnostics(&self) -> &[SyntaxDiagnostic] {
         if self.auxiliary.diagnostic_count == 0 {
             return &[];

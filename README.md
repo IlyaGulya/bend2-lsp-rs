@@ -109,11 +109,21 @@ For qualified names such as `Ast.TermVar`, placing the cursor on `Ast` opens
 the imported module; placing it on `TermVar` jumps to the constructor declaration.
 The same navigation works in type annotations, match patterns, and expressions.
 
+Declaration queries respect lexical shadowing: a local parameter never resolves
+to a same-named global declaration or imported module. Hover and type navigation
+use that parameter's own indexed annotation when available. Module aliases remain
+navigation targets, but alias rename is rejected rather than applied to a member.
+
 Local imports are indexed for cross-file features. `Base` comes from `bend base`.
 Hub package navigation uses packages already present in the local Bend library
 cache (`BEND_LIB` or the Bend home library); the server does not fetch packages.
 Untitled and virtual documents also support source-based features. Their text is
 staged in temporary files for compiler checks, rather than saved into your project.
+
+Cross-file document queries wait for pending revisions in their indexed import
+graph; unrelated documents remain queryable while snapshots are built. Watched
+disk updates do not overwrite active unsaved import edges. Closing a document
+restores the latest disk snapshot and its imports.
 
 Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors

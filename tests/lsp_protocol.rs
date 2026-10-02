@@ -2032,6 +2032,73 @@ mod protocol {
     }
 
     #[test]
+    fn configured_compiler_profile_preserves_prelude_navigation() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let custom_compiler = compiler_dir.join("bend");
+        fs::write(
+            &custom_compiler,
+            "#!/bin/sh\nif [ \"$1\" != --profile=custom ]; then exit 64; fi\nshift\nif [ \"$1\" = base ]; then\n  printf 'def profile_builtin() -> U32:\\n  7\\n'\nfi\nexit 0\n",
+        )
+        .must_be("write profile-dependent compiler");
+        fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
+            .must_be("make compiler executable");
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{
+                "compilerPath":custom_compiler,
+                "compilerArguments":["--profile=custom"]
+            }}}),
+        );
+        let uri = "untitled:configured-prelude.bend";
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,
+                "languageId":"bend",
+                "version":1,
+                "text":"import Base\ndef main() -> U32:\n  profile_builtin()\n"
+            }}),
+        );
+        let definition = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":2,"character":7}
+            }),
+        );
+        assert_eq!(
+            definition["result"]["range"],
+            json!({
+                "start":{"line":0,"character":4},
+                "end":{"line":0,"character":19}
+            }),
+            "configured compiler profiles must expose their Base declarations: {definition}"
+        );
+        let base_path = Url::parse(
+            definition["result"]["uri"]
+                .as_str()
+                .must_be("configured Base definition URI"),
+        )
+        .must_be("configured Base definition URL")
+        .to_file_path()
+        .must_be("configured Base definition path");
+        assert_eq!(
+            fs::read_to_string(base_path)
+                .must_be("read configured Base definition")
+                .lines()
+                .next(),
+            Some("def profile_builtin() -> U32:"),
+            "navigation must lead to the declaration selected by the compiler profile"
+        );
+        client.finish();
+    }
+
+    #[test]
     fn cached_hub_imports_support_navigation_and_workspace_indexing() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
@@ -4024,6 +4091,695 @@ mod protocol {
                         && item["range"]["end"]["character"] == 0
                 })),
             "ambiguous compiler excerpts must not be assigned to an arbitrary import: {diagnostics}"
+        );
+        client.finish();
+    }
+
+    fn assert_reference_locations(actual: &[Value], expected: &[Value]) {
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "unexpected reference set: {actual:?}"
+        );
+        for location in expected {
+            assert!(
+                actual.contains(location),
+                "missing reference {location}: {actual:?}"
+            );
+        }
+    }
+
+    fn open_formatter_document(client: &mut LspClient, uri: &str, source: &str) {
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,"languageId":"bend","version":1,"text":source
+            }}),
+        );
+        client
+            .receive_matching(Duration::from_secs(10), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == uri
+                    && message["params"]["version"] == 1
+            })
+            .must_be("formatter source diagnostics");
+    }
+
+    fn regression_file_uri(path: &Path) -> String {
+        Url::from_file_path(path).must_be("fixture URI").to_string()
+    }
+
+    fn finish_watched_disk_read(
+        client: &mut LspClient,
+        mut writer: fs::File,
+        path: &Path,
+        source: &str,
+        sentinel_uri: &str,
+    ) {
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":sentinel_uri}}),
+        );
+        writer
+            .write_all(source.as_bytes())
+            .must_be("release watched snapshot");
+        drop(writer);
+        fs::remove_file(path).must_be("remove released watcher FIFO");
+        fs::write(path, source).must_be("restore regular watched file");
+        client
+            .receive_matching(Duration::from_secs(5), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == sentinel_uri
+                    && message["params"]["version"].is_null()
+            })
+            .must_be("sentinel close must complete after the watched update");
+    }
+
+    #[test]
+    fn b4_on_type_indentation_recognizes_declarations_and_lexical_block_boundaries() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+
+        let cases = [
+            (
+                "colonless",
+                "def main: U32\n  1\n",
+                1,
+                0,
+                2,
+                true,
+                json!([]),
+            ),
+            (
+                "trailing-colon",
+                "def main: U32:\n  1\n",
+                1,
+                0,
+                2,
+                true,
+                json!([]),
+            ),
+            (
+                "unicode-crlf",
+                "def greet(value: String) -> String # 🦀: not a delimiter\r\n\"🦀\"\r\n",
+                1,
+                4,
+                4,
+                true,
+                json!([{"range":{"start":{"line":1,"character":0},"end":{"line":1,"character":0}},"newText":"    "}]),
+            ),
+            (
+                "nested-block",
+                "def choose(value):\n  match value: # 🦀\n  case None:\n    0\n",
+                2,
+                2,
+                2,
+                true,
+                json!([{"range":{"start":{"line":2,"character":0},"end":{"line":2,"character":2}},"newText":"    "}]),
+            ),
+            (
+                "literal-and-comment-colons",
+                "def main: String\n  \"# 🦀:\" # comment:\n  \"next\"\n",
+                2,
+                0,
+                2,
+                true,
+                json!([]),
+            ),
+            (
+                "tab-indentation",
+                "def main: U32 # body follows\r\n1\r\n",
+                1,
+                0,
+                8,
+                false,
+                json!([{"range":{"start":{"line":1,"character":0},"end":{"line":1,"character":0}},"newText":"\t"}]),
+            ),
+            (
+                "incomplete-literal",
+                "def main: String\n  \"🦀:\n    next\n",
+                2,
+                0,
+                2,
+                true,
+                json!([]),
+            ),
+        ];
+        for (name, source, line, character, tab_size, insert_spaces, expected) in cases {
+            let path = workspace.join(format!("{name}.bend"));
+            fs::write(&path, source).must_be("write formatter source");
+            let uri = Url::from_file_path(&path)
+                .must_be("formatter source URI")
+                .to_string();
+            open_formatter_document(&mut client, &uri, source);
+            let response = client.request(
+                "textDocument/onTypeFormatting",
+                json!({
+                    "textDocument":{"uri":uri},
+                    "position":{"line":line,"character":character},
+                    "ch":"\n",
+                    "options":{"tabSize":tab_size,"insertSpaces":insert_spaces}
+                }),
+            );
+            assert_eq!(
+                response["result"], expected,
+                "newline formatting must preserve lexical content and infer body indentation for {name}: {response}"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn b1_navigation_respects_parameter_shadowing_and_annotation_scope() {
+        let temp = tempdir().must_be("temporary workspace");
+        let main_path = temp.path().join("main.bend");
+        let source = "def target(value):\n  value\ndef shadow(target):\n  target(1)\ndef annotated(target: U32):\n  target\ntype Hidden:\n  One\ndef named(invisible: Hidden):\n  invisible\ndef unknown:\n  invisible\n";
+        fs::write(&main_path, source).must_be("write source");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("source URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,"languageId":"bend","version":1,"text":source
+            }}),
+        );
+        let position = json!({"textDocument":{"uri":uri},"position":{"line":3,"character":3}});
+        for method in [
+            "textDocument/definition",
+            "textDocument/hover",
+            "textDocument/typeDefinition",
+        ] {
+            let response = client.request(method, position.clone());
+            assert_eq!(
+                response["result"],
+                Value::Null,
+                "shadowed untyped parameter: {method}"
+            );
+        }
+        for method in ["textDocument/hover", "textDocument/typeDefinition"] {
+            let response = client.request(
+                method,
+                json!({"textDocument":{"uri":uri},"position":{"line":11,"character":3}}),
+            );
+            assert_eq!(
+                response["result"],
+                Value::Null,
+                "an unbound name must not inherit another function's parameter annotation: {method}"
+            );
+        }
+        let typed_hover = client.request(
+            "textDocument/hover",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":5,"character":3}
+            }),
+        );
+        assert_eq!(
+            typed_hover["result"],
+            json!({
+                "contents":{"kind":"markdown","value":"```bend\ntarget: U32\n```"}
+            })
+        );
+        let declaration = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":0,"character":5}
+            }),
+        );
+        assert_eq!(
+            declaration["result"],
+            json!({
+                "uri":uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}
+            })
+        );
+        let mut rename = position;
+        rename["newName"] = json!("local");
+        let renamed = client.request("textDocument/rename", rename);
+        assert_eq!(
+            renamed["result"],
+            json!({"changes":{(uri):[
+                {"range":{"start":{"line":2,"character":11},"end":{"line":2,"character":17}},"newText":"local"},
+                {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}},"newText":"local"}
+            ]}})
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn b2_b3_module_cursor_resolution_rejects_shadowed_members_and_alias_rename() {
+        let temp = tempdir().must_be("temporary workspace");
+        let main_path = temp.path().join("main.bend");
+        let dep_path = temp.path().join("dep.bend");
+        let source = "import ./dep.bend as Left\ndef shadow(Left):\n  Left.shared(1)\ndef main: U32\n  Left.shared(1)\n";
+        fs::write(&main_path, source).must_be("write source");
+        fs::write(&dep_path, "def shared(x: U32) -> U32:\n  x\n").must_be("write dependency");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("source URI")
+            .to_string();
+        let dep_uri = Url::from_file_path(&dep_path)
+            .must_be("dependency URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for method in [
+            "textDocument/definition",
+            "textDocument/hover",
+            "textDocument/rename",
+            "textDocument/references",
+            "textDocument/documentHighlight",
+            "textDocument/typeDefinition",
+        ] {
+            let response = client.request(
+                method,
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":2,"character":8},
+                    "newName":"changed","context":{"includeDeclaration":true}
+                }),
+            );
+            assert_eq!(
+                response["result"],
+                Value::Null,
+                "shadowed qualifier member: {method}"
+            );
+        }
+        for (line, character) in [(0, 21), (4, 3)] {
+            for method in [
+                "textDocument/rename",
+                "textDocument/hover",
+                "textDocument/references",
+                "textDocument/documentHighlight",
+            ] {
+                let response = client.request(
+                    method,
+                    json!({
+                        "textDocument":{"uri":uri},"position":{"line":line,"character":character},
+                        "newName":"NewLeft","context":{"includeDeclaration":true}
+                    }),
+                );
+                assert_eq!(
+                    response["result"],
+                    Value::Null,
+                    "unsupported module alias: {method}"
+                );
+            }
+        }
+        let alias_definition = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":4,"character":3}
+            }),
+        );
+        assert_eq!(
+            alias_definition["result"],
+            json!({
+                "uri":dep_uri,"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}}
+            })
+        );
+        let member_position =
+            json!({"textDocument":{"uri":uri},"position":{"line":4,"character":8}});
+        let definition = client.request("textDocument/definition", member_position.clone());
+        assert_eq!(
+            definition["result"],
+            json!({
+                "uri":dep_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}
+            })
+        );
+        let hover = client.request("textDocument/hover", member_position.clone());
+        assert_eq!(
+            hover["result"],
+            json!({
+                "contents":{"kind":"markdown","value":"```bend\ndef shared(x: U32) -> U32\n```"}
+            })
+        );
+        let mut rename = member_position;
+        rename["newName"] = json!("renamed");
+        let renamed = client.request("textDocument/rename", rename);
+        assert_eq!(
+            renamed["result"],
+            json!({"changes":{
+                (uri):[{"range":{"start":{"line":4,"character":7},"end":{"line":4,"character":13}},"newText":"renamed"}],
+                (dep_uri):[{"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}},"newText":"renamed"}]
+            }})
+        );
+        client.finish();
+    }
+
+    fn b5_b6_hold_pending_disk_read(path: &Path) -> fs::File {
+        let path = path.to_path_buf();
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let writer = fs::OpenOptions::new()
+                .write(true)
+                .open(path)
+                .must_be("open held snapshot FIFO writer");
+            sender.send(writer).must_be("signal pending snapshot read");
+        });
+        receiver
+            .recv_timeout(Duration::from_secs(5))
+            .must_be("snapshot staging must open the FIFO reader")
+    }
+
+    #[test]
+    fn b5_watched_closed_consumer_survives_concurrent_revision_commit() {
+        let temp = tempdir().must_be("temporary workspace");
+        let main_path = temp.path().join("main.bend");
+        let dep_path = temp.path().join("dep.bend");
+        let consumer_path = temp.path().join("consumer.bend");
+        let sentinel_path = temp.path().join("sentinel.bend");
+        let main_source = "import ./dep.bend as Dep\nimport ./consumer.bend as Consumer\ndef main: U32\n  Dep.shared(1)\n";
+        let dep_source = "def shared(x: U32) -> U32:\n  x\n";
+        let consumer_source = "import ./dep.bend as Dep\ndef consume: U32\n  Dep.shared(2)\n";
+        let updated_consumer = format!("{consumer_source}  Dep.shared(3)\n");
+        let sentinel_source = "def sentinel: U32\n  1\n";
+        for (path, source) in [
+            (&main_path, main_source),
+            (&dep_path, dep_source),
+            (&consumer_path, consumer_source),
+            (&sentinel_path, sentinel_source),
+        ] {
+            fs::write(path, source).must_be("write watcher fixture");
+        }
+        let main_uri = regression_file_uri(&main_path);
+        let dep_uri = regression_file_uri(&dep_path);
+        let consumer_uri = regression_file_uri(&consumer_path);
+        let sentinel_uri = regression_file_uri(&sentinel_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &main_uri, main_source);
+        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+        let params = json!({
+            "textDocument":{"uri":main_uri},
+            "position":{"line":3,"character":7},
+            "context":{"includeDeclaration":true}
+        });
+        let before = client.request("textDocument/references", params.clone());
+        assert_eq!(
+            before["result"]
+                .as_array()
+                .must_be("initial reference locations")
+                .len(),
+            3
+        );
+
+        fs::remove_file(&consumer_path).must_be("replace watched consumer with a FIFO");
+        create_fifo(&consumer_path);
+        notify_watched_file_change(&mut client, &consumer_uri);
+        // Opening the writer proves the watched snapshot read has started.
+        // Keeping it open holds cold staging before its commit without sleeps.
+        let writer = b5_b6_hold_pending_disk_read(&consumer_path);
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":main_uri,"version":2},
+                "contentChanges":[{"text":main_source}]
+            }),
+        );
+        client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":main_uri}}),
+        );
+        // Closing a separate root queues behind the watched update's existing
+        // serial commit boundary, even when that update is incorrectly dropped.
+        finish_watched_disk_read(
+            &mut client,
+            writer,
+            &consumer_path,
+            &updated_consumer,
+            &sentinel_uri,
+        );
+
+        let references = client.request("textDocument/references", params);
+        let locations = references["result"]
+            .as_array()
+            .must_be("updated reference locations");
+        let expected = [
+            json!({"uri":dep_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}}),
+            json!({"uri":main_uri,"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}}}),
+            json!({"uri":consumer_uri,"range":{"start":{"line":2,"character":6},"end":{"line":2,"character":12}}}),
+            json!({"uri":consumer_uri,"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}}}),
+        ];
+        assert_reference_locations(locations, &expected);
+        let rename = client.request("textDocument/rename", json!({
+            "textDocument":{"uri":main_uri},"position":{"line":3,"character":7},"newName":"renamed"
+        }));
+        assert_eq!(
+            rename["result"],
+            json!({"changes":{
+                (dep_uri):[
+                    {"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}},"newText":"renamed"}
+                ],
+                (main_uri):[
+                    {"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}},"newText":"renamed"}
+                ],
+                (consumer_uri):[
+                    {"range":{"start":{"line":2,"character":6},"end":{"line":2,"character":12}},"newText":"renamed"},
+                    {"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}},"newText":"renamed"}
+                ]
+            }})
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn b6_immediate_definition_waits_for_unsaved_dependency_without_blocking_unrelated_queries() {
+        let temp = tempdir().must_be("temporary workspace");
+        let main_path = temp.path().join("main.bend");
+        let dep_path = temp.path().join("dep.bend");
+        let gate_path = temp.path().join("gate.bend");
+        let unrelated_path = temp.path().join("unrelated.bend");
+        let main_source = "import ./dep.bend as Dep\ndef main: U32\n  Dep.clamp(1)\n";
+        let dep_source = "def clamp(x: U32) -> U32:\n  x\n";
+        let unrelated_source = "def stable: U32\n  1\ndef unrelated: U32\n  stable\n";
+        for (path, source) in [
+            (&main_path, main_source),
+            (&dep_path, dep_source),
+            (&unrelated_path, unrelated_source),
+        ] {
+            fs::write(path, source).must_be("write unsaved dependency fixture");
+        }
+        create_fifo(&gate_path);
+        let main_uri = Url::from_file_path(&main_path)
+            .must_be("main URI")
+            .to_string();
+        let dep_uri = Url::from_file_path(&dep_path)
+            .must_be("dependency URI")
+            .to_string();
+        let unrelated_uri = Url::from_file_path(&unrelated_path)
+            .must_be("unrelated URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &main_uri, main_source);
+        open_clean_document(&mut client, &dep_uri, dep_source);
+        open_clean_document(&mut client, &unrelated_uri, unrelated_source);
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":dep_uri,"version":2},
+                "contentChanges":[{"text":format!("import ./gate.bend as Gate\n{dep_source}")}]
+            }),
+        );
+        // v2 has committed its snapshot but holds its stage ticket while
+        // loading Gate. v3 must remain pending behind that ticket.
+        let mut writer = b5_b6_hold_pending_disk_read(&gate_path);
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":dep_uri,"version":3},
+                "contentChanges":[{"text":format!("# latest unsaved declaration\nimport ./gate.bend as Gate\n{dep_source}")}]
+            }),
+        );
+        let params = json!({"textDocument":{"uri":main_uri},"position":{"line":2,"character":8}});
+        let immediate_id = client.send_request("textDocument/definition", params.clone());
+        let unrelated = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":unrelated_uri},"position":{"line":3,"character":3}
+            }),
+        );
+        assert_eq!(
+            unrelated["result"],
+            json!({
+                "uri":unrelated_uri,
+                "range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}
+            }),
+            "an unrelated committed query must complete while dependency staging is held"
+        );
+        writer
+            .write_all(b"def gate: U32\n  1\n")
+            .must_be("release dependency import snapshot");
+        drop(writer);
+        fs::remove_file(&gate_path).must_be("remove released dependency FIFO");
+        fs::write(&gate_path, "def gate: U32\n  1\n").must_be("restore regular imported file");
+        let expected = json!({
+            "uri":dep_uri,
+            "range":{"start":{"line":2,"character":4},"end":{"line":2,"character":9}}
+        });
+        let immediate = client
+            .receive_matching(Duration::from_secs(10), |message| {
+                message["id"] == immediate_id
+            })
+            .must_be("immediate cross-file definition response");
+        assert!(
+            immediate.get("error").is_none(),
+            "definition failed: {immediate}"
+        );
+        assert_eq!(
+            immediate["result"], expected,
+            "immediate request must not observe the preceding dependency snapshot"
+        );
+        let settled = client.request("textDocument/definition", params);
+        assert_eq!(settled["result"], expected);
+        client.finish();
+    }
+
+    #[test]
+    fn b5_watched_disk_commit_preserves_new_open_imports_and_close_fallback() {
+        let temp = tempdir().must_be("temporary workspace");
+        let main_path = temp.path().join("main.bend");
+        let consumer_path = temp.path().join("consumer.bend");
+        let first_path = temp.path().join("first.bend");
+        let second_path = temp.path().join("second.bend");
+        let third_path = temp.path().join("third.bend");
+        let sentinel_path = temp.path().join("sentinel.bend");
+        let main_source = "import ./consumer.bend as Consumer\nimport ./third.bend as Third\ndef main: U32\n  Third.shared(1)\n";
+        let initial_consumer = "import ./first.bend as Dep\ndef consume: U32\n  Dep.shared(2)\n";
+        let open_consumer = "import ./second.bend as Dep\ndef consume: U32\n  Dep.shared(2)\n";
+        let disk_consumer = "import ./third.bend as Dep\ndef consume: U32\n  Dep.shared(2)\n";
+        let dep_source = "def shared(x: U32) -> U32:\n  x\n";
+        let sentinel_source = "def sentinel: U32\n  1\n";
+        for (path, source) in [
+            (&main_path, main_source),
+            (&consumer_path, initial_consumer),
+            (&first_path, dep_source),
+            (&second_path, dep_source),
+            (&third_path, dep_source),
+            (&sentinel_path, sentinel_source),
+        ] {
+            fs::write(path, source).must_be("write open-overlay watcher fixture");
+        }
+        let main_uri = regression_file_uri(&main_path);
+        let consumer_uri = regression_file_uri(&consumer_path);
+        let second_uri = regression_file_uri(&second_path);
+        let third_uri = regression_file_uri(&third_path);
+        let sentinel_uri = regression_file_uri(&sentinel_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &main_uri, main_source);
+        open_clean_document(&mut client, &consumer_uri, initial_consumer);
+        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+
+        fs::remove_file(&consumer_path).must_be("replace open consumer disk with a FIFO");
+        create_fifo(&consumer_path);
+        notify_watched_file_change(&mut client, &consumer_uri);
+        let writer = b5_b6_hold_pending_disk_read(&consumer_path);
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":consumer_uri,"version":2},
+                "contentChanges":[{"text":open_consumer}]
+            }),
+        );
+        client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":consumer_uri}}),
+        );
+        finish_watched_disk_read(
+            &mut client,
+            writer,
+            &consumer_path,
+            disk_consumer,
+            &sentinel_uri,
+        );
+        let open_definition = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":consumer_uri},"position":{"line":2,"character":7}
+            }),
+        );
+        assert_eq!(
+            open_definition["result"],
+            json!({
+                "uri":second_uri,
+                "range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}
+            }),
+            "a watched disk commit must not replace newer open-overlay import edges"
+        );
+
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":consumer_uri}}),
+        );
+        client
+            .receive_matching(Duration::from_secs(5), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == consumer_uri
+                    && message["params"]["version"].is_null()
+            })
+            .must_be("consumer close must activate its disk snapshot");
+        let disk_references = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":main_uri},"position":{"line":3,"character":9},
+                "context":{"includeDeclaration":true}
+            }),
+        );
+        let locations = disk_references["result"]
+            .as_array()
+            .must_be("disk-fallback reference locations");
+        let expected = [
+            json!({"uri":third_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}}),
+            json!({"uri":main_uri,"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}}}),
+            json!({"uri":consumer_uri,"range":{"start":{"line":2,"character":6},"end":{"line":2,"character":12}}}),
+        ];
+        assert_reference_locations(locations, &expected);
+        client.finish();
+    }
+
+    #[test]
+    fn parameter_annotation_navigation_keeps_nested_type_boundaries() {
+        let temp = tempdir().must_be("temporary workspace");
+        let path = temp.path().join("main.bend");
+        let source = "type Hidden:\n  One\ndef typed(simple: U32, nested: (Hidden, List(U32)), tail: Hidden):\n  simple\n  nested\n  tail\n";
+        fs::write(&path, source).must_be("write annotation source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for (line, name, annotation) in [
+            (3, "simple", "U32"),
+            (4, "nested", "(Hidden, List(U32))"),
+            (5, "tail", "Hidden"),
+        ] {
+            let hover = client.request(
+                "textDocument/hover",
+                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":3}}),
+            );
+            assert_eq!(
+                hover["result"],
+                json!({"contents":{"kind":"markdown","value":format!("```bend\n{name}: {annotation}\n```")}}),
+            );
+        }
+        let definition = client.request(
+            "textDocument/typeDefinition",
+            json!({"textDocument":{"uri":uri},"position":{"line":4,"character":3}}),
+        );
+        assert_eq!(
+            definition["result"],
+            json!({"uri":uri,"range":{"start":{"line":0,"character":5},"end":{"line":0,"character":11}}}),
         );
         client.finish();
     }
