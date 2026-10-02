@@ -2032,6 +2032,73 @@ mod protocol {
     }
 
     #[test]
+    fn configured_compiler_profile_preserves_prelude_navigation() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let custom_compiler = compiler_dir.join("bend");
+        fs::write(
+            &custom_compiler,
+            "#!/bin/sh\nif [ \"$1\" != --profile=custom ]; then exit 64; fi\nshift\nif [ \"$1\" = base ]; then\n  printf 'def profile_builtin() -> U32:\\n  7\\n'\nfi\nexit 0\n",
+        )
+        .must_be("write profile-dependent compiler");
+        fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
+            .must_be("make compiler executable");
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{
+                "compilerPath":custom_compiler,
+                "compilerArguments":["--profile=custom"]
+            }}}),
+        );
+        let uri = "untitled:configured-prelude.bend";
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,
+                "languageId":"bend",
+                "version":1,
+                "text":"import Base\ndef main() -> U32:\n  profile_builtin()\n"
+            }}),
+        );
+        let definition = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":2,"character":7}
+            }),
+        );
+        assert_eq!(
+            definition["result"]["range"],
+            json!({
+                "start":{"line":0,"character":4},
+                "end":{"line":0,"character":19}
+            }),
+            "configured compiler profiles must expose their Base declarations: {definition}"
+        );
+        let base_path = Url::parse(
+            definition["result"]["uri"]
+                .as_str()
+                .must_be("configured Base definition URI"),
+        )
+        .must_be("configured Base definition URL")
+        .to_file_path()
+        .must_be("configured Base definition path");
+        assert_eq!(
+            fs::read_to_string(base_path)
+                .must_be("read configured Base definition")
+                .lines()
+                .next(),
+            Some("def profile_builtin() -> U32:"),
+            "navigation must lead to the declaration selected by the compiler profile"
+        );
+        client.finish();
+    }
+
+    #[test]
     fn cached_hub_imports_support_navigation_and_workspace_indexing() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");

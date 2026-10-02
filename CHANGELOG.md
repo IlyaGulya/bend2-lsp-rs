@@ -10,7 +10,7 @@
 - Retain watched closed-file updates across concurrent document commits and preserve newer open-buffer import edges until close.
 - Wait for relevant imported-document revisions in cross-file queries without blocking unrelated documents during cold snapshot construction.
 - Update revision readiness atomically so older completion or cancellation cannot overwrite a newer pending revision.
-- Kill and reap active compiler-check and `bend base` children before shutdown or process exit completes; preserve buffered responses at stdin EOF and retain staging resources until child cleanup finishes.
+- Kill and reap active compiler-check and `bend base` children before shutdown or process exit completes; preserve configured compiler arguments, buffered responses at stdin EOF, and staging resources until child cleanup finishes.
 
 ### CI
 

@@ -517,8 +517,14 @@ pub(super) async fn compiler_base(
     config: &CompilerConfig,
     reapers: Arc<CompilerReapers>,
 ) -> io::Result<std::process::Output> {
-    let (output, _child) =
-        run_compiler_command(Command::new(&config.path).arg("base"), None, reapers).await?;
+    let (output, _child) = run_compiler_command(
+        Command::new(&config.path)
+            .args(&config.arguments)
+            .arg("base"),
+        None,
+        reapers,
+    )
+    .await?;
     Ok(output)
 }
 
