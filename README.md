@@ -215,8 +215,8 @@ container definition changes.
 
 Further details:
 
-- [Performance policy, Callgrind gates, and LSP latency reports](docs/performance-policy.md) —
-  tracks analysis costs and paired real-process p50/p95; not editor rendering latency.
+- [Performance policy, Callgrind gates, calibration, and LSP latency reports](docs/performance-policy.md) —
+  tracks analysis costs, report-only CI calibration, and paired real-process p50/p95; not editor rendering latency.
 - [Tracing with Chrome/Perfetto](docs/tracing.md) — opt-in through `BEND2_LSP_TRACE`.
 - [Release automation and repository setup](docs/releases.md) — ordinary PR
   review plus CI; server-side branch rules must be configured separately.
