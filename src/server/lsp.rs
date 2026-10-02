@@ -1,5 +1,7 @@
 use super::capabilities::server_capabilities;
-use super::compiler::{CachedCompilerResult, CompilerConfig, compiler_diagnostics};
+use super::compiler::{
+    CachedCompilerResult, CompilerConfig, CompilerReapers, compiler_base, compiler_diagnostics,
+};
 use super::features::{
     call_hierarchy_item, code_end_offset, cursor_in_comment_or_string, lexical_diagnostics,
     named_document_symbol, static_hover, token_at, type_hierarchy_item, type_hierarchy_symbol,
@@ -20,7 +22,6 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    process::Command,
     sync::{Mutex as AsyncMutex, Notify, RwLock as AsyncRwLock, RwLockReadGuard, Semaphore, watch},
     task::JoinHandle,
     time::sleep,
@@ -59,6 +60,14 @@ struct RevisionStatus {
     failed_generation: Option<u64>,
 }
 
+impl RevisionStatus {
+    fn is_pending(self) -> bool {
+        self.desired.is_some()
+            && self.committed != self.desired
+            && self.failed_generation != Some(self.generation)
+    }
+}
+
 struct StageOrder {
     next_generation: u64,
     skipped: HashSet<u64>,
@@ -92,38 +101,48 @@ impl DocumentRevisionSync {
     }
 
     fn reserve(self: &Arc<Self>, revision: Revision) -> Option<RevisionTicket> {
-        let mut status = *self.status.borrow();
-        if status
-            .desired
-            .is_some_and(|desired| revision.0 <= desired.0)
-        {
-            return None;
-        }
-        let generation = status.generation.checked_add(1)?;
-        status.desired = Some(revision);
-        status.generation = generation;
-        status.failed_generation = None;
-        self.status.send_replace(status);
+        let mut generation = None;
+        self.status.send_if_modified(|status| {
+            if status
+                .desired
+                .is_some_and(|desired| revision.0 <= desired.0)
+            {
+                return false;
+            }
+            let Some(next_generation) = status.generation.checked_add(1) else {
+                return false;
+            };
+            status.desired = Some(revision);
+            status.generation = next_generation;
+            status.failed_generation = None;
+            generation = Some(next_generation);
+            true
+        });
         Some(RevisionTicket {
             sync: self.clone(),
             revision,
-            generation,
+            generation: generation?,
         })
     }
     fn reserve_refresh(self: &Arc<Self>, revision: Revision) -> Option<RevisionTicket> {
-        let mut status = *self.status.borrow();
-        if status.desired != Some(revision) {
-            return None;
-        }
-        let generation = status.generation.checked_add(1)?;
-        status.generation = generation;
-        status.committed = None;
-        status.failed_generation = None;
-        self.status.send_replace(status);
+        let mut generation = None;
+        self.status.send_if_modified(|status| {
+            if status.desired != Some(revision) {
+                return false;
+            }
+            let Some(next_generation) = status.generation.checked_add(1) else {
+                return false;
+            };
+            status.generation = next_generation;
+            status.committed = None;
+            status.failed_generation = None;
+            generation = Some(next_generation);
+            true
+        });
         Some(RevisionTicket {
             sync: self.clone(),
             revision,
-            generation,
+            generation: generation?,
         })
     }
 
@@ -208,27 +227,30 @@ impl RevisionTicket {
     }
 
     fn mark_committed(&self) -> bool {
-        let mut status = *self.sync.status.borrow();
-        if status.generation != self.generation || status.desired != Some(self.revision) {
-            return false;
-        }
-        status.committed = Some(self.revision);
-        status.failed_generation = None;
-        self.sync.status.send_replace(status);
-        true
+        self.sync.status.send_if_modified(|status| {
+            if status.generation != self.generation || status.desired != Some(self.revision) {
+                return false;
+            }
+            status.committed = Some(self.revision);
+            status.failed_generation = None;
+            true
+        })
     }
 }
 
 impl Drop for RevisionTicket {
     fn drop(&mut self) {
-        let mut status = *self.sync.status.borrow();
-        if status.generation == self.generation
-            && status.desired == Some(self.revision)
-            && status.committed != Some(self.revision)
-        {
-            status.failed_generation = Some(self.generation);
-            self.sync.status.send_replace(status);
-        }
+        self.sync.status.send_if_modified(|status| {
+            if status.generation == self.generation
+                && status.desired == Some(self.revision)
+                && status.committed != Some(self.revision)
+            {
+                status.failed_generation = Some(self.generation);
+                true
+            } else {
+                false
+            }
+        });
         self.sync.finish_stage(self.generation);
     }
 }
@@ -287,10 +309,6 @@ struct PreparedDiskUpdate {
     path: PathBuf,
     snapshot: Option<Arc<DocumentSnapshot>>,
     imports: Vec<(analysis::TextRange, PathBuf)>,
-}
-struct WatchedSnapshotContext {
-    affected: HashMap<Url, i32>,
-    open_snapshots: HashMap<Url, Arc<DocumentSnapshot>>,
 }
 
 #[derive(Clone)]
@@ -394,10 +412,15 @@ pub(super) struct Backend {
     compiler_semaphore: Arc<Semaphore>,
     staging_semaphore: Arc<Semaphore>,
     compiler_results: Arc<RwLock<HashMap<PathBuf, CachedCompilerResult>>>,
+    compiler_reapers: Arc<CompilerReapers>,
 }
 
 impl Backend {
-    pub(super) fn new(client: Client, analysis_tasks: AnalysisTasks) -> Self {
+    pub(super) fn new(
+        client: Client,
+        analysis_tasks: AnalysisTasks,
+        compiler_reapers: Arc<CompilerReapers>,
+    ) -> Self {
         Self {
             client,
             workspace_update_serial: Arc::new(AsyncMutex::new(())),
@@ -420,6 +443,7 @@ impl Backend {
             compiler_semaphore: Arc::new(Semaphore::new(4)),
             staging_semaphore: Arc::new(Semaphore::new(4)),
             compiler_results: Arc::new(RwLock::new(HashMap::new())),
+            compiler_reapers,
         }
     }
     fn invalidate_document_revision(&self, uri: &Url) {
@@ -435,11 +459,11 @@ impl Backend {
         let Some(sync) = revisions.get_mut(&id) else {
             return;
         };
-        let mut status = *sync.status.borrow();
-        status.desired = None;
-        status.committed = None;
-        status.failed_generation = None;
-        sync.status.send_replace(status);
+        sync.status.send_modify(|status| {
+            status.desired = None;
+            status.committed = None;
+            status.failed_generation = None;
+        });
         if let Ok(mut staged) = sync.staged_document.lock() {
             *staged = None;
         }
@@ -602,38 +626,60 @@ impl Backend {
 
     async fn document_read(&self, uri: &Url) -> RwLockReadGuard<'_, ()> {
         self.wait_for_document_revision(uri).await;
-        self.workspace_updates
-            .read()
-            .instrument(tracing::info_span!("workspace.sync_wait"))
-            .await
+        self.ready_read(Some(uri)).await
     }
 
     async fn workspace_read(&self) -> RwLockReadGuard<'_, ()> {
-        // Workspace-wide queries use the committed DB view under this guard; pending revisions stay invisible and do not delay them.
+        // Cold snapshot construction never holds this committed-view guard.
         self.workspace_updates
             .read()
             .instrument(tracing::info_span!("workspace.sync_wait"))
             .await
     }
-    async fn workspace_ready_read(&self) -> RwLockReadGuard<'_, ()> {
-        let pending = self
-            .revision_syncs
-            .read()
-            .map(|revisions| {
-                let mut pending = Vec::new();
-                for sync in revisions.values() {
-                    let state = *sync.status.borrow();
-                    if state.desired.is_some()
-                        && state.committed != state.desired
-                        && state.failed_generation != Some(state.generation)
-                    {
-                        pending.push((sync.status.subscribe(), state.generation));
-                    }
-                }
-                pending
+    fn pending_revisions(&self, uri: Option<&Url>) -> Vec<(watch::Receiver<RevisionStatus>, u64)> {
+        let Ok(revisions) = self.revision_syncs.read() else {
+            return Vec::new();
+        };
+        // Most queries have no pending updates. Avoid walking the import graph
+        // or allocating waiters on this warm path.
+        if !revisions
+            .values()
+            .any(|sync| sync.status.borrow().is_pending())
+        {
+            return Vec::new();
+        }
+        let dependencies = if let Some(uri) = uri {
+            let Ok(database) = self.workspace_db.read() else {
+                return Vec::new();
+            };
+            let Some(root) = database.file_id_by_uri(uri) else {
+                return Vec::new();
+            };
+            Some(database.dependencies(root))
+        } else {
+            None
+        };
+        revisions
+            .iter()
+            .filter_map(|(id, sync)| {
+                let state = *sync.status.borrow();
+                (state.is_pending()
+                    && dependencies
+                        .as_ref()
+                        .is_none_or(|dependencies| dependencies.contains(id)))
+                .then(|| (sync.status.subscribe(), state.generation))
             })
-            .unwrap_or_default();
-        if !pending.is_empty() {
+            .collect()
+    }
+
+    async fn ready_read(&self, uri: Option<&Url>) -> RwLockReadGuard<'_, ()> {
+        loop {
+            let read = self.workspace_read().await;
+            let pending = self.pending_revisions(uri);
+            if pending.is_empty() {
+                return read;
+            }
+            drop(read);
             let span = tracing::info_span!(
                 "workspace.readiness_wait",
                 captured_pending_count = pending.len()
@@ -645,8 +691,13 @@ impl Backend {
             }
             .instrument(span)
             .await;
+            // A waited-for generation can be superseded, or its imports can
+            // change. Recheck relevant revisions under the committed-view guard.
         }
-        self.workspace_read().await
+    }
+
+    async fn workspace_ready_read(&self) -> RwLockReadGuard<'_, ()> {
+        self.ready_read(None).await
     }
 
     fn document(&self, uri: &Url) -> Option<Document> {
@@ -1057,11 +1108,7 @@ impl Backend {
             .read()
             .map(|config| config.clone())
             .unwrap_or_default();
-        let output = Command::new(&config.path)
-            .args(&config.arguments)
-            .arg("base")
-            .output()
-            .await;
+        let output = compiler_base(&config, self.compiler_reapers.clone()).await;
         let source = output
             .ok()
             .filter(|output| output.status.success())
@@ -1360,8 +1407,9 @@ impl Backend {
     }
     async fn schedule_diagnostics(&self, uri: Url, version: i32) {
         let mut tasks = self.analysis_tasks.lock().await;
-        if let Some((_, previous)) = tasks.remove(&uri) {
+        if let Some((_, previous)) = tasks.get_mut(&uri) {
             previous.abort();
+            let _ = previous.await;
         }
         let generation = self.next_analysis_id.fetch_add(1, Ordering::Relaxed);
         let backend = self.clone();
@@ -1390,18 +1438,27 @@ impl Backend {
     }
 
     async fn cancel_diagnostics(&self, uri: &Url) {
-        if let Some((_, task)) = self.analysis_tasks.lock().await.remove(uri) {
+        let mut tasks = self.analysis_tasks.lock().await;
+        if let Some((_, task)) = tasks.get_mut(uri) {
             task.abort();
             let _ = task.await;
         }
+        tasks.remove(uri);
     }
 
     async fn cancel_all_diagnostics(&self) {
-        let tasks = std::mem::take(&mut *self.analysis_tasks.lock().await);
-        for (_, task) in tasks.into_values() {
+        self.compiler_reapers.close();
+        self.compiler_semaphore.close();
+        let mut tasks = self.analysis_tasks.lock().await;
+        for (_, task) in tasks.values() {
             task.abort();
+        }
+        for (_, task) in tasks.values_mut() {
             let _ = task.await;
         }
+        tasks.clear();
+        drop(tasks);
+        self.compiler_reapers.wait().await;
     }
 
     async fn run_diagnostics(&self, uri: Url, version: i32) {
@@ -1451,6 +1508,7 @@ impl Backend {
                 compiler_config,
                 self.compiler_semaphore.clone(),
                 self.compiler_results.clone(),
+                self.compiler_reapers.clone(),
             )
             .await;
             if !diagnostics
@@ -1581,13 +1639,9 @@ impl Backend {
         }
         span.record("published_count", published_count);
     }
-    fn watched_snapshot_context(
-        &self,
-        events: &[(Url, PathBuf)],
-    ) -> Option<WatchedSnapshotContext> {
+    fn watched_snapshot_context(&self, events: &[(Url, PathBuf)]) -> Option<HashMap<Url, i32>> {
         let database = self.workspace_db.read().ok()?;
         let mut affected = HashMap::new();
-        let mut open_snapshots = HashMap::new();
         for (uri, path) in events {
             let Some(id) = database
                 .file_id_by_uri(uri)
@@ -1598,20 +1652,13 @@ impl Backend {
             for document in database.dependents(id) {
                 affected.insert(document.uri.clone(), document.revision.0);
             }
-            if let Some(document) = database.open_document(uri) {
-                open_snapshots.insert(uri.clone(), document.snapshot);
-            }
         }
-        Some(WatchedSnapshotContext {
-            affected,
-            open_snapshots,
-        })
+        Some(affected)
     }
 
     async fn prepare_watched_updates(
         semaphore: Arc<Semaphore>,
         events: Vec<(Url, PathBuf)>,
-        open_snapshots: HashMap<Url, Arc<DocumentSnapshot>>,
     ) -> Option<Vec<PreparedDiskUpdate>> {
         run_staging(semaphore, move || {
             events
@@ -1620,11 +1667,7 @@ impl Backend {
                     let snapshot = std::fs::read_to_string(&path)
                         .ok()
                         .map(|text| Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text)));
-                    let active_snapshot = open_snapshots
-                        .get(&uri)
-                        .cloned()
-                        .or_else(|| snapshot.clone());
-                    let imports = active_snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
+                    let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
                         crate::workspace::resolve_import_targets(&path, snapshot)
                     });
                     PreparedDiskUpdate {
@@ -1645,25 +1688,16 @@ impl Backend {
             return HashMap::new();
         }
         let _serial = self.workspace_update_serial.lock().await;
-        let generation = self.workspace_generation.load(Ordering::Acquire);
-        let Some(WatchedSnapshotContext {
-            mut affected,
-            open_snapshots,
-        }) = self.watched_snapshot_context(&events)
-        else {
+        let Some(mut affected) = self.watched_snapshot_context(&events) else {
             return HashMap::new();
         };
         let Some(prepared) =
-            Self::prepare_watched_updates(self.staging_semaphore.clone(), events, open_snapshots)
-                .await
+            Self::prepare_watched_updates(self.staging_semaphore.clone(), events).await
         else {
             return HashMap::new();
         };
         let updates = {
             let _workspace_update = self.workspace_updates.write().await;
-            if self.workspace_generation.load(Ordering::Acquire) != generation {
-                return HashMap::new();
-            }
             let Ok(mut database) = self.workspace_db.write() else {
                 return HashMap::new();
             };
@@ -2048,13 +2082,16 @@ impl LanguageServer for Backend {
             .take_while(|byte| matches!(byte, b' ' | b'\t'))
             .count();
         let previous_indent_text = &previous[..previous_indent];
-        let previous_code = previous[previous_indent..].trim_end();
+        let Some(opens_body) = super::formatter::opens_indented_body(&previous[previous_indent..])
+        else {
+            return Ok(Some(Vec::new()));
+        };
         let unit = if params.options.insert_spaces {
             " ".repeat(params.options.tab_size as usize)
         } else {
             "\t".to_owned()
         };
-        let desired = if previous_code.ends_with(':') {
+        let desired = if opens_body {
             format!("{previous_indent_text}{unit}")
         } else {
             previous_indent_text.to_owned()
@@ -2387,10 +2424,9 @@ impl LanguageServer for Backend {
         }
         self.ensure_prelude_module(&doc).await;
         let offset = super::adapters::offset_at(&doc, td.position);
-        if cursor_in_comment_or_string(&doc, offset) {
+        let Some(token) = declaration_token_at(&doc, offset) else {
             return Ok(None);
-        }
-        let token = token_at(&doc, offset);
+        };
         let Some((uri, source, name)) = self.hierarchy_source(&doc, &token) else {
             return Ok(None);
         };
@@ -2701,7 +2737,26 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
         self.ensure_prelude_module(&doc).await;
-        let token = token_at(&doc, super::adapters::offset_at(&doc, td.position));
+        let offset = super::adapters::offset_at(&doc, td.position);
+        if let Some(symbol) = binding_at(&doc, offset) {
+            let value = doc.syntax.binding_by_id(symbol).and_then(|binding| {
+                let ty = doc.syntax.binding_type_range(&doc.text, symbol)?;
+                let name = doc.syntax.name_text(&doc.text, binding.name);
+                let ty = &doc.text[ty.start..ty.end];
+                Some(format!("```bend\n{name}: {ty}\n```"))
+            });
+            return Ok(value.map(|value| Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                }),
+                range: None,
+            }));
+        }
+        let Some(token) = declaration_token_at(&doc, super::adapters::offset_at(&doc, td.position))
+        else {
+            return Ok(None);
+        };
         let imported = token.split_once('.').and_then(|(alias, member)| {
             self.module_document(&doc, alias)
                 .and_then(|(_, source)| analysis::declaration_hover(&source, member))
@@ -2806,8 +2861,11 @@ impl LanguageServer for Backend {
                 range: Range::default(),
             })));
         }
-        let token =
-            tracing::info_span!("navigation.token_lookup").in_scope(|| token_at(&doc, offset));
+        let Some(token) = tracing::info_span!("navigation.token_lookup")
+            .in_scope(|| declaration_token_at(&doc, offset))
+        else {
+            return Ok(None);
+        };
         let local_range = tracing::info_span!("navigation.declaration_lookup", scope = "local")
             .in_scope(|| analysis::declaration_range(&doc, &token));
         if let Some(range) = local_range {
@@ -2926,7 +2984,9 @@ impl LanguageServer for Backend {
                     .collect(),
             ));
         }
-        let token = token_at(&doc, offset);
+        let Some(token) = declaration_token_at(&doc, offset) else {
+            return Ok(None);
+        };
         let (target_uri, target_text, name) = self.symbol_source(&doc, &token);
         if analysis::declaration_range(&target_text, &name).is_none() {
             return Ok(None);
@@ -2964,7 +3024,9 @@ impl LanguageServer for Backend {
                     .collect(),
             ));
         }
-        let token = token_at(&doc, offset);
+        let Some(token) = declaration_token_at(&doc, offset) else {
+            return Ok(None);
+        };
         let (target_uri, target_text, name) = self.symbol_source(&doc, &token);
         if analysis::declaration_range(&target_text, &name).is_none() {
             return Ok(None);
@@ -3004,7 +3066,9 @@ impl LanguageServer for Backend {
                 ..Default::default()
             }));
         }
-        let token = token_at(&doc, offset);
+        let Some(token) = declaration_token_at(&doc, offset) else {
+            return Ok(None);
+        };
         let (target_uri, target_text, name) = self.symbol_source(&doc, &token);
         if analysis::declaration_range(&target_text, &name).is_none() {
             return Ok(None);
@@ -3037,7 +3101,37 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
         self.ensure_prelude_module(&doc).await;
-        let token = token_at(&doc, super::adapters::offset_at(&doc, td.position));
+        let offset = super::adapters::offset_at(&doc, td.position);
+        if let Some(symbol) = binding_at(&doc, offset) {
+            let range = doc
+                .syntax
+                .binding_type_range(&doc.text, symbol)
+                .and_then(|ty| {
+                    let expression = &doc.text[ty.start..ty.end];
+                    doc.syntax
+                        .symbols()
+                        .iter()
+                        .filter(|symbol| symbol.kind == analysis::SymbolKind::Struct)
+                        .find(|symbol| {
+                            expression
+                                .split(|character: char| {
+                                    !character.is_ascii_alphanumeric() && character != '_'
+                                })
+                                .any(|name| name == doc.syntax.name_text(&doc.text, symbol.name))
+                        })
+                        .map(|symbol| symbol.name_range)
+                });
+            return Ok(range.map(|range| {
+                GotoDefinitionResponse::Scalar(Location {
+                    uri: doc.uri.clone(),
+                    range: super::adapters::range(&doc, range),
+                })
+            }));
+        }
+        let Some(token) = declaration_token_at(&doc, super::adapters::offset_at(&doc, td.position))
+        else {
+            return Ok(None);
+        };
         let imported = token.split_once('.').and_then(|(alias, member)| {
             self.module_document(&doc, alias)
                 .map(|(uri, source)| (uri, source, member.to_owned()))
@@ -3052,11 +3146,7 @@ impl LanguageServer for Backend {
             .or(local)
             .or(prelude)
             .unwrap_or_else(|| (doc.uri.clone(), doc.snapshot.clone(), token.clone()));
-        let range = analysis::type_declaration_range(&target_text, &name).or_else(|| {
-            (target_uri == doc.uri)
-                .then(|| analysis::parameter_type_declaration_range(&target_text, &name))
-                .flatten()
-        });
+        let range = analysis::type_declaration_range(&target_text, &name);
         let Some(range) = range else {
             return Ok(None);
         };
@@ -3065,6 +3155,59 @@ impl LanguageServer for Backend {
             range: super::adapters::range(&target_text, range),
         })))
     }
+}
+
+// Declaration queries must not reinterpret a lexical binding or a module alias
+// under the cursor as the declaration named by the entire qualified expression.
+fn declaration_token_at(snapshot: &DocumentSnapshot, offset: usize) -> Option<String> {
+    if cursor_in_comment_or_string(snapshot, offset) {
+        return None;
+    }
+    let syntax = &snapshot.syntax;
+    let cursor = syntax.token_at_or_before(offset)?;
+    let token = syntax.token(cursor)?;
+    if offset < token.range.start || offset > token.range.end {
+        return None;
+    }
+    let mut root = cursor;
+    while let Some(previous) = root.0.checked_sub(2) {
+        let qualifier = analysis::TokenId(previous);
+        let dot = analysis::TokenId(previous + 1);
+        let Some(qualifier_token) = syntax.token(qualifier) else {
+            break;
+        };
+        let Some(dot_token) = syntax.token(dot) else {
+            break;
+        };
+        let Some(member_token) = syntax.token(root) else {
+            break;
+        };
+        if qualifier_token.kind != analysis::TokenKind::Identifier
+            || syntax.token_text(&snapshot.text, dot) != Some(".")
+            || qualifier_token.range.end != dot_token.range.start
+            || dot_token.range.end != member_token.range.start
+        {
+            break;
+        }
+        root = qualifier;
+    }
+    if syntax
+        .symbol_for_token(root)
+        .is_some_and(|symbol| syntax.binding_by_id(symbol).is_some())
+    {
+        return None;
+    }
+    let root_text = syntax.token_text(&snapshot.text, root)?;
+    if root == cursor
+        && analysis::imports(snapshot).iter().any(|import| {
+            import.alias_text(&snapshot.text) == Some(root_text)
+                || import.path.contains(offset)
+                || import.alias.is_some_and(|range| range.contains(offset))
+        })
+    {
+        return None;
+    }
+    Some(token_at(snapshot, offset))
 }
 
 fn binding_at(snapshot: &DocumentSnapshot, offset: usize) -> Option<analysis::SymbolId> {

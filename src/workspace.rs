@@ -248,12 +248,7 @@ impl WorkspaceDb {
     pub fn sync_disk_path(&mut self, path: &Path, text: Option<String>) -> Option<(FileId, bool)> {
         let snapshot =
             text.map(|text| Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text)));
-        let active_snapshot = self
-            .file_id_by_path(path)
-            .and_then(|id| self.entries.get(id.0))
-            .and_then(|entry| entry.open_snapshot.clone())
-            .or_else(|| snapshot.clone());
-        let imports = active_snapshot
+        let imports = snapshot
             .as_ref()
             .map_or_else(Vec::new, |snapshot| resolve_import_targets(path, snapshot));
         self.sync_disk_snapshot_prepared(path, snapshot, imports)
@@ -269,7 +264,10 @@ impl WorkspaceDb {
         let uri = Url::from_file_path(&path).ok()?;
         let id = self.intern(uri, Some(path));
         self.entries[id.0].disk_snapshot = snapshot;
-        let imports_changed = self.refresh_imports_with_targets(id, imports);
+        // The prepared imports belong to the disk snapshot, not an open overlay
+        // that may have changed while the disk snapshot was being constructed.
+        let imports_changed = self.entries[id.0].open_snapshot.is_none()
+            && self.refresh_imports_with_targets(id, imports);
         Some((id, imports_changed))
     }
 
@@ -350,6 +348,20 @@ impl WorkspaceDb {
         } else if extend_reachable {
             self.reachable.extend(visited);
         }
+    }
+
+    pub(crate) fn dependencies(&self, root: FileId) -> HashSet<FileId> {
+        let mut pending = vec![root];
+        let mut visited = HashSet::new();
+        while let Some(id) = pending.pop() {
+            if !visited.insert(id) {
+                continue;
+            }
+            if let Some(entry) = self.entries.get(id.0) {
+                pending.extend(entry.imports.iter().map(|edge| edge.target));
+            }
+        }
+        visited
     }
 
     #[must_use]

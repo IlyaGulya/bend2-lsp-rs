@@ -36,6 +36,30 @@ static CONSTRUCTOR_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::ne
     )
 });
 
+static PARAMETER_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::new(|| {
+    analysis::DocumentSnapshot::new(
+        analysis::Revision(0),
+        "def typed(builtin: U32, qualified: Ast.Term, nested: (Ast.Term, List(U32))) -> U32:\n  builtin\n".to_owned(),
+    )
+});
+
+fn parameter_annotation_case(
+    index: usize,
+) -> (&'static analysis::DocumentSnapshot, analysis::SymbolId) {
+    let snapshot = LazyLock::force(&PARAMETER_SNAPSHOT);
+    let declaration = snapshot
+        .syntax
+        .symbols()
+        .first()
+        .must_be("typed declaration");
+    let parameter = snapshot
+        .syntax
+        .parameters(declaration)
+        .get(index)
+        .must_be("indexed parameter");
+    (snapshot, parameter.id)
+}
+
 struct WarmSnapshot {
     source: &'static str,
     snapshot: &'static analysis::DocumentSnapshot,
@@ -587,6 +611,19 @@ fn constructor_definition_warm(
     ))
 }
 
+#[library_benchmark]
+#[bench::builtin(parameter_annotation_case(0))]
+#[bench::qualified(parameter_annotation_case(1))]
+#[bench::nested(parameter_annotation_case(2))]
+fn parameter_annotation_warm(
+    (snapshot, parameter): (&analysis::DocumentSnapshot, analysis::SymbolId),
+) -> Option<analysis::TextRange> {
+    std::hint::black_box(snapshot.syntax.binding_type_range(
+        std::hint::black_box(&snapshot.text),
+        std::hint::black_box(parameter),
+    ))
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -597,7 +634,7 @@ library_benchmark_group!(
         folding_100_lines, folding_1000_lines, folding_10000_lines,
         workspace_initial_build, workspace_incremental_invalidation,
         workspace_references, workspace_burst_revision_invalidation,
-        constructor_definition_warm
+        constructor_definition_warm, parameter_annotation_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

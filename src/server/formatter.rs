@@ -121,6 +121,25 @@ fn fingerprint(source: &str) -> Option<Vec<(usize, Vec<String>)>> {
     }
     Some(result)
 }
+pub(super) fn opens_indented_body(line: &str) -> Option<bool> {
+    let (code, _) = split_comment(line)?;
+    if code.trim_end().ends_with(':') {
+        return Some(true);
+    }
+    let mut words = code.split_whitespace();
+    let mut keyword = words.next();
+    if keyword == Some("@unsafe") {
+        keyword = words.next();
+    }
+    Some(
+        matches!(keyword, Some("def" | "law" | "type"))
+            && words
+                .next()
+                .and_then(|name| name.as_bytes().first())
+                .is_some_and(|byte| byte.is_ascii_alphabetic() || *byte == b'_'),
+    )
+}
+
 fn split_comment(s: &str) -> Option<(&str, &str)> {
     let mut quote = None;
     let mut escaped = false;

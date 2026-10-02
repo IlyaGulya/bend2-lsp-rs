@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Bug Fixes
+
+- Respect lexical parameter shadowing in declaration navigation and hover, including shadowed module qualifiers and scoped parameter annotations.
+- Reject unsupported module-alias rename instead of renaming an imported member under a different cursor.
+- Preserve body indentation after colonless declarations during newline formatting; handle comments, quoted delimiters, and incomplete literals safely.
+- Retain watched closed-file updates across concurrent document commits and preserve newer open-buffer import edges until close.
+- Wait for relevant imported-document revisions in cross-file queries without blocking unrelated documents during cold snapshot construction.
+- Update revision readiness atomically so older completion or cancellation cannot overwrite a newer pending revision.
+- Kill and reap active compiler-check and `bend base` children before shutdown or process exit completes; preserve buffered responses at stdin EOF and retain staging resources until child cleanup finishes.
+
 ### CI
 
 - Add report-only Callgrind calibration with independent A/A builds, layout and positive-regression controls, preserved raw evidence, and discovery-only proposals checked against independent validation; active gates remain unchanged.

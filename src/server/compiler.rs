@@ -2,13 +2,18 @@ use std::{
     collections::HashMap,
     io::{self, Write as _},
     path::{Component, Path, PathBuf},
-    sync::{Arc, LazyLock, RwLock},
+    process::Stdio,
+    sync::{
+        Arc, LazyLock, RwLock,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
     time::{Instant, SystemTime},
 };
 
 use tokio::{
-    process::Command,
-    sync::{OwnedSemaphorePermit, Semaphore},
+    io::{AsyncRead, AsyncReadExt},
+    process::{Child, Command},
+    sync::{Notify, OwnedSemaphorePermit, Semaphore},
 };
 use tower_lsp::lsp_types::Diagnostic;
 
@@ -19,6 +24,118 @@ use crate::workspace::{SourceGraph, is_hub_import_path};
 pub(super) struct CompilerConfig {
     pub(super) path: String,
     pub(super) arguments: Vec<String>,
+}
+
+#[derive(Default)]
+pub(super) struct CompilerReapers {
+    active: AtomicUsize,
+    closed: AtomicBool,
+    stopped: Notify,
+    idle: Notify,
+}
+
+impl CompilerReapers {
+    pub(super) fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
+        self.stopped.notify_waiters();
+    }
+
+    fn track(self: &Arc<Self>) -> io::Result<CompilerLease> {
+        // Count admission before observing close, so the final drain cannot miss
+        // a child admitted concurrently with shutdown.
+        self.active.fetch_add(1, Ordering::SeqCst);
+        let lease = CompilerLease(self.clone());
+        if self.closed.load(Ordering::SeqCst) {
+            Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "compiler checks have been stopped",
+            ))
+        } else {
+            Ok(lease)
+        }
+    }
+
+    async fn stopped(&self) {
+        loop {
+            let notified = self.stopped.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if self.closed.load(Ordering::SeqCst) {
+                return;
+            }
+            notified.await;
+        }
+    }
+
+    pub(super) async fn wait(&self) {
+        loop {
+            let notified = self.idle.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if self.active.load(Ordering::SeqCst) == 0 {
+                return;
+            }
+            notified.await;
+        }
+    }
+}
+
+struct CompilerLease(Arc<CompilerReapers>);
+
+impl Drop for CompilerLease {
+    fn drop(&mut self) {
+        if self.0.active.fetch_sub(1, Ordering::SeqCst) == 1 {
+            self.0.idle.notify_waiters();
+        }
+    }
+}
+
+struct CompilerChild {
+    child: Child,
+    _resources: Option<(OwnedSemaphorePermit, tempfile::TempDir)>,
+    lease: CompilerLease,
+}
+
+struct CompilerChildGuard {
+    child: Option<CompilerChild>,
+}
+
+impl CompilerChildGuard {
+    async fn wait_with_output(mut self) -> io::Result<(std::process::Output, Self)> {
+        let child = self
+            .child
+            .as_mut()
+            .ok_or_else(|| io::Error::other("compiler child has already been released"))?;
+        let output = tokio::select! {
+            output = collect_compiler_output(&mut child.child) => output?,
+            () = child.lease.0.stopped() => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "compiler checks have been stopped",
+                ));
+            }
+        };
+        Ok((output, self))
+    }
+}
+
+impl Drop for CompilerChildGuard {
+    fn drop(&mut self) {
+        let Some(mut child) = self.child.take() else {
+            return;
+        };
+        if child.child.id().is_none() {
+            return;
+        }
+        // Dispatch cancellation immediately, but retain the child and its resources
+        // until wait completes instead of relying on Tokio's best-effort orphan reap.
+        let _ = child.child.start_kill();
+        tokio::spawn(async move {
+            let _ = child.child.wait().await;
+            // Dropping the lease notifies the drain only after the child is reaped.
+            drop(child);
+        });
+    }
 }
 
 type SourceSnapshot = (PathBuf, Arc<DocumentSnapshot>);
@@ -185,21 +302,28 @@ pub(super) async fn compiler_diagnostics(
     config: CompilerConfig,
     semaphore: Arc<Semaphore>,
     cache: Arc<RwLock<HashMap<PathBuf, CachedCompilerResult>>>,
+    reapers: Arc<CompilerReapers>,
 ) -> Vec<(PathBuf, Diagnostic)> {
     let span = tracing::Span::current();
     let diagnostics = if let Some(path) = compiler_metrics_path() {
         let started = Instant::now();
         let mut metrics = CompilerCheckMetrics::default();
-        let diagnostics =
-            compiler_diagnostics_inner(source_graph, config, semaphore, cache, Some(&mut metrics))
-                .await;
+        let diagnostics = compiler_diagnostics_inner(
+            source_graph,
+            config,
+            semaphore,
+            cache,
+            reapers,
+            Some(&mut metrics),
+        )
+        .await;
         metrics.total_ns = started.elapsed().as_nanos();
         if !metrics.root.is_empty() {
             record_compiler_metrics(path.to_path_buf(), metrics).await;
         }
         diagnostics
     } else {
-        compiler_diagnostics_inner(source_graph, config, semaphore, cache, None).await
+        compiler_diagnostics_inner(source_graph, config, semaphore, cache, reapers, None).await
     };
     span.record("diagnostic_count", diagnostics.len());
     span.record("outcome", "complete");
@@ -210,6 +334,7 @@ async fn compiler_diagnostics_inner(
     config: CompilerConfig,
     semaphore: Arc<Semaphore>,
     cache: Arc<RwLock<HashMap<PathBuf, CachedCompilerResult>>>,
+    reapers: Arc<CompilerReapers>,
     mut metrics: Option<&mut CompilerCheckMetrics>,
 ) -> Vec<(PathBuf, Diagnostic)> {
     let span = tracing::Span::current();
@@ -270,22 +395,23 @@ async fn compiler_diagnostics_inner(
         span.record("cache_hit", true);
         return result.diagnostics.clone();
     }
-    let Some((_permit, _staging, staged)) =
+    let Some((permit, staging, staged)) =
         stage_compiler_graph(source_graph, permit, metrics.as_deref_mut()).await
     else {
         return Vec::new();
     };
     let StagedImportGraph { entry, sources, .. } = staged;
-    let output = match run_compiler(&config, entry, metrics).await {
-        Ok(output) => output,
-        Err(error) => {
-            let message = format!("Unable to run Bend compiler '{}': {error}", config.path);
-            return vec![(
-                root,
-                diag(&root_snapshot, 0, 0, message, "compiler-unavailable"),
-            )];
-        }
-    };
+    let (output, _child) =
+        match run_compiler(&config, entry, permit, staging, reapers, metrics).await {
+            Ok(output) => output,
+            Err(error) => {
+                let message = format!("Unable to run Bend compiler '{}': {error}", config.path);
+                return vec![(
+                    root,
+                    diag(&root_snapshot, 0, 0, message, "compiler-unavailable"),
+                )];
+            }
+        };
     let diagnostics = compiler_output_diagnostics(&root, &root_snapshot, &sources, &output);
     if cacheable && let Ok(mut results) = cache.write() {
         if !results.contains_key(&root)
@@ -351,25 +477,30 @@ async fn stage_compiler_graph(
 async fn run_compiler(
     config: &CompilerConfig,
     entry: PathBuf,
+    permit: OwnedSemaphorePermit,
+    staging: tempfile::TempDir,
+    reapers: Arc<CompilerReapers>,
     metrics: Option<&mut CompilerCheckMetrics>,
-) -> io::Result<std::process::Output> {
+) -> io::Result<(std::process::Output, CompilerChildGuard)> {
     let child_started = metrics.is_some().then(Instant::now);
-    let output = Command::new(&config.path)
-        .kill_on_drop(true)
-        .args(&config.arguments)
-        .arg(entry)
-        .arg("--check-only")
-        .output()
-        .await;
+    let output = run_compiler_command(
+        Command::new(&config.path)
+            .args(&config.arguments)
+            .arg(entry)
+            .arg("--check-only"),
+        Some((permit, staging)),
+        reapers,
+    )
+    .await;
     let span = tracing::Span::current();
     if let (Some(metrics), Some(started)) = (metrics, child_started) {
         metrics.child_ns = started.elapsed().as_nanos();
     }
     match &output {
-        Ok(output) if output.status.success() => {
+        Ok((output, _)) if output.status.success() => {
             span.record("outcome", "success");
         }
-        Ok(output) => {
+        Ok((output, _)) => {
             span.record("outcome", "nonzero");
             if let Some(code) = output.status.code() {
                 span.record("exit_code", code);
@@ -380,6 +511,60 @@ async fn run_compiler(
         }
     }
     output
+}
+
+pub(super) async fn compiler_base(
+    config: &CompilerConfig,
+    reapers: Arc<CompilerReapers>,
+) -> io::Result<std::process::Output> {
+    let (output, _child) =
+        run_compiler_command(Command::new(&config.path).arg("base"), None, reapers).await?;
+    Ok(output)
+}
+
+async fn run_compiler_command(
+    command: &mut Command,
+    resources: Option<(OwnedSemaphorePermit, tempfile::TempDir)>,
+    reapers: Arc<CompilerReapers>,
+) -> io::Result<(std::process::Output, CompilerChildGuard)> {
+    let lease = reapers.track()?;
+    let child = command
+        .kill_on_drop(true)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    CompilerChildGuard {
+        child: Some(CompilerChild {
+            child,
+            _resources: resources,
+            lease,
+        }),
+    }
+    .wait_with_output()
+    .await
+}
+
+async fn collect_compiler_output(child: &mut Child) -> io::Result<std::process::Output> {
+    let mut stdout_pipe = child.stdout.take();
+    let mut stderr_pipe = child.stderr.take();
+    let (status, stdout, stderr) = tokio::try_join!(
+        child.wait(),
+        read_compiler_pipe(&mut stdout_pipe),
+        read_compiler_pipe(&mut stderr_pipe),
+    )?;
+    Ok(std::process::Output {
+        status,
+        stdout,
+        stderr,
+    })
+}
+
+async fn read_compiler_pipe<R: AsyncRead + Unpin>(pipe: &mut Option<R>) -> io::Result<Vec<u8>> {
+    let mut output = Vec::new();
+    if let Some(pipe) = pipe {
+        pipe.read_to_end(&mut output).await?;
+    }
+    Ok(output)
 }
 
 fn compiler_output_diagnostics(

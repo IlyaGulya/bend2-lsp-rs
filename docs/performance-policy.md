@@ -7,8 +7,8 @@ indexes; the `bend2-lsp` binary keeps the LSP/server adapter private. The
 benchmark calls these production library APIs directly. The group
 covers cold snapshot construction for small (2,552-byte), medium (32,429-byte),
 and large (260,429-byte) sources; warm semantic-token, completion, identifier,
-reference, call-hierarchy, and inlay-hint queries; warm indexed
-constructor-definition queries; ASCII/Unicode position
+reference, call-hierarchy, inlay-hint, and indexed parameter-annotation queries;
+warm indexed constructor-definition queries; ASCII/Unicode position
 conversion; folding on 100-, 1,000-, and 10,000-line inputs; and a generated 100-file
 workspace with 601 declarations and 4,758 call sites. Workspace measurements
 include initial graph loading, cross-file references, one dependency revision,
@@ -36,6 +36,13 @@ for analysis queries and generated workspace/folding fixtures for graph
 workloads. Constructor-definition lookup uses a separate ADT snippet, with its
 snapshot constructed before measurement. The bench uses Iai-Callgrind's `#[library_benchmark]`,
 `library_benchmark_group!`, and `main!` APIs.
+
+The `parameter_annotation_warm` cases cover builtin, qualified, and nested type
+annotations. Setup builds the snapshot and selects the binding before measurement.
+The query uses existing binding identities and delimiter contexts to inspect only
+the indexed local type-token span; it does not reparse function headers or allocate
+annotation tables during snapshot construction. Existing snapshot and binding
+layouts, benchmark metrics, and regression limits remain unchanged.
 
 ## Report-only CI calibration
 

@@ -9,7 +9,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use super::{lsp::Backend, telemetry};
+use super::{compiler::CompilerReapers, lsp::Backend, telemetry};
 use tokio::{
     io::{AsyncRead, AsyncWrite, ReadBuf},
     sync::{Mutex as AsyncMutex, mpsc},
@@ -115,10 +115,11 @@ struct StdinChannel {
     receiver: mpsc::Receiver<Vec<u8>>,
     current: Vec<u8>,
     offset: usize,
+    compiler_reapers: Arc<CompilerReapers>,
 }
 
 impl StdinChannel {
-    fn new() -> Self {
+    fn new(compiler_reapers: Arc<CompilerReapers>) -> Self {
         let (sender, receiver) = mpsc::channel(4);
         std::thread::spawn(move || {
             let stdin = io::stdin();
@@ -141,6 +142,7 @@ impl StdinChannel {
             receiver,
             current: Vec::new(),
             offset: 0,
+            compiler_reapers,
         }
     }
 }
@@ -172,7 +174,11 @@ impl AsyncRead for StdinChannel {
                     this.current = chunk;
                     this.offset = 0;
                 }
-                Poll::Ready(None) => return Poll::Ready(Ok(())),
+                Poll::Ready(None) => {
+                    // Cancel compiler work without discarding buffered protocol responses.
+                    this.compiler_reapers.close();
+                    return Poll::Ready(Ok(()));
+                }
                 Poll::Pending => return Poll::Pending,
             }
         }
@@ -192,20 +198,29 @@ pub(super) async fn run() {
     };
     let stdout = tokio::io::stdout();
     let analysis_tasks = Arc::new(AsyncMutex::new(HashMap::new()));
+    let compiler_reapers = Arc::new(CompilerReapers::default());
     let server_tasks = analysis_tasks.clone();
-    let (service, socket) =
-        LspService::new(move |client| Backend::new(client, server_tasks.clone()));
+    let server_reapers = compiler_reapers.clone();
+    let (service, socket) = LspService::new(move |client| {
+        Backend::new(client, server_tasks.clone(), server_reapers.clone())
+    });
     let (exit, mut exit_rx) = tokio::sync::watch::channel(false);
     let service = ExitAwareService {
         inner: service,
         exit,
     };
     tokio::select! {
-        () = Server::new(StdinChannel::new(), TracedStdout(stdout), socket).serve(service) => {}
+        () = Server::new(
+            StdinChannel::new(compiler_reapers.clone()),
+            TracedStdout(stdout),
+            socket,
+        ).serve(service) => {}
         _ = exit_rx.changed() => {}
         () = termination_signal() => {}
     }
+    compiler_reapers.close();
     cancel_task_handles(&analysis_tasks).await;
+    compiler_reapers.wait().await;
     drop(trace_guard);
 }
 
@@ -229,8 +244,10 @@ async fn termination_signal() {
 
 async fn cancel_task_handles(tasks: &AsyncMutex<HashMap<Url, (u64, JoinHandle<()>)>>) {
     let tasks = std::mem::take(&mut *tasks.lock().await);
-    for (_, task) in tasks.into_values() {
+    for (_, task) in tasks.values() {
         task.abort();
+    }
+    for (_, task) in tasks.into_values() {
         let _ = task.await;
     }
 }

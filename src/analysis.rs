@@ -689,54 +689,6 @@ pub fn type_declaration_range(snapshot: &DocumentSnapshot, name: &str) -> Option
 }
 
 #[must_use]
-pub fn parameter_type(snapshot: &DocumentSnapshot, parameter_name: &str) -> Option<String> {
-    let source = &snapshot.text;
-    for declaration in snapshot
-        .syntax
-        .symbols()
-        .iter()
-        .filter(|symbol| symbol.kind == SymbolKind::Function)
-    {
-        let detail = &source[declaration.detail_range.start..declaration.detail_range.end];
-        let Some(open) = detail.find('(') else {
-            continue;
-        };
-        let Some(close) = detail.rfind(')') else {
-            continue;
-        };
-        for parameter in split_parameters(&detail[open + 1..close]) {
-            let Some((binding, ty)) = parameter.split_once(':') else {
-                continue;
-            };
-            if binding.split_whitespace().last() == Some(parameter_name) {
-                return Some(ty.trim().to_owned());
-            }
-        }
-    }
-    None
-}
-
-#[must_use]
-pub fn parameter_type_declaration_range(
-    snapshot: &DocumentSnapshot,
-    parameter_name: &str,
-) -> Option<TextRange> {
-    let type_expression = parameter_type(snapshot, parameter_name)?;
-    let source = &snapshot.text;
-    snapshot
-        .syntax
-        .symbols()
-        .iter()
-        .filter(|symbol| symbol.kind == SymbolKind::Struct)
-        .find(|symbol| {
-            type_expression
-                .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
-                .any(|name| name == snapshot.syntax.name_text(source, symbol.name))
-        })
-        .map(|symbol| symbol.name_range)
-}
-
-#[must_use]
 pub fn declaration_hover(snapshot: &DocumentSnapshot, name: &str) -> Option<String> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
@@ -746,8 +698,7 @@ pub fn declaration_hover(snapshot: &DocumentSnapshot, name: &str) -> Option<Stri
         let detail = &source[declaration.detail_range.start..declaration.detail_range.end];
         return Some(format!("```bend\n{detail}\n```"));
     }
-    let ty = parameter_type(snapshot, name)?;
-    Some(format!("```bend\n{name}: {ty}\n```"))
+    None
 }
 
 #[must_use]
