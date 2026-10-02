@@ -19,6 +19,11 @@ Integration tests compare exact semantic-token, identifier-range, and completion
 outputs with legacy goldens at all three source sizes; medium and large
 goldens come from the pre-index implementation in commit `bc8cd4f`.
 
+Warm reference queries iterate the precomputed reference-index slice directly,
+including an empty slice for an absent symbol or name. This preserves source
+ordering and avoids an optional `flat_map` adapter in identifier/reference
+collection; no semantic scan or secondary representation is built during a query.
+
 Protocol stress tests also pipeline 32 hover requests during large document
 edits/opens and print p50/p95/max response latency. Their `p95 < 1 second`
 assertions catch prolonged blocking, not small latency regressions. The separate

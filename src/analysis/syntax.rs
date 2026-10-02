@@ -643,16 +643,20 @@ impl SyntaxIndex {
     }
 
     pub fn references(&self, id: SymbolId) -> impl Iterator<Item = &Reference> {
-        let span = self.reference_spans.get(id.0).copied();
-        span.into_iter()
-            .flat_map(|span| self.reference_indices[span.start..span.end].iter())
+        let span = self.reference_spans.get(id.0).copied().unwrap_or_default();
+        self.reference_indices[span.start..span.end]
+            .iter()
             .map(|index| &self.references[*index])
     }
 
     pub fn references_named(&self, name: NameId) -> impl Iterator<Item = &Reference> {
-        let span = self.name_reference_spans.get(name.0).copied();
-        span.into_iter()
-            .flat_map(|span| self.name_reference_indices[span.start..span.end].iter())
+        let span = self
+            .name_reference_spans
+            .get(name.0)
+            .copied()
+            .unwrap_or_default();
+        self.name_reference_indices[span.start..span.end]
+            .iter()
             .map(|index| &self.references[*index])
     }
 
