@@ -90,7 +90,7 @@ def variant_harness(text: str, variant: str) -> str:
     ));
 """
     elif variant == "extra_alloc":
-        addition = "    std::hint::black_box(vec![1_u64; 4096]);\n"
+        addition = "    std::hint::black_box(vec![1_u64; 65_536]);\n"
     else:
         return text
     return exact_replace(text, INLAY_ANCHOR, INLAY_ANCHOR.replace("{\n", "{\n" + addition, 1))
