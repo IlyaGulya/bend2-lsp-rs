@@ -1,0 +1,115 @@
+name: performance-calibration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/performance-calibration.yml
+      - scripts/performance_calibration.py
+      - scripts/test_performance_calibration.py
+      - scripts/calibration_report.py
+      - scripts/test_calibration_report.py
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  collect:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job: discovery-01
+            role: discovery
+          - job: discovery-02
+            role: discovery
+          - job: discovery-03
+            role: discovery
+          - job: discovery-04
+            role: discovery
+          - job: discovery-05
+            role: discovery
+          - job: discovery-06
+            role: discovery
+          - job: discovery-07
+            role: discovery
+          - job: validation-01
+            role: validation
+          - job: validation-02
+            role: validation
+          - job: validation-03
+            role: validation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check calibration contracts
+        run: python3 -m unittest discover -s scripts -p 'test_*calibration*.py'
+      - name: Install Valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes valgrind
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+      - name: Install matching Iai-Callgrind runner
+        run: cargo install --locked --version 0.16.1 iai-callgrind-runner
+      - name: Collect balanced independent-build measurements
+        env:
+          CALIBRATION_JOB: ${{ matrix.job }}
+          CALIBRATION_ROLE: ${{ matrix.role }}
+        run: |
+          python3 scripts/performance_calibration.py \
+            --source "$GITHUB_WORKSPACE" \
+            --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
+            --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
+            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 5
+      - name: Preserve every collected result and failure diagnostic
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
+          path: target/performance-calibration/${{ matrix.job }}/
+          if-no-files-found: error
+          retention-days: 14
+
+  report:
+    if: always()
+    needs: collect
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download independent runner datasets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: target/performance-calibration-input
+      - name: Report discovery allowances and untouched holdout sensitivity
+        run: |
+          python3 scripts/calibration_report.py target/performance-calibration-input \
+            --expected-discovery-jobs 7 --expected-validation-jobs 3 --expected-pairs 5 \
+            --json-output target/performance-calibration-report/report.json \
+            --markdown-output target/performance-calibration-report/report.md
+      - name: Publish observed calibration summary
+        if: always()
+        run: |
+          if [[ -f target/performance-calibration-report/report.md ]]; then
+            cat target/performance-calibration-report/report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve report without changing active gates
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: performance-calibration-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/performance-calibration-report/
+          if-no-files-found: error
+          retention-days: 14
