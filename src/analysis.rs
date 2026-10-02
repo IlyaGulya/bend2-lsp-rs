@@ -2,8 +2,9 @@
 mod syntax;
 
 pub use syntax::{
-    CallSite, DiagnosticKind, IndexedBinding, IndexedImport, IndexedSymbol, NameId, Reference,
-    ReferenceKind, SymbolId, SyntaxDiagnostic, SyntaxIndex, Token, TokenFlags, TokenId, TokenKind,
+    CallSite, DiagnosticKind, IndexedBinding, IndexedConstructor, IndexedImport, IndexedSymbol,
+    NameId, Reference, ReferenceKind, SymbolId, SyntaxDiagnostic, SyntaxIndex, Token, TokenFlags,
+    TokenId, TokenKind,
 };
 
 pub type Import = IndexedImport;
@@ -663,7 +664,14 @@ pub fn workspace_symbols(snapshot: &DocumentSnapshot, query: &str) -> Vec<Worksp
 pub fn declaration_range(snapshot: &DocumentSnapshot, name: &str) -> Option<TextRange> {
     let syntax = &snapshot.syntax;
     let name = syntax.name_id(&snapshot.text, name)?;
-    Some(syntax.symbol_by_name(name)?.name_range)
+    syntax
+        .symbol_by_name(name)
+        .map(|symbol| symbol.name_range)
+        .or_else(|| {
+            syntax
+                .constructor_by_name(name)
+                .map(|constructor| constructor.name_range)
+        })
 }
 
 #[must_use]
@@ -760,7 +768,7 @@ pub fn document_symbols(snapshot: &DocumentSnapshot) -> Vec<Symbol> {
                 .line_content_range(declaration.start_line)
                 .map_or(0, |line| line.start);
             let children = if declaration.kind == SymbolKind::Struct {
-                constructor_symbols(snapshot, declaration, end)
+                constructor_symbols(snapshot, declaration)
             } else {
                 Vec::new()
             };
@@ -791,7 +799,7 @@ pub fn document_symbol_by_id(snapshot: &DocumentSnapshot, id: SymbolId) -> Optio
         .line_content_range(declaration.start_line)
         .map_or(0, |line| line.start);
     let children = if declaration.kind == SymbolKind::Struct {
-        constructor_symbols(snapshot, declaration, end)
+        constructor_symbols(snapshot, declaration)
     } else {
         Vec::new()
     };
@@ -805,69 +813,20 @@ pub fn document_symbol_by_id(snapshot: &DocumentSnapshot, id: SymbolId) -> Optio
     })
 }
 
-fn constructor_symbols(
-    snapshot: &DocumentSnapshot,
-    parent: &IndexedSymbol,
-    end_offset: usize,
-) -> Vec<Symbol> {
+fn constructor_symbols(snapshot: &DocumentSnapshot, parent: &IndexedSymbol) -> Vec<Symbol> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let first_body_line = parent.start_line + 1;
-    let body_indent = (first_body_line..syntax.line_count())
-        .take_while(|line| {
-            syntax
-                .line_content_range(*line)
-                .is_some_and(|range| range.start < end_offset)
-        })
-        .filter_map(|line| {
-            let indent = syntax.line_indent(line)?;
-            let code_range = syntax.line_code_range(line)?;
-            let code = &source[code_range.start..code_range.end];
-            (indent > 0 && !code.trim().is_empty() && !code.trim_start().starts_with('#'))
-                .then_some(indent)
-        })
-        .min();
-    let Some(body_indent) = body_indent else {
-        return Vec::new();
-    };
     let parent_name = syntax.name_text(source, parent.name);
-    (first_body_line..syntax.line_count())
-        .take_while(|line| {
-            syntax
-                .line_content_range(*line)
-                .is_some_and(|range| range.start < end_offset)
-        })
-        .filter(|line| syntax.line_indent(*line) == Some(body_indent))
-        .filter_map(|line| {
-            let code_range = syntax.line_code_range(line)?;
-            let code = &source[code_range.start..code_range.end];
-            if code.trim_start().starts_with('#') {
-                return None;
-            }
-            let name_len = code
-                .bytes()
-                .take_while(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.'))
-                .count();
-            if name_len == 0
-                || !code.as_bytes()[0].is_ascii_alphabetic() && code.as_bytes()[0] != b'_'
-            {
-                return None;
-            }
-            let remainder = code[name_len..].trim_start();
-            if !remainder.is_empty() && !remainder.starts_with('{') {
-                return None;
-            }
-            Some(Symbol {
-                name: code[..name_len].to_owned(),
-                detail: format!("constructor of {parent_name}"),
-                kind: SymbolKind::Constructor,
-                range: TextRange::new(
-                    syntax.line_content_range(line)?.start,
-                    syntax.line_full_end(line)?,
-                ),
-                selection_range: TextRange::new(code_range.start, code_range.start + name_len),
-                children: Vec::new(),
-            })
+    syntax
+        .constructors(parent.id)
+        .iter()
+        .map(|constructor| Symbol {
+            name: syntax.name_text(source, constructor.name).to_owned(),
+            detail: format!("constructor of {parent_name}"),
+            kind: SymbolKind::Constructor,
+            range: constructor.range,
+            selection_range: constructor.name_range,
+            children: Vec::new(),
         })
         .collect()
 }

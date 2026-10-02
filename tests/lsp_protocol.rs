@@ -2361,6 +2361,124 @@ mod protocol {
         client.finish();
     }
     #[test]
+    fn definition_resolves_imported_constructors_in_patterns_and_expressions() {
+        let temp = tempdir().must_be("temporary workspace");
+        let main_path = temp.path().join("main.bend");
+        let ast_path = temp.path().join("ast.bend");
+        let source = "import ./ast.bend as Ast\ndef shift_at(term: Ast.SyntaxTerm) -> Ast.SyntaxTerm:\n  match term:\n    case Ast.TermVar{key}:\n      Ast.TermVar{key}\n";
+        fs::write(&main_path, source).must_be("write root source");
+        fs::write(
+            &ast_path,
+            "type SyntaxTerm is Data:\n  TermVar{key: String}\n",
+        )
+        .must_be("write constructor declaration");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("root URI")
+            .to_string();
+        let ast_uri = Url::from_file_path(&ast_path)
+            .must_be("AST URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,"languageId":"bend","version":1,"text":source
+            }}),
+        );
+        for (line, character) in [(3, 15), (4, 12)] {
+            let definition = client.request(
+                "textDocument/definition",
+                json!({
+                    "textDocument":{"uri":uri},
+                    "position":{"line":line,"character":character}
+                }),
+            );
+            assert_eq!(
+                definition["result"],
+                json!({
+                    "uri":ast_uri,
+                    "range":{
+                        "start":{"line":1,"character":2},
+                        "end":{"line":1,"character":9}
+                    }
+                }),
+                "constructor use at {line}:{character} must navigate to its declaration"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn definition_distinguishes_module_alias_from_type_and_constructor_members() {
+        let temp = tempdir().must_be("temporary workspace");
+        let main_path = temp.path().join("main.bend");
+        let ast_path = temp.path().join("ast.bend");
+        let source = "import ./ast.bend as Ast\ndef shift_at(term: Ast.SyntaxTerm) -> Ast.SyntaxTerm:\n  match term:\n    case Ast.TermVar{key}:\n      Ast.TermVar{key}\n";
+        fs::write(&main_path, source).must_be("write root source");
+        fs::write(
+            &ast_path,
+            "type SyntaxTerm is Data:\n  TermVar{key: String}\n",
+        )
+        .must_be("write AST declarations");
+        let uri = Url::from_file_path(&main_path)
+            .must_be("root URI")
+            .to_string();
+        let ast_uri = Url::from_file_path(&ast_path)
+            .must_be("AST URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,"languageId":"bend","version":1,"text":source
+            }}),
+        );
+        for (line, character) in [(1, 20), (3, 10), (4, 7)] {
+            let definition = client.request(
+                "textDocument/definition",
+                json!({
+                    "textDocument":{"uri":uri},
+                    "position":{"line":line,"character":character}
+                }),
+            );
+            assert_eq!(
+                definition["result"],
+                json!({
+                    "uri":ast_uri,
+                    "range":{
+                        "start":{"line":0,"character":0},
+                        "end":{"line":0,"character":0}
+                    }
+                }),
+                "cursor on a module alias at {line}:{character} must target the module"
+            );
+        }
+        let type_definition = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":1,"character":25}
+            }),
+        );
+        assert_eq!(
+            type_definition["result"],
+            json!({
+                "uri":ast_uri,
+                "range":{
+                    "start":{"line":0,"character":5},
+                    "end":{"line":0,"character":15}
+                }
+            }),
+            "cursor on the member must still target the type declaration"
+        );
+        client.finish();
+    }
+
+    #[test]
     fn type_navigation_resolves_qualified_imported_types() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");

@@ -29,6 +29,13 @@ static LARGE_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::new(|| {
     analysis::DocumentSnapshot::new(analysis::Revision(0), LARGE_SOURCE.to_owned())
 });
 
+static CONSTRUCTOR_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::new(|| {
+    analysis::DocumentSnapshot::new(
+        analysis::Revision(0),
+        "type SyntaxTerm is Data:\n  TermVar{index: Nat}\n  TermRef{name: String}\n".to_owned(),
+    )
+});
+
 struct WarmSnapshot {
     source: &'static str,
     snapshot: &'static analysis::DocumentSnapshot,
@@ -569,6 +576,17 @@ fn workspace_burst_revision_invalidation(
     std::hint::black_box(results)
 }
 
+#[library_benchmark]
+#[bench::prewarmed(LazyLock::force(&CONSTRUCTOR_SNAPSHOT))]
+fn constructor_definition_warm(
+    snapshot: &analysis::DocumentSnapshot,
+) -> Option<analysis::TextRange> {
+    std::hint::black_box(analysis::declaration_range(
+        std::hint::black_box(snapshot),
+        "TermVar",
+    ))
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -578,7 +596,8 @@ library_benchmark_group!(
         unicode_position_conversion, unicode_offset_conversion,
         folding_100_lines, folding_1000_lines, folding_10000_lines,
         workspace_initial_build, workspace_incremental_invalidation,
-        workspace_references, workspace_burst_revision_invalidation
+        workspace_references, workspace_burst_revision_invalidation,
+        constructor_definition_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

@@ -2784,6 +2784,28 @@ impl LanguageServer for Backend {
             }
             return Ok(None);
         }
+        let module_uri = doc.syntax.token_at_or_before(offset).and_then(|id| {
+            let cursor_token = doc.syntax.token(id)?;
+            if cursor_token.kind != analysis::TokenKind::Identifier
+                || !cursor_token.range.contains(offset)
+                || doc.syntax.symbol_for_token(id).is_some()
+                || id.0.checked_sub(1).is_some_and(|previous| {
+                    doc.syntax
+                        .token_text(&doc.text, analysis::TokenId(previous))
+                        == Some(".")
+                })
+            {
+                return None;
+            }
+            let alias = doc.syntax.token_text(&doc.text, id)?;
+            self.module_document(&doc, alias).map(|(uri, _)| uri)
+        });
+        if let Some(uri) = module_uri {
+            return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                uri,
+                range: Range::default(),
+            })));
+        }
         let token =
             tracing::info_span!("navigation.token_lookup").in_scope(|| token_at(&doc, offset));
         let local_range = tracing::info_span!("navigation.declaration_lookup", scope = "local")

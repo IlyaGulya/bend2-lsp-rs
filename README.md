@@ -84,7 +84,7 @@ editor. Source-based features are **not** a full compiler type checker.
 | Completion | Local names, keywords, imported module members, and indexed `Base` declarations |
 | Signature help | Function parameters and the active argument |
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
-| Go to definition | Indexed local declarations and resolved imports |
+| Go to definition | Indexed declarations, ADT constructors, and resolved imports |
 | Go to type definition | Declaration-derived type navigation |
 | Find references | Indexed symbol occurrences in the loaded workspace graph |
 | Rename | Symbol rename across indexed, loaded documents; not file/module rename |
@@ -104,6 +104,10 @@ editor. Source-based features are **not** a full compiler type checker.
 | Incremental editing | Unsaved changes are used by source features and staged compiler checks |
 | Workspace folders | Multiple roots and workspace-folder changes |
 | Watched files | Rechecks affected documents when the client sends file-change notifications; dynamic watcher registration when supported |
+
+For qualified names such as `Ast.TermVar`, placing the cursor on `Ast` opens
+the imported module; placing it on `TermVar` jumps to the constructor declaration.
+The same navigation works in type annotations, match patterns, and expressions.
 
 Local imports are indexed for cross-file features. `Base` comes from `bend base`.
 Hub package navigation uses packages already present in the local Bend library
@@ -211,8 +215,8 @@ container definition changes.
 
 Further details:
 
-- [Performance policy and Callgrind gates](docs/performance-policy.md) — measures
-  analysis paths, not end-to-end editor latency.
+- [Performance policy, Callgrind gates, and LSP latency reports](docs/performance-policy.md) —
+  tracks analysis costs and paired real-process p50/p95; not editor rendering latency.
 - [Tracing with Chrome/Perfetto](docs/tracing.md) — opt-in through `BEND2_LSP_TRACE`.
 - [Release automation and repository setup](docs/releases.md) — ordinary PR
   review plus CI; server-side branch rules must be configured separately.

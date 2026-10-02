@@ -511,3 +511,24 @@ fn medium_and_large_legacy_fixture_outputs_match_indexed_queries_exactly() {
         "worker_",
     );
 }
+
+#[test]
+fn constructor_definitions_preserve_source_order_when_names_were_seen_earlier() {
+    for prefix in ["", "def prior(value: Second) -> Nat:\n  0n\n\n"] {
+        let source = format!(
+            "{prefix}type FirstType is Data:\n  First{{}}\n  Second{{}}\n\
+             type OtherType is Data:\n  First{{}}\n"
+        );
+        let snapshot = DocumentSnapshot::new(Revision(1), source.clone());
+        for name in ["First", "Second"] {
+            let start = source
+                .find(&format!("  {name}"))
+                .must_be("constructor declaration")
+                + 2;
+            assert_eq!(
+                bend2_lsp::analysis::declaration_range(&snapshot, name),
+                Some(TextRange::new(start, start + name.len()))
+            );
+        }
+    }
+}

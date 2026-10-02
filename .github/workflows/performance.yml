@@ -63,3 +63,57 @@ jobs:
             target/iai/bend2-lsp/analysis/analysis_hot_paths \
             --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main
           exit "$benchmark_status"
+
+  latency:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Build baseline and candidate release executables
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/latency-binaries" target/lsp-latency
+          git fetch --no-tags origin "$BASE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/latency-main" "$BASE_SHA"
+          cargo build --locked --release --bin bend2-lsp \
+            --manifest-path "$RUNNER_TEMP/latency-main/Cargo.toml" \
+            --target-dir "$RUNNER_TEMP/latency-target-main"
+          cp "$RUNNER_TEMP/latency-target-main/release/bend2-lsp" \
+            "$RUNNER_TEMP/latency-binaries/main"
+          cargo build --locked --release --bin bend2-lsp \
+            --target-dir "$RUNNER_TEMP/latency-target-candidate"
+          cp "$RUNNER_TEMP/latency-target-candidate/release/bend2-lsp" \
+            "$RUNNER_TEMP/latency-binaries/candidate"
+          printf '{"baseline":"%s","candidate":"%s"}\n' \
+            "$BASE_SHA" "$CANDIDATE_SHA" > target/lsp-latency/revisions.json
+      - name: Measure alternating baseline and candidate LSP latency
+        run: |
+          python3 scripts/lsp_latency.py \
+            --baseline-binary "$RUNNER_TEMP/latency-binaries/main" \
+            --candidate-binary "$RUNNER_TEMP/latency-binaries/candidate" \
+            --baseline-output target/lsp-latency/baseline.json \
+            --candidate-output target/lsp-latency/candidate.json \
+            --rounds 7 --samples 32 --warmup 8
+      - name: Report latency changes without a numeric regression gate
+        run: |
+          python3 scripts/latency_report.py \
+            target/lsp-latency/baseline.json target/lsp-latency/candidate.json \
+            --json-output target/lsp-latency/report.json \
+            --markdown-output target/lsp-latency/report.md
+          cat target/lsp-latency/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve raw latency samples and comparison
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lsp-latency-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/lsp-latency/
+          if-no-files-found: error

@@ -101,6 +101,52 @@ pub struct IndexedSymbol {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct IndexedConstructor {
+    pub parent: SymbolId,
+    pub name: NameId,
+    pub name_range: TextRange,
+    pub range: TextRange,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct ConstructorIndex {
+    entries: Box<[IndexedConstructor]>,
+    // Empty when entries are already ordered by NameId; otherwise a sorted permutation.
+    name_indices: Box<[usize]>,
+}
+
+// Keep rare metadata out of the inline snapshot while retaining cheap empty-diagnostic checks.
+#[derive(Debug, Eq, PartialEq)]
+struct AuxiliaryIndex {
+    data: Option<Box<AuxiliaryData>>,
+    diagnostic_count: usize,
+}
+
+impl AuxiliaryIndex {
+    fn new(
+        diagnostics: Vec<SyntaxDiagnostic>,
+        constructor_index: Option<ConstructorIndex>,
+    ) -> Self {
+        let diagnostic_count = diagnostics.len();
+        Self {
+            diagnostic_count,
+            data: (diagnostic_count > 0 || constructor_index.is_some()).then(|| {
+                Box::new(AuxiliaryData {
+                    diagnostics: diagnostics.into_boxed_slice(),
+                    constructors: constructor_index,
+                })
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct AuxiliaryData {
+    diagnostics: Box<[SyntaxDiagnostic]>,
+    constructors: Option<ConstructorIndex>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct IndexedBinding {
     pub id: SymbolId,
     pub name: NameId,
@@ -322,7 +368,7 @@ pub struct SyntaxIndex {
     call_by_open: Box<[Option<usize>]>,
     call_by_name_token: Box<[Option<usize>]>,
     lines: Box<[SyntaxLine]>,
-    diagnostics: Box<[SyntaxDiagnostic]>,
+    auxiliary: AuxiliaryIndex,
     delimiter_pairs: Box<[DelimiterPair]>,
     delimiter_context: Box<[Option<TokenId>]>,
     symbol_by_name: HashMap<NameId, SymbolId>,
@@ -367,6 +413,15 @@ impl SyntaxIndex {
         for symbol in &symbols {
             symbol_by_name.entry(symbol.name).or_insert(symbol.id);
         }
+        let constructor_index = if symbols
+            .iter()
+            .any(|symbol| symbol.kind == SymbolKind::Struct)
+        {
+            parse_constructors(source, &lines, &symbols, &mut names)
+        } else {
+            None
+        };
+        let auxiliary = AuxiliaryIndex::new(diagnostics, constructor_index);
         let bindings = parse_bindings(
             &BindingContext {
                 source,
@@ -429,7 +484,7 @@ impl SyntaxIndex {
             call_by_open: calls.by_open.into_boxed_slice(),
             call_by_name_token: calls.by_name_token.into_boxed_slice(),
             lines: lines.into_boxed_slice(),
-            diagnostics: diagnostics.into_boxed_slice(),
+            auxiliary,
             delimiter_pairs: delimiter_pairs.into_boxed_slice(),
             delimiter_context: delimiter_context.into_boxed_slice(),
             symbol_by_name,
@@ -459,7 +514,13 @@ impl SyntaxIndex {
 
     #[must_use]
     pub fn diagnostics(&self) -> &[SyntaxDiagnostic] {
-        &self.diagnostics
+        if self.auxiliary.diagnostic_count == 0 {
+            return &[];
+        }
+        self.auxiliary
+            .data
+            .as_deref()
+            .map_or(&[], |data| data.diagnostics.as_ref())
     }
 
     #[must_use]
@@ -516,6 +577,40 @@ impl SyntaxIndex {
     #[must_use]
     pub fn symbol_by_name(&self, name: NameId) -> Option<&IndexedSymbol> {
         self.symbol_by_name.get(&name).map(|id| &self.symbols[id.0])
+    }
+
+    #[must_use]
+    pub fn constructor_by_name(&self, name: NameId) -> Option<&IndexedConstructor> {
+        let index = self.auxiliary.data.as_deref()?.constructors.as_ref()?;
+        let constructor = if index.name_indices.is_empty() {
+            let position = index.entries.partition_point(|entry| entry.name.0 < name.0);
+            index.entries.get(position)?
+        } else {
+            let position = index
+                .name_indices
+                .partition_point(|entry| index.entries[*entry].name.0 < name.0);
+            &index.entries[*index.name_indices.get(position)?]
+        };
+        (constructor.name == name).then_some(constructor)
+    }
+
+    #[must_use]
+    pub fn constructors(&self, parent: SymbolId) -> &[IndexedConstructor] {
+        let Some(index) = self
+            .auxiliary
+            .data
+            .as_deref()
+            .and_then(|data| data.constructors.as_ref())
+        else {
+            return &[];
+        };
+        let start = index
+            .entries
+            .partition_point(|constructor| constructor.parent.0 < parent.0);
+        let end = index
+            .entries
+            .partition_point(|constructor| constructor.parent.0 <= parent.0);
+        &index.entries[start..end]
     }
 
     #[must_use]
@@ -1077,6 +1172,85 @@ fn parse_symbols(source: &str, lines: &[SyntaxLine], names: &mut NameTable) -> V
     }
     symbols
 }
+
+// Keep type-body parsing out of the already large snapshot builder.
+#[cold]
+#[inline(never)]
+fn parse_constructors(
+    source: &str,
+    lines: &[SyntaxLine],
+    symbols: &[IndexedSymbol],
+    names: &mut NameTable,
+) -> Option<ConstructorIndex> {
+    let mut constructors = Vec::new();
+    for (index, parent) in symbols.iter().enumerate() {
+        if parent.kind != SymbolKind::Struct {
+            continue;
+        }
+        let end = symbols
+            .get(index + 1)
+            .map_or(lines.len(), |next| next.start_line);
+        let body = &lines[parent.start_line + 1..end];
+        let mut body_indent = usize::MAX;
+        for line in body {
+            if line.indent == 0 || line.indent >= body_indent {
+                continue;
+            }
+            let code = source[line.code.start..line.code.end].trim_start();
+            if !code.is_empty() && !code.starts_with('#') {
+                body_indent = line.indent;
+            }
+        }
+        if body_indent == usize::MAX {
+            continue;
+        }
+        for line in body {
+            if line.indent != body_indent {
+                continue;
+            }
+            let code = &source[line.code.start..line.code.end];
+            let Some(first) = code.as_bytes().first() else {
+                continue;
+            };
+            if !first.is_ascii_alphabetic() && *first != b'_' {
+                continue;
+            }
+            let name_len = code
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.'))
+                .count();
+            let remainder = code[name_len..].trim_start();
+            if !remainder.is_empty() && !remainder.starts_with('{') {
+                continue;
+            }
+            let name_range = TextRange::new(line.code.start, line.code.start + name_len);
+            constructors.push(IndexedConstructor {
+                parent: parent.id,
+                name: names.intern_name(source, name_range),
+                name_range,
+                range: TextRange::new(line.content.start, line.full_end),
+            });
+        }
+    }
+    if constructors.is_empty() {
+        return None;
+    }
+    let name_indices = if constructors
+        .windows(2)
+        .all(|pair| pair[0].name.0 <= pair[1].name.0)
+    {
+        Vec::new()
+    } else {
+        let mut indices: Vec<_> = (0..constructors.len()).collect();
+        indices.sort_unstable_by_key(|index| (constructors[*index].name.0, *index));
+        indices
+    };
+    Some(ConstructorIndex {
+        entries: constructors.into_boxed_slice(),
+        name_indices: name_indices.into_boxed_slice(),
+    })
+}
+
 fn parse_bindings(
     context: &BindingContext<'_>,
     symbols: &mut [IndexedSymbol],

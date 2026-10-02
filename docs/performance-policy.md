@@ -7,7 +7,8 @@ indexes; the `bend2-lsp` binary keeps the LSP/server adapter private. The
 benchmark calls these production library APIs directly. The group
 covers cold snapshot construction for small (2,552-byte), medium (32,429-byte),
 and large (260,429-byte) sources; warm semantic-token, completion, identifier,
-reference, call-hierarchy, and inlay-hint queries; ASCII/Unicode position
+reference, call-hierarchy, and inlay-hint queries; warm indexed
+constructor-definition queries; ASCII/Unicode position
 conversion; folding on 100-, 1,000-, and 10,000-line inputs; and a generated 100-file
 workspace with 601 declarations and 4,758 call sites. Workspace measurements
 include initial graph loading, cross-file references, one dependency revision,
@@ -18,16 +19,88 @@ Integration tests compare exact semantic-token, identifier-range, and completion
 outputs with legacy goldens at all three source sizes; medium and large
 goldens come from the pre-index implementation in commit `bc8cd4f`.
 
-A separate LSP protocol stress test pipelines 32 hover requests during a
-1,041,744-byte document edit that stages a snapshot and prints p50/p95/max response
-latency. This test measures that specific local process scenario, not general
-editor latency. Callgrind does not measure the complete LSP process or compiler
-execution; real Bend CLI timings are measured separately.
+Protocol stress tests also pipeline 32 hover requests during large document
+edits/opens and print p50/p95/max response latency. Their `p95 < 1 second`
+assertions catch prolonged blocking, not small latency regressions. The separate
+paired latency reports below measure the actual LSP process, but not editor
+rendering or real Bend compiler execution; real Bend CLI timings are measured
+separately. Callgrind continues to measure analysis functions, not the full process.
 
 The bench uses the fixed Bend fixture in `benches/fixtures/analyzer_input.bend`
 for analysis queries and generated workspace/folding fixtures for graph
-workloads. It uses Iai-Callgrind's `#[library_benchmark]`,
+workloads. Constructor-definition lookup uses a separate ADT snippet, with its
+snapshot constructed before measurement. The bench uses Iai-Callgrind's `#[library_benchmark]`,
 `library_benchmark_group!`, and `main!` APIs.
+
+## End-to-end LSP latency reports
+
+The `performance / latency` job builds the pull request's base and candidate
+release executables in **separate Cargo target directories**. It runs the same
+candidate-side [`scripts/lsp_latency.py`](../scripts/lsp_latency.py) harness and
+fixture against both binaries on one runner. Seven fresh-process rounds alternate
+baseline/candidate order; each workload has eight warm-up requests and 32 measured
+requests per round. Busy workloads use one warm-up burst and one measured burst.
+Initialization and readiness waits are outside the measured windows.
+
+The seven workloads cover:
+
+- warm hover, cross-file function definition, and completion;
+- opening a roughly 1 MiB document through its first correct hover;
+- replacing that document through hover of the latest revision;
+- unrelated hover bursts during a large edit and a large open.
+
+Generated documents include real ADT declarations so snapshot measurements cover
+constructor-index construction as well as function analysis. The existing large
+fixture is repeated four times without changing the Callgrind fixtures or gates.
+Large transient documents are closed between samples rather than accumulated.
+Each response is checked for the expected semantic result; stale revisions,
+protocol errors, timeouts, and unsuccessful shutdown fail measurement.
+
+Latency starts before the request frame is written and ends when the full response
+body has been read, before client JSON parsing. Open/edit-to-hover windows also
+include the preceding notification frame transfer. Client frame serialization,
+process initialization, editor rendering, and real Bend compiler execution are
+excluded. The harness selects an unavailable compiler and isolates `PATH`, home,
+library, metrics, and tracing settings; revision-specific diagnostics establish
+readiness outside timing. These are controlled analysis/protocol workloads, not
+claims about every editor or compiler workload.
+
+[`scripts/latency_report.py`](../scripts/latency_report.py) computes nearest-rank
+p50/p95 for each round, then the median of the **round percentiles**, not pooled
+requests. JSON includes every round's percentiles and paired deltas. Measurements
+must have identical workload digests, environment, round counts, and sample counts.
+Raw files record nanosecond samples and binary/harness/fixture SHA-256 identities.
+
+The job publishes a Markdown GitHub job summary and an `lsp-latency-*` artifact
+containing baseline/candidate samples, JSON/Markdown comparisons, and source
+revisions. **Numeric latency changes are report-only** while runner noise is
+being characterized; even a large slowdown does not fail by a latency threshold.
+Malformed, incomplete, or incomparable measurements do fail. The existing
+blocking Callgrind limits remain unchanged.
+
+For a local comparison, build both revisions in separate target directories.
+With the baseline checkout in `$BASELINE_WORKTREE`:
+
+```sh
+cargo build --release --locked --bin bend2-lsp \
+  --manifest-path "$BASELINE_WORKTREE/Cargo.toml" --target-dir target/latency-main
+cargo build --release --locked --bin bend2-lsp --target-dir target/latency-candidate
+python3 scripts/lsp_latency.py \
+  --baseline-binary target/latency-main/release/bend2-lsp \
+  --candidate-binary target/latency-candidate/release/bend2-lsp \
+  --baseline-output target/lsp-latency/baseline.json \
+  --candidate-output target/lsp-latency/candidate.json
+python3 scripts/latency_report.py \
+  target/lsp-latency/baseline.json target/lsp-latency/candidate.json \
+  --json-output target/lsp-latency/report.json \
+  --markdown-output target/lsp-latency/report.md
+```
+
+The collector requires Python's POSIX pipe/select support (Linux/macOS). CI
+defaults are `--rounds 7 --samples 32 --warmup 8`; smaller values are useful for
+smoke checks, not comparative latency evidence. Avoid concurrent builds/tests
+while measuring wall-clock latency. Workflow/enforcement changes require the
+repository's `policy-approved` pull-request label.
 
 ## Crate, runner, and build setup
 
