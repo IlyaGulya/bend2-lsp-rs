@@ -62,7 +62,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
         Path(".release-please-manifest.json").write_text(json.dumps({".": version}))
 
     def write_asset(self, asset_target, **metadata_changes):
-        name = asset_name(os.environ["RELEASE_TAG"], asset_target)
+        name = asset_name(asset_target)
         asset = Path("dist") / name
         asset.write_bytes(f"fixture executable bytes for {asset_target}".encode())
         checksum = hashlib.sha256(asset.read_bytes()).hexdigest()
@@ -120,7 +120,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
             "version": "9.9.9",
             "target": "aarch64-unknown-linux-gnu",
             "channel": "nightly",
-            "asset": asset_name(TAG, TARGETS[1]),
+            "asset": asset_name(TARGETS[1]),
             "sha256": "f" * 64,
         }
         for field, wrong_value in mismatches.items():
@@ -144,7 +144,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
         for suffix in (".sha256", ".metadata.json"):
             with self.subTest(suffix=suffix):
                 self.write_asset(TARGETS[0])
-                Path(f"dist/{asset_name(TAG, TARGETS[0])}{suffix}").unlink()
+                Path(f"dist/{asset_name(TARGETS[0])}{suffix}").unlink()
                 with self.assertRaisesRegex(ValueError, "regular file"):
                     validate_artifacts(TAG, VERSION)
                 self.assertFalse(Path("dist/SHA256SUMS").exists())
@@ -184,7 +184,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
                     "GITHUB_ENV": str(env_file),
                 }):
                     package()
-                asset = Path("dist") / asset_name(TAG, target)
+                asset = Path("dist") / asset_name(target)
                 tested = Path(env_file.read_text().strip().split("=", 1)[1])
                 self.assertEqual(tested, asset.resolve())
                 self.assertTrue(tested.samefile(asset))
@@ -193,17 +193,25 @@ class ReleaseIntegrityTests(unittest.TestCase):
                 if os.name != "nt":
                     self.assertEqual(asset.stat().st_mode & 0o777, 0o755)
         assets = validate_artifacts(TAG, VERSION)
+        expected_names = (
+            "bend2-lsp-x86_64-unknown-linux-gnu",
+            "bend2-lsp-aarch64-unknown-linux-gnu",
+            "bend2-lsp-x86_64-apple-darwin",
+            "bend2-lsp-aarch64-apple-darwin",
+            "bend2-lsp-x86_64-pc-windows-msvc.exe",
+            "bend2-lsp-aarch64-pc-windows-msvc.exe",
+        )
         self.assertEqual(set(assets), {
             "SHA256SUMS",
-            *[asset_name(TAG, target) for target in TARGETS],
-            *[f"{asset_name(TAG, target)}.sha256" for target in TARGETS],
+            *expected_names,
+            *[f"{name}.sha256" for name in expected_names],
         })
 
     def test_nonregular_binary_checksum_or_metadata_paths_are_rejected(self):
         self.write_all_assets()
         for suffix in ("", ".sha256", ".metadata.json"):
             with self.subTest(suffix=suffix):
-                path = Path(f"dist/{asset_name(TAG, TARGETS[0])}{suffix}")
+                path = Path(f"dist/{asset_name(TARGETS[0])}{suffix}")
                 path.unlink()
                 path.mkdir()
                 with self.assertRaisesRegex(ValueError, "regular file"):
@@ -217,7 +225,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
         self.write_all_assets()
         for suffix in ("", ".sha256", ".metadata.json"):
             with self.subTest(suffix=suffix):
-                path = Path(f"dist/{asset_name(TAG, TARGETS[0])}{suffix}")
+                path = Path(f"dist/{asset_name(TARGETS[0])}{suffix}")
                 outside = self.root / "outside"
                 outside.write_bytes(path.read_bytes())
                 path.unlink()
@@ -343,7 +351,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
 
     def test_unexpected_metadata_upload_is_rejected_before_publication(self):
         release, _ = self.publication_fixture()
-        release["assets"].append(self.uploaded_asset(f"{asset_name(TAG, TARGETS[0])}.metadata.json"))
+        release["assets"].append(self.uploaded_asset(f"{asset_name(TARGETS[0])}.metadata.json"))
         with self.assertRaisesRegex(ValueError, "unexpected"):
             publish()
         self.assertTrue(release["draft"])

@@ -161,23 +161,24 @@ version.
 
 Choose a stable release on the repository's GitHub **Releases** page, or explicitly
 choose a nightly prerelease. Download the executable matching your OS and CPU
-plus its `.sha256` file (or `SHA256SUMS`). Names are `bend2-lsp-<tag>-<target>`,
-with `.exe` appended for Windows. New releases contain no archives; previously
-published archived releases remain unchanged.
+plus its `.sha256` file (or `SHA256SUMS`). Future asset names are
+`bend2-lsp-<target>`, with `.exe` appended for Windows; the release tag and
+verified internal metadata retain the version. Previously published assets
+remain unchanged. New releases contain no archives.
 
 ```sh
 # Linux: substitute the exact downloaded filename.
-sha256sum --check bend2-lsp-<tag>-<target>.sha256
+sha256sum --check bend2-lsp-<target>.sha256
 # macOS:
-shasum -a 256 --check bend2-lsp-<tag>-<target>.sha256
-chmod +x bend2-lsp-<tag>-<target>
+shasum -a 256 --check bend2-lsp-<target>.sha256
+chmod +x bend2-lsp-<target>
 ```
 
 On Windows PowerShell, compare the actual hash against the first field of the
 sidecar file, and stop if they differ:
 
 ```powershell
-$binary = 'bend2-lsp-<tag>-<target>.exe'
+$binary = 'bend2-lsp-<target>.exe'
 $expected = (Get-Content "$binary.sha256").Split(' ')[0]
 if ((Get-FileHash $binary -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
     throw 'Executable checksum mismatch'
