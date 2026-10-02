@@ -69,7 +69,7 @@ def variant_harness(text: str, variant: str) -> str:
     exact_replace(text, INLAY_ANCHOR, INLAY_ANCHOR)
     for anchor in SETUP_ANCHORS:
         text = exact_replace(text, anchor, anchor.replace(
-            "        Self {", "        std::hint::black_box(calibration_layout_probe as fn(u64) -> u64);\n        Self {", 1
+            "        Self {", "        std::hint::black_box(calibration_layout_probe as fn(u64) -> u64);\n        std::hint::black_box(calibration_allocation_control as fn());\n        Self {", 1
         ))
     if variant == "layout":
         operations = []
@@ -82,18 +82,36 @@ def variant_harness(text: str, variant: str) -> str:
         body = "    state"
         argument = "state"
     probe = f"#[inline(never)]\nfn {PROBE}({argument}: u64) -> u64 {{\n{body}\n}}\n\n"
-    text = exact_replace(text, "struct WarmSnapshot {", probe + "struct WarmSnapshot {")
-    if variant == "extra_work":
-        addition = """    std::hint::black_box(analysis::inlay_hints(
-        std::hint::black_box(fixture.snapshot),
-        analysis::TextRange::new(0, fixture.source.len()),
-    ));
+    helpers = """#[inline(never)]
+fn calibration_inlay_query(
+    snapshot: &analysis::DocumentSnapshot,
+    source_len: usize,
+) -> Vec<analysis::InlayHint> {
+    std::hint::black_box(analysis::inlay_hints(
+        std::hint::black_box(snapshot),
+        analysis::TextRange::new(0, source_len),
+    ))
+}
+
+#[inline(never)]
+fn calibration_allocation_control() {
+    std::hint::black_box(vec![1_u64; 65_536]);
+}
+
 """
+    text = exact_replace(text, "struct WarmSnapshot {", probe + helpers + "struct WarmSnapshot {")
+    query = """calibration_inlay_query(
+        std::hint::black_box(fixture.snapshot),
+        std::hint::black_box(fixture.source.len()),
+    )"""
+    if variant == "extra_work":
+        measured = f"    std::hint::black_box({query});\n    std::hint::black_box({query})"
     elif variant == "extra_alloc":
-        addition = "    std::hint::black_box(vec![1_u64; 65_536]);\n"
+        measured = f"    let result = {query};\n    calibration_allocation_control();\n    std::hint::black_box(result)"
     else:
-        return text
-    return exact_replace(text, INLAY_ANCHOR, INLAY_ANCHOR.replace("{\n", "{\n" + addition, 1))
+        measured = f"    std::hint::black_box({query})"
+    return exact_replace(text, INLAY_ANCHOR,
+                         "fn inlay_hints_warm(fixture: WarmSnapshot) -> Vec<analysis::InlayHint> {\n" + measured + "\n}")
 
 
 def strict_json(text: str) -> Any:
@@ -193,6 +211,8 @@ def parse_measurement(text: str, baseline: str, executable: Path, expected: set[
         if not line.strip():
             continue
         summary = strict_json(line)
+        if not isinstance(summary, dict):
+            raise ValueError("executed summary must be a JSON object")
         identity = _canonical_id(summary)
         if identity in seen or identity not in expected:
             raise ValueError(f"duplicate or unexpected executed workload: {identity}")

@@ -1,5 +1,6 @@
 import copy
 import json
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -57,10 +58,27 @@ def counts(job, variant, metric, value, pair=None):
 def write_job(root, job):
     root.mkdir(parents=True, exist_ok=True)
     for sample in job["samples"]:
-        for field in ("raw_stdout", "raw_stderr"):
-            path = root / sample[field]
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("retained profiler output\n", encoding="utf-8")
+        path = root / sample["raw_stdout"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        baseline = hashlib.sha256(
+            f"{job['job_id']}:{sample['pair']}:{sample['variant']}".encode()
+        ).hexdigest()
+        summaries = [{
+            "function_name": workload["function_name"], "id": workload["id"],
+            "kind": "LibraryBenchmark",
+            "benchmark_exe": job["variants"][sample["variant"]]["executable"],
+            "baselines": [baseline, baseline],
+            "profiles": [{"tool": "Callgrind", "summaries": {"parts": [{
+                "metrics_summary": {"Callgrind": {
+                    metric: {"metrics": {"Left": {"Int": value}}}
+                    for metric, value in workload["counts"].items()
+                }}
+            }]}}],
+        } for workload in sample["workloads"]]
+        path.write_text("".join(json.dumps(row) + "\n" for row in summaries), encoding="utf-8")
+        error_path = root / sample["raw_stderr"]
+        error_path.parent.mkdir(parents=True, exist_ok=True)
+        error_path.write_text("", encoding="utf-8")
     (root / "data.json").write_text(json.dumps(job), encoding="utf-8")
 
 
@@ -280,6 +298,35 @@ class CalibrationReportTests(unittest.TestCase):
         (root / "data.json").write_text(json.dumps(self.training), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "must not escape"):
             calibration_report.read_datasets(self.input)
+
+    def test_retained_stdout_must_match_counts_execution_and_fresh_baseline(self):
+        for corruption in ("invalid_json", "count", "executable", "baseline", "duplicate", "missing", "dataset_count"):
+            with self.subTest(corruption=corruption):
+                self.load()
+                root = self.input / "0" / "nested"
+                sample = self.training["samples"][0]
+                path = root / sample["raw_stdout"]
+                rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+                if corruption == "invalid_json":
+                    path.write_text("not JSON\n", encoding="utf-8")
+                elif corruption == "dataset_count":
+                    data = json.loads((root / "data.json").read_text(encoding="utf-8"))
+                    data["samples"][0]["workloads"][0]["counts"]["Ir"] += 1
+                    (root / "data.json").write_text(json.dumps(data), encoding="utf-8")
+                else:
+                    if corruption == "count":
+                        rows[0]["profiles"][0]["summaries"]["parts"][0]["metrics_summary"]["Callgrind"]["Ir"]["metrics"]["Left"]["Int"] += 1
+                    elif corruption == "executable":
+                        rows[0]["benchmark_exe"] = "/stale/analysis"
+                    elif corruption == "baseline":
+                        rows[0]["baselines"] = ["stale", "stale"]
+                    elif corruption == "duplicate":
+                        rows.append(rows[0])
+                    else:
+                        rows.pop()
+                    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    calibration_report.read_datasets(self.input)
 
     def test_optional_expected_coverage_fails_missing_matrix_jobs_or_pairs(self):
         self.load()

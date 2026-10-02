@@ -4,12 +4,14 @@
 import argparse
 from collections import defaultdict
 from fractions import Fraction
+import hashlib
 import json
 from pathlib import Path
 import re
 import sys
 
 from performance_policy import METRICS, _canonical_id, within_limit
+from performance_calibration import parse_measurement
 
 
 VARIANTS = ("a", "b", "layout", "extra_work", "extra_alloc")
@@ -136,6 +138,14 @@ def validate_job(data, root, source):
         if identities is None:
             identities = current
         check(current == identities, "workload identities differ between samples")
+        baseline = hashlib.sha256(f"{data['job_id']}:{pair}:{variant}".encode()).hexdigest()
+        measured, _ = parse_measurement(
+            (root / sample["raw_stdout"]).read_text(encoding="utf-8"),
+            baseline, Path(variants[variant]["executable"]), current,
+        )
+        check({_canonical_id(row): row["counts"] for row in measured} ==
+              {_canonical_id(row): row["counts"] for row in workloads},
+              "dataset counts contradict retained raw stdout")
     check(SIGNALS <= identities, "missing small/medium/large inlay_hints_warm controls")
     pairs = {pair for pair, _ in seen}
     check(min(pairs) == 1 and max(pairs) == len(pairs), "pair numbers must be contiguous from 1")
