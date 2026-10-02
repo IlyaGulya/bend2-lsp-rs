@@ -18,6 +18,8 @@ printf '== workflow security ==\n'
 ./scripts/check-workflows
 printf '== active performance comparator tests ==\n'
 python3 scripts/test_performance_policy.py
+printf '== performance calibration contract tests ==\n'
+python3 -m unittest discover -s scripts -p 'test_*calibration*.py'
 printf '== latency report contract tests ==\n'
 python3 scripts/test_latency_report.py
 printf '== release integrity ==\n'

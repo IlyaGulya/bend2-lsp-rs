@@ -37,6 +37,93 @@ workloads. Constructor-definition lookup uses a separate ADT snippet, with its
 snapshot constructed before measurement. The bench uses Iai-Callgrind's `#[library_benchmark]`,
 `library_benchmark_group!`, and `main!` APIs.
 
+## Report-only CI calibration
+
+The separate [`performance-calibration` workflow](../.github/workflows/performance-calibration.yml)
+does not modify the active comparator, thresholds, or baseline workflow. It runs
+on host Ubuntu 24.04, like `performance / compare`, with Rust 1.98.1,
+Iai-Callgrind runner 0.16.1, and the runner's installed Valgrind. Persistent Docker
+is for local smoke runs; its architecture and Valgrind version are not CI evidence.
+
+Seven discovery jobs and three independently assigned validation jobs each run
+five balanced series. Each job builds five isolated Cargo targets: source-identical
+A/B, a layout control, duplicate inlay-query work, and a 512 KiB initialized
+allocation. Every measurement uses a fresh benchmark process and output directory.
+All inlay variants use the same non-inlined query helper with blackboxed inputs.
+The allocation helper is retained in every variant and called only by its control,
+after the query result is produced. These calibration-only fences isolate control
+costs from caller-dependent query inlining; they are not production benchmark changes.
+Temporary harness copies retain a named layout function through its address in
+setup, without executing it. `nm` must find the symbol, the layout variant must
+have at least 1,024 bytes of code, and emitted Callgrind profiles must not contain
+execution of that probe. Checked-in Rust and benchmark fixtures remain unchanged.
+
+The collector preserves source manifests, binary hashes, symbol identities,
+execution order, environment/host metadata, stdout/stderr, and raw Callgrind
+profiles. Counts come only from that process's JSON output, never stale summaries.
+Artifacts retain successful and failed measurements for 14 days. Missing,
+incomplete, escaping, or incomparable evidence fails report generation.
+The reporter reparses retained stdout with the collector's fresh-summary validator:
+baseline identity, executed binary, workload identities, and counts must match
+`data.json`. Merely retaining a file with the right name is insufficient evidence.
+
+The report learns a per-workload/event cache floor only from positive discovery
+A/A deltas, combined with the unchanged active allowance for each comparison.
+Holdout, layout, and positive controls never train the proposal. Instruction
+limits remain 2%; both positive controls must exceed them on all three validation
+inlay workloads. A/A exceedances remain visible rather than being retried away.
+Proposals are never automatically installed.
+
+Reported p50/p95 are empirical nearest-rank values, not tail-confidence claims.
+Comparisons share an A baseline within each series; series share builds within
+each job. The calibration-only harness and diagnostic layout changes can affect
+optimization, so neither layout differences nor control costs are assumed to be
+pure measurement noise.
+
+The [initial CI run](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37013864883)
+collected 250 full-suite invocations (8,250 workload profiles). Its held-out A/A set had six instruction-limit
+exceedances and no cache-limit exceedances across 495 comparisons per event.
+The initial 32 KiB allocation control did not exceed the instruction limit on
+medium/large workloads; the sensitivity check rejected the run. The control was
+increased to 512 KiB, without changing gates or discarding the initial artifacts.
+These initial observations do not justify increasing cache allowances.
+The [512 KiB pilot](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37016883461)
+also failed sensitivity: large inlay changed from 587,613 to 524,465 instructions
+despite the allocation. Its held-out A/A set had five instruction exceedances
+and no cache exceedances. This rejected pilot motivated the shared non-inlined
+measurement helpers; it was not retried away or used to train allowances.
+
+The [isolated-control CI run](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37024700423)
+passed with all 250 full-suite invocations and 8,250 workload profiles. Both
+positive controls exceeded the unchanged 2% instruction gate in all 45 validation
+workload/series combinations each. Minimum increases were 83.19% for duplicate
+query work and 8.42% for allocation. Held-out A/A had two instruction-limit
+exceedances out of 495 event comparisons, and zero of 495 for each cache event.
+The discovery-only proposal did not remove those instruction exceedances; it
+never changes the instruction gate. This finite sample supplies no evidence that
+cache allowances need increasing and does not establish tail reliability.
+
+For a small collector/report smoke on Linux, use two new, disjoint work/output
+directories and keep source files unchanged throughout both collections:
+
+```sh
+docker compose exec -T rust python3 scripts/performance_calibration.py \
+  --source /workspace --work-dir /tmp/calibration-discovery \
+  --output-dir /workspace/target/calibration/discovery \
+  --job-id local-discovery --role discovery --pairs 1
+docker compose exec -T rust python3 scripts/performance_calibration.py \
+  --source /workspace --work-dir /tmp/calibration-validation \
+  --output-dir /workspace/target/calibration/validation \
+  --job-id local-validation --role validation --pairs 1
+docker compose exec -T rust python3 scripts/calibration_report.py \
+  target/calibration --json-output target/calibration-report/report.json \
+  --markdown-output target/calibration-report/report.md
+```
+
+This smoke has insufficient statistical coverage. CI additionally enforces
+exactly seven discovery jobs, three validation jobs, and five complete series
+per job with the reporter's `--expected-*-jobs` and `--expected-pairs` options.
+
 ## End-to-end LSP latency reports
 
 The `performance / latency` job builds the pull request's base and candidate
