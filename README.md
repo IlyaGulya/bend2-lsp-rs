@@ -11,28 +11,25 @@ bundled with the server.**
 
 1. Install the Bend 2 CLI and make `bend` available to your editor, not just your
    terminal. You can also configure an absolute compiler path below.
-2. Download the executable for your OS and CPU from
-   [Releases](https://github.com/IlyaGulya/bend2-lsp-rs/releases), together with its
-   adjacent `.sha256` file. Verify the checksum before installing.
-3. Rename the executable to `bend2-lsp` (`bend2-lsp.exe` on Windows). On macOS and
-   Linux, make it executable with `chmod +x bend2-lsp`.
-4. Configure your editor to launch it over **stdio** for `.bend` files, using
+2. Install the server with the [one-command installer](#one-command-installation)
+   below, then reopen your terminal/editor so it sees the updated `PATH`.
+3. Configure your editor to launch `bend2-lsp` over **stdio** for `.bend` files, using
    language ID `bend` or `bend2`. Open a Bend file.
 
 | OS | Available binaries | Notes |
 | --- | --- | --- |
-| Linux | x86_64, ARM64 | GNU/glibc; not a musl/Alpine build |
+| Linux | x86_64, ARM64 | GNU/glibc ≥ 2.39; not a musl/Alpine build |
 | macOS | Intel, Apple Silicon | Choose the matching CPU architecture |
 | Windows | x64, ARM64 | Native `.exe` binaries |
 
-Releases with installer support include direct executables, `.tar.gz` / `.zip`
+Starting with **v0.2.4**, releases include direct executables, `.tar.gz` / `.zip`
 archives, and generated Shell/PowerShell installers. Stable releases use `vX.Y.Z`;
 nightlies are development prereleases named `nightly-<date>-<commit>`.
 All six binaries and both installers must pass native E2E before publication.
 
 ### One-command installation
 
-For stable releases containing installer assets:
+Install the latest stable release (installer support starts at **v0.2.4**):
 
 ```sh
 # macOS / Linux
@@ -51,7 +48,16 @@ Set `INSTALLER_NO_MODIFY_PATH=1` to opt out of PATH changes. To pin a stable or
 nightly release, replace `releases/latest/download` with `releases/download/<tag>`.
 These commands execute downloaded code; download and inspect the installer first
 if your security policy requires it. **v0.2.3 and earlier have no installer
-assets** and continue to use the manual instructions above.
+assets**; use manual installation for those releases.
+
+### Manual installation
+
+As an alternative to executing the installer, download the executable for your
+OS/CPU from [Releases](https://github.com/IlyaGulya/bend2-lsp-rs/releases), together
+with its adjacent `.sha256` file. Verify the checksum before installing.
+
+Rename it to `bend2-lsp` (`bend2-lsp.exe` on Windows) and place it in a directory
+on your editor's `PATH`. On macOS/Linux, make it executable with `chmod +x bend2-lsp`.
 
 Signing and macOS notarization are not provided. Older OS versions are not
 certified merely because a binary exists for that OS. See
@@ -173,6 +179,29 @@ comments, line endings, and whether the file ends with a newline. It honors
   debug adapter.
 - **Bend version negotiation:** no supported-version range, startup version
   check, or automatic compiler installation/update.
+
+## Roadmap
+
+These are proposed priorities, not implemented capabilities or release
+commitments. There are no scheduled delivery dates; the support table and
+limitations above describe the current release.
+
+1. **Context-aware completion:** offer types in annotations, constructors in
+   patterns, and in-scope local bindings instead of unrelated suggestions.
+2. **Auto-import and useful quick fixes:** insert imports for selected symbols,
+   reuse existing aliases, and avoid name conflicts.
+3. **Background whole-project indexing:** discover and index project files,
+   including unrelated files, and incrementally update them after changes.
+4. **Alias and file/module rename:** update affected imports and references with
+   conflict checks and coordinated workspace edits.
+5. **Compiler integration research:** investigate structured compiler output or
+   APIs for more precise types and diagnostics before committing to
+   compiler-powered hover, completion, or inferred-type hints. Do not introduce
+   an independent type checker that can diverge from Bend.
+
+New semantic data must be prepared during cold snapshot/index construction.
+Warm features must reuse immutable snapshots and workspace indexes rather than
+rescan entire documents or rediscover files on every request.
 
 ## Bend compatibility and diagnostics
 
