@@ -101,7 +101,7 @@ pub struct WorkspaceDb {
     entries: Vec<FileEntry>,
     by_uri: HashMap<Url, FileId>,
     by_path: HashMap<PathBuf, FileId>,
-    compiler_documents: Option<HashMap<FileId, Arc<tempfile::TempDir>>>,
+    compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
     reachable: HashSet<FileId>,
     reachability_dirty: bool,
 }
@@ -114,7 +114,7 @@ impl WorkspaceDb {
         uri: Url,
         path: PathBuf,
         snapshot: Arc<DocumentSnapshot>,
-        directory: Arc<tempfile::TempDir>,
+        directory: tempfile::TempDir,
     ) {
         let id = self.intern(uri, Some(path));
         self.entries[id.0].disk_snapshot = Some(snapshot);

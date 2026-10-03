@@ -315,7 +315,6 @@ struct PreparedDiskUpdate {
 struct BaseModule {
     uri: Url,
     snapshot: Arc<DocumentSnapshot>,
-    directory: Arc<tempfile::TempDir>,
 }
 
 impl Deref for BaseModule {
@@ -1124,14 +1123,14 @@ impl Backend {
                     BaseModule {
                         uri,
                         snapshot: Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source)),
-                        directory: Arc::new(directory),
                     },
                     path,
+                    directory,
                 ))
             })
             .await
             .flatten();
-            if let Some((module, path)) = loaded
+            if let Some((module, path, directory)) = loaded
                 && let Ok(mut database) = self.workspace_db.write()
                 && let Ok(mut current) = self.base_module.write()
             {
@@ -1139,7 +1138,7 @@ impl Backend {
                     module.uri.clone(),
                     path,
                     module.snapshot.clone(),
-                    module.directory.clone(),
+                    directory,
                 );
                 *current = Some(module);
             }
