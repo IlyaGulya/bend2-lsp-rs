@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased
+## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
+
 
 ### Bug Fixes
+
+* preserve compiler-owned Base document provenance ([#11](https://github.com/IlyaGulya/bend2-lsp-rs/issues/11)) ([ab60a28](https://github.com/IlyaGulya/bend2-lsp-rs/commit/ab60a289e775231738a20bab4fff0c89dafe1489))
 
 - Track compiler-owned `Base` source in the workspace index so navigation does not
   trigger invalid standalone compiler checks. Retain its source and provenance
