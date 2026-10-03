@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- Track compiler-owned `Base` source in the workspace index so navigation does not
+  trigger invalid standalone compiler checks. Retain its source and provenance
+  across compiler configuration changes and editor close/reopen; preserve lexical
+  diagnostics and normal checks for user-owned files named `Base.bend`.
+
 ## [0.2.4](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.3...v0.2.4) (2026-10-03)
 
 

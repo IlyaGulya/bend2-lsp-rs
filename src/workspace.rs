@@ -101,11 +101,28 @@ pub struct WorkspaceDb {
     entries: Vec<FileEntry>,
     by_uri: HashMap<Url, FileId>,
     by_path: HashMap<PathBuf, FileId>,
+    compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
     reachable: HashSet<FileId>,
     reachability_dirty: bool,
 }
 
 impl WorkspaceDb {
+    /// Register compiler-owned source for navigation, retaining its backing file
+    /// for the lifetime of the workspace index, not just the active compiler cache.
+    pub(crate) fn register_compiler_document(
+        &mut self,
+        uri: Url,
+        path: PathBuf,
+        snapshot: Arc<DocumentSnapshot>,
+        directory: tempfile::TempDir,
+    ) {
+        let id = self.intern(uri, Some(path));
+        self.entries[id.0].disk_snapshot = Some(snapshot);
+        self.compiler_documents
+            .get_or_insert_with(HashMap::new)
+            .insert(id, directory);
+    }
+
     #[must_use]
     pub fn open_document(&self, uri: &Url) -> Option<Document> {
         let id = self.by_uri.get(uri)?;
@@ -143,6 +160,15 @@ impl WorkspaceDb {
     }
 
     pub(crate) fn source_graph(&self, root: FileId) -> Option<SourceGraph> {
+        // Compiler-owned source is an indexed navigation target, not a
+        // standalone user program. Preserve this policy across editor events.
+        if self
+            .compiler_documents
+            .as_ref()
+            .is_some_and(|documents| documents.contains_key(&root))
+        {
+            return None;
+        }
         self.entries.get(root.0)?.snapshot()?;
         let mut pending = vec![root];
         let mut visited = HashSet::new();
