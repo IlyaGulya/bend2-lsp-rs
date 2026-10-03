@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
+## [0.2.4](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.3...v0.2.4) (2026-10-03)
+
 
 ### Features
 
-- Add generated cargo-dist Shell and PowerShell installers, versionless archives, pre-extraction SHA256 verification, and six-platform installed-executable E2E gates while retaining direct binaries and immutable publication.
+* add generated cross-platform release installers ([#8](https://github.com/IlyaGulya/bend2-lsp-rs/issues/8)) ([be1cab9](https://github.com/IlyaGulya/bend2-lsp-rs/commit/be1cab9cfbdaa3393195ee8a09184160577373dd))
+
+- Preserve direct binaries and immutable releases; verify archive SHA256 before extraction and exercise installed binaries on all six native platforms.
 
 ## [0.2.3](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.2...v0.2.3) (2026-10-02)
 
