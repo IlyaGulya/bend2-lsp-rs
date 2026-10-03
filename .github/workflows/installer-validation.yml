@@ -1,0 +1,38 @@
+name: installer-validation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/installer-validation.yml
+      - .github/workflows/release-binaries.yml
+      - scripts/release.py
+      - scripts/test_release.py
+      - scripts/dist_installers.py
+      - scripts/installer_e2e.py
+      - scripts/lsp_latency.py
+      - scripts/install-tools.sh
+      - dist-workspace.toml
+
+permissions: {}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.identity.outputs.tag }}
+    steps:
+      - name: Select isolated nightly identity for the exact PR merge SHA
+        id: identity
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: echo "tag=nightly-$(date -u +%Y-%m-%d)-$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+  native-installers:
+    needs: prepare
+    permissions:
+      contents: read
+    uses: $/.github/workflows/release-binaries.yml
+    with:
+      sha: ${{ github.sha }}
+      tag: ${{ needs.prepare.outputs.tag }}
+      channel: nightly

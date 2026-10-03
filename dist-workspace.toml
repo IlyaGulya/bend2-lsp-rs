@@ -1,0 +1,29 @@
+# Only global installer generation uses cargo-dist; native builds and publication
+# remain owned by the SHA-bound release workflows.
+[workspace]
+members = ["cargo:."]
+
+[dist]
+cargo-dist-version = "0.33.0"
+installers = ["shell", "powershell"]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+]
+checksum = "sha256"
+unix-archive = ".tar.gz"
+windows-archive = ".zip"
+auto-includes = false
+install-updater = false
+install-path = "~/.local/bin"
+source-tarball = false
+hosting = ["simple", "github"]
+# The wrapper resolves the exact stable/nightly tag before generation.
+simple-download-url = "https://github.com/IlyaGulya/bend2-lsp-rs/releases/download/{tag}"
+
+[dist.min-glibc-version]
+"*" = "2.39"

@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix:
+      matrix: &native-platforms
         include:
           - runner: ubuntu-24.04
             arch: X64
@@ -100,3 +100,73 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           overwrite: true
+  installers:
+    permissions:
+      contents: read
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RELEASE_SHA: ${{ inputs.sha }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_CHANNEL: ${{ inputs.channel }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ${{ inputs.channel }}-@(x86_64|aarch64)-*
+          path: dist
+          merge-multiple: true
+      - name: Install pinned global installer generator
+        run: ./scripts/install-tools.sh dist
+      - name: Generate installers bound to all six native-tested archives
+        run: python3 scripts/dist_installers.py
+      - name: Upload checksum-bound installers and internal identity metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ inputs.channel }}-installers
+          path: |
+            dist/bend2-lsp-installer.*
+            dist/installers.metadata.json
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
+  installer-e2e:
+    permissions:
+      contents: read
+    needs: installers
+    name: installer E2E (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: *native-platforms
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_SHA: ${{ inputs.sha }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_CHANNEL: ${{ inputs.channel }}
+      RELEASE_TARGET: ${{ matrix.target }}
+      PYTHON: ${{ matrix.python }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ${{ inputs.channel }}-*
+          path: dist
+          merge-multiple: true
+      - name: Install pinned native Rust and portable E2E runner
+        run: |
+          rustup toolchain install "1.98.1-$RELEASE_TARGET" --profile minimal
+          rustup override set "1.98.1-$RELEASE_TARGET"
+          cargo install --locked --version 0.9.131 cargo-nextest
+      - name: Reject altered archive, install verified archive and exercise installed LSP
+        run: '"$PYTHON" scripts/installer_e2e.py'

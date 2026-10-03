@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Package native binaries and publish only complete, SHA-verified releases."""
 
+import gzip
 import hashlib
 import json
 import os
@@ -9,9 +10,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tomllib
 import urllib.error
 import urllib.request
+import zipfile
 
 TARGETS = (
     "x86_64-unknown-linux-gnu",
@@ -128,6 +131,79 @@ def asset_name(target):
     return f"bend2-lsp-{target}{suffix}"
 
 
+def archive_name(target):
+    suffix = ".zip" if "windows" in target else ".tar.gz"
+    return f"bend2-lsp-{target}{suffix}"
+
+
+def write_archive(asset, target, archive):
+    root = f"bend2-lsp-{target}"
+    executable = "bend2-lsp.exe" if "windows" in target else "bend2-lsp"
+    # Fixed timestamps, ownership and modes make retries reproduce identical bytes.
+    if "windows" in target:
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
+            member = zipfile.ZipInfo(executable)
+            member.create_system = 3
+            member.external_attr = 0o100755 << 16
+            member.compress_type = zipfile.ZIP_DEFLATED
+            with asset.open("rb") as source, output.open(member, "w") as destination:
+                shutil.copyfileobj(source, destination)
+    else:
+        with archive.open("wb") as destination:
+            with gzip.GzipFile(filename="", mode="wb", fileobj=destination, mtime=0) as compressed:
+                with tarfile.open(fileobj=compressed, mode="w", format=tarfile.USTAR_FORMAT) as output:
+                    directory = tarfile.TarInfo(root)
+                    directory.type = tarfile.DIRTYPE
+                    directory.mode = 0o755
+                    output.addfile(directory)
+                    member = tarfile.TarInfo(f"{root}/{executable}")
+                    member.mode = 0o755
+                    member.size = asset.stat().st_size
+                    with asset.open("rb") as source:
+                        output.addfile(member, source)
+
+
+def validate_archive(archive, target, asset, digest):
+    root = f"bend2-lsp-{target}"
+    executable = "bend2-lsp.exe" if "windows" in target else "bend2-lsp"
+    member_name = f"{root}/{executable}"
+    size = asset.stat().st_size
+    try:
+        if "windows" in target:
+            with zipfile.ZipFile(archive) as source:
+                members = source.infolist()
+                if [member.filename for member in members] != [executable]:
+                    raise ValueError(f"archive member layout mismatch: {archive.name}")
+                member = members[0]
+                if (
+                    member.is_dir() or member.create_system != 3
+                    or member.external_attr >> 16 != 0o100755 or member.file_size != size
+                    or any(entry.flag_bits & 1 for entry in members)
+                ):
+                    raise ValueError(f"unsafe archive member: {archive.name}")
+                with source.open(member) as binary:
+                    extracted_digest = hashlib.file_digest(binary, "sha256").hexdigest()
+        else:
+            with tarfile.open(archive, "r:gz") as source:
+                members = source.getmembers()
+                if [member.name for member in members] != [root, member_name]:
+                    raise ValueError(f"archive member layout mismatch: {archive.name}")
+                directory, member = members
+                if (
+                    directory.type != tarfile.DIRTYPE or directory.size != 0
+                    or directory.mode != 0o755 or member.type != tarfile.REGTYPE
+                    or member.mode != 0o755 or member.size != size
+                    or any(entry.linkname or entry.pax_headers for entry in members)
+                ):
+                    raise ValueError(f"unsafe archive member: {archive.name}")
+                with source.extractfile(member) as binary:
+                    extracted_digest = hashlib.file_digest(binary, "sha256").hexdigest()
+    except (tarfile.TarError, zipfile.BadZipFile, OSError, EOFError) as error:
+        raise ValueError(f"invalid native archive: {archive.name}") from error
+    if extracted_digest != digest:
+        raise ValueError(f"archive executable bytes mismatch: {archive.name}")
+
+
 def file_sha256(path):
     with path.open("rb") as source:
         return hashlib.file_digest(source, "sha256").hexdigest()
@@ -144,13 +220,22 @@ def package():
     dist = Path("dist")
     dist.mkdir(exist_ok=True)
     asset = dist / asset_name(target)
-    for path in (asset, Path(f"{asset}.sha256"), Path(f"{asset}.metadata.json")):
+    archive = dist / archive_name(target)
+    for path in (
+        asset, Path(f"{asset}.sha256"), Path(f"{asset}.metadata.json"),
+        archive, Path(f"{archive}.sha256"),
+    ):
         if path.is_symlink() or (path.exists() and not path.is_file()):
             raise ValueError(f"release artifact must be a regular file: {path.name}")
     shutil.copyfile(binary, asset)
     asset.chmod(0o755)
     checksum = file_sha256(asset)
     Path(f"{asset}.sha256").write_text(f"{checksum}  {asset.name}\n", encoding="utf-8", newline="\n")
+    write_archive(asset, target, archive)
+    archive_checksum = file_sha256(archive)
+    Path(f"{archive}.sha256").write_text(
+        f"{archive_checksum}  {archive.name}\n", encoding="utf-8", newline="\n",
+    )
     # CI-only metadata binds the source identity to the exact tested/uploaded bytes.
     metadata = {
         "source_sha": os.environ["RELEASE_SHA"],
@@ -160,6 +245,8 @@ def package():
         "channel": os.environ["RELEASE_CHANNEL"],
         "asset": asset.name,
         "sha256": checksum,
+        "archive": archive.name,
+        "archive_sha256": archive_checksum,
     }
     Path(f"{asset}.metadata.json").write_text(
         json.dumps(metadata, indent=2) + "\n", encoding="utf-8", newline="\n",
@@ -169,17 +256,24 @@ def package():
     print(f"Packaged {asset}; E2E executable: {asset.resolve()}")
 
 
-def validate_artifacts(tag, version):
+def validate_artifacts(tag, version, *, include_installers=True):
     dist = Path("dist")
     expected = set()
     public = set()
     checksums = []
     for target in TARGETS:
         name = asset_name(target)
-        public.update((name, f"{name}.sha256"))
-        expected.update((name, f"{name}.sha256", f"{name}.metadata.json"))
+        archive = dist / archive_name(target)
+        public.update((name, f"{name}.sha256", archive.name, f"{archive.name}.sha256"))
+        expected.update((
+            name, f"{name}.sha256", f"{name}.metadata.json",
+            archive.name, f"{archive.name}.sha256",
+        ))
         asset = dist / name
-        for path in (asset, dist / f"{name}.sha256", dist / f"{name}.metadata.json"):
+        for path in (
+            asset, dist / f"{name}.sha256", dist / f"{name}.metadata.json",
+            archive, dist / f"{archive.name}.sha256",
+        ):
             if path.is_symlink() or not path.is_file():
                 raise ValueError(f"release artifact must be a regular file: {path.name}")
         digest = file_sha256(asset)
@@ -187,6 +281,11 @@ def validate_artifacts(tag, version):
         if (dist / f"{name}.sha256").read_text() != checksum:
             raise ValueError(f"executable checksum mismatch: {name}")
         checksums.append(checksum)
+        archive_digest = file_sha256(archive)
+        archive_checksum = f"{archive_digest}  {archive.name}\n"
+        if (dist / f"{archive.name}.sha256").read_text() != archive_checksum:
+            raise ValueError(f"archive checksum mismatch: {archive.name}")
+        checksums.append(archive_checksum)
         metadata = json.loads((dist / f"{name}.metadata.json").read_text())
         if metadata != {
             "source_sha": os.environ["RELEASE_SHA"],
@@ -196,8 +295,18 @@ def validate_artifacts(tag, version):
             "channel": os.environ["RELEASE_CHANNEL"],
             "asset": name,
             "sha256": digest,
+            "archive": archive.name,
+            "archive_sha256": archive_digest,
         }:
             raise ValueError(f"executable identity mismatch: {name}")
+        validate_archive(archive, target, asset, digest)
+    if include_installers:
+        from dist_installers import validate_installers
+
+        installer_expected, installer_public, installer_checksums = validate_installers(tag, version)
+        expected.update(installer_expected)
+        public.update(installer_public)
+        checksums.extend(installer_checksums)
     actual = {entry.name for entry in dist.iterdir()}
     # Revalidating the same complete directory is safe; never trust its old manifest.
     if actual not in (expected, expected | {"SHA256SUMS"}):
