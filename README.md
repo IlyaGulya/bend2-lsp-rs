@@ -25,9 +25,33 @@ bundled with the server.**
 | macOS | Intel, Apple Silicon | Choose the matching CPU architecture |
 | Windows | x64, ARM64 | Native `.exe` binaries |
 
-Release assets are executables, not archives. Stable releases use `vX.Y.Z`;
+Releases with installer support include direct executables, `.tar.gz` / `.zip`
+archives, and generated Shell/PowerShell installers. Stable releases use `vX.Y.Z`;
 nightlies are development prereleases named `nightly-<date>-<commit>`.
-All six release binaries must pass native tests and LSP E2E before publication.
+All six binaries and both installers must pass native E2E before publication.
+
+### One-command installation
+
+For stable releases containing installer assets:
+
+```sh
+# macOS / Linux
+curl -fsSL https://github.com/IlyaGulya/bend2-lsp-rs/releases/latest/download/bend2-lsp-installer.sh | sh
+```
+
+```powershell
+# Windows PowerShell
+irm https://github.com/IlyaGulya/bend2-lsp-rs/releases/latest/download/bend2-lsp-installer.ps1 | iex
+```
+
+The installer selects your OS/CPU, verifies the archive SHA256, installs to
+`~/.local/bin` (Windows: `$HOME\.local\bin`), and sets up your user `PATH`;
+no administrator access or Rust toolchain is needed. Reopen your terminal/editor.
+Set `INSTALLER_NO_MODIFY_PATH=1` to opt out of PATH changes. To pin a stable or
+nightly release, replace `releases/latest/download` with `releases/download/<tag>`.
+These commands execute downloaded code; download and inspect the installer first
+if your security policy requires it. **v0.2.3 and earlier have no installer
+assets** and continue to use the manual instructions above.
 
 Signing and macOS notarization are not provided. Older OS versions are not
 certified merely because a binary exists for that OS. See

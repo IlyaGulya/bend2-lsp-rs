@@ -80,12 +80,35 @@ runners. Nextest uses quality's serialized CI profile: retries collect failure
 evidence, but `flaky-result = "fail"` rejects a flaky test even if its retry passes.
 Doctests still run separately.
 
-Publication depends on the entire matrix succeeding. The publisher verifies
-all six executables, their checksums, internal version/channel/SHA/target/filename
-metadata, and the tag's resolved commit. Metadata stays in CI artifacts; public
-assets are six executables, six checksum files, and `SHA256SUMS`. Assets upload
-into a draft and their remote sizes and SHA-256 digests must match before it
-becomes public. A failed build, E2E, or upload leaves it draft-only.
+Publication depends on the entire native and installer matrices succeeding.
+Each native runner packages an additional versionless `.tar.gz` (Unix, one
+root directory) or `.zip` (Windows, flat) from the exact staged executable.
+The publisher verifies extracted bytes against the direct asset and rejects
+unexpected members, links, mismatched checksums or identity metadata.
+
+After all native builds pass, pinned cargo-dist 0.33.0 generates only the global
+Shell/PowerShell installers; it never rebuilds the binaries or owns publication.
+`scripts/dist_installers.py` injects the six verified archive digests into its
+manifest. The wrapper uses supported simple-hosting configuration for exact
+nightly URLs, and normalizes the pinned GitHub mirror/fallback download routes
+to that same tag while retaining the package's real version. A changed route
+layout is an error. Cargo-dist 0.33.0 lacks
+PowerShell checksum verification, so a version-checked, fail-closed download hook
+adds SHA256 verification before extraction. A changed upstream hook is an error,
+not permission to omit verification.
+
+Every target then runs its actual installer against an isolated local mirror,
+first rejecting a valid archive with altered binary bytes, then installing the
+correct bytes and running the existing portable release protocol/lifecycle E2E
+suite against the installed copy. No Unix-only latency transport is used on
+Windows.
+Unprivileged installer PR validation runs the same matrices without publication.
+
+Public assets are six direct executables, six archives, two installers, their
+fourteen checksum sidecars, and `SHA256SUMS`. Source/version/channel/target and
+generator identity metadata remain internal. Remote sizes and SHA256 digests
+must match before a draft becomes public; a failed build, installer, E2E or
+upload leaves it private.
 
 The quality gate also runs pinned actionlint, ghalint, and zizmor. Privileged
 consumers use individually guarded `workflow_run` events; no workflow uses
@@ -160,11 +183,39 @@ version.
 ## Installing an executable
 
 Choose a stable release on the repository's GitHub **Releases** page, or explicitly
-choose a nightly prerelease. Download the executable matching your OS and CPU
-plus its `.sha256` file (or `SHA256SUMS`). Future asset names are
-`bend2-lsp-<target>`, with `.exe` appended for Windows; the release tag and
-verified internal metadata retain the version. Previously published assets
-remain unchanged. New releases contain no archives.
+choose a nightly prerelease. Direct asset names are `bend2-lsp-<target>`, with
+`.exe` appended for Windows; the tag and metadata retain the version.
+Previously published assets remain unchanged. v0.2.3 and earlier have only
+direct executable assets. Releases with installer support additionally contain
+`bend2-lsp-<target>.tar.gz` (Unix) or `.zip` (Windows) and versionless
+`bend2-lsp-installer.sh` / `bend2-lsp-installer.ps1`.
+
+For a stable release containing installers:
+
+```sh
+curl -fsSL https://github.com/IlyaGulya/bend2-lsp-rs/releases/latest/download/bend2-lsp-installer.sh | sh
+```
+
+```powershell
+irm https://github.com/IlyaGulya/bend2-lsp-rs/releases/latest/download/bend2-lsp-installer.ps1 | iex
+```
+
+To pin a version or select a nightly, use `releases/download/<exact-tag>` instead
+of `releases/latest/download`. Installation is per-user at `~/.local/bin`
+(Windows: `$HOME\.local\bin`) and configures user PATH; reopen the editor/terminal.
+Use `INSTALLER_NO_MODIFY_PATH=1` to preserve PATH, `BEND2_LSP_INSTALL_DIR` to
+choose a directory, or `BEND2_LSP_UNMANAGED_INSTALL` for isolated flat installation
+without profile/registry/receipt changes. Linux GNU archives require glibc 2.39
+or newer; no musl fallback is advertised.
+
+Both installers verify embedded SHA256 values before extraction. That does not
+authenticate the downloaded installer itself: piping to a shell/`iex` executes
+remote code. Download and inspect it first when required by local policy.
+Updating means rerunning an installer for the selected release; neither the
+server nor an additional updater downloads upgrades in the background.
+
+For manual installation, download the matching direct executable plus its
+`.sha256` file (or `SHA256SUMS`) and verify:
 
 ```sh
 # Linux: substitute the exact downloaded filename.

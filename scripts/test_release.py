@@ -1,13 +1,20 @@
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
+import warnings
+import zipfile
 
-from release import TARGETS, asset_name, package, publish, validate_artifacts, validate_uploaded_assets, verify
+from release import (
+    TARGETS, archive_name, asset_name, package, publish, validate_artifacts,
+    validate_uploaded_assets, verify,
+)
 
 
 VERSION = "1.2.3"
@@ -61,6 +68,66 @@ class ReleaseIntegrityTests(unittest.TestCase):
     def write_manifest(version):
         Path(".release-please-manifest.json").write_text(json.dumps({".": version}))
 
+    @staticmethod
+    def write_fixture_archive(target, content, defect=None):
+        archive = Path("dist") / archive_name(target)
+        root = f"bend2-lsp-{target}"
+        executable = "bend2-lsp.exe" if "windows" in target else "bend2-lsp"
+        name = executable if "windows" in target else f"{root}/{executable}"
+        if defect == "traversal":
+            name = f"../{executable}"
+        elif defect == "nested-directory":
+            name = f"{root}/{executable}"
+        if "windows" in target:
+            with zipfile.ZipFile(archive, "w") as output:
+                if defect == "nested-directory":
+                    directory = zipfile.ZipInfo(f"{root}/")
+                    directory.create_system = 3
+                    directory.external_attr = (0o40755 << 16) | 0x10
+                    output.writestr(directory, b"")
+                member = zipfile.ZipInfo(name)
+                member.create_system = 3
+                member.external_attr = (0o120777 if defect == "link" else 0o100755) << 16
+                output.writestr(member, content)
+                if defect == "unexpected":
+                    output.writestr(f"{root}/extra", b"extra")
+                if defect == "duplicate":
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", UserWarning)
+                        output.writestr(member, content)
+        else:
+            with tarfile.open(archive, "w:gz") as output:
+                directory = tarfile.TarInfo(root)
+                directory.type = tarfile.DIRTYPE
+                directory.mode = 0o755
+                if defect != "missing-directory":
+                    output.addfile(directory)
+                member = tarfile.TarInfo(name)
+                member.mode = 0o755
+                member.size = len(content)
+                if defect in ("link", "hardlink"):
+                    member.type = tarfile.SYMTYPE if defect == "link" else tarfile.LNKTYPE
+                    member.linkname = "../outside"
+                    member.size = 0
+                elif defect == "device":
+                    member.type = tarfile.CHRTYPE
+                    member.size = 0
+                output.addfile(member, io.BytesIO(content))
+                if defect == "unexpected":
+                    output.addfile(tarfile.TarInfo(f"{root}/extra"))
+                if defect == "duplicate":
+                    output.addfile(member, io.BytesIO(content))
+        return archive
+
+    @staticmethod
+    def bind_archive(asset, archive):
+        checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
+        Path(f"{archive}.sha256").write_text(f"{checksum}  {archive.name}\n")
+        metadata_path = Path(f"{asset}.metadata.json")
+        metadata = json.loads(metadata_path.read_text())
+        metadata.update(archive=archive.name, archive_sha256=checksum)
+        metadata_path.write_text(json.dumps(metadata))
+
     def write_asset(self, asset_target, **metadata_changes):
         name = asset_name(asset_target)
         asset = Path("dist") / name
@@ -75,26 +142,67 @@ class ReleaseIntegrityTests(unittest.TestCase):
             "asset": name,
             "sha256": checksum,
         }
-        metadata.update(metadata_changes)
         Path(f"{asset}.metadata.json").write_text(json.dumps(metadata))
         Path(f"{asset}.sha256").write_text(f"{checksum}  {name}\n")
+        archive = self.write_fixture_archive(asset_target, asset.read_bytes())
+        self.bind_archive(asset, archive)
+        # Apply archive identity changes after binding the independently made archive.
+        metadata = json.loads(Path(f"{asset}.metadata.json").read_text())
+        metadata.update(metadata_changes)
+        Path(f"{asset}.metadata.json").write_text(json.dumps(metadata))
+        if Path("dist/installers.metadata.json").exists():
+            self.write_installers()
         return asset
 
-    def write_all_assets(self):
-        return [self.write_asset(target) for target in TARGETS]
+    def write_installers(self):
+        assets = {}
+        for name, content, mode in (
+            ("bend2-lsp-installer.sh", b"#!/bin/sh\nprintf '%s\\n' 'fixture installer'\n", 0o755),
+            ("bend2-lsp-installer.ps1", b"Write-Output 'fixture installer'\n", 0o644),
+        ):
+            asset = Path("dist") / name
+            asset.write_bytes(content)
+            asset.chmod(mode)
+            digest = hashlib.sha256(content).hexdigest()
+            assets[name] = digest
+            Path(f"{asset}.sha256").write_text(f"{digest}  {name}\n")
+        metadata = {
+            "source_sha": self.sha,
+            "tag": os.environ["RELEASE_TAG"],
+            "version": VERSION,
+            "channel": os.environ["RELEASE_CHANNEL"],
+            "cargo_dist_version": "0.33.0",
+            "assets": assets,
+            "archives": {
+                archive_name(target): hashlib.sha256(
+                    (Path("dist") / archive_name(target)).read_bytes()
+                ).hexdigest()
+                for target in TARGETS
+            },
+        }
+        Path("dist/installers.metadata.json").write_text(json.dumps(metadata))
 
-    def test_complete_release_emits_checksums_for_each_verified_executable(self):
+    def write_all_assets(self):
+        executables = [self.write_asset(target) for target in TARGETS]
+        self.write_installers()
+        return executables
+
+    def test_complete_release_emits_checksums_for_each_verified_executable_and_archive(self):
         executables = self.write_all_assets()
+        public_assets = (
+            executables + [Path("dist") / archive_name(target) for target in TARGETS]
+            + [Path("dist/bend2-lsp-installer.sh"), Path("dist/bend2-lsp-installer.ps1")]
+        )
         assets = validate_artifacts(TAG, VERSION)
         expected_checksums = {
             f"{hashlib.sha256(asset.read_bytes()).hexdigest()}  {asset.name}"
-            for asset in executables
+            for asset in public_assets
         }
         self.assertEqual(set(Path("dist/SHA256SUMS").read_text().splitlines()), expected_checksums)
         self.assertEqual(set(assets), {
             "SHA256SUMS",
-            *[asset.name for asset in executables],
-            *[f"{asset.name}.sha256" for asset in executables],
+            *[asset.name for asset in public_assets],
+            *[f"{asset.name}.sha256" for asset in public_assets],
         })
 
     def test_corrupted_executable_is_rejected_before_checksum_manifest(self):
@@ -122,6 +230,8 @@ class ReleaseIntegrityTests(unittest.TestCase):
             "channel": "nightly",
             "asset": asset_name(TARGETS[1]),
             "sha256": "f" * 64,
+            "archive": archive_name(TARGETS[1]),
+            "archive_sha256": "f" * 64,
         }
         for field, wrong_value in mismatches.items():
             with self.subTest(field=field):
@@ -139,12 +249,85 @@ class ReleaseIntegrityTests(unittest.TestCase):
             validate_artifacts(TAG, VERSION)
         self.assertFalse(Path("dist/SHA256SUMS").exists())
 
-    def test_missing_checksum_or_metadata_cannot_form_a_release(self):
+    def test_corrupted_archives_are_rejected_before_checksum_manifest(self):
         self.write_all_assets()
-        for suffix in (".sha256", ".metadata.json"):
-            with self.subTest(suffix=suffix):
+        for target in (TARGETS[0], TARGETS[4]):
+            with self.subTest(target=target):
+                archive = Path("dist") / archive_name(target)
+                archive.write_bytes(b"corrupted archive")
+                with self.assertRaisesRegex(ValueError, "archive checksum mismatch"):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_asset(target)
+
+    def test_rehashed_modified_archive_still_requires_matching_ci_metadata(self):
+        self.write_all_assets()
+        for target in (TARGETS[0], TARGETS[4]):
+            with self.subTest(target=target):
+                archive = self.write_fixture_archive(target, b"replaced archive executable")
+                checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
+                Path(f"{archive}.sha256").write_text(f"{checksum}  {archive.name}\n")
+                with self.assertRaisesRegex(ValueError, "identity mismatch"):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_asset(target)
+
+    def test_archive_executable_must_match_direct_executable_even_with_bound_checksums(self):
+        self.write_all_assets()
+        for target in TARGETS:
+            with self.subTest(target=target):
+                asset = Path("dist") / asset_name(target)
+                archive = self.write_fixture_archive(target, b"x" * asset.stat().st_size)
+                self.bind_archive(asset, archive)
+                with self.assertRaisesRegex(ValueError, "archive executable bytes mismatch"):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_asset(target)
+
+    def test_archive_members_reject_links_traversal_duplicates_and_unexpected_layout(self):
+        self.write_all_assets()
+        for target in (TARGETS[0], TARGETS[4]):
+            defects = ["link", "traversal", "duplicate", "unexpected"]
+            if "windows" in target:
+                defects.append("nested-directory")
+            else:
+                defects.extend(("missing-directory", "hardlink", "device"))
+            for defect in defects:
+                with self.subTest(target=target, defect=defect):
+                    asset = Path("dist") / asset_name(target)
+                    archive = self.write_fixture_archive(target, asset.read_bytes(), defect)
+                    self.bind_archive(asset, archive)
+                    with self.assertRaisesRegex(ValueError, "archive member"):
+                        validate_artifacts(TAG, VERSION)
+                    self.assertFalse(Path("dist/SHA256SUMS").exists())
+                    self.write_asset(target)
+
+    def test_bound_malformed_archives_cannot_form_a_release(self):
+        self.write_all_assets()
+        for target in (TARGETS[0], TARGETS[4]):
+            with self.subTest(target=target):
+                asset = Path("dist") / asset_name(target)
+                archive = Path("dist") / archive_name(target)
+                archive.write_bytes(b"not a native archive")
+                self.bind_archive(asset, archive)
+                with self.assertRaisesRegex(ValueError, "invalid native archive"):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_asset(target)
+
+
+    def test_missing_checksum_metadata_or_archive_cannot_form_a_release(self):
+        self.write_all_assets()
+        paths = (
+            f"{asset_name(TARGETS[0])}.sha256",
+            f"{asset_name(TARGETS[0])}.metadata.json",
+            archive_name(TARGETS[0]),
+            f"{archive_name(TARGETS[0])}.sha256",
+        )
+        for name in paths:
+            with self.subTest(name=name):
                 self.write_asset(TARGETS[0])
-                Path(f"dist/{asset_name(TARGETS[0])}{suffix}").unlink()
+                Path("dist", name).unlink()
                 with self.assertRaisesRegex(ValueError, "regular file"):
                     validate_artifacts(TAG, VERSION)
                 self.assertFalse(Path("dist/SHA256SUMS").exists())
@@ -159,6 +342,80 @@ class ReleaseIntegrityTests(unittest.TestCase):
                     validate_artifacts(TAG, VERSION)
                 self.assertFalse(Path("dist/SHA256SUMS").exists())
                 extra.unlink()
+
+    def test_installer_mutation_is_rejected_before_checksum_manifest(self):
+        self.write_all_assets()
+        for name in ("bend2-lsp-installer.sh", "bend2-lsp-installer.ps1"):
+            with self.subTest(name=name):
+                asset = Path("dist") / name
+                asset.write_bytes(asset.read_bytes() + b"\nmodified after generation\n")
+                with self.assertRaises(ValueError):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_installers()
+
+    def test_rehashed_installer_mutation_requires_matching_ci_identity(self):
+        self.write_all_assets()
+        for name in ("bend2-lsp-installer.sh", "bend2-lsp-installer.ps1"):
+            with self.subTest(name=name):
+                asset = Path("dist") / name
+                asset.write_bytes(asset.read_bytes() + b"\nmodified after generation\n")
+                digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+                Path(f"{asset}.sha256").write_text(f"{digest}  {name}\n")
+                with self.assertRaises(ValueError):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_installers()
+
+    def test_installer_sidecars_must_match_both_digest_and_asset_name(self):
+        self.write_all_assets()
+        for name in ("bend2-lsp-installer.sh", "bend2-lsp-installer.ps1"):
+            digest = hashlib.sha256((Path("dist") / name).read_bytes()).hexdigest()
+            for sidecar in (f"{'f' * 64}  {name}\n", f"{digest}  wrong-installer.sh\n"):
+                with self.subTest(name=name, sidecar=sidecar):
+                    Path(f"dist/{name}.sha256").write_text(sidecar)
+                    with self.assertRaises(ValueError):
+                        validate_artifacts(TAG, VERSION)
+                    self.assertFalse(Path("dist/SHA256SUMS").exists())
+                    self.write_installers()
+
+    def test_installer_metadata_requires_exact_source_toolchain_asset_and_archive_identity(self):
+        self.write_all_assets()
+        mismatches = {
+            "source_sha": "f" * 40,
+            "tag": "v9.9.9",
+            "version": "9.9.9",
+            "channel": "nightly",
+            "cargo_dist_version": "0.32.0",
+            "assets": {"bend2-lsp-installer.sh": "f" * 64},
+            "archives": {archive_name(target): "f" * 64 for target in TARGETS},
+            "unexpected": True,
+        }
+        metadata_path = Path("dist/installers.metadata.json")
+        for field, wrong_value in mismatches.items():
+            with self.subTest(field=field):
+                metadata = json.loads(metadata_path.read_text())
+                metadata[field] = wrong_value
+                metadata_path.write_text(json.dumps(metadata))
+                with self.assertRaises(ValueError):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_installers()
+
+    def test_missing_installer_sidecar_or_metadata_cannot_form_a_release(self):
+        self.write_all_assets()
+        names = (
+            "bend2-lsp-installer.sh", "bend2-lsp-installer.ps1",
+            "bend2-lsp-installer.sh.sha256", "bend2-lsp-installer.ps1.sha256",
+            "installers.metadata.json",
+        )
+        for name in names:
+            with self.subTest(name=name):
+                (Path("dist") / name).unlink()
+                with self.assertRaises(ValueError):
+                    validate_artifacts(TAG, VERSION)
+                self.assertFalse(Path("dist/SHA256SUMS").exists())
+                self.write_installers()
 
     def test_revalidation_replaces_untrusted_aggregate_manifest(self):
         self.write_all_assets()
@@ -190,9 +447,17 @@ class ReleaseIntegrityTests(unittest.TestCase):
                 self.assertTrue(tested.samefile(asset))
                 source.write_bytes(b"later cargo output must not change the release")
                 self.assertEqual(tested.read_bytes(), content)
+                archive = Path("dist") / archive_name(target)
+                if "windows" in target:
+                    with zipfile.ZipFile(archive) as packed:
+                        extracted = packed.read(executable)
+                else:
+                    with tarfile.open(archive) as packed:
+                        extracted = packed.extractfile(f"bend2-lsp-{target}/{executable}").read()
+                self.assertEqual(extracted, content)
                 if os.name != "nt":
                     self.assertEqual(asset.stat().st_mode & 0o777, 0o755)
-        assets = validate_artifacts(TAG, VERSION)
+        assets = validate_artifacts(TAG, VERSION, include_installers=False)
         expected_names = (
             "bend2-lsp-x86_64-unknown-linux-gnu",
             "bend2-lsp-aarch64-unknown-linux-gnu",
@@ -201,17 +466,45 @@ class ReleaseIntegrityTests(unittest.TestCase):
             "bend2-lsp-x86_64-pc-windows-msvc.exe",
             "bend2-lsp-aarch64-pc-windows-msvc.exe",
         )
+        expected_archives = [archive_name(target) for target in TARGETS]
         self.assertEqual(set(assets), {
             "SHA256SUMS",
             *expected_names,
             *[f"{name}.sha256" for name in expected_names],
+            *expected_archives,
+            *[f"{name}.sha256" for name in expected_archives],
         })
+
+    def test_packaging_retry_reproduces_identical_archive_bytes(self):
+        binaries = Path("target/release")
+        binaries.mkdir(parents=True)
+        env_file = self.root / "github-env"
+        for target in TARGETS:
+            with self.subTest(target=target):
+                executable = "bend2-lsp.exe" if "windows" in target else "bend2-lsp"
+                source = binaries / executable
+                source.write_bytes(f"native executable for {target}".encode())
+                with patch.dict(os.environ, {
+                    "RELEASE_TARGET": target,
+                    "GITHUB_ENV": str(env_file),
+                }):
+                    package()
+                    archive = Path("dist") / archive_name(target)
+                    original = archive.read_bytes()
+                    os.utime(source, (123456789, 123456789))
+                    package()
+                self.assertEqual(archive.read_bytes(), original)
 
     def test_nonregular_binary_checksum_or_metadata_paths_are_rejected(self):
         self.write_all_assets()
-        for suffix in ("", ".sha256", ".metadata.json"):
-            with self.subTest(suffix=suffix):
-                path = Path(f"dist/{asset_name(TARGETS[0])}{suffix}")
+        paths = (
+            asset_name(TARGETS[0]), f"{asset_name(TARGETS[0])}.sha256",
+            f"{asset_name(TARGETS[0])}.metadata.json", archive_name(TARGETS[0]),
+            f"{archive_name(TARGETS[0])}.sha256",
+        )
+        for name in paths:
+            with self.subTest(name=name):
+                path = Path("dist") / name
                 path.unlink()
                 path.mkdir()
                 with self.assertRaisesRegex(ValueError, "regular file"):
@@ -223,9 +516,14 @@ class ReleaseIntegrityTests(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "creating symlinks on Windows requires extra runner privileges")
     def test_symlinked_artifacts_and_manifest_cannot_escape_the_verified_directory(self):
         self.write_all_assets()
-        for suffix in ("", ".sha256", ".metadata.json"):
-            with self.subTest(suffix=suffix):
-                path = Path(f"dist/{asset_name(TARGETS[0])}{suffix}")
+        paths = (
+            asset_name(TARGETS[0]), f"{asset_name(TARGETS[0])}.sha256",
+            f"{asset_name(TARGETS[0])}.metadata.json", archive_name(TARGETS[0]),
+            f"{archive_name(TARGETS[0])}.sha256",
+        )
+        for name in paths:
+            with self.subTest(name=name):
+                path = Path("dist") / name
                 outside = self.root / "outside"
                 outside.write_bytes(path.read_bytes())
                 path.unlink()
