@@ -2031,8 +2031,17 @@ mod protocol {
         client.finish();
     }
 
-    #[test]
-    fn generated_base_keeps_provenance_across_open_reload_and_reopen() {
+    fn generated_base_diagnostics(client: &mut LspClient, uri: &str, version: i32) -> Value {
+        client
+            .receive_matching(Duration::from_secs(5), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == uri
+                    && message["params"]["version"] == version
+            })
+            .must_be("generated Base revision diagnostics")
+    }
+
+    fn open_generated_base_document() -> (tempfile::TempDir, LspClient, PathBuf, String, String) {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
@@ -2064,23 +2073,20 @@ mod protocol {
             .to_file_path()
             .must_be("generated Base path");
         let base_text = fs::read_to_string(&base_path).must_be("read generated Base");
-        let base_diagnostics = |client: &mut LspClient, version: i32| {
-            client
-                .receive_matching(Duration::from_secs(5), |message| {
-                    message["method"] == "textDocument/publishDiagnostics"
-                        && message["params"]["uri"] == base_uri
-                        && message["params"]["version"] == version
-                })
-                .must_be("generated Base revision diagnostics")
-        };
         client.notify(
             "textDocument/didOpen",
             json!({"textDocument":{"uri":base_uri,"languageId":"bend","version":1,"text":base_text}}),
         );
         assert_eq!(
-            base_diagnostics(&mut client, 1)["params"]["diagnostics"],
+            generated_base_diagnostics(&mut client, &base_uri, 1)["params"]["diagnostics"],
             json!([])
         );
+        (temp, client, compiler, base_uri, base_text)
+    }
+
+    #[test]
+    fn generated_base_preserves_lexical_checks_and_user_file_diagnostics() {
+        let (temp, mut client, _, base_uri, base_text) = open_generated_base_document();
         let hover = client.request(
             "textDocument/hover",
             json!({"textDocument":{"uri":base_uri},"position":{"line":0,"character":8}}),
@@ -2091,14 +2097,13 @@ mod protocol {
                 .is_some_and(|value| value.contains("def library_value() -> U32")),
             "opening builtin source must preserve indexed navigation: {hover}"
         );
-
         client.notify(
             "textDocument/didChange",
             json!({"textDocument":{"uri":base_uri,"version":2},"contentChanges":[{
                 "text":"def library_value() -> U32:\n  (7\n"
             }]}),
         );
-        let lexical = base_diagnostics(&mut client, 2);
+        let lexical = generated_base_diagnostics(&mut client, &base_uri, 2);
         let items = lexical["params"]["diagnostics"]
             .as_array()
             .must_be("lexical diagnostics array");
@@ -2113,11 +2118,10 @@ mod protocol {
             json!({"textDocument":{"uri":base_uri,"version":3},"contentChanges":[{"text":base_text}]}),
         );
         assert_eq!(
-            base_diagnostics(&mut client, 3)["params"]["diagnostics"],
+            generated_base_diagnostics(&mut client, &base_uri, 3)["params"]["diagnostics"],
             json!([])
         );
-
-        let user_path = workspace.join("Base.bend");
+        let user_path = temp.path().join("workspace/Base.bend");
         fs::write(&user_path, &base_text).must_be("write user-owned Base");
         let user_uri = Url::from_file_path(user_path).must_be("user Base URI");
         client.notify(
@@ -2134,18 +2138,23 @@ mod protocol {
             })
             .must_be("user-owned Base must still receive compiler diagnostics");
         assert_eq!(diagnostic["params"]["version"], 1);
+        client.finish();
+    }
 
+    #[test]
+    fn generated_base_keeps_provenance_across_configuration_change_and_reopen() {
+        let (_temp, mut client, compiler, base_uri, base_text) = open_generated_base_document();
         client.notify(
             "workspace/didChangeConfiguration",
             json!({"settings":{"bend2-lsp":{"compilerPath":compiler,"compilerArguments":["--fresh"]}}}),
         );
         assert_eq!(
-            base_diagnostics(&mut client, 3)["params"]["diagnostics"],
+            generated_base_diagnostics(&mut client, &base_uri, 1)["params"]["diagnostics"],
             json!([])
         );
         let updated = client.request(
             "textDocument/definition",
-            json!({"textDocument":{"uri":root_uri},"position":{"line":2,"character":7}}),
+            json!({"textDocument":{"uri":"untitled:base-consumer.bend"},"position":{"line":2,"character":7}}),
         );
         let updated_uri = updated["result"]["uri"]
             .as_str()
@@ -2159,6 +2168,10 @@ mod protocol {
             fs::read_to_string(updated_path).must_be("read updated Base"),
             "def library_value() -> U32:\n  9\n"
         );
+        let base_path = Url::parse(&base_uri)
+            .must_be("old Base URL")
+            .to_file_path()
+            .must_be("old Base path");
         assert_eq!(
             fs::read_to_string(&base_path).must_be("old navigation target must remain readable"),
             base_text
@@ -2172,7 +2185,7 @@ mod protocol {
             json!({"textDocument":{"uri":base_uri,"languageId":"bend","version":1,"text":base_text}}),
         );
         assert_eq!(
-            base_diagnostics(&mut client, 1)["params"]["diagnostics"],
+            generated_base_diagnostics(&mut client, &base_uri, 1)["params"]["diagnostics"],
             json!([])
         );
         client.finish();
