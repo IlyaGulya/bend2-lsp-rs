@@ -150,6 +150,13 @@ cache (`BEND_LIB` or the Bend home library); the server does not fetch packages.
 Untitled and virtual documents also support source-based features. Their text is
 staged in temporary files for compiler checks, rather than saved into your project.
 
+The generated `Base.bend` is compiler-owned navigation source, not a standalone
+program. Opening it preserves indexed features and local lexical diagnostics
+without running a compiler check against it as a root. Its backing file and
+provenance remain in the workspace index until server shutdown, including after
+compiler settings change or the editor closes/reopens it. User-owned files named
+`Base.bend` still receive normal compiler checks.
+
 Cross-file document queries wait for pending revisions in their indexed import
 graph; unrelated documents remain queryable while snapshots are built. Watched
 disk updates do not overwrite active unsaved import edges. Closing a document

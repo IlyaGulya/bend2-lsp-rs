@@ -315,7 +315,7 @@ struct PreparedDiskUpdate {
 struct BaseModule {
     uri: Url,
     snapshot: Arc<DocumentSnapshot>,
-    _directory: Arc<tempfile::TempDir>,
+    directory: Arc<tempfile::TempDir>,
 }
 
 impl Deref for BaseModule {
@@ -1119,18 +1119,28 @@ impl Backend {
                 let directory = tempfile::tempdir().ok()?;
                 let path = directory.path().join("Base.bend");
                 std::fs::write(&path, &source).ok()?;
-                let uri = Url::from_file_path(path).ok()?;
-                Some(BaseModule {
-                    uri,
-                    snapshot: Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source)),
-                    _directory: Arc::new(directory),
-                })
+                let uri = Url::from_file_path(&path).ok()?;
+                Some((
+                    BaseModule {
+                        uri,
+                        snapshot: Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source)),
+                        directory: Arc::new(directory),
+                    },
+                    path,
+                ))
             })
             .await
             .flatten();
-            if let Some(module) = loaded
+            if let Some((module, path)) = loaded
+                && let Ok(mut database) = self.workspace_db.write()
                 && let Ok(mut current) = self.base_module.write()
             {
+                database.register_compiler_document(
+                    module.uri.clone(),
+                    path,
+                    module.snapshot.clone(),
+                    module.directory.clone(),
+                );
                 *current = Some(module);
             }
         }
