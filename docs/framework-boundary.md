@@ -569,12 +569,30 @@ pipeline additionally performs its existing protocol sort/dedup. ASCII and
 Unicode/CRLF setup cases check exact UTF-16 positions. Protocol counts are
 separate: `workspace_references_warm` does not include LSP conversion.
 
-Setup, input clones/permutations, and assertions occur outside Iai's measured
-wrapper. Returned vectors are destroyed after the wrapper returns. Temporary
-documents in materialization, removed rows in dedup, and consumed input
-document fields in conversion are destroyed inside measurement. Independent
-stage totals are not an additive partition: prepared heap state, traversal
-order, and code generation differ between workloads.
+Setup, input clones/permutations, and assertions occur outside the exact
+benchmark-helper entry point; returned vectors are destroyed after it returns.
+Temporary documents in materialization, removed rows in dedup, and consumed
+input document fields in conversion are destroyed inside measurement.
+Independent stage totals are not an additive partition: prepared heap state,
+traversal order, and code generation differ between workloads.
+
+The initial instrumentation source `991a7f4` passed semantic setup and stdio
+checks, but its ARM raw stage profiles exposed a collection-boundary failure:
+sort-only profiles included retained-output frees, and compact mapping omitted
+part of the row traversal. Its new-stage totals are not valid decomposition
+evidence. Iai's default toggle is `*::__iai_callgrind_wrapper_mod::*`; generated
+iterator/drop code can also match that wildcard. New cases therefore select
+exact, non-inlined benchmark-helper entry points instead. Existing cases keep
+their original entry points, data, measurement scope, and active policy.
+
+The corrected persistent Linux ARM smoke executes all 121 cases and their
+semantic assertions. Raw profiles for all nine sort cases and three unique
+dedup cases contain no executed frees, output-drop routines, or Arc decrements.
+Compact mapping also uses explicit loops rather than callbacks defined in the
+entry-point function: exact-entry raw runs visit all six sparse or 198 matched
+rows. A disposable native helper smoke independently checks exact compact
+values, Call/Read kinds, ordering/deduplication, and Unicode/CRLF protocol ranges
+for three and 99 sources. ARM counts are smoke evidence, not hosted acceptance.
 
 Retained source `5b764a3` sparse-10,000 raw profiles attribute 5,523 of 9,307 `Ir`
 to exclusive allocator-function records (59.3%), with nine-event sums checked

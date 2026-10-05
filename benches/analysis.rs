@@ -1,12 +1,16 @@
 #[path = "../src/server/reference_locations.rs"]
 mod reference_locations;
+#[path = "support/reference_stages.rs"]
+mod reference_stages;
 mod support;
 
 use std::{fmt::Write as _, fs, path::PathBuf, sync::LazyLock};
 use support::Must;
 
 use bend2_lsp::{analysis, workspace};
-use iai_callgrind::{library_benchmark, library_benchmark_group, main};
+use iai_callgrind::{
+    Callgrind, EntryPoint, LibraryBenchmarkConfig, library_benchmark, library_benchmark_group, main,
+};
 
 const SOURCE: &str = include_str!("fixtures/analyzer_input.bend");
 const MEDIUM_SOURCE: &str = include_str!("fixtures/analyzer_medium.bend");
@@ -1224,44 +1228,46 @@ fn workspace_reference_lookup_warm(
     )
 }
 
-// Returned Vec destruction occurs outside Iai's measured wrapper. Compact
-// output allocation is measured; its borrowed input groups are prepared outside.
-#[library_benchmark(setup = setup_reference_stages)]
+fn reference_stage_config(entry: &str) -> LibraryBenchmarkConfig {
+    let mut config = LibraryBenchmarkConfig::default();
+    config.tool(Callgrind::default().entry_point(EntryPoint::Custom(format!(
+        "analysis::reference_stages::{entry}"
+    ))));
+    config
+}
+
+// Only the exact helper entry is collected: prepared groups and returned output
+// destruction are outside, while compact output allocation is inside.
+#[library_benchmark(setup = setup_reference_stages, config = reference_stage_config("ranges"))]
 #[bench::sparse_1000(&REFERENCE_STAGES_SPARSE_1000)]
 #[bench::sparse_10000(&REFERENCE_STAGES_SPARSE_10000)]
 #[bench::matched_100(&REFERENCE_STAGES_MATCHED_100)]
 fn workspace_reference_ranges_warm(
     fixture: &ReferenceStages,
 ) -> Vec<(workspace::FileId, analysis::TextRange)> {
-    std::hint::black_box(
-        fixture
-            .groups
-            .iter()
-            .flat_map(|group| group.occurrences().map(|row| (group.source(), row.range)))
-            .collect(),
-    )
+    std::hint::black_box(reference_stages::ranges(std::hint::black_box(
+        &fixture.groups,
+    )))
 }
 
 // Includes production traversal, Vec growth, owned Document/URI clones and
 // temporary/source Document drops; excludes sort, dedup and returned Vec drop.
-#[library_benchmark(setup = setup_reference_stages)]
+#[library_benchmark(setup = setup_reference_stages, config = reference_stage_config("materialize"))]
 #[bench::sparse_1000(&REFERENCE_STAGES_SPARSE_1000)]
 #[bench::sparse_10000(&REFERENCE_STAGES_SPARSE_10000)]
 #[bench::matched_100(&REFERENCE_STAGES_MATCHED_100)]
 fn workspace_reference_materialize_warm(
     fixture: &ReferenceStages,
 ) -> Vec<workspace::WorkspaceOccurrence> {
-    std::hint::black_box(
-        fixture
-            .fixture
-            .database
-            .references_unsorted(fixture.fixture.target, false),
-    )
+    std::hint::black_box(reference_stages::materialize(
+        std::hint::black_box(&fixture.fixture.database),
+        std::hint::black_box(fixture.fixture.target),
+    ))
 }
 
-// Setup returns an owned Vec; cloning and permutation are outside measurement.
-// The measured function returns that Vec, so retained output drop is outside.
-#[library_benchmark(setup = setup_reference_sort)]
+// Setup clones/permutates owned input outside the exact sort helper entry.
+// Returning the Vec keeps its destruction outside that entry.
+#[library_benchmark(setup = setup_reference_sort, config = reference_stage_config("sort"))]
 #[bench::sparse_1000_canonical(&REFERENCE_STAGES_SPARSE_1000, ReferenceOrder::Canonical)]
 #[bench::sparse_1000_reverse(&REFERENCE_STAGES_SPARSE_1000, ReferenceOrder::Reverse)]
 #[bench::sparse_1000_shuffled(&REFERENCE_STAGES_SPARSE_1000, ReferenceOrder::Shuffled)]
@@ -1274,13 +1280,13 @@ fn workspace_reference_materialize_warm(
 fn workspace_reference_sort_only(
     mut input: Vec<workspace::WorkspaceOccurrence>,
 ) -> Vec<workspace::WorkspaceOccurrence> {
-    workspace::WorkspaceOccurrence::sort(&mut input);
+    reference_stages::sort(std::hint::black_box(&mut input));
     std::hint::black_box(input)
 }
 
 // Duplicate row destruction is included inside production dedup; retained
 // output destruction and all preparation (including clone/sort) are outside.
-#[library_benchmark(setup = setup_reference_dedup)]
+#[library_benchmark(setup = setup_reference_dedup, config = reference_stage_config("dedup"))]
 #[bench::sparse_1000_unique(&REFERENCE_STAGES_SPARSE_1000, false)]
 #[bench::sparse_1000_duplicate_boundaries(&REFERENCE_STAGES_SPARSE_1000, true)]
 #[bench::sparse_10000_unique(&REFERENCE_STAGES_SPARSE_10000, false)]
@@ -1290,14 +1296,14 @@ fn workspace_reference_sort_only(
 fn workspace_reference_dedup_only(
     mut input: Vec<workspace::WorkspaceOccurrence>,
 ) -> Vec<workspace::WorkspaceOccurrence> {
-    workspace::WorkspaceOccurrence::dedup(&mut input);
+    reference_stages::dedup(std::hint::black_box(&mut input));
     std::hint::black_box(input)
 }
 
 // Query/cloning and assertions occur in setup. Converters consume owned input:
 // its Document fields and input Vec teardown are measured, as are symbol-path
 // protocol sort/dedup and removed Location drops. Returned Locations drop outside.
-#[library_benchmark]
+#[library_benchmark(config = reference_stage_config("binding"))]
 #[bench::sparse_100(args = (LazyLock::force(&SEMANTIC_SPARSE_100)), setup = setup_reference_locations)]
 #[bench::sparse_1000(args = (LazyLock::force(&SEMANTIC_SPARSE_1000)), setup = setup_reference_locations)]
 #[bench::sparse_10000(args = (LazyLock::force(&SEMANTIC_SPARSE_10000)), setup = setup_reference_locations)]
@@ -1309,14 +1315,12 @@ fn workspace_reference_dedup_only(
 fn protocol_binding_reference_locations(
     occurrences: Vec<workspace::WorkspaceOccurrence>,
 ) -> Vec<tower_lsp::lsp_types::Location> {
-    std::hint::black_box(reference_locations::binding_reference_locations(
-        std::hint::black_box(occurrences),
-    ))
+    std::hint::black_box(reference_stages::binding(std::hint::black_box(occurrences)))
 }
 
 // Pure production owned conversion: Range construction and URI moves, without
 // the symbol protocol pipeline's additional sort/dedup.
-#[library_benchmark]
+#[library_benchmark(config = reference_stage_config("owned"))]
 #[bench::sparse_100(args = (LazyLock::force(&SEMANTIC_SPARSE_100)), setup = setup_reference_locations)]
 #[bench::sparse_1000(args = (LazyLock::force(&SEMANTIC_SPARSE_1000)), setup = setup_reference_locations)]
 #[bench::sparse_10000(args = (LazyLock::force(&SEMANTIC_SPARSE_10000)), setup = setup_reference_locations)]
@@ -1328,13 +1332,11 @@ fn protocol_binding_reference_locations(
 fn protocol_owned_reference_locations(
     occurrences: Vec<workspace::WorkspaceOccurrence>,
 ) -> Vec<tower_lsp::lsp_types::Location> {
-    std::hint::black_box(reference_locations::owned_reference_locations(
-        std::hint::black_box(occurrences),
-    ))
+    std::hint::black_box(reference_stages::owned(std::hint::black_box(occurrences)))
 }
 
 // Full production symbol pipeline, INCLUDING its second sort and dedup.
-#[library_benchmark]
+#[library_benchmark(config = reference_stage_config("symbol_pipeline"))]
 #[bench::sparse_100(args = (LazyLock::force(&SEMANTIC_SPARSE_100)), setup = setup_reference_locations)]
 #[bench::sparse_1000(args = (LazyLock::force(&SEMANTIC_SPARSE_1000)), setup = setup_reference_locations)]
 #[bench::sparse_10000(args = (LazyLock::force(&SEMANTIC_SPARSE_10000)), setup = setup_reference_locations)]
@@ -1346,9 +1348,9 @@ fn protocol_owned_reference_locations(
 fn protocol_symbol_reference_pipeline(
     occurrences: Vec<workspace::WorkspaceOccurrence>,
 ) -> Vec<tower_lsp::lsp_types::Location> {
-    std::hint::black_box(reference_locations::symbol_reference_locations(
-        std::hint::black_box(occurrences),
-    ))
+    std::hint::black_box(reference_stages::symbol_pipeline(std::hint::black_box(
+        occurrences,
+    )))
 }
 
 library_benchmark_group!(
