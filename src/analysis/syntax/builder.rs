@@ -103,9 +103,6 @@ impl SyntaxIndex {
             symbols: symbols.into_boxed_slice(),
             bindings: bindings.into_boxed_slice(),
             references: references.references.into_boxed_slice(),
-            external_reference_candidates: references
-                .external_reference_candidates
-                .into_boxed_slice(),
             reference_indices: references.by_symbol_indices.into_boxed_slice(),
             reference_spans: references.by_symbol_spans.into_boxed_slice(),
             name_reference_indices: references.by_name_indices.into_boxed_slice(),
