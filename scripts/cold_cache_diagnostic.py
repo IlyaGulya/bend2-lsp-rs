@@ -116,7 +116,11 @@ def collect(source, work, output):
             execute(["objdump", "-d", "-C", "--no-show-raw-insn", str(executable)], f"builds/{variant}/disassembly", checkout)
             execute(["readelf", "-SW", str(executable)], f"builds/{variant}/sections", checkout)
             text = output / "builds" / variant / "text.bin"
-            execute(["objcopy", "--dump-section", f".text={text}", str(executable)], f"builds/{variant}/text-extract", checkout)
+            extracted_copy = output / "builds" / variant / "objcopy-output.elf"
+            execute(["objcopy", "--dump-section", f".text={text}", str(executable), str(extracted_copy)], f"builds/{variant}/text-extract", checkout)
+            extracted_copy.unlink()
+            if sha256(executable) != sha256(retained):
+                raise ValueError("ELF capture/extraction mutated the measured input")
             dataset["builds"][variant] = {"role": role, "source": manifests[role]["sha256"], "executable": str(executable), "retained_elf": str(retained.relative_to(output)), "binary_sha256": sha256(retained), "text_sha256": sha256(text), "text_bytes": text.stat().st_size}
             checkpoint()
         dataset["candidate_AA"] = {
@@ -128,8 +132,10 @@ def collect(source, work, output):
             for variant in variants:
                 build = dataset["builds"][variant]
                 checkout = checkouts[build["role"]]
-                if source_manifest(checkout) != manifests[build["role"]] or sha256(Path(build["executable"])) != build["binary_sha256"]:
-                    raise ValueError("Frozen source/ELF changed before measurement")
+                current_source = source_manifest(checkout)
+                current_binary = sha256(Path(build["executable"]))
+                if current_source != manifests[build["role"]] or current_binary != build["binary_sha256"]:
+                    raise ValueError(f"Frozen {variant} changed: source={current_source['sha256']} expected={build['source']}; ELF={current_binary} expected={build['binary_sha256']}")
                 name = f"cold_snapshot_build_{scale}"
                 entry = f"analysis::{name}::__iai_callgrind_wrapper_mod::{name}"
                 sample_dir = output / "profiles" / f"{scale}-{variant}"
