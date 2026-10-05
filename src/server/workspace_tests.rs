@@ -268,4 +268,106 @@ mod tests {
         assert_eq!(database.semantic_index_stats().calls, 2);
         Ok(())
     }
+
+    #[test]
+    fn external_alias_groups_preserve_noncall_ranges_and_caller_boundaries() -> std::io::Result<()>
+    {
+        let temp = tempfile::tempdir()?;
+        let main_path = temp.path().join("main.bend");
+        let dependency_path = temp.path().join("dep.bend");
+        let source = "import ./dep.bend as A\nimport ./dep.bend as B\n\ndef first():\n  A.f(A.g(), B.f())\n  A.f\n\ndef second():\n  B.g(B.f(), A.g())\n\ndef shadowed(B):\n  B.f()\n";
+        fs::write(&dependency_path, "def f():\n  0\n\ndef g():\n  1\n")?;
+        let main_uri = file_uri(&main_path)?;
+        let dependency_uri = file_uri(&dependency_path)?;
+        let mut database = WorkspaceDb::default();
+        let main_id = database.set_open_document(
+            Document::new(main_uri.clone(), "bend".into(), Revision(1), source.into()),
+            Some(main_path),
+        );
+        database.load_reachable(std::slice::from_ref(&main_id));
+        let symbol = |uri: &Url, name: &str| {
+            database
+                .symbol_by_name(uri, name)
+                .ok_or_else(|| std::io::Error::other(format!("missing {name}")))
+        };
+        let f = symbol(&dependency_uri, "f")?;
+        let g = symbol(&dependency_uri, "g")?;
+        let first = symbol(&main_uri, "first")?;
+        let second = symbol(&main_uri, "second")?;
+        let ranges = |member: &str, count: usize| {
+            source
+                .match_indices(member)
+                .take(count)
+                .map(|(offset, _)| analysis::TextRange::new(offset + 1, offset + 2))
+                .collect::<Vec<_>>()
+        };
+        let f_ranges = ranges(".f", 4);
+        let g_ranges = ranges(".g", 3);
+        let references = database.references(f.id, false);
+        assert!(
+            references
+                .iter()
+                .all(|reference| reference.document.uri == main_uri)
+        );
+        assert_eq!(
+            references
+                .iter()
+                .map(|reference| (reference.range, reference.kind))
+                .collect::<Vec<_>>(),
+            f_ranges
+                .iter()
+                .enumerate()
+                .map(|(index, &range)| {
+                    let kind = if index == 2 {
+                        analysis::ReferenceKind::Read
+                    } else {
+                        analysis::ReferenceKind::Call
+                    };
+                    (range, kind)
+                })
+                .collect::<Vec<_>>()
+        );
+        let groups = |groups: Vec<crate::workspace::WorkspaceCallGroup>| {
+            groups
+                .into_iter()
+                .map(|group| (group.symbol.id, group.ranges))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            groups(database.incoming_calls(f.id)),
+            vec![
+                (first.id, f_ranges[..2].to_vec()),
+                (second.id, vec![f_ranges[3]])
+            ]
+        );
+        assert_eq!(
+            groups(database.incoming_calls(g.id)),
+            vec![
+                (first.id, vec![g_ranges[0]]),
+                (second.id, g_ranges[1..].to_vec())
+            ]
+        );
+        assert_eq!(
+            groups(database.outgoing_calls(first.id)),
+            vec![(f.id, f_ranges[..2].to_vec()), (g.id, vec![g_ranges[0]])]
+        );
+        assert_eq!(
+            groups(database.outgoing_calls(second.id)),
+            vec![(f.id, vec![f_ranges[3]]), (g.id, g_ranges[1..].to_vec())]
+        );
+        database
+            .update_open_snapshot(
+                &main_uri,
+                Arc::new(DocumentSnapshot::new(
+                    Revision(2),
+                    "def local():\n  0\n".into(),
+                )),
+            )
+            .ok_or_else(|| std::io::Error::other("replace importing snapshot"))?;
+        assert!(database.references(f.id, false).is_empty());
+        assert!(database.incoming_calls(f.id).is_empty());
+        assert!(database.incoming_calls(g.id).is_empty());
+        assert!(database.outgoing_calls(first.id).is_empty());
+        Ok(())
+    }
 }

@@ -35,6 +35,10 @@
 - Reuse local syntax reference/call spans and canonical external contribution
   groups instead of duplicating workspace range maps. Reduce cold name lookups
   and scratch allocations while retaining immutable snapshot query indexes.
+- Store imported occurrence token ordinals and flat per-file caller-group columns;
+  read ranges and reference kinds from immutable snapshots instead of retaining
+  copies. Share column storage across targets without rebuilding importers when
+  dependency declarations change.
 - Reserve semantic-token results from a cold-built exact count and avoid
   unnecessary trailing-whitespace scanning when checking blank folding lines.
 
