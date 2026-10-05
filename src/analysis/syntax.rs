@@ -468,6 +468,15 @@ impl SyntaxIndex {
             .map(|index| &self.references[*index])
     }
 
+    /// Snapshot-local reference rows; ordinals remain valid only for this index.
+    ///
+    /// Cold workspace preparation can visit these rows directly instead of
+    /// walking every token and looking up its optional reference.
+    #[must_use]
+    pub fn reference_entries(&self) -> &[Reference] {
+        &self.references
+    }
+
     #[must_use]
     pub fn reference_for_token(&self, token: TokenId) -> Option<&Reference> {
         let index = *self.token_references.get(token.0)?.as_ref()?;
