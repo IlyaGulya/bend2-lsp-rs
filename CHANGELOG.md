@@ -55,6 +55,10 @@
   Add lookup-only absent-bucket, single-source, and three-source benchmarks at
   100, 1,000, and 10,000 files; setup interns absent-target names through an
   independent relation and validates exact sources outside measurement.
+- Build a compact unresolved-qualified reference ordinal column during cold
+  syntax construction. Semantic staging visits only these candidates and no
+  longer rereads local qualifier resolution; warm queries and dynamic target
+  epochs retain their existing immutable snapshot and workspace contracts.
 - Reserve semantic-token results from a cold-built exact count and avoid
   unnecessary trailing-whitespace scanning when checking blank folding lines.
 

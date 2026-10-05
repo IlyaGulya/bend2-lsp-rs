@@ -18,6 +18,7 @@ pub(super) struct ReferenceInputs<'a> {
 
 pub(super) struct ReferenceIndex {
     pub(super) references: Vec<Reference>,
+    pub(super) external_reference_candidates: Vec<usize>,
     pub(super) by_symbol_indices: Vec<usize>,
     pub(super) by_symbol_spans: Vec<TextRange>,
     pub(super) by_name_indices: Vec<usize>,
@@ -101,6 +102,7 @@ pub(super) fn build_references(
     } = input;
     let mut references = Vec::with_capacity(tokens.len());
     let mut token_references = vec![None; tokens.len()];
+    let mut external_reference_candidates = Vec::new();
     // Calls are emitted in callee-token order by the opening-delimiter scan.
     let mut next_call = 0;
     let mut local_reference_occurrences = append_declaration_references(
@@ -125,28 +127,7 @@ pub(super) fn build_references(
             next_call += 1;
         }
         let (qualifier, qualifier_token) =
-            if let Some(call) = call {
-                (call.qualifier, call.qualifier_token)
-            } else {
-                let start_index = qualified_chain_start(source, tokens, token_index);
-                if start_index + 2 == token_index {
-                    (
-                        names.for_token(TokenId(start_index)),
-                        Some(TokenId(start_index)),
-                    )
-                } else if start_index < token_index {
-                    let end = tokens[token_index - 2].range.end;
-                    (
-                        Some(names.intern_name(
-                            source,
-                            TextRange::new(tokens[start_index].range.start, end),
-                        )),
-                        Some(TokenId(start_index)),
-                    )
-                } else {
-                    (None, None)
-                }
-            };
+            reference_qualifier(source, tokens, names, token_index, call);
         let index = references.len();
         references.push(Reference {
             name,
@@ -168,6 +149,10 @@ pub(super) fn build_references(
         token_references[token_index] = Some(index);
         if token_symbols[token_index].is_some() {
             local_reference_occurrences += 1;
+        } else if qualifier.is_some()
+            && qualifier_token.is_none_or(|token| token_symbols[token.0].is_none())
+        {
+            external_reference_candidates.push(index);
         }
     }
     let (by_symbol_indices, by_symbol_spans) = compact_groups(
@@ -182,6 +167,7 @@ pub(super) fn build_references(
         });
     ReferenceIndex {
         references,
+        external_reference_candidates,
         by_symbol_indices,
         by_symbol_spans,
         by_name_indices,
@@ -293,4 +279,31 @@ fn qualified_symbol_for_token(
     let range = TextRange::new(tokens[start].range.start, tokens[end - 1].range.end);
     let name = names.find(source, &source[range.start..range.end])?;
     symbol_by_name.get(name.0).copied().flatten()
+}
+
+fn reference_qualifier(
+    source: &str,
+    tokens: &[Token],
+    names: &mut NameTable,
+    token_index: usize,
+    call: Option<&CallSite>,
+) -> (Option<NameId>, Option<TokenId>) {
+    if let Some(call) = call {
+        return (call.qualifier, call.qualifier_token);
+    }
+    let start_index = qualified_chain_start(source, tokens, token_index);
+    if start_index + 2 == token_index {
+        (
+            names.for_token(TokenId(start_index)),
+            Some(TokenId(start_index)),
+        )
+    } else if start_index < token_index {
+        let end = tokens[token_index - 2].range.end;
+        (
+            Some(names.intern_name(source, TextRange::new(tokens[start_index].range.start, end))),
+            Some(TokenId(start_index)),
+        )
+    } else {
+        (None, None)
+    }
 }
