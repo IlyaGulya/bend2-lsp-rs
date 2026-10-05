@@ -350,6 +350,39 @@ impl SemanticSources {
         }
     }
 
+    // Exercise interleaved imported members, duplicate aliases, multiple callers,
+    // and bare non-call occurrences without changing the original workloads.
+    fn interleaved(file_count: usize) -> Self {
+        let directory = tempfile::tempdir().must_be("interleaved semantic workspace");
+        let target = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+            analysis::Revision(1),
+            "def identity(value):\n  value\ndef alternate(value):\n  value\n".into(),
+        ));
+        let client = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+            analysis::Revision(1),
+            "import ./target.bend as A\nimport ./target.bend as B\ndef client(value):\n  A.identity(A.alternate(value))\n  B.identity(value)\n  A.identity\ndef second(value):\n  B.alternate(B.identity(value))\n  A.alternate(value)\n".into(),
+        ));
+        let documents = (0..file_count)
+            .map(|index| {
+                let (name, snapshot) = if index == 0 {
+                    ("target.bend".to_owned(), target.clone())
+                } else {
+                    (format!("client{index:05}.bend"), client.clone())
+                };
+                let path = directory.path().join(name);
+                let uri = url::Url::from_file_path(&path).must_be("interleaved semantic URI");
+                (
+                    workspace::Document::with_snapshot(uri, "bend".into(), snapshot),
+                    path,
+                )
+            })
+            .collect();
+        Self {
+            directory,
+            documents,
+        }
+    }
+
     fn build(self) -> (tempfile::TempDir, workspace::WorkspaceDb) {
         let mut database = workspace::WorkspaceDb::default();
         for (document, path) in self.documents {
@@ -752,6 +785,7 @@ fn parameter_annotation_warm(
 #[bench::matched_100(SemanticSources::new(100, 99))]
 #[bench::matched_1000(SemanticSources::new(1_000, 999))]
 #[bench::matched_10000(SemanticSources::new(10_000, 9_999))]
+#[bench::interleaved_100(SemanticSources::interleaved(100))]
 fn cold_workspace_semantic_build(
     sources: SemanticSources,
 ) -> (tempfile::TempDir, workspace::WorkspaceDb) {

@@ -74,6 +74,9 @@ struct TemplateTarget {
     name: NameId,
 }
 
+#[derive(Clone, Copy)]
+struct ReferenceOrdinal(usize);
+
 struct PreparedTarget {
     target: TemplateTarget,
     occurrences: Range<usize>,
@@ -91,7 +94,7 @@ struct PreparedCall {
 ///
 /// Local references remain in immutable syntax spans, preserving duplicate
 /// declarations and lexical bindings. Imported members remain symbolic until
-/// commit. Target spans select flat occurrence-token and caller-group columns;
+/// commit. Target spans select flat reference-ordinal and caller-group columns;
 /// occurrence ranges and kinds are read from the immutable syntax snapshot.
 /// Commit binds distinct groups and moves their arrays; it never scans tokens,
 /// source, raw calls, or importer files.
@@ -100,7 +103,7 @@ struct PreparedCall {
 pub struct PreparedSemanticSnapshot {
     snapshot: Arc<DocumentSnapshot>,
     targets: Vec<PreparedTarget>,
-    occurrences: Vec<TokenId>,
+    occurrences: Vec<ReferenceOrdinal>,
     calls: Vec<PreparedCall>,
     call_targets: Vec<usize>,
     call_indices: Vec<usize>,
@@ -171,6 +174,19 @@ fn prepared_target(
     {
         return targets.len() - 1;
     }
+    if targets.is_empty() {
+        targets.push(PreparedTarget {
+            target,
+            occurrences: 0..0,
+            calls: 0..0,
+        });
+        return 0;
+    }
+    if indices.is_empty() {
+        // A single target needs no scratch hash allocation. Populate the map
+        // only when a second distinct template requires noncontiguous lookup.
+        indices.insert(targets[0].target, 0);
+    }
     *indices.entry(target).or_insert_with(|| {
         let index = targets.len();
         targets.push(PreparedTarget {
@@ -187,18 +203,15 @@ fn prepare_occurrences(
     targets: &mut Vec<PreparedTarget>,
     indices: &mut HashMap<TemplateTarget, usize>,
     call_targets: &mut Vec<usize>,
-    occurrences: &mut Vec<TokenId>,
+    occurrences: &mut Vec<ReferenceOrdinal>,
 ) -> usize {
     let mut local_occurrence_count = 0;
     let mut contiguous = true;
-    for index in 0..snapshot.syntax.tokens().len() {
-        let Some(reference) = snapshot.syntax.reference_for_token(TokenId(index)) else {
-            continue;
-        };
+    for (ordinal, reference) in snapshot.syntax.reference_entries().iter().enumerate() {
         // Own-file references already occupy compact per-symbol syntax spans.
         // Only imported occurrences need an additional workspace contribution.
         if reference.resolved.is_some() {
-            local_occurrence_count += 1;
+            local_occurrence_count += local_reference_occurrences(snapshot, reference);
             continue;
         }
         let target = occurrence_template_target(snapshot, reference);
@@ -212,7 +225,7 @@ fn prepare_occurrences(
                 contiguous = false;
             }
             span.end += 1;
-            occurrences.push(reference.token);
+            occurrences.push(ReferenceOrdinal(ordinal));
             if reference.kind == ReferenceKind::Call
                 && let Some(call_index) = snapshot.syntax.call_index_for_token(reference.token)
             {
@@ -229,10 +242,11 @@ fn prepare_occurrences(
     if !contiguous {
         // Most files already have contiguous target spans. Only interleaving
         // needs a temporary cached-key column; each template is looked up once.
-        occurrences.sort_by_cached_key(|&token| {
+        occurrences.sort_by_cached_key(|&ordinal| {
             let index = snapshot
                 .syntax
-                .reference_for_token(token)
+                .reference_entries()
+                .get(ordinal.0)
                 .and_then(|reference| occurrence_template_target(snapshot, reference))
                 .and_then(|target| indices.get(&target))
                 .copied();
@@ -253,6 +267,30 @@ fn prepare_occurrences(
         }
     }
     local_occurrence_count
+}
+
+fn local_reference_occurrences(
+    snapshot: &DocumentSnapshot,
+    reference: &crate::analysis::Reference,
+) -> usize {
+    if reference.kind != ReferenceKind::Declaration {
+        return 1;
+    }
+    // Qualified declarations map several identifier tokens to one reference
+    // row. Preserve the existing token-based statistics using only the bounded
+    // declaration-name span; no second full token pass is necessary.
+    snapshot.syntax.tokens()[..=reference.token.0]
+        .iter()
+        .enumerate()
+        .rev()
+        .take_while(|(_, token)| token.range.start >= reference.range.start)
+        .filter(|(index, _)| {
+            snapshot
+                .syntax
+                .reference_for_token(TokenId(*index))
+                .is_some_and(|mapped| std::ptr::eq(mapped, reference))
+        })
+        .count()
 }
 
 fn occurrence_template_target(
@@ -451,15 +489,20 @@ struct TargetKey {
     member: MemberId,
 }
 
+struct BoundTarget {
+    key: Option<TargetKey>,
+    occurrences: Range<usize>,
+    calls: Range<usize>,
+}
+
 struct Contribution {
-    targets: Vec<PreparedTarget>,
-    occurrences: Vec<TokenId>,
+    targets: Vec<BoundTarget>,
+    occurrences: Vec<ReferenceOrdinal>,
     calls: Vec<PreparedCall>,
     call_indices: Vec<usize>,
     occurrence_count: usize,
     call_count: usize,
     call_targets: Vec<usize>,
-    target_keys: Vec<Option<TargetKey>>,
 }
 
 /// Most sources have one spelling per bound target. Additional ordinals are
@@ -503,7 +546,7 @@ impl SemanticIndex {
         self.stats.calls -= old.call_count;
         // Bound keys are sufficient to remove this source directly; importing
         // files and target snapshots never need to be scanned or rebuilt.
-        for target in old.target_keys.into_iter().flatten() {
+        for target in old.targets.into_iter().filter_map(|target| target.key) {
             if let Some(sources) = self.external.get_mut(&target) {
                 sources.remove(&source);
                 if sources.is_empty() {
@@ -582,7 +625,7 @@ impl WorkspaceDb {
                 .flatten();
         }
         let target = *contribution.call_targets.get(call_index)?;
-        let id = self.resolve_target(contribution.target_keys.get(target).copied().flatten()?)?;
+        let id = self.resolve_target(contribution.targets.get(target)?.key?)?;
         self.is_function(id)
             .then(|| self.symbol_by_id(id))
             .flatten()
@@ -638,7 +681,7 @@ impl WorkspaceDb {
                                 [contribution.targets[index].occurrences.clone()]
                             .iter()
                         })
-                        .filter_map(|&token| document.syntax.reference_for_token(token))
+                        .filter_map(|&ordinal| document.syntax.reference_entries().get(ordinal.0))
                         .filter(|occurrence| {
                             include_declaration || occurrence.kind != ReferenceKind::Declaration
                         })
@@ -761,8 +804,8 @@ impl WorkspaceDb {
                         .syntax
                         .call_index_for_token(call.callee_token)
                         .and_then(|index| contribution.call_targets.get(index))
-                        .and_then(|&target| contribution.target_keys.get(target))
-                        .and_then(|key| key.and_then(|key| self.resolve_target(key)))
+                        .and_then(|&target| contribution.targets.get(target))
+                        .and_then(|target| target.key.and_then(|key| self.resolve_target(key)))
                 };
                 let Some(target) = target.filter(|id| self.is_function(*id)) else {
                     continue;
@@ -825,7 +868,6 @@ impl WorkspaceDb {
         if prepared.imports_prelude {
             self.semantic.prelude_files.insert(source);
         }
-        let mut target_keys = Vec::with_capacity(prepared.targets.len());
         // Different import spellings can bind to the same key. Each sparse
         // source bucket keeps their canonical group ordinals without copying.
         let mut call_count = if self.entries[source.0].semantic_epoch.is_some() {
@@ -833,33 +875,43 @@ impl WorkspaceDb {
         } else {
             0
         };
-        for (index, target) in prepared.targets.iter().enumerate() {
-            let key = self.bind_target(source, &prepared.snapshot, target.target);
-            target_keys.push(key);
-            let Some(key) = key else {
-                continue;
-            };
-            occurrence_count += target.occurrences.len();
-            let mut has_calls = false;
-            for span in &prepared.calls[target.calls.clone()] {
-                if self.symbol_identity(source, span.caller).is_some() {
-                    call_count += span.calls.len();
-                    has_calls = true;
+        // Keep bound keys with their spans, not staging-only templates plus a
+        // separately allocated key column. Consume the cold rows into warm rows.
+        let targets = prepared
+            .targets
+            .into_iter()
+            .enumerate()
+            .map(|(index, target)| {
+                let key = self.bind_target(source, &prepared.snapshot, target.target);
+                if let Some(key) = key {
+                    occurrence_count += target.occurrences.len();
+                    let mut has_calls = false;
+                    for span in &prepared.calls[target.calls.clone()] {
+                        if self.symbol_identity(source, span.caller).is_some() {
+                            call_count += span.calls.len();
+                            has_calls = true;
+                        }
+                    }
+                    if !target.occurrences.is_empty() || has_calls {
+                        self.semantic
+                            .external
+                            .entry(key)
+                            .or_default()
+                            .entry(source)
+                            .and_modify(|indices| indices.additional.push(index))
+                            .or_insert_with(|| TargetIndices {
+                                first: index,
+                                additional: Vec::new(),
+                            });
+                    }
                 }
-            }
-            if !target.occurrences.is_empty() || has_calls {
-                self.semantic
-                    .external
-                    .entry(key)
-                    .or_default()
-                    .entry(source)
-                    .and_modify(|indices| indices.additional.push(index))
-                    .or_insert_with(|| TargetIndices {
-                        first: index,
-                        additional: Vec::new(),
-                    });
-            }
-        }
+                BoundTarget {
+                    key,
+                    occurrences: target.occurrences,
+                    calls: target.calls,
+                }
+            })
+            .collect();
         self.semantic.stats.occurrences += occurrence_count;
         self.semantic.stats.calls += call_count;
         if self.semantic.contributions.len() <= source.0 {
@@ -868,14 +920,13 @@ impl WorkspaceDb {
                 .resize_with(source.0 + 1, || None);
         }
         self.semantic.contributions[source.0] = Some(Contribution {
-            targets: prepared.targets,
+            targets,
             occurrences: prepared.occurrences,
             calls: prepared.calls,
             call_indices: prepared.call_indices,
             occurrence_count,
             call_count,
             call_targets: prepared.call_targets,
-            target_keys,
         });
     }
 
