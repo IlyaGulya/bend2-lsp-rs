@@ -220,12 +220,7 @@ fn prepare_occurrences(
     occurrences: &mut Vec<ReferenceOrdinal>,
 ) {
     let mut contiguous = true;
-    for (ordinal, reference) in snapshot.syntax.reference_entries().iter().enumerate() {
-        // Own-file references already occupy compact per-symbol syntax spans.
-        // Only imported occurrences need an additional workspace contribution.
-        if reference.resolved.is_some() {
-            continue;
-        }
+    for (ordinal, reference) in snapshot.syntax.external_reference_candidates() {
         let target = occurrence_template_target(snapshot, reference);
         if let Some(target) = target {
             let index = prepared_target(targets, indices, target);
@@ -284,13 +279,8 @@ fn occurrence_template_target(
     snapshot: &DocumentSnapshot,
     reference: &crate::analysis::Reference,
 ) -> Option<TemplateTarget> {
+    // Cold syntax construction already excludes locally resolved qualifiers.
     let qualifier = reference.qualifier?;
-    if reference
-        .qualifier_token
-        .is_some_and(|token| snapshot.syntax.symbol_for_token(token).is_some())
-    {
-        return None;
-    }
     let alias = snapshot.syntax.name_text(&snapshot.text, qualifier);
     template_module(snapshot, alias, false).map(|module| TemplateTarget {
         module,
