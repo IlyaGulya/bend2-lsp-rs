@@ -131,6 +131,7 @@ struct FileEntry {
     reverse_imports: Vec<FileId>,
     semantic_snapshot: Option<Arc<DocumentSnapshot>>,
     semantic_epoch: Option<u64>,
+    semantic_active: bool,
 }
 
 impl FileEntry {
@@ -577,6 +578,7 @@ impl WorkspaceDb {
             reverse_imports: Vec::new(),
             semantic_snapshot: None,
             semantic_epoch: Some(0),
+            semantic_active: false,
         });
         self.by_uri.insert(uri, id);
         if let Some(path) = path {

@@ -107,8 +107,6 @@ pub struct PreparedSemanticSnapshot {
     calls: Vec<PreparedCall>,
     call_targets: Vec<usize>,
     call_indices: Vec<usize>,
-    local_occurrence_count: usize,
-    local_call_count: usize,
     imports_prelude: bool,
 }
 
@@ -131,7 +129,7 @@ pub fn prepare_semantic_snapshot(snapshot: Arc<DocumentSnapshot>) -> PreparedSem
     let mut target_indices = HashMap::new();
     let mut call_targets = Vec::new();
     let mut occurrences = Vec::new();
-    let local_occurrence_count = prepare_occurrences(
+    prepare_occurrences(
         &snapshot,
         &mut targets,
         &mut target_indices,
@@ -139,7 +137,6 @@ pub fn prepare_semantic_snapshot(snapshot: Arc<DocumentSnapshot>) -> PreparedSem
         &mut occurrences,
     );
     let PreparedCalls {
-        local_call_count,
         call_indices,
         calls,
     } = prepare_calls(
@@ -156,8 +153,6 @@ pub fn prepare_semantic_snapshot(snapshot: Arc<DocumentSnapshot>) -> PreparedSem
         calls,
         call_targets,
         call_indices,
-        local_occurrence_count,
-        local_call_count,
         imports_prelude,
     }
 }
@@ -204,14 +199,12 @@ fn prepare_occurrences(
     indices: &mut HashMap<TemplateTarget, usize>,
     call_targets: &mut Vec<usize>,
     occurrences: &mut Vec<ReferenceOrdinal>,
-) -> usize {
-    let mut local_occurrence_count = 0;
+) {
     let mut contiguous = true;
     for (ordinal, reference) in snapshot.syntax.reference_entries().iter().enumerate() {
         // Own-file references already occupy compact per-symbol syntax spans.
         // Only imported occurrences need an additional workspace contribution.
         if reference.resolved.is_some() {
-            local_occurrence_count += local_reference_occurrences(snapshot, reference);
             continue;
         }
         let target = occurrence_template_target(snapshot, reference);
@@ -266,31 +259,6 @@ fn prepare_occurrences(
             start += count;
         }
     }
-    local_occurrence_count
-}
-
-fn local_reference_occurrences(
-    snapshot: &DocumentSnapshot,
-    reference: &crate::analysis::Reference,
-) -> usize {
-    if reference.kind != ReferenceKind::Declaration {
-        return 1;
-    }
-    // Qualified declarations map several identifier tokens to one reference
-    // row. Preserve the existing token-based statistics using only the bounded
-    // declaration-name span; no second full token pass is necessary.
-    snapshot.syntax.tokens()[..=reference.token.0]
-        .iter()
-        .enumerate()
-        .rev()
-        .take_while(|(_, token)| token.range.start >= reference.range.start)
-        .filter(|(index, _)| {
-            snapshot
-                .syntax
-                .reference_for_token(TokenId(*index))
-                .is_some_and(|mapped| std::ptr::eq(mapped, reference))
-        })
-        .count()
 }
 
 fn occurrence_template_target(
@@ -351,7 +319,6 @@ fn call_template_target(
 }
 
 struct PreparedCalls {
-    local_call_count: usize,
     call_indices: Vec<usize>,
     calls: Vec<PreparedCall>,
 }
@@ -363,18 +330,9 @@ fn prepare_calls(
     indices: &mut HashMap<TemplateTarget, usize>,
     call_targets: &mut Vec<usize>,
 ) -> PreparedCalls {
-    let mut local_call_count = 0;
     let mut selected = Vec::new();
     for (call_index, call) in snapshot.syntax.calls().iter().enumerate() {
-        if let Some(local) = call.callee {
-            if call.caller.is_some()
-                && snapshot
-                    .syntax
-                    .symbol_by_id(local)
-                    .is_some_and(|symbol| symbol.kind == SymbolKind::Function)
-            {
-                local_call_count += 1;
-            }
+        if call.callee.is_some() {
             continue;
         }
         let index = if let Some(index) = call_targets
@@ -429,7 +387,6 @@ fn prepare_calls(
         }
     }
     PreparedCalls {
-        local_call_count,
         call_indices,
         calls,
     }
@@ -613,7 +570,9 @@ impl WorkspaceDb {
     #[must_use]
     pub fn resolve_call(&self, uri: &Url, callee_token: TokenId) -> Option<WorkspaceSymbol> {
         let source = self.file_id_by_uri(uri)?;
-        let contribution = self.semantic.contribution(source)?;
+        if !self.entries[source.0].semantic_active {
+            return None;
+        }
         let snapshot = self.entries[source.0].snapshot()?;
         let call_index = snapshot.syntax.call_index_for_token(callee_token)?;
         let call = &snapshot.syntax.calls()[call_index];
@@ -624,6 +583,7 @@ impl WorkspaceDb {
                 .then(|| self.symbol_by_id(id))
                 .flatten();
         }
+        let contribution = self.semantic.contribution(source)?;
         let target = *contribution.call_targets.get(call_index)?;
         let id = self.resolve_target(contribution.targets.get(target)?.key?)?;
         self.is_function(id)
@@ -642,7 +602,7 @@ impl WorkspaceDb {
         }
         let mut result = Vec::new();
         if self.reachable.contains(target.file)
-            && self.semantic.contribution(target.file).is_some()
+            && self.entries[target.file.0].semantic_active
             && let Some(document) = self.entries[target.file.0].document()
         {
             result.extend(
@@ -722,7 +682,7 @@ impl WorkspaceDb {
         let mut groups = HashMap::<GlobalSymbolId, WorkspaceCallGroup>::new();
         if (self.reachable.contains(target.file)
             || self.semantic.compiler_base == Some(target.file))
-            && self.semantic.contribution(target.file).is_some()
+            && self.entries[target.file.0].semantic_active
             && let Some(snapshot) = self.entries[target.file.0].snapshot()
         {
             for call in snapshot.syntax.calls_to(target.local) {
@@ -795,7 +755,7 @@ impl WorkspaceDb {
         };
         let mut groups = HashMap::<GlobalSymbolId, WorkspaceCallGroup>::new();
         let contribution = self.semantic.contribution(caller.file);
-        if let Some(contribution) = contribution {
+        if self.entries[caller.file.0].semantic_active {
             for call in source.syntax.calls_from(caller.local) {
                 let target = if let Some(local) = call.callee {
                     self.symbol_identity(caller.file, local)
@@ -803,8 +763,8 @@ impl WorkspaceDb {
                     source
                         .syntax
                         .call_index_for_token(call.callee_token)
-                        .and_then(|index| contribution.call_targets.get(index))
-                        .and_then(|&target| contribution.targets.get(target))
+                        .and_then(|index| contribution?.call_targets.get(index))
+                        .and_then(|&target| contribution?.targets.get(target))
                         .and_then(|target| target.key.and_then(|key| self.resolve_target(key)))
                 };
                 let Some(target) = target.filter(|id| self.is_function(*id)) else {
@@ -834,15 +794,32 @@ impl WorkspaceDb {
         imports_changed: bool,
     ) {
         let entry = &mut self.entries[changed.0];
+        // Effective snapshots and language may already have changed. Retire
+        // cached local totals from the old indexed snapshot and activation.
+        if entry.semantic_active
+            && entry.semantic_epoch.is_some()
+            && let Some(old) = &entry.semantic_snapshot
+        {
+            self.semantic.stats.occurrences -= old.syntax.local_reference_occurrences();
+            self.semantic.stats.calls -= old.syntax.local_function_calls();
+        }
+        self.semantic.remove(changed);
         let snapshot = entry.snapshot().cloned();
         if !same_snapshot(entry.semantic_snapshot.as_ref(), snapshot.as_ref()) {
             entry.semantic_epoch = entry.semantic_epoch.and_then(|epoch| epoch.checked_add(1));
             entry.semantic_snapshot = snapshot;
         }
-        self.semantic.remove(changed);
+        entry.semantic_active =
+            prepared.is_some() && (entry.language_id == "bend" || entry.language_id == "bend2");
+        if entry.semantic_active
+            && entry.semantic_epoch.is_some()
+            && let Some(snapshot) = &entry.semantic_snapshot
+        {
+            self.semantic.stats.occurrences += snapshot.syntax.local_reference_occurrences();
+            self.semantic.stats.calls += snapshot.syntax.local_function_calls();
+        }
         if let Some(prepared) = prepared
-            && (self.entries[changed.0].language_id == "bend"
-                || self.entries[changed.0].language_id == "bend2")
+            && self.entries[changed.0].semantic_active
         {
             self.install_contribution(changed, prepared);
         }
@@ -858,23 +835,18 @@ impl WorkspaceDb {
 
     fn install_contribution(&mut self, source: FileId, prepared: PreparedSemanticSnapshot) {
         self.semantic.stats.files_rebuilt = self.semantic.stats.files_rebuilt.saturating_add(1);
-        // Preserve logical occurrence statistics without copying local spans.
-        let local_occurrence_count = if self.entries[source.0].semantic_epoch.is_some() {
-            prepared.local_occurrence_count
-        } else {
-            0
-        };
-        let mut occurrence_count = local_occurrence_count;
         if prepared.imports_prelude {
             self.semantic.prelude_files.insert(source);
         }
+        // Local-only snapshots retain activation and prelude metadata, but no
+        // external contribution or dense source-column allocation.
+        if prepared.targets.is_empty() {
+            return;
+        }
         // Different import spellings can bind to the same key. Each sparse
         // source bucket keeps their canonical group ordinals without copying.
-        let mut call_count = if self.entries[source.0].semantic_epoch.is_some() {
-            prepared.local_call_count
-        } else {
-            0
-        };
+        let mut occurrence_count = 0;
+        let mut call_count = 0;
         // Keep bound keys with their spans, not staging-only templates plus a
         // separately allocated key column. Consume the cold rows into warm rows.
         let targets = prepared

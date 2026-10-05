@@ -370,4 +370,125 @@ mod tests {
         assert!(database.outgoing_calls(first.id).is_empty());
         Ok(())
     }
+
+    fn local_query_ids(
+        database: &WorkspaceDb,
+        uri: &Url,
+        ranges: [analysis::TextRange; 2],
+    ) -> std::io::Result<(
+        crate::workspace::GlobalSymbolId,
+        crate::workspace::GlobalSymbolId,
+        analysis::TokenId,
+    )> {
+        let target = database
+            .symbol_by_name(uri, "target")
+            .ok_or_else(|| std::io::Error::other("local target"))?;
+        let caller = database
+            .symbol_by_name(uri, "caller")
+            .ok_or_else(|| std::io::Error::other("local caller"))?;
+        let references = database.references(target.id, false);
+        assert_eq!(
+            references
+                .iter()
+                .map(|reference| reference.range)
+                .collect::<Vec<_>>(),
+            ranges
+        );
+        assert!(
+            references
+                .iter()
+                .all(|reference| &reference.document.uri == uri)
+        );
+        let incoming = database.incoming_calls(target.id);
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].symbol.id, caller.id);
+        assert_eq!(incoming[0].ranges, vec![ranges[0]]);
+        let outgoing = database.outgoing_calls(caller.id);
+        assert_eq!(outgoing.len(), 1);
+        assert_eq!(outgoing[0].symbol.id, target.id);
+        assert_eq!(outgoing[0].ranges, vec![ranges[0]]);
+        let document = database
+            .open_document(uri)
+            .ok_or_else(|| std::io::Error::other("local document"))?;
+        let token = document
+            .syntax
+            .token_at_or_before(ranges[0].start)
+            .ok_or_else(|| std::io::Error::other("local call token"))?;
+        assert_eq!(
+            database.resolve_call(uri, token).map(|symbol| symbol.id),
+            Some(target.id)
+        );
+        Ok((target.id, caller.id, token))
+    }
+
+    #[test]
+    fn local_queries_follow_snapshot_and_language_lifecycle() -> std::io::Result<()> {
+        let uri = Url::parse("file:///local-only.bend").map_err(std::io::Error::other)?;
+        let source = "def target(value):\n  value\ndef caller():\n  target(1)\n  target\ndef shadowed(target):\n  target(2)\n";
+        let call = source
+            .find("target(1)")
+            .ok_or_else(|| std::io::Error::other("call"))?;
+        let read = source
+            .find("  target\n")
+            .ok_or_else(|| std::io::Error::other("read"))?
+            + 2;
+        let ranges = [
+            analysis::TextRange::new(call, call + "target".len()),
+            analysis::TextRange::new(read, read + "target".len()),
+        ];
+        let mut database = WorkspaceDb::default();
+        database.set_open_document(
+            Document::new(uri.clone(), "bend".into(), Revision(1), source.into()),
+            None,
+        );
+        let (old_target, old_caller, _) = local_query_ids(&database, &uri, ranges)?;
+        let prefix = "def inserted():\n  0\n";
+        let replacement = format!("{prefix}{source}");
+        database
+            .update_open_snapshot(
+                &uri,
+                Arc::new(DocumentSnapshot::new(Revision(2), replacement.clone())),
+            )
+            .ok_or_else(|| std::io::Error::other("replace local-only snapshot"))?;
+        assert!(database.symbol_by_id(old_target).is_none());
+        assert!(database.outgoing_calls(old_caller).is_empty());
+        let shifted = ranges.map(|range| {
+            analysis::TextRange::new(range.start + prefix.len(), range.end + prefix.len())
+        });
+        let (current_target, _, token) = local_query_ids(&database, &uri, shifted)?;
+        database.set_open_document(
+            Document::new(
+                uri.clone(),
+                "plaintext".into(),
+                Revision(3),
+                replacement.clone(),
+            ),
+            None,
+        );
+        assert!(database.symbol_by_id(current_target).is_none());
+        let unsupported = database
+            .symbol_by_name(&uri, "target")
+            .ok_or_else(|| std::io::Error::other("unsupported snapshot identity"))?;
+        assert!(database.references(unsupported.id, true).is_empty());
+        assert!(database.incoming_calls(unsupported.id).is_empty());
+        assert!(database.resolve_call(&uri, token).is_none());
+        let unsupported_caller = database
+            .symbol_by_name(&uri, "caller")
+            .ok_or_else(|| std::io::Error::other("unsupported caller identity"))?;
+        assert!(database.outgoing_calls(unsupported_caller.id).is_empty());
+        database.set_open_document(
+            Document::new(uri.clone(), "bend2".into(), Revision(4), replacement),
+            None,
+        );
+        assert!(database.symbol_by_id(unsupported.id).is_none());
+        let (target, caller, _) = local_query_ids(&database, &uri, shifted)?;
+        database
+            .close_document(&uri)
+            .ok_or_else(|| std::io::Error::other("close local-only source"))?;
+        assert!(database.symbol_by_id(target).is_none());
+        assert!(database.references(target, true).is_empty());
+        assert!(database.incoming_calls(target).is_empty());
+        assert!(database.outgoing_calls(caller).is_empty());
+        Ok(())
+    }
 }

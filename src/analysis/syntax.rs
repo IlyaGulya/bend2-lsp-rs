@@ -224,7 +224,9 @@ pub struct SyntaxIndex {
     name_reference_indices: Box<[usize]>,
     name_reference_spans: Box<[TextRange]>,
     token_references: Box<[Option<usize>]>,
+    local_reference_occurrences: usize,
     calls: Box<[CallSite]>,
+    local_function_calls: usize,
     call_arguments: Box<[TextRange]>,
     call_separators: Box<[usize]>,
     calls_from_indices: Box<[usize]>,
@@ -477,6 +479,16 @@ impl SyntaxIndex {
         &self.references
     }
 
+    /// Number of tokens mapped to a locally resolved reference, including declarations.
+    ///
+    /// Each identifier in a qualified declaration counts separately even when several
+    /// tokens map to the same reference row. Overlapping declarations count each token
+    /// only once. This total is cached during reference construction.
+    #[must_use]
+    pub fn local_reference_occurrences(&self) -> usize {
+        self.local_reference_occurrences
+    }
+
     #[must_use]
     pub fn reference_for_token(&self, token: TokenId) -> Option<&Reference> {
         let index = *self.token_references.get(token.0)?.as_ref()?;
@@ -486,6 +498,15 @@ impl SyntaxIndex {
     #[must_use]
     pub fn calls(&self) -> &[CallSite] {
         &self.calls
+    }
+
+    /// Number of calls with a caller and a locally resolved function callee.
+    ///
+    /// Constructors, bindings, and unresolved callees are excluded. This total is
+    /// cached during call construction.
+    #[must_use]
+    pub fn local_function_calls(&self) -> usize {
+        self.local_function_calls
     }
 
     pub fn calls_from(&self, symbol: SymbolId) -> impl Iterator<Item = &CallSite> {
