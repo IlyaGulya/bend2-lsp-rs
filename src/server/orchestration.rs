@@ -3,6 +3,7 @@ use super::{
     compiler_service::BaseModule,
     features::named_document_symbol,
     lsp::Backend,
+    reference_locations,
     revision::{RevisionStatus, RevisionTicket, wait_for_captured_revision},
     state::revision_result,
 };
@@ -735,25 +736,9 @@ impl Backend {
             tracing::Span::current().record("result_count", 0);
             return Vec::new();
         };
-        let mut locations: Vec<_> = database
-            .references(target.id, include_declaration)
-            .into_iter()
-            .map(|occurrence| {
-                let range = super::adapters::range(&occurrence.document, occurrence.range);
-                Location {
-                    uri: occurrence.document.uri,
-                    range,
-                }
-            })
-            .collect();
-        locations.sort_unstable_by(|left, right| {
-            left.uri
-                .as_str()
-                .cmp(right.uri.as_str())
-                .then_with(|| left.range.start.line.cmp(&right.range.start.line))
-                .then_with(|| left.range.start.character.cmp(&right.range.start.character))
-        });
-        locations.dedup_by(|left, right| left.uri == right.uri && left.range == right.range);
+        let locations = reference_locations::symbol_reference_locations(
+            database.references(target.id, include_declaration),
+        );
         tracing::Span::current().record("result_count", locations.len());
         locations
     }

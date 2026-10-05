@@ -8,6 +8,7 @@ mod features;
 mod formatter;
 mod lsp;
 mod orchestration;
+mod reference_locations;
 mod requests;
 mod revision;
 mod state;

@@ -546,6 +546,44 @@ workloads and stayed red. The experiment was rejected and reverted in `3c7e221`;
 borrowed lookup and its benchmarks remain. Raw evidence for both sources is
 preserved; no baseline, threshold, old workload, or retry-to-green was changed.
 
+### Reference output stage isolation
+
+Reference output benchmarks use the production ordinal resolver, unsorted
+materializer, comparator, and deduplication predicate. Borrowed groups retain
+their immutable snapshot so ordinals cannot be paired with another database.
+This adds one borrowed pointer to the group payload, not a cold owning column;
+lookup counts must be remeasured rather than carried forward unchanged.
+
+The compact-range case starts with prepared borrowed groups and collects
+`(FileId, TextRange)` without cloning documents or URIs. The materialization
+case includes lookup and the existing owned `WorkspaceOccurrence` output but
+excludes sorting and deduplication. Sort-only inputs are prepared in canonical,
+reverse, and fixed Fisher-Yates order. Dedup-only cases include unique rows and
+duplicate runs at the first, middle, and last canonical keys. Setup checks exact
+URI/range/kind membership, current target identity, and full-query equivalence.
+Existing workloads and regression limits are unchanged.
+
+Private source-included server helpers measure actual `Location` construction:
+the binding path clones URIs, the owned path moves them, and the full symbol
+pipeline additionally performs its existing protocol sort/dedup. ASCII and
+Unicode/CRLF setup cases check exact UTF-16 positions. Protocol counts are
+separate: `workspace_references_warm` does not include LSP conversion.
+
+Setup, input clones/permutations, and assertions occur outside Iai's measured
+wrapper. Returned vectors are destroyed after the wrapper returns. Temporary
+documents in materialization, removed rows in dedup, and consumed input
+document fields in conversion are destroyed inside measurement. Independent
+stage totals are not an additive partition: prepared heap state, traversal
+order, and code generation differ between workloads.
+
+Retained source `5b764a3` sparse-10,000 raw profiles attribute 5,523 of 9,307 `Ir`
+to exclusive allocator-function records (59.3%), with nine-event sums checked
+against the profile total. This motivates materialization attribution, not a
+bucket redesign. Actual stdio before/after extraction preserves exact reference
+and rename ranges through Unicode/CRLF, interleaved aliases and qualifier
+shadowing, local/self-import uniqueness, dependency overlay removal, and disk
+restoration on close; both executions exit cleanly.
+
 ## Primary sources
 
 [original-index]: https://index.crates.io/to/we/tower-lsp

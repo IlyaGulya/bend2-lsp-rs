@@ -1,3 +1,5 @@
+#[path = "../src/server/reference_locations.rs"]
+mod reference_locations;
 mod support;
 
 use std::{fmt::Write as _, fs, path::PathBuf, sync::LazyLock};
@@ -551,6 +553,265 @@ static REFERENCE_LOOKUP_THREE_1000: LazyLock<ReferenceLookupWorkspace> =
 static REFERENCE_LOOKUP_THREE_10000: LazyLock<ReferenceLookupWorkspace> =
     LazyLock::new(|| ReferenceLookupWorkspace::new(10_000, 3));
 
+// Benchmark-only prepared inputs borrow the original, unchanged workloads.
+// All construction and semantic assertions run in Iai setup, outside its wrapper.
+struct ReferenceStages {
+    fixture: &'static SemanticWorkspace,
+    groups: Vec<workspace::ExternalReferenceGroup<'static>>,
+    canonical: Vec<workspace::WorkspaceOccurrence>,
+}
+
+impl ReferenceStages {
+    fn new(fixture: &'static SemanticWorkspace, matched_files: usize) -> Self {
+        assert_eq!(
+            fixture
+                .database
+                .global_symbol_id(&fixture.target_uri, fixture.target.local_symbol()),
+            Some(fixture.target)
+        );
+        let canonical = fixture.database.references(fixture.target, false);
+        let mut expected = (1..=matched_files)
+            .flat_map(|index| {
+                let uri = fixture.target_uri.join(&format!("client{index:05}.bend"))
+                    .must_be("reference stage source URI");
+                let source = "import ./target.bend as Dep\ndef client(value):\n  Dep.identity(value)\n  Dep.identity(value)\n";
+                source.match_indices("identity").map(move |(start, name)| {
+                    (uri.clone(), analysis::TextRange::new(start, start + name.len()))
+                })
+            })
+            .collect::<Vec<_>>();
+        expected.sort_unstable_by(|left, right| {
+            left.0
+                .as_str()
+                .cmp(right.0.as_str())
+                .then_with(|| left.1.start.cmp(&right.1.start))
+                .then_with(|| left.1.end.cmp(&right.1.end))
+        });
+        let actual = canonical
+            .iter()
+            .map(|row| (row.document.uri.clone(), row.range))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+        assert!(canonical.iter().all(|row| {
+            row.kind != analysis::ReferenceKind::Declaration
+                && &row.document.text[row.range.start..row.range.end] == "identity"
+        }));
+        let groups = fixture
+            .database
+            .external_reference_groups(fixture.target)
+            .collect::<Vec<_>>();
+        let mut compact = groups
+            .iter()
+            .flat_map(|group| group.occurrences().map(|row| (group.source(), row.range)))
+            .collect::<Vec<_>>();
+        compact.sort_unstable_by_key(|(file, range)| (*file, range.start, range.end));
+        let mut full_compact = canonical
+            .iter()
+            .map(|row| {
+                (
+                    fixture
+                        .database
+                        .file_id_by_uri(&row.document.uri)
+                        .must_be("stage source identity"),
+                    row.range,
+                )
+            })
+            .collect::<Vec<_>>();
+        full_compact.sort_unstable_by_key(|(file, range)| (*file, range.start, range.end));
+        assert_eq!(compact, full_compact);
+        let mut materialized = fixture.database.references_unsorted(fixture.target, false);
+        workspace::WorkspaceOccurrence::sort(&mut materialized);
+        workspace::WorkspaceOccurrence::dedup(&mut materialized);
+        assert_eq!(
+            materialized
+                .iter()
+                .map(|row| (&row.document.uri, row.range, row.kind))
+                .collect::<Vec<_>>(),
+            canonical
+                .iter()
+                .map(|row| (&row.document.uri, row.range, row.kind))
+                .collect::<Vec<_>>()
+        );
+        Self {
+            fixture,
+            groups,
+            canonical,
+        }
+    }
+}
+
+static REFERENCE_STAGES_SPARSE_1000: LazyLock<ReferenceStages> =
+    LazyLock::new(|| ReferenceStages::new(LazyLock::force(&SEMANTIC_SPARSE_1000), 3));
+static REFERENCE_STAGES_SPARSE_10000: LazyLock<ReferenceStages> =
+    LazyLock::new(|| ReferenceStages::new(LazyLock::force(&SEMANTIC_SPARSE_10000), 3));
+static REFERENCE_STAGES_MATCHED_100: LazyLock<ReferenceStages> =
+    LazyLock::new(|| ReferenceStages::new(LazyLock::force(&SEMANTIC_MATCHED_100), 99));
+
+fn setup_reference_stages(fixture: &'static LazyLock<ReferenceStages>) -> &'static ReferenceStages {
+    LazyLock::force(fixture)
+}
+
+#[derive(Clone, Copy)]
+enum ReferenceOrder {
+    Canonical,
+    Reverse,
+    Shuffled,
+}
+
+fn setup_reference_sort(
+    fixture: &'static LazyLock<ReferenceStages>,
+    order: ReferenceOrder,
+) -> Vec<workspace::WorkspaceOccurrence> {
+    let fixture = setup_reference_stages(fixture);
+    let mut input = fixture.canonical.clone();
+    match order {
+        ReferenceOrder::Canonical => {}
+        ReferenceOrder::Reverse => input.reverse(),
+        ReferenceOrder::Shuffled => {
+            // Fixed Fisher-Yates permutation: independent of HashMap iteration
+            // and temporary directory URI prefixes.
+            let mut state = 0x9e37_79b9_u64;
+            for index in (1..input.len()).rev() {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let other =
+                    usize::try_from(state % u64::try_from(index + 1).must_be("shuffle length"))
+                        .must_be("shuffle index");
+                input.swap(index, other);
+            }
+        }
+    }
+    let mut proof = input.clone();
+    workspace::WorkspaceOccurrence::sort(&mut proof);
+    assert_eq!(
+        proof
+            .iter()
+            .map(|row| (&row.document.uri, row.range))
+            .collect::<Vec<_>>(),
+        fixture
+            .canonical
+            .iter()
+            .map(|row| (&row.document.uri, row.range))
+            .collect::<Vec<_>>()
+    );
+    input
+}
+
+fn setup_reference_dedup(
+    fixture: &'static LazyLock<ReferenceStages>,
+    duplicates: bool,
+) -> Vec<workspace::WorkspaceOccurrence> {
+    let fixture = setup_reference_stages(fixture);
+    let mut input = fixture.canonical.clone();
+    if duplicates {
+        // Duplicate runs at both vector boundaries and the middle exercise
+        // retained-row movement and destruction of removed owned Documents.
+        for index in [0, input.len() / 2, input.len() - 1] {
+            input.push(fixture.canonical[index].clone());
+            input.push(fixture.canonical[index].clone());
+        }
+        workspace::WorkspaceOccurrence::sort(&mut input);
+        assert_eq!(input[0].range, input[1].range);
+        assert_eq!(input[0].document.uri, input[1].document.uri);
+        let end = input.len() - 1;
+        assert_eq!(input[end].range, input[end - 1].range);
+        assert_eq!(input[end].document.uri, input[end - 1].document.uri);
+    }
+    let mut proof = input.clone();
+    workspace::WorkspaceOccurrence::dedup(&mut proof);
+    assert_eq!(
+        proof
+            .iter()
+            .map(|row| (&row.document.uri, row.range))
+            .collect::<Vec<_>>(),
+        fixture
+            .canonical
+            .iter()
+            .map(|row| (&row.document.uri, row.range))
+            .collect::<Vec<_>>()
+    );
+    input
+}
+
+fn setup_reference_locations(fixture: &SemanticWorkspace) -> Vec<workspace::WorkspaceOccurrence> {
+    fixture.database.references(fixture.target, false)
+}
+
+static PROTOCOL_ASCII_DOCUMENT: LazyLock<workspace::Document> = LazyLock::new(|| {
+    workspace::Document::new(
+        url::Url::parse("file:///protocol-ascii.bend").must_be("protocol ASCII URI"),
+        "bend".to_owned(),
+        analysis::Revision(0),
+        "def target():\r\n  target(target)\r\n".to_owned(),
+    )
+});
+
+static PROTOCOL_UNICODE_DOCUMENT: LazyLock<workspace::Document> = LazyLock::new(|| {
+    workspace::Document::new(
+        url::Url::parse("file:///protocol-unicode.bend").must_be("protocol Unicode URI"),
+        "bend".to_owned(),
+        analysis::Revision(0),
+        "def target():\r\n  target(\"é😀\", target)\r\n".to_owned(),
+    )
+});
+
+fn setup_reference_protocol_ranges(unicode: bool) -> Vec<workspace::WorkspaceOccurrence> {
+    let document = if unicode {
+        LazyLock::force(&PROTOCOL_UNICODE_DOCUMENT)
+    } else {
+        LazyLock::force(&PROTOCOL_ASCII_DOCUMENT)
+    };
+    let last_start = document.text.rfind("target").must_be("last target range");
+    let occurrences = [
+        (
+            analysis::TextRange::new(4, 10),
+            analysis::ReferenceKind::Declaration,
+        ),
+        (
+            analysis::TextRange::new(17, 23),
+            analysis::ReferenceKind::Call,
+        ),
+        (
+            analysis::TextRange::new(last_start, last_start + 6),
+            analysis::ReferenceKind::Read,
+        ),
+    ]
+    .into_iter()
+    .map(|(range, kind)| workspace::WorkspaceOccurrence {
+        document: document.clone(),
+        range,
+        kind,
+    })
+    .collect::<Vec<_>>();
+    let last_character = if unicode { 16 } else { 9 };
+    let expected = [
+        (0, 4, 10),
+        (1, 2, 8),
+        (1, last_character, last_character + 6),
+    ]
+    .into_iter()
+    .map(|(line, start, end)| tower_lsp::lsp_types::Location {
+        uri: document.uri.clone(),
+        range: tower_lsp::lsp_types::Range::new(
+            tower_lsp::lsp_types::Position::new(line, start),
+            tower_lsp::lsp_types::Position::new(line, end),
+        ),
+    })
+    .collect::<Vec<_>>();
+    assert_eq!(
+        reference_locations::binding_reference_locations(occurrences.clone()),
+        expected
+    );
+    assert_eq!(
+        reference_locations::owned_reference_locations(occurrences.clone()),
+        expected
+    );
+    assert_eq!(
+        reference_locations::symbol_reference_locations(occurrences.clone()),
+        expected
+    );
+    occurrences
+}
+
 #[library_benchmark]
 fn cold_snapshot_build_small() -> analysis::DocumentSnapshot {
     std::hint::black_box(analysis::DocumentSnapshot::new(
@@ -963,6 +1224,133 @@ fn workspace_reference_lookup_warm(
     )
 }
 
+// Returned Vec destruction occurs outside Iai's measured wrapper. Compact
+// output allocation is measured; its borrowed input groups are prepared outside.
+#[library_benchmark(setup = setup_reference_stages)]
+#[bench::sparse_1000(&REFERENCE_STAGES_SPARSE_1000)]
+#[bench::sparse_10000(&REFERENCE_STAGES_SPARSE_10000)]
+#[bench::matched_100(&REFERENCE_STAGES_MATCHED_100)]
+fn workspace_reference_ranges_warm(
+    fixture: &ReferenceStages,
+) -> Vec<(workspace::FileId, analysis::TextRange)> {
+    std::hint::black_box(
+        fixture
+            .groups
+            .iter()
+            .flat_map(|group| group.occurrences().map(|row| (group.source(), row.range)))
+            .collect(),
+    )
+}
+
+// Includes production traversal, Vec growth, owned Document/URI clones and
+// temporary/source Document drops; excludes sort, dedup and returned Vec drop.
+#[library_benchmark(setup = setup_reference_stages)]
+#[bench::sparse_1000(&REFERENCE_STAGES_SPARSE_1000)]
+#[bench::sparse_10000(&REFERENCE_STAGES_SPARSE_10000)]
+#[bench::matched_100(&REFERENCE_STAGES_MATCHED_100)]
+fn workspace_reference_materialize_warm(
+    fixture: &ReferenceStages,
+) -> Vec<workspace::WorkspaceOccurrence> {
+    std::hint::black_box(
+        fixture
+            .fixture
+            .database
+            .references_unsorted(fixture.fixture.target, false),
+    )
+}
+
+// Setup returns an owned Vec; cloning and permutation are outside measurement.
+// The measured function returns that Vec, so retained output drop is outside.
+#[library_benchmark(setup = setup_reference_sort)]
+#[bench::sparse_1000_canonical(&REFERENCE_STAGES_SPARSE_1000, ReferenceOrder::Canonical)]
+#[bench::sparse_1000_reverse(&REFERENCE_STAGES_SPARSE_1000, ReferenceOrder::Reverse)]
+#[bench::sparse_1000_shuffled(&REFERENCE_STAGES_SPARSE_1000, ReferenceOrder::Shuffled)]
+#[bench::sparse_10000_canonical(&REFERENCE_STAGES_SPARSE_10000, ReferenceOrder::Canonical)]
+#[bench::sparse_10000_reverse(&REFERENCE_STAGES_SPARSE_10000, ReferenceOrder::Reverse)]
+#[bench::sparse_10000_shuffled(&REFERENCE_STAGES_SPARSE_10000, ReferenceOrder::Shuffled)]
+#[bench::matched_100_canonical(&REFERENCE_STAGES_MATCHED_100, ReferenceOrder::Canonical)]
+#[bench::matched_100_reverse(&REFERENCE_STAGES_MATCHED_100, ReferenceOrder::Reverse)]
+#[bench::matched_100_shuffled(&REFERENCE_STAGES_MATCHED_100, ReferenceOrder::Shuffled)]
+fn workspace_reference_sort_only(
+    mut input: Vec<workspace::WorkspaceOccurrence>,
+) -> Vec<workspace::WorkspaceOccurrence> {
+    workspace::WorkspaceOccurrence::sort(&mut input);
+    std::hint::black_box(input)
+}
+
+// Duplicate row destruction is included inside production dedup; retained
+// output destruction and all preparation (including clone/sort) are outside.
+#[library_benchmark(setup = setup_reference_dedup)]
+#[bench::sparse_1000_unique(&REFERENCE_STAGES_SPARSE_1000, false)]
+#[bench::sparse_1000_duplicate_boundaries(&REFERENCE_STAGES_SPARSE_1000, true)]
+#[bench::sparse_10000_unique(&REFERENCE_STAGES_SPARSE_10000, false)]
+#[bench::sparse_10000_duplicate_boundaries(&REFERENCE_STAGES_SPARSE_10000, true)]
+#[bench::matched_100_unique(&REFERENCE_STAGES_MATCHED_100, false)]
+#[bench::matched_100_duplicate_boundaries(&REFERENCE_STAGES_MATCHED_100, true)]
+fn workspace_reference_dedup_only(
+    mut input: Vec<workspace::WorkspaceOccurrence>,
+) -> Vec<workspace::WorkspaceOccurrence> {
+    workspace::WorkspaceOccurrence::dedup(&mut input);
+    std::hint::black_box(input)
+}
+
+// Query/cloning and assertions occur in setup. Converters consume owned input:
+// its Document fields and input Vec teardown are measured, as are symbol-path
+// protocol sort/dedup and removed Location drops. Returned Locations drop outside.
+#[library_benchmark]
+#[bench::sparse_100(args = (LazyLock::force(&SEMANTIC_SPARSE_100)), setup = setup_reference_locations)]
+#[bench::sparse_1000(args = (LazyLock::force(&SEMANTIC_SPARSE_1000)), setup = setup_reference_locations)]
+#[bench::sparse_10000(args = (LazyLock::force(&SEMANTIC_SPARSE_10000)), setup = setup_reference_locations)]
+#[bench::matched_100(args = (LazyLock::force(&SEMANTIC_MATCHED_100)), setup = setup_reference_locations)]
+#[bench::matched_1000(args = (LazyLock::force(&SEMANTIC_MATCHED_1000)), setup = setup_reference_locations)]
+#[bench::matched_10000(args = (LazyLock::force(&SEMANTIC_MATCHED_10000)), setup = setup_reference_locations)]
+#[bench::ascii_crlf(args = (false), setup = setup_reference_protocol_ranges)]
+#[bench::unicode_crlf(args = (true), setup = setup_reference_protocol_ranges)]
+fn protocol_binding_reference_locations(
+    occurrences: Vec<workspace::WorkspaceOccurrence>,
+) -> Vec<tower_lsp::lsp_types::Location> {
+    std::hint::black_box(reference_locations::binding_reference_locations(
+        std::hint::black_box(occurrences),
+    ))
+}
+
+// Pure production owned conversion: Range construction and URI moves, without
+// the symbol protocol pipeline's additional sort/dedup.
+#[library_benchmark]
+#[bench::sparse_100(args = (LazyLock::force(&SEMANTIC_SPARSE_100)), setup = setup_reference_locations)]
+#[bench::sparse_1000(args = (LazyLock::force(&SEMANTIC_SPARSE_1000)), setup = setup_reference_locations)]
+#[bench::sparse_10000(args = (LazyLock::force(&SEMANTIC_SPARSE_10000)), setup = setup_reference_locations)]
+#[bench::matched_100(args = (LazyLock::force(&SEMANTIC_MATCHED_100)), setup = setup_reference_locations)]
+#[bench::matched_1000(args = (LazyLock::force(&SEMANTIC_MATCHED_1000)), setup = setup_reference_locations)]
+#[bench::matched_10000(args = (LazyLock::force(&SEMANTIC_MATCHED_10000)), setup = setup_reference_locations)]
+#[bench::ascii_crlf(args = (false), setup = setup_reference_protocol_ranges)]
+#[bench::unicode_crlf(args = (true), setup = setup_reference_protocol_ranges)]
+fn protocol_owned_reference_locations(
+    occurrences: Vec<workspace::WorkspaceOccurrence>,
+) -> Vec<tower_lsp::lsp_types::Location> {
+    std::hint::black_box(reference_locations::owned_reference_locations(
+        std::hint::black_box(occurrences),
+    ))
+}
+
+// Full production symbol pipeline, INCLUDING its second sort and dedup.
+#[library_benchmark]
+#[bench::sparse_100(args = (LazyLock::force(&SEMANTIC_SPARSE_100)), setup = setup_reference_locations)]
+#[bench::sparse_1000(args = (LazyLock::force(&SEMANTIC_SPARSE_1000)), setup = setup_reference_locations)]
+#[bench::sparse_10000(args = (LazyLock::force(&SEMANTIC_SPARSE_10000)), setup = setup_reference_locations)]
+#[bench::matched_100(args = (LazyLock::force(&SEMANTIC_MATCHED_100)), setup = setup_reference_locations)]
+#[bench::matched_1000(args = (LazyLock::force(&SEMANTIC_MATCHED_1000)), setup = setup_reference_locations)]
+#[bench::matched_10000(args = (LazyLock::force(&SEMANTIC_MATCHED_10000)), setup = setup_reference_locations)]
+#[bench::ascii_crlf(args = (false), setup = setup_reference_protocol_ranges)]
+#[bench::unicode_crlf(args = (true), setup = setup_reference_protocol_ranges)]
+fn protocol_symbol_reference_pipeline(
+    occurrences: Vec<workspace::WorkspaceOccurrence>,
+) -> Vec<tower_lsp::lsp_types::Location> {
+    std::hint::black_box(reference_locations::symbol_reference_locations(
+        std::hint::black_box(occurrences),
+    ))
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -976,7 +1364,10 @@ library_benchmark_group!(
         constructor_definition_warm, parameter_annotation_warm,
         cold_workspace_semantic_build, cold_workspace_semantic_update,
         workspace_references_warm, workspace_incoming_calls_warm, workspace_outgoing_calls_warm,
-        workspace_reference_lookup_warm
+        workspace_reference_lookup_warm, workspace_reference_ranges_warm,
+        workspace_reference_materialize_warm, workspace_reference_sort_only,
+        workspace_reference_dedup_only, protocol_binding_reference_locations,
+        protocol_owned_reference_locations, protocol_symbol_reference_pipeline
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);
