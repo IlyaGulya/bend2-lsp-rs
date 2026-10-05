@@ -77,6 +77,25 @@ struct TemplateTarget {
 #[derive(Clone, Copy)]
 struct ReferenceOrdinal(usize);
 
+/// A borrowed external target span in one source's immutable contribution.
+/// A source may have multiple groups when import spellings share a target.
+pub struct ExternalReferenceGroup<'a> {
+    source: FileId,
+    occurrences: &'a [ReferenceOrdinal],
+}
+
+impl ExternalReferenceGroup<'_> {
+    #[must_use]
+    pub const fn source(&self) -> FileId {
+        self.source
+    }
+
+    #[must_use]
+    pub const fn occurrence_count(&self) -> usize {
+        self.occurrences.len()
+    }
+}
+
 struct PreparedTarget {
     target: TemplateTarget,
     occurrences: Range<usize>,
@@ -591,6 +610,43 @@ impl WorkspaceDb {
             .flatten()
     }
 
+    /// Look up current, reachable external reference spans without materializing
+    /// documents or occurrences. Local references are not included.
+    pub fn external_reference_groups(
+        &self,
+        target: GlobalSymbolId,
+    ) -> impl Iterator<Item = ExternalReferenceGroup<'_>> + '_ {
+        (self.symbol_identity(target.file, target.local) == Some(target))
+            .then_some(target)
+            .into_iter()
+            .flat_map(move |target| self.current_external_reference_groups(target))
+    }
+
+    /// The caller has already checked the target's current snapshot epoch.
+    fn current_external_reference_groups(
+        &self,
+        target: GlobalSymbolId,
+    ) -> impl Iterator<Item = ExternalReferenceGroup<'_>> + '_ {
+        self.query_keys(target)
+            .filter_map(move |key| self.semantic.external.get(&key))
+            .flat_map(|sources| sources.iter())
+            .filter_map(move |(&source, indices)| {
+                if !self.reachable.contains(source) {
+                    return None;
+                }
+                let contribution = self.semantic.contribution(source)?;
+                self.entries[source.0].snapshot()?;
+                Some((source, indices, contribution))
+            })
+            .flat_map(|(source, indices, contribution)| {
+                indices.iter().map(move |index| ExternalReferenceGroup {
+                    source,
+                    occurrences: &contribution.occurrences
+                        [contribution.targets[index].occurrences.clone()],
+                })
+            })
+    }
+
     #[must_use]
     pub fn references(
         &self,
@@ -619,37 +675,30 @@ impl WorkspaceDb {
                     }),
             );
         }
-        for key in self.query_keys(target) {
-            let Some(sources) = self.semantic.external.get(&key) else {
+        let mut source_document: Option<(FileId, Document)> = None;
+        for group in self.current_external_reference_groups(target) {
+            if source_document
+                .as_ref()
+                .is_none_or(|(source, _)| *source != group.source)
+            {
+                source_document = self.entries[group.source.0]
+                    .document()
+                    .map(|document| (group.source, document));
+            }
+            let Some((_, document)) = &source_document else {
                 continue;
             };
-            for (&source, indices) in sources {
-                if !self.reachable.contains(source) {
-                    continue;
+            // Cold preparation selects unresolved rows: declarations always
+            // resolve locally. These ordinals index this same immutable snapshot,
+            // so the mapped slice retains its exact length without a kind filter.
+            result.extend(group.occurrences.iter().map(|ordinal| {
+                let occurrence = &document.syntax.reference_entries()[ordinal.0];
+                WorkspaceOccurrence {
+                    document: document.clone(),
+                    range: occurrence.range,
+                    kind: occurrence.kind,
                 }
-                let Some(contribution) = self.semantic.contribution(source) else {
-                    continue;
-                };
-                let Some(document) = self.entries[source.0].document() else {
-                    continue;
-                };
-                for index in indices.iter() {
-                    let ordinals =
-                        &contribution.occurrences[contribution.targets[index].occurrences.clone()];
-                    // Cold preparation selects unresolved rows: declarations
-                    // always resolve locally. These ordinals index this same
-                    // immutable snapshot, so no kind or optional lookup filter
-                    // is needed; the mapped slice retains its exact length.
-                    result.extend(ordinals.iter().map(|ordinal| {
-                        let occurrence = &document.syntax.reference_entries()[ordinal.0];
-                        WorkspaceOccurrence {
-                            document: document.clone(),
-                            range: occurrence.range,
-                            kind: occurrence.kind,
-                        }
-                    }));
-                }
-            }
+            }));
         }
         result.sort_unstable_by(|left, right| {
             left.document

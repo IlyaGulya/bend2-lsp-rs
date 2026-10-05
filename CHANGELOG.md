@@ -50,6 +50,11 @@
   Keep workspace contributions only for external relations; local-only feature
   queries continue to use their immutable snapshots. Cold snapshot benchmarks
   include this metadata work separately from prebuilt-snapshot semantic workloads.
+- Separate allocation-free external reference group lookup from occurrence
+  materialization using one shared indexed traversal and current-epoch validation.
+  Add lookup-only absent-bucket, single-source, and three-source benchmarks at
+  100, 1,000, and 10,000 files; setup interns absent-target names through an
+  independent relation and validates exact sources outside measurement.
 - Reserve semantic-token results from a cold-built exact count and avoid
   unnecessary trailing-whitespace scanning when checking blank folding lines.
 

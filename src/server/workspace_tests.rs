@@ -491,4 +491,62 @@ mod tests {
         assert!(database.outgoing_calls(caller).is_empty());
         Ok(())
     }
+
+    #[test]
+    fn external_group_lookup_rejects_same_name_from_retired_epoch() -> std::io::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let main_path = temp.path().join("main.bend");
+        let dependency_path = temp.path().join("dep.bend");
+        let dependency_source = "def f():\n  0\ndef own():\n  f()\n";
+        fs::write(&dependency_path, dependency_source)?;
+        let main_uri = file_uri(&main_path)?;
+        let dependency_uri = file_uri(&dependency_path)?;
+        let mut database = WorkspaceDb::default();
+        let main_id = database.set_open_document(
+            Document::new(
+                main_uri.clone(),
+                "bend".into(),
+                Revision(1),
+                "import ./dep.bend as D\ndef caller():\n  D.f()\n  D.f\n".into(),
+            ),
+            Some(main_path),
+        );
+        database.load_reachable(std::slice::from_ref(&main_id));
+        let old = database
+            .symbol_by_name(&dependency_uri, "f")
+            .ok_or_else(|| std::io::Error::other("original dependency"))?;
+        let groups = |database: &WorkspaceDb, target| {
+            database
+                .external_reference_groups(target)
+                .map(|group| (group.source(), group.occurrence_count()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(groups(&database, old.id), vec![(main_id, 2)]);
+        fs::write(
+            &dependency_path,
+            format!("# new snapshot\n{dependency_source}"),
+        )?;
+        let (changed, _) = database
+            .sync_disk_path(&dependency_path, None)
+            .ok_or_else(|| std::io::Error::other("updated dependency"))?;
+        database.load_reachable(std::slice::from_ref(&changed));
+        let current = database
+            .symbol_by_name(&dependency_uri, "f")
+            .ok_or_else(|| std::io::Error::other("current dependency"))?;
+        assert_ne!(old.id, current.id);
+        assert_eq!(old.id.local_symbol(), current.id.local_symbol());
+        assert!(groups(&database, old.id).is_empty());
+        assert_eq!(groups(&database, current.id), vec![(main_id, 2)]);
+        database.set_open_document(
+            Document::new(
+                main_uri,
+                "bend".into(),
+                Revision(2),
+                "def caller():\n  0\n".into(),
+            ),
+            None,
+        );
+        assert!(groups(&database, current.id).is_empty());
+        Ok(())
+    }
 }

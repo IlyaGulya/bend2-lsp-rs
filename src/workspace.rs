@@ -11,8 +11,8 @@ use url::Url;
 mod semantic;
 
 pub use semantic::{
-    GlobalSymbolId, PreparedSemanticSnapshot, WorkspaceCallGroup, WorkspaceIndexStats,
-    WorkspaceOccurrence, WorkspaceSymbol, prepare_semantic_snapshot,
+    ExternalReferenceGroup, GlobalSymbolId, PreparedSemanticSnapshot, WorkspaceCallGroup,
+    WorkspaceIndexStats, WorkspaceOccurrence, WorkspaceSymbol, prepare_semantic_snapshot,
 };
 
 #[derive(Clone)]

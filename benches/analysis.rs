@@ -458,6 +458,99 @@ static SEMANTIC_MATCHED_1000: LazyLock<SemanticWorkspace> =
 static SEMANTIC_MATCHED_10000: LazyLock<SemanticWorkspace> =
     LazyLock::new(|| SemanticWorkspace::new(10_000, 9_999));
 
+struct ReferenceLookupWorkspace {
+    _directory: tempfile::TempDir,
+    database: workspace::WorkspaceDb,
+    target: workspace::GlobalSymbolId,
+}
+
+impl ReferenceLookupWorkspace {
+    fn new(file_count: usize, matched_files: usize) -> Self {
+        let mut sources = SemanticSources::new(file_count, matched_files);
+        let independent_target_uri = if matched_files == 0 {
+            // Intern the same member name through a different file's external
+            // relation: querying target.bend must reach an absent bucket, not
+            // stop at an unknown name or invalid symbol identity.
+            let uri = sources.documents[1].0.uri.clone();
+            let document = &mut sources.documents[2].0;
+            document.snapshot = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+                analysis::Revision(1),
+                "import ./unrelated00001.bend as Other\ndef client(value):\n  Other.identity(value)\n  Other.identity(value)\n".into(),
+            ));
+            Some(uri)
+        } else {
+            None
+        };
+        let (directory, database) = sources.build();
+        let target_uri = url::Url::from_file_path(directory.path().join("target.bend"))
+            .must_be("reference lookup target URI");
+        let target = database
+            .symbol_by_name(&target_uri, "identity")
+            .must_be("reference lookup target")
+            .id;
+        assert_eq!(
+            database.global_symbol_id(&target_uri, target.local_symbol()),
+            Some(target)
+        );
+        let mut expected_sources = (1..=matched_files)
+            .map(|index| {
+                let uri = url::Url::from_file_path(
+                    directory.path().join(format!("client{index:05}.bend")),
+                )
+                .must_be("reference lookup source URI");
+                database
+                    .file_id_by_uri(&uri)
+                    .must_be("reference lookup source identity")
+            })
+            .collect::<std::collections::HashSet<_>>();
+        let (groups, occurrences) = database.external_reference_groups(target).fold(
+            (0, 0),
+            |(groups, occurrences), group| {
+                assert!(expected_sources.remove(&group.source()));
+                assert_eq!(group.occurrence_count(), 2);
+                (groups + 1, occurrences + group.occurrence_count())
+            },
+        );
+        assert_eq!(groups, matched_files);
+        assert_eq!(occurrences, matched_files * 2);
+        assert!(expected_sources.is_empty());
+        if let Some(uri) = independent_target_uri {
+            let independent_target = database
+                .symbol_by_name(&uri, "identity")
+                .must_be("independent reference lookup target")
+                .id;
+            let mut groups = database.external_reference_groups(independent_target);
+            let group = groups.next().must_be("independent external relation");
+            assert_eq!(group.occurrence_count(), 2);
+            assert!(groups.next().is_none());
+        }
+        Self {
+            _directory: directory,
+            database,
+            target,
+        }
+    }
+}
+
+static REFERENCE_LOOKUP_ABSENT_100: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(100, 0));
+static REFERENCE_LOOKUP_ABSENT_1000: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(1_000, 0));
+static REFERENCE_LOOKUP_ABSENT_10000: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(10_000, 0));
+static REFERENCE_LOOKUP_SINGLE_100: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(100, 1));
+static REFERENCE_LOOKUP_SINGLE_1000: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(1_000, 1));
+static REFERENCE_LOOKUP_SINGLE_10000: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(10_000, 1));
+static REFERENCE_LOOKUP_THREE_100: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(100, 3));
+static REFERENCE_LOOKUP_THREE_1000: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(1_000, 3));
+static REFERENCE_LOOKUP_THREE_10000: LazyLock<ReferenceLookupWorkspace> =
+    LazyLock::new(|| ReferenceLookupWorkspace::new(10_000, 3));
+
 #[library_benchmark]
 fn cold_snapshot_build_small() -> analysis::DocumentSnapshot {
     std::hint::black_box(analysis::DocumentSnapshot::new(
@@ -844,6 +937,32 @@ fn workspace_outgoing_calls_warm(
     std::hint::black_box(fixture.database.outgoing_calls(fixture.caller))
 }
 
+#[library_benchmark]
+#[bench::absent_100(LazyLock::force(&REFERENCE_LOOKUP_ABSENT_100))]
+#[bench::absent_1000(LazyLock::force(&REFERENCE_LOOKUP_ABSENT_1000))]
+#[bench::absent_10000(LazyLock::force(&REFERENCE_LOOKUP_ABSENT_10000))]
+#[bench::single_100(LazyLock::force(&REFERENCE_LOOKUP_SINGLE_100))]
+#[bench::single_1000(LazyLock::force(&REFERENCE_LOOKUP_SINGLE_1000))]
+#[bench::single_10000(LazyLock::force(&REFERENCE_LOOKUP_SINGLE_10000))]
+#[bench::three_100(LazyLock::force(&REFERENCE_LOOKUP_THREE_100))]
+#[bench::three_1000(LazyLock::force(&REFERENCE_LOOKUP_THREE_1000))]
+#[bench::three_10000(LazyLock::force(&REFERENCE_LOOKUP_THREE_10000))]
+fn workspace_reference_lookup_warm(
+    fixture: &ReferenceLookupWorkspace,
+) -> (usize, usize, Option<workspace::FileId>) {
+    std::hint::black_box(
+        std::hint::black_box(&fixture.database)
+            .external_reference_groups(std::hint::black_box(fixture.target))
+            .fold((0, 0, None), |(groups, occurrences, source), group| {
+                (
+                    groups + 1,
+                    occurrences + std::hint::black_box(group.occurrence_count()),
+                    source.max(Some(std::hint::black_box(group.source()))),
+                )
+            }),
+    )
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -856,7 +975,8 @@ library_benchmark_group!(
         workspace_references, workspace_burst_revision_invalidation,
         constructor_definition_warm, parameter_annotation_warm,
         cold_workspace_semantic_build, cold_workspace_semantic_update,
-        workspace_references_warm, workspace_incoming_calls_warm, workspace_outgoing_calls_warm
+        workspace_references_warm, workspace_incoming_calls_warm, workspace_outgoing_calls_warm,
+        workspace_reference_lookup_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);
