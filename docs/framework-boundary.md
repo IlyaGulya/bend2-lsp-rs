@@ -509,6 +509,43 @@ substitute for the failed cache gates. Samples and reports remain under
 `/tmp/bend2-architecture-latency-optimized-12-{baseline,candidate,report}.json`
 and `/tmp/bend2-architecture-latency-optimized-12-report.md`.
 
+### Lookup isolation and rejected candidate-column experiment
+
+PR #16 source `5b764a3` separates borrowed external reference group lookup from
+materialization through the same production traversal. The new cases use valid
+current symbol identities and zero, one, or three matching sources at 100,
+1,000, and 10,000 files. The absent case interns the member name through an
+independent file's relation so it reaches an absent bucket. Setup checks exact
+sources and occurrence counts outside measurement; the query clones no
+`Document` or URI and constructs no occurrence/protocol output.
+
+[Hosted run 37339668833](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37339668833)
+measured lookup `Ir` as 462/462/462 for absent, 549/545/549 for one source,
+and 659/655/659 for three. Raw lookup profiles contain no executed allocation
+or document-materialization records. These workloads do not support a
+workspace-size-driven bucket bottleneck. Existing warm reference totals include
+materialization and sorting; they are not isolated lookup measurements.
+The unchanged main comparator passed 23/36 workloads; the run remained red.
+Hosted quality and latency validity passed.
+
+Exclusive nine-event attribution of retained `69316b3` profiles matched profile
+totals. Initial build added 23,733 `D1mr` in `prepare_semantic_snapshot` and
+8,591 in `occurrence_template_target` versus its same-run main baseline.
+This motivated one cold candidate-column experiment, not a warm CSR or arena.
+Source `cf89172` recorded unresolved qualified reference ordinals during syntax
+construction, avoiding full reference-row iteration and repeated qualifier
+resolution during staging. Empty candidate payloads allocated nothing.
+
+[Hosted run 37341424990](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37341424990)
+reduced initial-build `D1mr` 157,992→150,646 (−4.65%), but increased incremental
+fixture `Ir` 447,514→489,865 (+9.46%) and `D1mr` 5,885→7,455 (+26.68%).
+Exclusive added `Ir` included `malloc_consolidate` 28,457 and `unlink_chunk`
+9,315. This benchmark includes whole-fixture teardown: those costs are not an
+isolated contribution-update measurement. The main comparator passed 21/36
+workloads and stayed red. The experiment was rejected and reverted in `3c7e221`;
+borrowed lookup and its benchmarks remain. Raw evidence for both sources is
+preserved; no baseline, threshold, old workload, or retry-to-green was changed.
+
 ## Primary sources
 
 [original-index]: https://index.crates.io/to/we/tower-lsp
