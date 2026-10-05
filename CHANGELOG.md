@@ -41,6 +41,8 @@
   rebuilding importers when dependency declarations change.
   Visit indexed reference rows during cold preparation and avoid a scratch
   target-map allocation for single-target files.
+  Materialize external references from exact-length ordinal slices; declarations
+  stay in local syntax spans, so external rows need no declaration filtering.
   Add a separate interleaved multi-target cold benchmark; existing workloads,
   destruction scope, metrics, and limits are unchanged.
 - Cache local occurrence and function-call totals during syntax-index construction.
