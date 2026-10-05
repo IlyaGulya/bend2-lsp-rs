@@ -86,6 +86,7 @@ impl LanguageServer for Backend {
             registration.type_hierarchy = supports_type_hierarchy_registration;
             registration.watch = supports_watch_registration;
         }
+        self.workspace.discovery.schedule(self.clone()).await;
         Ok(InitializeResult {
             capabilities: server_capabilities(),
             server_info: Some(ServerInfo {
@@ -146,6 +147,7 @@ impl LanguageServer for Backend {
                 }
             }
         }
+        self.workspace.discovery.schedule(self.clone()).await;
         for document in self
             .workspace_documents()
             .into_iter()

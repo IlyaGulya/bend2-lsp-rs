@@ -48,6 +48,7 @@ tower = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "io-util", "sync", "signal"] }
 url = "2"
 tempfile = "3"
+ignore = "0.4"
 serde_json = "1"
 tracing = { version = "0.1.44", features = ["attributes"] }
 tracing-chrome = "0.7.2"

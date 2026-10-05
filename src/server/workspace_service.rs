@@ -65,6 +65,7 @@ pub(super) struct WorkspaceService {
     pub(super) updates: RwLock<()>,
     pub(super) roots: State<Vec<PathBuf>>,
     pub(super) staging: Arc<Semaphore>,
+    pub(super) discovery: Arc<super::discovery::DiscoveryService>,
 }
 impl Default for WorkspaceService {
     fn default() -> Self {
@@ -78,6 +79,7 @@ impl Default for WorkspaceService {
             updates: RwLock::new(()),
             roots: State::new(Vec::new()),
             staging: Arc::new(Semaphore::new(4)),
+            discovery: Arc::new(super::discovery::DiscoveryService::default()),
         }
     }
 }
@@ -140,6 +142,9 @@ impl WorkspaceService {
         if !state.is_closed(closed) || state.database.file_id_by_uri(uri) != Some(closed.file) {
             return CloseCommit::Superseded;
         }
+        // The database compares the prepared disk snapshot identity before
+        // mutation. Only changes to this file invalidate restoration; unrelated
+        // discovery commits must not abandon an otherwise-current close.
         match state.apply(|database| database.close_document_prepared(uri, imports, semantics)) {
             Some(file) => CloseCommit::Committed(file),
             None => CloseCommit::RetryDisk,
@@ -232,7 +237,7 @@ mod tests {
                 closed,
                 &uri,
                 old_imports,
-                Some(prepare_semantic_snapshot(old_snapshot.clone())),
+                Some(prepare_semantic_snapshot(old_snapshot.clone()))
             ),
             CloseCommit::RetryDisk
         ));
@@ -254,7 +259,7 @@ mod tests {
                 closed,
                 &uri,
                 current_imports,
-                Some(prepare_semantic_snapshot(current_snapshot.clone())),
+                Some(prepare_semantic_snapshot(current_snapshot.clone()))
             ),
             CloseCommit::Committed(_)
         ));

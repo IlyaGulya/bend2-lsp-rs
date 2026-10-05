@@ -116,11 +116,11 @@ editor. Source-based features are **not** a full compiler type checker.
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
 | Go to type definition | Declaration-derived type navigation |
-| Find references | Workspace occurrence indexes over open and import-reachable documents |
+| Find references | Workspace occurrence indexes, including unopened discovered project files |
 | Rename | Symbol rename across indexed documents; not file/module rename |
 | Document highlights | Matching symbol occurrences in the current document |
 | Document symbols | Outline of declarations in a document |
-| Workspace symbols | Search over indexed open and imported documents |
+| Workspace symbols | Search over indexed open, imported, and discovered project documents |
 | Semantic highlighting | Full-document semantic tokens |
 | Code actions | Limited quick fixes for missing closing delimiters |
 | Inlay hints | Argument-name hints; not inferred-type hints |
@@ -162,10 +162,12 @@ graph; unrelated documents remain queryable while snapshots are built. Watched
 disk updates do not overwrite active unsaved import edges. Closing a document
 restores the latest disk snapshot and its imports.
 
-Workspace scope is limited to open documents and their indexed imports. Unopened
-files outside that graph are not discovered. Clients must send file-change
-notifications for subsequent disk changes; the server does not check every
-project file or fetch Hub packages.
+Workspace roots are discovered in the background. Discovery honors `.gitignore`
+and `.ignore`, excludes hidden directories, `target`, and `node_modules`, and does
+not follow symlinks. Workspace-wide queries wait for initial discovery and pending
+watched-file updates; unrelated document-local queries do not. Clients must send
+file-change notifications for subsequent disk changes. Discovery does not run
+compiler checks on every project file or fetch Hub packages.
 
 Snapshots and their grouped semantic contributions are prepared outside workspace
 locks. A validated commit updates the snapshot, import graph, semantic indexes,
@@ -177,7 +179,7 @@ cancelled tickets, and old diagnostics cannot overwrite a reopened buffer, even
 when its version numbering restarts.
 
 Server state poisoning is a fatal invariant failure, not a missing feature.
-The transport supervisor drains owned diagnostics work and compiler
+The transport supervisor drains owned diagnostics/discovery work and compiler
 children before returning an error. Analysis remains synchronous and immutable;
 the framework boundary decision is recorded in
 [`docs/framework-boundary.md`](docs/framework-boundary.md).
@@ -216,11 +218,9 @@ limitations above describe this checkout; see the changelog for unreleased work.
    patterns, and in-scope local bindings instead of unrelated suggestions.
 2. **Auto-import and useful quick fixes:** insert imports for selected symbols,
    reuse existing aliases, and avoid name conflicts.
-3. **Background whole-project indexing:** discover and index project files,
-   including unrelated files, and incrementally update them after changes.
-4. **Alias and file/module rename:** update affected imports and references with
+3. **Alias and file/module rename:** update affected imports and references with
    conflict checks and coordinated workspace edits.
-5. **Compiler integration research:** investigate structured compiler output or
+4. **Compiler integration research:** investigate structured compiler output or
    APIs for more precise types and diagnostics before committing to
    compiler-powered hover, completion, or inferred-type hints. Do not introduce
    an independent type checker that can diverge from Bend.

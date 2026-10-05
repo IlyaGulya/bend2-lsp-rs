@@ -156,6 +156,7 @@ pub struct WorkspaceDb {
     compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
     reachable: FileSet,
     reachability_dirty: bool,
+    discovered_roots: HashSet<FileId>,
     semantic: semantic::SemanticIndex,
 }
 
@@ -378,6 +379,65 @@ impl WorkspaceDb {
         Some((id, imports_changed))
     }
 
+    /// Include a discovered on-disk file as an independent workspace query root.
+    /// Discovery and disk I/O happen outside feature queries; removing a root
+    /// leaves its identity and snapshot available for existing importers.
+    pub fn set_discovered_root(&mut self, id: FileId, active: bool) {
+        if self.entries.get(id.0).is_none() {
+            return;
+        }
+        if active {
+            if self.discovered_roots.insert(id) {
+                self.extend_reachable(id);
+            }
+        } else if self.discovered_roots.remove(&id) {
+            self.recompute_reachable();
+        }
+    }
+
+    /// Tombstone a deleted discovered disk file. An open editor overlay wins
+    /// until close, and reverse import links continue to identify dependents.
+    pub fn deactivate_discovered_file(&mut self, path: &Path) -> Option<FileId> {
+        let id = self.file_id_by_path(path)?;
+        self.discovered_roots.remove(&id);
+        self.entries[id.0].disk_snapshot = None;
+        if self.entries[id.0].open_snapshot.is_none() {
+            let imports_changed = self.refresh_imports_with_targets(id, Vec::new());
+            self.install_semantics(id, None, imports_changed);
+        }
+        self.recompute_reachable();
+        Some(id)
+    }
+
+    /// List discovered query roots without traversing workspace files.
+    #[must_use]
+    pub fn discovered_roots(&self) -> Vec<FileId> {
+        self.discovered_roots.iter().copied().collect()
+    }
+
+    /// Capture cached disk paths in roots being rescanned, including import-only
+    /// files. Removed workspace roots do not provide evidence of disk deletion.
+    pub(crate) fn disk_paths_in_roots(&self, roots: &[PathBuf]) -> Vec<PathBuf> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.disk_snapshot.is_some())
+            .filter_map(|entry| entry.path.as_ref())
+            .filter(|path| roots.iter().any(|root| path.starts_with(root)))
+            .cloned()
+            .collect()
+    }
+
+    /// Remove query roots absent from a completed discovery scan. Cached snapshots
+    /// survive unless a prepared disk update proved deletion; open buffers win.
+    /// Recompute reachability only once per scan.
+    pub fn retain_discovered_roots(&mut self, retained: &HashSet<FileId>) {
+        let previous = self.discovered_roots.len();
+        self.discovered_roots.retain(|id| retained.contains(id));
+        if self.discovered_roots.len() != previous {
+            self.recompute_reachable();
+        }
+    }
+
     pub(crate) fn document_path(&self, uri: &Url) -> Option<PathBuf> {
         self.entries.get(self.by_uri.get(uri)?.0)?.path.clone()
     }
@@ -487,6 +547,7 @@ impl WorkspaceDb {
             .filter(|(_, entry)| entry.open_snapshot.is_some())
             .map(|(index, _)| FileId(index))
             .collect();
+        pending.extend(self.discovered_roots.iter().copied());
         let mut reachable = FileSet::default();
         while let Some(id) = pending.pop() {
             if !reachable.insert(id) {

@@ -4,6 +4,9 @@
 
 ### Features
 
+- Discover workspace `.bend` files in the background, respecting project ignore
+  files and excluding hidden/build directories and symlinks. Index unopened
+  importers for references, rename, workspace symbols, and call hierarchy.
 - Prepare grouped workspace semantic contributions during cold staging; use
   revision-safe symbol identities and indexed occurrence/call buckets for warm
   cross-file queries. Keep stable file IDs with deletion tombstones.
@@ -22,6 +25,9 @@
 - Detach active indexed Base resolution when compiler configuration resets;
   failed or empty reloads cannot retain old call targets, while previously
   published generated source remains readable and successful reloads rebind.
+- Tombstone cached imported disk sources proven absent during rediscovery,
+  without watched-file events; preserve open overlays, existing ignored imports,
+  and snapshots outside the roots actually rescanned.
 
 ### Architecture
 

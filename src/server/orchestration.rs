@@ -326,6 +326,7 @@ impl Backend {
     }
 
     pub(super) async fn workspace_ready_read(&self) -> RwLockReadGuard<'_, ()> {
+        self.workspace.discovery.wait().await;
         self.ready_read(None).await
     }
 
@@ -850,6 +851,9 @@ impl Backend {
         &self,
         events: Vec<(Url, PathBuf)>,
     ) -> HashMap<Url, i32> {
+        let Some(_update) = self.workspace.discovery.track_update() else {
+            return HashMap::new();
+        };
         if events.is_empty() {
             return HashMap::new();
         }
@@ -860,7 +864,7 @@ impl Backend {
         else {
             return HashMap::new();
         };
-        let updates = {
+        let (updates, needs_discovery) = {
             let _workspace_update = self.workspace.updates.write().await;
             let commit_span = tracing::info_span!(
                 "workspace.commit",
@@ -871,7 +875,11 @@ impl Backend {
             let updates = commit_span.in_scope(|| {
                 self.workspace.commit(None, None, |database| {
                     let mut updates = Vec::with_capacity(prepared.len());
+                    let mut needs_discovery = false;
                     for update in prepared {
+                        let exists = update.semantics.is_some();
+                        needs_discovery |=
+                            exists && database.cached_document(&update.uri).is_none();
                         let Some((id, imports_changed)) = database.sync_disk_snapshot_prepared(
                             &update.path,
                             update.semantics,
@@ -879,12 +887,15 @@ impl Backend {
                         ) else {
                             continue;
                         };
+                        if !exists {
+                            database.set_discovered_root(id, false);
+                        }
                         if let Some(document) = database.open_document(&update.uri) {
                             affected.insert(document.uri.clone(), document.revision.0);
                         }
                         updates.push((id, imports_changed));
                     }
-                    Some(updates)
+                    Some((updates, needs_discovery))
                 })
             });
             let Some(updates) = updates else {
@@ -914,6 +925,9 @@ impl Backend {
             return HashMap::new();
         };
         affected.extend(after);
+        if needs_discovery {
+            self.workspace.discovery.schedule(self.clone()).await;
+        }
         tracing::Span::current().record("outcome", "committed");
         affected
     }

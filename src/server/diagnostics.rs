@@ -215,6 +215,7 @@ impl Backend {
         self.compiler.reapers.close();
         self.compiler.semaphore.close();
         self.diagnostics.shutdown().await;
+        self.workspace.discovery.shutdown().await;
         self.compiler.reapers.wait().await;
     }
     pub(super) async fn run_diagnostics(&self, uri: Url, version: i32) {

@@ -247,6 +247,7 @@ pub(super) async fn run() -> io::Result<()> {
     }
     compiler_reapers.close();
     diagnostics.shutdown().await;
+    workspace.discovery.shutdown().await;
     compiler_reapers.wait().await;
     drop(trace_guard);
     if internal_failure || *diagnostics_failure.borrow() {
