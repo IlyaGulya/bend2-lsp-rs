@@ -1,0 +1,42 @@
+name: cold-cache-diagnostic
+
+on:
+  pull_request:
+    branches: [refactor/workspace-semantic-index]
+    paths:
+      - .github/workflows/cold-cache-diagnostic.yml
+      - scripts/cold_cache_diagnostic.py
+
+permissions: {}
+
+jobs:
+  exact-source:
+    if: github.head_ref == 'diagnostic/cold-cache-exact-source' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install matching native diagnostic tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes valgrind
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+      - name: Build exact sources independently and collect fixed diagnostic samples
+        run: |
+          python3 scripts/cold_cache_diagnostic.py \
+            --source "$GITHUB_WORKSPACE" \
+            --work-dir "$RUNNER_TEMP/cold-cache-exact-source" \
+            --output-dir "$GITHUB_WORKSPACE/target/cold-cache-diagnostic"
+      - name: Preserve every binary and raw diagnostic, including failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cold-cache-exact-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/cold-cache-diagnostic/
+          if-no-files-found: error
+          retention-days: 14
