@@ -1,12 +1,13 @@
 use super::super::LineIndex;
 use super::{
-    AuxiliaryIndex, IndexedSymbol, SymbolId, SymbolKind, SyntaxIndex, Token, TokenKind,
+    AuxiliaryIndex, ConstructorIndex, IndexedSymbol, SymbolId, SymbolKind, SyntaxIndex, SyntaxLine,
+    Token, TokenKind,
     calls::{CallInputs, build_calls},
     declarations::{
         BindingContext, build_lines, parse_bindings, parse_constructors, parse_imports,
         parse_symbols,
     },
-    names::keyword_name_flags,
+    names::{NameTable, keyword_name_flags},
     references::{ReferenceInputs, build_references, resolve_symbols},
     scanner::{ScanOutput, Scanner},
 };
@@ -43,14 +44,7 @@ impl SyntaxIndex {
         let keyword_names = keyword_name_flags(source, &names);
         let mut symbols = parse_symbols(source, &lines, &mut names);
         let symbol_by_name = assign_symbol_ids(&mut symbols, names.ranges.len());
-        let constructor_index = if symbols
-            .iter()
-            .any(|symbol| symbol.kind == SymbolKind::Struct)
-        {
-            parse_constructors(source, &lines, &symbols, &mut names)
-        } else {
-            None
-        };
+        let constructor_index = build_constructor_index(source, &lines, &symbols, &mut names);
         let auxiliary = AuxiliaryIndex::new(diagnostics, constructor_index);
         let bindings = parse_bindings(
             &BindingContext {
@@ -114,7 +108,9 @@ impl SyntaxIndex {
             name_reference_indices: references.by_name_indices.into_boxed_slice(),
             name_reference_spans: references.by_name_spans.into_boxed_slice(),
             token_references: references.token_references.into_boxed_slice(),
+            local_reference_occurrences: references.local_reference_occurrences,
             calls: calls.calls.into_boxed_slice(),
+            local_function_calls: calls.local_function_calls,
             call_arguments: calls.arguments.into_boxed_slice(),
             call_separators: calls.separators.into_boxed_slice(),
             calls_from_indices: calls.from_indices.into_boxed_slice(),
@@ -130,6 +126,22 @@ impl SyntaxIndex {
             symbol_by_name: symbol_by_name.into_boxed_slice(),
             token_symbols: token_symbols.into_boxed_slice(),
         }
+    }
+}
+
+fn build_constructor_index(
+    source: &str,
+    lines: &[SyntaxLine],
+    symbols: &[IndexedSymbol],
+    names: &mut NameTable,
+) -> Option<ConstructorIndex> {
+    if symbols
+        .iter()
+        .any(|symbol| symbol.kind == SymbolKind::Struct)
+    {
+        parse_constructors(source, lines, symbols, names)
+    } else {
+        None
     }
 }
 

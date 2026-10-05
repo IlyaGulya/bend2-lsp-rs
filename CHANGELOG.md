@@ -44,6 +44,10 @@
   target-map allocation for single-target files.
   Add a separate interleaved multi-target cold benchmark; existing workloads,
   destruction scope, metrics, and limits are unchanged.
+- Cache local occurrence and function-call totals during syntax-index construction.
+  Keep workspace contributions only for external relations; local-only feature
+  queries continue to use their immutable snapshots. Cold snapshot benchmarks
+  include this metadata work separately from prebuilt-snapshot semantic workloads.
 - Reserve semantic-token results from a cold-built exact count and avoid
   unnecessary trailing-whitespace scanning when checking blank folding lines.
 

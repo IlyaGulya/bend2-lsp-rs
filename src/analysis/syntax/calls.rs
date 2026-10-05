@@ -1,7 +1,7 @@
 use super::{
-    CallSite, DelimiterPair, IndexedBinding, IndexedSymbol, NameTable, SymbolId, TextRange, Token,
-    TokenId, TokenKind, compact_groups, declarations::declaration_tokens, enclosing_function,
-    qualified_chain_start,
+    CallSite, DelimiterPair, IndexedBinding, IndexedSymbol, NameTable, SymbolId, SymbolKind,
+    TextRange, Token, TokenId, TokenKind, compact_groups, declarations::declaration_tokens,
+    enclosing_function, qualified_chain_start,
 };
 
 pub(super) struct CallInputs<'a> {
@@ -36,6 +36,7 @@ pub(super) struct CallIndex {
     pub(super) from_spans: Vec<TextRange>,
     pub(super) to_indices: Vec<usize>,
     pub(super) to_spans: Vec<TextRange>,
+    pub(super) local_function_calls: usize,
 }
 
 pub(super) fn build_calls(input: CallInputs<'_>, group_counts: &mut Vec<usize>) -> CallIndex {
@@ -65,6 +66,7 @@ pub(super) fn build_calls(input: CallInputs<'_>, group_counts: &mut Vec<usize>) 
     let mut separators = Vec::new();
     let mut by_open = vec![None; tokens.len()];
     let mut by_name_token = vec![None; tokens.len()];
+    let mut local_function_calls = 0;
     for (open_index, (open_token, by_open_slot)) in
         context.tokens.iter().copied().zip(&mut by_open).enumerate()
     {
@@ -82,6 +84,14 @@ pub(super) fn build_calls(input: CallInputs<'_>, group_counts: &mut Vec<usize>) 
         by_name_token[call.callee_token.0] = Some(call_index);
         if let Some(qualifier_token) = call.qualifier_token {
             by_name_token[qualifier_token.0] = Some(call_index);
+        }
+        if call.caller.is_some()
+            && call
+                .callee
+                .and_then(|id| symbols.get(id.0))
+                .is_some_and(|symbol| symbol.kind == SymbolKind::Function)
+        {
+            local_function_calls += 1;
         }
         calls.push(call);
     }
@@ -102,6 +112,7 @@ pub(super) fn build_calls(input: CallInputs<'_>, group_counts: &mut Vec<usize>) 
         from_spans,
         to_indices,
         to_spans,
+        local_function_calls,
     }
 }
 

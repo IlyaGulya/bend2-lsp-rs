@@ -23,6 +23,7 @@ pub(super) struct ReferenceIndex {
     pub(super) by_name_indices: Vec<usize>,
     pub(super) by_name_spans: Vec<TextRange>,
     pub(super) token_references: Vec<Option<usize>>,
+    pub(super) local_reference_occurrences: usize,
 }
 
 pub(super) fn resolve_symbols(
@@ -102,7 +103,7 @@ pub(super) fn build_references(
     let mut token_references = vec![None; tokens.len()];
     // Calls are emitted in callee-token order by the opening-delimiter scan.
     let mut next_call = 0;
-    append_declaration_references(
+    let mut local_reference_occurrences = append_declaration_references(
         tokens,
         symbols,
         bindings,
@@ -165,6 +166,9 @@ pub(super) fn build_references(
             resolved: token_symbols[token_index],
         });
         token_references[token_index] = Some(index);
+        if token_symbols[token_index].is_some() {
+            local_reference_occurrences += 1;
+        }
     }
     let (by_symbol_indices, by_symbol_spans) = compact_groups(
         &references,
@@ -183,6 +187,7 @@ pub(super) fn build_references(
         by_name_indices,
         by_name_spans,
         token_references,
+        local_reference_occurrences,
     }
 }
 
@@ -192,7 +197,10 @@ fn append_declaration_references(
     bindings: &[IndexedBinding],
     references: &mut Vec<Reference>,
     token_references: &mut [Option<usize>],
-) {
+) -> usize {
+    let mut local_reference_occurrences = 0;
+    // Declaration rows are always resolved, so only the first mapping of each
+    // token contributes; later declaration or binding rows may overwrite it.
     for symbol in symbols {
         let start = tokens.partition_point(|token| token.range.start < symbol.name_range.start);
         let end = tokens.partition_point(|token| token.range.start < symbol.name_range.end);
@@ -216,7 +224,9 @@ fn append_declaration_references(
         });
         for (offset, token) in tokens[start..end].iter().enumerate() {
             if token.kind == TokenKind::Identifier {
-                token_references[start + offset] = Some(index);
+                let slot = &mut token_references[start + offset];
+                local_reference_occurrences += usize::from(slot.is_none());
+                *slot = Some(index);
             }
         }
     }
@@ -232,8 +242,11 @@ fn append_declaration_references(
             kind: ReferenceKind::Declaration,
             resolved: Some(binding.id),
         });
-        token_references[binding.declaration.0] = Some(index);
+        let slot = &mut token_references[binding.declaration.0];
+        local_reference_occurrences += usize::from(slot.is_none());
+        *slot = Some(index);
     }
+    local_reference_occurrences
 }
 
 fn is_qualified_token(source: &str, tokens: &[Token], index: usize) -> bool {
