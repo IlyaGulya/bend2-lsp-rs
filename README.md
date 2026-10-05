@@ -116,11 +116,11 @@ editor. Source-based features are **not** a full compiler type checker.
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
 | Go to type definition | Declaration-derived type navigation |
-| Find references | Indexed symbol occurrences in the loaded workspace graph |
-| Rename | Symbol rename across indexed, loaded documents; not file/module rename |
+| Find references | Workspace occurrence indexes, including unopened discovered project files |
+| Rename | Symbol rename across indexed documents; not file/module rename |
 | Document highlights | Matching symbol occurrences in the current document |
 | Document symbols | Outline of declarations in a document |
-| Workspace symbols | Search over indexed workspace documents; not a scan of every file on disk |
+| Workspace symbols | Search over indexed open, imported, and discovered project documents |
 | Semantic highlighting | Full-document semantic tokens |
 | Code actions | Limited quick fixes for missing closing delimiters |
 | Inlay hints | Argument-name hints; not inferred-type hints |
@@ -162,6 +162,28 @@ graph; unrelated documents remain queryable while snapshots are built. Watched
 disk updates do not overwrite active unsaved import edges. Closing a document
 restores the latest disk snapshot and its imports.
 
+Workspace roots are discovered in the background. Discovery honors `.gitignore`
+and `.ignore`, excludes hidden directories, `target`, and `node_modules`, and does
+not follow symlinks. Workspace-wide queries wait for initial discovery and pending
+watched-file updates; unrelated document-local queries do not. Clients must send
+file-change notifications for subsequent disk changes. Discovery does not run
+compiler checks on every project file or fetch Hub packages.
+
+Snapshots and their grouped semantic contributions are prepared outside workspace
+locks. A validated commit updates the snapshot, import graph, semantic indexes,
+and generation together. Global symbol handles include a snapshot epoch, so a
+rebuild cannot reinterpret an old local symbol ID. File IDs stay stable for the
+server lifetime; deleted files leave tombstones while active editor buffers retain
+their unsaved overlay. Closing starts a new revision epoch: queued old closes,
+cancelled tickets, and old diagnostics cannot overwrite a reopened buffer, even
+when its version numbering restarts.
+
+Server state poisoning is a fatal invariant failure, not a missing feature.
+The transport supervisor drains owned diagnostics/discovery work and compiler
+children before returning an error. Analysis remains synchronous and immutable;
+the framework boundary decision is recorded in
+[`docs/framework-boundary.md`](docs/framework-boundary.md).
+
 Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors
 `tabSize` and `insertSpaces` and declines unsafe rewrites.
@@ -176,8 +198,7 @@ comments, line endings, and whether the file ends with a newline. It honors
   insertion, and compiler-driven quick fixes.
 - **File-operation hooks:** automatic import updates when files are created,
   renamed, or deleted through LSP file-operation requests.
-- **Whole-project discovery:** indexing every unrelated file on disk or fetching
-  missing Hub packages automatically.
+- **Automatic package fetching:** missing Hub packages are not downloaded.
 - **Pull diagnostics** (`textDocument/diagnostic`, `workspace/diagnostic`).
   Diagnostics are pushed through `textDocument/publishDiagnostics`.
 - **Semantic token range/delta requests**, completion-item resolution, and
@@ -191,17 +212,15 @@ comments, line endings, and whether the file ends with a newline. It honors
 
 These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
-limitations above describe the current release.
+limitations above describe this checkout; see the changelog for unreleased work.
 
 1. **Context-aware completion:** offer types in annotations, constructors in
    patterns, and in-scope local bindings instead of unrelated suggestions.
 2. **Auto-import and useful quick fixes:** insert imports for selected symbols,
    reuse existing aliases, and avoid name conflicts.
-3. **Background whole-project indexing:** discover and index project files,
-   including unrelated files, and incrementally update them after changes.
-4. **Alias and file/module rename:** update affected imports and references with
+3. **Alias and file/module rename:** update affected imports and references with
    conflict checks and coordinated workspace edits.
-5. **Compiler integration research:** investigate structured compiler output or
+4. **Compiler integration research:** investigate structured compiler output or
    APIs for more precise types and diagnostics before committing to
    compiler-powered hover, completion, or inferred-type hints. Do not introduce
    an independent type checker that can diverge from Bend.

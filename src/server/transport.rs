@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     io::{self, Read},
     pin::Pin,
     sync::{
@@ -9,11 +8,13 @@ use std::{
     task::{Context, Poll},
 };
 
-use super::{compiler::CompilerReapers, lsp::Backend, telemetry};
+use super::{
+    compiler::CompilerReapers, diagnostics::DiagnosticsService, lsp::Backend, telemetry,
+    workspace_service::WorkspaceService,
+};
 use tokio::{
     io::{AsyncRead, AsyncWrite, ReadBuf},
-    sync::{Mutex as AsyncMutex, mpsc},
-    task::JoinHandle,
+    sync::mpsc,
 };
 use tower::Service;
 use tower_lsp::{
@@ -21,7 +22,6 @@ use tower_lsp::{
     jsonrpc::{Id, Request, Response},
 };
 use tracing::Instrument;
-use url::Url;
 
 static NEXT_REQUEST_CORRELATION: AtomicU64 = AtomicU64::new(1);
 
@@ -185,7 +185,7 @@ impl AsyncRead for StdinChannel {
     }
 }
 
-pub(super) async fn run() {
+pub(super) async fn run() -> io::Result<()> {
     let trace_guard = match telemetry::initialize() {
         Ok(guard) => guard,
         Err(error) => {
@@ -197,31 +197,63 @@ pub(super) async fn run() {
         }
     };
     let stdout = tokio::io::stdout();
-    let analysis_tasks = Arc::new(AsyncMutex::new(HashMap::new()));
+    let diagnostics = Arc::new(DiagnosticsService::default());
+    let workspace = Arc::new(WorkspaceService::default());
     let compiler_reapers = Arc::new(CompilerReapers::default());
-    let server_tasks = analysis_tasks.clone();
+    let server_diagnostics = diagnostics.clone();
     let server_reapers = compiler_reapers.clone();
+    let server_workspace = workspace.clone();
     let (service, socket) = LspService::new(move |client| {
-        Backend::new(client, server_tasks.clone(), server_reapers.clone())
+        Backend::new(
+            client,
+            server_workspace.clone(),
+            server_diagnostics.clone(),
+            server_reapers.clone(),
+        )
     });
     let (exit, mut exit_rx) = tokio::sync::watch::channel(false);
+    let mut diagnostics_failure = diagnostics.fatal_receiver();
     let service = ExitAwareService {
         inner: service,
         exit,
     };
-    tokio::select! {
-        () = Server::new(
-            StdinChannel::new(compiler_reapers.clone()),
+    let stdin_reapers = compiler_reapers.clone();
+    let mut server = tokio::spawn(async move {
+        Server::new(
+            StdinChannel::new(stdin_reapers),
             TracedStdout(stdout),
             socket,
-        ).serve(service) => {}
-        _ = exit_rx.changed() => {}
-        () = termination_signal() => {}
+        )
+        .serve(service)
+        .await;
+    });
+    let mut internal_failure = false;
+    let outcome = tokio::select! {
+        result = &mut server => Some(result),
+        _ = diagnostics_failure.changed() => {
+            internal_failure = true;
+            None
+        }
+        _ = exit_rx.changed() => None,
+        () = termination_signal() => None,
+    };
+    if outcome.is_none() {
+        server.abort();
+        let _ = server.await;
+    }
+    let failure = outcome.and_then(Result::err);
+    if let Some(error) = &failure {
+        tracing::error!(%error, "LSP transport failed; draining owned work");
     }
     compiler_reapers.close();
-    cancel_task_handles(&analysis_tasks).await;
+    diagnostics.shutdown().await;
+    workspace.discovery.shutdown().await;
     compiler_reapers.wait().await;
     drop(trace_guard);
+    if internal_failure || *diagnostics_failure.borrow() {
+        return Err(io::Error::other("diagnostics state invariant failed"));
+    }
+    failure.map_or(Ok(()), |error| Err(io::Error::other(error)))
 }
 
 #[cfg(unix)]
@@ -240,14 +272,4 @@ async fn termination_signal() {
 #[cfg(not(unix))]
 async fn termination_signal() {
     std::future::pending::<()>().await;
-}
-
-async fn cancel_task_handles(tasks: &AsyncMutex<HashMap<Url, (u64, JoinHandle<()>)>>) {
-    let tasks = std::mem::take(&mut *tasks.lock().await);
-    for (_, task) in tasks.values() {
-        task.abort();
-    }
-    for (_, task) in tasks.into_values() {
-        let _ = task.await;
-    }
 }

@@ -1,0 +1,9 @@
+mod actions;
+mod completion;
+mod formatting;
+mod hierarchy;
+mod navigation;
+mod references;
+mod shared;
+mod structure;
+mod symbols;

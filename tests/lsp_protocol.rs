@@ -2431,6 +2431,147 @@ mod protocol {
         client.finish();
     }
     #[test]
+    fn workspace_references_include_unopened_importers_and_remove_deleted_files() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path();
+        let dependency_path = workspace.join("dep.bend");
+        let importer_path = workspace.join("unopened.bend");
+        let dependency = "def value() -> U32:\n  1\n";
+        fs::write(&dependency_path, dependency).must_be("write dependency");
+        fs::write(
+            &importer_path,
+            "import ./dep.bend as Dep\ndef caller() -> U32:\n  Dep.value()\n",
+        )
+        .must_be("write unopened importer");
+        let dependency_uri = Url::from_file_path(&dependency_path)
+            .must_be("dependency URI")
+            .to_string();
+        let importer_uri = Url::from_file_path(&importer_path)
+            .must_be("importer URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&workspace.join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(workspace);
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":dependency_uri,"languageId":"bend","version":1,"text":dependency
+            }}),
+        );
+        let params = json!({
+            "textDocument":{"uri":dependency_uri},
+            "position":{"line":0,"character":5},
+            "context":{"includeDeclaration":false}
+        });
+        let references = client.request("textDocument/references", params.clone());
+        assert_eq!(
+            references["result"],
+            json!([{"uri":importer_uri,"range":{
+                "start":{"line":2,"character":6},"end":{"line":2,"character":11}
+            }}]),
+            "workspace discovery must index the unopened importer's resolved occurrence"
+        );
+        fs::remove_file(&importer_path).must_be("delete importer");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":importer_uri,"type":3}]}),
+        );
+        let references = client.request("textDocument/references", params.clone());
+        assert_eq!(
+            references["result"],
+            json!([]),
+            "deleted file must stop contributing occurrences"
+        );
+        fs::write(
+            &importer_path,
+            "# recreated at a different source range\nimport ./dep.bend as Dep\ndef caller() -> U32:\n  Dep.value()\n",
+        )
+        .must_be("recreate importer");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":importer_uri,"type":1}]}),
+        );
+        let references = client.request("textDocument/references", params);
+        assert_eq!(
+            references["result"],
+            json!([{"uri":importer_uri,"range":{
+                "start":{"line":3,"character":6},"end":{"line":3,"character":11}
+            }}]),
+            "recreated FileId must contribute new ranges, not its tombstoned snapshot"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn imported_symbol_identity_survives_declaration_reordering() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path();
+        let module_path = workspace.join("dep.bend");
+        let importer_path = workspace.join("main.bend");
+        let module_source = "def value() -> U32:\n  1\n";
+        let importer_source = "import ./dep.bend as Dep\ndef caller() -> U32:\n  Dep.value()\n";
+        fs::write(&module_path, module_source).must_be("write module");
+        fs::write(&importer_path, importer_source).must_be("write importer");
+        let module_uri = Url::from_file_path(&module_path)
+            .must_be("module URI")
+            .to_string();
+        let importer_uri = Url::from_file_path(&importer_path)
+            .must_be("importer URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&workspace.join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(workspace);
+        for (uri, source) in [
+            (&module_uri, module_source),
+            (&importer_uri, importer_source),
+        ] {
+            client.notify(
+                "textDocument/didOpen",
+                json!({"textDocument":{
+                    "uri":uri,"languageId":"bend","version":1,"text":source
+                }}),
+            );
+        }
+        client.request(
+            "textDocument/definition",
+            json!({"textDocument":{"uri":importer_uri},"position":{"line":2,"character":7}}),
+        );
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":module_uri,"version":2},"contentChanges":[{
+                "text":"def unrelated() -> U32:\n  0\ndef value() -> U32:\n  1\n"
+            }]}),
+        );
+        let references = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":module_uri},"position":{"line":2,"character":5},
+                "context":{"includeDeclaration":false}
+            }),
+        );
+        assert_eq!(
+            references["result"],
+            json!([{"uri":importer_uri,"range":{
+                "start":{"line":2,"character":6},"end":{"line":2,"character":11}
+            }}]),
+            "imported identity must follow value, not its previous local SymbolId"
+        );
+        let unrelated = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":module_uri},"position":{"line":0,"character":5},
+                "context":{"includeDeclaration":false}
+            }),
+        );
+        assert_eq!(
+            unrelated["result"],
+            json!([]),
+            "new declaration must not inherit old symbol's workspace occurrences"
+        );
+        client.finish();
+    }
+
+    #[test]
     fn references_and_rename_follow_imports_without_touching_text_or_comments() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
@@ -4609,6 +4750,131 @@ mod protocol {
     }
 
     #[test]
+    fn queued_close_clears_imported_diagnostics_before_lower_version_reopen() {
+        let temp = tempdir().must_be("temporary workspace");
+        let root_path = temp.path().join("root.bend");
+        let dependency_path = temp.path().join("dep.bend");
+        let gate_path = temp.path().join("gate.bend");
+        let sentinel_path = temp.path().join("sentinel.bend");
+        let root_source = "import ./dep.bend as Dep\ndef main: Type\n  Dep.value\n";
+        let gate_source = "def gate() -> U32:\n  0\n";
+        let sentinel_source = "def sentinel() -> U32:\n  0\n";
+        for (path, source) in [
+            (&root_path, root_source),
+            (&dependency_path, "BAD\n"),
+            (&gate_path, gate_source),
+            (&sentinel_path, sentinel_source),
+        ] {
+            fs::write(path, source).must_be("write imported diagnostics epoch fixture");
+        }
+        let root_uri = regression_file_uri(&root_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let gate_uri = regression_file_uri(&gate_path);
+        let sentinel_uri = regression_file_uri(&sentinel_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":root_uri,"languageId":"bend","version":10,"text":root_source
+            }}),
+        );
+        assert!(diagnostics_for(
+            &mut client,
+            &dependency_uri,
+            false,
+            Duration::from_secs(5)
+        ));
+        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+        fs::remove_file(&gate_path).must_be("replace unrelated gate with FIFO");
+        create_fifo(&gate_path);
+        notify_watched_file_change(&mut client, &gate_uri);
+        let writer = b5_b6_hold_pending_disk_read(&gate_path);
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":root_uri}}),
+        );
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":root_uri,"languageId":"bend","version":1,
+                "text":"def reopened() -> U32:\n  2\n"
+            }}),
+        );
+        let reopened = client.request(
+            "textDocument/hover",
+            json!({"textDocument":{"uri":root_uri},"position":{"line":0,"character":5}}),
+        );
+        assert_eq!(
+            reopened["result"]["contents"]["value"],
+            "```bend\ndef reopened() -> U32\n```"
+        );
+        assert!(
+            diagnostics_for(&mut client, &dependency_uri, true, Duration::from_secs(2)),
+            "closed epoch diagnostics must not survive a lower-version reopened buffer"
+        );
+        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &sentinel_uri);
+        client.finish();
+    }
+
+    #[test]
+    fn queued_close_cannot_remove_a_reopened_document() {
+        let temp = tempdir().must_be("temporary workspace");
+        let target_path = temp.path().join("target.bend");
+        let gate_path = temp.path().join("gate.bend");
+        let sentinel_path = temp.path().join("sentinel.bend");
+        let old_source = "import ./gate.bend as Gate\ndef old_value() -> U32:\n  1\n";
+        let reopened_source = "import ./gate.bend as Gate\ndef reopened() -> U32:\n  2\n";
+        let gate_source = "def gate() -> U32:\n  0\n";
+        let sentinel_source = "def sentinel() -> U32:\n  0\n";
+        for (path, source) in [
+            (&target_path, old_source),
+            (&gate_path, gate_source),
+            (&sentinel_path, sentinel_source),
+        ] {
+            fs::write(path, source).must_be("write close-reopen fixture");
+        }
+        let target_uri = regression_file_uri(&target_path);
+        let gate_uri = regression_file_uri(&gate_path);
+        let sentinel_uri = regression_file_uri(&sentinel_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &target_uri, old_source);
+        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+        fs::remove_file(&gate_path).must_be("replace gate with FIFO");
+        create_fifo(&gate_path);
+        notify_watched_file_change(&mut client, &gate_uri);
+        let writer = b5_b6_hold_pending_disk_read(&gate_path);
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":target_uri}}),
+        );
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":target_uri,"languageId":"bend","version":2,"text":reopened_source
+            }}),
+        );
+        let params = json!({
+            "textDocument":{"uri":target_uri},"position":{"line":1,"character":5}
+        });
+        let before = client.request("textDocument/hover", params.clone());
+        assert_eq!(
+            before["result"]["contents"]["value"], "```bend\ndef reopened() -> U32\n```",
+            "reopen must commit while the old close is queued behind watcher staging"
+        );
+        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &sentinel_uri);
+        let after = client.request("textDocument/hover", params);
+        assert_eq!(
+            after["result"]["contents"]["value"], "```bend\ndef reopened() -> U32\n```",
+            "old queued close must not remove the new open epoch"
+        );
+        client.finish();
+    }
+
+    #[test]
     fn b5_watched_closed_consumer_survives_concurrent_revision_commit() {
         let temp = tempdir().must_be("temporary workspace");
         let main_path = temp.path().join("main.bend");
@@ -4942,5 +5208,533 @@ mod protocol {
             json!({"uri":uri,"range":{"start":{"line":0,"character":5},"end":{"line":0,"character":11}}}),
         );
         client.finish();
+    }
+
+    fn rediscovery_folder_barrier(client: &mut LspClient, root: &Path) -> Value {
+        let root_uri = Url::from_directory_path(root).must_be("workspace folder URI");
+        client.notify(
+            "workspace/didChangeWorkspaceFolders",
+            json!({"event":{
+                "added":[{"uri":root_uri,"name":"workspace"}],
+                "removed":[]
+            }}),
+        );
+        // Workspace symbols waits for the completed discovery generation, including
+        // its atomic disk/index commit. Re-adding an active root still schedules a scan.
+        client.request("workspace/symbol", json!({"query":""}))
+    }
+
+    fn assert_rediscovery_value_source(
+        client: &mut LspClient,
+        importer_uri: &str,
+        dependency_uri: &str,
+        declaration_line: u32,
+    ) {
+        let position = json!({
+            "textDocument":{"uri":importer_uri},
+            "position":{"line":2,"character":7}
+        });
+        let declaration = json!({"uri":dependency_uri,"range":{
+            "start":{"line":declaration_line,"character":4},
+            "end":{"line":declaration_line,"character":9}
+        }});
+        let definition = client.request("textDocument/definition", position.clone());
+        assert_eq!(definition["result"], declaration);
+        let mut params = position;
+        params["context"] = json!({"includeDeclaration":true});
+        let references = client.request("textDocument/references", params);
+        let mut actual = references["result"]
+            .as_array()
+            .must_be("resolved imported references")
+            .clone();
+        let mut expected = vec![
+            declaration,
+            json!({"uri":importer_uri,"range":{
+                "start":{"line":2,"character":6},"end":{"line":2,"character":11}
+            }}),
+        ];
+        actual.sort_by_key(Value::to_string);
+        expected.sort_by_key(Value::to_string);
+        assert_eq!(
+            actual, expected,
+            "only current declaration and caller ranges resolve"
+        );
+    }
+
+    fn assert_rediscovery_symbol(client: &mut LspClient, name: &str, uri: &str) {
+        let response = client.request("workspace/symbol", json!({"query":name}));
+        assert!(
+            response["result"]
+                .as_array()
+                .must_be("indexed workspace symbols")
+                .iter()
+                .any(|symbol| symbol["name"] == name && symbol["location"]["uri"] == uri),
+            "expected declaration {name} in {uri}: {response}",
+        );
+    }
+
+    fn rediscovery_deleted_dependency_lifecycle(open_overlay: bool) {
+        let temp = tempdir().must_be("temporary rediscovery workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let importer_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        let importer = "import ./dep.bend as Dep\ndef caller() -> U32:\n  Dep.value()\n";
+        let disk = "def value() -> U32:\n  1\ndef disk_only() -> U32:\n  2\n";
+        let overlay = "# open editor\n# distinct source range\ndef value() -> U32:\n  3\ndef overlay_only() -> U32:\n  4\n";
+        let recreated = "# recreated\n# new current disk source\n# distinct declaration range\ndef value() -> U32:\n  5\n";
+        fs::write(&importer_path, importer).must_be("write importer");
+        fs::write(&dependency_path, disk).must_be("write old disk dependency");
+        let importer_uri = regression_file_uri(&importer_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &importer_uri, importer);
+        assert_rediscovery_symbol(&mut client, "disk_only", &dependency_uri);
+        assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 0);
+        if open_overlay {
+            open_clean_document(&mut client, &dependency_uri, overlay);
+            assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 2);
+        }
+
+        fs::remove_file(&dependency_path).must_be("delete dependency without watcher event");
+        let rescanned = rediscovery_folder_barrier(&mut client, &workspace);
+        assert!(
+            rescanned["result"]
+                .as_array()
+                .must_be("rediscovered symbols")
+                .iter()
+                .all(|symbol| { symbol["name"] != "disk_only" }),
+            "old disk-only declaration must disappear: {rescanned}"
+        );
+        if open_overlay {
+            assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 2);
+            assert_rediscovery_symbol(&mut client, "overlay_only", &dependency_uri);
+        } else {
+            let definition = client.request(
+                "textDocument/definition",
+                json!({
+                    "textDocument":{"uri":importer_uri},"position":{"line":2,"character":7}
+                }),
+            );
+            assert_eq!(
+                definition["result"],
+                Value::Null,
+                "deleted declaration must not resolve"
+            );
+            let references = client.request(
+                "textDocument/references",
+                json!({
+                    "textDocument":{"uri":importer_uri},"position":{"line":2,"character":7},
+                    "context":{"includeDeclaration":true}
+                }),
+            );
+            assert_eq!(
+                references["result"],
+                Value::Null,
+                "deleted declaration must have no old ranges"
+            );
+            assert!(
+                rescanned["result"]
+                    .as_array()
+                    .must_be("rediscovered symbols")
+                    .iter()
+                    .all(|symbol| { symbol["location"]["uri"] != dependency_uri }),
+                "deleted dependency must contribute no declarations: {rescanned}"
+            );
+        }
+
+        fs::write(&dependency_path, recreated).must_be("recreate dependency under same URI");
+        rediscovery_folder_barrier(&mut client, &workspace);
+        if open_overlay {
+            // Recreated disk content remains subordinate to the open editor version.
+            assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 2);
+            client.notify(
+                "textDocument/didClose",
+                json!({"textDocument":{"uri":dependency_uri}}),
+            );
+            client.request("workspace/symbol", json!({"query":""}));
+        }
+        assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 3);
+        for removed_name in ["disk_only", "overlay_only"] {
+            let response = client.request("workspace/symbol", json!({"query":removed_name}));
+            assert_eq!(
+                response["result"],
+                json!([]),
+                "obsolete declaration must not survive cutover"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn rediscovery_tombstones_deleted_dependency_without_watched_file_event() {
+        rediscovery_deleted_dependency_lifecycle(false);
+    }
+
+    #[test]
+    fn rediscovery_preserves_open_overlay_until_recreated_disk_is_restored_on_close() {
+        rediscovery_deleted_dependency_lifecycle(true);
+    }
+
+    #[test]
+    fn rediscovery_keeps_existing_ignored_explicit_import_but_tombstones_proven_deletion() {
+        let temp = tempdir().must_be("temporary ignored-import workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".ignore"), "dep.bend\n")
+            .must_be("exclude dependency from discovery");
+        let importer_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        let importer = "import ./dep.bend as Dep\ndef caller() -> U32:\n  Dep.value()\n";
+        fs::write(&importer_path, importer).must_be("write importer");
+        fs::write(&dependency_path, "def value() -> U32:\n  1\n")
+            .must_be("write ignored dependency");
+        let importer_uri = regression_file_uri(&importer_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &importer_uri, importer);
+        client.request("workspace/symbol", json!({"query":""}));
+        assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 0);
+        rediscovery_folder_barrier(&mut client, &workspace);
+        assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 0);
+
+        fs::remove_file(&dependency_path).must_be("delete ignored explicit dependency");
+        rediscovery_folder_barrier(&mut client, &workspace);
+        let definition = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":importer_uri},"position":{"line":2,"character":7}
+            }),
+        );
+        assert_eq!(
+            definition["result"],
+            Value::Null,
+            "import-only cached disk snapshot must be tombstoned"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn rediscovery_does_not_infer_deletion_inside_removed_workspace_root() {
+        let temp = tempdir().must_be("temporary multi-root workspace");
+        let workspace = temp.path().join("workspace");
+        let dependency_root = temp.path().join("dependency");
+        fs::create_dir_all(&workspace).must_be("create importer root");
+        fs::create_dir_all(&dependency_root).must_be("create dependency root");
+        let importer_path = workspace.join("main.bend");
+        let dependency_path = dependency_root.join("dep.bend");
+        let importer =
+            "import ../dependency/dep.bend as Dep\ndef caller() -> U32:\n  Dep.value()\n";
+        fs::write(&importer_path, importer).must_be("write cross-root importer");
+        fs::write(&dependency_path, "def value() -> U32:\n  1\n").must_be("write dependency");
+        let importer_uri = regression_file_uri(&importer_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let folder_uri = Url::from_directory_path(&dependency_root).must_be("dependency root URI");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &importer_uri, importer);
+        rediscovery_folder_barrier(&mut client, &dependency_root);
+        assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 0);
+
+        fs::remove_file(&dependency_path).must_be("delete file outside remaining scan roots");
+        client.notify(
+            "workspace/didChangeWorkspaceFolders",
+            json!({"event":{
+                "added":[],
+                "removed":[{"uri":folder_uri,"name":"dependency"}]
+            }}),
+        );
+        client.request("workspace/symbol", json!({"query":""}));
+        // Only remaining active roots were scanned. The removed root's snapshot
+        // intentionally remains available to explicit importers, without a watcher.
+        assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 0);
+        rediscovery_folder_barrier(&mut client, &workspace);
+        assert_rediscovery_value_source(&mut client, &importer_uri, &dependency_uri, 0);
+        client.finish();
+    }
+
+    fn base_reload_request(client: &mut LspClient, method: &str, uri: &str, line: u32) -> Value {
+        client.request(
+            method,
+            json!({"textDocument":{"uri":uri},"position":{"line":line,"character":7}}),
+        )
+    }
+
+    fn base_reload_targets(client: &mut LspClient, caller: &Value) -> Value {
+        let response = client.request("callHierarchy/outgoingCalls", json!({"item":caller}));
+        Value::Array(
+            response["result"]
+                .as_array()
+                .must_be("outgoing Base calls")
+                .iter()
+                .map(|call| json!({"uri":call["to"]["uri"],"name":call["to"]["name"]}))
+                .collect(),
+        )
+    }
+
+    fn base_reload_references(client: &mut LspClient, uri: &str) -> Value {
+        let response = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":0,"character":7},
+                "context":{"includeDeclaration":false}
+            }),
+        );
+        Value::Array(
+            response["result"]
+                .as_array()
+                .must_be("Base declaration references")
+                .iter()
+                .map(|location| {
+                    json!({
+                        "uri":location["uri"],
+                        "line":location["range"]["start"]["line"]
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    fn base_reload_configure(client: &mut LspClient, compiler: &Path, mode: &str, root_uri: &str) {
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{
+                "compilerPath":compiler,
+                "compilerArguments":[mode]
+            }}}),
+        );
+        // Initial didOpen diagnostics have already been consumed. This next root
+        // publication is scheduled only after configuration's Base reload returns.
+        assert_eq!(
+            generated_base_diagnostics(client, root_uri, 1)["params"]["diagnostics"],
+            json!([]),
+        );
+        // The request also takes the public workspace readiness/update barrier.
+        client.request("workspace/symbol", json!({"query":"main"}));
+    }
+
+    const BASE_RELOAD_OLD_SOURCE: &str =
+        "def library_value() -> U32:\n  7\ndef old_only() -> U32:\n  1\n";
+    const BASE_RELOAD_CURRENT_SOURCE: &str =
+        "def library_value() -> U32:\n  9\ndef current_only() -> U32:\n  2\n";
+
+    fn base_reload_item(client: &mut LspClient, uri: &str, line: u32) -> Value {
+        base_reload_request(client, "textDocument/prepareCallHierarchy", uri, line)["result"][0]
+            .clone()
+    }
+
+    struct BaseReloadFixture {
+        client: LspClient,
+        compiler: PathBuf,
+        root_uri: String,
+        old_uri: String,
+        old_path: PathBuf,
+        old_item: Value,
+        caller_items: [Value; 3],
+        _temp: tempfile::TempDir,
+    }
+
+    impl BaseReloadFixture {
+        fn new() -> Self {
+            let temp = tempdir().must_be("temporary workspace");
+            let workspace = temp.path().join("workspace");
+            fs::create_dir_all(&workspace).must_be("create workspace");
+            let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+            let compiler = compiler_dir.join("bend");
+            fs::write(
+                &compiler,
+                "#!/bin/sh\nmode=old\ncase \"$1\" in --fail|--empty|--current) mode=\"$1\"; shift;; esac\nif [ \"$1\" = base ]; then\n  case \"$mode\" in\n    --fail) exit 1;;\n    --empty) exit 0;;\n    --current) printf 'def library_value() -> U32:\\n  9\\ndef current_only() -> U32:\\n  2\\n';;\n    *) printf 'def library_value() -> U32:\\n  7\\ndef old_only() -> U32:\\n  1\\n';;\n  esac\nfi\nexit 0\n",
+            )
+            .must_be("write reloadable Base compiler");
+            let root_path = workspace.join("main.bend");
+            let root_source = "import Base as B\ndef main() -> U32:\n  B.library_value()\ndef previous() -> U32:\n  B.old_only()\ndef current() -> U32:\n  B.current_only()\n";
+            fs::write(&root_path, root_source).must_be("write Base consumer");
+            let root_uri = regression_file_uri(&root_path);
+            let mut client = spawn_client(&compiler_dir);
+            client.initialize(&workspace);
+            open_clean_document(&mut client, &root_uri, root_source);
+            let old_definition =
+                base_reload_request(&mut client, "textDocument/definition", &root_uri, 2);
+            let old_uri = old_definition["result"]["uri"]
+                .as_str()
+                .must_be("initial Base URI")
+                .to_owned();
+            let old_path = Url::parse(&old_uri)
+                .must_be("old Base URL")
+                .to_file_path()
+                .must_be("old Base path");
+            assert_eq!(
+                fs::read_to_string(&old_path).must_be("read old Base"),
+                BASE_RELOAD_OLD_SOURCE,
+            );
+            open_clean_document(&mut client, &old_uri, BASE_RELOAD_OLD_SOURCE);
+            let old_item = base_reload_item(&mut client, &old_uri, 0);
+            let caller_items = [1, 3, 5].map(|line| base_reload_item(&mut client, &root_uri, line));
+            Self {
+                client,
+                compiler,
+                root_uri,
+                old_uri,
+                old_path,
+                old_item,
+                caller_items,
+                _temp: temp,
+            }
+        }
+
+        fn assert_initial_binding(&mut self) {
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[0]),
+                json!([{"uri":self.old_uri,"name":"library_value"}]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[1]),
+                json!([{"uri":self.old_uri,"name":"old_only"}]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[2]),
+                json!([]),
+            );
+            assert_eq!(
+                base_reload_references(&mut self.client, &self.old_uri),
+                json!([{"uri":self.root_uri,"line":2}]),
+            );
+        }
+
+        fn assert_detached(&mut self, mode: &str) {
+            base_reload_configure(&mut self.client, &self.compiler, mode, &self.root_uri);
+            for line in [2, 4, 6] {
+                for method in [
+                    "textDocument/definition",
+                    "textDocument/prepareCallHierarchy",
+                ] {
+                    assert_eq!(
+                        base_reload_request(&mut self.client, method, &self.root_uri, line)["result"],
+                        Value::Null,
+                        "{mode} must not resolve a retired Base through {method}",
+                    );
+                }
+                let references = self.client.request(
+                    "textDocument/references",
+                    json!({"textDocument":{"uri":self.root_uri},"position":{"line":line,"character":7},"context":{"includeDeclaration":false}}),
+                );
+                assert_eq!(references["result"], Value::Null);
+            }
+            for caller in &self.caller_items {
+                assert_eq!(base_reload_targets(&mut self.client, caller), json!([]));
+            }
+            assert_eq!(
+                base_reload_references(&mut self.client, &self.old_uri),
+                json!([])
+            );
+            let incoming = self
+                .client
+                .request("callHierarchy/incomingCalls", json!({"item":self.old_item}));
+            assert_eq!(incoming["result"], json!([]));
+            assert_eq!(
+                fs::read_to_string(&self.old_path).must_be("read retained old Base"),
+                BASE_RELOAD_OLD_SOURCE,
+            );
+            assert_eq!(
+                base_reload_request(
+                    &mut self.client,
+                    "textDocument/definition",
+                    &self.old_uri,
+                    0
+                )["result"]["uri"],
+                self.old_uri,
+                "retained old source still supports its own local navigation",
+            );
+        }
+
+        fn assert_recovered(&mut self) {
+            base_reload_configure(
+                &mut self.client,
+                &self.compiler,
+                "--current",
+                &self.root_uri,
+            );
+            let recovered = base_reload_request(
+                &mut self.client,
+                "textDocument/definition",
+                &self.root_uri,
+                2,
+            );
+            let current_uri = recovered["result"]["uri"]
+                .as_str()
+                .must_be("recovered current Base URI")
+                .to_owned();
+            assert_ne!(current_uri, self.old_uri);
+            let current_path = Url::parse(&current_uri)
+                .must_be("current Base URL")
+                .to_file_path()
+                .must_be("current Base path");
+            assert_eq!(
+                fs::read_to_string(current_path).must_be("read current Base"),
+                BASE_RELOAD_CURRENT_SOURCE,
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[0]),
+                json!([{"uri":current_uri,"name":"library_value"}]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[1]),
+                json!([]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[2]),
+                json!([{"uri":current_uri,"name":"current_only"}]),
+            );
+            assert_eq!(
+                base_reload_request(
+                    &mut self.client,
+                    "textDocument/definition",
+                    &self.root_uri,
+                    4
+                )["result"],
+                Value::Null,
+                "a declaration unique to the old source must not survive recovery",
+            );
+            let prepared = base_reload_request(
+                &mut self.client,
+                "textDocument/prepareCallHierarchy",
+                &self.root_uri,
+                6,
+            );
+            assert_eq!(prepared["result"][0]["uri"], current_uri);
+            assert_eq!(prepared["result"][0]["name"], "current_only");
+            assert_eq!(
+                base_reload_references(&mut self.client, &self.old_uri),
+                json!([])
+            );
+            open_clean_document(&mut self.client, &current_uri, BASE_RELOAD_CURRENT_SOURCE);
+            assert_eq!(
+                base_reload_references(&mut self.client, &current_uri),
+                json!([{"uri":self.root_uri,"line":2}]),
+            );
+            assert_eq!(
+                fs::read_to_string(&self.old_path).must_be("old URI survives recovery"),
+                BASE_RELOAD_OLD_SOURCE,
+            );
+        }
+    }
+
+    #[test]
+    fn base_reload_failure_detaches_active_index_and_recovers_without_retiring_old_source() {
+        let mut fixture = BaseReloadFixture::new();
+        fixture.assert_initial_binding();
+        // Both nonzero exit and successful-but-empty output must detach the
+        // currently bound compiler document, not just the compiler's cache.
+        for mode in ["--fail", "--empty"] {
+            fixture.assert_detached(mode);
+            fixture.assert_recovered();
+        }
+        fixture.client.finish();
     }
 }

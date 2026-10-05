@@ -1,5 +1,48 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Discover workspace `.bend` files in the background, respecting project ignore
+  files and excluding hidden/build directories and symlinks. Index unopened
+  importers for references, rename, workspace symbols, and call hierarchy.
+- Prepare grouped workspace semantic contributions during cold staging; use
+  revision-safe symbol identities and indexed occurrence/call buckets for warm
+  cross-file queries. Keep stable file IDs with deletion tombstones.
+
+### Bug Fixes
+
+- Isolate close/reopen revision epochs: stale tickets cannot refill the staging
+  cache, and queued closes cannot remove reopened buffers or their diagnostics.
+- Clear imported diagnostic contributions when a buffer closes, including when
+  the next open restarts at a lower version.
+- Replace and cancel diagnostics tasks without awaiting under the global task
+  registry lock; reject new work after shutdown.
+- Report poisoned state and unexpected worker failures as fatal invariant errors
+  rather than missing features; drain owned work and compiler children on failure.
+- Detach active indexed Base resolution when compiler configuration resets;
+  failed or empty reloads cannot retain old call targets, while previously
+  published generated source remains readable and successful reloads rebind.
+- Tombstone cached imported disk sources proven absent during rediscovery,
+  without watched-file events; preserve open overlays, existing ignored imports,
+  and snapshots outside the roots actually rescanned.
+
+### Architecture
+
+- Give workspace, diagnostics, compiler, and registration services explicit
+  ownership and validated commit boundaries. Extract the revision state machine
+  and split server requests and syntax implementation without changing the
+  immutable snapshot or compact index representation.
+- Keep the current LSP framework; document the framework boundary evaluation.
+  Extract sequential text editing without introducing a Rope or incremental
+  parser.
+- Reuse local syntax reference/call spans and canonical external contribution
+  groups instead of duplicating workspace range maps. Reduce cold name lookups
+  and scratch allocations while retaining immutable snapshot query indexes.
+- Reserve semantic-token results from a cold-built exact count and avoid
+  unnecessary trailing-whitespace scanning when checking blank folding lines.
+
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 
 
