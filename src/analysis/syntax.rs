@@ -219,7 +219,6 @@ pub struct SyntaxIndex {
     symbols: Box<[IndexedSymbol]>,
     bindings: Box<[IndexedBinding]>,
     references: Box<[Reference]>,
-    external_reference_candidates: Box<[usize]>,
     reference_indices: Box<[usize]>,
     reference_spans: Box<[TextRange]>,
     name_reference_indices: Box<[usize]>,
@@ -478,18 +477,6 @@ impl SyntaxIndex {
     #[must_use]
     pub fn reference_entries(&self) -> &[Reference] {
         &self.references
-    }
-
-    /// Unresolved qualified rows whose qualifier is not a local symbol or binding.
-    /// Candidate ordinals are selected during cold reference construction; import
-    /// binding remains a workspace operation. Empty candidate columns allocate no payload.
-    #[must_use]
-    pub fn external_reference_candidates(
-        &self,
-    ) -> impl ExactSizeIterator<Item = (usize, &Reference)> {
-        self.external_reference_candidates
-            .iter()
-            .map(|&ordinal| (ordinal, &self.references[ordinal]))
     }
 
     /// Number of tokens mapped to a locally resolved reference, including declarations.
