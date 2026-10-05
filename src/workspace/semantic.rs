@@ -633,24 +633,22 @@ impl WorkspaceDb {
                 let Some(document) = self.entries[source.0].document() else {
                     continue;
                 };
-                result.extend(
-                    indices
-                        .iter()
-                        .flat_map(|index| {
-                            contribution.occurrences
-                                [contribution.targets[index].occurrences.clone()]
-                            .iter()
-                        })
-                        .filter_map(|&ordinal| document.syntax.reference_entries().get(ordinal.0))
-                        .filter(|occurrence| {
-                            include_declaration || occurrence.kind != ReferenceKind::Declaration
-                        })
-                        .map(|occurrence| WorkspaceOccurrence {
+                for index in indices.iter() {
+                    let ordinals =
+                        &contribution.occurrences[contribution.targets[index].occurrences.clone()];
+                    // Cold preparation selects unresolved rows: declarations
+                    // always resolve locally. These ordinals index this same
+                    // immutable snapshot, so no kind or optional lookup filter
+                    // is needed; the mapped slice retains its exact length.
+                    result.extend(ordinals.iter().map(|ordinal| {
+                        let occurrence = &document.syntax.reference_entries()[ordinal.0];
+                        WorkspaceOccurrence {
                             document: document.clone(),
                             range: occurrence.range,
                             kind: occurrence.kind,
-                        }),
-                );
+                        }
+                    }));
+                }
             }
         }
         result.sort_unstable_by(|left, right| {
