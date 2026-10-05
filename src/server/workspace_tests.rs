@@ -209,4 +209,63 @@ mod tests {
         assert!(database.dependents(old_id).is_empty());
         Ok(())
     }
+
+    #[test]
+    fn local_and_self_imported_calls_merge_and_follow_snapshot_reordering() -> std::io::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let path = temp.path().join("main.bend");
+        let uri = file_uri(&path)?;
+        let source = "import ./main.bend as Self\n\ndef target(value):\n  value\n\ndef caller():\n  target(1)\n  Self.target(2)\n";
+        let mut database = WorkspaceDb::default();
+        database.set_open_document(
+            Document::new(uri.clone(), "bend".into(), Revision(1), source.into()),
+            Some(path),
+        );
+        let target = database
+            .symbol_by_name(&uri, "target")
+            .ok_or_else(|| std::io::Error::other("target function"))?;
+        let caller = database
+            .symbol_by_name(&uri, "caller")
+            .ok_or_else(|| std::io::Error::other("caller function"))?;
+        let incoming = database.incoming_calls(target.id);
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].symbol.id, caller.id);
+        assert_eq!(incoming[0].ranges.len(), 2);
+        let outgoing = database.outgoing_calls(caller.id);
+        assert_eq!(outgoing.len(), 1);
+        assert_eq!(outgoing[0].symbol.id, target.id);
+        assert_eq!(outgoing[0].ranges.len(), 2);
+        assert_eq!(database.semantic_index_stats().calls, 2);
+
+        let prefix = "def inserted():\n  0\n";
+        let shifted_ranges: Vec<_> = incoming[0]
+            .ranges
+            .iter()
+            .map(|range| {
+                analysis::TextRange::new(range.start + prefix.len(), range.end + prefix.len())
+            })
+            .collect();
+        database
+            .update_open_snapshot(
+                &uri,
+                Arc::new(DocumentSnapshot::new(
+                    Revision(2),
+                    source.replacen("def target", &format!("{prefix}def target"), 1),
+                )),
+            )
+            .ok_or_else(|| std::io::Error::other("replace snapshot"))?;
+        assert!(database.incoming_calls(target.id).is_empty());
+        let current_target = database
+            .symbol_by_name(&uri, "target")
+            .ok_or_else(|| std::io::Error::other("current target"))?;
+        let current_caller = database
+            .symbol_by_name(&uri, "caller")
+            .ok_or_else(|| std::io::Error::other("current caller"))?;
+        let incoming = database.incoming_calls(current_target.id);
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].symbol.id, current_caller.id);
+        assert_eq!(incoming[0].ranges, shifted_ranges);
+        assert_eq!(database.semantic_index_stats().calls, 2);
+        Ok(())
+    }
 }

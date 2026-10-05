@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Features
+
+- Prepare grouped workspace semantic contributions during cold staging; use
+  revision-safe symbol identities and indexed occurrence/call buckets for warm
+  cross-file queries. Keep stable file IDs with deletion tombstones.
+
 ### Bug Fixes
 
 - Isolate close/reopen revision epochs so stale tickets, queued closes, and old
@@ -13,15 +19,24 @@
   lock; reject new work after shutdown and drain owned compiler children.
 - Treat state poisoning and unexpected worker failure as fatal invariant errors
   rather than silently returning missing features.
+- Detach active indexed Base resolution when compiler configuration resets;
+  failed or empty reloads cannot retain old call targets, while previously
+  published generated source remains readable and successful reloads rebind.
 
 ### Architecture
 
-- Give workspace, compiler, diagnostics, and registration services explicit
-  ownership and validated commit boundaries; extract the revision state machine,
-  request handlers, and sequential text editing.
-- Retain the existing syntax representation, cross-file query implementation,
-  workspace scope, and LSP framework. Semantic indexing and directory discovery
-  are separate changes.
+- Give workspace, diagnostics, compiler, and registration services explicit
+  ownership and validated commit boundaries. Extract the revision state machine
+  and split server requests and syntax implementation without changing the
+  immutable snapshot or compact index representation.
+- Keep the current LSP framework; document the framework boundary evaluation.
+  Extract sequential text editing without introducing a Rope or incremental
+  parser.
+- Reuse local syntax reference/call spans and canonical external contribution
+  groups instead of duplicating workspace range maps. Reduce cold name lookups
+  and scratch allocations while retaining immutable snapshot query indexes.
+- Reserve semantic-token results from a cold-built exact count and avoid
+  unnecessary trailing-whitespace scanning when checking blank folding lines.
 
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 

@@ -5,6 +5,7 @@ use super::{
     state::State,
 };
 use crate::analysis::{DocumentSnapshot, Revision};
+use crate::workspace::prepare_semantic_snapshot;
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -74,17 +75,18 @@ impl Backend {
                 std::fs::write(&path, &source).ok()?;
                 let uri = Url::from_file_path(&path).ok()?;
                 let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source));
-                Some((BaseModule { uri, snapshot }, path, directory))
+                let semantics = prepare_semantic_snapshot(snapshot.clone());
+                Some((BaseModule { uri, snapshot }, path, directory, semantics))
             })
             .await
             .flatten();
-            if let Some((module, path, directory)) = loaded {
+            if let Some((module, path, directory, semantics)) = loaded {
                 let _workspace_update = self.workspace.updates.write().await;
                 self.workspace.commit(None, None, |database| {
                     database.register_compiler_document(
                         module.uri.clone(),
                         path,
-                        module.snapshot.clone(),
+                        semantics,
                         directory,
                     );
                     *self.compiler.base_module.write() = Some(module);
