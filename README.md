@@ -162,6 +162,20 @@ graph; unrelated documents remain queryable while snapshots are built. Watched
 disk updates do not overwrite active unsaved import edges. Closing a document
 restores the latest disk snapshot and its imports.
 
+Snapshots and import metadata are prepared outside workspace locks. A validated
+workspace commit publishes them together with revision state and generation.
+Closing starts a new revision epoch: queued closes, cancelled tickets, and old
+diagnostics cannot overwrite a reopened buffer, even when version numbering
+restarts. A prepared close also validates the disk snapshot before restoring its
+imports.
+
+Workspace, compiler, diagnostics, and registration services own server state.
+State poisoning and unexpected worker failure are fatal invariant errors, not
+missing feature results. Shutdown drains owned diagnostics work and compiler
+children. This server refactor retains the existing analysis representation,
+cross-file query implementation, and open/import-reachable workspace scope;
+it does not add whole-project discovery or change the LSP framework.
+
 Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors
 `tabSize` and `insertSpaces` and declines unsafe rewrites.
@@ -191,7 +205,7 @@ comments, line endings, and whether the file ends with a newline. It honors
 
 These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
-limitations above describe the current release.
+limitations above describe this checkout; see the changelog for unreleased work.
 
 1. **Context-aware completion:** offer types in annotations, constructors in
    patterns, and in-scope local bindings instead of unrelated suggestions.

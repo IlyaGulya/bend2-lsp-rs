@@ -131,6 +131,34 @@ impl WorkspaceDb {
         entry.document()
     }
 
+    pub(crate) fn is_document_open(&self, uri: &Url) -> bool {
+        self.by_uri
+            .get(uri)
+            .is_some_and(|id| self.entries[id.0].open_snapshot.is_some())
+    }
+
+    pub(crate) fn imports_prelude(&self, uri: &Url) -> bool {
+        self.by_uri
+            .get(uri)
+            .and_then(|id| self.entries[id.0].snapshot())
+            .is_some_and(|snapshot| {
+                analysis::imports(snapshot)
+                    .iter()
+                    .any(|import| import.path_text(&snapshot.text) == "Base")
+            })
+    }
+
+    pub(crate) fn workspace_imports_prelude(&self) -> bool {
+        self.entries.iter().enumerate().any(|(index, entry)| {
+            (entry.open_snapshot.is_some() || self.reachable.contains(&FileId(index)))
+                && entry.snapshot().is_some_and(|snapshot| {
+                    analysis::imports(snapshot)
+                        .iter()
+                        .any(|import| import.path_text(&snapshot.text) == "Base")
+                })
+        })
+    }
+
     #[must_use]
     pub fn cached_document(&self, uri: &Url) -> Option<Document> {
         self.entries.get(self.by_uri.get(uri)?.0)?.document()

@@ -2,6 +2,12 @@ pub mod analysis;
 mod server;
 pub mod workspace;
 
-pub async fn run() {
-    server::run().await;
+/// Serve the LSP protocol on standard input and output.
+///
+/// # Errors
+///
+/// Returns an error after draining owned work if a server invariant or
+/// supervised background task fails.
+pub async fn run() -> std::io::Result<()> {
+    server::run().await
 }

@@ -1,4 +1,4 @@
 #[tokio::main]
-async fn main() {
-    bend2_lsp::run().await;
+async fn main() -> std::io::Result<()> {
+    bend2_lsp::run().await
 }
