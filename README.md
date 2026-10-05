@@ -116,11 +116,11 @@ editor. Source-based features are **not** a full compiler type checker.
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
 | Go to type definition | Declaration-derived type navigation |
-| Find references | Indexed symbol occurrences in the loaded workspace graph |
-| Rename | Symbol rename across indexed, loaded documents; not file/module rename |
+| Find references | Workspace occurrence indexes over open and import-reachable documents |
+| Rename | Symbol rename across indexed documents; not file/module rename |
 | Document highlights | Matching symbol occurrences in the current document |
 | Document symbols | Outline of declarations in a document |
-| Workspace symbols | Search over indexed workspace documents; not a scan of every file on disk |
+| Workspace symbols | Search over indexed open and imported documents |
 | Semantic highlighting | Full-document semantic tokens |
 | Code actions | Limited quick fixes for missing closing delimiters |
 | Inlay hints | Argument-name hints; not inferred-type hints |
@@ -162,19 +162,25 @@ graph; unrelated documents remain queryable while snapshots are built. Watched
 disk updates do not overwrite active unsaved import edges. Closing a document
 restores the latest disk snapshot and its imports.
 
-Snapshots and import metadata are prepared outside workspace locks. A validated
-workspace commit publishes them together with revision state and generation.
-Closing starts a new revision epoch: queued closes, cancelled tickets, and old
-diagnostics cannot overwrite a reopened buffer, even when version numbering
-restarts. A prepared close also validates the disk snapshot before restoring its
-imports.
+Workspace scope is limited to open documents and their indexed imports. Unopened
+files outside that graph are not discovered. Clients must send file-change
+notifications for subsequent disk changes; the server does not check every
+project file or fetch Hub packages.
 
-Workspace, compiler, diagnostics, and registration services own server state.
-State poisoning and unexpected worker failure are fatal invariant errors, not
-missing feature results. Shutdown drains owned diagnostics work and compiler
-children. This server refactor retains the existing analysis representation,
-cross-file query implementation, and open/import-reachable workspace scope;
-it does not add whole-project discovery or change the LSP framework.
+Snapshots and their grouped semantic contributions are prepared outside workspace
+locks. A validated commit updates the snapshot, import graph, semantic indexes,
+and generation together. Global symbol handles include a snapshot epoch, so a
+rebuild cannot reinterpret an old local symbol ID. File IDs stay stable for the
+server lifetime; deleted files leave tombstones while active editor buffers retain
+their unsaved overlay. Closing starts a new revision epoch: queued old closes,
+cancelled tickets, and old diagnostics cannot overwrite a reopened buffer, even
+when its version numbering restarts.
+
+Server state poisoning is a fatal invariant failure, not a missing feature.
+The transport supervisor drains owned diagnostics work and compiler
+children before returning an error. Analysis remains synchronous and immutable;
+the framework boundary decision is recorded in
+[`docs/framework-boundary.md`](docs/framework-boundary.md).
 
 Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors
@@ -190,8 +196,7 @@ comments, line endings, and whether the file ends with a newline. It honors
   insertion, and compiler-driven quick fixes.
 - **File-operation hooks:** automatic import updates when files are created,
   renamed, or deleted through LSP file-operation requests.
-- **Whole-project discovery:** indexing every unrelated file on disk or fetching
-  missing Hub packages automatically.
+- **Automatic package fetching:** missing Hub packages are not downloaded.
 - **Pull diagnostics** (`textDocument/diagnostic`, `workspace/diagnostic`).
   Diagnostics are pushed through `textDocument/publishDiagnostics`.
 - **Semantic token range/delta requests**, completion-item resolution, and

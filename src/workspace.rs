@@ -8,6 +8,13 @@ use std::{
 use crate::analysis::{self, DocumentSnapshot, Revision};
 use url::Url;
 
+mod semantic;
+
+pub use semantic::{
+    GlobalSymbolId, PreparedSemanticSnapshot, WorkspaceCallGroup, WorkspaceIndexStats,
+    WorkspaceOccurrence, WorkspaceSymbol, prepare_semantic_snapshot,
+};
+
 #[derive(Clone)]
 pub struct Document {
     pub uri: Url,
@@ -43,8 +50,49 @@ impl Deref for Document {
     }
 }
 
+/// Workspace-lifetime file identity, shared by normalized path and URI aliases.
+///
+/// Entries are never removed or recycled. A deleted file retains a tombstone
+/// (identity and reverse-import links, but no effective snapshot); recreating that path
+/// reuses its `FileId`. Closing an overlay restores the disk snapshot, not a new
+/// file identity. IDs are meaningful only within the `WorkspaceDb` that issued them.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct FileId(usize);
+
+/// Membership for dense, workspace-owned identities; iteration visits only members.
+#[derive(Default)]
+struct FileSet {
+    members: Vec<FileId>,
+    present: Vec<bool>,
+}
+
+impl FileSet {
+    fn contains(&self, id: FileId) -> bool {
+        self.present.get(id.0).copied().unwrap_or(false)
+    }
+
+    fn insert(&mut self, id: FileId) -> bool {
+        if self.contains(id) {
+            return false;
+        }
+        if id.0 >= self.present.len() {
+            self.present.resize(id.0 + 1, false);
+        }
+        self.present[id.0] = true;
+        self.members.push(id);
+        true
+    }
+
+    fn iter(&self) -> std::slice::Iter<'_, FileId> {
+        self.members.iter()
+    }
+
+    fn extend(&mut self, ids: impl IntoIterator<Item = FileId>) {
+        for id in ids {
+            self.insert(id);
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct ImportEdge {
@@ -79,7 +127,10 @@ struct FileEntry {
     open_snapshot: Option<Arc<DocumentSnapshot>>,
     disk_snapshot: Option<Arc<DocumentSnapshot>>,
     imports: Box<[ImportEdge]>,
+    import_by_range: HashMap<analysis::TextRange, FileId>,
     reverse_imports: Vec<FileId>,
+    semantic_snapshot: Option<Arc<DocumentSnapshot>>,
+    semantic_epoch: Option<u64>,
 }
 
 impl FileEntry {
@@ -102,25 +153,31 @@ pub struct WorkspaceDb {
     by_uri: HashMap<Url, FileId>,
     by_path: HashMap<PathBuf, FileId>,
     compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
-    reachable: HashSet<FileId>,
+    reachable: FileSet,
     reachability_dirty: bool,
+    semantic: semantic::SemanticIndex,
 }
 
 impl WorkspaceDb {
-    /// Register compiler-owned source for navigation, retaining its backing file
-    /// for the lifetime of the workspace index, not just the active compiler cache.
+    /// Register compiler-owned Base source and its provenance for navigation and
+    /// indexed call resolution. Retain its backing file for the lifetime of the
+    /// workspace index, not just the active compiler cache.
     pub(crate) fn register_compiler_document(
         &mut self,
         uri: Url,
         path: PathBuf,
-        snapshot: Arc<DocumentSnapshot>,
+        semantics: PreparedSemanticSnapshot,
         directory: tempfile::TempDir,
     ) {
         let id = self.intern(uri, Some(path));
-        self.entries[id.0].disk_snapshot = Some(snapshot);
+        self.entries[id.0].disk_snapshot = Some(semantics.snapshot().clone());
         self.compiler_documents
             .get_or_insert_with(HashMap::new)
             .insert(id, directory);
+        self.semantic.compiler_base = Some(id);
+        if self.entries[id.0].open_snapshot.is_none() {
+            self.install_semantics(id, Some(semantics), false);
+        }
     }
 
     #[must_use]
@@ -137,28 +194,6 @@ impl WorkspaceDb {
             .is_some_and(|id| self.entries[id.0].open_snapshot.is_some())
     }
 
-    pub(crate) fn imports_prelude(&self, uri: &Url) -> bool {
-        self.by_uri
-            .get(uri)
-            .and_then(|id| self.entries[id.0].snapshot())
-            .is_some_and(|snapshot| {
-                analysis::imports(snapshot)
-                    .iter()
-                    .any(|import| import.path_text(&snapshot.text) == "Base")
-            })
-    }
-
-    pub(crate) fn workspace_imports_prelude(&self) -> bool {
-        self.entries.iter().enumerate().any(|(index, entry)| {
-            (entry.open_snapshot.is_some() || self.reachable.contains(&FileId(index)))
-                && entry.snapshot().is_some_and(|snapshot| {
-                    analysis::imports(snapshot)
-                        .iter()
-                        .any(|import| import.path_text(&snapshot.text) == "Base")
-                })
-        })
-    }
-
     #[must_use]
     pub fn cached_document(&self, uri: &Url) -> Option<Document> {
         self.entries.get(self.by_uri.get(uri)?.0)?.document()
@@ -171,11 +206,9 @@ impl WorkspaceDb {
         import_path: analysis::TextRange,
     ) -> Option<Document> {
         let source_id = *self.by_uri.get(source)?;
-        let target = self.entries[source_id.0]
-            .imports
-            .iter()
-            .find(|edge| edge.path == import_path)?
-            .target;
+        let target = *self.entries[source_id.0]
+            .import_by_range
+            .get(&import_path)?;
         self.entries[target.0].document()
     }
 
@@ -234,7 +267,8 @@ impl WorkspaceDb {
         let imports = path.as_deref().map_or_else(Vec::new, |path| {
             resolve_import_targets(path, &document.snapshot)
         });
-        self.set_open_document_prepared(document, path, imports)
+        let semantics = prepare_semantic_snapshot(document.snapshot.clone());
+        self.set_open_document_prepared(document, path, imports, semantics)
     }
 
     pub(crate) fn set_open_document_prepared(
@@ -242,12 +276,14 @@ impl WorkspaceDb {
         document: Document,
         path: Option<PathBuf>,
         imports: Vec<(analysis::TextRange, PathBuf)>,
+        semantics: PreparedSemanticSnapshot,
     ) -> FileId {
         let id = self.intern(document.uri.clone(), path);
         let entry = &mut self.entries[id.0];
         entry.language_id = document.language_id;
-        entry.open_snapshot = Some(document.snapshot);
-        self.refresh_imports_with_targets(id, imports);
+        entry.open_snapshot = Some(semantics.snapshot().clone());
+        let imports_changed = self.refresh_imports_with_targets(id, imports);
+        self.install_semantics(id, Some(semantics), imports_changed);
         id
     }
 
@@ -259,43 +295,53 @@ impl WorkspaceDb {
         let imports = self
             .document_path(uri)
             .map_or_else(Vec::new, |path| resolve_import_targets(&path, &snapshot));
-        self.update_open_snapshot_prepared(uri, snapshot, imports)
+        let semantics = prepare_semantic_snapshot(snapshot);
+        self.update_open_snapshot_prepared(uri, semantics, imports)
     }
 
     pub(crate) fn update_open_snapshot_prepared(
         &mut self,
         uri: &Url,
-        snapshot: Arc<DocumentSnapshot>,
+        semantics: PreparedSemanticSnapshot,
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> Option<(FileId, bool)> {
         let id = *self.by_uri.get(uri)?;
         let entry = self.entries.get_mut(id.0)?;
-        entry.open_snapshot = Some(snapshot);
+        entry.open_snapshot = Some(semantics.snapshot().clone());
         let imports_changed = self.refresh_imports_with_targets(id, imports);
+        self.install_semantics(id, Some(semantics), imports_changed);
         Some((id, imports_changed))
     }
 
     pub fn close_document(&mut self, uri: &Url) -> Option<FileId> {
-        let imports = self
-            .disk_document(uri)
-            .map_or_else(Vec::new, |(path, snapshot)| {
-                resolve_import_targets(&path, &snapshot)
-            });
-        self.close_document_prepared(uri, imports)
+        let disk = self.disk_document(uri);
+        let imports = disk.as_ref().map_or_else(Vec::new, |(path, snapshot)| {
+            resolve_import_targets(path, snapshot)
+        });
+        let semantics = disk.map(|(_, snapshot)| prepare_semantic_snapshot(snapshot));
+        self.close_document_prepared(uri, imports, semantics)
     }
 
     pub(crate) fn close_document_prepared(
         &mut self,
         uri: &Url,
         imports: Vec<(analysis::TextRange, PathBuf)>,
+        semantics: Option<PreparedSemanticSnapshot>,
     ) -> Option<FileId> {
         let id = *self.by_uri.get(uri)?;
         let entry = self.entries.get_mut(id.0)?;
+        let restored = semantics
+            .as_ref()
+            .map(|prepared| prepared.snapshot().clone());
+        if !semantic::same_snapshot(entry.disk_snapshot.as_ref(), restored.as_ref()) {
+            return None;
+        }
         if entry.open_snapshot.take().is_some() {
             self.reachability_dirty = true;
         }
         self.entries[id.0].language_id = "bend".into();
-        self.refresh_imports_with_targets(id, imports);
+        let imports_changed = self.refresh_imports_with_targets(id, imports);
+        self.install_semantics(id, semantics, imports_changed);
         Some(id)
     }
 
@@ -305,23 +351,29 @@ impl WorkspaceDb {
         let imports = snapshot
             .as_ref()
             .map_or_else(Vec::new, |snapshot| resolve_import_targets(path, snapshot));
-        self.sync_disk_snapshot_prepared(path, snapshot, imports)
+        let semantics = snapshot.map(prepare_semantic_snapshot);
+        self.sync_disk_snapshot_prepared(path, semantics, imports)
     }
 
     pub(crate) fn sync_disk_snapshot_prepared(
         &mut self,
         path: &Path,
-        snapshot: Option<Arc<DocumentSnapshot>>,
+        semantics: Option<PreparedSemanticSnapshot>,
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> Option<(FileId, bool)> {
         let path = normalize_path(path);
         let uri = Url::from_file_path(&path).ok()?;
         let id = self.intern(uri, Some(path));
-        self.entries[id.0].disk_snapshot = snapshot;
+        self.entries[id.0].disk_snapshot = semantics
+            .as_ref()
+            .map(|prepared| prepared.snapshot().clone());
         // The prepared imports belong to the disk snapshot, not an open overlay
         // that may have changed while the disk snapshot was being constructed.
         let imports_changed = self.entries[id.0].open_snapshot.is_none()
             && self.refresh_imports_with_targets(id, imports);
+        if self.entries[id.0].open_snapshot.is_none() {
+            self.install_semantics(id, semantics, imports_changed);
+        }
         Some((id, imports_changed))
     }
 
@@ -336,7 +388,7 @@ impl WorkspaceDb {
 
     pub(crate) fn missing_disk_paths(&self, roots: &[FileId]) -> Vec<PathBuf> {
         let mut pending = roots.to_vec();
-        let mut visited = HashSet::new();
+        let mut visited = FileSet::default();
         let mut paths = Vec::new();
         while let Some(id) = pending.pop() {
             if !visited.insert(id) {
@@ -360,9 +412,9 @@ impl WorkspaceDb {
     pub fn load_reachable(&mut self, roots: &[FileId]) {
         let extend_reachable = roots
             .iter()
-            .any(|id| self.entries[id.0].open_snapshot.is_some() || self.reachable.contains(id));
+            .any(|id| self.entries[id.0].open_snapshot.is_some() || self.reachable.contains(*id));
         let mut pending = roots.to_vec();
-        let mut visited = HashSet::new();
+        let mut visited = FileSet::default();
         while let Some(id) = pending.pop() {
             if !visited.insert(id) {
                 continue;
@@ -378,16 +430,16 @@ impl WorkspaceDb {
         if self.reachability_dirty {
             self.recompute_reachable();
         } else if extend_reachable {
-            self.reachable.extend(visited);
+            self.reachable.extend(visited.members);
         }
     }
 
     pub(crate) fn finish_load_reachable(&mut self, roots: &[FileId]) {
         let extend_reachable = roots
             .iter()
-            .any(|id| self.entries[id.0].open_snapshot.is_some() || self.reachable.contains(id));
+            .any(|id| self.entries[id.0].open_snapshot.is_some() || self.reachable.contains(*id));
         let mut pending = roots.to_vec();
-        let mut visited = HashSet::new();
+        let mut visited = FileSet::default();
         while let Some(id) = pending.pop() {
             if !visited.insert(id) {
                 continue;
@@ -400,7 +452,7 @@ impl WorkspaceDb {
         if self.reachability_dirty {
             self.recompute_reachable();
         } else if extend_reachable {
-            self.reachable.extend(visited);
+            self.reachable.extend(visited.members);
         }
     }
 
@@ -420,26 +472,10 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn indexed_documents(&self) -> Vec<Document> {
-        let mut pending: Vec<FileId> = self
-            .entries
+        self.reachable
             .iter()
-            .enumerate()
-            .filter(|(_, entry)| entry.open_snapshot.is_some())
-            .map(|(index, _)| FileId(index))
-            .collect();
-        let mut visited = HashSet::new();
-        let mut documents = Vec::new();
-        while let Some(id) = pending.pop() {
-            if !visited.insert(id) {
-                continue;
-            }
-            let entry = &self.entries[id.0];
-            if let Some(document) = entry.document() {
-                documents.push(document);
-            }
-            pending.extend(entry.imports.iter().map(|edge| edge.target));
-        }
-        documents
+            .filter_map(|id| self.entries[id.0].document())
+            .collect()
     }
 
     fn recompute_reachable(&mut self) {
@@ -450,7 +486,7 @@ impl WorkspaceDb {
             .filter(|(_, entry)| entry.open_snapshot.is_some())
             .map(|(index, _)| FileId(index))
             .collect();
-        let mut reachable = HashSet::new();
+        let mut reachable = FileSet::default();
         while let Some(id) = pending.pop() {
             if !reachable.insert(id) {
                 continue;
@@ -463,15 +499,16 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn dependents(&self, changed: FileId) -> Vec<Document> {
-        if self.reachability_dirty || !self.reachable.contains(&changed) {
+        if self.reachability_dirty || !self.reachable.contains(changed) {
             return Vec::new();
         }
         let mut pending = vec![changed];
-        let mut visited = HashSet::from([changed]);
+        let mut visited = FileSet::default();
+        visited.insert(changed);
         let mut documents = Vec::new();
         while let Some(id) = pending.pop() {
             for dependent in &self.entries[id.0].reverse_imports {
-                if !self.reachable.contains(dependent) || !visited.insert(*dependent) {
+                if !self.reachable.contains(*dependent) || !visited.insert(*dependent) {
                     continue;
                 }
                 let entry = &self.entries[dependent.0];
@@ -536,7 +573,10 @@ impl WorkspaceDb {
             open_snapshot: None,
             disk_snapshot: None,
             imports: Box::default(),
+            import_by_range: HashMap::new(),
             reverse_imports: Vec::new(),
+            semantic_snapshot: None,
+            semantic_epoch: Some(0),
         });
         self.by_uri.insert(uri, id);
         if let Some(path) = path {
@@ -550,7 +590,6 @@ impl WorkspaceDb {
         source: FileId,
         targets: Vec<(analysis::TextRange, PathBuf)>,
     ) -> bool {
-        let old_imports = self.entries[source.0].imports.to_vec();
         let mut imports = Vec::new();
         for (import_path, target_path) in targets {
             if let Ok(uri) = Url::from_file_path(&target_path) {
@@ -564,7 +603,15 @@ impl WorkspaceDb {
         if self.entries[source.0].imports.as_ref() == imports.as_slice() {
             return false;
         }
-        if old_imports.iter().any(|old| !imports.contains(old)) {
+        let old_imports = std::mem::take(&mut self.entries[source.0].imports);
+        let import_by_range: HashMap<_, _> = imports
+            .iter()
+            .map(|edge| (edge.path, edge.target))
+            .collect();
+        if old_imports
+            .iter()
+            .any(|old| import_by_range.get(&old.path) != Some(&old.target))
+        {
             self.reachability_dirty = true;
         }
         for edge in old_imports {
@@ -578,6 +625,7 @@ impl WorkspaceDb {
                 reverse.push(source);
             }
         }
+        self.entries[source.0].import_by_range = import_by_range;
         self.entries[source.0].imports = imports.into_boxed_slice();
         true
     }

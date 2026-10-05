@@ -5137,4 +5137,284 @@ mod protocol {
         );
         client.finish();
     }
+
+    fn base_reload_request(client: &mut LspClient, method: &str, uri: &str, line: u32) -> Value {
+        client.request(
+            method,
+            json!({"textDocument":{"uri":uri},"position":{"line":line,"character":7}}),
+        )
+    }
+
+    fn base_reload_targets(client: &mut LspClient, caller: &Value) -> Value {
+        let response = client.request("callHierarchy/outgoingCalls", json!({"item":caller}));
+        Value::Array(
+            response["result"]
+                .as_array()
+                .must_be("outgoing Base calls")
+                .iter()
+                .map(|call| json!({"uri":call["to"]["uri"],"name":call["to"]["name"]}))
+                .collect(),
+        )
+    }
+
+    fn base_reload_references(client: &mut LspClient, uri: &str) -> Value {
+        let response = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":0,"character":7},
+                "context":{"includeDeclaration":false}
+            }),
+        );
+        Value::Array(
+            response["result"]
+                .as_array()
+                .must_be("Base declaration references")
+                .iter()
+                .map(|location| {
+                    json!({
+                        "uri":location["uri"],
+                        "line":location["range"]["start"]["line"]
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    fn base_reload_configure(client: &mut LspClient, compiler: &Path, mode: &str, root_uri: &str) {
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{
+                "compilerPath":compiler,
+                "compilerArguments":[mode]
+            }}}),
+        );
+        // Initial didOpen diagnostics have already been consumed. This next root
+        // publication is scheduled only after configuration's Base reload returns.
+        assert_eq!(
+            generated_base_diagnostics(client, root_uri, 1)["params"]["diagnostics"],
+            json!([]),
+        );
+        // The request also takes the public workspace readiness/update barrier.
+        client.request("workspace/symbol", json!({"query":"main"}));
+    }
+
+    const BASE_RELOAD_OLD_SOURCE: &str =
+        "def library_value() -> U32:\n  7\ndef old_only() -> U32:\n  1\n";
+    const BASE_RELOAD_CURRENT_SOURCE: &str =
+        "def library_value() -> U32:\n  9\ndef current_only() -> U32:\n  2\n";
+
+    fn base_reload_item(client: &mut LspClient, uri: &str, line: u32) -> Value {
+        base_reload_request(client, "textDocument/prepareCallHierarchy", uri, line)["result"][0]
+            .clone()
+    }
+
+    struct BaseReloadFixture {
+        client: LspClient,
+        compiler: PathBuf,
+        root_uri: String,
+        old_uri: String,
+        old_path: PathBuf,
+        old_item: Value,
+        caller_items: [Value; 3],
+        _temp: tempfile::TempDir,
+    }
+
+    impl BaseReloadFixture {
+        fn new() -> Self {
+            let temp = tempdir().must_be("temporary workspace");
+            let workspace = temp.path().join("workspace");
+            fs::create_dir_all(&workspace).must_be("create workspace");
+            let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+            let compiler = compiler_dir.join("bend");
+            fs::write(
+                &compiler,
+                "#!/bin/sh\nmode=old\ncase \"$1\" in --fail|--empty|--current) mode=\"$1\"; shift;; esac\nif [ \"$1\" = base ]; then\n  case \"$mode\" in\n    --fail) exit 1;;\n    --empty) exit 0;;\n    --current) printf 'def library_value() -> U32:\\n  9\\ndef current_only() -> U32:\\n  2\\n';;\n    *) printf 'def library_value() -> U32:\\n  7\\ndef old_only() -> U32:\\n  1\\n';;\n  esac\nfi\nexit 0\n",
+            )
+            .must_be("write reloadable Base compiler");
+            let root_path = workspace.join("main.bend");
+            let root_source = "import Base as B\ndef main() -> U32:\n  B.library_value()\ndef previous() -> U32:\n  B.old_only()\ndef current() -> U32:\n  B.current_only()\n";
+            fs::write(&root_path, root_source).must_be("write Base consumer");
+            let root_uri = regression_file_uri(&root_path);
+            let mut client = spawn_client(&compiler_dir);
+            client.initialize(&workspace);
+            open_clean_document(&mut client, &root_uri, root_source);
+            let old_definition =
+                base_reload_request(&mut client, "textDocument/definition", &root_uri, 2);
+            let old_uri = old_definition["result"]["uri"]
+                .as_str()
+                .must_be("initial Base URI")
+                .to_owned();
+            let old_path = Url::parse(&old_uri)
+                .must_be("old Base URL")
+                .to_file_path()
+                .must_be("old Base path");
+            assert_eq!(
+                fs::read_to_string(&old_path).must_be("read old Base"),
+                BASE_RELOAD_OLD_SOURCE,
+            );
+            open_clean_document(&mut client, &old_uri, BASE_RELOAD_OLD_SOURCE);
+            let old_item = base_reload_item(&mut client, &old_uri, 0);
+            let caller_items = [1, 3, 5].map(|line| base_reload_item(&mut client, &root_uri, line));
+            Self {
+                client,
+                compiler,
+                root_uri,
+                old_uri,
+                old_path,
+                old_item,
+                caller_items,
+                _temp: temp,
+            }
+        }
+
+        fn assert_initial_binding(&mut self) {
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[0]),
+                json!([{"uri":self.old_uri,"name":"library_value"}]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[1]),
+                json!([{"uri":self.old_uri,"name":"old_only"}]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[2]),
+                json!([]),
+            );
+            assert_eq!(
+                base_reload_references(&mut self.client, &self.old_uri),
+                json!([{"uri":self.root_uri,"line":2}]),
+            );
+        }
+
+        fn assert_detached(&mut self, mode: &str) {
+            base_reload_configure(&mut self.client, &self.compiler, mode, &self.root_uri);
+            for line in [2, 4, 6] {
+                for method in [
+                    "textDocument/definition",
+                    "textDocument/prepareCallHierarchy",
+                ] {
+                    assert_eq!(
+                        base_reload_request(&mut self.client, method, &self.root_uri, line)["result"],
+                        Value::Null,
+                        "{mode} must not resolve a retired Base through {method}",
+                    );
+                }
+                let references = self.client.request(
+                    "textDocument/references",
+                    json!({"textDocument":{"uri":self.root_uri},"position":{"line":line,"character":7},"context":{"includeDeclaration":false}}),
+                );
+                assert_eq!(references["result"], Value::Null);
+            }
+            for caller in &self.caller_items {
+                assert_eq!(base_reload_targets(&mut self.client, caller), json!([]));
+            }
+            assert_eq!(
+                base_reload_references(&mut self.client, &self.old_uri),
+                json!([])
+            );
+            let incoming = self
+                .client
+                .request("callHierarchy/incomingCalls", json!({"item":self.old_item}));
+            assert_eq!(incoming["result"], json!([]));
+            assert_eq!(
+                fs::read_to_string(&self.old_path).must_be("read retained old Base"),
+                BASE_RELOAD_OLD_SOURCE,
+            );
+            assert_eq!(
+                base_reload_request(
+                    &mut self.client,
+                    "textDocument/definition",
+                    &self.old_uri,
+                    0
+                )["result"]["uri"],
+                self.old_uri,
+                "retained old source still supports its own local navigation",
+            );
+        }
+
+        fn assert_recovered(&mut self) {
+            base_reload_configure(
+                &mut self.client,
+                &self.compiler,
+                "--current",
+                &self.root_uri,
+            );
+            let recovered = base_reload_request(
+                &mut self.client,
+                "textDocument/definition",
+                &self.root_uri,
+                2,
+            );
+            let current_uri = recovered["result"]["uri"]
+                .as_str()
+                .must_be("recovered current Base URI")
+                .to_owned();
+            assert_ne!(current_uri, self.old_uri);
+            let current_path = Url::parse(&current_uri)
+                .must_be("current Base URL")
+                .to_file_path()
+                .must_be("current Base path");
+            assert_eq!(
+                fs::read_to_string(current_path).must_be("read current Base"),
+                BASE_RELOAD_CURRENT_SOURCE,
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[0]),
+                json!([{"uri":current_uri,"name":"library_value"}]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[1]),
+                json!([]),
+            );
+            assert_eq!(
+                base_reload_targets(&mut self.client, &self.caller_items[2]),
+                json!([{"uri":current_uri,"name":"current_only"}]),
+            );
+            assert_eq!(
+                base_reload_request(
+                    &mut self.client,
+                    "textDocument/definition",
+                    &self.root_uri,
+                    4
+                )["result"],
+                Value::Null,
+                "a declaration unique to the old source must not survive recovery",
+            );
+            let prepared = base_reload_request(
+                &mut self.client,
+                "textDocument/prepareCallHierarchy",
+                &self.root_uri,
+                6,
+            );
+            assert_eq!(prepared["result"][0]["uri"], current_uri);
+            assert_eq!(prepared["result"][0]["name"], "current_only");
+            assert_eq!(
+                base_reload_references(&mut self.client, &self.old_uri),
+                json!([])
+            );
+            open_clean_document(&mut self.client, &current_uri, BASE_RELOAD_CURRENT_SOURCE);
+            assert_eq!(
+                base_reload_references(&mut self.client, &current_uri),
+                json!([{"uri":self.root_uri,"line":2}]),
+            );
+            assert_eq!(
+                fs::read_to_string(&self.old_path).must_be("old URI survives recovery"),
+                BASE_RELOAD_OLD_SOURCE,
+            );
+        }
+    }
+
+    #[test]
+    fn base_reload_failure_detaches_active_index_and_recovers_without_retiring_old_source() {
+        let mut fixture = BaseReloadFixture::new();
+        fixture.assert_initial_binding();
+        // Both nonzero exit and successful-but-empty output must detach the
+        // currently bound compiler document, not just the compiler's cache.
+        for mode in ["--fail", "--empty"] {
+            fixture.assert_detached(mode);
+            fixture.assert_recovered();
+        }
+        fixture.client.finish();
+    }
 }

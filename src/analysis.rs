@@ -338,7 +338,10 @@ pub fn folding_ranges(snapshot: &DocumentSnapshot) -> Vec<FoldingRange> {
 
     for index in 0..syntax.line_count() {
         let code_range = syntax.line_code_range(index).unwrap_or_default();
-        if source[code_range.start..code_range.end].trim().is_empty() {
+        if source[code_range.start..code_range.end]
+            .trim_start()
+            .is_empty()
+        {
             continue;
         }
         let indent = syntax.line_indent(index).unwrap_or_default();
@@ -429,7 +432,7 @@ pub fn selection_range(snapshot: &DocumentSnapshot, mut offset: usize) -> Select
 pub fn semantic_tokens(snapshot: &DocumentSnapshot) -> Vec<SemanticToken> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(syntax.semantic_token_count());
     for (index, token) in syntax.tokens().iter().enumerate() {
         let token_type = match token.kind {
             TokenKind::Comment => Some(17),

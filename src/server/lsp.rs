@@ -170,8 +170,9 @@ impl LanguageServer for Backend {
         {
             let _load = self.compiler.base_module_load.lock().await;
             let _workspace_update = self.workspace.updates.write().await;
-            self.workspace.commit(None, None, |_database| {
+            self.workspace.commit(None, None, |database| {
                 *self.compiler.config.write() = config;
+                database.clear_compiler_base();
                 *self.compiler.base_module.write() = None;
                 *self.compiler.base_module_attempted.write() = false;
                 Some(())

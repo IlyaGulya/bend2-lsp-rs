@@ -3,8 +3,8 @@ use super::{
     state::{State, revision_result},
 };
 use crate::{
-    analysis::{DocumentSnapshot, Revision, TextRange},
-    workspace::{FileId, WorkspaceDb},
+    analysis::{Revision, TextRange},
+    workspace::{FileId, PreparedSemanticSnapshot, WorkspaceDb},
 };
 use std::{
     collections::HashMap,
@@ -134,26 +134,15 @@ impl WorkspaceService {
         closed: ClosedRevision,
         uri: &Url,
         imports: Vec<(TextRange, PathBuf)>,
-        snapshot: Option<&Arc<DocumentSnapshot>>,
+        semantics: Option<PreparedSemanticSnapshot>,
     ) -> CloseCommit {
         let mut state = self.state.write();
         if !state.is_closed(closed) || state.database.file_id_by_uri(uri) != Some(closed.file) {
             return CloseCommit::Superseded;
         }
-        // Prepared imports must belong to the disk snapshot restored below.
-        // A concurrent reachable-load commit can replace it despite update_serial.
-        let disk = state.database.disk_document(uri);
-        let same_snapshot = match (disk.as_ref(), snapshot) {
-            (None, None) => true,
-            (Some((_, current)), Some(prepared)) => Arc::ptr_eq(current, prepared),
-            _ => false,
-        };
-        if !same_snapshot {
-            return CloseCommit::RetryDisk;
-        }
-        match state.apply(|database| database.close_document_prepared(uri, imports)) {
+        match state.apply(|database| database.close_document_prepared(uri, imports, semantics)) {
             Some(file) => CloseCommit::Committed(file),
-            None => CloseCommit::Superseded,
+            None => CloseCommit::RetryDisk,
         }
     }
     /// Validation and all database/index changes share the same exclusive
@@ -189,7 +178,7 @@ mod tests {
     use super::{CloseCommit, WorkspaceService};
     use crate::{
         analysis::Revision,
-        workspace::{Document, resolve_import_targets},
+        workspace::{Document, prepare_semantic_snapshot, resolve_import_targets},
     };
     use std::io;
     use url::Url;
@@ -239,7 +228,12 @@ mod tests {
             .database
             .sync_disk_path(&path, Some(new_source.into()));
         assert!(matches!(
-            service.commit_close(closed, &uri, old_imports, Some(&old_snapshot)),
+            service.commit_close(
+                closed,
+                &uri,
+                old_imports,
+                Some(prepare_semantic_snapshot(old_snapshot.clone())),
+            ),
             CloseCommit::RetryDisk
         ));
         assert_eq!(
@@ -256,7 +250,12 @@ mod tests {
             .ok_or_else(|| io::Error::other("new disk"))?;
         let current_imports = resolve_import_targets(&path, &current_snapshot);
         assert!(matches!(
-            service.commit_close(closed, &uri, current_imports, Some(&current_snapshot)),
+            service.commit_close(
+                closed,
+                &uri,
+                current_imports,
+                Some(prepare_semantic_snapshot(current_snapshot.clone())),
+            ),
             CloseCommit::Committed(_)
         ));
         let database = service.read();

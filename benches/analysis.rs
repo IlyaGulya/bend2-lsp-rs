@@ -304,6 +304,127 @@ impl Default for LoadedWorkspace {
     }
 }
 
+// In-memory snapshots isolate semantic indexing from disk I/O and syntax
+// construction. Unrelated files deliberately reuse the target spelling, but
+// resolve it locally; sparse cases keep exactly three matching importer files.
+struct SemanticSources {
+    directory: tempfile::TempDir,
+    documents: Vec<(workspace::Document, PathBuf)>,
+}
+
+impl SemanticSources {
+    fn new(file_count: usize, matched_files: usize) -> Self {
+        let directory = tempfile::tempdir().must_be("semantic benchmark workspace");
+        let target = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+            analysis::Revision(1),
+            "def identity(value):\n  value\n".into(),
+        ));
+        let client = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+            analysis::Revision(1),
+            "import ./target.bend as Dep\ndef client(value):\n  Dep.identity(value)\n  Dep.identity(value)\n".into(),
+        ));
+        let unrelated = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+            analysis::Revision(1),
+            "def identity(value):\n  value\ndef unrelated(value):\n  identity(value)\n".into(),
+        ));
+        let documents = (0..file_count)
+            .map(|index| {
+                let (name, snapshot) = if index == 0 {
+                    ("target.bend".to_owned(), target.clone())
+                } else if index <= matched_files {
+                    (format!("client{index:05}.bend"), client.clone())
+                } else {
+                    (format!("unrelated{index:05}.bend"), unrelated.clone())
+                };
+                let path = directory.path().join(name);
+                let uri = url::Url::from_file_path(&path).must_be("semantic file URI");
+                (
+                    workspace::Document::with_snapshot(uri, "bend".into(), snapshot),
+                    path,
+                )
+            })
+            .collect();
+        Self {
+            directory,
+            documents,
+        }
+    }
+
+    fn build(self) -> (tempfile::TempDir, workspace::WorkspaceDb) {
+        let mut database = workspace::WorkspaceDb::default();
+        for (document, path) in self.documents {
+            database.set_open_document(document, Some(path));
+        }
+        (self.directory, database)
+    }
+}
+
+struct SemanticWorkspace {
+    _directory: tempfile::TempDir,
+    database: workspace::WorkspaceDb,
+    target: workspace::GlobalSymbolId,
+    caller: workspace::GlobalSymbolId,
+    target_uri: url::Url,
+    replacement: std::sync::Arc<analysis::DocumentSnapshot>,
+}
+
+impl SemanticWorkspace {
+    fn new(file_count: usize, matched_files: usize) -> Self {
+        let (directory, database) = SemanticSources::new(file_count, matched_files).build();
+        let target_uri = url::Url::from_file_path(directory.path().join("target.bend"))
+            .must_be("semantic target URI");
+        let caller_uri = url::Url::from_file_path(directory.path().join("client00001.bend"))
+            .must_be("semantic caller URI");
+        let target = database
+            .symbol_by_name(&target_uri, "identity")
+            .must_be("semantic target")
+            .id;
+        let caller = database
+            .symbol_by_name(&caller_uri, "client")
+            .must_be("semantic caller")
+            .id;
+        let references = database.references(target, false);
+        assert_eq!(references.len(), matched_files * 2);
+        assert!(
+            references
+                .iter()
+                .all(|reference| reference.document.uri != target_uri)
+        );
+        let incoming = database.incoming_calls(target);
+        assert_eq!(incoming.len(), matched_files);
+        assert!(incoming.iter().all(|group| group.ranges.len() == 2));
+        let outgoing = database.outgoing_calls(caller);
+        assert_eq!(outgoing.len(), 1);
+        assert_eq!(outgoing[0].symbol.id, target);
+        assert_eq!(outgoing[0].ranges.len(), 2);
+        let replacement = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+            analysis::Revision(2),
+            "def inserted(value):\n  value\ndef identity(value):\n  value\n".into(),
+        ));
+        Self {
+            _directory: directory,
+            database,
+            target,
+            caller,
+            target_uri,
+            replacement,
+        }
+    }
+}
+
+static SEMANTIC_SPARSE_100: LazyLock<SemanticWorkspace> =
+    LazyLock::new(|| SemanticWorkspace::new(100, 3));
+static SEMANTIC_SPARSE_1000: LazyLock<SemanticWorkspace> =
+    LazyLock::new(|| SemanticWorkspace::new(1_000, 3));
+static SEMANTIC_SPARSE_10000: LazyLock<SemanticWorkspace> =
+    LazyLock::new(|| SemanticWorkspace::new(10_000, 3));
+static SEMANTIC_MATCHED_100: LazyLock<SemanticWorkspace> =
+    LazyLock::new(|| SemanticWorkspace::new(100, 99));
+static SEMANTIC_MATCHED_1000: LazyLock<SemanticWorkspace> =
+    LazyLock::new(|| SemanticWorkspace::new(1_000, 999));
+static SEMANTIC_MATCHED_10000: LazyLock<SemanticWorkspace> =
+    LazyLock::new(|| SemanticWorkspace::new(10_000, 9_999));
+
 #[library_benchmark]
 fn cold_snapshot_build_small() -> analysis::DocumentSnapshot {
     std::hint::black_box(analysis::DocumentSnapshot::new(
@@ -624,6 +745,71 @@ fn parameter_annotation_warm(
     ))
 }
 
+#[library_benchmark]
+#[bench::sparse_100(SemanticSources::new(100, 3))]
+#[bench::sparse_1000(SemanticSources::new(1_000, 3))]
+#[bench::sparse_10000(SemanticSources::new(10_000, 3))]
+#[bench::matched_100(SemanticSources::new(100, 99))]
+#[bench::matched_1000(SemanticSources::new(1_000, 999))]
+#[bench::matched_10000(SemanticSources::new(10_000, 9_999))]
+fn cold_workspace_semantic_build(
+    sources: SemanticSources,
+) -> (tempfile::TempDir, workspace::WorkspaceDb) {
+    std::hint::black_box(sources.build())
+}
+
+#[library_benchmark]
+#[bench::sparse_100(SemanticWorkspace::new(100, 3))]
+#[bench::sparse_1000(SemanticWorkspace::new(1_000, 3))]
+#[bench::sparse_10000(SemanticWorkspace::new(10_000, 3))]
+#[bench::matched_100(SemanticWorkspace::new(100, 99))]
+#[bench::matched_1000(SemanticWorkspace::new(1_000, 999))]
+#[bench::matched_10000(SemanticWorkspace::new(10_000, 9_999))]
+fn cold_workspace_semantic_update(mut fixture: SemanticWorkspace) -> SemanticWorkspace {
+    fixture
+        .database
+        .update_open_snapshot(&fixture.target_uri, fixture.replacement.clone())
+        .must_be("semantic target replacement");
+    std::hint::black_box(fixture)
+}
+
+#[library_benchmark]
+#[bench::sparse_100(LazyLock::force(&SEMANTIC_SPARSE_100))]
+#[bench::sparse_1000(LazyLock::force(&SEMANTIC_SPARSE_1000))]
+#[bench::sparse_10000(LazyLock::force(&SEMANTIC_SPARSE_10000))]
+#[bench::matched_100(LazyLock::force(&SEMANTIC_MATCHED_100))]
+#[bench::matched_1000(LazyLock::force(&SEMANTIC_MATCHED_1000))]
+#[bench::matched_10000(LazyLock::force(&SEMANTIC_MATCHED_10000))]
+fn workspace_references_warm(fixture: &SemanticWorkspace) -> Vec<workspace::WorkspaceOccurrence> {
+    std::hint::black_box(fixture.database.references(fixture.target, false))
+}
+
+#[library_benchmark]
+#[bench::sparse_100(LazyLock::force(&SEMANTIC_SPARSE_100))]
+#[bench::sparse_1000(LazyLock::force(&SEMANTIC_SPARSE_1000))]
+#[bench::sparse_10000(LazyLock::force(&SEMANTIC_SPARSE_10000))]
+#[bench::matched_100(LazyLock::force(&SEMANTIC_MATCHED_100))]
+#[bench::matched_1000(LazyLock::force(&SEMANTIC_MATCHED_1000))]
+#[bench::matched_10000(LazyLock::force(&SEMANTIC_MATCHED_10000))]
+fn workspace_incoming_calls_warm(
+    fixture: &SemanticWorkspace,
+) -> Vec<workspace::WorkspaceCallGroup> {
+    std::hint::black_box(fixture.database.incoming_calls(fixture.target))
+}
+
+#[library_benchmark]
+#[bench::sparse_100(LazyLock::force(&SEMANTIC_SPARSE_100))]
+#[bench::sparse_1000(LazyLock::force(&SEMANTIC_SPARSE_1000))]
+#[bench::sparse_10000(LazyLock::force(&SEMANTIC_SPARSE_10000))]
+#[bench::matched_100(LazyLock::force(&SEMANTIC_MATCHED_100))]
+#[bench::matched_1000(LazyLock::force(&SEMANTIC_MATCHED_1000))]
+#[bench::matched_10000(LazyLock::force(&SEMANTIC_MATCHED_10000))]
+fn workspace_outgoing_calls_warm(
+    fixture: &SemanticWorkspace,
+) -> Vec<workspace::WorkspaceCallGroup> {
+    std::hint::black_box(fixture.database.outgoing_calls(fixture.caller))
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -634,7 +820,9 @@ library_benchmark_group!(
         folding_100_lines, folding_1000_lines, folding_10000_lines,
         workspace_initial_build, workspace_incremental_invalidation,
         workspace_references, workspace_burst_revision_invalidation,
-        constructor_definition_warm, parameter_annotation_warm
+        constructor_definition_warm, parameter_annotation_warm,
+        cold_workspace_semantic_build, cold_workspace_semantic_update,
+        workspace_references_warm, workspace_incoming_calls_warm, workspace_outgoing_calls_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

@@ -80,12 +80,18 @@ impl Backend {
         }
         let offset = adapters::offset_at(&doc, td.position);
         if let Some(symbol) = binding_at(&doc, offset) {
+            let database = self.workspace.read();
+            let occurrences = database
+                .global_symbol_id(&doc.uri, symbol)
+                .map_or_else(Vec::new, |id| {
+                    database.references(id, params.context.include_declaration)
+                });
             return Ok(Some(
-                binding_ranges(&doc, symbol, params.context.include_declaration)
+                occurrences
                     .into_iter()
-                    .map(|range| Location {
-                        uri: doc.uri.clone(),
-                        range: adapters::range(&doc, range),
+                    .map(|occurrence| Location {
+                        uri: occurrence.document.uri.clone(),
+                        range: adapters::range(&occurrence.document, occurrence.range),
                     })
                     .collect(),
             ));
@@ -163,10 +169,14 @@ impl Backend {
         }
         let offset = adapters::offset_at(&doc, td.position);
         if let Some(symbol) = binding_at(&doc, offset) {
-            let edits = binding_ranges(&doc, symbol, true)
+            let database = self.workspace.read();
+            let occurrences = database
+                .global_symbol_id(&doc.uri, symbol)
+                .map_or_else(Vec::new, |id| database.rename_occurrences(id));
+            let edits = occurrences
                 .into_iter()
-                .map(|range| TextEdit {
-                    range: adapters::range(&doc, range),
+                .map(|occurrence| TextEdit {
+                    range: adapters::range(&occurrence.document, occurrence.range),
                     new_text: params.new_name.clone(),
                 })
                 .collect();
