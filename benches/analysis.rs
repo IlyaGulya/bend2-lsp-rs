@@ -1251,7 +1251,7 @@ fn workspace_reference_ranges_warm(
 }
 
 // Includes production traversal, Vec growth, owned Document/URI clones and
-// temporary/source Document drops; excludes sort, dedup and returned Vec drop.
+// internal temporary drops; excludes sort, dedup and returned Vec drop.
 #[library_benchmark(setup = setup_reference_stages, config = reference_stage_config("materialize"))]
 #[bench::sparse_1000(&REFERENCE_STAGES_SPARSE_1000)]
 #[bench::sparse_10000(&REFERENCE_STAGES_SPARSE_10000)]

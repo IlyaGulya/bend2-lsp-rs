@@ -602,6 +602,24 @@ and rename ranges through Unicode/CRLF, interleaved aliases and qualifier
 shadowing, local/self-import uniqueness, dependency overlay removal, and disk
 restoration on close; both executions exit cleanly.
 
+### Bounded reference materialization experiment
+
+The stage evidence motivates eliminating transient `Document` construction,
+not changing global identity, bucket organization, snapshot ownership, or
+ordering. The former materializer eagerly creates a target document even when
+there are no local result rows, and caches an owned source document before
+cloning it again for each external occurrence. The candidate instead borrows
+target metadata and caches borrowed source entry/snapshot metadata. It creates
+owning URI/language/snapshot handles only for returned occurrences.
+
+The returned representation, vector growth strategy, canonical URI/byte-range
+comparator, dedup predicate, and protocol conversion remain unchanged. The
+immutable workspace borrow keeps each ordinal and returned document on the
+same current snapshot. Exact native helper values and actual stdio reference,
+rename, Unicode/CRLF, shadow/alias, local/self-import, and dependency-overlay
+transitions pass after the change. Retention depends on the hosted comparison;
+local smoke is not performance acceptance.
+
 ## Primary sources
 
 [original-index]: https://index.crates.io/to/we/tower-lsp

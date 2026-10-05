@@ -9,7 +9,7 @@ use crate::analysis::{
 };
 use url::Url;
 
-use super::{Document, FileId, WorkspaceDb};
+use super::{Document, FileEntry, FileId, WorkspaceDb};
 
 /// A snapshot-local symbol with stable file identity and a snapshot epoch.
 /// Epochs do not use client versions: disk snapshots can all be UNVERSIONED.
@@ -704,42 +704,52 @@ impl WorkspaceDb {
             return Vec::new();
         }
         let mut result = Vec::new();
+        let local = &self.entries[target.file.0];
         if self.reachable.contains(target.file)
-            && self.entries[target.file.0].semantic_active
-            && let Some(document) = self.entries[target.file.0].document()
+            && local.semantic_active
+            && let Some(snapshot) = local.snapshot()
         {
             result.extend(
-                document
+                snapshot
                     .syntax
                     .references(target.local)
                     .filter(|reference| {
                         include_declaration || reference.kind != ReferenceKind::Declaration
                     })
                     .map(|reference| WorkspaceOccurrence {
-                        document: document.clone(),
+                        document: Document::with_snapshot(
+                            local.uri.clone(),
+                            local.language_id.clone(),
+                            Arc::clone(snapshot),
+                        ),
                         range: reference.range,
                         kind: reference.kind,
                     }),
             );
         }
-        let mut source_document: Option<(FileId, Document)> = None;
+        let mut source_snapshot: Option<(FileId, &FileEntry, &Arc<DocumentSnapshot>)> = None;
         for group in self.current_external_reference_groups(target) {
-            if source_document
+            if source_snapshot
                 .as_ref()
-                .is_none_or(|(source, _)| *source != group.source)
+                .is_none_or(|(source, _, _)| *source != group.source)
             {
-                source_document = self.entries[group.source.0]
-                    .document()
-                    .map(|document| (group.source, document));
+                let entry = &self.entries[group.source.0];
+                source_snapshot = entry
+                    .snapshot()
+                    .map(|snapshot| (group.source, entry, snapshot));
             }
-            let Some((_, document)) = &source_document else {
+            let Some((_, entry, snapshot)) = &source_snapshot else {
                 continue;
             };
             // Cold preparation selects unresolved rows: declarations always
             // resolve locally. These ordinals index this same immutable snapshot,
             // so the mapped slice retains its exact length without a kind filter.
             result.extend(group.occurrences().map(|occurrence| WorkspaceOccurrence {
-                document: document.clone(),
+                document: Document::with_snapshot(
+                    entry.uri.clone(),
+                    entry.language_id.clone(),
+                    Arc::clone(snapshot),
+                ),
                 range: occurrence.range,
                 kind: occurrence.kind,
             }));
