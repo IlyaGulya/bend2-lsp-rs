@@ -617,8 +617,52 @@ comparator, dedup predicate, and protocol conversion remain unchanged. The
 immutable workspace borrow keeps each ordinal and returned document on the
 same current snapshot. Exact native helper values and actual stdio reference,
 rename, Unicode/CRLF, shadow/alias, local/self-import, and dependency-overlay
-transitions pass after the change. Retention depends on the hosted comparison;
-local smoke is not performance acceptance.
+transitions pass after the change. The bounded change is retained for its
+demonstrated warm-query result below, not as an overall acceptance claim.
+
+Corrected stage baseline `bcaefa8`
+([run 37351693962](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37351693962))
+measures sparse-10,000 lookup at 671 `Ir`, prepared-group compact mapping at
+872, owned materialization at 6,392, sort at 269/1,479/1,083 for
+canonical/reverse/fixed-shuffle inputs, and unique dedup at 197. Binding
+`Location` conversion costs 3,810, pure URI-moving conversion 2,633, and the
+additional symbol protocol pipeline 3,101. These are independent stage
+workloads, not an additive explanation of the full 9,789-instruction query;
+protocol serialization/transport is not measured. The baseline main comparator
+passes 29/36 workloads and remains red.
+
+Candidate `b642de8`
+([run 37352647124](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37352647124))
+reduces unsorted materialization `Ir` 6,653→5,009 at sparse-1,000 (−24.71%),
+6,392→4,824 at sparse-10,000 (−24.53%), and 232,893→193,688 at matched-100
+(−16.83%). All six unchanged full warm-reference cases improve:
+
+| Full warm references | Baseline `Ir` | Candidate `Ir` | Change |
+| --- | ---: | ---: | ---: |
+| sparse-100 | 9,416 | 7,651 | −18.74% |
+| sparse-1,000 | 9,581 | 7,816 | −18.42% |
+| sparse-10,000 | 9,789 | 7,604 | −22.32% |
+| matched-100 | 338,659 | 284,009 | −16.14% |
+| matched-1,000 | 3,717,873 | 3,402,477 | −8.48% |
+| matched-10,000 | 44,242,253 | 40,432,680 | −8.61% |
+
+Exclusive sparse-10,000 materialization savings include `FileEntry::document`
+384 `Ir`, `malloc` 348, `_int_free` 432, and `free` 248. Full-query sorting costs
+also differ despite an unchanged comparator: traversal order and allocation
+state are not fixed between these query runs. Do not attribute the entire
+full-query delta to document construction. Controlled shuffled sorting and
+unique dedup remain instruction-identical; all three sparse-10,000 protocol
+stage counts are unchanged.
+
+Initial/incremental/burst fixture `Ir` changes −0.0099%/+0.0107%/−0.0019% versus
+the corrected baseline, with effectively unchanged data-cache read misses.
+Cold snapshot `Ir` stays effectively unchanged, but its `I1mr` grows
+3.22–3.48%; matched-100 semantic-build `I1mr` grows 3.95%. These instruction-cache
+tradeoffs remain visible, not waived or described as data-locality improvements.
+The candidate main comparator passes 25/36 workloads and remains red. Both
+sources pass hosted quality and latency validity. Raw profiles for initial,
+corrected, and candidate sources are preserved; no identical-source performance
+retry, threshold/baseline change, merge, or release is inferred.
 
 ## Primary sources
 
