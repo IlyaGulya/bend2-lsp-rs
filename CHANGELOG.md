@@ -54,6 +54,11 @@
   Add lookup-only absent-bucket, single-source, and three-source benchmarks at
   100, 1,000, and 10,000 files; setup interns absent-target names through an
   independent relation and validates exact sources outside measurement.
+- Decompose workspace reference output measurements into borrowed range mapping,
+  owned occurrence materialization, canonical/reverse/fixed-shuffle sorting,
+  and unique/duplicate-boundary deduplication through production primitives.
+  Measure private production LSP conversion separately, preserving URI-cloning
+  and URI-moving paths and labeling the additional symbol-path sort/dedup.
 - Reserve semantic-token results from a cold-built exact count and avoid
   unnecessary trailing-whitespace scanning when checking blank folding lines.
 

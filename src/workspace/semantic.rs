@@ -45,6 +45,28 @@ pub struct WorkspaceOccurrence {
     pub kind: ReferenceKind,
 }
 
+impl WorkspaceOccurrence {
+    /// Canonical library reference order: URI, then byte range.
+    pub fn sort(occurrences: &mut [Self]) {
+        occurrences.sort_unstable_by(|left, right| {
+            left.document
+                .uri
+                .as_str()
+                .cmp(right.document.uri.as_str())
+                .then_with(|| left.range.start.cmp(&right.range.start))
+                .then_with(|| left.range.end.cmp(&right.range.end))
+        });
+    }
+
+    /// Remove adjacent equal URI/range rows after canonical sorting.
+    /// Removed rows are destroyed here; retained rows remain owned by the caller.
+    pub fn dedup(occurrences: &mut Vec<Self>) {
+        occurrences.dedup_by(|left, right| {
+            left.document.uri == right.document.uri && left.range == right.range
+        });
+    }
+}
+
 /// Incoming groups describe callers; outgoing groups describe callees.
 /// All ranges belong to `source`, never implicitly to `symbol.document`.
 #[derive(Clone)]
@@ -82,6 +104,7 @@ struct ReferenceOrdinal(usize);
 pub struct ExternalReferenceGroup<'a> {
     source: FileId,
     occurrences: &'a [ReferenceOrdinal],
+    snapshot: &'a DocumentSnapshot,
 }
 
 impl ExternalReferenceGroup<'_> {
@@ -93,6 +116,15 @@ impl ExternalReferenceGroup<'_> {
     #[must_use]
     pub const fn occurrence_count(&self) -> usize {
         self.occurrences.len()
+    }
+
+    /// Resolve cold-prepared ordinals against their own immutable snapshot.
+    /// This borrows syntax rows without cloning documents or URIs.
+    #[must_use]
+    pub fn occurrences(&self) -> impl ExactSizeIterator<Item = &crate::analysis::Reference> {
+        self.occurrences
+            .iter()
+            .map(|ordinal| &self.snapshot.syntax.reference_entries()[ordinal.0])
     }
 }
 
@@ -635,12 +667,13 @@ impl WorkspaceDb {
                     return None;
                 }
                 let contribution = self.semantic.contribution(source)?;
-                self.entries[source.0].snapshot()?;
-                Some((source, indices, contribution))
+                let snapshot = self.entries[source.0].snapshot()?;
+                Some((source, indices, contribution, snapshot))
             })
-            .flat_map(|(source, indices, contribution)| {
+            .flat_map(|(source, indices, contribution, snapshot)| {
                 indices.iter().map(move |index| ExternalReferenceGroup {
                     source,
+                    snapshot,
                     occurrences: &contribution.occurrences
                         [contribution.targets[index].occurrences.clone()],
                 })
@@ -649,6 +682,20 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn references(
+        &self,
+        target: GlobalSymbolId,
+        include_declaration: bool,
+    ) -> Vec<WorkspaceOccurrence> {
+        let mut result = self.references_unsorted(target, include_declaration);
+        WorkspaceOccurrence::sort(&mut result);
+        WorkspaceOccurrence::dedup(&mut result);
+        result
+    }
+
+    /// Materialize local and external occurrences without sorting or deduping.
+    /// Traversal order is unspecified; use `references` for canonical results.
+    #[must_use]
+    pub fn references_unsorted(
         &self,
         target: GlobalSymbolId,
         include_declaration: bool,
@@ -691,26 +738,12 @@ impl WorkspaceDb {
             // Cold preparation selects unresolved rows: declarations always
             // resolve locally. These ordinals index this same immutable snapshot,
             // so the mapped slice retains its exact length without a kind filter.
-            result.extend(group.occurrences.iter().map(|ordinal| {
-                let occurrence = &document.syntax.reference_entries()[ordinal.0];
-                WorkspaceOccurrence {
-                    document: document.clone(),
-                    range: occurrence.range,
-                    kind: occurrence.kind,
-                }
+            result.extend(group.occurrences().map(|occurrence| WorkspaceOccurrence {
+                document: document.clone(),
+                range: occurrence.range,
+                kind: occurrence.kind,
             }));
         }
-        result.sort_unstable_by(|left, right| {
-            left.document
-                .uri
-                .as_str()
-                .cmp(right.document.uri.as_str())
-                .then_with(|| left.range.start.cmp(&right.range.start))
-                .then_with(|| left.range.end.cmp(&right.range.end))
-        });
-        result.dedup_by(|left, right| {
-            left.document.uri == right.document.uri && left.range == right.range
-        });
         result
     }
 
