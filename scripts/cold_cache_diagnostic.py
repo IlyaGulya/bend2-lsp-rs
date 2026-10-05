@@ -85,10 +85,15 @@ def collect(source, work, output):
             "rustc": execute(["rustc", "-Vv"], "environment/rustc").strip(),
             "valgrind": execute(["valgrind", "--version"], "environment/valgrind").strip(),
             "kernel": execute(["uname", "-a"], "environment/kernel").strip(),
+            "os_release": execute(["cat", "/etc/os-release"], "environment/os-release").strip(),
+            "glibc": execute(["ldd", "--version"], "environment/glibc").strip(),
             "flags": {key: environment[key] for key in environment if key in {"RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_BUILD_TARGET"} or key.startswith("CARGO_PROFILE_")},
         }
         if not dataset["environment"]["rustc"].startswith("rustc 1.98.1 ") or dataset["environment"]["valgrind"] != "valgrind-3.22.0":
             raise ValueError("Requires hosted Rust1.98.1 and Valgrind3.22.0 pins")
+        os_release = dict(line.split("=", 1) for line in dataset["environment"]["os_release"].splitlines() if "=" in line)
+        if os_release.get("ID", "").strip('"') != "ubuntu" or os_release.get("VERSION_ID", "").strip('"') != "24.04":
+            raise ValueError("Requires Ubuntu24.04 even when the runner pool label is ubuntu-latest")
         execute(["setarch", "x86_64", "-R", "true"], "environment/aslr")
         checkouts = {}
         manifests = {}
