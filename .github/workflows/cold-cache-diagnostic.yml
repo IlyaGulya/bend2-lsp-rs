@@ -6,14 +6,19 @@ on:
     paths:
       - .github/workflows/cold-cache-diagnostic.yml
       - scripts/cold_cache_diagnostic.py
+      - scripts/semantic_lifecycle_diagnostic.py
+      - scripts/semantic_lifecycle_stages.rs
+      - scripts/warm_allocator_diagnostic.py
+      - scripts/warm_allocator_gdb.py
 
 permissions: {}
 
 jobs:
-  exact-source:
+  primitive-attribution:
     if: github.head_ref == 'diagnostic/cold-cache-exact-source' && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
+      actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -24,19 +29,43 @@ jobs:
       - name: Install matching native diagnostic tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes valgrind
+          sudo apt-get install --yes valgrind gdb libc6-dbg
           rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
-      - name: Build exact sources independently and collect fixed diagnostic samples
+      - name: Download completed fixed cold diagnostic without rerunning its samples
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          python3 scripts/cold_cache_diagnostic.py \
+          gh run download 37367991871 \
+            --name cold-cache-exact-source-37367991871-2 \
+            --dir "$RUNNER_TEMP/fixed-cold-artifact"
+      - name: Collect fixed baseline semantic primitive samples
+        run: |
+          python3 scripts/semantic_lifecycle_diagnostic.py \
             --source "$GITHUB_WORKSPACE" \
-            --work-dir "$RUNNER_TEMP/cold-cache-exact-source" \
-            --output-dir "$GITHUB_WORKSPACE/target/cold-cache-diagnostic"
+            --source-ref b642de8a8f473199a07000faf5578e68246d7b40 \
+            --output "$RUNNER_TEMP/semantic-lifecycle-baseline"
+      - name: Collect fixed alias-memo semantic primitive samples
+        if: success() || failure()
+        run: |
+          python3 scripts/semantic_lifecycle_diagnostic.py \
+            --source "$GITHUB_WORKSPACE" \
+            --source-ref 4c9f598d34bee3c2e0e9306dd7ad3c56f2f868ae \
+            --output "$RUNNER_TEMP/semantic-lifecycle-alias-memo"
+      - name: Trace frozen completion and inlay allocator arguments once
+        if: success() || failure()
+        run: |
+          python3 scripts/warm_allocator_diagnostic.py \
+            --artifact "$RUNNER_TEMP/fixed-cold-artifact" \
+            --output "$RUNNER_TEMP/warm-allocator-traces"
       - name: Preserve every binary and raw diagnostic, including failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cold-cache-exact-source-${{ github.run_id }}-${{ github.run_attempt }}
-          path: target/cold-cache-diagnostic/
+          name: semantic-allocator-attribution-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/semantic-lifecycle-baseline/
+            ${{ runner.temp }}/semantic-lifecycle-alias-memo/
+            ${{ runner.temp }}/warm-allocator-traces/
           if-no-files-found: error
           retention-days: 14
