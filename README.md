@@ -169,6 +169,11 @@ diagnostics cannot overwrite a reopened buffer, even when version numbering
 restarts. A prepared close also validates the disk snapshot before restoring its
 imports.
 
+Global semantic/reverse-index research is closed. Production keeps immutable
+snapshots, dense per-document syntax indexes and the loaded/reachable import
+graph, without a mandatory global semantic database. See the
+[architecture decision and reopening trigger](docs/adr-global-indexing.md).
+
 Workspace, compiler, diagnostics, and registration services own server state.
 State poisoning and unexpected worker failure are fatal invariant errors, not
 missing feature results. Shutdown drains owned diagnostics work and compiler
@@ -211,8 +216,9 @@ limitations above describe this checkout; see the changelog for unreleased work.
    patterns, and in-scope local bindings instead of unrelated suggestions.
 2. **Auto-import and useful quick fixes:** insert imports for selected symbols,
    reuse existing aliases, and avoid name conflicts.
-3. **Background whole-project indexing:** discover and index project files,
-   including unrelated files, and incrementally update them after changes.
+3. **Background whole-project indexing — deferred:** reconsider only after a
+   real-workspace editor/LSP latency problem and an agreed performance budget
+   satisfy the [architecture decision](docs/adr-global-indexing.md).
 4. **Alias and file/module rename:** update affected imports and references with
    conflict checks and coordinated workspace edits.
 5. **Compiler integration research:** investigate structured compiler output or

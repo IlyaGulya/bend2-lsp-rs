@@ -20,8 +20,9 @@
   ownership and validated commit boundaries; extract the revision state machine,
   request handlers, and sequential text editing.
 - Retain the existing syntax representation, cross-file query implementation,
-  workspace scope, and LSP framework. Semantic indexing and directory discovery
-  are separate changes.
+  reachable workspace scope and LSP framework. Close global-index experiments
+  without merge and defer semantic/background indexing under the explicit
+  real-user latency and budget trigger in `docs/adr-global-indexing.md`.
 
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 
