@@ -232,6 +232,7 @@ pub enum CompletionKind {
     Function,
     Struct,
     Keyword,
+    Variable,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -528,22 +529,56 @@ fn split_parameters(parameters: &str) -> Vec<&str> {
 
 #[must_use]
 pub fn completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
+    completion_items_with_scope(snapshot, prefix, None)
+}
+
+/// Complete visible local bindings and declarations at a snapshot-local cursor.
+#[must_use]
+pub fn scoped_completion_items(
+    snapshot: &DocumentSnapshot,
+    offset: usize,
+    prefix: &str,
+) -> Vec<Completion> {
+    completion_items_with_scope(snapshot, prefix, Some(offset))
+}
+
+fn completion_items_with_scope(
+    snapshot: &DocumentSnapshot,
+    prefix: &str,
+    offset: Option<usize>,
+) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let mut items: Vec<Completion> = syntax
-        .symbols()
-        .iter()
-        .filter_map(|symbol| {
-            let name = syntax.name_text(source, symbol.name);
-            name.starts_with(prefix).then(|| {
-                completion(
-                    name.to_owned(),
-                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                    symbol.kind,
-                )
-            })
-        })
-        .collect();
+    let mut items = Vec::new();
+    let local_names = offset.map(|offset| {
+        let mut local_names = std::collections::HashSet::new();
+        for binding in syntax.bindings_at(offset) {
+            let name = syntax.name_text(source, binding.name);
+            if name.starts_with(prefix) && local_names.insert(binding.name) {
+                items.push(Completion {
+                    label: name.to_owned(),
+                    detail: "Local binding".into(),
+                    kind: CompletionKind::Variable,
+                });
+            }
+        }
+        items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
+        local_names
+    });
+    for symbol in syntax.symbols() {
+        let name = syntax.name_text(source, symbol.name);
+        if name.starts_with(prefix)
+            && local_names
+                .as_ref()
+                .is_none_or(|names| !names.contains(&symbol.name))
+        {
+            items.push(completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                symbol.kind,
+            ));
+        }
+    }
     for keyword in [
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",

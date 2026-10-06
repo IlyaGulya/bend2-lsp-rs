@@ -80,6 +80,7 @@ pub(super) fn completion_items(items: Vec<analysis::Completion>) -> Vec<Completi
                 CompletionKind::Function => CompletionItemKind::FUNCTION,
                 CompletionKind::Struct => CompletionItemKind::STRUCT,
                 CompletionKind::Keyword => CompletionItemKind::KEYWORD,
+                CompletionKind::Variable => CompletionItemKind::VARIABLE,
             });
             result
         })

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Features
+
+- Complete visible parameters and case-pattern bindings from the current
+  immutable snapshot, including partial expressions and an empty prefix at EOF.
+  Respect lexical shadowing and retain normal unshadowed module completion.
+
 ### Bug Fixes
 
 - Isolate close/reopen revision epochs so stale tickets, queued closes, and old

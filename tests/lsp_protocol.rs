@@ -573,6 +573,155 @@ mod protocol {
         client.finish();
     }
     #[test]
+    fn completion_offers_in_scope_parameters_in_partial_expressions() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let source = "def transform(value: U32) -> U32:\n  va\n";
+        fs::write(&main_path, source).must_be("write source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":1,"character":4}}),
+        );
+        let items = response["result"].as_array().must_be("completion result");
+        assert!(
+            items
+                .iter()
+                .any(|item| item["label"] == "value" && item["kind"] == 6),
+            "the visible parameter must be offered as a variable: {response}"
+        );
+        client.finish();
+    }
+    #[test]
+    fn completion_shadows_globals_only_in_the_owning_function() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let source = "def value() -> U32:\n  0\ndef scoped(value: U32) -> U32:\n  va\ndef outside(other: U32) -> U32:\n  va\n";
+        fs::write(&main_path, source).must_be("write source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, source);
+        for (line, kind) in [(3, 6), (5, 3)] {
+            let response = client.request(
+                "textDocument/completion",
+                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":4}}),
+            );
+            let matches: Vec<_> = response["result"]
+                .as_array()
+                .must_be("completion result")
+                .iter()
+                .filter(|item| item["label"] == "value")
+                .collect();
+            assert_eq!(
+                matches.len(),
+                1,
+                "the selected scope must offer one visible value binding: {response}"
+            );
+            assert_eq!(matches[0]["kind"], kind);
+        }
+        client.finish();
+    }
+    #[test]
+    fn completion_does_not_treat_a_shadowed_parameter_as_an_import_alias() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join("dep.bend"), "def shared():\n  0\n")
+            .must_be("write imported module");
+        let main_path = workspace.join("main.bend");
+        let source = "import ./dep.bend as Dep\ndef shadowed(Dep: U32) -> U32:\n  Dep.sh\ndef unshadowed() -> U32:\n  Dep.sh\n";
+        fs::write(&main_path, source).must_be("write source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, source);
+        let shadowed = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":2,"character":8}}),
+        );
+        assert_eq!(shadowed["result"], json!([]));
+        let unshadowed = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":4,"character":8}}),
+        );
+        assert!(
+            unshadowed["result"]
+                .as_array()
+                .must_be("module completion result")
+                .iter()
+                .any(|item| item["label"] == "shared" && item["kind"] == 3),
+            "the unshadowed import must still offer its members: {unshadowed}"
+        );
+        client.finish();
+    }
+    #[test]
+    fn completion_respects_case_scope_and_unsaved_empty_prefix_at_eof() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let source = "def inspect(outer: U32):\n  match outer:\n    case Pair(inner):\n      in\n    case Empty:\n      in\n";
+        fs::write(&main_path, source).must_be("write source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, source);
+        for (line, visible) in [(3, true), (5, false)] {
+            let response = client.request(
+                "textDocument/completion",
+                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":8}}),
+            );
+            let has_inner = response["result"]
+                .as_array()
+                .must_be("case completion result")
+                .iter()
+                .any(|item| item["label"] == "inner" && item["kind"] == 6);
+            assert_eq!(has_inner, visible, "case bindings must stay in their arm");
+        }
+        let revised = "def inspect(updated_outer: U32):\n  match updated_outer:\n    case Pair(latest):\n      ";
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":revised}]}),
+        );
+        let response = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":3,"character":6}}),
+        );
+        let locals: Vec<_> = response["result"]
+            .as_array()
+            .must_be("EOF completion result")
+            .iter()
+            .filter(|item| item["kind"] == 6)
+            .map(|item| item["label"].as_str().must_be("local binding label"))
+            .collect();
+        assert_eq!(
+            locals,
+            ["latest", "updated_outer"],
+            "an empty prefix at EOF must use the latest unsaved binding scopes"
+        );
+        client.finish();
+    }
+    #[test]
     fn immediate_hover_observes_the_latest_did_change_revision() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
