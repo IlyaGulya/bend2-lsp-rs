@@ -1,0 +1,42 @@
+name: remaining-gate-diagnostic
+
+on:
+  pull_request:
+    branches: [refactor/workspace-semantic-index]
+    paths:
+      - .github/workflows/remaining-gate-diagnostic.yml
+      - scripts/remaining_gate_diagnostic.py
+
+permissions: {}
+
+jobs:
+  fixed-matrix:
+    if: github.head_ref == 'diagnostic/remaining-gate-classification' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install matching native diagnostic tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes valgrind
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+      - name: Build immutable sources and execute fixed 144-sample matrix
+        run: |
+          python3 scripts/remaining_gate_diagnostic.py \
+            --source "$GITHUB_WORKSPACE" \
+            --work-dir "$RUNNER_TEMP/remaining-gate-work" \
+            --output-dir "$RUNNER_TEMP/remaining-gate-evidence"
+      - name: Preserve every source binary profile command and failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: remaining-gate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/remaining-gate-evidence/
+          if-no-files-found: error
+          retention-days: 14
