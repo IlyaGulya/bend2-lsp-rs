@@ -42,6 +42,13 @@ rust-version.workspace = true
 name = "bend2-lsp"
 path = "src/main.rs"
 
+[features]
+decomp-identity = []
+decomp-occurrences = ["decomp-identity"]
+decomp-calls = ["decomp-identity"]
+decomp-ref-consumer = ["decomp-occurrences"]
+decomp-call-consumer = ["decomp-calls"]
+
 [dependencies]
 tower-lsp = "0.20"
 tower = { version = "0.4", default-features = false }
@@ -58,6 +65,10 @@ iai-callgrind = "=0.16.1"
 
 [[bench]]
 name = "analysis"
+harness = false
+
+[[bench]]
+name = "semantic_decomposition"
 harness = false
 
 

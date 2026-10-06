@@ -1,0 +1,50 @@
+name: semantic-decomposition
+
+on:
+  pull_request:
+    branches: [diagnostic/semantic-no-memo-new-main]
+    paths:
+      - .github/workflows/semantic-decomposition.yml
+      - scripts/semantic_decomposition.py
+      - scripts/decomposition_stdio.py
+      - benches/semantic_decomposition.rs
+      - benches/decomposition/**
+      - src/**
+      - Cargo.toml
+
+permissions: {}
+
+jobs:
+  fixed-native-matrix:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install native measurement tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes valgrind binutils
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+          cargo install --locked --version 0.16.1 iai-callgrind-runner
+      - name: Collect frozen capability matrix and semantic equivalence
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 scripts/semantic_decomposition.py \
+            --source "$GITHUB_WORKSPACE" \
+            --work "$RUNNER_TEMP/semantic-decomposition-work" \
+            --output "$GITHUB_WORKSPACE/target/semantic-decomposition"
+      - name: Retain all sources ELF bodies outputs raw profiles commands and failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semantic-decomposition-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/semantic-decomposition/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6

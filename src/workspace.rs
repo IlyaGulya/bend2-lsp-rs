@@ -10,9 +10,13 @@ use url::Url;
 
 mod semantic;
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
+pub use semantic::WorkspaceCallGroup;
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+pub use semantic::{ExternalReferenceGroup, WorkspaceOccurrence};
 pub use semantic::{
-    ExternalReferenceGroup, GlobalSymbolId, PreparedSemanticSnapshot, WorkspaceCallGroup,
-    WorkspaceIndexStats, WorkspaceOccurrence, WorkspaceSymbol, prepare_semantic_snapshot,
+    GlobalSymbolId, PreparedSemanticSnapshot, WorkspaceIndexStats, WorkspaceSymbol,
+    prepare_semantic_snapshot,
 };
 
 #[derive(Clone)]
@@ -526,6 +530,14 @@ impl WorkspaceDb {
     pub fn file_id_by_uri(&self, uri: &Url) -> Option<FileId> {
         self.by_uri.get(uri).copied()
     }
+
+    /// Materialize a current effective document from its workspace identity.
+    #[cfg(feature = "decomp-identity")]
+    #[must_use]
+    pub fn document_by_file_id(&self, file: FileId) -> Option<Document> {
+        self.entries.get(file.0)?.document()
+    }
+
     pub(crate) fn ensure_file_id(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
         self.intern(uri, path)
     }

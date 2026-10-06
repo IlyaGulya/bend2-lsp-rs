@@ -8,6 +8,7 @@ mod features;
 mod formatter;
 mod lsp;
 mod orchestration;
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-ref-consumer"))]
 mod reference_locations;
 mod requests;
 mod revision;

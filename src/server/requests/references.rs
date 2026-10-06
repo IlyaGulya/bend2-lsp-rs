@@ -1,4 +1,6 @@
-use super::super::{adapters, lsp::Backend, reference_locations};
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-ref-consumer"))]
+use super::super::reference_locations;
+use super::super::{adapters, lsp::Backend};
 use super::shared::{binding_at, binding_ranges, declaration_token_at};
 use crate::analysis;
 use std::collections::HashMap;
@@ -80,15 +82,28 @@ impl Backend {
         }
         let offset = adapters::offset_at(&doc, td.position);
         if let Some(symbol) = binding_at(&doc, offset) {
-            let database = self.workspace.read();
-            let occurrences = database
-                .global_symbol_id(&doc.uri, symbol)
-                .map_or_else(Vec::new, |id| {
-                    database.references(id, params.context.include_declaration)
-                });
-            return Ok(Some(reference_locations::binding_reference_locations(
-                occurrences,
-            )));
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-ref-consumer"))]
+            {
+                let database = self.workspace.read();
+                let occurrences = database
+                    .global_symbol_id(&doc.uri, symbol)
+                    .map_or_else(Vec::new, |id| {
+                        database.references(id, params.context.include_declaration)
+                    });
+                return Ok(Some(reference_locations::binding_reference_locations(
+                    occurrences,
+                )));
+            }
+            #[cfg(all(feature = "decomp-identity", not(feature = "decomp-ref-consumer")))]
+            return Ok(Some(
+                binding_ranges(&doc, symbol, params.context.include_declaration)
+                    .into_iter()
+                    .map(|range| Location {
+                        uri: doc.uri.clone(),
+                        range: adapters::range(&doc, range),
+                    })
+                    .collect(),
+            ));
         }
         let Some(token) = declaration_token_at(&doc, offset) else {
             return Ok(None);
@@ -163,21 +178,38 @@ impl Backend {
         }
         let offset = adapters::offset_at(&doc, td.position);
         if let Some(symbol) = binding_at(&doc, offset) {
-            let database = self.workspace.read();
-            let occurrences = database
-                .global_symbol_id(&doc.uri, symbol)
-                .map_or_else(Vec::new, |id| database.rename_occurrences(id));
-            let edits = occurrences
-                .into_iter()
-                .map(|occurrence| TextEdit {
-                    range: adapters::range(&occurrence.document, occurrence.range),
-                    new_text: params.new_name.clone(),
-                })
-                .collect();
-            return Ok(Some(WorkspaceEdit {
-                changes: Some(HashMap::from([(doc.uri.clone(), edits)])),
-                ..Default::default()
-            }));
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-ref-consumer"))]
+            {
+                let database = self.workspace.read();
+                let occurrences = database
+                    .global_symbol_id(&doc.uri, symbol)
+                    .map_or_else(Vec::new, |id| database.rename_occurrences(id));
+                let edits = occurrences
+                    .into_iter()
+                    .map(|occurrence| TextEdit {
+                        range: adapters::range(&occurrence.document, occurrence.range),
+                        new_text: params.new_name.clone(),
+                    })
+                    .collect();
+                return Ok(Some(WorkspaceEdit {
+                    changes: Some(HashMap::from([(doc.uri.clone(), edits)])),
+                    ..Default::default()
+                }));
+            }
+            #[cfg(all(feature = "decomp-identity", not(feature = "decomp-ref-consumer")))]
+            {
+                let edits = binding_ranges(&doc, symbol, true)
+                    .into_iter()
+                    .map(|range| TextEdit {
+                        range: adapters::range(&doc, range),
+                        new_text: params.new_name.clone(),
+                    })
+                    .collect();
+                return Ok(Some(WorkspaceEdit {
+                    changes: Some(HashMap::from([(doc.uri.clone(), edits)])),
+                    ..Default::default()
+                }));
+            }
         }
         let Some(token) = declaration_token_at(&doc, offset) else {
             return Ok(None);

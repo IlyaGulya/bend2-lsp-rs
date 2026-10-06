@@ -1,0 +1,400 @@
+[
+  {
+    "name": "workspace_initial_build.hundred_files",
+    "entry": "semantic_decomposition::decomposition::stages::initial_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 0,
+    "case_index": 0,
+    "function": "workspace_initial_build"
+  },
+  {
+    "name": "cold_workspace_build.sparse_100",
+    "entry": "semantic_decomposition::decomposition::stages::cold_workspace_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 1,
+    "case_index": 0,
+    "function": "cold_workspace_build"
+  },
+  {
+    "name": "cold_workspace_build.sparse_1000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_workspace_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 1,
+    "case_index": 1,
+    "function": "cold_workspace_build"
+  },
+  {
+    "name": "cold_workspace_build.sparse_10000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_workspace_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 1,
+    "case_index": 2,
+    "function": "cold_workspace_build"
+  },
+  {
+    "name": "cold_workspace_build.matched_100",
+    "entry": "semantic_decomposition::decomposition::stages::cold_workspace_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 1,
+    "case_index": 3,
+    "function": "cold_workspace_build"
+  },
+  {
+    "name": "cold_workspace_build.matched_1000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_workspace_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 1,
+    "case_index": 4,
+    "function": "cold_workspace_build"
+  },
+  {
+    "name": "cold_workspace_build.matched_10000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_workspace_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 1,
+    "case_index": 5,
+    "function": "cold_workspace_build"
+  },
+  {
+    "name": "workspace_reference_lookup_warm.sparse_100",
+    "entry": "semantic_decomposition::decomposition::stages::reference_lookup",
+    "group": "decomposition_hot_paths",
+    "function_index": 2,
+    "case_index": 0,
+    "function": "workspace_reference_lookup_warm"
+  },
+  {
+    "name": "workspace_reference_lookup_warm.sparse_1000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_lookup",
+    "group": "decomposition_hot_paths",
+    "function_index": 2,
+    "case_index": 1,
+    "function": "workspace_reference_lookup_warm"
+  },
+  {
+    "name": "workspace_reference_lookup_warm.sparse_10000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_lookup",
+    "group": "decomposition_hot_paths",
+    "function_index": 2,
+    "case_index": 2,
+    "function": "workspace_reference_lookup_warm"
+  },
+  {
+    "name": "workspace_reference_lookup_warm.matched_100",
+    "entry": "semantic_decomposition::decomposition::stages::reference_lookup",
+    "group": "decomposition_hot_paths",
+    "function_index": 2,
+    "case_index": 3,
+    "function": "workspace_reference_lookup_warm"
+  },
+  {
+    "name": "workspace_reference_lookup_warm.matched_1000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_lookup",
+    "group": "decomposition_hot_paths",
+    "function_index": 2,
+    "case_index": 4,
+    "function": "workspace_reference_lookup_warm"
+  },
+  {
+    "name": "workspace_reference_lookup_warm.matched_10000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_lookup",
+    "group": "decomposition_hot_paths",
+    "function_index": 2,
+    "case_index": 5,
+    "function": "workspace_reference_lookup_warm"
+  },
+  {
+    "name": "workspace_reference_materialize_warm.sparse_100",
+    "entry": "semantic_decomposition::decomposition::stages::reference_materialize",
+    "group": "decomposition_hot_paths",
+    "function_index": 3,
+    "case_index": 0,
+    "function": "workspace_reference_materialize_warm"
+  },
+  {
+    "name": "workspace_reference_materialize_warm.sparse_1000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_materialize",
+    "group": "decomposition_hot_paths",
+    "function_index": 3,
+    "case_index": 1,
+    "function": "workspace_reference_materialize_warm"
+  },
+  {
+    "name": "workspace_reference_materialize_warm.sparse_10000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_materialize",
+    "group": "decomposition_hot_paths",
+    "function_index": 3,
+    "case_index": 2,
+    "function": "workspace_reference_materialize_warm"
+  },
+  {
+    "name": "workspace_reference_materialize_warm.matched_100",
+    "entry": "semantic_decomposition::decomposition::stages::reference_materialize",
+    "group": "decomposition_hot_paths",
+    "function_index": 3,
+    "case_index": 3,
+    "function": "workspace_reference_materialize_warm"
+  },
+  {
+    "name": "workspace_reference_materialize_warm.matched_1000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_materialize",
+    "group": "decomposition_hot_paths",
+    "function_index": 3,
+    "case_index": 4,
+    "function": "workspace_reference_materialize_warm"
+  },
+  {
+    "name": "workspace_reference_materialize_warm.matched_10000",
+    "entry": "semantic_decomposition::decomposition::stages::reference_materialize",
+    "group": "decomposition_hot_paths",
+    "function_index": 3,
+    "case_index": 5,
+    "function": "workspace_reference_materialize_warm"
+  },
+  {
+    "name": "workspace_incoming_calls_warm.sparse_100",
+    "entry": "semantic_decomposition::decomposition::stages::incoming",
+    "group": "decomposition_hot_paths",
+    "function_index": 4,
+    "case_index": 0,
+    "function": "workspace_incoming_calls_warm"
+  },
+  {
+    "name": "workspace_incoming_calls_warm.sparse_1000",
+    "entry": "semantic_decomposition::decomposition::stages::incoming",
+    "group": "decomposition_hot_paths",
+    "function_index": 4,
+    "case_index": 1,
+    "function": "workspace_incoming_calls_warm"
+  },
+  {
+    "name": "workspace_incoming_calls_warm.sparse_10000",
+    "entry": "semantic_decomposition::decomposition::stages::incoming",
+    "group": "decomposition_hot_paths",
+    "function_index": 4,
+    "case_index": 2,
+    "function": "workspace_incoming_calls_warm"
+  },
+  {
+    "name": "workspace_incoming_calls_warm.matched_100",
+    "entry": "semantic_decomposition::decomposition::stages::incoming",
+    "group": "decomposition_hot_paths",
+    "function_index": 4,
+    "case_index": 3,
+    "function": "workspace_incoming_calls_warm"
+  },
+  {
+    "name": "workspace_incoming_calls_warm.matched_1000",
+    "entry": "semantic_decomposition::decomposition::stages::incoming",
+    "group": "decomposition_hot_paths",
+    "function_index": 4,
+    "case_index": 4,
+    "function": "workspace_incoming_calls_warm"
+  },
+  {
+    "name": "workspace_incoming_calls_warm.matched_10000",
+    "entry": "semantic_decomposition::decomposition::stages::incoming",
+    "group": "decomposition_hot_paths",
+    "function_index": 4,
+    "case_index": 5,
+    "function": "workspace_incoming_calls_warm"
+  },
+  {
+    "name": "workspace_outgoing_calls_warm.sparse_100",
+    "entry": "semantic_decomposition::decomposition::stages::outgoing",
+    "group": "decomposition_hot_paths",
+    "function_index": 5,
+    "case_index": 0,
+    "function": "workspace_outgoing_calls_warm"
+  },
+  {
+    "name": "workspace_outgoing_calls_warm.sparse_1000",
+    "entry": "semantic_decomposition::decomposition::stages::outgoing",
+    "group": "decomposition_hot_paths",
+    "function_index": 5,
+    "case_index": 1,
+    "function": "workspace_outgoing_calls_warm"
+  },
+  {
+    "name": "workspace_outgoing_calls_warm.sparse_10000",
+    "entry": "semantic_decomposition::decomposition::stages::outgoing",
+    "group": "decomposition_hot_paths",
+    "function_index": 5,
+    "case_index": 2,
+    "function": "workspace_outgoing_calls_warm"
+  },
+  {
+    "name": "workspace_outgoing_calls_warm.matched_100",
+    "entry": "semantic_decomposition::decomposition::stages::outgoing",
+    "group": "decomposition_hot_paths",
+    "function_index": 5,
+    "case_index": 3,
+    "function": "workspace_outgoing_calls_warm"
+  },
+  {
+    "name": "workspace_outgoing_calls_warm.matched_1000",
+    "entry": "semantic_decomposition::decomposition::stages::outgoing",
+    "group": "decomposition_hot_paths",
+    "function_index": 5,
+    "case_index": 4,
+    "function": "workspace_outgoing_calls_warm"
+  },
+  {
+    "name": "workspace_outgoing_calls_warm.matched_10000",
+    "entry": "semantic_decomposition::decomposition::stages::outgoing",
+    "group": "decomposition_hot_paths",
+    "function_index": 5,
+    "case_index": 5,
+    "function": "workspace_outgoing_calls_warm"
+  },
+  {
+    "name": "workspace_rename_warm.sparse_100",
+    "entry": "semantic_decomposition::decomposition::stages::rename",
+    "group": "decomposition_hot_paths",
+    "function_index": 6,
+    "case_index": 0,
+    "function": "workspace_rename_warm"
+  },
+  {
+    "name": "workspace_rename_warm.sparse_1000",
+    "entry": "semantic_decomposition::decomposition::stages::rename",
+    "group": "decomposition_hot_paths",
+    "function_index": 6,
+    "case_index": 1,
+    "function": "workspace_rename_warm"
+  },
+  {
+    "name": "workspace_rename_warm.sparse_10000",
+    "entry": "semantic_decomposition::decomposition::stages::rename",
+    "group": "decomposition_hot_paths",
+    "function_index": 6,
+    "case_index": 2,
+    "function": "workspace_rename_warm"
+  },
+  {
+    "name": "workspace_rename_warm.matched_100",
+    "entry": "semantic_decomposition::decomposition::stages::rename",
+    "group": "decomposition_hot_paths",
+    "function_index": 6,
+    "case_index": 3,
+    "function": "workspace_rename_warm"
+  },
+  {
+    "name": "workspace_rename_warm.matched_1000",
+    "entry": "semantic_decomposition::decomposition::stages::rename",
+    "group": "decomposition_hot_paths",
+    "function_index": 6,
+    "case_index": 4,
+    "function": "workspace_rename_warm"
+  },
+  {
+    "name": "workspace_rename_warm.matched_10000",
+    "entry": "semantic_decomposition::decomposition::stages::rename",
+    "group": "decomposition_hot_paths",
+    "function_index": 6,
+    "case_index": 5,
+    "function": "workspace_rename_warm"
+  },
+  {
+    "name": "cold_workspace_semantic_build.sparse_100",
+    "entry": "semantic_decomposition::decomposition::stages::cold_semantic_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 7,
+    "case_index": 0,
+    "function": "cold_workspace_semantic_build",
+    "applicable_variants": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "R",
+      "F"
+    ],
+    "A": "N/A: actual legacy source has no semantic index"
+  },
+  {
+    "name": "cold_workspace_semantic_build.sparse_1000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_semantic_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 7,
+    "case_index": 1,
+    "function": "cold_workspace_semantic_build",
+    "applicable_variants": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "R",
+      "F"
+    ],
+    "A": "N/A: actual legacy source has no semantic index"
+  },
+  {
+    "name": "cold_workspace_semantic_build.sparse_10000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_semantic_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 7,
+    "case_index": 2,
+    "function": "cold_workspace_semantic_build",
+    "applicable_variants": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "R",
+      "F"
+    ],
+    "A": "N/A: actual legacy source has no semantic index"
+  },
+  {
+    "name": "cold_workspace_semantic_build.matched_100",
+    "entry": "semantic_decomposition::decomposition::stages::cold_semantic_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 7,
+    "case_index": 3,
+    "function": "cold_workspace_semantic_build",
+    "applicable_variants": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "R",
+      "F"
+    ],
+    "A": "N/A: actual legacy source has no semantic index"
+  },
+  {
+    "name": "cold_workspace_semantic_build.matched_1000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_semantic_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 7,
+    "case_index": 4,
+    "function": "cold_workspace_semantic_build",
+    "applicable_variants": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "R",
+      "F"
+    ],
+    "A": "N/A: actual legacy source has no semantic index"
+  },
+  {
+    "name": "cold_workspace_semantic_build.matched_10000",
+    "entry": "semantic_decomposition::decomposition::stages::cold_semantic_build",
+    "group": "decomposition_hot_paths",
+    "function_index": 7,
+    "case_index": 5,
+    "function": "cold_workspace_semantic_build",
+    "applicable_variants": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "R",
+      "F"
+    ],
+    "A": "N/A: actual legacy source has no semantic index"
+  }
+]

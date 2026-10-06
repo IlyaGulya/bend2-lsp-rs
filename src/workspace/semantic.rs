@@ -1,15 +1,27 @@
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Range,
-    sync::Arc,
-};
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
+use std::{collections::HashMap, ops::Range};
+use std::{collections::HashSet, sync::Arc};
 
-use crate::analysis::{
-    DocumentSnapshot, NameId, ReferenceKind, SymbolId, SymbolKind, TextRange, TokenId,
-};
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+use crate::analysis::ReferenceKind;
+use crate::analysis::{DocumentSnapshot, SymbolId};
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
+use crate::analysis::{NameId, TextRange};
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
+use crate::analysis::{SymbolKind, TokenId};
 use url::Url;
 
-use super::{Document, FileEntry, FileId, WorkspaceDb};
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+use super::FileEntry;
+use super::{Document, FileId, WorkspaceDb};
 
 /// A snapshot-local symbol with stable file identity and a snapshot epoch.
 /// Epochs do not use client versions: disk snapshots can all be UNVERSIONED.
@@ -38,6 +50,7 @@ pub struct WorkspaceSymbol {
     pub document: Document,
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
 #[derive(Clone)]
 pub struct WorkspaceOccurrence {
     pub document: Document,
@@ -45,6 +58,7 @@ pub struct WorkspaceOccurrence {
     pub kind: ReferenceKind,
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
 impl WorkspaceOccurrence {
     /// Canonical library reference order: URI, then byte range.
     pub fn sort(occurrences: &mut [Self]) {
@@ -67,6 +81,7 @@ impl WorkspaceOccurrence {
     }
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
 /// Incoming groups describe callers; outgoing groups describe callees.
 /// All ranges belong to `source`, never implicitly to `symbol.document`.
 #[derive(Clone)]
@@ -84,21 +99,33 @@ pub struct WorkspaceIndexStats {
     pub calls: usize,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 enum TemplateModule {
     Import(TextRange),
     CompilerBase,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct TemplateTarget {
     module: TemplateModule,
     name: NameId,
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
 #[derive(Clone, Copy)]
 struct ReferenceOrdinal(usize);
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
 /// A borrowed external target span in one source's immutable contribution.
 /// A source may have multiple groups when import spellings share a target.
 pub struct ExternalReferenceGroup<'a> {
@@ -107,6 +134,7 @@ pub struct ExternalReferenceGroup<'a> {
     snapshot: &'a DocumentSnapshot,
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
 impl ExternalReferenceGroup<'_> {
     #[must_use]
     pub const fn source(&self) -> FileId {
@@ -128,12 +156,20 @@ impl ExternalReferenceGroup<'_> {
     }
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 struct PreparedTarget {
     target: TemplateTarget,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     occurrences: Range<usize>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     calls: Range<usize>,
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
 /// One caller's span in the contribution's flat array of snapshot call ordinals.
 /// Callee ranges stay in immutable syntax instead of per-caller allocations.
 struct PreparedCall {
@@ -153,10 +189,19 @@ struct PreparedCall {
 /// snapshot does not require reconstructing any importing file's contribution.
 pub struct PreparedSemanticSnapshot {
     snapshot: Arc<DocumentSnapshot>,
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     targets: Vec<PreparedTarget>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     occurrences: Vec<ReferenceOrdinal>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     calls: Vec<PreparedCall>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     call_targets: Vec<usize>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     call_indices: Vec<usize>,
     imports_prelude: bool,
 }
@@ -176,17 +221,32 @@ pub fn prepare_semantic_snapshot(snapshot: Arc<DocumentSnapshot>) -> PreparedSem
         .imports()
         .iter()
         .any(|import| import.path_text(&snapshot.text) == "Base");
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     let mut targets = Vec::new();
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     let mut target_indices = HashMap::new();
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     let mut call_targets = Vec::new();
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     let mut occurrences = Vec::new();
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     prepare_occurrences(
         &snapshot,
         &mut targets,
         &mut target_indices,
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
         &mut call_targets,
         &mut occurrences,
     );
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     let PreparedCalls {
         call_indices,
         calls,
@@ -199,15 +259,29 @@ pub fn prepare_semantic_snapshot(snapshot: Arc<DocumentSnapshot>) -> PreparedSem
     );
     PreparedSemanticSnapshot {
         snapshot,
+        #[cfg(any(
+            not(feature = "decomp-identity"),
+            feature = "decomp-occurrences",
+            feature = "decomp-calls"
+        ))]
         targets,
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
         occurrences,
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
         calls,
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
         call_targets,
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
         call_indices,
         imports_prelude,
     }
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 fn prepared_target(
     targets: &mut Vec<PreparedTarget>,
     indices: &mut HashMap<TemplateTarget, usize>,
@@ -223,7 +297,9 @@ fn prepared_target(
     if targets.is_empty() {
         targets.push(PreparedTarget {
             target,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
             occurrences: 0..0,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
             calls: 0..0,
         });
         return 0;
@@ -237,18 +313,23 @@ fn prepared_target(
         let index = targets.len();
         targets.push(PreparedTarget {
             target,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
             occurrences: 0..0,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
             calls: 0..0,
         });
         index
     })
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
 fn prepare_occurrences(
     snapshot: &DocumentSnapshot,
     targets: &mut Vec<PreparedTarget>,
     indices: &mut HashMap<TemplateTarget, usize>,
-    call_targets: &mut Vec<usize>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))] call_targets: &mut Vec<
+        usize,
+    >,
     occurrences: &mut Vec<ReferenceOrdinal>,
 ) {
     let mut contiguous = true;
@@ -270,6 +351,7 @@ fn prepare_occurrences(
             }
             span.end += 1;
             occurrences.push(ReferenceOrdinal(ordinal));
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
             if reference.kind == ReferenceKind::Call
                 && let Some(call_index) = snapshot.syntax.call_index_for_token(reference.token)
             {
@@ -312,6 +394,7 @@ fn prepare_occurrences(
     }
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
 fn occurrence_template_target(
     snapshot: &DocumentSnapshot,
     reference: &crate::analysis::Reference,
@@ -330,6 +413,7 @@ fn occurrence_template_target(
     })
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
 fn set_call_target(
     snapshot: &DocumentSnapshot,
     targets: &mut Vec<usize>,
@@ -344,6 +428,7 @@ fn set_call_target(
     targets[call] = target;
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
 fn call_template_target(
     snapshot: &DocumentSnapshot,
     call: &crate::analysis::CallSite,
@@ -369,11 +454,13 @@ fn call_template_target(
     }
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
 struct PreparedCalls {
     call_indices: Vec<usize>,
     calls: Vec<PreparedCall>,
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
 fn prepare_calls(
     snapshot: &DocumentSnapshot,
     imports_prelude: bool,
@@ -443,6 +530,11 @@ fn prepare_calls(
     }
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 fn template_module(
     snapshot: &DocumentSnapshot,
     alias: &str,
@@ -463,56 +555,106 @@ fn template_module(
     (base_fallback && alias == "Base").then_some(TemplateModule::CompilerBase)
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct MemberId(usize);
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 #[derive(Default)]
 struct MemberNames {
     by_name: HashMap<Arc<str>, MemberId>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     names: Vec<Arc<str>>,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 impl MemberNames {
     fn intern(&mut self, name: &str) -> MemberId {
         if let Some(id) = self.by_name.get(name) {
             return *id;
         }
-        let id = MemberId(self.names.len());
+        let id = MemberId(self.by_name.len());
         let name: Arc<str> = Arc::from(name);
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
         self.names.push(name.clone());
         self.by_name.insert(name, id);
         id
     }
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 enum ModuleKey {
     File(FileId),
     CompilerBase,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct TargetKey {
     module: ModuleKey,
     member: MemberId,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 struct BoundTarget {
     key: Option<TargetKey>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     occurrences: Range<usize>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     calls: Range<usize>,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 struct Contribution {
     targets: Vec<BoundTarget>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     occurrences: Vec<ReferenceOrdinal>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     calls: Vec<PreparedCall>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     call_indices: Vec<usize>,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     occurrence_count: usize,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     call_count: usize,
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     call_targets: Vec<usize>,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 /// Most sources have one spelling per bound target. Additional ordinals are
 /// needed only when distinct import spellings bind to the same file/member.
 struct TargetIndices {
@@ -520,20 +662,45 @@ struct TargetIndices {
     additional: Vec<usize>,
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 impl TargetIndices {
     fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         std::iter::once(self.first).chain(self.additional.iter().copied())
     }
 }
 
+#[cfg(any(
+    not(feature = "decomp-identity"),
+    feature = "decomp-occurrences",
+    feature = "decomp-calls"
+))]
 type ExternalContributions = HashMap<FileId, TargetIndices>;
 
 #[derive(Default)]
 pub(super) struct SemanticIndex {
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     names: MemberNames,
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     // File IDs are dense workspace ordinals. Only this source column is dense;
     // target buckets remain sparse and contain matching sources alone.
     contributions: Vec<Option<Contribution>>,
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     external: HashMap<TargetKey, ExternalContributions>,
     prelude_files: HashSet<FileId>,
     pub(super) compiler_base: Option<FileId>,
@@ -541,24 +708,41 @@ pub(super) struct SemanticIndex {
 }
 
 impl SemanticIndex {
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     fn contribution(&self, source: FileId) -> Option<&Contribution> {
         self.contributions.get(source.0)?.as_ref()
     }
 
     fn remove(&mut self, source: FileId) {
         self.prelude_files.remove(&source);
-        let Some(old) = self.contributions.get_mut(source.0).and_then(Option::take) else {
-            return;
-        };
-        self.stats.occurrences -= old.occurrence_count;
-        self.stats.calls -= old.call_count;
-        // Bound keys are sufficient to remove this source directly; importing
-        // files and target snapshots never need to be scanned or rebuilt.
-        for target in old.targets.into_iter().filter_map(|target| target.key) {
-            if let Some(sources) = self.external.get_mut(&target) {
-                sources.remove(&source);
-                if sources.is_empty() {
-                    self.external.remove(&target);
+        #[cfg(any(
+            not(feature = "decomp-identity"),
+            feature = "decomp-occurrences",
+            feature = "decomp-calls"
+        ))]
+        {
+            let Some(old) = self.contributions.get_mut(source.0).and_then(Option::take) else {
+                return;
+            };
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+            {
+                self.stats.occurrences -= old.occurrence_count;
+            }
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
+            {
+                self.stats.calls -= old.call_count;
+            }
+            // Bound keys remove this source without scanning importing files.
+            for target in old.targets.into_iter().filter_map(|target| target.key) {
+                if let Some(sources) = self.external.get_mut(&target) {
+                    sources.remove(&source);
+                    if sources.is_empty() {
+                        self.external.remove(&target);
+                    }
                 }
             }
         }
@@ -617,6 +801,7 @@ impl WorkspaceDb {
         })
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     /// Resolve only the selected indexed call, including current dependency IDs.
     #[must_use]
     pub fn resolve_call(&self, uri: &Url, callee_token: TokenId) -> Option<WorkspaceSymbol> {
@@ -642,6 +827,7 @@ impl WorkspaceDb {
             .flatten()
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     /// Look up current, reachable external reference spans without materializing
     /// documents or occurrences. Local references are not included.
     pub fn external_reference_groups(
@@ -654,6 +840,7 @@ impl WorkspaceDb {
             .flat_map(move |target| self.current_external_reference_groups(target))
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     /// The caller has already checked the target's current snapshot epoch.
     fn current_external_reference_groups(
         &self,
@@ -680,6 +867,7 @@ impl WorkspaceDb {
             })
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     #[must_use]
     pub fn references(
         &self,
@@ -692,6 +880,7 @@ impl WorkspaceDb {
         result
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     /// Materialize local and external occurrences without sorting or deduping.
     /// Traversal order is unspecified; use `references` for canonical results.
     #[must_use]
@@ -757,11 +946,13 @@ impl WorkspaceDb {
         result
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
     #[must_use]
     pub fn rename_occurrences(&self, target: GlobalSymbolId) -> Vec<WorkspaceOccurrence> {
         self.references(target, true)
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     #[must_use]
     pub fn incoming_calls(&self, target: GlobalSymbolId) -> Vec<WorkspaceCallGroup> {
         if self.symbol_identity(target.file, target.local) != Some(target)
@@ -838,6 +1029,7 @@ impl WorkspaceDb {
         sorted_groups(groups)
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     #[must_use]
     pub fn outgoing_calls(&self, caller: GlobalSymbolId) -> Vec<WorkspaceCallGroup> {
         let Some(source) = self.symbol_by_id(caller).map(|symbol| symbol.document) else {
@@ -886,12 +1078,23 @@ impl WorkspaceDb {
         let entry = &mut self.entries[changed.0];
         // Effective snapshots and language may already have changed. Retire
         // cached local totals from the old indexed snapshot and activation.
+        #[cfg(any(
+            not(feature = "decomp-identity"),
+            feature = "decomp-occurrences",
+            feature = "decomp-calls"
+        ))]
         if entry.semantic_active
             && entry.semantic_epoch.is_some()
             && let Some(old) = &entry.semantic_snapshot
         {
-            self.semantic.stats.occurrences -= old.syntax.local_reference_occurrences();
-            self.semantic.stats.calls -= old.syntax.local_function_calls();
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+            {
+                self.semantic.stats.occurrences -= old.syntax.local_reference_occurrences();
+            }
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
+            {
+                self.semantic.stats.calls -= old.syntax.local_function_calls();
+            }
         }
         self.semantic.remove(changed);
         let snapshot = entry.snapshot().cloned();
@@ -901,12 +1104,23 @@ impl WorkspaceDb {
         }
         entry.semantic_active =
             prepared.is_some() && (entry.language_id == "bend" || entry.language_id == "bend2");
+        #[cfg(any(
+            not(feature = "decomp-identity"),
+            feature = "decomp-occurrences",
+            feature = "decomp-calls"
+        ))]
         if entry.semantic_active
             && entry.semantic_epoch.is_some()
             && let Some(snapshot) = &entry.semantic_snapshot
         {
-            self.semantic.stats.occurrences += snapshot.syntax.local_reference_occurrences();
-            self.semantic.stats.calls += snapshot.syntax.local_function_calls();
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+            {
+                self.semantic.stats.occurrences += snapshot.syntax.local_reference_occurrences();
+            }
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
+            {
+                self.semantic.stats.calls += snapshot.syntax.local_function_calls();
+            }
         }
         if let Some(prepared) = prepared
             && self.entries[changed.0].semantic_active
@@ -930,12 +1144,32 @@ impl WorkspaceDb {
         }
         // Local-only snapshots retain activation and prelude metadata, but no
         // external contribution or dense source-column allocation.
+        #[cfg(any(
+            not(feature = "decomp-identity"),
+            feature = "decomp-occurrences",
+            feature = "decomp-calls"
+        ))]
+        self.install_external_contribution(source, prepared);
+    }
+
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
+    fn install_external_contribution(
+        &mut self,
+        source: FileId,
+        prepared: PreparedSemanticSnapshot,
+    ) {
         if prepared.targets.is_empty() {
             return;
         }
         // Different import spellings can bind to the same key. Each sparse
         // source bucket keeps their canonical group ordinals without copying.
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
         let mut occurrence_count = 0;
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
         let mut call_count = 0;
         // Keep bound keys with their spans, not staging-only templates plus a
         // separately allocated key column. Consume the cold rows into warm rows.
@@ -946,15 +1180,20 @@ impl WorkspaceDb {
             .map(|(index, target)| {
                 let key = self.bind_target(source, &prepared.snapshot, target.target);
                 if let Some(key) = key {
-                    occurrence_count += target.occurrences.len();
-                    let mut has_calls = false;
+                    let mut selected = false;
+                    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+                    {
+                        occurrence_count += target.occurrences.len();
+                        selected |= !target.occurrences.is_empty();
+                    }
+                    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
                     for span in &prepared.calls[target.calls.clone()] {
                         if self.symbol_identity(source, span.caller).is_some() {
                             call_count += span.calls.len();
-                            has_calls = true;
+                            selected = true;
                         }
                     }
-                    if !target.occurrences.is_empty() || has_calls {
+                    if selected {
                         self.semantic
                             .external
                             .entry(key)
@@ -969,13 +1208,21 @@ impl WorkspaceDb {
                 }
                 BoundTarget {
                     key,
+                    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
                     occurrences: target.occurrences,
+                    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
                     calls: target.calls,
                 }
             })
             .collect();
-        self.semantic.stats.occurrences += occurrence_count;
-        self.semantic.stats.calls += call_count;
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
+        {
+            self.semantic.stats.occurrences += occurrence_count;
+        }
+        #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
+        {
+            self.semantic.stats.calls += call_count;
+        }
         if self.semantic.contributions.len() <= source.0 {
             self.semantic
                 .contributions
@@ -983,15 +1230,26 @@ impl WorkspaceDb {
         }
         self.semantic.contributions[source.0] = Some(Contribution {
             targets,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
             occurrences: prepared.occurrences,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
             calls: prepared.calls,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
             call_indices: prepared.call_indices,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-occurrences"))]
             occurrence_count,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
             call_count,
+            #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
             call_targets: prepared.call_targets,
         });
     }
 
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     fn bind_target(
         &mut self,
         source: FileId,
@@ -1011,6 +1269,11 @@ impl WorkspaceDb {
         Some(TargetKey { module, member })
     }
 
+    #[cfg(any(
+        not(feature = "decomp-identity"),
+        feature = "decomp-occurrences",
+        feature = "decomp-calls"
+    ))]
     fn query_keys(&self, target: GlobalSymbolId) -> impl Iterator<Item = TargetKey> {
         let member = self.entries[target.file.0].snapshot().and_then(|snapshot| {
             let symbol = snapshot.syntax.symbol_by_id(target.local)?;
@@ -1035,6 +1298,7 @@ impl WorkspaceDb {
         external.into_iter().chain(base)
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     fn resolve_target(&self, target: TargetKey) -> Option<GlobalSymbolId> {
         let file = match target.module {
             ModuleKey::File(file) => file,
@@ -1076,6 +1340,7 @@ impl WorkspaceDb {
         self.symbol_identity(file, snapshot.syntax.symbol_by_name(name)?.id)
     }
 
+    #[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
     fn is_function(&self, id: GlobalSymbolId) -> bool {
         self.entries[id.file.0]
             .snapshot()
@@ -1095,6 +1360,7 @@ pub(super) fn same_snapshot(
     }
 }
 
+#[cfg(any(not(feature = "decomp-identity"), feature = "decomp-calls"))]
 fn sorted_groups(groups: HashMap<GlobalSymbolId, WorkspaceCallGroup>) -> Vec<WorkspaceCallGroup> {
     let mut result: Vec<_> = groups.into_values().collect();
     for group in &mut result {
