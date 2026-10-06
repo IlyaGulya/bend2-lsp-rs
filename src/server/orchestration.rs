@@ -3,7 +3,6 @@ use super::{
     compiler_service::BaseModule,
     features::named_document_symbol,
     lsp::Backend,
-    reference_locations,
     revision::{RevisionStatus, RevisionTicket, wait_for_captured_revision},
     state::revision_result,
 };
@@ -26,6 +25,8 @@ use tower_lsp::{
 };
 use tracing::Instrument;
 use url::Url;
+
+use super::reference_locations;
 
 struct PreparedDiskUpdate {
     uri: Url,
@@ -916,5 +917,67 @@ impl Backend {
         affected.extend(after);
         tracing::Span::current().record("outcome", "committed");
         affected
+    }
+
+    pub(super) fn resolve_call_target(
+        &self,
+        source: &Document,
+        call: &analysis::CallSite,
+    ) -> Option<(Url, Arc<DocumentSnapshot>, analysis::SymbolId)> {
+        if let Some(callee) = call.callee {
+            let symbol = source.syntax.symbol_by_id(callee)?;
+            return (symbol.kind == analysis::SymbolKind::Function)
+                .then(|| (source.uri.clone(), source.snapshot.clone(), callee));
+        }
+        if let Some(qualifier) = call.qualifier {
+            if call
+                .qualifier_token
+                .is_some_and(|token| source.syntax.symbol_for_token(token).is_some())
+            {
+                return None;
+            }
+            let alias = source.syntax.name_text(&source.text, qualifier);
+            let imported = self.module_document(source, alias).or_else(|| {
+                (alias == "Base")
+                    .then(|| self.prelude_module(source))
+                    .flatten()
+                    .map(|module| (module.uri, module.snapshot))
+            })?;
+            let name = source.syntax.name_text(&source.text, call.name);
+            let id = imported
+                .1
+                .syntax
+                .name_id(&imported.1.text, name)
+                .and_then(|name| imported.1.syntax.symbol_by_name(name))
+                .filter(|symbol| symbol.kind == analysis::SymbolKind::Function)?
+                .id;
+            return Some((imported.0, imported.1, id));
+        }
+        let module = self.prelude_module(source)?;
+        let name = source.syntax.name_text(&source.text, call.name);
+        let id = module
+            .snapshot
+            .syntax
+            .name_id(&module.snapshot.text, name)
+            .and_then(|name| module.snapshot.syntax.symbol_by_name(name))
+            .filter(|symbol| symbol.kind == analysis::SymbolKind::Function)?
+            .id;
+        Some((module.uri, module.snapshot, id))
+    }
+
+    #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "hierarchy_documents", result_count = tracing::field::Empty))]
+    pub(super) fn hierarchy_documents(&self) -> Vec<Document> {
+        let mut documents = self.indexed_documents();
+        if let Some(module) = self.compiler.base_module.read().clone()
+            && !documents.iter().any(|document| document.uri == module.uri)
+        {
+            documents.push(Document::with_snapshot(
+                module.uri,
+                "bend".into(),
+                module.snapshot,
+            ));
+        }
+        tracing::Span::current().record("result_count", documents.len());
+        documents
     }
 }

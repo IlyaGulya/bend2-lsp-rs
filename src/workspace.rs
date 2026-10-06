@@ -161,8 +161,8 @@ pub struct WorkspaceDb {
 
 impl WorkspaceDb {
     /// Register compiler-owned Base source and its provenance for navigation and
-    /// indexed call resolution. Retain its backing file for the lifetime of the
-    /// workspace index, not just the active compiler cache.
+    /// snapshot-based call resolution. Retain its backing file for the lifetime
+    /// of the workspace, not just the active compiler cache.
     pub(crate) fn register_compiler_document(
         &mut self,
         uri: Url,

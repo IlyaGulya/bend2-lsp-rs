@@ -4,9 +4,9 @@
 
 ### Features
 
-- Prepare grouped workspace semantic contributions during cold staging; use
-  revision-safe symbol identities and indexed occurrence/call buckets for warm
-  cross-file queries. Keep stable file IDs with deletion tombstones.
+- Prepare grouped workspace occurrence contributions during cold staging; use
+  revision-safe symbol identities and an external occurrence reverse index for
+  cross-file references and rename. Keep stable file IDs with deletion tombstones.
 
 ### Bug Fixes
 
@@ -32,10 +32,11 @@
 - Keep the current LSP framework; document the framework boundary evaluation.
   Extract sequential text editing without introducing a Rope or incremental
   parser.
-- Reuse local syntax reference/call spans and canonical external contribution
-  groups instead of duplicating workspace range maps. Reduce cold name lookups
-  and scratch allocations while retaining immutable snapshot query indexes.
-- Store imported reference-row ordinals and flat per-file caller-group columns;
+- Reuse local syntax reference spans and canonical external occurrence
+  groups instead of duplicating workspace range maps. Keep call hierarchy on
+  immutable snapshot incoming traversal and local outgoing traversal, without
+  building or storing a workspace call-edge index.
+- Store imported reference-row ordinals in flat per-file occurrence columns;
   read ranges and reference kinds directly from immutable snapshots instead of
   copies. Keep bound keys with target spans instead of retaining cold templates
   and a separate key allocation. Share column storage across targets without
@@ -46,8 +47,8 @@
   stay in local syntax spans, so external rows need no declaration filtering.
   Add a separate interleaved multi-target cold benchmark; existing workloads,
   destruction scope, metrics, and limits are unchanged.
-- Cache local occurrence and function-call totals during syntax-index construction.
-  Keep workspace contributions only for external relations; local-only feature
+- Cache local occurrence totals during syntax-index construction.
+  Keep workspace contributions only for external occurrences; local-only feature
   queries continue to use their immutable snapshots. Cold snapshot benchmarks
   include this metadata work separately from prebuilt-snapshot semantic workloads.
 - Separate allocation-free external reference group lookup from occurrence

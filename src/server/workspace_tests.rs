@@ -235,7 +235,14 @@ mod tests {
         assert_eq!(outgoing.len(), 1);
         assert_eq!(outgoing[0].symbol.id, target.id);
         assert_eq!(outgoing[0].ranges.len(), 2);
-        assert_eq!(database.semantic_index_stats().calls, 2);
+        assert_eq!(
+            database
+                .references(target.id, false)
+                .into_iter()
+                .map(|occurrence| occurrence.range)
+                .collect::<Vec<_>>(),
+            incoming[0].ranges
+        );
 
         let prefix = "def inserted():\n  0\n";
         let shifted_ranges: Vec<_> = incoming[0]
@@ -265,7 +272,14 @@ mod tests {
         assert_eq!(incoming.len(), 1);
         assert_eq!(incoming[0].symbol.id, current_caller.id);
         assert_eq!(incoming[0].ranges, shifted_ranges);
-        assert_eq!(database.semantic_index_stats().calls, 2);
+        assert_eq!(
+            database
+                .references(current_target.id, false)
+                .into_iter()
+                .map(|occurrence| occurrence.range)
+                .collect::<Vec<_>>(),
+            shifted_ranges
+        );
         Ok(())
     }
 

@@ -1,15 +1,15 @@
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Range,
-    sync::Arc,
-};
+use std::{collections::HashMap, ops::Range};
+use std::{collections::HashSet, sync::Arc};
 
-use crate::analysis::{
-    DocumentSnapshot, NameId, ReferenceKind, SymbolId, SymbolKind, TextRange, TokenId,
-};
+use crate::analysis::ReferenceKind;
+use crate::analysis::{DocumentSnapshot, SymbolId};
+
+use crate::analysis::{NameId, SymbolKind, TextRange, TokenId};
+
 use url::Url;
 
-use super::{Document, FileEntry, FileId, WorkspaceDb};
+use super::FileEntry;
+use super::{Document, FileId, WorkspaceDb};
 
 /// A snapshot-local symbol with stable file identity and a snapshot epoch.
 /// Epochs do not use client versions: disk snapshots can all be UNVERSIONED.
@@ -81,7 +81,6 @@ pub struct WorkspaceCallGroup {
 pub struct WorkspaceIndexStats {
     pub files_rebuilt: u64,
     pub occurrences: usize,
-    pub calls: usize,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -130,22 +129,15 @@ impl ExternalReferenceGroup<'_> {
 
 struct PreparedTarget {
     target: TemplateTarget,
-    occurrences: Range<usize>,
-    calls: Range<usize>,
-}
 
-/// One caller's span in the contribution's flat array of snapshot call ordinals.
-/// Callee ranges stay in immutable syntax instead of per-caller allocations.
-struct PreparedCall {
-    caller: SymbolId,
-    calls: Range<usize>,
+    occurrences: Range<usize>,
 }
 
 /// Cold per-file semantic delta, prepared without a workspace lock.
 ///
 /// Local references remain in immutable syntax spans, preserving duplicate
 /// declarations and lexical bindings. Imported members remain symbolic until
-/// commit. Target spans select flat reference-ordinal and caller-group columns;
+/// commit. Target spans select flat reference-ordinal columns;
 /// occurrence ranges and kinds are read from the immutable syntax snapshot.
 /// Commit binds distinct groups and moves their arrays; it never scans tokens,
 /// source, raw calls, or importer files.
@@ -153,11 +145,11 @@ struct PreparedCall {
 /// snapshot does not require reconstructing any importing file's contribution.
 pub struct PreparedSemanticSnapshot {
     snapshot: Arc<DocumentSnapshot>,
+
     targets: Vec<PreparedTarget>,
+
     occurrences: Vec<ReferenceOrdinal>,
-    calls: Vec<PreparedCall>,
-    call_targets: Vec<usize>,
-    call_indices: Vec<usize>,
+
     imports_prelude: bool,
 }
 
@@ -176,34 +168,27 @@ pub fn prepare_semantic_snapshot(snapshot: Arc<DocumentSnapshot>) -> PreparedSem
         .imports()
         .iter()
         .any(|import| import.path_text(&snapshot.text) == "Base");
+
     let mut targets = Vec::new();
+
     let mut target_indices = HashMap::new();
-    let mut call_targets = Vec::new();
+
     let mut occurrences = Vec::new();
+
     prepare_occurrences(
         &snapshot,
         &mut targets,
         &mut target_indices,
-        &mut call_targets,
         &mut occurrences,
     );
-    let PreparedCalls {
-        call_indices,
-        calls,
-    } = prepare_calls(
-        &snapshot,
-        imports_prelude,
-        &mut targets,
-        &mut target_indices,
-        &mut call_targets,
-    );
+
     PreparedSemanticSnapshot {
         snapshot,
+
         targets,
+
         occurrences,
-        calls,
-        call_targets,
-        call_indices,
+
         imports_prelude,
     }
 }
@@ -223,8 +208,8 @@ fn prepared_target(
     if targets.is_empty() {
         targets.push(PreparedTarget {
             target,
+
             occurrences: 0..0,
-            calls: 0..0,
         });
         return 0;
     }
@@ -237,8 +222,8 @@ fn prepared_target(
         let index = targets.len();
         targets.push(PreparedTarget {
             target,
+
             occurrences: 0..0,
-            calls: 0..0,
         });
         index
     })
@@ -248,7 +233,7 @@ fn prepare_occurrences(
     snapshot: &DocumentSnapshot,
     targets: &mut Vec<PreparedTarget>,
     indices: &mut HashMap<TemplateTarget, usize>,
-    call_targets: &mut Vec<usize>,
+
     occurrences: &mut Vec<ReferenceOrdinal>,
 ) {
     let mut contiguous = true;
@@ -270,17 +255,6 @@ fn prepare_occurrences(
             }
             span.end += 1;
             occurrences.push(ReferenceOrdinal(ordinal));
-            if reference.kind == ReferenceKind::Call
-                && let Some(call_index) = snapshot.syntax.call_index_for_token(reference.token)
-            {
-                let call = &snapshot.syntax.calls()[call_index];
-                if call.name == reference.name
-                    && call.qualifier == reference.qualifier
-                    && call.qualifier_token == reference.qualifier_token
-                {
-                    set_call_target(snapshot, call_targets, call_index, index);
-                }
-            }
         }
     }
     if !contiguous {
@@ -330,119 +304,6 @@ fn occurrence_template_target(
     })
 }
 
-fn set_call_target(
-    snapshot: &DocumentSnapshot,
-    targets: &mut Vec<usize>,
-    call: usize,
-    target: usize,
-) {
-    if targets.is_empty() {
-        // The column uses the snapshot's existing call ordinals; local and
-        // unresolved calls have no external target. All-local files allocate none.
-        *targets = vec![usize::MAX; snapshot.syntax.calls().len()];
-    }
-    targets[call] = target;
-}
-
-fn call_template_target(
-    snapshot: &DocumentSnapshot,
-    call: &crate::analysis::CallSite,
-    imports_prelude: bool,
-) -> Option<TemplateTarget> {
-    if let Some(qualifier) = call.qualifier {
-        if call
-            .qualifier_token
-            .is_some_and(|token| snapshot.syntax.symbol_for_token(token).is_some())
-        {
-            return None;
-        }
-        let alias = snapshot.syntax.name_text(&snapshot.text, qualifier);
-        template_module(snapshot, alias, imports_prelude).map(|module| TemplateTarget {
-            module,
-            name: call.name,
-        })
-    } else {
-        imports_prelude.then_some(TemplateTarget {
-            module: TemplateModule::CompilerBase,
-            name: call.name,
-        })
-    }
-}
-
-struct PreparedCalls {
-    call_indices: Vec<usize>,
-    calls: Vec<PreparedCall>,
-}
-
-fn prepare_calls(
-    snapshot: &DocumentSnapshot,
-    imports_prelude: bool,
-    targets: &mut Vec<PreparedTarget>,
-    indices: &mut HashMap<TemplateTarget, usize>,
-    call_targets: &mut Vec<usize>,
-) -> PreparedCalls {
-    let mut selected = Vec::new();
-    for (call_index, call) in snapshot.syntax.calls().iter().enumerate() {
-        if call.callee.is_some() {
-            continue;
-        }
-        let index = if let Some(index) = call_targets
-            .get(call_index)
-            .copied()
-            .filter(|index| *index != usize::MAX)
-        {
-            index
-        } else {
-            let Some(target) = call_template_target(snapshot, call, imports_prelude) else {
-                continue;
-            };
-            let index = prepared_target(targets, indices, target);
-            set_call_target(snapshot, call_targets, call_index, index);
-            index
-        };
-        if let Some(caller) = call.caller {
-            selected.push((index, caller, call_index));
-        }
-    }
-    // Group ordinals, not copied ranges. Flat columns replace per-target and
-    // per-caller allocations, including when targets alternate within a caller.
-    let key = |&(target, caller, _): &(usize, SymbolId, usize)| (target, caller.0);
-    if !selected
-        .windows(2)
-        .all(|pair| key(&pair[0]) <= key(&pair[1]))
-    {
-        selected.sort_unstable_by_key(key);
-    }
-    let mut call_indices = Vec::with_capacity(selected.len());
-    let mut calls: Vec<PreparedCall> = Vec::new();
-    for (target, caller, call) in selected {
-        let start = call_indices.len();
-        call_indices.push(call);
-        let span = &mut targets[target].calls;
-        if span.start != span.end
-            && let Some(previous) = calls.last_mut()
-            && previous.caller == caller
-            && previous.calls.end == start
-        {
-            previous.calls.end += 1;
-        } else {
-            if span.start == span.end {
-                span.start = calls.len();
-                span.end = span.start;
-            }
-            calls.push(PreparedCall {
-                caller,
-                calls: start..start + 1,
-            });
-            span.end += 1;
-        }
-    }
-    PreparedCalls {
-        call_indices,
-        calls,
-    }
-}
-
 fn template_module(
     snapshot: &DocumentSnapshot,
     alias: &str,
@@ -469,7 +330,6 @@ struct MemberId(usize);
 #[derive(Default)]
 struct MemberNames {
     by_name: HashMap<Arc<str>, MemberId>,
-    names: Vec<Arc<str>>,
 }
 
 impl MemberNames {
@@ -477,9 +337,9 @@ impl MemberNames {
         if let Some(id) = self.by_name.get(name) {
             return *id;
         }
-        let id = MemberId(self.names.len());
+        let id = MemberId(self.by_name.len());
         let name: Arc<str> = Arc::from(name);
-        self.names.push(name.clone());
+
         self.by_name.insert(name, id);
         id
     }
@@ -499,18 +359,16 @@ struct TargetKey {
 
 struct BoundTarget {
     key: Option<TargetKey>,
+
     occurrences: Range<usize>,
-    calls: Range<usize>,
 }
 
 struct Contribution {
     targets: Vec<BoundTarget>,
+
     occurrences: Vec<ReferenceOrdinal>,
-    calls: Vec<PreparedCall>,
-    call_indices: Vec<usize>,
+
     occurrence_count: usize,
-    call_count: usize,
-    call_targets: Vec<usize>,
 }
 
 /// Most sources have one spelling per bound target. Additional ordinals are
@@ -531,9 +389,11 @@ type ExternalContributions = HashMap<FileId, TargetIndices>;
 #[derive(Default)]
 pub(super) struct SemanticIndex {
     names: MemberNames,
+
     // File IDs are dense workspace ordinals. Only this source column is dense;
     // target buckets remain sparse and contain matching sources alone.
     contributions: Vec<Option<Contribution>>,
+
     external: HashMap<TargetKey, ExternalContributions>,
     prelude_files: HashSet<FileId>,
     pub(super) compiler_base: Option<FileId>,
@@ -547,18 +407,23 @@ impl SemanticIndex {
 
     fn remove(&mut self, source: FileId) {
         self.prelude_files.remove(&source);
-        let Some(old) = self.contributions.get_mut(source.0).and_then(Option::take) else {
-            return;
-        };
-        self.stats.occurrences -= old.occurrence_count;
-        self.stats.calls -= old.call_count;
-        // Bound keys are sufficient to remove this source directly; importing
-        // files and target snapshots never need to be scanned or rebuilt.
-        for target in old.targets.into_iter().filter_map(|target| target.key) {
-            if let Some(sources) = self.external.get_mut(&target) {
-                sources.remove(&source);
-                if sources.is_empty() {
-                    self.external.remove(&target);
+
+        {
+            let Some(old) = self.contributions.get_mut(source.0).and_then(Option::take) else {
+                return;
+            };
+
+            {
+                self.stats.occurrences -= old.occurrence_count;
+            }
+
+            // Bound keys remove this source without scanning importing files.
+            for target in old.targets.into_iter().filter_map(|target| target.key) {
+                if let Some(sources) = self.external.get_mut(&target) {
+                    sources.remove(&source);
+                    if sources.is_empty() {
+                        self.external.remove(&target);
+                    }
                 }
             }
         }
@@ -615,31 +480,6 @@ impl WorkspaceDb {
             id,
             document: self.entries[id.file.0].document()?,
         })
-    }
-
-    /// Resolve only the selected indexed call, including current dependency IDs.
-    #[must_use]
-    pub fn resolve_call(&self, uri: &Url, callee_token: TokenId) -> Option<WorkspaceSymbol> {
-        let source = self.file_id_by_uri(uri)?;
-        if !self.entries[source.0].semantic_active {
-            return None;
-        }
-        let snapshot = self.entries[source.0].snapshot()?;
-        let call_index = snapshot.syntax.call_index_for_token(callee_token)?;
-        let call = &snapshot.syntax.calls()[call_index];
-        if let Some(local) = call.callee {
-            let id = self.symbol_identity(source, local)?;
-            return self
-                .is_function(id)
-                .then(|| self.symbol_by_id(id))
-                .flatten();
-        }
-        let contribution = self.semantic.contribution(source)?;
-        let target = *contribution.call_targets.get(call_index)?;
-        let id = self.resolve_target(contribution.targets.get(target)?.key?)?;
-        self.is_function(id)
-            .then(|| self.symbol_by_id(id))
-            .flatten()
     }
 
     /// Look up current, reachable external reference spans without materializing
@@ -762,121 +602,6 @@ impl WorkspaceDb {
         self.references(target, true)
     }
 
-    #[must_use]
-    pub fn incoming_calls(&self, target: GlobalSymbolId) -> Vec<WorkspaceCallGroup> {
-        if self.symbol_identity(target.file, target.local) != Some(target)
-            || !self.is_function(target)
-        {
-            return Vec::new();
-        }
-        let mut groups = HashMap::<GlobalSymbolId, WorkspaceCallGroup>::new();
-        if (self.reachable.contains(target.file)
-            || self.semantic.compiler_base == Some(target.file))
-            && self.entries[target.file.0].semantic_active
-            && let Some(snapshot) = self.entries[target.file.0].snapshot()
-        {
-            for call in snapshot.syntax.calls_to(target.local) {
-                let Some(caller) = call
-                    .caller
-                    .and_then(|local| self.symbol_identity(target.file, local))
-                else {
-                    continue;
-                };
-                let Some(symbol) = self.symbol_by_id(caller) else {
-                    continue;
-                };
-                groups
-                    .entry(caller)
-                    .or_insert_with(|| WorkspaceCallGroup {
-                        source: symbol.document.clone(),
-                        symbol,
-                        ranges: Vec::new(),
-                    })
-                    .ranges
-                    .push(call.callee_range);
-            }
-        }
-        for key in self.query_keys(target) {
-            let Some(sources) = self.semantic.external.get(&key) else {
-                continue;
-            };
-            for (&source, indices) in sources {
-                if !self.reachable.contains(source) && self.semantic.compiler_base != Some(source) {
-                    continue;
-                }
-                let Some(contribution) = self.semantic.contribution(source) else {
-                    continue;
-                };
-                let Some(snapshot) = self.entries[source.0].snapshot() else {
-                    continue;
-                };
-                for index in indices.iter() {
-                    for span in &contribution.calls[contribution.targets[index].calls.clone()] {
-                        let Some(caller) = self.symbol_identity(source, span.caller) else {
-                            continue;
-                        };
-                        let Some(symbol) = self.symbol_by_id(caller) else {
-                            continue;
-                        };
-                        groups
-                            .entry(caller)
-                            .or_insert_with(|| WorkspaceCallGroup {
-                                source: symbol.document.clone(),
-                                symbol,
-                                ranges: Vec::new(),
-                            })
-                            .ranges
-                            .extend(
-                                contribution.call_indices[span.calls.clone()]
-                                    .iter()
-                                    .map(|&call| snapshot.syntax.calls()[call].callee_range),
-                            );
-                    }
-                }
-            }
-        }
-        sorted_groups(groups)
-    }
-
-    #[must_use]
-    pub fn outgoing_calls(&self, caller: GlobalSymbolId) -> Vec<WorkspaceCallGroup> {
-        let Some(source) = self.symbol_by_id(caller).map(|symbol| symbol.document) else {
-            return Vec::new();
-        };
-        let mut groups = HashMap::<GlobalSymbolId, WorkspaceCallGroup>::new();
-        let contribution = self.semantic.contribution(caller.file);
-        if self.entries[caller.file.0].semantic_active {
-            for call in source.syntax.calls_from(caller.local) {
-                let target = if let Some(local) = call.callee {
-                    self.symbol_identity(caller.file, local)
-                } else {
-                    source
-                        .syntax
-                        .call_index_for_token(call.callee_token)
-                        .and_then(|index| contribution?.call_targets.get(index))
-                        .and_then(|&target| contribution?.targets.get(target))
-                        .and_then(|target| target.key.and_then(|key| self.resolve_target(key)))
-                };
-                let Some(target) = target.filter(|id| self.is_function(*id)) else {
-                    continue;
-                };
-                let Some(symbol) = self.symbol_by_id(target) else {
-                    continue;
-                };
-                groups
-                    .entry(target)
-                    .or_insert_with(|| WorkspaceCallGroup {
-                        symbol,
-                        source: source.clone(),
-                        ranges: Vec::new(),
-                    })
-                    .ranges
-                    .push(call.callee_range);
-            }
-        }
-        sorted_groups(groups)
-    }
-
     pub(super) fn install_semantics(
         &mut self,
         changed: FileId,
@@ -886,12 +611,14 @@ impl WorkspaceDb {
         let entry = &mut self.entries[changed.0];
         // Effective snapshots and language may already have changed. Retire
         // cached local totals from the old indexed snapshot and activation.
+
         if entry.semantic_active
             && entry.semantic_epoch.is_some()
             && let Some(old) = &entry.semantic_snapshot
         {
-            self.semantic.stats.occurrences -= old.syntax.local_reference_occurrences();
-            self.semantic.stats.calls -= old.syntax.local_function_calls();
+            {
+                self.semantic.stats.occurrences -= old.syntax.local_reference_occurrences();
+            }
         }
         self.semantic.remove(changed);
         let snapshot = entry.snapshot().cloned();
@@ -901,12 +628,14 @@ impl WorkspaceDb {
         }
         entry.semantic_active =
             prepared.is_some() && (entry.language_id == "bend" || entry.language_id == "bend2");
+
         if entry.semantic_active
             && entry.semantic_epoch.is_some()
             && let Some(snapshot) = &entry.semantic_snapshot
         {
-            self.semantic.stats.occurrences += snapshot.syntax.local_reference_occurrences();
-            self.semantic.stats.calls += snapshot.syntax.local_function_calls();
+            {
+                self.semantic.stats.occurrences += snapshot.syntax.local_reference_occurrences();
+            }
         }
         if let Some(prepared) = prepared
             && self.entries[changed.0].semantic_active
@@ -930,13 +659,23 @@ impl WorkspaceDb {
         }
         // Local-only snapshots retain activation and prelude metadata, but no
         // external contribution or dense source-column allocation.
+
+        self.install_external_contribution(source, prepared);
+    }
+
+    fn install_external_contribution(
+        &mut self,
+        source: FileId,
+        prepared: PreparedSemanticSnapshot,
+    ) {
         if prepared.targets.is_empty() {
             return;
         }
         // Different import spellings can bind to the same key. Each sparse
         // source bucket keeps their canonical group ordinals without copying.
+
         let mut occurrence_count = 0;
-        let mut call_count = 0;
+
         // Keep bound keys with their spans, not staging-only templates plus a
         // separately allocated key column. Consume the cold rows into warm rows.
         let targets = prepared
@@ -946,15 +685,14 @@ impl WorkspaceDb {
             .map(|(index, target)| {
                 let key = self.bind_target(source, &prepared.snapshot, target.target);
                 if let Some(key) = key {
-                    occurrence_count += target.occurrences.len();
-                    let mut has_calls = false;
-                    for span in &prepared.calls[target.calls.clone()] {
-                        if self.symbol_identity(source, span.caller).is_some() {
-                            call_count += span.calls.len();
-                            has_calls = true;
-                        }
+                    let mut selected = false;
+
+                    {
+                        occurrence_count += target.occurrences.len();
+                        selected |= !target.occurrences.is_empty();
                     }
-                    if !target.occurrences.is_empty() || has_calls {
+
+                    if selected {
                         self.semantic
                             .external
                             .entry(key)
@@ -969,13 +707,16 @@ impl WorkspaceDb {
                 }
                 BoundTarget {
                     key,
+
                     occurrences: target.occurrences,
-                    calls: target.calls,
                 }
             })
             .collect();
-        self.semantic.stats.occurrences += occurrence_count;
-        self.semantic.stats.calls += call_count;
+
+        {
+            self.semantic.stats.occurrences += occurrence_count;
+        }
+
         if self.semantic.contributions.len() <= source.0 {
             self.semantic
                 .contributions
@@ -983,12 +724,10 @@ impl WorkspaceDb {
         }
         self.semantic.contributions[source.0] = Some(Contribution {
             targets,
+
             occurrences: prepared.occurrences,
-            calls: prepared.calls,
-            call_indices: prepared.call_indices,
+
             occurrence_count,
-            call_count,
-            call_targets: prepared.call_targets,
         });
     }
 
@@ -1035,14 +774,6 @@ impl WorkspaceDb {
         external.into_iter().chain(base)
     }
 
-    fn resolve_target(&self, target: TargetKey) -> Option<GlobalSymbolId> {
-        let file = match target.module {
-            ModuleKey::File(file) => file,
-            ModuleKey::CompilerBase => self.semantic.compiler_base?,
-        };
-        self.named_identity(file, &self.semantic.names.names[target.member.0])
-    }
-
     pub(super) fn extend_reachable(&mut self, root: FileId) {
         self.reachable.insert(root);
         // The changed root can already be reachable. Visit its new edges, but
@@ -1075,13 +806,6 @@ impl WorkspaceDb {
         let name = snapshot.syntax.name_id(&snapshot.text, name)?;
         self.symbol_identity(file, snapshot.syntax.symbol_by_name(name)?.id)
     }
-
-    fn is_function(&self, id: GlobalSymbolId) -> bool {
-        self.entries[id.file.0]
-            .snapshot()
-            .and_then(|snapshot| snapshot.syntax.symbol_by_id(id.local))
-            .is_some_and(|symbol| symbol.kind == SymbolKind::Function)
-    }
 }
 
 pub(super) fn same_snapshot(
@@ -1092,6 +816,135 @@ pub(super) fn same_snapshot(
         (Some(left), Some(right)) => Arc::ptr_eq(left, right),
         (None, None) => true,
         _ => false,
+    }
+}
+
+impl WorkspaceDb {
+    /// Resolve a selected call against current immutable snapshots, without a call index.
+    #[must_use]
+    pub fn resolve_call(&self, uri: &Url, callee_token: TokenId) -> Option<WorkspaceSymbol> {
+        let source = self.file_id_by_uri(uri)?;
+        let snapshot = self.entries[source.0].snapshot()?;
+        let call = snapshot.syntax.call_for_token(callee_token)?;
+        self.symbol_by_id(self.snapshot_call_target(source, call)?)
+    }
+
+    fn snapshot_call_target(
+        &self,
+        source: FileId,
+        call: &crate::analysis::CallSite,
+    ) -> Option<GlobalSymbolId> {
+        let entry = self.entries.get(source.0)?;
+        if !entry.semantic_active {
+            return None;
+        }
+        let snapshot = entry.snapshot()?;
+        let id = if let Some(local) = call.callee {
+            self.symbol_identity(source, local)?
+        } else {
+            let file = if let Some(qualifier) = call.qualifier {
+                if call
+                    .qualifier_token
+                    .is_some_and(|token| snapshot.syntax.symbol_for_token(token).is_some())
+                {
+                    return None;
+                }
+                let alias = snapshot.syntax.name_text(&snapshot.text, qualifier);
+                match template_module(
+                    snapshot,
+                    alias,
+                    self.semantic.prelude_files.contains(&source),
+                )? {
+                    TemplateModule::Import(path) => *entry.import_by_range.get(&path)?,
+                    TemplateModule::CompilerBase => self.semantic.compiler_base?,
+                }
+            } else if self.semantic.prelude_files.contains(&source) {
+                self.semantic.compiler_base?
+            } else {
+                return None;
+            };
+            self.named_identity(file, snapshot.syntax.name_text(&snapshot.text, call.name))?
+        };
+        self.entries[id.file.0]
+            .snapshot()?
+            .syntax
+            .symbol_by_id(id.local)
+            .filter(|symbol| symbol.kind == SymbolKind::Function)?;
+        Some(id)
+    }
+
+    /// Enumerate reachable immutable snapshots for callers; no reverse call index is retained.
+    #[must_use]
+    pub fn incoming_calls(&self, target: GlobalSymbolId) -> Vec<WorkspaceCallGroup> {
+        if self.symbol_identity(target.file, target.local) != Some(target) {
+            return Vec::new();
+        }
+        let mut groups = HashMap::<GlobalSymbolId, WorkspaceCallGroup>::new();
+        let compiler_source = self
+            .semantic
+            .compiler_base
+            .filter(|file| !self.reachable.contains(*file));
+        for source in self.reachable.iter().copied().chain(compiler_source) {
+            let Some(snapshot) = self.entries[source.0].snapshot() else {
+                continue;
+            };
+            for call in snapshot.syntax.calls() {
+                let Some(caller) = call
+                    .caller
+                    .and_then(|local| self.symbol_identity(source, local))
+                else {
+                    continue;
+                };
+                if self.snapshot_call_target(source, call) != Some(target) {
+                    continue;
+                }
+                let Some(symbol) = self.symbol_by_id(caller) else {
+                    continue;
+                };
+                groups
+                    .entry(caller)
+                    .or_insert_with(|| WorkspaceCallGroup {
+                        source: symbol.document.clone(),
+                        symbol,
+                        ranges: Vec::new(),
+                    })
+                    .ranges
+                    .push(call.callee_range);
+            }
+        }
+        sorted_groups(groups)
+    }
+
+    /// Enumerate the selected caller's local snapshot and resolve its current dependencies.
+    #[must_use]
+    pub fn outgoing_calls(&self, caller: GlobalSymbolId) -> Vec<WorkspaceCallGroup> {
+        let Some(source) = self.symbol_by_id(caller).map(|symbol| symbol.document) else {
+            return Vec::new();
+        };
+        let mut groups = HashMap::<GlobalSymbolId, WorkspaceCallGroup>::new();
+        for call in source
+            .syntax
+            .calls()
+            .iter()
+            .filter(|call| call.caller == Some(caller.local))
+        {
+            let Some(id) = self.snapshot_call_target(caller.file, call) else {
+                continue;
+            };
+            let Some(symbol) = self.symbol_by_id(id) else {
+                continue;
+            };
+            groups
+                .entry(id)
+                .or_insert_with(|| WorkspaceCallGroup {
+                    symbol,
+                    source: source.clone(),
+                    ranges: Vec::new(),
+                })
+                .ranges
+                .push(call.callee_range);
+        }
+        sorted_groups(groups)
     }
 }
 
