@@ -351,24 +351,30 @@ impl Backend {
         };
         self.publish_import_diagnostics(affected).await;
     }
-    /// Remove an old epoch's contribution without losing the target URIs that
-    /// the next opened epoch must clear, even when its client version resets.
-    pub(super) fn detach_import_diagnostics(
+    /// Detach the closed epoch and publish current aggregates before close can
+    /// be superseded by a reopened document that skips compiler diagnostics.
+    pub(super) async fn detach_import_diagnostics(
         &self,
         root_uri: &Url,
         closed: super::workspace_service::ClosedRevision,
     ) {
-        let state = self.workspace.state.read();
-        if !state.is_closed(closed) {
-            return;
-        }
-        let mut snapshots = self.diagnostics.imported.write();
-        if let Some(snapshot) = snapshots.get_mut(root_uri) {
+        let affected = {
+            let state = self.workspace.state.read();
+            if !state.is_closed(closed) {
+                return;
+            }
+            let mut snapshots = self.diagnostics.imported.write();
+            let Some(snapshot) = snapshots.get_mut(root_uri) else {
+                return;
+            };
+            let affected = snapshot.by_uri.keys().cloned().collect();
             snapshot.version = None;
             snapshot
                 .retired
                 .extend(std::mem::take(&mut snapshot.by_uri).into_keys());
-        }
+            affected
+        };
+        self.publish_import_diagnostics(affected).await;
     }
 
     pub(super) async fn remove_import_diagnostics(&self, root_uri: &Url) {

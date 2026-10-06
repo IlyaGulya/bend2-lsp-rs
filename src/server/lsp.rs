@@ -267,7 +267,7 @@ impl LanguageServer for Backend {
         let Some(closed) = self.workspace.begin_close(&uri) else {
             return;
         };
-        self.detach_import_diagnostics(&uri, closed);
+        self.detach_import_diagnostics(&uri, closed).await;
         self.cancel_diagnostics(&uri, closed).await;
         if !self.close_workspace_document(uri.clone(), closed).await {
             return;

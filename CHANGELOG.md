@@ -6,6 +6,8 @@
 
 - Isolate close/reopen revision epochs so stale tickets, queued closes, and old
   diagnostics cannot overwrite reopened buffers with restarted version numbers.
+- Clear retired imported diagnostics before a queued close can be superseded by
+  a reopened buffer whose holes skip compiler diagnostics.
 - Validate prepared-close disk snapshot identity before restoring imports.
 - Detach and cancel diagnostics tasks without awaiting under the task-registry
   lock; reject new work after shutdown and drain owned compiler children.

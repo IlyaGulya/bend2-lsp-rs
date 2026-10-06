@@ -4679,6 +4679,15 @@ mod protocol {
 
     #[test]
     fn queued_close_clears_imported_diagnostics_before_lower_version_reopen() {
+        assert_queued_close_clears_imported_diagnostics("def reopened() -> U32:\n  2\n");
+    }
+
+    #[test]
+    fn queued_close_clears_imported_diagnostics_when_reopened_with_hole() {
+        assert_queued_close_clears_imported_diagnostics("def reopened() -> U32:\n  ?TODO\n");
+    }
+
+    fn assert_queued_close_clears_imported_diagnostics(reopened_source: &str) {
         let temp = tempdir().must_be("temporary workspace");
         let root_path = temp.path().join("root.bend");
         let dependency_path = temp.path().join("dep.bend");
@@ -4727,7 +4736,7 @@ mod protocol {
             "textDocument/didOpen",
             json!({"textDocument":{
                 "uri":root_uri,"languageId":"bend","version":1,
-                "text":"def reopened() -> U32:\n  2\n"
+                "text":reopened_source
             }}),
         );
         let reopened = client.request(
