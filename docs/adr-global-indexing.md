@@ -18,6 +18,10 @@ remain historical evidence, not production candidates.
 
 ## What the measurements established
 
+The experiments covered full semantic/occurrence/call indexes, minimal reverse
+references (R), a separate incoming-call candidate (H), memo/cache/storage
+layouts, and directory discovery. None is a production prerequisite.
+
 - A reverse occurrence index **with its indexed consumer** removes the explicit
   O(files) references/rename lookup. In synthetic 10k workspaces, R used roughly
   500× fewer sparse lookup+materialization instructions and 52% fewer matched
@@ -25,8 +29,9 @@ remain historical evidence, not production candidates.
   measured editor-latency speedups. Building the index while keeping legacy
   consumers does not obtain the query benefit.
 - Minimal R still failed unchanged official acceptance: **22/36**, one attempt.
-  Initial100 Ir improved 10.98%, but I1mr rose 19.07% and ILmr 17.05%; cache and
-  working-set tradeoffs remain. Two small warm Ir regressions also failed.
+  Initial100 Ir improved 10.98%, but I1mr rose 19.07% and ILmr 17.05%.
+  Small completion and inlay warm Ir rose 2.78% and 2.19%, respectively, and
+  also failed. No thresholds or baselines were relaxed to accept these costs.
   Matched materialization had a substantial data-locality cost.
 - Call indexing is a separate capability, unnecessary for references/rename.
   Incoming benefits from reverse calls; outgoing is naturally snapshot-local.
@@ -34,15 +39,26 @@ remain historical evidence, not production candidates.
 - Sparse bucket lookup was not a workspace-size bottleneck: absent/one/three
   sources cost approximately 462/549/659 Ir across 100–10k files. CSR/arenas are
   not warranted by these results. An extra allocation-count explanation for
-  completion/inlay regressions was not confirmed: fresh native traces had the
-  same malloc/realloc request counts. Allocator-path variation is not evidence
-  of extra allocations or permission to tune fixture heaps.
+  completion/inlay regressions was not confirmed: fresh native traces had equal
+  request counts (completion: 65 malloc / 3 realloc; inlay: 1 malloc / 5 realloc).
+  Allocator-path variation is not evidence of extra allocations or permission
+  to tune fixture heaps.
+
+PR #13 was superseded by accepted #14; discovery #15 was deferred; full indexing
+#16 and minimal R #21 were closed without merge. Diagnostic PRs #17–#20 were
+also closed unmerged. H remained an archived branch, not an accepted PR.
 
 Evidence: [complete seven-variant decomposition](https://github.com/IlyaGulya/bend2-lsp-rs/pull/20#issuecomment-6018737039),
 [official R result](https://github.com/IlyaGulya/bend2-lsp-rs/pull/21#issuecomment-6020933985),
 [lookup and allocation traces](https://github.com/IlyaGulya/bend2-lsp-rs/blob/d6b4212dffacb1d6346d91e7df1293b7dbd3dc8d/docs/framework-boundary.md).
-Sources and downloaded raw evidence are also retained outside production in
-`../bend2-lsp-rs-research-archive/`; GitHub artifact retention is finite.
+Existing CI evidence: [seven-variant decomposition](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37465798456),
+[official R comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37494981444),
+[sparse lookup](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37339668833),
+and [allocation traces](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37424805934).
+GitHub artifact retention is finite. Raw profiles, tarballs and a private local
+forensic archive are optional supporting evidence; this decision does not depend
+on their availability. The findings, rejected hypotheses, acceptance outcome
+and reopening conditions are recorded here.
 
 ## Trigger for reconsideration
 
