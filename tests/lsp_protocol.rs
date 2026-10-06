@@ -2431,6 +2431,75 @@ mod protocol {
         client.finish();
     }
     #[test]
+    fn imported_symbol_identity_survives_declaration_reordering() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path();
+        let module_path = workspace.join("dep.bend");
+        let importer_path = workspace.join("main.bend");
+        let module_source = "def value() -> U32:\n  1\n";
+        let importer_source = "import ./dep.bend as Dep\ndef caller() -> U32:\n  Dep.value()\n";
+        fs::write(&module_path, module_source).must_be("write module");
+        fs::write(&importer_path, importer_source).must_be("write importer");
+        let module_uri = Url::from_file_path(&module_path)
+            .must_be("module URI")
+            .to_string();
+        let importer_uri = Url::from_file_path(&importer_path)
+            .must_be("importer URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&workspace.join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(workspace);
+        for (uri, source) in [
+            (&module_uri, module_source),
+            (&importer_uri, importer_source),
+        ] {
+            client.notify(
+                "textDocument/didOpen",
+                json!({"textDocument":{
+                    "uri":uri,"languageId":"bend","version":1,"text":source
+                }}),
+            );
+        }
+        client.request(
+            "textDocument/definition",
+            json!({"textDocument":{"uri":importer_uri},"position":{"line":2,"character":7}}),
+        );
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":module_uri,"version":2},"contentChanges":[{
+                "text":"def unrelated() -> U32:\n  0\ndef value() -> U32:\n  1\n"
+            }]}),
+        );
+        let references = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":module_uri},"position":{"line":2,"character":5},
+                "context":{"includeDeclaration":false}
+            }),
+        );
+        assert_eq!(
+            references["result"],
+            json!([{"uri":importer_uri,"range":{
+                "start":{"line":2,"character":6},"end":{"line":2,"character":11}
+            }}]),
+            "imported identity must follow value, not its previous local SymbolId"
+        );
+        let unrelated = client.request(
+            "textDocument/references",
+            json!({
+                "textDocument":{"uri":module_uri},"position":{"line":0,"character":5},
+                "context":{"includeDeclaration":false}
+            }),
+        );
+        assert_eq!(
+            unrelated["result"],
+            json!([]),
+            "new declaration must not inherit old symbol's workspace occurrences"
+        );
+        client.finish();
+    }
+
+    #[test]
     fn references_and_rename_follow_imports_without_touching_text_or_comments() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
@@ -4606,6 +4675,140 @@ mod protocol {
         receiver
             .recv_timeout(Duration::from_secs(5))
             .must_be("snapshot staging must open the FIFO reader")
+    }
+
+    #[test]
+    fn queued_close_clears_imported_diagnostics_before_lower_version_reopen() {
+        assert_queued_close_clears_imported_diagnostics("def reopened() -> U32:\n  2\n");
+    }
+
+    #[test]
+    fn queued_close_clears_imported_diagnostics_when_reopened_with_hole() {
+        assert_queued_close_clears_imported_diagnostics("def reopened() -> U32:\n  ?TODO\n");
+    }
+
+    fn assert_queued_close_clears_imported_diagnostics(reopened_source: &str) {
+        let temp = tempdir().must_be("temporary workspace");
+        let root_path = temp.path().join("root.bend");
+        let dependency_path = temp.path().join("dep.bend");
+        let gate_path = temp.path().join("gate.bend");
+        let sentinel_path = temp.path().join("sentinel.bend");
+        let root_source = "import ./dep.bend as Dep\ndef main: Type\n  Dep.value\n";
+        let gate_source = "def gate() -> U32:\n  0\n";
+        let sentinel_source = "def sentinel() -> U32:\n  0\n";
+        for (path, source) in [
+            (&root_path, root_source),
+            (&dependency_path, "BAD\n"),
+            (&gate_path, gate_source),
+            (&sentinel_path, sentinel_source),
+        ] {
+            fs::write(path, source).must_be("write imported diagnostics epoch fixture");
+        }
+        let root_uri = regression_file_uri(&root_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let gate_uri = regression_file_uri(&gate_path);
+        let sentinel_uri = regression_file_uri(&sentinel_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":root_uri,"languageId":"bend","version":10,"text":root_source
+            }}),
+        );
+        assert!(diagnostics_for(
+            &mut client,
+            &dependency_uri,
+            false,
+            Duration::from_secs(5)
+        ));
+        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+        fs::remove_file(&gate_path).must_be("replace unrelated gate with FIFO");
+        create_fifo(&gate_path);
+        notify_watched_file_change(&mut client, &gate_uri);
+        let writer = b5_b6_hold_pending_disk_read(&gate_path);
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":root_uri}}),
+        );
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":root_uri,"languageId":"bend","version":1,
+                "text":reopened_source
+            }}),
+        );
+        let reopened = client.request(
+            "textDocument/hover",
+            json!({"textDocument":{"uri":root_uri},"position":{"line":0,"character":5}}),
+        );
+        assert_eq!(
+            reopened["result"]["contents"]["value"],
+            "```bend\ndef reopened() -> U32\n```"
+        );
+        assert!(
+            diagnostics_for(&mut client, &dependency_uri, true, Duration::from_secs(2)),
+            "closed epoch diagnostics must not survive a lower-version reopened buffer"
+        );
+        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &sentinel_uri);
+        client.finish();
+    }
+
+    #[test]
+    fn queued_close_cannot_remove_a_reopened_document() {
+        let temp = tempdir().must_be("temporary workspace");
+        let target_path = temp.path().join("target.bend");
+        let gate_path = temp.path().join("gate.bend");
+        let sentinel_path = temp.path().join("sentinel.bend");
+        let old_source = "import ./gate.bend as Gate\ndef old_value() -> U32:\n  1\n";
+        let reopened_source = "import ./gate.bend as Gate\ndef reopened() -> U32:\n  2\n";
+        let gate_source = "def gate() -> U32:\n  0\n";
+        let sentinel_source = "def sentinel() -> U32:\n  0\n";
+        for (path, source) in [
+            (&target_path, old_source),
+            (&gate_path, gate_source),
+            (&sentinel_path, sentinel_source),
+        ] {
+            fs::write(path, source).must_be("write close-reopen fixture");
+        }
+        let target_uri = regression_file_uri(&target_path);
+        let gate_uri = regression_file_uri(&gate_path);
+        let sentinel_uri = regression_file_uri(&sentinel_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &target_uri, old_source);
+        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+        fs::remove_file(&gate_path).must_be("replace gate with FIFO");
+        create_fifo(&gate_path);
+        notify_watched_file_change(&mut client, &gate_uri);
+        let writer = b5_b6_hold_pending_disk_read(&gate_path);
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":target_uri}}),
+        );
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":target_uri,"languageId":"bend","version":2,"text":reopened_source
+            }}),
+        );
+        let params = json!({
+            "textDocument":{"uri":target_uri},"position":{"line":1,"character":5}
+        });
+        let before = client.request("textDocument/hover", params.clone());
+        assert_eq!(
+            before["result"]["contents"]["value"], "```bend\ndef reopened() -> U32\n```",
+            "reopen must commit while the old close is queued behind watcher staging"
+        );
+        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &sentinel_uri);
+        let after = client.request("textDocument/hover", params);
+        assert_eq!(
+            after["result"]["contents"]["value"], "```bend\ndef reopened() -> U32\n```",
+            "old queued close must not remove the new open epoch"
+        );
+        client.finish();
     }
 
     #[test]

@@ -366,10 +366,9 @@ async fn compiler_diagnostics_inner(
             <= 1_048_576;
     let compiler_stamp = if cacheable_sources {
         let compiler_path = config.path.clone();
-        tokio::task::spawn_blocking(move || compiler_stamp(&compiler_path))
-            .await
-            .ok()
-            .flatten()
+        super::state::blocking_result(
+            tokio::task::spawn_blocking(move || compiler_stamp(&compiler_path)).await,
+        )
     } else {
         None
     };
@@ -384,16 +383,17 @@ async fn compiler_diagnostics_inner(
         metrics.cache_hit = Some(false);
     }
     span.record("cache_hit", false);
-    if cacheable
-        && let Ok(results) = cache.read()
-        && let Some(result) = results.get(&root)
-        && result.snapshot == snapshot
-    {
-        if let Some(metrics) = metrics.as_deref_mut() {
-            metrics.cache_hit = Some(true);
+    if cacheable {
+        let results = super::state::read_lock(&cache);
+        if let Some(result) = results.get(&root)
+            && result.snapshot == snapshot
+        {
+            if let Some(metrics) = metrics.as_deref_mut() {
+                metrics.cache_hit = Some(true);
+            }
+            span.record("cache_hit", true);
+            return result.diagnostics.clone();
         }
-        span.record("cache_hit", true);
-        return result.diagnostics.clone();
     }
     let Some((permit, staging, staged)) =
         stage_compiler_graph(source_graph, permit, metrics.as_deref_mut()).await
@@ -413,7 +413,8 @@ async fn compiler_diagnostics_inner(
             }
         };
     let diagnostics = compiler_output_diagnostics(&root, &root_snapshot, &sources, &output);
-    if cacheable && let Ok(mut results) = cache.write() {
+    if cacheable {
+        let mut results = super::state::write_lock(&cache);
         if !results.contains_key(&root)
             && results.len() >= 32
             && let Some(evicted) = results.keys().next().cloned()

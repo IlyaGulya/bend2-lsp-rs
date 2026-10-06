@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- Isolate close/reopen revision epochs so stale tickets, queued closes, and old
+  diagnostics cannot overwrite reopened buffers with restarted version numbers.
+- Clear retired imported diagnostics before a queued close can be superseded by
+  a reopened buffer whose holes skip compiler diagnostics.
+- Validate prepared-close disk snapshot identity before restoring imports.
+- Detach and cancel diagnostics tasks without awaiting under the task-registry
+  lock; reject new work after shutdown and drain owned compiler children.
+- Treat state poisoning and unexpected worker failure as fatal invariant errors
+  rather than silently returning missing features.
+
+### Architecture
+
+- Give workspace, compiler, diagnostics, and registration services explicit
+  ownership and validated commit boundaries; extract the revision state machine,
+  request handlers, and sequential text editing.
+- Retain the existing syntax representation, cross-file query implementation,
+  workspace scope, and LSP framework. Semantic indexing and directory discovery
+  are separate changes.
+
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 
 
