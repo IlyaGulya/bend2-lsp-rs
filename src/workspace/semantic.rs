@@ -252,13 +252,14 @@ fn prepare_occurrences(
     occurrences: &mut Vec<ReferenceOrdinal>,
 ) {
     let mut contiguous = true;
+    let mut previous_module = None;
     for (ordinal, reference) in snapshot.syntax.reference_entries().iter().enumerate() {
         // Own-file references already occupy compact per-symbol syntax spans.
         // Only imported occurrences need an additional workspace contribution.
         if reference.resolved.is_some() {
             continue;
         }
-        let target = occurrence_template_target(snapshot, reference);
+        let target = occurrence_template_target(snapshot, reference, &mut previous_module);
         if let Some(target) = target {
             let index = prepared_target(targets, indices, target);
             let span = &mut targets[index].occurrences;
@@ -291,7 +292,9 @@ fn prepare_occurrences(
                 .syntax
                 .reference_entries()
                 .get(ordinal.0)
-                .and_then(|reference| occurrence_template_target(snapshot, reference))
+                .and_then(|reference| {
+                    occurrence_template_target(snapshot, reference, &mut previous_module)
+                })
                 .and_then(|target| indices.get(&target))
                 .copied();
             // Every selected ordinal came from a target in this immutable
@@ -315,6 +318,7 @@ fn prepare_occurrences(
 fn occurrence_template_target(
     snapshot: &DocumentSnapshot,
     reference: &crate::analysis::Reference,
+    previous_module: &mut Option<(NameId, Option<TemplateModule>)>,
 ) -> Option<TemplateTarget> {
     let qualifier = reference.qualifier?;
     if reference
@@ -323,8 +327,19 @@ fn occurrence_template_target(
     {
         return None;
     }
-    let alias = snapshot.syntax.name_text(&snapshot.text, qualifier);
-    template_module(snapshot, alias, false).map(|module| TemplateTarget {
+    // Module aliases are snapshot-local, but lexical shadowing is occurrence-local.
+    // Check each qualifier token above before reusing the previous import lookup.
+    let module = if let Some((previous_qualifier, module)) = *previous_module
+        && previous_qualifier == qualifier
+    {
+        module
+    } else {
+        let alias = snapshot.syntax.name_text(&snapshot.text, qualifier);
+        let module = template_module(snapshot, alias, false);
+        *previous_module = Some((qualifier, module));
+        module
+    };
+    module.map(|module| TemplateTarget {
         module,
         name: reference.name,
     })

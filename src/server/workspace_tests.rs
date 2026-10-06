@@ -275,7 +275,9 @@ mod tests {
         let temp = tempfile::tempdir()?;
         let main_path = temp.path().join("main.bend");
         let dependency_path = temp.path().join("dep.bend");
-        let source = "import ./dep.bend as A\nimport ./dep.bend as B\n\ndef first():\n  A.f(A.g(), B.f())\n  A.f\n\ndef second():\n  B.g(B.f(), A.g())\n\ndef shadowed(B):\n  B.f()\n";
+        // The final unshadowed qualifier is B, immediately before a shadowed B.
+        // Reusing its import binding must not reuse its lexical resolution.
+        let source = "import ./dep.bend as A\nimport ./dep.bend as B\n\ndef first():\n  A.f(A.g(), B.f())\n  A.f\n\ndef second():\n  B.g(A.g(), B.f())\n\ndef shadowed(B):\n  B.f()\n";
         fs::write(&dependency_path, "def f():\n  0\n\ndef g():\n  1\n")?;
         let main_uri = file_uri(&main_path)?;
         let dependency_uri = file_uri(&dependency_path)?;

@@ -62,6 +62,9 @@
 - Borrow target/source snapshot metadata during reference materialization;
   construct owning documents only for returned occurrences instead of cloning
   temporary documents first. Preserve URI/byte-range ordering and deduplication.
+- Reuse the last snapshot-local import-module lookup during cold occurrence
+  preparation; resolve lexical qualifier shadowing for each occurrence before
+  reusing that binding. Keep the memo on the stack, outside retained indexes.
 - Reserve semantic-token results from a cold-built exact count and avoid
   unnecessary trailing-whitespace scanning when checking blank folding lines.
 

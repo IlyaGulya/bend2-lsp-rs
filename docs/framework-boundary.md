@@ -528,9 +528,10 @@ materialization and sorting; they are not isolated lookup measurements.
 The unchanged main comparator passed 23/36 workloads; the run remained red.
 Hosted quality and latency validity passed.
 
-Exclusive nine-event attribution of retained `69316b3` profiles matched profile
-totals. Initial build added 23,733 `D1mr` in `prepare_semantic_snapshot` and
-8,591 in `occurrence_template_target` versus its same-run main baseline.
+Exclusive nine-event attribution of retained `69316b3` profiles matched raw totals.
+Initial build labels account for 23,733 `D1mr` in `prepare_semantic_snapshot` and
+8,591 in `occurrence_template_target`. These are named-label costs, not proof of
+that many extra stage operations versus main: emitted/inlined boundaries differ.
 This motivated one cold candidate-column experiment, not a warm CSR or arena.
 Source `cf89172` recorded unresolved qualified reference ordinals during syntax
 construction, avoiding full reference-row iteration and repeated qualifier
@@ -663,6 +664,58 @@ The candidate main comparator passes 25/36 workloads and remains red. Both
 sources pass hosted quality and latency validity. Raw profiles for initial,
 corrected, and candidate sources are preserved; no identical-source performance
 retry, threshold/baseline change, merge, or release is inferred.
+
+### Fixed native cold-cache diagnostic and lifecycle attribution
+
+The isolated diagnostic PR does not change acceptance metrics or comparators.
+[Native run 37367991871, attempt 2](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37367991871)
+executed all nine fixed samples on x86-64 Ubuntu 24.04, Rust 1.98.1 and
+Valgrind 3.22.0, with explicit 32-KiB eight-way I1 and 8-MiB sixteen-way LL
+caches. Exact sources, original ELF files, manifests, disassembly, commands and
+raw instruction-address profiles are retained in artifact
+`cold-cache-exact-source-37367991871-2`. All nine exclusive event sums match raw
+summaries; snapshot constructor costs are present and returned-snapshot
+destruction is absent.
+
+Corrected control `bcaefa8` and materialization candidate `b642de8` are built
+independently; candidate A/B have identical source, ELF and executable text.
+Small/medium/large control `I1mr` is 744/719/708; candidate A is 763/741/735
+and B is 763/741/734. This reproduces the direction of the instruction-cache
+increase (2.55%, 3.06%, 3.67–3.81%), not the exact historical numbers or a
+specific cache-conflict cause. The earlier zero-sample integrity failure and
+unacquired-runner attempts remain retained; they are not benchmark samples.
+
+The retained initial-build profile performs 100 first installs, including 99
+populated importing contributions. Incremental and sixteen-revision burst
+replace only the local-only common snapshot; they do not exercise populated
+external-contribution removal/rebinding. `prepare_semantic_snapshot` and
+`install_semantics` exclusive initial `Ir/I1mr/D1mr` are
+894,090/3,687/23,802 and 76,644/6,491/1,593. Their 10,178 combined I1 misses are
+not 10,178 demonstrably extra operations versus main, whose emitted stage
+boundaries differ; these labels jointly have 399 fewer I1 misses than corrected
+control. Direct semantic-source row partitions do not include every inlined
+standard-library row or source-line-zero instruction.
+
+Initial import-module lookup alone consumes 742,279 exclusive `Ir`, with
+repeated qualified occurrences resolving the same immutable alias. A bounded
+cold preparation change memoizes only the previous qualifier's module binding,
+including unresolved bindings. Each occurrence still performs its lexical
+shadow check before the memo is consulted. No memo survives preparation;
+snapshot/index layouts, symbol epochs, revision services and warm references
+are unchanged. The alias-group regression places an imported `B` occurrence
+immediately before a shadowed `B` occurrence and preserves exact references
+and call-group assertions.
+
+The two small warm instruction failures do not add query allocation requests.
+Collected source rows and producer paths reconstruct completion as 65 malloc
+requests and three realloc requests in main/control/candidate; tcache hits are
+3/3/2. Inlay has one malloc and five realloc requests throughout; adjacent-chunk
+expansion versus allocate/copy/free changes from 2/3 in main to 1/4 in both
+control and candidate. Raw `calls=` counts include uncollected setup, so they
+are not allocation-count evidence by themselves. Requested sizes inferred
+from source/ABI are not historical malloc arguments or glibc usable/chunk sizes.
+No allocator preconditioning, fixture mutation, threshold change or
+allocator-state production fix is justified by this attribution.
 
 ## Primary sources
 
