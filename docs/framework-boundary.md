@@ -717,6 +717,104 @@ from source/ABI are not historical malloc arguments or glibc usable/chunk sizes.
 No allocator preconditioning, fixture mutation, threshold change or
 allocator-state production fix is justified by this attribution.
 
+### Bounded alias-module memo: hosted result and exact private primitives
+
+Candidate `4c9f598` was measured once in the unchanged main comparison
+[run 37423835618](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37423835618).
+All 121 candidate and 36 same-run main profiles reconcile nine-event exclusive
+sums. Against retained `b642de8`, initial build `Ir` falls 38,170,353→37,583,464
+(−1.54%), and import-module lookup exclusive `Ir` falls 742,279→254,842
+(−65.67%). Initial `I1mr` rises 113,468→115,311 (+1.62%); this adverse tradeoff
+is retained. The memo does not repair the complete cache-inclusive gate.
+
+The unchanged comparator passes 28/36 workloads (previously 25/36) and remains
+red. Eight workloads fail ten metrics: call hierarchy medium `I1mr` 28→32;
+completion small `Ir` 21,430→21,861; inlay small `Ir` 19,500→19,927;
+references medium `I1mr` 24→28; burst `I1mr` 11,777→12,346;
+incremental `I1mr` 848→922; initial `I1mr` 93,905→115,311 and `ILmr`
+1,059→1,298; legacy owned workspace references `I1mr` 310→335 and `ILmr`
+157→172. Raw evidence is preserved, not retried until favorable.
+
+Warm reference algorithms and output membership remain unchanged, but their
+instruction counts are not identical. Sparse 100/1,000/10,000 full-query `Ir`
+changes 7,651/7,816/7,604→8,023/8,503/7,976 versus `b642de8`; matched cases
+decrease. Source-equivalence is not evidence of identical allocator/cache state.
+Hosted latency validity and
+[quality 37423835619](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37423835619)
+pass. Local quality passes 123 tests with one existing skip. The actual stdio
+candidate (SHA-256
+`5711f55bff33875a5de2563aed29e0c6c475176c334ef4c94b913df4f9395fc9`)
+passes binding/member references, exact UTF-16/CRLF/declaration/rename,
+overlay retirement/close restoration and local/self-import uniqueness; exit 0.
+
+[Native attribution run 37424805934](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37424805934)
+executes a fixed 54-case private-primitive matrix once for each frozen source.
+All 108 instruction-address profiles pass source/ELF and collection guards,
+primitive consumer/epoch assertions and nine-event exclusive reconciliation.
+Diagnostic wrappers are appended only to disposable source copies and call
+actual private production functions: no copied algorithms, permanent exported
+API, retained owning column or production inline attribute. Original production
+prefixes are verified byte-for-byte.
+
+The table sums exclusive function rows inside each exact primitive entry.
+Call-edge costs are never added again. Cache state is explicitly
+`setup_warmed_first_primitive`: setup simulates caches, so these are not
+cold-reset I1 counts, nor an additive partition of whole lifecycle profiles.
+Root fixture has 99 imports and 48 `Common.identity` calls; local replacement
+uses the distinct no-import common fixture.
+
+| Primitive | `b642de8` Ir/I1mr/D1mr | `4c9f598` Ir/I1mr/D1mr |
+|---|---:|---:|
+| Occurrence enumeration/grouping | 387,672/1/1,360 | 277,769/1/1,440 |
+| Call selection/grouping | 6,764/1/47 | 6,764/2/43 |
+| Full preparation | 396,685/1/1,407 | 286,782/1/1,478 |
+| Single import lookup | 2,454/1/3 | 2,454/1/83 |
+| Target binding/name interning | 1,084/38/14 | 1,084/39/15 |
+| First install | 12,658/146/183 | 12,658/148/179 |
+| Populated importer replacement | 12,730/156/367 | 12,730/164/338 |
+| Local-only replacement | 4,060/46/50 | 4,060/45/52 |
+| Contribution removal | 1,793/46/15 | 1,793/47/16 |
+
+Alias, interleaved-member/caller, lexical-shadow, Base and common fixtures are
+separate. Plain `import Base` has no alias: qualified reference preparation
+produces no external rows while explicit-prelude call fallback still produces
+two calls. `import Base as Base` produces two qualified rows and two calls.
+Both cases check actual consumer byte ranges; no Base behavior is changed.
+
+The same native run traces four frozen original ELF executions in GDB:
+control `bcaefa8` and candidate `b642de8`, completion/inlay small. Exactly one
+wrapper entry through its own return is observed per invocation. Completion
+has 65 malloc and three realloc requests; inlay has one malloc and five realloc
+requests in both sources. Real requested bytes, caller PCs, old/returned pointers,
+completion/relocation and read-only libc-DWARF tcache/main-arena fields are
+retained, with loaded libc hashes. No inferior function calls, target logging
+allocations or allocator preconditioning are used.
+
+These fresh argument traces do not reconstruct historical measured heaps,
+main ELF, cache counters or the new memo candidate's allocator state. Usable
+bytes, chunk-byte interpretation and bin-to-size mapping remain unknown unless
+proven from the retained layout. No allocation request fails. The historical
+instruction failures still cannot be fixed by inventing new requests or tuning
+fixture heap state.
+
+Observed completion request bytes match in both fresh processes:
+32×12-B labels, 32×23-B details, one 224-B vector allocation, then reallocations
+to 448/896/1,792 B. All three reallocations relocate. Inlay requests 96 B,
+then 192/384/768/1,536/3,072 B; 768 B stays in place and the other four
+reallocations relocate in both versions. All requests complete, and no public
+free occurs inside the wrapper. Internal realloc retirement is not a new public
+free request. Recorded caller offsets match across source variants after
+normalizing ELF load bias.
+
+Read-only DWARF confirms a 640-B tcache structure with 64 entries and a
+2,200-B `malloc_state`. Completion entry tcache counts differ at four indices,
+and two raw arena link slots differ; inlay entry/return tcache counts, normalized
+pointers and arena fields match. The fresh completion difference is not the
+historical measured tcache-return difference. Native libc
+`2.39-0ubuntu8.9` SHA-256
+`3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf`
+is retained with process maps and DWARF layout provenance.
+
 ## Primary sources
 
 [original-index]: https://index.crates.io/to/we/tower-lsp
