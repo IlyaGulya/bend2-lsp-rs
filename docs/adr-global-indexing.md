@@ -1,6 +1,7 @@
 # ADR: keep reachable, snapshot-based workspace analysis
 
-Status: accepted architectural direction; global-index research closed.
+Status: accepted architectural direction; quality global-index and discovery
+research implementations **DEFERRED & PRESERVED**, not discarded.
 
 ## Decision
 
@@ -13,8 +14,8 @@ semantic database and whole-project/background discovery are not requirements.
 Do not resume semantic/occurrence/call indexes, hierarchy indexes, memo, CSR,
 arenas, or cache-layout tuning merely to future-proof or turn experimental gates
 green. Performance thresholds, baselines, benchmark semantics and CI policy stay
-unchanged. Experimental PRs are closed without merge; their branches/results
-remain historical evidence, not production candidates.
+unchanged. Experimental PRs are closed without merge; their implementations and
+results are preserved as deferred research, not advertised as production features.
 
 ## What the measurements established
 
@@ -44,9 +45,10 @@ layouts, and directory discovery. None is a production prerequisite.
   Allocator-path variation is not evidence of extra allocations or permission
   to tune fixture heaps.
 
-PR #13 was superseded by accepted #14; discovery #15 was deferred; full indexing
-#16 and minimal R #21 were closed without merge. Diagnostic PRs #17–#20 were
-also closed unmerged. H remained an archived branch, not an accepted PR.
+PR #13 was superseded by accepted #14. Discovery #15, full indexing #16 and
+minimal R #21 were closed without merge and remain **DEFERRED & PRESERVED**.
+Diagnostic PRs #17–#20 were also closed unmerged. H remained an archived branch,
+not an accepted PR.
 
 Evidence: [complete seven-variant decomposition](https://github.com/IlyaGulya/bend2-lsp-rs/pull/20#issuecomment-6018737039),
 [official R result](https://github.com/IlyaGulya/bend2-lsp-rs/pull/21#issuecomment-6020933985),
@@ -59,6 +61,36 @@ GitHub artifact retention is finite. Raw profiles, tarballs and a private local
 forensic archive are optional supporting evidence; this decision does not depend
 on their availability. The findings, rejected hypotheses, acceptance outcome
 and reopening conditions are recorded here.
+
+## Preserved deferred implementations
+
+These are quality research implementations with substantive behavior and
+coverage, not discarded work or production capabilities. **DEFERRED & PRESERVED**
+means retain the implementation for reconsideration under the trigger below;
+**DISCARD** is not the disposition of these three research heads. Closing PRs
+and retiring experiment branches did not erase the implementations.
+
+Public annotated research tags preserve the exact closed heads. Treat these
+references as immutable: never move or overwrite them; any later research
+revision must receive a new tag. Both tag and full commit links permit inspection
+without a private archive or expiring CI artifacts.
+
+| Deferred implementation | Public immutable tag | Exact preserved head |
+|---|---|---|
+| [#16](https://github.com/IlyaGulya/bend2-lsp-rs/pull/16): semantic/occurrence/call indexing | [`research/semantic-index-v1`](https://github.com/IlyaGulya/bend2-lsp-rs/tree/research/semantic-index-v1) | [`d6b4212dffacb1d6346d91e7df1293b7dbd3dc8d`](https://github.com/IlyaGulya/bend2-lsp-rs/commit/d6b4212dffacb1d6346d91e7df1293b7dbd3dc8d) |
+| [#21](https://github.com/IlyaGulya/bend2-lsp-rs/pull/21): minimal reverse occurrence index, with legacy call hierarchy restored | [`research/occurrence-index-v1`](https://github.com/IlyaGulya/bend2-lsp-rs/tree/research/occurrence-index-v1) | [`dbf7d09ba0f2e70c561e7278421f9d03a8835bd8`](https://github.com/IlyaGulya/bend2-lsp-rs/commit/dbf7d09ba0f2e70c561e7278421f9d03a8835bd8) |
+| [#15](https://github.com/IlyaGulya/bend2-lsp-rs/pull/15): whole-workspace discovery, including inherited #16 | [`research/workspace-discovery-v1`](https://github.com/IlyaGulya/bend2-lsp-rs/tree/research/workspace-discovery-v1) | [`ec83bc3a060e49cdea0c3d98f7363928b71abbce`](https://github.com/IlyaGulya/bend2-lsp-rs/commit/ec83bc3a060e49cdea0c3d98f7363928b71abbce) |
+
+They were not merged because measured large synthetic-workspace query benefits
+did not satisfy unchanged acceptance, including the small-workload and
+instruction-cache costs above. Global identity, contribution lifecycle, indexed
+consumers and retained storage also add architectural cost; discovery adds
+traversal, background-worker ownership, readiness and root/deletion semantics
+beyond the loaded/reachable product scope. The product has not established the
+real hundreds/thousands-of-files latency need required below. Deferral reflects
+those measured tradeoffs and current product scale, not a claim of poor quality.
+Preservation does not justify restoring global indexes or discovery, changing
+policy gates, or presenting synthetic instruction reductions as editor latency.
 
 ## Trigger for reconsideration
 
