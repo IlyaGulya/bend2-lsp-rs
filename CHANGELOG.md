@@ -6,55 +6,42 @@
 ## [0.3.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.5...v0.3.0) (2026-10-07)
 
 
-### Features
+### Better autocomplete
 
-- Complete visible parameters and case-pattern bindings from the current
-  immutable snapshot, including partial expressions and an empty prefix at EOF.
-  Respect lexical shadowing and retain normal unshadowed module completion.
-  ([#23](https://github.com/IlyaGulya/bend2-lsp-rs/pull/23))
-- Complete indexed ADT constructors at case-pattern heads, including qualified
-  imports and an empty prefix in the latest unsaved snapshot. Keep expression
-  completion separate and reject shadowed module aliases.
-  ([#30](https://github.com/IlyaGulya/bend2-lsp-rs/pull/30))
+- Function parameters and variables introduced in `case` branches now appear
+  in suggestions.
+- When writing a `case` pattern, autocomplete suggests constructors from your
+  file, imported modules, and explicitly imported `Base`.
+- Suggestions use your latest unsaved edits, even at the end of an unfinished
+  file.
+- Names from another scope no longer interfere with local suggestions.
 
-### Bug Fixes
+### More reliable editing
 
-- Isolate close/reopen revision epochs so stale tickets, queued closes, and old
-  diagnostics cannot overwrite reopened buffers with restarted version numbers.
-- Clear retired imported diagnostics before a queued close can be superseded by
-  a reopened buffer whose holes skip compiler diagnostics.
-- Validate prepared-close disk snapshot identity before restoring imports.
-- Detach and cancel diagnostics tasks without awaiting under the task-registry
-  lock; reject new work after shutdown and drain owned compiler children.
-- Treat state poisoning and unexpected worker failure as fatal invariant errors
-  rather than silently returning missing features.
+- Improved handling of rapid edits and closing or reopening files, so older
+  results cannot replace newer ones.
+- Fixed cases where outdated diagnostics could remain visible.
+- Improved recovery when reloading `Base` fails or returns no declarations.
 
-### Architecture
+### Under the hood
 
-- Give workspace, compiler, diagnostics, and registration services explicit
-  ownership and validated commit boundaries; extract the revision state machine,
-  request handlers, and sequential text editing.
-  ([#14](https://github.com/IlyaGulya/bend2-lsp-rs/pull/14))
-- Retain the existing syntax representation, cross-file query implementation,
-  reachable workspace scope and LSP framework. Close global-index experiments
-  without merge and defer semantic/background indexing under the explicit
-  real-user latency and budget trigger in `docs/adr-global-indexing.md`.
-- Separate cold lexical scanning and declaration construction into private
-  modules, preserving snapshot storage, warm queries and the formatter scanner.
-  ([#27](https://github.com/IlyaGulya/bend2-lsp-rs/pull/27))
-- Record explicit, per-PR acceptance of measured performance trade-offs without
-  changing automated thresholds, baseline workflows or retry policy.
-  ([#25](https://github.com/IlyaGulya/bend2-lsp-rs/pull/25))
-- Complete the integration salvage audit and preserve deferred semantic,
-  occurrence-index and workspace-discovery implementations under immutable
-  public research tags. These are not production capabilities.
-  ([#28](https://github.com/IlyaGulya/bend2-lsp-rs/pull/28))
+- Completed an internal cleanup to make the server easier to maintain.
+- Kept the current workspace indexing model. Whole-project background indexing
+  is **not included** in this release.
 
-### Tests
+### Engineering details
 
-- Guard failed and empty compiler Base reloads, prelude detachment and recovery,
-  while preserving navigation to previously generated source.
-  ([#26](https://github.com/IlyaGulya/bend2-lsp-rs/pull/26))
+For implementation history, regression coverage, measured performance
+trade-offs, and preserved research, see
+[#14](https://github.com/IlyaGulya/bend2-lsp-rs/pull/14),
+[#23](https://github.com/IlyaGulya/bend2-lsp-rs/pull/23),
+[#25](https://github.com/IlyaGulya/bend2-lsp-rs/pull/25),
+[#26](https://github.com/IlyaGulya/bend2-lsp-rs/pull/26),
+[#27](https://github.com/IlyaGulya/bend2-lsp-rs/pull/27),
+[#28](https://github.com/IlyaGulya/bend2-lsp-rs/pull/28), and
+[#30](https://github.com/IlyaGulya/bend2-lsp-rs/pull/30).
+The [architecture decision](docs/adr-global-indexing.md) records why global
+indexing and discovery remain deferred.
 
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 
