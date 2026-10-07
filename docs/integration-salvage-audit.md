@@ -187,6 +187,18 @@ No unobserved gate acceptance or merge is claimed. No benchmark variant,
 retry-to-green, new numerical floor/threshold or global machinery is authorized.
 Policy review and #23 remain independent; this audit is not performance approval.
 
+**#23 — MERGED** as `f2f9535`: visible parameters/case bindings, owning-scope
+shadowing and immediate unsaved-EOF completion passed full quality
+(**124 passed / 1 skipped**) and actual debug/release stdio checks.
+All 36 instruction gates passed in ordinary
+[run 37610681344](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37610681344);
+three cache gates remained red (28→32, 25→30 and 25→29).
+The maintainer explicitly accepted that exact head/run before merge:
+[approval record](https://github.com/IlyaGulya/bend2-lsp-rs/pull/23#issuecomment-6036816523).
+Completion p95 changed from 0.152 to 0.155 ms; identically built release
+binaries differed by 16 bytes. This is a case-specific acceptance, not a
+threshold change, retry-to-green or approval for other PRs.
+
 ## Supplemental bounded final pass: aggregate #13
 
 This read-only supplemental pass used actual [#13](https://github.com/IlyaGulya/bend2-lsp-rs/pull/13)
