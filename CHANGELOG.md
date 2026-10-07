@@ -40,6 +40,14 @@
 - Guard failed and empty compiler Base reloads, prelude detachment and recovery,
   while preserving navigation to previously generated source.
 
+## [0.3.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.5...v0.3.0) (2026-10-07)
+
+
+### Features
+
+* complete constructors at case pattern heads ([#30](https://github.com/IlyaGulya/bend2-lsp-rs/issues/30)) ([324fc58](https://github.com/IlyaGulya/bend2-lsp-rs/commit/324fc58ef3b055edd56bff8b79c7ca168b2c388f))
+* complete visible local bindings ([#23](https://github.com/IlyaGulya/bend2-lsp-rs/issues/23)) ([f2f9535](https://github.com/IlyaGulya/bend2-lsp-rs/commit/f2f95350a21ff162d97d0290aa43475c45ac52fc))
+
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 
 
