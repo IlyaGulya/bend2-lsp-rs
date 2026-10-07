@@ -63,7 +63,7 @@ tests and documentation; **there is no standalone pure-move commit**.
 | S2 Global incoming/outgoing call groups and handler rewiring; 49f5899 | Avoid repeated cross-file call resolution | Existing hierarchy resolver and indexed snapshot calls | Global call index | Existing hierarchy behavior already covered | Coupled to deferred index | Existing public call/type hierarchy tests; experiment group tests | **DEFERRED & PRESERVED**; #21 removes this part, see R1 |
 | S3 Prepared snapshot plumbing through compiler registration, close and disk updates; 49f5899 | Commit new semantic contributions consistently | WorkspaceService commit validation and snapshot updates | PreparedSemanticSnapshot | Existing close/revision guard is not a new fix | New plumbing has no purpose without index | Existing close/reopen and overlay lifecycle tests | **MERGE — MERGED** invariant; **DEFERRED & PRESERVED** plumbing |
 | S4 clear_compiler_base on configuration changes; 49f5899 | Invalidate newly cached resolved Base targets | didChangeConfiguration already clears base_module and base_module_attempted; loader installs only successful nonempty Base | Semantic cache only | No missing production invalidation established | No extra cache to clear on main | Existing Base provenance/profile tests; S10 adds failure coverage | **MERGE — MERGED** main behavior; **DEFERRED & PRESERVED** new-cache hook |
-| S5 Cold scanner and declaration decomposition; 49f5899 | Separate cold construction from query/storage code | All bodies exist in monolithic syntax.rs | None when re-authored from main | Behavior preserved, not a fix | Two private cold boundaries reduce coupling without moving warm NameTable or changing data | Existing syntax, constructor, binding, hierarchy and semantic-token tests; actual baseline/refactor stdio equality | **OPEN-DRAFT**, [#27](https://github.com/IlyaGulya/bend2-lsp-rs/pull/27); not the mixed commit |
+| S5 Cold scanner and declaration decomposition; 49f5899 | Separate cold construction from query/storage code | All bodies exist in monolithic syntax.rs | None when re-authored from main | Behavior preserved, not a fix | Two private cold boundaries reduce coupling without moving warm NameTable or changing data | Existing syntax, constructor, binding, hierarchy and semantic-token tests; actual baseline/refactor stdio equality | **MERGE — MERGED** as [#27](https://github.com/IlyaGulya/bend2-lsp-rs/pull/27); not the mixed commit |
 | S6 Remaining seven-module split: builder/calls/references/names/delimiters; 49f5899 | Further file decomposition | Existing main bodies and root data types | Shipped builder/calls/references/names contain representation/counter changes | None independently demonstrated | A pure move is possible, but unnecessary extra boundaries for this integration | Existing feature coverage | **DEFERRED & PRESERVED** integrated representation; **DISCARD** wholesale transplant as independent decomposition; retain delimiter inside S5 scanner |
 | S7 NameCandidates, direct ordinal symbol_by_name, FileSet membership and import_by_range; 49f5899 | Reduce allocation and lookup overhead | HashMap/HashSet and existing import edges; equivalent full-edge dirty comparison | Storage/layout experiments; some are mechanically independent | No correctness defect demonstrated | No required coupling reduction | Existing name/import/overlay tests | **DEFERRED & PRESERVED** research storage; no standalone microperformance program |
 | S8 folding trim to trim_start; 49f5899 | Avoid trailing trim work for blank-line check | Existing behavior-equivalent folding implementation | None | No behavior fix | No coupling reduction | Existing folding boundary/EOF tests | **DEFERRED & PRESERVED** research/history; tiny performance-only scope does not justify a new program, not a failed implementation |
@@ -169,17 +169,20 @@ file transplantation.
   exercised initial binding, failed detachment, recovery, empty detachment,
   second recovery, retained old source navigation/bytes, completion removal and
   restoration, and shutdown exit 0 with a configured fixture compiler.
-- **#27 — OPEN-DRAFT** candidate, two private cold modules built from main bodies: `./scripts/quality`
+- **#27 — MERGED**, two private cold modules built from main bodies: initial `./scripts/quality`
   passed, **119 passed / 1 skipped**. Actual baseline and refactored stdio
   binaries returned identical documentSymbol, definition, hover, foldingRange,
   formatting and semanticTokens results. Checked constructor ownership, target
   range and UTF-16 parameter/declaration/Unicode-string/comment/number tokens;
   both shutdown exits were 0. No new permanent implementation-detail test.
 
-The local quality and stdio evidence above is historical, not proof of a green
-official performance comparison. #26 is already merged on final-pass main;
-#27 remains an open candidate. Final CI and merge state belong on the
-[PR pages](https://github.com/IlyaGulya/bend2-lsp-rs/pull/27), not a frozen audit.
+The initial local quality and stdio evidence above is historical. After independent
+policy #25 merged, rebased #27 passed full quality (**120 passed / 1 skipped**),
+the same actual stdio comparison, and all 36 ordinary performance workloads in
+[run 37608436648](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37608436648).
+It merged as `f5e56b7`; no threshold change or red-check exception was required.
+Exact measured trade-offs and final state are on its
+[PR page](https://github.com/IlyaGulya/bend2-lsp-rs/pull/27).
 No unobserved gate acceptance or merge is claimed. No benchmark variant,
 retry-to-green, new numerical floor/threshold or global machinery is authorized.
 Policy review and #23 remain independent; this audit is not performance approval.
@@ -235,7 +238,7 @@ R1 and D3–D6, not independently missing service fixes.
 | Failed/empty Base reload and retained old navigation | Public `failed_and_empty_base_reload_detach_prelude_and_allow_recovery` is on main through #26, alongside generated Base provenance coverage | **MERGE — MERGED #26**, not an open extraction |
 | Disk overlay, deletion, imported diagnostics, cancellation and shutdown | Existing #14 reachable/overlay and diagnostics/compiler ownership invariants; prior lifecycle table remains applicable | **MERGE — MERGED** main scope; no independently missing correctness fix found |
 | Unwatched rediscovery deletion advertised by #13 | No rescan path exists on main; D6b is a new discovery contract, not a main event-contract defect | **DEFERRED & PRESERVED** implementation and coverage |
-| Cold scanner/declarations | #27 re-authored two-boundary move from main, not the mixed module commit | **OPEN-DRAFT** candidate; final CI/approval/merge state belongs on its PR page |
+| Cold scanner/declarations | #27 re-authored two-boundary move from main, not the mixed module commit | **MERGE — MERGED #27** after policy, current-head quality/stdio and ordinary green CI; trade-offs recorded on its PR page |
 | P1 folding `trim()` → `trim_start()` | Main blank-line check has equivalent semantics; existing folding boundary/EOF coverage | **DEFERRED & PRESERVED** research/history (S8); tiny pure-perf change alone is not worth a new performance program, not a failed implementation |
 | P2 semantic-token `Vec::with_capacity(syntax.semantic_token_count())` | Main lacks the new counter/accessor; candidate couples result capacity to a cold-build count pass | **DEFERRED & PRESERVED** research/history (S13); no independently measured win or correctness fix, no standalone performance program |
 | Historical global-index/discovery README/CHANGELOG capabilities | Main describes merged reachable/snapshot scope only | **DISCARD** production claims; preserve historical provenance under research refs |
