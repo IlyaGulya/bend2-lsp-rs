@@ -7,6 +7,9 @@
 - Complete visible parameters and case-pattern bindings from the current
   immutable snapshot, including partial expressions and an empty prefix at EOF.
   Respect lexical shadowing and retain normal unshadowed module completion.
+- Complete indexed ADT constructors at case-pattern heads, including qualified
+  imports and an empty prefix in the latest unsaved snapshot. Keep expression
+  completion separate and reject shadowed module aliases.
 
 ### Bug Fixes
 

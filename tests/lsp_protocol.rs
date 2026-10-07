@@ -672,6 +672,96 @@ mod protocol {
         client.finish();
     }
     #[test]
+    fn case_pattern_completion_offers_constructors_not_expression_names() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let source = "type Shape is Data:\n  Pair{value: U32}\ndef PairFactory():\n  0\ndef main(value: U32):\n  match value:\n    case Pa\n      Pa\n";
+        fs::write(&main_path, source).must_be("write source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, source);
+        let pattern = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":6,"character":11}}),
+        );
+        let items = pattern["result"].as_array().must_be("completion result");
+        assert_eq!(
+            items
+                .iter()
+                .map(|item| (&item["label"], &item["kind"]))
+                .collect::<Vec<_>>(),
+            vec![(&json!("Pair"), &json!(4))],
+            "a case head offers constructors, not similarly named functions"
+        );
+        let body = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":7,"character":8}}),
+        );
+        let items = body["result"].as_array().must_be("completion result");
+        assert!(items.iter().any(|item| item["label"] == "PairFactory"));
+        assert!(!items.iter().any(|item| item["kind"] == 4));
+        client.finish();
+    }
+    #[test]
+    fn case_constructor_completion_resolves_imports_and_latest_empty_prefix() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(
+            workspace.join("dep.bend"),
+            "type Remote is Data:\n  Pair{value: U32}\ndef PairFactory():\n  0\n",
+        )
+        .must_be("write imported constructors");
+        let main_path = workspace.join("main.bend");
+        let source = "import ./dep.bend as Dep\ndef shadowed(Dep: U32):\n  match Dep:\n    case Dep.Pa\ndef main(value: U32):\n  match value:\n    case Dep.Pa\n";
+        fs::write(&main_path, source).must_be("write source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let uri = Url::from_file_path(&main_path)
+            .must_be("valid test fixture value")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, source);
+        for (line, expected) in [(3, Vec::new()), (6, vec![json!("Pair")])] {
+            let response = client.request(
+                "textDocument/completion",
+                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":15}}),
+            );
+            let items = response["result"].as_array().must_be("completion result");
+            assert_eq!(
+                items
+                    .iter()
+                    .map(|item| item["label"].clone())
+                    .collect::<Vec<_>>(),
+                expected
+            );
+            assert!(items.iter().all(|item| item["kind"] == 4));
+        }
+        let revised = "type Local is Data:\n  Fresh\n  Other\ndef main(value: U32):\n  match value:\n    case ";
+        client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":revised}]}),
+        );
+        let response = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":5,"character":9}}),
+        );
+        let labels: Vec<_> = response["result"]
+            .as_array()
+            .must_be("completion result")
+            .iter()
+            .map(|item| item["label"].clone())
+            .collect();
+        assert_eq!(labels, vec![json!("Fresh"), json!("Other")]);
+        client.finish();
+    }
+    #[test]
     fn completion_respects_case_scope_and_unsaved_empty_prefix_at_eof() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");

@@ -637,6 +637,20 @@ fn constructor_definition_warm(
 }
 
 #[library_benchmark]
+#[bench::prefix(LazyLock::force(&CONSTRUCTOR_SNAPSHOT), "Term")]
+#[bench::empty(LazyLock::force(&CONSTRUCTOR_SNAPSHOT), "")]
+fn constructor_completion_warm(
+    snapshot: &analysis::DocumentSnapshot,
+    prefix: &str,
+) -> Vec<analysis::Completion> {
+    std::hint::black_box(analysis::constructor_completion_items(
+        std::hint::black_box(snapshot),
+        None,
+        std::hint::black_box(prefix),
+    ))
+}
+
+#[library_benchmark]
 #[bench::builtin(parameter_annotation_case(0))]
 #[bench::qualified(parameter_annotation_case(1))]
 #[bench::nested(parameter_annotation_case(2))]
@@ -659,7 +673,7 @@ library_benchmark_group!(
         folding_100_lines, folding_1000_lines, folding_10000_lines,
         workspace_initial_build, workspace_incremental_invalidation,
         workspace_references, workspace_burst_revision_invalidation,
-        constructor_definition_warm, parameter_annotation_warm
+        constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);
