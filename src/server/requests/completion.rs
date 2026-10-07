@@ -1,5 +1,5 @@
 use super::super::{adapters, features::cursor_in_comment_or_string, lsp::Backend};
-use crate::analysis;
+use crate::{analysis, workspace::Document};
 use std::collections::HashSet;
 use tower_lsp::{
     jsonrpc::Result,
@@ -58,6 +58,22 @@ impl Backend {
                     && alias.range.end == dot.range.start)
                     .then(|| (alias_id, &doc.text[alias.range.start..alias.range.end]))
             });
+        let pattern_start = alias.map_or(prefix_start, |(id, _)| {
+            syntax
+                .token(id)
+                .map_or(prefix_start, |token| token.range.start)
+        });
+        let in_case_pattern = syntax
+            .line_code_range(td.position.line as usize)
+            .and_then(|line| syntax.token_at_or_before(line.start))
+            .and_then(|id| syntax.token(id).map(|token| (id, token)))
+            .is_some_and(|(id, token)| {
+                syntax.token_text(&doc.text, id) == Some("case")
+                    && token.range.end < pattern_start
+                    && doc.text[token.range.end..pattern_start]
+                        .bytes()
+                        .all(|byte| matches!(byte, b' ' | b'\t'))
+            });
         if let Some((alias_id, alias)) = alias {
             if syntax
                 .symbol_for_token(alias_id)
@@ -68,30 +84,70 @@ impl Backend {
             }
             if let Some((_, source)) = self.module_document(&doc, alias) {
                 return Ok(Some(CompletionResponse::Array(adapters::completion_items(
-                    analysis::module_completion_items(&source, prefix),
+                    if in_case_pattern {
+                        analysis::constructor_completion_items(&source, None, prefix)
+                    } else {
+                        analysis::module_completion_items(&source, prefix)
+                    },
                 ))));
             }
             if let Some(module) = self.prelude_module(&doc) {
                 return Ok(Some(CompletionResponse::Array(adapters::completion_items(
-                    analysis::qualified_completion_items(&module, alias, prefix),
+                    if in_case_pattern {
+                        analysis::constructor_completion_items(&module, Some(alias), prefix)
+                    } else {
+                        analysis::qualified_completion_items(&module, alias, prefix)
+                    },
                 ))));
             }
+            if in_case_pattern {
+                return Ok(Some(CompletionResponse::Array(Vec::new())));
+            }
+        }
+        Ok(Some(CompletionResponse::Array(
+            self.unqualified_completion_items(&doc, prefix_start, prefix, in_case_pattern),
+        )))
+    }
+
+    fn unqualified_completion_items(
+        &self,
+        doc: &Document,
+        prefix_start: usize,
+        prefix: &str,
+        in_case_pattern: bool,
+    ) -> Vec<CompletionItem> {
+        if in_case_pattern {
+            let mut items = adapters::completion_items(analysis::constructor_completion_items(
+                doc, None, prefix,
+            ));
+            if let Some(module) = self.prelude_module(doc) {
+                let mut labels: HashSet<String> =
+                    items.iter().map(|item| item.label.clone()).collect();
+                items.extend(
+                    adapters::completion_items(analysis::constructor_completion_items(
+                        &module, None, prefix,
+                    ))
+                    .into_iter()
+                    .filter(|item| labels.insert(item.label.clone())),
+                );
+            }
+            return items;
         }
         let mut items = adapters::completion_items(analysis::scoped_completion_items(
-            &doc,
+            doc,
             prefix_start,
             prefix,
         ));
         if !prefix.is_empty() {
             let mut labels: HashSet<String> = items.iter().map(|item| item.label.clone()).collect();
-            if let Some(module) = self.prelude_module(&doc) {
+            if let Some(module) = self.prelude_module(doc) {
                 items.extend(
                     adapters::completion_items(analysis::completion_items(&module, prefix))
                         .into_iter()
                         .filter(|item| labels.insert(item.label.clone())),
                 );
             }
-            for import in analysis::imports(&doc) {
+            for import in analysis::imports(doc) {
                 if let Some(alias) = import
                     .alias_text(&doc.text)
                     .filter(|alias| alias.starts_with(prefix))
@@ -106,7 +162,7 @@ impl Backend {
                 }
             }
         }
-        Ok(Some(CompletionResponse::Array(items)))
+        items
     }
 
     pub(in crate::server) async fn handle_signature_help(

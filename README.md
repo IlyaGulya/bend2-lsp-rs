@@ -111,7 +111,7 @@ editor. Source-based features are **not** a full compiler type checker.
 | Feature | Support and scope |
 | --- | --- |
 | Diagnostics | Local lexical checks plus errors from the installed Bend CLI; see limitations below |
-| Completion | In-scope parameters and case bindings, declarations, keywords, imported module members, and indexed `Base` declarations |
+| Completion | In-scope parameters and case bindings, ADT constructors at case-pattern heads, declarations, keywords, imported module members, and indexed `Base` declarations |
 | Signature help | Function parameters and the active argument |
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
@@ -218,8 +218,8 @@ These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
 limitations above describe this checkout; see the changelog for unreleased work.
 
-1. **Further context-aware completion:** extend the current in-scope parameter
-   and case-binding completion with type/constructor context filtering,
+1. **Further context-aware completion:** extend current local binding and
+   case-head constructor completion with type filtering, nested patterns,
    import continuations, replacement ranges and ranking.
 2. **Auto-import and useful quick fixes:** insert imports for selected symbols,
    reuse existing aliases, and avoid name conflicts.

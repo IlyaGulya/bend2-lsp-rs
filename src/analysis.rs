@@ -233,6 +233,7 @@ pub enum CompletionKind {
     Struct,
     Keyword,
     Variable,
+    Constructor,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -589,6 +590,40 @@ fn completion_items_with_scope(
                 detail: "Bend keyword".into(),
                 kind: CompletionKind::Keyword,
             });
+        }
+    }
+    items
+}
+
+/// Complete indexed ADT constructors, optionally within a qualified namespace.
+#[must_use]
+pub fn constructor_completion_items(
+    snapshot: &DocumentSnapshot,
+    qualifier: Option<&str>,
+    prefix: &str,
+) -> Vec<Completion> {
+    let syntax = &snapshot.syntax;
+    let source = &snapshot.text;
+    let mut items = Vec::new();
+    for parent in syntax.symbols() {
+        if parent.kind != SymbolKind::Struct {
+            continue;
+        }
+        for constructor in syntax.constructors(parent.id) {
+            let name = syntax.name_text(source, constructor.name);
+            let label = match qualifier {
+                Some(qualifier) => name
+                    .strip_prefix(qualifier)
+                    .and_then(|name| name.strip_prefix('.')),
+                None => Some(name),
+            };
+            if let Some(label) = label.filter(|label| label.starts_with(prefix)) {
+                items.push(Completion {
+                    label: label.to_owned(),
+                    detail: format!("constructor of {}", syntax.name_text(source, parent.name)),
+                    kind: CompletionKind::Constructor,
+                });
+            }
         }
     }
     items
