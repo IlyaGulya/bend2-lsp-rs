@@ -86,3 +86,39 @@ Allowed:
 - Keep the formatter on its separate scanner under the exception above.
 - Scan a bounded local slice when this avoids a second full-document semantic
   pass and benchmark evidence supports the tradeoff.
+
+## Release notes
+
+Write GitHub release notes for people using Bend in an editor, not for
+contributors reviewing the server's implementation. Use English unless the
+maintainer requests another language.
+
+- Lead with observable changes: what users can now do, what suggestions they
+  receive, or which editing problems were fixed.
+- Use short, plain sentences and concrete examples where useful. Prefer
+  "Function parameters now appear in autocomplete" to "Complete visible
+  bindings from immutable snapshots."
+- Group changes under descriptive headings such as "Better autocomplete",
+  "More reliable editing", and, only when useful, "Under the hood".
+- Translate internal terminology into user-facing behavior. Avoid implementation
+  names, revision epochs, cache layouts, ownership boundaries, benchmark events,
+  and PR-by-PR inventories in the main narrative.
+- Keep internal refactoring to a short "Under the hood" explanation of its
+  purpose. Put engineering detail, provenance, and measured performance
+  trade-offs in the changelog, ADRs, or linked PR reports.
+- Be precise about scope: unfinished input, unsaved edits, imported modules,
+  and supported contexts matter. Do not imply type inference, fuzzy matching,
+  whole-project indexing, or other capabilities that were not shipped.
+- Do not turn a refactor or a small benchmark delta into an unsupported claim
+  that the editor is faster or the server is universally more reliable.
+  Include meaningful user-visible regressions or compatibility changes plainly.
+- Describe only changes included in the release's exact source commit.
+  Check release-please output against merged changes; completed work must not
+  remain mislabeled as "Unreleased". Keep deferred research explicitly separate
+  from shipped features.
+- Link to the full changelog and comparison with the previous version instead
+  of filling the release notes with implementation details.
+
+For a release-note-only rewrite, change the GitHub release description, not its
+tag, source commit, binaries, checksums, or publication gates. Show a proposed
+rewrite without publishing it when the maintainer asks for a preview.
