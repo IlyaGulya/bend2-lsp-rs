@@ -24,6 +24,11 @@
   without merge and defer semantic/background indexing under the explicit
   real-user latency and budget trigger in `docs/adr-global-indexing.md`.
 
+### Tests
+
+- Guard failed and empty compiler Base reloads, prelude detachment and recovery,
+  while preserving navigation to previously generated source.
+
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 
 

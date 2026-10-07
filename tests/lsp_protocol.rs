@@ -2192,6 +2192,90 @@ mod protocol {
     }
 
     #[test]
+    fn failed_and_empty_base_reload_detach_prelude_and_allow_recovery() {
+        let (temp, mut client, compiler, old_uri, old_text) = open_generated_base_document();
+        fs::write(
+            &compiler,
+            "#!/bin/sh\nmode=old\ncase \"$1\" in --fail|--empty|--current) mode=\"$1\"; shift;; esac\nif [ \"$1\" = base ]; then\n  case \"$mode\" in\n    --fail) exit 1;;\n    --empty) exit 0;;\n    --current) printf 'def library_value() -> U32:\\n  9\\ndef current_only() -> U32:\\n  2\\n';;\n    *) printf 'def library_value() -> U32:\\n  7\\n';;\n  esac\nfi\nexit 0\n",
+        )
+        .must_be("write reload-mode compiler");
+        let root_uri = "untitled:base-consumer.bend";
+        let definition_params =
+            json!({"textDocument":{"uri":root_uri},"position":{"line":2,"character":7}});
+        let completion_params =
+            json!({"textDocument":{"uri":root_uri},"position":{"line":2,"character":4}});
+        let old_path = Url::parse(&old_uri)
+            .must_be("old Base URL")
+            .to_file_path()
+            .must_be("old Base path");
+        let mut active_uri = old_uri.clone();
+        for mode in ["--fail", "--empty"] {
+            client.notify(
+                "workspace/didChangeConfiguration",
+                json!({"settings":{"bend2-lsp":{"compilerPath":compiler,"compilerArguments":[mode]}}}),
+            );
+            assert_eq!(
+                generated_base_diagnostics(&mut client, root_uri, 1)["params"]["diagnostics"],
+                json!([])
+            );
+            let detached = client.request("textDocument/definition", definition_params.clone());
+            assert_eq!(detached["result"], Value::Null);
+            let completions = client.request("textDocument/completion", completion_params.clone());
+            assert!(
+                !completions["result"]
+                    .as_array()
+                    .must_be("detached completion items")
+                    .iter()
+                    .any(|item| item["label"] == "library_value"),
+                "a failed or empty reload must not offer the retired prelude: {completions}"
+            );
+            let old_definition = client.request(
+                "textDocument/definition",
+                json!({"textDocument":{"uri":old_uri},"position":{"line":0,"character":8}}),
+            );
+            assert_eq!(old_definition["result"]["uri"], old_uri);
+            assert_eq!(
+                fs::read_to_string(&old_path).must_be("retained navigation source"),
+                old_text
+            );
+            client.notify(
+                "workspace/didChangeConfiguration",
+                json!({"settings":{"bend2-lsp":{"compilerPath":compiler,"compilerArguments":["--current"]}}}),
+            );
+            assert_eq!(
+                generated_base_diagnostics(&mut client, root_uri, 1)["params"]["diagnostics"],
+                json!([])
+            );
+            let recovered = client.request("textDocument/definition", definition_params.clone());
+            let recovered_uri = recovered["result"]["uri"]
+                .as_str()
+                .must_be("recovered Base URI");
+            assert_ne!(recovered_uri, active_uri);
+            assert_ne!(recovered_uri, old_uri);
+            let recovered_path = Url::parse(recovered_uri)
+                .must_be("recovered Base URL")
+                .to_file_path()
+                .must_be("recovered Base path");
+            assert_eq!(
+                fs::read_to_string(recovered_path).must_be("current prelude source"),
+                "def library_value() -> U32:\n  9\ndef current_only() -> U32:\n  2\n"
+            );
+            active_uri = recovered_uri.to_owned();
+            let completions = client.request("textDocument/completion", completion_params.clone());
+            assert!(
+                completions["result"]
+                    .as_array()
+                    .must_be("recovered completion items")
+                    .iter()
+                    .any(|item| item["label"] == "library_value"),
+                "successful reload must restore prelude completion: {completions}"
+            );
+        }
+        client.finish();
+        drop(temp);
+    }
+
+    #[test]
     fn configured_compiler_profile_preserves_prelude_navigation() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
