@@ -2,14 +2,20 @@
 
 ## Unreleased
 
+
+## [0.3.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.5...v0.3.0) (2026-10-07)
+
+
 ### Features
 
 - Complete visible parameters and case-pattern bindings from the current
   immutable snapshot, including partial expressions and an empty prefix at EOF.
   Respect lexical shadowing and retain normal unshadowed module completion.
+  ([#23](https://github.com/IlyaGulya/bend2-lsp-rs/pull/23))
 - Complete indexed ADT constructors at case-pattern heads, including qualified
   imports and an empty prefix in the latest unsaved snapshot. Keep expression
   completion separate and reject shadowed module aliases.
+  ([#30](https://github.com/IlyaGulya/bend2-lsp-rs/pull/30))
 
 ### Bug Fixes
 
@@ -28,17 +34,27 @@
 - Give workspace, compiler, diagnostics, and registration services explicit
   ownership and validated commit boundaries; extract the revision state machine,
   request handlers, and sequential text editing.
+  ([#14](https://github.com/IlyaGulya/bend2-lsp-rs/pull/14))
 - Retain the existing syntax representation, cross-file query implementation,
   reachable workspace scope and LSP framework. Close global-index experiments
   without merge and defer semantic/background indexing under the explicit
   real-user latency and budget trigger in `docs/adr-global-indexing.md`.
 - Separate cold lexical scanning and declaration construction into private
   modules, preserving snapshot storage, warm queries and the formatter scanner.
+  ([#27](https://github.com/IlyaGulya/bend2-lsp-rs/pull/27))
+- Record explicit, per-PR acceptance of measured performance trade-offs without
+  changing automated thresholds, baseline workflows or retry policy.
+  ([#25](https://github.com/IlyaGulya/bend2-lsp-rs/pull/25))
+- Complete the integration salvage audit and preserve deferred semantic,
+  occurrence-index and workspace-discovery implementations under immutable
+  public research tags. These are not production capabilities.
+  ([#28](https://github.com/IlyaGulya/bend2-lsp-rs/pull/28))
 
 ### Tests
 
 - Guard failed and empty compiler Base reloads, prelude detachment and recovery,
   while preserving navigation to previously generated source.
+  ([#26](https://github.com/IlyaGulya/bend2-lsp-rs/pull/26))
 
 ## [0.2.5](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.4...v0.2.5) (2026-10-03)
 
