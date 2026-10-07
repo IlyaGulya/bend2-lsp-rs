@@ -23,6 +23,8 @@
   reachable workspace scope and LSP framework. Close global-index experiments
   without merge and defer semantic/background indexing under the explicit
   real-user latency and budget trigger in `docs/adr-global-indexing.md`.
+- Separate cold lexical scanning and declaration construction into private
+  modules, preserving snapshot storage, warm queries and the formatter scanner.
 
 ### Tests
 
