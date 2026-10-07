@@ -96,6 +96,17 @@ impl WarmSnapshot {
     }
 }
 
+fn scoped_completion_case(fixture: &WarmSnapshot) -> (&'static analysis::DocumentSnapshot, usize) {
+    let declaration = fixture
+        .snapshot
+        .syntax
+        .symbols()
+        .iter()
+        .find(|symbol| symbol.kind == analysis::SymbolKind::Function)
+        .must_be("function with local parameters");
+    (fixture.snapshot, declaration.scope.end.saturating_sub(1))
+}
+
 fn folding_source(lines: usize) -> String {
     let mut source = String::with_capacity(lines * 7);
     for line in 0..lines {
@@ -346,6 +357,20 @@ fn completion_warm(fixture: WarmSnapshot) -> Vec<analysis::Completion> {
     std::hint::black_box(analysis::completion_items(
         std::hint::black_box(fixture.snapshot),
         std::hint::black_box(fixture.completion_prefix),
+    ))
+}
+
+#[library_benchmark]
+#[bench::small(scoped_completion_case(&WarmSnapshot::small()))]
+#[bench::medium(scoped_completion_case(&WarmSnapshot::medium()))]
+#[bench::large(scoped_completion_case(&WarmSnapshot::large()))]
+fn scoped_completion_warm(
+    (snapshot, offset): (&analysis::DocumentSnapshot, usize),
+) -> Vec<analysis::Completion> {
+    std::hint::black_box(analysis::scoped_completion_items(
+        std::hint::black_box(snapshot),
+        std::hint::black_box(offset),
+        std::hint::black_box(""),
     ))
 }
 
@@ -627,7 +652,7 @@ fn parameter_annotation_warm(
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
-        semantic_tokens_warm, completion_warm, identifier_ranges_warm, references_warm,
+        semantic_tokens_warm, completion_warm, scoped_completion_warm, identifier_ranges_warm, references_warm,
         call_hierarchy_warm, inlay_hints_warm,
         ascii_position_conversion, ascii_offset_conversion,
         unicode_position_conversion, unicode_offset_conversion,

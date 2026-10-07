@@ -429,6 +429,7 @@ fn assert_legacy_fixture_outputs_match_indexed_queries_exactly(
                     CompletionKind::Function => CompletionItemKind::FUNCTION,
                     CompletionKind::Struct => CompletionItemKind::STRUCT,
                     CompletionKind::Keyword => CompletionItemKind::KEYWORD,
+                    CompletionKind::Variable => CompletionItemKind::VARIABLE,
                 };
                 let kind = serde_json::to_value(kind)
                     .must_be("completion kind must serialize")

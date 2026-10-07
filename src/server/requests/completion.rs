@@ -56,9 +56,16 @@ impl Backend {
                 let alias = syntax.token(alias_id)?;
                 (alias.kind == analysis::TokenKind::Identifier
                     && alias.range.end == dot.range.start)
-                    .then(|| &doc.text[alias.range.start..alias.range.end])
+                    .then(|| (alias_id, &doc.text[alias.range.start..alias.range.end]))
             });
-        if let Some(alias) = alias {
+        if let Some((alias_id, alias)) = alias {
+            if syntax
+                .symbol_for_token(alias_id)
+                .and_then(|symbol| syntax.binding_by_id(symbol))
+                .is_some()
+            {
+                return Ok(Some(CompletionResponse::Array(Vec::new())));
+            }
             if let Some((_, source)) = self.module_document(&doc, alias) {
                 return Ok(Some(CompletionResponse::Array(adapters::completion_items(
                     analysis::module_completion_items(&source, prefix),
@@ -70,7 +77,11 @@ impl Backend {
                 ))));
             }
         }
-        let mut items = adapters::completion_items(analysis::completion_items(&doc, prefix));
+        let mut items = adapters::completion_items(analysis::scoped_completion_items(
+            &doc,
+            prefix_start,
+            prefix,
+        ));
         if !prefix.is_empty() {
             let mut labels: HashSet<String> = items.iter().map(|item| item.label.clone()).collect();
             if let Some(module) = self.prelude_module(&doc) {

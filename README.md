@@ -111,7 +111,7 @@ editor. Source-based features are **not** a full compiler type checker.
 | Feature | Support and scope |
 | --- | --- |
 | Diagnostics | Local lexical checks plus errors from the installed Bend CLI; see limitations below |
-| Completion | Local names, keywords, imported module members, and indexed `Base` declarations |
+| Completion | In-scope parameters and case bindings, declarations, keywords, imported module members, and indexed `Base` declarations |
 | Signature help | Function parameters and the active argument |
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
@@ -143,6 +143,10 @@ Declaration queries respect lexical shadowing: a local parameter never resolves
 to a same-named global declaration or imported module. Hover and type navigation
 use that parameter's own indexed annotation when available. Module aliases remain
 navigation targets, but alias rename is rejected rather than applied to a member.
+
+Completion includes parameters and case-pattern bindings only in their indexed
+scope. Local bindings shadow same-named declarations, prelude names and import
+aliases; a shadowed alias does not offer the imported module's members.
 
 Local imports are indexed for cross-file features. `Base` comes from `bend base`.
 Hub package navigation uses packages already present in the local Bend library
@@ -212,8 +216,9 @@ These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
 limitations above describe this checkout; see the changelog for unreleased work.
 
-1. **Context-aware completion:** offer types in annotations, constructors in
-   patterns, and in-scope local bindings instead of unrelated suggestions.
+1. **Further context-aware completion:** extend the current in-scope parameter
+   and case-binding completion with type/constructor context filtering,
+   import continuations, replacement ranges and ranking.
 2. **Auto-import and useful quick fixes:** insert imports for selected symbols,
    reuse existing aliases, and avoid name conflicts.
 3. **Background whole-project indexing — deferred:** reconsider only after a

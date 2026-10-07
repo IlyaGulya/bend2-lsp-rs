@@ -523,6 +523,33 @@ impl SyntaxIndex {
         &self.bindings[symbol.parameter_span.start..symbol.parameter_span.end]
     }
 
+    /// Borrow in-scope binding candidates from the current function's dense rows.
+    /// No source parsing or workspace traversal is performed by this query.
+    pub fn bindings_at(&self, offset: usize) -> impl Iterator<Item = &IndexedBinding> {
+        // A caret at EOF belongs to the final indexed scope, whose byte range
+        // is half-open. Compare its left-hand byte without slicing UTF-8 text.
+        let end = self.lines.last().map_or(0, |line| line.full_end);
+        let offset = offset.min(end.saturating_sub(1));
+        let symbol = self
+            .symbols
+            .partition_point(|symbol| symbol.scope.start <= offset)
+            .checked_sub(1)
+            .and_then(|index| self.symbols.get(index))
+            .filter(|symbol| symbol.kind == SymbolKind::Function && symbol.scope.contains(offset));
+        let bindings = symbol.map_or(&[][..], |symbol| {
+            let start = self
+                .bindings
+                .partition_point(|binding| binding.owner.0 < symbol.id.0);
+            let end = self
+                .bindings
+                .partition_point(|binding| binding.owner.0 <= symbol.id.0);
+            &self.bindings[start..end]
+        });
+        bindings
+            .iter()
+            .filter(move |binding| binding.scope.contains(offset))
+    }
+
     #[must_use]
     pub fn binding_type_range(&self, source: &str, id: SymbolId) -> Option<TextRange> {
         let binding = self.binding_by_id(id)?;
