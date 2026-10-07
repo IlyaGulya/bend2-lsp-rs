@@ -1,6 +1,6 @@
 # ADR: explicit maintainer acceptance of measured performance trade-offs
 
-Status: proposed independent maintainer decision; replaces the earlier retain-without-exceptions proposal in PR #25.
+Status: accepted independent maintainer decision, merged in [PR #25](https://github.com/IlyaGulya/bend2-lsp-rs/pull/25); supersedes the earlier retain-without-exceptions proposal.
 
 ## Decision
 

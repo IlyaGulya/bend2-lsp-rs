@@ -177,6 +177,8 @@ Global semantic/reverse-index research is closed. Production keeps immutable
 snapshots, dense per-document syntax indexes and the loaded/reachable import
 graph, without a mandatory global semantic database. See the
 [architecture decision and reopening trigger](docs/adr-global-indexing.md).
+The [integration salvage audit](docs/integration-salvage-audit.md) classifies
+every substantive change in the closed index/discovery PRs against main.
 
 Workspace, compiler, diagnostics, and registration services own server state.
 State poisoning and unexpected worker failure are fatal invariant errors, not
