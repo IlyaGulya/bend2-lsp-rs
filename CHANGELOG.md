@@ -47,6 +47,13 @@ function-level benchmarks do not measure editor response time. Performance
 thresholds and baseline rules are unchanged.
 
 
+## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.3.0...v0.4.0) (2026-10-08)
+
+
+### Miscellaneous Chores
+
+* prepare editor improvements release ([#33](https://github.com/IlyaGulya/bend2-lsp-rs/issues/33)) ([1eb722b](https://github.com/IlyaGulya/bend2-lsp-rs/commit/1eb722be9d7d76b3b814c046d6d0b8605e7d4b4c))
+
 ## [0.3.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.5...v0.3.0) (2026-10-07)
 
 
