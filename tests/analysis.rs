@@ -369,11 +369,9 @@ fn assert_legacy_fixture_outputs_match_indexed_queries_exactly(
     source: &str,
     golden_json: &str,
     identifier_name: &str,
-    completion_prefix: &str,
 ) {
-    use bend2_lsp::analysis::{self, CompletionKind};
+    use bend2_lsp::analysis;
     use serde_json::Value;
-    use tower_lsp::lsp_types::CompletionItemKind;
 
     let golden: Value =
         serde_json::from_str(golden_json).must_be("legacy output fixture must parse");
@@ -420,37 +418,6 @@ fn assert_legacy_fixture_outputs_match_indexed_queries_exactly(
         &identifier_ranges,
         &legacy_ranges,
     );
-
-    let completion_items: Vec<(String, String, u32)> =
-        analysis::completion_items(&snapshot, completion_prefix)
-            .into_iter()
-            .map(|item| {
-                let kind = match item.kind {
-                    CompletionKind::Function => CompletionItemKind::FUNCTION,
-                    CompletionKind::Struct => CompletionItemKind::STRUCT,
-                    CompletionKind::Keyword => CompletionItemKind::KEYWORD,
-                    CompletionKind::Variable => CompletionItemKind::VARIABLE,
-                    CompletionKind::Constructor => CompletionItemKind::CONSTRUCTOR,
-                };
-                let kind = serde_json::to_value(kind)
-                    .must_be("completion kind must serialize")
-                    .as_u64()
-                    .must_be("completion kind must be a number");
-                (
-                    item.label,
-                    item.detail,
-                    u32::try_from(kind).must_be("completion kind fits u32"),
-                )
-            })
-            .collect();
-    let legacy_completions: Vec<(String, String, u32)> =
-        serde_json::from_value(golden["completion_items"].clone())
-            .must_be("legacy completions must match the canonical shape");
-    assert_exact_output(
-        "completion (label, detail, kind)",
-        &completion_items,
-        &legacy_completions,
-    );
 }
 
 fn assert_legacy_inlay_hints_match_exactly(source: &str, golden_json: &str, size: &str) {
@@ -494,7 +461,6 @@ fn small_legacy_fixture_outputs_match_indexed_queries_exactly() {
         include_str!("../benches/fixtures/analyzer_input.bend"),
         include_str!("fixtures/analysis_legacy_outputs.json"),
         "transform_31",
-        "transform_",
     );
 }
 
@@ -504,13 +470,11 @@ fn medium_and_large_legacy_fixture_outputs_match_indexed_queries_exactly() {
         include_str!("../benches/fixtures/analyzer_medium.bend"),
         include_str!("fixtures/analysis_legacy_medium_outputs.json"),
         "worker_0199",
-        "worker_",
     );
     assert_legacy_fixture_outputs_match_indexed_queries_exactly(
         include_str!("../benches/fixtures/analyzer_large.bend"),
         include_str!("fixtures/analysis_legacy_large_outputs.json"),
         "worker_0599",
-        "worker_",
     );
 }
 

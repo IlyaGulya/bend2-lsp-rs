@@ -253,7 +253,7 @@ impl Backend {
         self.ready_read(Some(uri)).await
     }
 
-    pub(super) async fn workspace_read(&self) -> RwLockReadGuard<'_, ()> {
+    async fn workspace_read(&self) -> RwLockReadGuard<'_, ()> {
         // Cold snapshot construction never holds this committed-view guard.
         self.workspace
             .updates
@@ -298,6 +298,16 @@ impl Backend {
     }
 
     pub(super) async fn ready_read(&self, uri: Option<&Url>) -> RwLockReadGuard<'_, ()> {
+        let _operation = self.workspace.file_operations.read().await;
+        self.ready_read_inner(uri).await
+    }
+
+    pub(super) async fn file_rename_ready_read(&self) -> RwLockReadGuard<'_, ()> {
+        // The rename entry point already holds the exclusive operation guard.
+        self.ready_read_inner(None).await
+    }
+
+    async fn ready_read_inner(&self, uri: Option<&Url>) -> RwLockReadGuard<'_, ()> {
         loop {
             let read = self.workspace_read().await;
             let pending = self.pending_revisions(uri);

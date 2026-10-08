@@ -2,9 +2,9 @@
 mod syntax;
 
 pub use syntax::{
-    CallSite, DiagnosticKind, IndexedBinding, IndexedConstructor, IndexedImport, IndexedSymbol,
-    NameId, Reference, ReferenceKind, SymbolId, SyntaxDiagnostic, SyntaxIndex, Token, TokenFlags,
-    TokenId, TokenKind,
+    CallSite, CasePatternType, DiagnosticKind, IndexedBinding, IndexedConstructor, IndexedImport,
+    IndexedSymbol, NameId, Reference, ReferenceKind, SymbolId, SyntaxDiagnostic, SyntaxIndex,
+    Token, TokenFlags, TokenId, TokenKind,
 };
 
 pub type Import = IndexedImport;
@@ -528,6 +528,75 @@ fn split_parameters(parameters: &str) -> Vec<&str> {
     result
 }
 
+/// Exact, prefix, and subsequence matching without allocating candidate strings.
+/// Lower tuples rank first; ties are resolved by scope and then label by the caller.
+#[must_use]
+pub fn completion_match(label: &str, query: &str) -> Option<(u8, usize, usize)> {
+    if label == query {
+        return Some((0, 0, label.len()));
+    }
+    if label.starts_with(query) {
+        return Some((1, 0, label.len()));
+    }
+    subsequence_completion_match(label, query)
+}
+
+fn completion_matches(label: &str, query: &str, ascii: bool) -> bool {
+    if label.len() < query.len() {
+        return false;
+    }
+    label.starts_with(query)
+        || if ascii {
+            ascii_subsequence_matches(label, query)
+        } else {
+            subsequence_completion_match(label, query).is_some()
+        }
+}
+
+fn ascii_subsequence_matches(label: &str, query: &str) -> bool {
+    let mut wanted = query.bytes();
+    let Some(mut next) = wanted.next() else {
+        return true;
+    };
+    for character in label.bytes() {
+        if character.eq_ignore_ascii_case(&next) {
+            let Some(remaining) = wanted.next() else {
+                return true;
+            };
+            next = remaining;
+        }
+    }
+    false
+}
+
+fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, usize)> {
+    let mut wanted = query.chars();
+    let mut next = wanted.next();
+    let mut first = 0;
+    let mut matched = 0;
+    for (index, character) in label.chars().enumerate() {
+        if next.is_some_and(|target| character.eq_ignore_ascii_case(&target)) {
+            if matched == 0 {
+                first = index;
+            }
+            matched += 1;
+            next = wanted.next();
+            if next.is_none() {
+                return Some((
+                    if first == 0 && index + 1 == matched {
+                        2
+                    } else {
+                        3
+                    },
+                    first + index + 1 - matched,
+                    label.len(),
+                ));
+            }
+        }
+    }
+    None
+}
+
 #[must_use]
 pub fn completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
     completion_items_with_scope(snapshot, prefix, None)
@@ -550,12 +619,13 @@ fn completion_items_with_scope(
 ) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
+    let ascii_prefix = prefix.is_ascii();
     let mut items = Vec::new();
     let local_names = offset.map(|offset| {
         let mut local_names = std::collections::HashSet::new();
         for binding in syntax.bindings_at(offset) {
             let name = syntax.name_text(source, binding.name);
-            if name.starts_with(prefix) && local_names.insert(binding.name) {
+            if completion_matches(name, prefix, ascii_prefix) && local_names.insert(binding.name) {
                 items.push(Completion {
                     label: name.to_owned(),
                     detail: "Local binding".into(),
@@ -568,7 +638,7 @@ fn completion_items_with_scope(
     });
     for symbol in syntax.symbols() {
         let name = syntax.name_text(source, symbol.name);
-        if name.starts_with(prefix)
+        if completion_matches(name, prefix, ascii_prefix)
             && local_names
                 .as_ref()
                 .is_none_or(|names| !names.contains(&symbol.name))
@@ -584,7 +654,9 @@ fn completion_items_with_scope(
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",
     ] {
-        if keyword.starts_with(prefix) && !items.iter().any(|item| item.label == keyword) {
+        if completion_matches(keyword, prefix, ascii_prefix)
+            && !items.iter().any(|item| item.label == keyword)
+        {
             items.push(Completion {
                 label: keyword.into(),
                 detail: "Bend keyword".into(),
@@ -602,11 +674,26 @@ pub fn constructor_completion_items(
     qualifier: Option<&str>,
     prefix: &str,
 ) -> Vec<Completion> {
+    typed_constructor_completion_items(snapshot, qualifier, prefix, None)
+}
+
+/// Restrict constructors only after the caller resolves a known explicit type.
+#[must_use]
+pub fn typed_constructor_completion_items(
+    snapshot: &DocumentSnapshot,
+    qualifier: Option<&str>,
+    prefix: &str,
+    expected_type: Option<&str>,
+) -> Vec<Completion> {
     let syntax = &snapshot.syntax;
     let source = &snapshot.text;
+    let ascii_prefix = prefix.is_ascii();
     let mut items = Vec::new();
     for parent in syntax.symbols() {
-        if parent.kind != SymbolKind::Struct {
+        if parent.kind != SymbolKind::Struct
+            || expected_type
+                .is_some_and(|expected| syntax.name_text(source, parent.name) != expected)
+        {
             continue;
         }
         for constructor in syntax.constructors(parent.id) {
@@ -617,7 +704,9 @@ pub fn constructor_completion_items(
                     .and_then(|name| name.strip_prefix('.')),
                 None => Some(name),
             };
-            if let Some(label) = label.filter(|label| label.starts_with(prefix)) {
+            if let Some(label) =
+                label.filter(|label| completion_matches(label, prefix, ascii_prefix))
+            {
                 items.push(Completion {
                     label: label.to_owned(),
                     detail: format!("constructor of {}", syntax.name_text(source, parent.name)),
@@ -633,12 +722,13 @@ pub fn constructor_completion_items(
 pub fn module_completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
+    let ascii_prefix = prefix.is_ascii();
     syntax
         .symbols()
         .iter()
         .filter_map(|symbol| {
             let name = syntax.name_text(source, symbol.name);
-            name.starts_with(prefix).then(|| {
+            completion_matches(name, prefix, ascii_prefix).then(|| {
                 completion(
                     name.to_owned(),
                     source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
@@ -657,18 +747,15 @@ pub fn qualified_completion_items(
 ) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let qualifier_prefix = format!("{qualifier}.");
-    let requested_prefix = format!("{qualifier_prefix}{prefix}");
+    let ascii_prefix = prefix.is_ascii();
     syntax
         .symbols()
         .iter()
         .filter_map(|symbol| {
             let name = syntax.name_text(source, symbol.name);
-            name.starts_with(&requested_prefix).then(|| {
-                let label = name
-                    .strip_prefix(&qualifier_prefix)
-                    .unwrap_or(name)
-                    .to_owned();
+            let label = name.strip_prefix(qualifier)?.strip_prefix('.')?;
+            completion_matches(label, prefix, ascii_prefix).then(|| {
+                let label = label.to_owned();
                 completion(
                     label,
                     source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),

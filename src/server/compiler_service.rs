@@ -1,5 +1,8 @@
 use super::{
-    compiler::{CachedCompilerResult, CompilerConfig, CompilerReapers, compiler_base},
+    compiler::{
+        CachedCompilerResult, CompilerCompatibility, CompilerConfig, CompilerReapers,
+        CompilerStamp, compiler_base, compiler_compatibility, compiler_stamp,
+    },
     lsp::Backend,
     orchestration::run_staging,
     state::State,
@@ -26,6 +29,11 @@ impl Deref for BaseModule {
     }
 }
 
+struct CachedCompatibility {
+    stamp: Option<CompilerStamp>,
+    result: Arc<CompilerCompatibility>,
+}
+
 pub(super) struct CompilerService {
     pub(super) config: State<CompilerConfig>,
     pub(super) base_module: State<Option<BaseModule>>,
@@ -34,6 +42,7 @@ pub(super) struct CompilerService {
     pub(super) semaphore: Arc<Semaphore>,
     pub(super) results: Arc<RwLock<HashMap<PathBuf, CachedCompilerResult>>>,
     pub(super) reapers: Arc<CompilerReapers>,
+    compatibility: Mutex<HashMap<CompilerConfig, CachedCompatibility>>,
 }
 impl CompilerService {
     pub(super) fn new(reapers: Arc<CompilerReapers>) -> Self {
@@ -44,23 +53,87 @@ impl CompilerService {
             base_module_load: Mutex::new(()),
             semaphore: Arc::new(Semaphore::new(4)),
             results: Arc::new(RwLock::new(HashMap::new())),
+            compatibility: Mutex::new(HashMap::new()),
             reapers,
         }
     }
 }
 
-impl Backend {
-    pub(super) async fn load_prelude_module(&self) {
-        if self.compiler.base_module.read().is_some() || *self.compiler.base_module_attempted.read()
+impl CompilerService {
+    pub(super) async fn invalidate_compatibility(&self) {
+        self.compatibility.lock().await.clear();
+    }
+    pub(super) async fn compatibility(
+        &self,
+        config: &CompilerConfig,
+    ) -> Arc<CompilerCompatibility> {
+        let mut cache = self.compatibility.lock().await;
+        let path = config.path.clone();
+        let stamp = super::state::blocking_result(
+            tokio::task::spawn_blocking(move || compiler_stamp(&path)).await,
+        );
+        if let Some(cached) = cache.get(config)
+            && cached.stamp == stamp
         {
+            return cached.result.clone();
+        }
+        let result = compiler_compatibility(config, self.reapers.clone()).await;
+        if let CompilerCompatibility::Available { version } = &result {
+            tracing::info!(compiler = %config.path, %version, "Bend compiler CLI is compatible");
+        }
+        if result.failure().is_none() && self.base_module.read().is_none() {
+            *self.base_module_attempted.write() = false;
+        }
+        let result = Arc::new(result);
+        if stamp.is_some()
+            && result
+                .failure()
+                .is_none_or(|(_, code)| code != "compiler-unavailable")
+        {
+            if cache.len() >= 32 {
+                cache.clear();
+            }
+            cache.insert(
+                config.clone(),
+                CachedCompatibility {
+                    stamp,
+                    result: result.clone(),
+                },
+            );
+        } else {
+            cache.remove(config);
+        }
+        result
+    }
+}
+
+impl Backend {
+    pub(super) async fn check_compiler_compatibility(&self) -> Arc<CompilerCompatibility> {
+        let config = self.compiler.config.read().clone();
+        self.compiler.compatibility(&config).await
+    }
+    pub(super) async fn load_prelude_module(&self) {
+        if self.compiler.base_module.read().is_some() {
             return;
         }
         let _load = self.compiler.base_module_load.lock().await;
-        if self.compiler.base_module.read().is_some() || *self.compiler.base_module_attempted.read()
-        {
+        if self.compiler.base_module.read().is_some() {
             return;
         }
         let config = self.compiler.config.read().clone();
+        if self
+            .compiler
+            .compatibility(&config)
+            .await
+            .failure()
+            .is_some()
+        {
+            *self.compiler.base_module_attempted.write() = true;
+            return;
+        }
+        if *self.compiler.base_module_attempted.read() {
+            return;
+        }
         let output = compiler_base(&config, self.compiler.reapers.clone()).await;
         let source = output
             .ok()

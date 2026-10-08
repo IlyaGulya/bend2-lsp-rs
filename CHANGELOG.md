@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Editor improvements
+
+- Rank fuzzy completion matches and replace the complete identifier with UTF-16
+  edits, including when the cursor is in its middle.
+- Filter nested case-pattern constructors using known explicit type annotations;
+  keep candidates for unknown types. Complete indexed import continuations.
+- Navigate `Base`, local and cached package imports through document links.
+- Rename module aliases without changing shadowed bindings. Coordinate file and
+  folder renames with versioned import edits and preserved unsaved buffers.
+- Offer collision-safe auto-imports for available indexed symbols and organize
+  imports without discarding comments.
+- Preserve all error blocks emitted by Bend, deduplicate streams, and locate
+  validated source excerpts and Unicode caret ranges in staged unsaved sources.
+  Bend can still stop after its first independent error.
+- Probe the configured compiler's CLI contract and recover after executable
+  installation or replacement without rejecting newer numeric versions.
+- Exercise the native server through real Neovim LSP clients in quality CI.
+
+Whole-project discovery remains deferred. Compiler-derived fixes and inferred
+expression types remain blocked on upstream APIs; no independent checker is added.
+
 
 ## [0.3.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.5...v0.3.0) (2026-10-07)
 

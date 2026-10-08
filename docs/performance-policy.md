@@ -18,9 +18,20 @@ snapshot benchmarks include construction.
 The owned `LoadedWorkspace` argument to `workspace_references` is destroyed
 inside the measured function, including its database snapshots and temporary
 source tree. Its total is therefore not a query-only instruction count.
-Integration tests compare exact semantic-token, identifier-range, and completion
-outputs with legacy goldens at all three source sizes; medium and large
-goldens come from the pre-index implementation in commit `bc8cd4f`.
+Integration tests compare exact semantic-token and identifier-range outputs with
+legacy goldens at all three source sizes; medium and large goldens come from the
+pre-index implementation in commit `bc8cd4f`. Completion is covered by behavioral
+protocol cases for ranking, scope, type context and UTF-16 replacement boundaries,
+not incidental label/detail/order goldens.
+
+Cold completion-context construction first checks the snapshot's indexed keyword
+names and skips documents without import/match/case contexts. Contexts remain
+fully prepared before publication; warm queries never lazily scan source.
+Completion filtering keeps the prefix fast path separate from ranking data.
+It rejects impossible length matches and classifies each query once; ASCII
+queries use byte comparisons without decoding candidate UTF-8. Non-ASCII queries
+retain character matching, and ranking/UTF-16 edits are unchanged. The bounded
+parameter-annotation lookup retains its inline query path.
 
 Warm reference queries iterate the precomputed reference-index slice directly,
 including an empty slice for an absent symbol or name. This preserves source

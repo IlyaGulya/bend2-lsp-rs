@@ -13,7 +13,7 @@ use url::Url;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
-pub(crate) struct LspClient {
+pub struct LspClient {
     child: Child,
     stdin: Option<ChildStdin>,
     messages: Receiver<(Value, Instant)>,
@@ -23,7 +23,8 @@ pub(crate) struct LspClient {
 }
 
 impl LspClient {
-    pub(crate) fn spawn(mut command: Command) -> Self {
+    #[must_use]
+    pub fn spawn(mut command: Command) -> Self {
         let (sender, messages) = mpsc::channel();
         command.stdin(Stdio::piped()).stdout(Stdio::piped());
         let mut child = command.spawn().must_be("start Bend LSP");
@@ -40,7 +41,7 @@ impl LspClient {
         }
     }
 
-    pub(crate) fn send(&mut self, message: &Value) {
+    pub fn send(&mut self, message: &Value) {
         let body = serde_json::to_vec(message).must_be("serialize JSON-RPC message");
         let stdin = self.stdin.as_mut().must_be("open LSP stdin");
         write!(stdin, "Content-Length: {}\r\n\r\n", body.len()).must_be("write LSP header");
@@ -48,7 +49,7 @@ impl LspClient {
         stdin.flush().must_be("flush LSP message");
     }
 
-    pub(crate) fn notify(&mut self, method: &str, params: Value) {
+    pub fn notify(&mut self, method: &str, params: Value) {
         let mut message = json!({"jsonrpc":"2.0", "method":method});
         if !params.is_null() {
             message["params"] = params;
@@ -56,18 +57,27 @@ impl LspClient {
         self.send(&message);
     }
 
-    pub(crate) fn request(&mut self, method: &str, params: Value) -> Value {
-        let id = self.send_request(method, params);
-        let response = self
-            .receive_matching(REQUEST_TIMEOUT, |message| message["id"] == id)
-            .unwrap_or_else(|| panic!("timed out waiting for {method} response"));
+    /// # Panics
+    /// Panics on timeout or a JSON-RPC error response.
+    pub fn request(&mut self, method: &str, params: Value) -> Value {
+        let response = self.request_response(method, params);
         assert!(
             response.get("error").is_none(),
             "LSP request failed: {response}"
         );
         response
     }
-    pub(crate) fn send_request(&mut self, method: &str, params: Value) -> i64 {
+
+    /// Return the full response, including an expected JSON-RPC error.
+    ///
+    /// # Panics
+    /// Panics if the server does not respond before the request timeout.
+    pub fn request_response(&mut self, method: &str, params: Value) -> Value {
+        let id = self.send_request(method, params);
+        self.receive_matching(REQUEST_TIMEOUT, |message| message["id"] == id)
+            .unwrap_or_else(|| panic!("timed out waiting for {method} response"))
+    }
+    pub fn send_request(&mut self, method: &str, params: Value) -> i64 {
         let id = self.next_id;
         self.next_id += 1;
         let mut message = json!({"jsonrpc":"2.0", "id":id, "method":method});
@@ -78,7 +88,7 @@ impl LspClient {
         id
     }
 
-    pub(crate) fn receive_matching_timed(
+    pub fn receive_matching_timed(
         &mut self,
         timeout: Duration,
         predicate: impl Fn(&Value) -> bool,
@@ -106,7 +116,7 @@ impl LspClient {
         }
     }
 
-    pub(crate) fn receive_matching(
+    pub fn receive_matching(
         &mut self,
         timeout: Duration,
         predicate: impl Fn(&Value) -> bool,
@@ -115,7 +125,9 @@ impl LspClient {
             .map(|(message, _)| message)
     }
 
-    pub(crate) fn initialize(&mut self, root: &Path) {
+    /// # Panics
+    /// Panics if initialization fails or the server returns no capabilities.
+    pub fn initialize(&mut self, root: &Path) {
         let root_uri = Url::from_directory_path(root).must_be("workspace URI");
         let response = self.request(
             "initialize",
@@ -130,16 +142,19 @@ impl LspClient {
         self.notify("initialized", json!({}));
     }
 
-    pub(crate) fn close_stdin(&mut self) {
+    pub fn close_stdin(&mut self) {
         self.stdin.take();
     }
 
-    pub(crate) fn process_id(&self) -> u32 {
+    #[must_use]
+    pub fn process_id(&self) -> u32 {
         self.child.id()
     }
 
+    /// # Panics
+    /// Panics if the operating system rejects the termination signal.
     #[cfg(unix)]
-    pub(crate) fn sigterm(&self) {
+    pub fn sigterm(&self) {
         let status = Command::new("/bin/kill")
             .arg("-TERM")
             .arg(self.process_id().to_string())
@@ -148,11 +163,11 @@ impl LspClient {
         assert!(status.success(), "kill exited with {status}");
     }
 
-    pub(crate) fn try_wait(&mut self) -> Option<ExitStatus> {
+    pub fn try_wait(&mut self) -> Option<ExitStatus> {
         self.child.try_wait().must_be("poll LSP process")
     }
 
-    pub(crate) fn wait_timeout(&mut self, timeout: Duration) -> Option<ExitStatus> {
+    pub fn wait_timeout(&mut self, timeout: Duration) -> Option<ExitStatus> {
         let deadline = Instant::now() + timeout;
         loop {
             if let Some(status) = self.try_wait() {
@@ -169,7 +184,9 @@ impl LspClient {
         }
     }
 
-    pub(crate) fn finish(mut self) {
+    /// # Panics
+    /// Panics if shutdown fails or the server exits unsuccessfully.
+    pub fn finish(mut self) {
         self.request("shutdown", Value::Null);
         self.notify("exit", Value::Null);
         self.close_stdin();

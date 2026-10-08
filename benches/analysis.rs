@@ -43,6 +43,11 @@ static PARAMETER_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::new(
     )
 });
 
+const COMPLETION_SOURCE: &str = "type Shape is Data:\n  Circle{}\ntype Wrapped is Data:\n  Box{value: Shape}\ndef main(value: Wrapped):\n  match value:\n    case Box{Ci";
+static COMPLETION_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::new(|| {
+    analysis::DocumentSnapshot::new(analysis::Revision(0), COMPLETION_SOURCE.to_owned())
+});
+
 fn parameter_annotation_case(
     index: usize,
 ) -> (&'static analysis::DocumentSnapshot, analysis::SymbolId) {
@@ -639,6 +644,7 @@ fn constructor_definition_warm(
 #[library_benchmark]
 #[bench::prefix(LazyLock::force(&CONSTRUCTOR_SNAPSHOT), "Term")]
 #[bench::empty(LazyLock::force(&CONSTRUCTOR_SNAPSHOT), "")]
+#[bench::subsequence(LazyLock::force(&CONSTRUCTOR_SNAPSHOT), "TV")]
 fn constructor_completion_warm(
     snapshot: &analysis::DocumentSnapshot,
     prefix: &str,
@@ -663,6 +669,26 @@ fn parameter_annotation_warm(
     ))
 }
 
+#[library_benchmark]
+fn cold_completion_context_build() -> analysis::DocumentSnapshot {
+    std::hint::black_box(analysis::DocumentSnapshot::new(
+        analysis::Revision(0),
+        std::hint::black_box(COMPLETION_SOURCE.to_owned()),
+    ))
+}
+
+#[library_benchmark]
+#[bench::nested(LazyLock::force(&COMPLETION_SNAPSHOT))]
+fn pattern_completion_context_warm(
+    snapshot: &analysis::DocumentSnapshot,
+) -> Option<analysis::CasePatternType> {
+    std::hint::black_box(
+        snapshot
+            .syntax
+            .case_pattern_type(std::hint::black_box(snapshot.text.len())),
+    )
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -673,7 +699,8 @@ library_benchmark_group!(
         folding_100_lines, folding_1000_lines, folding_10000_lines,
         workspace_initial_build, workspace_incremental_invalidation,
         workspace_references, workspace_burst_revision_invalidation,
-        constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm
+        constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm,
+        cold_completion_context_build, pattern_completion_context_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

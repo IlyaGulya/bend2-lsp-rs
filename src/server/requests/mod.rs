@@ -1,7 +1,9 @@
 mod actions;
 mod completion;
+mod file_operations;
 mod formatting;
 mod hierarchy;
+mod import_edits;
 mod navigation;
 mod references;
 mod shared;
