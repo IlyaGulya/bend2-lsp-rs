@@ -28,9 +28,8 @@ Cold completion-context construction first checks the snapshot's indexed keyword
 names and skips documents without import/match/case contexts. Contexts remain
 fully prepared before publication; warm queries never lazily scan source.
 Completion filtering keeps the prefix fast path separate from ranking data.
-It rejects impossible length matches and classifies a query at most once, only
-when subsequence matching is needed. ASCII queries use byte comparisons without
-decoding candidate UTF-8. Non-ASCII queries
+It rejects impossible length matches and classifies each query once; ASCII
+queries use byte comparisons without decoding candidate UTF-8. Non-ASCII queries
 retain character matching, and ranking/UTF-16 edits are unchanged. The bounded
 parameter-annotation lookup retains its inline query path.
 
