@@ -15,6 +15,12 @@ pub(super) struct CompletionIndex {
 
 impl CompletionIndex {
     pub(super) fn build(source: &str, syntax: &SyntaxIndex) -> Self {
+        if ["import", "match", "case"]
+            .iter()
+            .all(|keyword| syntax.name_id(source, keyword).is_none())
+        {
+            return Self::default();
+        }
         let mut patterns = Vec::new();
         let mut imports = Vec::new();
         let mut matches = Vec::new();

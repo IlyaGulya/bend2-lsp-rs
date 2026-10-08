@@ -561,6 +561,7 @@ impl SyntaxIndex {
             .filter(move |binding| binding.scope.contains(offset))
     }
 
+    #[inline]
     #[must_use]
     pub fn binding_type_range(&self, source: &str, id: SymbolId) -> Option<TextRange> {
         let binding = self.binding_by_id(id)?;

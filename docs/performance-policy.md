@@ -24,6 +24,12 @@ pre-index implementation in commit `bc8cd4f`. Completion is covered by behaviora
 protocol cases for ranking, scope, type context and UTF-16 replacement boundaries,
 not incidental label/detail/order goldens.
 
+Cold completion-context construction first checks the snapshot's indexed keyword
+names and skips documents without import/match/case contexts. Contexts remain
+fully prepared before publication; warm queries never lazily scan source.
+Completion filtering keeps the prefix fast path separate from ranking data, and
+the bounded parameter-annotation lookup retains its inline query path.
+
 Warm reference queries iterate the precomputed reference-index slice directly,
 including an empty slice for an absent symbol or name. This preserves source
 ordering and avoids an optional `flat_map` adapter in identifier/reference

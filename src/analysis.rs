@@ -538,6 +538,14 @@ pub fn completion_match(label: &str, query: &str) -> Option<(u8, usize, usize)> 
     if label.starts_with(query) {
         return Some((1, 0, label.len()));
     }
+    subsequence_completion_match(label, query)
+}
+
+fn completion_matches(label: &str, query: &str) -> bool {
+    label.starts_with(query) || subsequence_completion_match(label, query).is_some()
+}
+
+fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, usize)> {
     let mut wanted = query.chars();
     let mut next = wanted.next();
     let mut first = 0;
@@ -592,7 +600,7 @@ fn completion_items_with_scope(
         let mut local_names = std::collections::HashSet::new();
         for binding in syntax.bindings_at(offset) {
             let name = syntax.name_text(source, binding.name);
-            if completion_match(name, prefix).is_some() && local_names.insert(binding.name) {
+            if completion_matches(name, prefix) && local_names.insert(binding.name) {
                 items.push(Completion {
                     label: name.to_owned(),
                     detail: "Local binding".into(),
@@ -605,7 +613,7 @@ fn completion_items_with_scope(
     });
     for symbol in syntax.symbols() {
         let name = syntax.name_text(source, symbol.name);
-        if completion_match(name, prefix).is_some()
+        if completion_matches(name, prefix)
             && local_names
                 .as_ref()
                 .is_none_or(|names| !names.contains(&symbol.name))
@@ -621,9 +629,7 @@ fn completion_items_with_scope(
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",
     ] {
-        if completion_match(keyword, prefix).is_some()
-            && !items.iter().any(|item| item.label == keyword)
-        {
+        if completion_matches(keyword, prefix) && !items.iter().any(|item| item.label == keyword) {
             items.push(Completion {
                 label: keyword.into(),
                 detail: "Bend keyword".into(),
@@ -670,7 +676,7 @@ pub fn typed_constructor_completion_items(
                     .and_then(|name| name.strip_prefix('.')),
                 None => Some(name),
             };
-            if let Some(label) = label.filter(|label| completion_match(label, prefix).is_some()) {
+            if let Some(label) = label.filter(|label| completion_matches(label, prefix)) {
                 items.push(Completion {
                     label: label.to_owned(),
                     detail: format!("constructor of {}", syntax.name_text(source, parent.name)),
@@ -691,7 +697,7 @@ pub fn module_completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec
         .iter()
         .filter_map(|symbol| {
             let name = syntax.name_text(source, symbol.name);
-            completion_match(name, prefix).is_some().then(|| {
+            completion_matches(name, prefix).then(|| {
                 completion(
                     name.to_owned(),
                     source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
@@ -716,7 +722,7 @@ pub fn qualified_completion_items(
         .filter_map(|symbol| {
             let name = syntax.name_text(source, symbol.name);
             let label = name.strip_prefix(qualifier)?.strip_prefix('.')?;
-            completion_match(label, prefix).is_some().then(|| {
+            completion_matches(label, prefix).then(|| {
                 let label = label.to_owned();
                 completion(
                     label,
