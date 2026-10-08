@@ -296,8 +296,7 @@ impl Backend {
         let workspace = self.workspace.read();
         let candidates = workspace.import_completion_candidates(&doc.uri, prefix, in_case_pattern);
         let base = self.compiler.base_module.read().clone().filter(|_| {
-            !doc
-                .syntax
+            !doc.syntax
                 .imports()
                 .iter()
                 .any(|import| import.path_text(&doc.text) == "Base")

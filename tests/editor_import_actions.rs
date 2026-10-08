@@ -400,8 +400,7 @@ mod protocol {
     fn organize_imports_uses_unsaved_whole_document_without_diagnostics() {
         let saved = "def main: U32\n  0\n";
         let (root, mut client, uri, _dep_uri) = fixture(saved);
-        fs::write(root.path().join("z.bend"), "def other: U32\n  0\n")
-            .must_be("second module");
+        fs::write(root.path().join("z.bend"), "def other: U32\n  0\n").must_be("second module");
         for (version, newline) in [(2, "\n"), (4, "\r\n")] {
             let unsaved = "# file header 😀\nimport ./z.bend as Z # z comment\n# dependency comment\nimport ./dep.bend as D\nimport dep.bend as D # duplicate comment\n\nimport ./z.bend as LaterZ\n# later dependency\nimport ./dep.bend as LaterD\n\ndef main: U32\n  D.value # unsaved body 😀  \n"
                 .replace('\n', newline);
@@ -448,7 +447,13 @@ mod protocol {
         let (root, mut client, uri, _dep_uri) = fixture(source);
         fs::write(root.path().join("z.bend"), "def value: U32\n  9\n")
             .must_be("first unaliased target");
-        let offered = actions(&mut client, &uri, source, "  value", "source.organizeImports");
+        let offered = actions(
+            &mut client,
+            &uri,
+            source,
+            "  value",
+            "source.organizeImports",
+        );
         assert_eq!(offered.len(), 1);
         let edited = apply(source, &offered[0], &uri, 1);
         assert_eq!(
@@ -457,8 +462,14 @@ mod protocol {
         );
         change(&mut client, &uri, &edited, 2);
         assert!(
-            actions(&mut client, &uri, &edited, "  value", "source.organizeImports")
-                .is_empty()
+            actions(
+                &mut client,
+                &uri,
+                &edited,
+                "  value",
+                "source.organizeImports"
+            )
+            .is_empty()
         );
         client.finish();
     }

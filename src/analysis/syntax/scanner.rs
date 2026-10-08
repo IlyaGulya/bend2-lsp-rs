@@ -1,6 +1,6 @@
 use super::{
-    DelimiterPair, DiagnosticKind, IndexSlot, NameId, NameTable, ScanOutput, SyntaxDiagnostic, TextRange,
-    Token, TokenFlags, TokenId, TokenKind,
+    DelimiterPair, DiagnosticKind, IndexSlot, NameId, NameTable, ScanOutput, SyntaxDiagnostic,
+    TextRange, Token, TokenFlags, TokenId, TokenKind,
 };
 
 pub(super) struct Scanner<'a> {
@@ -287,8 +287,9 @@ impl<'a> Scanner<'a> {
             kind,
             flags,
         });
-        self.delimiter_context
-            .push(IndexSlot::from_option(self.delimiters.last().map(|(_, id)| id.0)));
+        self.delimiter_context.push(IndexSlot::from_option(
+            self.delimiters.last().map(|(_, id)| id.0),
+        ));
         if name.is_none() {
             self.names.append_non_name();
         } else {

@@ -273,7 +273,9 @@ mod navigation {
                 preview(source, member, "foo")
             );
             let renamed = rename(&mut client, &main, source, offset, "bar");
-            let changes = renamed["result"]["changes"].as_object().must_be("symbol changes");
+            let changes = renamed["result"]["changes"]
+                .as_object()
+                .must_be("symbol changes");
             assert_eq!(changes.len(), 2, "{renamed}");
             assert_eq!(
                 apply(source, &changes[&main]),
@@ -300,13 +302,16 @@ mod navigation {
             }
         }
         for offset in [
-            qualifier + "Test".len(), // separator, not either rename target
+            qualifier + "Test".len(),  // separator, not either rename target
             local_use + "Test.".len(), // unsupported member of a shadowed local
             source.find("Other.foo").must_be("unresolved qualifier") + "Other.".len(),
             source.rfind("Test.foo").must_be("comment"),
             source.find('😀').must_be("string"),
         ] {
-            assert_eq!(prepare(&mut client, &main, source, offset)["result"], Value::Null);
+            assert_eq!(
+                prepare(&mut client, &main, source, offset)["result"],
+                Value::Null
+            );
             assert_eq!(
                 rename(&mut client, &main, source, offset, "Changed")["result"],
                 Value::Null

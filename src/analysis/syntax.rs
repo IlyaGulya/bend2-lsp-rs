@@ -446,17 +446,15 @@ impl SyntaxIndex {
 
     fn from_scan(source: &str, line_index: &LineIndex, scan: ScanOutput) -> Self {
         let lines = build_lines(source, line_index);
-        let imports = parse_imports(source, &lines);
         let ScanOutput {
             tokens,
             identifier_count,
-            names,
+            mut names,
             diagnostics,
             delimiter_pairs,
             delimiter_context,
             ..
         } = scan;
-        let mut names = names;
         let keyword_names = keyword_name_flags(source, &names);
         let mut symbols = parse_symbols(source, &lines, &mut names);
         for (index, symbol) in symbols.iter_mut().enumerate() {
@@ -518,7 +516,7 @@ impl SyntaxIndex {
         let mut index = Self {
             tokens: tokens.into_boxed_slice(),
             names,
-            imports: imports.into_boxed_slice(),
+            imports: parse_imports(source, &lines).into_boxed_slice(),
             keyword_names: keyword_names.into_boxed_slice(),
             symbols: symbols.into_boxed_slice(),
             bindings: bindings.into_boxed_slice(),

@@ -57,6 +57,18 @@ mod protocol {
                 .stderr(Stdio::null());
             let mut client = LspClient::spawn(command);
             client.initialize(root);
+            if let Some(dependency) = dependency {
+                let dependency_uri =
+                    Url::from_file_path(root.join("tools.bend")).must_be("dependency URI");
+                client.notify(
+                    "textDocument/didOpen",
+                    json!({"textDocument":{"uri":dependency_uri,"languageId":"bend","version":1,"text":dependency}}),
+                );
+                client.request(
+                    "textDocument/documentSymbol",
+                    json!({"textDocument":{"uri":dependency_uri}}),
+                );
+            }
             client.notify(
                 "textDocument/didOpen",
                 json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":source}}),
@@ -70,7 +82,7 @@ mod protocol {
             }
         }
         fn complete(&mut self, marker: &str) -> Vec<Value> {
-            let response = self.complete_response(marker, json!({"triggerKind":1}));
+            let response = self.complete_response(marker, &json!({"triggerKind":1}));
             let result = &response["result"];
             result
                 .as_array()
@@ -79,7 +91,7 @@ mod protocol {
                 .clone()
         }
 
-        fn complete_response(&mut self, marker: &str, context: Value) -> Value {
+        fn complete_response(&mut self, marker: &str, context: &Value) -> Value {
             let offset = self.source.find(marker).must_be("completion marker") + marker.len();
             let snapshot = DocumentSnapshot::new(Revision(1), self.source.clone());
             let (line, character) = snapshot.line_index.position(&self.source, offset);
@@ -119,19 +131,19 @@ mod protocol {
     fn item<'a>(items: &'a [Value], label: &str) -> &'a Value {
         items
             .iter()
-            .find(|item| item["label"] == label)
+            .find(|item| {
+                item["label"].as_str().is_some_and(|candidate| {
+                    candidate.strip_prefix("./").unwrap_or(candidate)
+                        == label.strip_prefix("./").unwrap_or(label)
+                })
+            })
             .must_be("expected completion")
     }
 
     fn apply(source: &str, item: &Value) -> String {
         let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
         let mut edits: Vec<_> = std::iter::once(&item["textEdit"])
-            .chain(
-                item["additionalTextEdits"]
-                    .as_array()
-                    .into_iter()
-                    .flatten(),
-            )
+            .chain(item["additionalTextEdits"].as_array().into_iter().flatten())
             .collect();
         let position = |value: &Value| {
             snapshot.line_index.offset(
@@ -331,20 +343,42 @@ mod protocol {
             ("./nested/123-name.bend", "Module123name"),
             ("./nested/_private.bend", "_private"),
         ] {
-            let uri = Url::from_file_path(editor.temp.path().join(path))
-                .must_be("indexed relative target URI");
-            editor.client.notify("textDocument/didOpen", json!({"textDocument":{
-                "uri":uri,"languageId":"bend","version":1,"text":"def value:\n  1\n"
-            }}));
-            editor.client.request("textDocument/documentSymbol", json!({"textDocument":{"uri":uri}}));
+            let uri = editor.uri.join(path).must_be("indexed relative target URI");
+            editor.client.notify(
+                "textDocument/didOpen",
+                json!({"textDocument":{
+                    "uri":uri,"languageId":"bend","version":1,"text":"def value:\n  1\n"
+                }}),
+            );
+            editor.client.request(
+                "textDocument/documentSymbol",
+                json!({"textDocument":{"uri":uri}}),
+            );
             editor.replace("import ");
-            let label = if path.starts_with("../") { path } else { &path[2..] };
+            let label = if path.starts_with("../") {
+                path
+            } else {
+                &path[2..]
+            };
             let items = editor.complete("import ");
             let edited = apply(&editor.source, item(&items, label));
-            assert_eq!(edited, format!("import {label} as {alias}"));
+            let snapshot = DocumentSnapshot::new(Revision(1), edited.clone());
+            let import = snapshot.syntax.imports().first().must_be("accepted import");
+            assert_eq!(
+                editor
+                    .uri
+                    .join(import.path_text(&edited))
+                    .must_be("accepted target URI"),
+                uri
+            );
+            assert_eq!(import.alias_text(&edited), Some(alias));
             let alias = edited.rsplit_once(" as ").must_be("generated alias").1;
             assert!(alias.as_bytes()[0].is_ascii_alphabetic() || alias.starts_with('_'));
-            assert!(alias.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_'));
+            assert!(
+                alias
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            );
         }
         editor.finish();
     }
@@ -352,19 +386,30 @@ mod protocol {
     #[test]
     fn import_filename_ranking_and_client_filtering_agree_for_automatic_requests() {
         let mut editor = Editor::new("import ad", None);
-        for path in ["nested/ad.bend", "nested/adder.bend", "distant/alpha_delta.bend"] {
+        for path in [
+            "nested/ad.bend",
+            "nested/adder.bend",
+            "distant/alpha_delta.bend",
+        ] {
             let uri = Url::from_file_path(editor.temp.path().join(path)).must_be("target URI");
             editor.client.notify(
                 "textDocument/didOpen",
                 json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":"def exported:\n  1\n"}}),
             );
+            editor.client.request(
+                "textDocument/documentSymbol",
+                json!({"textDocument":{"uri":uri}}),
+            );
         }
         // Ordinary Zed input uses INVOKED; clients may omit manual context.
-        let automatic = editor.complete_response("import ad", json!({"triggerKind":1}));
-        let manual = editor.complete_response("import ad", Value::Null);
+        let automatic = editor.complete_response("import ad", &json!({"triggerKind":1}));
+        let manual = editor.complete_response("import ad", &Value::Null);
         assert_eq!(automatic["result"], manual["result"]);
         let result = &automatic["result"];
-        assert_eq!(result["isIncomplete"], true, "query-specific metadata must refresh");
+        assert_eq!(
+            result["isIncomplete"], true,
+            "query-specific metadata must refresh"
+        );
         let items = result["items"].as_array().must_be("import items");
         let exact = item(items, "./nested/ad.bend");
         let prefix = item(items, "./nested/adder.bend");
@@ -397,12 +442,22 @@ mod protocol {
         let mut editor = Editor::new(source, Some("def value:\n  1\n"));
         let items = editor.complete("\nimport to");
         let edited = apply(source, item(&items, "tools.bend"));
-        assert!(edited.contains("\nimport tools.bend as Tools6\n"), "{edited}");
-        let unicode = Url::from_file_path(editor.temp.path().join("工具.bend")).must_be("Unicode URI");
-        editor.client.notify("textDocument/didOpen", json!({"textDocument":{
-            "uri":unicode,"languageId":"bend","version":1,"text":"def value:\n  1\n"
-        }}));
-        editor.client.request("textDocument/documentSymbol", json!({"textDocument":{"uri":unicode}}));
+        assert!(
+            edited.contains("\nimport tools.bend as Tools6\n"),
+            "{edited}"
+        );
+        let unicode =
+            Url::from_file_path(editor.temp.path().join("工具.bend")).must_be("Unicode URI");
+        editor.client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":unicode,"languageId":"bend","version":1,"text":"def value:\n  1\n"
+            }}),
+        );
+        editor.client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":unicode}}),
+        );
         editor.replace("import \ndef Module:\n  1\ndef Module2:\n  2\n");
         let items = editor.complete("import ");
         assert_eq!(
@@ -415,11 +470,19 @@ mod protocol {
     #[test]
     fn import_popup_refreshes_after_path_separators_backspace_and_retyping() {
         let mut editor = Editor::new("import a", None);
-        for path in ["nested/append.bend", "elsewhere/append.bend", "nested/unrelated.bend"] {
+        for path in [
+            "nested/append.bend",
+            "elsewhere/append.bend",
+            "nested/unrelated.bend",
+        ] {
             let uri = Url::from_file_path(editor.temp.path().join(path)).must_be("target URI");
             editor.client.notify(
                 "textDocument/didOpen",
                 json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":"def exported:\n  1\n"}}),
+            );
+            editor.client.request(
+                "textDocument/documentSymbol",
+                json!({"textDocument":{"uri":uri}}),
             );
         }
         for (prefix, search) in [
@@ -440,16 +503,24 @@ mod protocol {
             } else {
                 json!({"triggerKind":1})
             };
-            let response = editor.complete_response(&format!("import {prefix}"), context);
+            let response = editor.complete_response(&format!("import {prefix}"), &context);
             let result = &response["result"];
             assert_eq!(result["isIncomplete"], true);
             let items = result["items"].as_array().must_be("import items");
             assert_eq!(item(items, "./nested/append.bend")["filterText"], search);
             if prefix.contains("nested/") || prefix == "nst" {
-                assert!(!items.iter().any(|candidate| candidate["label"] == "./elsewhere/append.bend"));
+                assert!(
+                    !items
+                        .iter()
+                        .any(|candidate| candidate["label"] == "./elsewhere/append.bend")
+                );
             }
             if prefix.ends_with("apd") {
-                assert!(!items.iter().any(|candidate| candidate["label"] == "./nested/unrelated.bend"));
+                assert!(
+                    !items
+                        .iter()
+                        .any(|candidate| candidate["label"] == "./nested/unrelated.bend")
+                );
             }
         }
         editor.finish();
@@ -476,19 +547,33 @@ mod protocol {
             "textDocument/didOpen",
             json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":"def exported:\n  1\n"}}),
         );
-        for source in ["# import nested/", "def main:\n  \"nested/\"", "def main:\n  1 /"] {
+        editor.client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":uri}}),
+        );
+        for source in [
+            "# import nested/",
+            "def main:\n  \"nested/\"",
+            "def main:\n  1 /",
+        ] {
             editor.replace(source);
-            let marker = if source.contains('\"') { "\"nested/" } else { source };
-            let response = editor.complete_response(
-                marker,
-                json!({"triggerKind":2,"triggerCharacter":"/"}),
-            );
+            let marker = if source.contains('\"') {
+                "\"nested/"
+            } else {
+                source
+            };
+            let response =
+                editor.complete_response(marker, &json!({"triggerKind":2,"triggerCharacter":"/"}));
             let result = &response["result"];
             let items = result
                 .as_array()
                 .or_else(|| result["items"].as_array())
                 .must_be("completion items");
-            assert!(!items.iter().any(|candidate| candidate["label"] == "./nested/append.bend"));
+            assert!(
+                !items
+                    .iter()
+                    .any(|candidate| candidate["label"] == "./nested/append.bend")
+            );
             if !source.ends_with("1 /") {
                 assert!(items.is_empty(), "comments and strings suppress completion");
             }
@@ -510,7 +595,9 @@ mod protocol {
         let items = editor.complete(&format!("\nimport {package}/li"));
         assert_eq!(
             apply(&source, item(&items, &label)),
-            format!("import {package}/library.bend as Cached\nimport {package}/library.bend as Cached")
+            format!(
+                "import {package}/library.bend as Cached\nimport {package}/library.bend as Cached"
+            )
         );
         editor.finish();
     }
@@ -518,9 +605,7 @@ mod protocol {
     fn imported_item<'a>(items: &'a [Value], label: &str, path: &str) -> &'a Value {
         items
             .iter()
-            .find(|item| {
-                item["label"] == label && item["labelDetails"]["description"] == path
-            })
+            .find(|item| item["label"] == label && item["labelDetails"]["description"] == path)
             .must_be("source-distinguished completion")
     }
 
@@ -661,8 +746,7 @@ mod protocol {
     #[test]
     fn unsaved_candidate_revisions_and_middle_token_suffix_are_used_without_disk_discovery() {
         let mut editor = Editor::with_setup("def main:\n  old\n", None, |root| {
-            fs::write(root.join("hidden.bend"), "def newest:\n  9\n")
-                .must_be("unindexed source");
+            fs::write(root.join("hidden.bend"), "def newest:\n  9\n").must_be("unindexed source");
         });
         let uri = editor.index_unsaved("tools.bend", "def stale:\n  0\n");
         editor.client.notify(
@@ -681,9 +765,11 @@ mod protocol {
             apply(&editor.source, newest),
             "import ./tools.bend as Tools\ndef main:\n  \"😀\"; Tools.newest(1)\n"
         );
-        assert!(!offered.iter().any(|item| {
-            item["labelDetails"]["description"] == "./hidden.bend"
-        }));
+        assert!(
+            !offered
+                .iter()
+                .any(|item| { item["labelDetails"]["description"] == "./hidden.bend" })
+        );
         editor.replace("def main:\n  stale\n");
         assert!(!editor.complete("\n  stale").iter().any(|item| {
             item["label"] == "stale" && item["labelDetails"]["description"] == "./tools.bend"

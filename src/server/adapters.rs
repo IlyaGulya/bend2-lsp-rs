@@ -127,7 +127,9 @@ pub(super) fn finish_completion_items(
                         && replacement.start <= edit.range.start
                         && edit.range.start <= replacement.end
                     {
-                        if edit.range.start == replacement.end && replacement.start != replacement.end {
+                        if edit.range.start == replacement.end
+                            && replacement.start != replacement.end
+                        {
                             new_text.push_str(&edit.new_text);
                         } else {
                             new_text.insert_str(0, &edit.new_text);
@@ -151,10 +153,7 @@ pub(super) fn finish_completion_items(
 /// Match file names without making leading `./`, directories, or `.bend` part
 /// of a filename's exact/prefix rank. Explicit directories still constrain the
 /// candidate through its import path.
-pub(super) fn import_completion_match(
-    target: &str,
-    prefix: &str,
-) -> Option<(u8, usize, usize)> {
+pub(super) fn import_completion_match(target: &str, prefix: &str) -> Option<(u8, usize, usize)> {
     let component = prefix.rsplit('/').next().unwrap_or(prefix);
     let filename = target.rsplit('/').next().unwrap_or(target);
     let with_extension = component.contains('.');
@@ -217,13 +216,12 @@ pub(super) fn finish_import_completion_items(
         };
         let filename_match = analysis::completion_match(filename, component);
         let path_match = analysis::completion_match(path, component);
-        let filter = if filename_match.is_some()
-            && (path_match.is_none() || filename_match <= path_match)
-        {
-            filename
-        } else {
-            path
-        };
+        let filter =
+            if filename_match.is_some() && (path_match.is_none() || filename_match <= path_match) {
+                filename
+            } else {
+                path
+            };
         item.filter_text = Some(filter.to_owned());
         if item.text_edit.is_none() {
             item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {

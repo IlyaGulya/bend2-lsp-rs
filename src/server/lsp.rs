@@ -27,12 +27,12 @@ use tower_lsp::{
         DocumentRangeFormattingParams, DocumentSymbolParams, DocumentSymbolResponse, FoldingRange,
         FoldingRangeParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
         InitializeParams, InitializeResult, InitializedParams, InlayHint, InlayHintParams,
-        Location, MessageType, PrepareRenameResponse, ReferenceParams, Registration, RenameFilesParams,
-        RenameParams, SelectionRange, SelectionRangeParams, SemanticTokensParams, SemanticTokensResult,
-        ServerInfo, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentPositionParams,
-        TextEdit,
-        TypeHierarchyItem, TypeHierarchyPrepareParams, TypeHierarchySubtypesParams,
-        TypeHierarchySupertypesParams, WorkspaceEdit, WorkspaceSymbolParams,
+        Location, MessageType, PrepareRenameResponse, ReferenceParams, Registration,
+        RenameFilesParams, RenameParams, SelectionRange, SelectionRangeParams,
+        SemanticTokensParams, SemanticTokensResult, ServerInfo, SignatureHelp, SignatureHelpParams,
+        SymbolInformation, TextDocumentPositionParams, TextEdit, TypeHierarchyItem,
+        TypeHierarchyPrepareParams, TypeHierarchySubtypesParams, TypeHierarchySupertypesParams,
+        WorkspaceEdit, WorkspaceSymbolParams,
     },
 };
 use tracing::Instrument;

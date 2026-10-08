@@ -224,9 +224,9 @@ pub(super) fn import_path_edit(
     // `as` clauses that cannot yet have an indexed alias.
     let tail = document.text.get(path.end..content.end)?;
     let rest = tail.trim_start();
-    let alias_clause = rest.strip_prefix("as").filter(|rest| {
-        rest.is_empty() || rest.starts_with(char::is_whitespace)
-    });
+    let alias_clause = rest
+        .strip_prefix("as")
+        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace));
     let alias = alias_clause.map(str::trim_start).filter(|rest| {
         rest.as_bytes()
             .first()
@@ -240,7 +240,11 @@ pub(super) fn import_path_edit(
         alias_clause.map_or(path.end, |clause| {
             let alias_start = clause.len() - clause.trim_start().len();
             path.end + tail.len() - clause.len()
-                + if alias_end > 0 { alias_start + alias_end } else { 0 }
+                + if alias_end > 0 {
+                    alias_start + alias_end
+                } else {
+                    0
+                }
         })
     } else {
         path.end
@@ -254,7 +258,10 @@ pub(super) fn import_path_edit(
             (import.path != path
                 && std::path::Path::new(import.path_text(&document.text))
                     .components()
-                    .eq(std::path::Path::new(target).components()))
+                    .filter(|component| *component != std::path::Component::CurDir)
+                    .eq(std::path::Path::new(target)
+                        .components()
+                        .filter(|component| *component != std::path::Component::CurDir)))
             .then(|| import.alias_text(&document.text))
             .flatten()
         });

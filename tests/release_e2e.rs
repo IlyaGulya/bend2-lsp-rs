@@ -166,11 +166,7 @@ fn initialize_capabilities(client: &mut LspClient, workspace: &Path) {
     );
     let capabilities = &initialized["result"]["capabilities"];
     assert_eq!(capabilities["textDocumentSync"]["change"], 2);
-    for capability in [
-        "definitionProvider",
-        "hoverProvider",
-        "referencesProvider",
-    ] {
+    for capability in ["definitionProvider", "hoverProvider", "referencesProvider"] {
         assert_eq!(capabilities[capability], true, "missing {capability}");
     }
     client.notify("initialized", json!({}));
