@@ -541,6 +541,7 @@ pub fn completion_match(label: &str, query: &str) -> Option<(u8, usize, usize)> 
     subsequence_completion_match(label, query)
 }
 
+#[inline]
 fn completion_matches(label: &str, query: &str, ascii: &mut Option<bool>) -> bool {
     if label.len() < query.len() {
         return false;
