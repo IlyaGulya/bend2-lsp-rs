@@ -314,6 +314,12 @@ mod protocol {
             generated
         );
         assert!(actions(&mut client, &uri, &edited, "builtin", "quickfix").is_empty());
+        let local_shadow = "def main(builtin: U32):\n  Unknown.builtin\n";
+        change(&mut client, &uri, local_shadow, 4);
+        assert!(actions(&mut client, &uri, local_shadow, "builtin\n", "quickfix").is_empty());
+        let global_shadow = "def builtin: U32\n  1\ndef main: U32\n  Unknown.builtin\n";
+        change(&mut client, &uri, global_shadow, 5);
+        assert!(actions(&mut client, &uri, global_shadow, "builtin\n", "quickfix").is_empty());
         client.finish();
     }
 

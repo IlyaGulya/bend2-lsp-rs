@@ -77,6 +77,17 @@ pub(super) fn auto_import_plan(
     offset: usize,
 ) -> Option<AutoImportPlan> {
     let syntax = &document.syntax;
+    if path == "Base"
+        && (syntax
+            .bindings_at(offset)
+            .any(|binding| syntax.name_text(&document.text, binding.name) == name)
+            || syntax
+                .name_id(&document.text, name)
+                .and_then(|name| syntax.symbol_by_name(name))
+                .is_some())
+    {
+        return None;
+    }
     let mut already_imported = false;
     let mut alias = None;
     for import in syntax.imports() {
