@@ -63,15 +63,31 @@ pub(super) fn unresolved_reference(document: &Document, offset: usize) -> Option
     Some(reference)
 }
 
-pub(super) fn auto_import_edits(
+pub(super) struct AutoImportPlan {
+    pub(super) qualified_name: String,
+    pub(super) import_edit: Option<TextEdit>,
+}
+
+pub(super) fn auto_import_plan(
     document: &Document,
     workspace: &WorkspaceDb,
     target: &Url,
     path: &str,
-    reference: &Reference,
-) -> Option<Vec<TextEdit>> {
+    name: &str,
+    offset: usize,
+) -> Option<AutoImportPlan> {
     let syntax = &document.syntax;
-    let offset = reference.range.start;
+    if path == "Base"
+        && (syntax
+            .bindings_at(offset)
+            .any(|binding| syntax.name_text(&document.text, binding.name) == name)
+            || syntax
+                .name_id(&document.text, name)
+                .and_then(|name| syntax.symbol_by_name(name))
+                .is_some())
+    {
+        return None;
+    }
     let mut already_imported = false;
     let mut alias = None;
     for import in syntax.imports() {
@@ -81,6 +97,12 @@ pub(super) fn auto_import_edits(
                 .is_some_and(|doc| &doc.uri == target)
         {
             already_imported = true;
+            if path == "Base" && import.alias.is_none() {
+                return Some(AutoImportPlan {
+                    qualified_name: name.to_owned(),
+                    import_edit: None,
+                });
+            }
             if let Some(existing) = import.alias_text(&document.text)
                 && !syntax
                     .bindings_at(offset)
@@ -105,52 +127,157 @@ pub(super) fn auto_import_edits(
     if already_imported && alias.is_none() {
         return None;
     }
-    let name = syntax.name_text(&document.text, reference.name);
-    let mut edits = Vec::with_capacity(2);
-    let alias = if let Some(alias) = alias {
-        alias
+    if path == "Base" {
+        return Some(AutoImportPlan {
+            qualified_name: name.to_owned(),
+            import_edit: Some(new_import_edit(document, path, None)),
+        });
+    }
+    let import_edit = if alias.is_none() {
+        alias = Some(generated_import_alias(document, path)?);
+        Some(new_import_edit(document, path, alias.as_deref()))
     } else {
-        let stem = if path == "Base" {
-            "Base"
-        } else {
-            path.rsplit('/').next()?.strip_suffix(".bend")?
-        };
-        let mut base: String = stem
-            .chars()
-            .filter(|character| character.is_ascii_alphanumeric() || *character == '_')
-            .collect();
-        if base.is_empty() || base.as_bytes().first().is_some_and(u8::is_ascii_digit) {
-            base.insert_str(0, "Module");
-        }
-        if let Some(first) = base.get_mut(..1) {
-            first.make_ascii_uppercase();
-        }
-        let mut alias = base.clone();
-        let mut suffix = 2_u64;
-        while syntax.name_id(&document.text, &alias).is_some()
-            || syntax
-                .imports()
-                .iter()
-                .any(|import| import.alias_text(&document.text) == Some(&alias))
-        {
-            alias = format!("{base}{suffix}");
-            suffix += 1;
-        }
-        edits.push(new_import_edit(document, path, &alias));
-        alias
+        None
     };
+    Some(AutoImportPlan {
+        qualified_name: format!("{}.{name}", alias?),
+        import_edit,
+    })
+}
+
+pub(super) fn auto_import_edits(
+    document: &Document,
+    workspace: &WorkspaceDb,
+    target: &Url,
+    path: &str,
+    reference: &Reference,
+) -> Option<Vec<TextEdit>> {
+    let syntax = &document.syntax;
+    let plan = auto_import_plan(
+        document,
+        workspace,
+        target,
+        path,
+        syntax.name_text(&document.text, reference.name),
+        reference.range.start,
+    )?;
+    let mut edits = Vec::with_capacity(2);
+    if let Some(edit) = plan.import_edit {
+        edits.push(edit);
+    }
     let start = reference
         .qualifier_token
         .and_then(|token| syntax.token(token))
         .map_or(reference.range.start, |token| token.range.start);
+    if edits.is_empty() && document.text[start..reference.range.end] == plan.qualified_name {
+        return None;
+    }
     edits.push(TextEdit {
         range: adapters::range(document, TextRange::new(start, reference.range.end)),
-        new_text: format!("{alias}.{name}"),
+        new_text: plan.qualified_name,
     });
     Some(edits)
 }
 
-fn new_import_edit(document: &Document, path: &str, alias: &str) -> TextEdit {
+fn generated_import_alias(document: &DocumentSnapshot, path: &str) -> Option<String> {
+    let syntax = &document.syntax;
+    let stem = path.rsplit('/').next()?.strip_suffix(".bend")?;
+    let mut base: String = stem
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric() || *character == '_')
+        .collect();
+    if base.is_empty() || base.as_bytes().first().is_some_and(u8::is_ascii_digit) {
+        base.insert_str(0, "Module");
+    }
+    if let Some(first) = base.get_mut(..1) {
+        first.make_ascii_uppercase();
+    }
+    let mut alias = base.clone();
+    let mut suffix = 2_u64;
+    while syntax.name_id(&document.text, &alias).is_some()
+        || syntax
+            .imports()
+            .iter()
+            .any(|import| import.alias_text(&document.text) == Some(&alias))
+        || syntax.symbols().iter().any(|symbol| {
+            syntax
+                .name_text(&document.text, symbol.name)
+                .strip_prefix(&alias)
+                .is_some_and(|rest| rest.starts_with('.'))
+        })
+    {
+        alias = format!("{base}{suffix}");
+        suffix += 1;
+    }
+    Some(alias)
+}
+
+pub(super) fn import_path_edit(
+    document: &Document,
+    path: TextRange,
+    target: &str,
+) -> Option<TextEdit> {
+    let syntax = &document.syntax;
+    let line = adapters::position_at(document, path.end).line as usize;
+    let content = syntax.line_content_range(line)?;
+    // Only inspect the bounded suffix of this import line, including incomplete
+    // `as` clauses that cannot yet have an indexed alias.
+    let tail = document.text.get(path.end..content.end)?;
+    let rest = tail.trim_start();
+    let alias_clause = rest
+        .strip_prefix("as")
+        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace));
+    let alias = alias_clause.map(str::trim_start).filter(|rest| {
+        rest.as_bytes()
+            .first()
+            .is_some_and(|byte| byte.is_ascii_alphabetic() || *byte == b'_')
+    });
+    let alias_end = alias.map_or(0, |rest| {
+        rest.find(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+            .unwrap_or(rest.len())
+    });
+    let end = if target == "Base" || alias_end == 0 {
+        alias_clause.map_or(path.end, |clause| {
+            let alias_start = clause.len() - clause.trim_start().len();
+            path.end + tail.len() - clause.len()
+                + if alias_end > 0 {
+                    alias_start + alias_end
+                } else {
+                    0
+                }
+        })
+    } else {
+        path.end
+    };
+    let new_text = if target == "Base" || alias_end > 0 {
+        target.to_owned()
+    } else {
+        // Reusing the namespace of an already imported file keeps repeated
+        // imports valid under Bend's one-namespace-per-file rule.
+        let existing = syntax.imports().iter().find_map(|import| {
+            (import.path != path
+                && std::path::Path::new(import.path_text(&document.text))
+                    .components()
+                    .filter(|component| *component != std::path::Component::CurDir)
+                    .eq(std::path::Path::new(target)
+                        .components()
+                        .filter(|component| *component != std::path::Component::CurDir)))
+            .then(|| import.alias_text(&document.text))
+            .flatten()
+        });
+        let alias = existing.map_or_else(
+            || generated_import_alias(document, target),
+            |alias| Some(alias.to_owned()),
+        )?;
+        format!("{target} as {alias}")
+    };
+    Some(TextEdit {
+        range: adapters::range(document, TextRange::new(path.start, end)),
+        new_text,
+    })
+}
+
+fn new_import_edit(document: &Document, path: &str, alias: Option<&str>) -> TextEdit {
     let syntax = &document.syntax;
     let insertion = syntax.imports().last().map_or_else(
         || {
@@ -180,7 +307,10 @@ fn new_import_edit(document: &Document, path: &str, alias: &str) -> TextEdit {
     };
     TextEdit {
         range: adapters::range(document, TextRange::new(insertion, insertion)),
-        new_text: format!("{prefix}import {path} as {alias}{newline}"),
+        new_text: match alias {
+            Some(alias) => format!("{prefix}import {path} as {alias}{newline}"),
+            None => format!("{prefix}import {path}{newline}"),
+        },
     }
 }
 

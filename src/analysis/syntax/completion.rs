@@ -259,7 +259,7 @@ fn nested_contexts(
             if current.range.start >= close {
                 break;
             }
-            if syntax.delimiter_context[separator] == Some(TokenId(index))
+            if syntax.delimiter_context[separator].value() == Some(index)
                 && syntax.token_text(source, TokenId(separator)) == Some(",")
             {
                 patterns.push(PatternContext {

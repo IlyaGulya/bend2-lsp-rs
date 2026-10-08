@@ -1,5 +1,66 @@
 # Changelog
 
+## Unreleased
+
+### Better import completion
+
+- Accept local and cached-package import suggestions without manually adding an
+  alias. Keep explicit aliases and comments, replace the full path when the
+  caret is in its middle, and generate valid collision-free ASCII aliases for
+  nested, relative, and Unicode filenames.
+- Keep `Base` imports unaliased, including Missing import quick fixes. Reuse the
+  existing alias when completing another import of the same path.
+
+### More reliable editing
+
+- Show the actual alias, local, or resolved member name in Rename Symbol previews.
+  Reject Rename Symbol on import paths with guidance to rename the file or folder
+  in the project tree; never rewrite an alias or path segment instead.
+  Alias rename keeps matching import path segments unchanged.
+
+### Better completion
+
+- Refresh import suggestions as you type, backspace, or continue after a path
+  separator. Find indexed files by fuzzy file names or paths, with file-name
+  exact and prefix matches ahead of fuzzy matches.
+- Keep the popup's searchable file name separate from the full import path and
+  insertion text. Document Zed's automatic-completion settings and inline
+  prediction precedence.
+
+### Better completion
+
+- Accept a symbol suggestion from an already indexed module to insert its
+  qualified name and missing import together. Suggestions show their source
+  module, reuse existing aliases, and avoid duplicate imports and alias conflicts.
+  Unsaved modules and imports are supported; browsing or cancelling leaves the
+  document unchanged. In-scope suggestions retain priority over cross-module names.
+
+### Editor instructions
+
+- Document Zed's whole-document Organize Imports command and default shortcut,
+  with before/after examples, safe sorting/deduplication rules, and the normal
+  unchanged-buffer result. Cover unsaved LF/CRLF buffers and import-group
+  boundaries with protocol regressions. Unused imports are not removed.
+
+### Development
+
+- Add default-off `dhat-heap` profiling for the actual LSP server, with
+  `BEND2_LSP_DHAT_FILE` enabling profiling and selecting the heap JSON output
+  (unset disables recording; empty selects the default path). Capture allocation totals,
+  peak/end-live heap, and allocation stacks across server and Tokio runtime
+  startup/shutdown; normal builds keep their existing allocator and release
+  profile. This complements the historical Valgrind DHAT example measurements.
+
+### Memory
+
+- Halve private dense optional-index slot storage without narrowing public IDs.
+  Count identifiers during cold scanning to avoid reserving reference rows for
+  punctuation. A source-identical selfhost compiler/Base session measured 26.8%
+  less peak live heap and 19.6% less allocation traffic; CPU/cache gates remain
+  independent and unchanged.
+- Build constructor completion descriptions with one exact-sized allocation.
+  Add warm indexed import-candidate benchmarks for exact and fuzzy symbol queries.
+
 ## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.3.0...v0.4.0) (2026-10-08)
 
 ### Better completion

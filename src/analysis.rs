@@ -707,9 +707,13 @@ pub fn typed_constructor_completion_items(
             if let Some(label) =
                 label.filter(|label| completion_matches(label, prefix, ascii_prefix))
             {
+                let parent_name = syntax.name_text(source, parent.name);
+                let mut detail = String::with_capacity("constructor of ".len() + parent_name.len());
+                detail.push_str("constructor of ");
+                detail.push_str(parent_name);
                 items.push(Completion {
                     label: label.to_owned(),
-                    detail: format!("constructor of {}", syntax.name_text(source, parent.name)),
+                    detail,
                     kind: CompletionKind::Constructor,
                 });
             }

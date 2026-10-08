@@ -71,6 +71,20 @@ mod navigation {
         )
     }
 
+    fn prepare(client: &mut LspClient, uri: &str, source: &str, offset: usize) -> Value {
+        client.request_response(
+            "textDocument/prepareRename",
+            json!({"textDocument":{"uri":uri},"position":position(source,offset)}),
+        )
+    }
+
+    fn preview(source: &str, start: usize, name: &str) -> Value {
+        json!({
+            "range":{"start":position(source,start),"end":position(source,start+name.len())},
+            "placeholder":name
+        })
+    }
+
     fn apply(source: &str, edits: &Value) -> String {
         let index = LineIndex::new(source);
         let mut edits: Vec<_> = edits
@@ -166,6 +180,142 @@ mod navigation {
             let edits = &response["result"]["documentChanges"][0];
             assert_eq!(edits["textDocument"]["version"], 7);
             assert_eq!(apply(source, &edits["edits"]), expected);
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn import_path_cursor_positions_reject_symbol_rename_without_alias_or_path_edits() {
+        let temp = tempfile::tempdir().must_be("workspace");
+        let main = uri(&temp.path().join("main.bend"));
+        let mut client = client(temp.path());
+        // Each spelling collides with a path segment or the extension.
+        for (version, path, alias) in [
+            (1, "test.bend", "test"),
+            (2, "./nested/test.bend", "nested"),
+            (3, "./nested/test.bend", "test"),
+            (4, "./nested/test.bend", "bend"),
+            (5, "pkg@1.0.0.0/test.bend", "test"),
+        ] {
+            let source = format!("import {path} as {alias}\ndef main = {alias}.foo\n");
+            if version == 1 {
+                open(&mut client, &main, version, &source);
+            } else {
+                change(&mut client, &main, version, &source);
+            }
+            let start = "import ".len();
+            for offset in start..=start + path.len() {
+                for response in [
+                    prepare(&mut client, &main, &source, offset),
+                    rename(&mut client, &main, &source, offset, "Module"),
+                ] {
+                    assert_eq!(response["error"]["code"], -32602, "{offset}: {response}");
+                    assert_eq!(
+                        response["error"]["message"],
+                        "Import paths cannot be renamed with Rename Symbol; rename the file or folder in the project tree instead"
+                    );
+                    assert!(response.get("result").is_none(), "{response}");
+                }
+            }
+            let alias_start = source.find(" as ").must_be("alias") + " as ".len();
+            for offset in alias_start..alias_start + alias.len() {
+                assert_eq!(
+                    prepare(&mut client, &main, &source, offset)["result"],
+                    preview(&source, alias_start, alias)
+                );
+                let response = rename(&mut client, &main, &source, offset, "Module");
+                let edit = &response["result"]["documentChanges"][0];
+                assert_eq!(edit["textDocument"]["version"], version);
+                assert_eq!(
+                    apply(&source, &edit["edits"]),
+                    format!("import {path} as Module\ndef main = Module.foo\n")
+                );
+            }
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn rename_preview_and_edits_follow_alias_member_and_shadowed_local_in_unsaved_snapshots() {
+        let temp = tempfile::tempdir().must_be("workspace");
+        let dependency = temp.path().join("test.bend");
+        fs::write(&dependency, "def disk_only = 0\n").must_be("disk dependency");
+        let dependency_uri = uri(&dependency);
+        let main_path = temp.path().join("main.bend");
+        fs::write(&main_path, "def disk_only = 0\n").must_be("disk consumer");
+        let main = uri(&main_path);
+        let source = "import test.bend as Test\nimport other.bend as Other\ndef main = (\"😀\", Test.foo, Other.foo)\ndef shadow(Test: U32) -> U32:\n  Test.foo\n# Test.foo\n";
+        let dependency_source = "def foo = 1\ndef use = foo\n";
+        let mut client = client(temp.path());
+        open(&mut client, &dependency_uri, 3, dependency_source);
+        open(&mut client, &main, 7, source);
+        let declaration = source.find("Test\n").must_be("alias declaration");
+        let qualifier = source.find("Test.foo").must_be("module qualifier");
+        for start in [declaration, qualifier] {
+            for offset in start..start + "Test".len() {
+                assert_eq!(
+                    prepare(&mut client, &main, source, offset)["result"],
+                    preview(source, start, "Test")
+                );
+                let renamed = rename(&mut client, &main, source, offset, "Module");
+                let edit = &renamed["result"]["documentChanges"][0];
+                assert_eq!(edit["textDocument"]["version"], 7);
+                assert_eq!(
+                    apply(source, &edit["edits"]),
+                    "import test.bend as Module\nimport other.bend as Other\ndef main = (\"😀\", Module.foo, Other.foo)\ndef shadow(Test: U32) -> U32:\n  Test.foo\n# Test.foo\n"
+                );
+            }
+        }
+        let member = qualifier + "Test.".len();
+        for offset in member..member + "foo".len() {
+            assert_eq!(
+                prepare(&mut client, &main, source, offset)["result"],
+                preview(source, member, "foo")
+            );
+            let renamed = rename(&mut client, &main, source, offset, "bar");
+            let changes = renamed["result"]["changes"]
+                .as_object()
+                .must_be("symbol changes");
+            assert_eq!(changes.len(), 2, "{renamed}");
+            assert_eq!(
+                apply(source, &changes[&main]),
+                "import test.bend as Test\nimport other.bend as Other\ndef main = (\"😀\", Test.bar, Other.foo)\ndef shadow(Test: U32) -> U32:\n  Test.foo\n# Test.foo\n"
+            );
+            assert_eq!(
+                apply(dependency_source, &changes[&dependency_uri]),
+                "def bar = 1\ndef use = bar\n"
+            );
+        }
+        let local_declaration = source.find("Test:").must_be("local declaration");
+        let local_use = source.rfind("  Test.foo").must_be("shadowed qualifier") + 2;
+        for start in [local_declaration, local_use] {
+            for offset in start..start + "Test".len() {
+                assert_eq!(
+                    prepare(&mut client, &main, source, offset)["result"],
+                    preview(source, start, "Test")
+                );
+                let renamed = rename(&mut client, &main, source, offset, "Local");
+                assert_eq!(
+                    apply(source, &renamed["result"]["changes"][&main]),
+                    "import test.bend as Test\nimport other.bend as Other\ndef main = (\"😀\", Test.foo, Other.foo)\ndef shadow(Local: U32) -> U32:\n  Local.foo\n# Test.foo\n"
+                );
+            }
+        }
+        for offset in [
+            qualifier + "Test".len(),  // separator, not either rename target
+            local_use + "Test.".len(), // unsupported member of a shadowed local
+            source.find("Other.foo").must_be("unresolved qualifier") + "Other.".len(),
+            source.rfind("Test.foo").must_be("comment"),
+            source.find('😀').must_be("string"),
+        ] {
+            assert_eq!(
+                prepare(&mut client, &main, source, offset)["result"],
+                Value::Null
+            );
+            assert_eq!(
+                rename(&mut client, &main, source, offset, "Changed")["result"],
+                Value::Null
+            );
         }
         client.finish();
     }

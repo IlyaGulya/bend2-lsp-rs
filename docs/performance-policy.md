@@ -668,3 +668,32 @@ docker compose exec -T rust valgrind --tool=dhat \
 Repeat with `1000` and `10000`; inspect only allocation stacks containing
 `folding_ranges`. DHAT allocation events are separate from Callgrind
 instruction events.
+
+## Compact slots and indexed editor completion: PR #35 evidence
+
+Hosted run [37815011502](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/37815011502)
+compared merge candidate `6e9484d92f2bf073509590c81635eeeac4a24390`
+(head `f1ff844e4df8a2ad14e408e819dbbf1ed9265350`) with main
+`8c866cb6b9d66ed1255b17086222fe5dba39a3e4`.
+All 44 baseline instruction comparisons passed. Cold snapshot instructions
+changed by -4.48%, -5.56%, and -1.93% for small, medium, and large fixtures.
+Constructor completion changed by -19.64% (empty), -19.48% (prefix), and
+-5.58% (subsequence); prewarmed constructor definition was unchanged.
+Three new indexed import-candidate workloads cover exact, fuzzy, and absent names.
+
+The compare job remains failed: 39/44 baseline workloads passed the combined
+policy. Cache failures were completion/small I1mr 49→55 and ILmr 40→44;
+inlay-hints/large I1mr 43→53; inlay-hints/medium 44→48;
+scoped-completion/small I1mr 96→102; semantic-tokens/small I1mr 22→28.
+These results do not establish the cause of the cache changes. Earlier failed
+run 37809245614 and both runs' raw profiles are retained; neither is rerun to green.
+
+Report-only latency measured completion p50 0.074→0.083 ms and p95
+0.089→0.096 ms; hover during a large open p50 0.693→1.079 ms and p95
+0.800→1.162 ms. Large open/edit p50 improved by 1.89%/0.97%.
+The isolated, source-identical compact-index memory comparison in the README
+measured 26.8% less peak live heap and 19.6% less allocation traffic; it does
+not isolate the later editor completion features. Quality passed locally
+(184 tests, one skip) and in hosted run 37815011492.
+Instruction, cache, baseline, retry, and benchmark policies remain unchanged.
+

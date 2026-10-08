@@ -89,6 +89,20 @@ pub(super) fn completion_items(items: Vec<analysis::Completion>) -> Vec<Completi
         .collect()
 }
 
+pub(super) fn completion_sort_text(
+    item: &CompletionItem,
+    prefix: &str,
+    out_of_scope: bool,
+) -> Option<String> {
+    let (class, gaps, length) = analysis::completion_match(&item.label, prefix)?;
+    let priority = u8::from(out_of_scope);
+    let scope = u8::from(item.kind != Some(CompletionItemKind::VARIABLE));
+    Some(format!(
+        "{priority}{class:01}{gaps:010}{scope:01}{length:010}{}",
+        item.label
+    ))
+}
+
 /// Apply snapshot-local edits without disturbing an auto-import's additional edits.
 pub(super) fn finish_completion_items(
     snapshot: &DocumentSnapshot,
@@ -98,21 +112,126 @@ pub(super) fn finish_completion_items(
 ) -> Vec<CompletionItem> {
     let replacement = range(snapshot, replacement);
     for item in &mut items {
-        if let Some((class, gaps, length)) = analysis::completion_match(&item.label, prefix) {
-            let scope = u8::from(item.kind != Some(CompletionItemKind::VARIABLE));
-            item.sort_text = Some(format!(
-                "{class:01}{gaps:010}{scope:01}{length:010}{}",
-                item.label
-            ));
+        if item.sort_text.is_none() {
+            item.sort_text = completion_sort_text(item, prefix, false);
         }
         item.filter_text = Some(item.label.clone());
-        item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
-            range: replacement,
-            new_text: item
+        if item.text_edit.is_none() {
+            let mut new_text = item
                 .insert_text
-                .clone()
-                .unwrap_or_else(|| item.label.clone()),
-        }));
+                .take()
+                .unwrap_or_else(|| item.label.clone());
+            if let Some(edits) = &mut item.additional_text_edits {
+                edits.retain(|edit| {
+                    if edit.range.start == edit.range.end
+                        && replacement.start <= edit.range.start
+                        && edit.range.start <= replacement.end
+                    {
+                        if edit.range.start == replacement.end
+                            && replacement.start != replacement.end
+                        {
+                            new_text.push_str(&edit.new_text);
+                        } else {
+                            new_text.insert_str(0, &edit.new_text);
+                        }
+                        false
+                    } else {
+                        true
+                    }
+                });
+            }
+            item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: replacement,
+                new_text,
+            }));
+        }
+    }
+    items.sort_unstable_by(|left, right| left.sort_text.cmp(&right.sort_text));
+    items
+}
+
+/// Match file names without making leading `./`, directories, or `.bend` part
+/// of a filename's exact/prefix rank. Explicit directories still constrain the
+/// candidate through its import path.
+pub(super) fn import_completion_match(target: &str, prefix: &str) -> Option<(u8, usize, usize)> {
+    let component = prefix.rsplit('/').next().unwrap_or(prefix);
+    let filename = target.rsplit('/').next().unwrap_or(target);
+    let with_extension = component.contains('.');
+    let filename = if with_extension {
+        filename
+    } else {
+        filename.strip_suffix(".bend").unwrap_or(filename)
+    };
+    let path = if with_extension {
+        target
+    } else {
+        target.strip_suffix(".bend").unwrap_or(target)
+    };
+    let path = if prefix.starts_with("./") {
+        path
+    } else {
+        path.strip_prefix("./").unwrap_or(path)
+    };
+    let path_match = analysis::completion_match(path, prefix);
+    if prefix.contains('/') {
+        path_match
+    } else {
+        analysis::completion_match(filename, prefix)
+            .into_iter()
+            .chain(path_match)
+            .min()
+    }
+}
+
+/// Zed filters LSP items against the surrounding completion word, not the
+/// replacement edit. Keep its searchable file component separate from the full
+/// import label and insertion text, and recompute it when the path changes.
+pub(super) fn finish_import_completion_items(
+    snapshot: &DocumentSnapshot,
+    replacement: TextRange,
+    prefix: &str,
+    mut items: Vec<CompletionItem>,
+) -> Vec<CompletionItem> {
+    let replacement = range(snapshot, replacement);
+    let component = prefix.rsplit('/').next().unwrap_or(prefix);
+    for item in &mut items {
+        if let Some((class, gaps, length)) = import_completion_match(&item.label, prefix) {
+            item.sort_text = Some(format!("{class:01}{gaps:010}{length:010}{}", item.label));
+        }
+        let filename = item.label.rsplit('/').next().unwrap_or(&item.label);
+        let filename = if component.contains('.') {
+            filename
+        } else {
+            filename.strip_suffix(".bend").unwrap_or(filename)
+        };
+        let path = if component.contains('.') {
+            item.label.as_str()
+        } else {
+            item.label.strip_suffix(".bend").unwrap_or(&item.label)
+        };
+        let path = if prefix.starts_with("./") {
+            path
+        } else {
+            path.strip_prefix("./").unwrap_or(path)
+        };
+        let filename_match = analysis::completion_match(filename, component);
+        let path_match = analysis::completion_match(path, component);
+        let filter =
+            if filename_match.is_some() && (path_match.is_none() || filename_match <= path_match) {
+                filename
+            } else {
+                path
+            };
+        item.filter_text = Some(filter.to_owned());
+        if item.text_edit.is_none() {
+            item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: replacement,
+                new_text: item
+                    .insert_text
+                    .clone()
+                    .unwrap_or_else(|| item.label.clone()),
+            }));
+        }
     }
     items.sort_unstable_by(|left, right| left.sort_text.cmp(&right.sort_text));
     items

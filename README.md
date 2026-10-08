@@ -111,7 +111,7 @@ editor. Source-based features are **not** a full compiler type checker.
 | Feature | Support and scope |
 | --- | --- |
 | Diagnostics | Local lexical checks plus errors from the installed Bend CLI; see limitations below |
-| Completion | Fuzzy ranked names, UTF-16 identifier replacement edits, scoped bindings, explicit-type constructor filtering in nested case patterns, imported members, `Base`, and indexed import paths |
+| Completion | Fuzzy ranked names, UTF-16 identifier replacement edits, scoped bindings, explicit-type constructor filtering in nested case patterns, imported members, `Base`, indexed import paths, and indexed symbols with acceptance-time auto-imports |
 | Signature help | Function parameters and the active argument |
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
@@ -148,8 +148,55 @@ Completion includes parameters and case-pattern bindings only in their indexed
 scope. Local bindings shadow same-named declarations, prelude names and import
 aliases; a shadowed alias does not offer the imported module's members.
 
+Import completion searches indexed file names and import paths, including fuzzy
+input such as `apd` for `./nested/append.bend`. File-name exact and prefix matches
+rank ahead of fuzzy matches; directory prefixes still constrain the path.
+The suggestions refresh while typing, after `/` or `.`, and after backspace.
+Candidates come from open documents and already indexed imports, not a hidden
+scan of every project file. Open a target file to make an otherwise unknown file
+available.
+
+In Zed, enable automatic LSP suggestions for the extension's language name:
+
+```json
+{
+  "languages": {
+    "Bend 2": {
+      "show_completions_on_input": true,
+      "completions": { "lsp": true }
+    }
+  }
+}
+```
+
+Type the file name normally after `import `; a manual completion command is not
+required. Zed can give an active inline edit prediction precedence over ordinary
+word-triggered completions. If that prevents LSP suggestions, add
+`"show_edit_predictions": false` to the same `"Bend 2"` object to prefer LSP
+completion without changing predictions for other languages. The extension does
+not disable automatic completion or change your personal settings.
+
+Regular symbol completion also offers matching declarations from already indexed
+modules, including their unsaved buffers. The source module is shown beside each
+candidate, so same-named symbols remain distinguishable. Accepting a suggestion
+inserts its qualified name and the needed import together; an existing usable alias
+is reused, and new aliases avoid indexed names. In-scope names rank before these
+cross-module candidates. Browsing or cancelling the popup does not change the buffer.
+Repeat acceptance uses the latest unsaved imports and does not add duplicates.
+The Missing import quick fix remains available and follows the same alias rules.
+This does not discover unopened project files or download packages.
+
 Known explicit ADT annotations narrow case-pattern constructor candidates.
 Unknown types keep the available candidates rather than pretending to infer a type.
+
+Accepting an import completion inserts `import Base` without an alias, or a
+complete local/cached-package import such as `import tools.bend as Tools`.
+An alias you already typed is preserved; accepting in the middle of a path
+replaces its old suffix too. New aliases use the filename stem with non-ASCII
+and punctuation characters removed, an uppercase first ASCII letter, and
+`Module` prefixed for empty or digit-leading stems. Name conflicts add `2`, `3`,
+and so on (`Tools2`); repeated imports reuse their existing alias. Unicode
+filenames remain unchanged in the path.
 
 Local imports are indexed for cross-file features. `Base` comes from `bend base`.
 Hub package navigation uses packages already present in the local Bend library
@@ -176,6 +223,13 @@ diagnostics cannot overwrite a reopened buffer, even when version numbering
 restarts. A prepared close also validates the disk snapshot before restoring its
 imports.
 
+Rename Symbol selects the name under the cursor: an explicit import alias, the
+qualifier in `Test.foo`, a supported resolved member such as `foo`, or a local
+binding. The rename preview highlights only that name. An import path such as
+`test.bend` is a file link, not an alias rename target; use the project tree's
+file/folder rename instead. Alias rename leaves import paths, shadowed locals,
+unrelated members, and comments unchanged.
+
 File-operation clients must request `workspace/willRenameFiles`, apply the
 returned versioned workspace edit, perform the filesystem move, and send
 `workspace/didRenameFiles`. Open buffers retain their unsaved snapshots; known
@@ -199,6 +253,62 @@ it does not add whole-project discovery or change the LSP framework.
 Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors
 `tabSize` and `insertSpaces` and declines unsafe rewrites.
+
+### Organize imports in Zed
+
+With a `.bend` editor focused, open the command palette and run
+**editor: organize imports** (`editor::OrganizeImports`), or use the default
+**Alt+Shift+O** shortcut (**Option+Shift+O** on macOS). This is a whole-document
+source action, not a diagnostic quick fix: the cursor can be in the function
+body, and no error or selection is required. It uses the current unsaved buffer
+and leaves saving to the editor. The server must support `source.organizeImports`
+(available since v0.4.0); an older configured or extension-installed binary will
+not offer it.
+
+For example, before:
+
+```bend
+# File header
+import ./z.bend as Z # keep this comment
+# Dependency documentation
+import ./dep.bend as D
+
+def main: U32
+  D.value
+```
+
+After:
+
+```bend
+# File header
+# Dependency documentation
+import ./dep.bend as D
+import ./z.bend as Z # keep this comment
+
+def main: U32
+  D.value
+```
+
+Rules:
+
+- Organize each leading import group independently. Blank lines and incomplete
+  import suffixes separate groups; imports are not moved into another group.
+- Sort by the written import path, then alias, without rewriting either.
+  Preserve order when different targets share an alias, including multiple
+  unaliased targets whose exposed names may conflict.
+- Deduplicate only the same indexed target (or identical written path when
+  unresolved) with the same alias. Distinct aliases remain. Keep duplicate
+  comments attached to the surviving import.
+- Inline comments and contiguous comment-only lines before a following import
+  move with that import. The file header before the first import stays in place.
+  Preserve LF/CRLF, final-newline presence, and text outside the affected groups.
+- **Do not remove unused imports.** This action does not perform compiler-backed
+  usage analysis.
+
+When there is nothing safe to change, the server returns no organize action.
+Zed's command then completes without changing the buffer or showing a success
+message; a second invocation is normally this same no-op. This also applies to
+files without imports and groups whose existing order must be preserved.
 
 ## Not supported
 
@@ -327,6 +437,142 @@ docker compose exec rust ./scripts/quality
 Keep the named Cargo and target volumes. Use `docker compose stop rust` /
 `docker compose start rust` for routine pause/resume; rebuild only when the
 container definition changes.
+
+### Opt-in server heap profiling
+
+The optional `dhat-heap` feature profiles allocations in the actual LSP server
+using the Rust [dhat crate](https://docs.rs/dhat/0.3.3/dhat/). Normal builds and
+published binaries do not include this allocator. Build a separate symbolized
+profiling binary without changing the default release profile:
+
+```sh
+cargo build --locked --release --features dhat-heap --bin bend2-lsp \
+  --target-dir target/dhat \
+  --config 'profile.release.debug=1' --config 'profile.release.strip="none"'
+BEND2_LSP_DHAT_FILE="$PWD/target/server-heap.json" \
+  ./target/dhat/release/bend2-lsp
+```
+
+Configure your editor to launch this binary and pass `BEND2_LSP_DHAT_FILE` to
+the server process. Unset disables profiling even in an all-features build;
+an explicitly empty value selects `dhat-heap.json` in the working directory.
+An explicit path selects that file. Its directory must already exist; the file
+is created or overwritten when profiling finishes, not at startup. A build without the
+feature ignores this variable. Release optimization and fat LTO remain unchanged;
+debug information and symbol retention above apply only to the profiling build.
+
+Capture a representative session, then let the client send LSP `shutdown`
+followed by `exit` and wait for the process to finish. The existing Unix SIGTERM
+shutdown path also finalizes the profile after server startup. Profiling starts
+before Tokio runtime creation and finishes after its teardown. A `shutdown`
+response alone does not write the file. Empty stdin before initialization was
+verified to finalize it; closing stdin immediately after initialization did not
+terminate either the profiling binary or the published v0.4.0 binary in the
+observed sessions. Use `shutdown`/`exit`, not EOF alone, for initialized sessions.
+Crashes, aborts, SIGKILL, and other termination that bypasses cleanup cannot be
+relied upon to save a profile.
+
+Open the JSON in the [DHAT viewer](https://nnethercote.github.io/dh_view/dh_view.html).
+It includes cumulative allocation bytes/blocks, peak live heap (`At t-gmax`),
+end-live heap (`At t-end`), and symbolized allocation stacks without a frame-count
+limit. The summary and any write errors go to stderr, never LSP stdout.
+End-live is measured after server/runtime teardown, not while documents remain
+open. Tracked heap is not process RSS or OS memory footprint: it excludes
+profiler bookkeeping, allocator overhead/retained pages, stacks, mappings, and
+compiler child processes. Collect OS process-memory measurements separately.
+Profiles can expose local paths and command-line arguments; review before sharing.
+
+This complements the existing
+[Valgrind DHAT example measurements](docs/performance-policy.md), including
+line-index/cold-snapshot profiles and folding allocation counts; those are not
+actual editor-driven LSP sessions. The upstream crate is experimental, and
+allocation stack collection can substantially slow the server and increase
+memory use. Use this build for attribution, not production latency measurements.
+
+#### Measured actual-server memory
+
+On macOS ARM64, three fresh alternating stdio sessions compared the
+checksum-verified public v0.3.0 and v0.4.0 executables. Each session used the
+260,429-byte large benchmark fixture, 100 completion requests after one full-text
+edit, 20 further unsaved full-text edits, then 100 additional 32,429-byte medium
+documents. Document-symbol responses and revision diagnostics confirmed that
+each snapshot was available before sampling. Compiler and prelude loading were
+disabled through isolated configuration with an unavailable compiler.
+
+Checkpoint RSS medians, in MiB (1,048,576 bytes), measured with macOS `ps`:
+
+| Checkpoint | v0.3.0 | v0.4.0 |
+| --- | ---: | ---: |
+| Initialized | 3.31 | 3.64 |
+| Large document open | 13.75 | 13.91 |
+| After 100 completion requests | 19.50 | 19.64 |
+| After 20 further unsaved edits | 39.83 | 37.75 |
+| Large plus 100 medium documents open | 192.05 | 190.88 |
+| All documents closed | 192.11 | 191.09 |
+
+These are checkpoint samples, not peak RSS, physical footprint, an editor
+measurement, or a memory regression gate. The v0.4.0 101-document samples ranged
+from 124.84 to 191.05 MiB; the lower sample's cause was not established. Do not
+interpret the small median decrease as a demonstrated optimization. Closing
+documents did not promptly reduce RSS; this alone cannot distinguish indexed
+cache retention, allocator-retained pages, or a leak.
+
+A separate symbolized `dhat-heap` build from v0.4.0 source
+`8c866cb6b9d66ed1255b17086222fe5dba39a3e4`, with the optional allocator integration,
+measured complete server lifetimes, including shutdown:
+
+| Session | Total allocated MiB / blocks | Peak live heap MiB |
+| --- | ---: | ---: |
+| Initialize and exit | 0.248 / 967 | 0.167 |
+| Open and close large document | 19.829 / 18,935 | 8.474 |
+| Large document, one edit, 100 completion requests, close | 47.659 / 105,955 | 12.970 |
+| Large plus 100 medium documents, then close | 530.163 / 650,448 | 157.802 |
+
+All four ended with 26,232 tracked bytes in 84 blocks after server/runtime
+teardown. The warm-session total includes snapshot rebuilding and protocol work,
+not just the individual queries. Global heap peak is the sum of program-point
+`gb` fields, not the sum of independent `mb` maxima. The 101-document fixture
+contains 3,503,329 source bytes and repeated nested function calls; it does not
+represent all project shapes, compiler child memory, generated Base, or package
+discovery. Its nine largest peak allocation program points account for 82.0% of
+tracked peak bytes, primarily `CallSite`, `Reference`, token storage, and dense
+token-to-index arrays. These historical runs precede the compact storage change.
+
+The existing scoped CPU/cache acceptances remain independent of these figures.
+Keep Callgrind thresholds unchanged; collect allocation/retained-heap and process
+memory evidence separately before proposing a memory gate.
+
+#### Compact indexes: source-identical compiler workload
+
+Six private token-to-name/symbol/reference/call/delimiter arrays now store empty
+slots in one machine word rather than two-word `Option<usize>` records. Public
+IDs retain their `usize` domain. The cold scanner counts identifier tokens while
+already scanning; reference construction reserves for that count rather than all
+tokens, without another scan. Published references were already boxed slices:
+this reservation change reduces construction allocations, not retained vector
+capacity. `Token`, `Reference`, and `CallSite` remain contiguous records; no
+hot/cold split or public record-layout migration is needed for these savings.
+
+A frozen 908,972-byte, 16-module selfhost compiler graph, real Bend 2.0.34, and
+the identical 71,530-byte generated `Base` were exercised over stdio. The session
+opened five compiler sources and Base, issued 100 warm feature requests, applied
+five unsaved parser revisions, closed all buffers, and completed shutdown/exit.
+Every revision's compiler diagnostics was empty.
+
+| Complete-session heap | Before | Compact indexes and reservation |
+| --- | ---: | ---: |
+| Total allocated bytes | 798,861,979 | 642,049,185 |
+| Peak live bytes | 118,943,743 | 87,044,204 |
+| End-live bytes | 26,808 | 26,808 |
+
+That is 19.6% less allocation traffic and 26.8% less peak live heap. Separate
+ordinary-binary sessions sampled LSP physical footprint with macOS libproc:
+96.45 → 75.52 MiB after opening the graph, and 153.78 → 101.36 MiB after the
+five revisions. These are one source-identical pair, not medians or a host-wide
+unique-memory measurement. Compiler child memory is not part of DHAT.
+The initial Linux ARM64 Callgrind comparison improved cold snapshot instructions
+but failed several unchanged warm instruction/cache thresholds. The evidence
+does not authorize a regression or replace hosted x86_64 CI.
 
 Further details:
 

@@ -306,13 +306,20 @@ mod protocol {
         let offered = actions(&mut client, &uri, unsaved, "builtin", "quickfix");
         assert_eq!(offered.len(), 1);
         let edited = apply(unsaved, &offered[0], &uri, 2);
-        assert!(edited.starts_with("import Base as Base\n"));
-        assert!(edited.contains("  Base.builtin\n"));
+        assert!(edited.starts_with("import Base\n"));
+        assert!(edited.contains("  builtin\n"));
         change(&mut client, &uri, &edited, 3);
         assert_eq!(
             definition(&mut client, &uri, &edited, "builtin")["uri"],
             generated
         );
+        assert!(actions(&mut client, &uri, &edited, "builtin", "quickfix").is_empty());
+        let local_shadow = "def main(builtin: U32):\n  Unknown.builtin\n";
+        change(&mut client, &uri, local_shadow, 4);
+        assert!(actions(&mut client, &uri, local_shadow, "builtin\n", "quickfix").is_empty());
+        let global_shadow = "def builtin: U32\n  1\ndef main: U32\n  Unknown.builtin\n";
+        change(&mut client, &uri, global_shadow, 5);
+        assert!(actions(&mut client, &uri, global_shadow, "builtin\n", "quickfix").is_empty());
         client.finish();
     }
 
@@ -386,6 +393,84 @@ mod protocol {
             .map(|action| action["kind"].as_str().must_be("kind"))
             .collect();
         assert_eq!(kinds, ["source.organizeImports", "quickfix"]);
+        client.finish();
+    }
+
+    #[test]
+    fn organize_imports_uses_unsaved_whole_document_without_diagnostics() {
+        let saved = "def main: U32\n  0\n";
+        let (root, mut client, uri, _dep_uri) = fixture(saved);
+        fs::write(root.path().join("z.bend"), "def other: U32\n  0\n").must_be("second module");
+        for (version, newline) in [(2, "\n"), (4, "\r\n")] {
+            let unsaved = "# file header 😀\nimport ./z.bend as Z # z comment\n# dependency comment\nimport ./dep.bend as D\nimport dep.bend as D # duplicate comment\n\nimport ./z.bend as LaterZ\n# later dependency\nimport ./dep.bend as LaterD\n\ndef main: U32\n  D.value # unsaved body 😀  \n"
+                .replace('\n', newline);
+            let expected = "# file header 😀\n# duplicate comment\n# dependency comment\nimport ./dep.bend as D\nimport ./z.bend as Z # z comment\n\n# later dependency\nimport ./dep.bend as LaterD\nimport ./z.bend as LaterZ\n\ndef main: U32\n  D.value # unsaved body 😀  \n"
+                .replace('\n', newline);
+            change(&mut client, &uri, &unsaved, version);
+            let (line, character) = LineIndex::new(&unsaved).position(&unsaved, unsaved.len());
+            let end = json!({"line":line,"character":character});
+            let response = client.request(
+                "textDocument/codeAction",
+                json!({
+                    "textDocument":{"uri":uri},
+                    "range":{"start":{"line":0,"character":0},"end":end},
+                    "context":{"diagnostics":[],"only":["source.organizeImports"]}
+                }),
+            );
+            let offered = response["result"].as_array().must_be("source actions");
+            assert_eq!(offered.len(), 1);
+            let edited = apply(&unsaved, &offered[0], &uri, version);
+            assert_eq!(edited, expected);
+            assert_eq!(
+                fs::read_to_string(root.path().join("main.bend")).must_be("saved source"),
+                saved,
+                "organizing the unsaved buffer must not write the file"
+            );
+            change(&mut client, &uri, &edited, version + 1);
+            assert!(
+                actions(
+                    &mut client,
+                    &uri,
+                    &edited,
+                    "  D.value",
+                    "source.organizeImports"
+                )
+                .is_empty()
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn organize_imports_preserves_unaliased_precedence_and_incomplete_imports() {
+        let source = "import ./z.bend\nimport ./dep.bend\nimport ./dep.bend\n\nimport ./z.bend as Pending extra\nimport ./z.bend as Z\n# valid dependency\nimport ./dep.bend as D\n\ndef main: U32\n  value\n";
+        let (root, mut client, uri, _dep_uri) = fixture(source);
+        fs::write(root.path().join("z.bend"), "def value: U32\n  9\n")
+            .must_be("first unaliased target");
+        let offered = actions(
+            &mut client,
+            &uri,
+            source,
+            "  value",
+            "source.organizeImports",
+        );
+        assert_eq!(offered.len(), 1);
+        let edited = apply(source, &offered[0], &uri, 1);
+        assert_eq!(
+            edited,
+            "import ./z.bend\nimport ./dep.bend\n\nimport ./z.bend as Pending extra\n# valid dependency\nimport ./dep.bend as D\nimport ./z.bend as Z\n\ndef main: U32\n  value\n"
+        );
+        change(&mut client, &uri, &edited, 2);
+        assert!(
+            actions(
+                &mut client,
+                &uri,
+                &edited,
+                "  value",
+                "source.organizeImports"
+            )
+            .is_empty()
+        );
         client.finish();
     }
 
