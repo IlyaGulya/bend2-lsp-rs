@@ -320,6 +320,28 @@ impl Default for LoadedWorkspace {
     }
 }
 
+static IMPORT_COMPLETION_WORKSPACE: LazyLock<(LoadedWorkspace, url::Url)> = LazyLock::new(|| {
+    let workspace = LoadedWorkspace::default();
+    let source =
+        url::Url::from_file_path(&workspace.files.paths[0]).must_be("completion source URI");
+    (workspace, source)
+});
+
+#[library_benchmark]
+#[bench::exact(LazyLock::force(&IMPORT_COMPLETION_WORKSPACE), "identity")]
+#[bench::fuzzy(LazyLock::force(&IMPORT_COMPLETION_WORKSPACE), "idty")]
+#[bench::no_match(LazyLock::force(&IMPORT_COMPLETION_WORKSPACE), "no_such_importable_name")]
+fn import_completion_candidates_warm(
+    fixture: &(LoadedWorkspace, url::Url),
+    prefix: &str,
+) -> Vec<(workspace::Document, String, Vec<analysis::Completion>)> {
+    std::hint::black_box(fixture.0.database.import_completion_candidates(
+        std::hint::black_box(&fixture.1),
+        std::hint::black_box(prefix),
+        false,
+    ))
+}
+
 #[library_benchmark]
 fn cold_snapshot_build_small() -> analysis::DocumentSnapshot {
     std::hint::black_box(analysis::DocumentSnapshot::new(
@@ -700,7 +722,8 @@ library_benchmark_group!(
         workspace_initial_build, workspace_incremental_invalidation,
         workspace_references, workspace_burst_revision_invalidation,
         constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm,
-        cold_completion_context_build, pattern_completion_context_warm
+        cold_completion_context_build, pattern_completion_context_warm,
+        import_completion_candidates_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

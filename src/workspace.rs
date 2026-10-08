@@ -414,7 +414,10 @@ impl WorkspaceDb {
         .collect()
     }
 
-    pub(crate) fn import_completion_candidates(
+    /// Find matching symbols or constructors in already indexed importable documents.
+    /// This query does not discover files, download packages, or rebuild snapshots.
+    #[must_use]
+    pub fn import_completion_candidates(
         &self,
         source: &Url,
         prefix: &str,

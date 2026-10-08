@@ -58,6 +58,8 @@
   punctuation. A source-identical selfhost compiler/Base session measured 26.8%
   less peak live heap and 19.6% less allocation traffic; CPU/cache gates remain
   independent and unchanged.
+- Build constructor completion descriptions with one exact-sized allocation.
+  Add warm indexed import-candidate benchmarks for exact and fuzzy symbol queries.
 
 ## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.3.0...v0.4.0) (2026-10-08)
 
