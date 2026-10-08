@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.4.0...v0.5.0) (2026-10-08)
 
 ### Better import completion
 
@@ -26,8 +26,6 @@
 - Keep the popup's searchable file name separate from the full import path and
   insertion text. Document Zed's automatic-completion settings and inline
   prediction precedence.
-
-### Better completion
 
 - Accept a symbol suggestion from an already indexed module to insert its
   qualified name and missing import together. Suggestions show their source
@@ -60,13 +58,6 @@
   independent and unchanged.
 - Build constructor completion descriptions with one exact-sized allocation.
   Add warm indexed import-candidate benchmarks for exact and fuzzy symbol queries.
-
-## [0.5.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.4.0...v0.5.0) (2026-10-08)
-
-
-### Features
-
-* fix Zed editing flows and compact indexed storage ([#35](https://github.com/IlyaGulya/bend2-lsp-rs/issues/35)) ([48f98ac](https://github.com/IlyaGulya/bend2-lsp-rs/commit/48f98ac7e10b2113ba5b346ab370ff6edbd62d47))
 
 ## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.3.0...v0.4.0) (2026-10-08)
 
