@@ -2,26 +2,49 @@
 
 ## Unreleased
 
-### Editor improvements
+### Better completion
 
-- Rank fuzzy completion matches and replace the complete identifier with UTF-16
-  edits, including when the cursor is in its middle.
-- Filter nested case-pattern constructors using known explicit type annotations;
-  keep candidates for unknown types. Complete indexed import continuations.
-- Navigate `Base`, local and cached package imports through document links.
-- Rename module aliases without changing shadowed bindings. Coordinate file and
-  folder renames with versioned import edits and preserved unsaved buffers.
-- Offer collision-safe auto-imports for available indexed symbols and organize
-  imports without discarding comments.
-- Preserve all error blocks emitted by Bend, deduplicate streams, and locate
-  validated source excerpts and Unicode caret ranges in staged unsaved sources.
-  Bend can still stop after its first independent error.
-- Probe the configured compiler's CLI contract and recover after executable
-  installation or replacement without rejecting newer numeric versions.
-- Exercise the native server through real Neovim LSP clients in quality CI.
+- Find names by typing only part of them. Exact and prefix matches appear before
+  fuzzy matches.
+- Accept a suggestion in the middle of a name without leaving its old suffix
+  behind, including around emoji and other Unicode text.
+- Complete constructors inside nested case patterns. Known explicit types narrow
+  the suggestions; unknown types keep the broader list.
+- Complete imports for `Base`, local files, and already indexed cached packages.
 
-Whole-project discovery remains deferred. Compiler-derived fixes and inferred
-expression types remain blocked on upstream APIs; no independent checker is added.
+### Navigation, rename, and imports
+
+- Open `Base`, local, and cached package imports through clickable links.
+- Rename import aliases without changing shadowed local names or member names.
+- Rename files or folders and update imports in known workspace files while
+  preserving open unsaved buffers.
+- Add missing imports for available indexed symbols, reusing aliases and avoiding
+  name conflicts or duplicates.
+- Organize imports without losing comments, aliases, or existing line endings.
+
+### Compiler integration and editor checks
+
+- Show every error block the compiler actually emits with more accurate source
+  ranges, including errors after Unicode text in unsaved imported files.
+- Recover when a missing or incompatible compiler is installed or replaced.
+  Check its CLI capabilities rather than reject it solely by version number.
+- Exercise the actual server in Neovim as part of quality CI.
+
+### Limits
+
+Bend can still stop after its first independent error. Compiler-generated
+semantic fixes and inferred types for arbitrary expressions need upstream APIs.
+Whole-project discovery remains deferred; this release uses document snapshots
+and workspace indexes rather than scanning every project file.
+
+### Performance
+
+The maintainer accepted the measured performance cost of these features in
+[#32](https://github.com/IlyaGulya/bend2-lsp-rs/pull/32): constructor-prefix
+completion uses 3.28% more instructions, and several instruction-cache metrics
+exceed the existing thresholds. The separate latency checks passed. These
+function-level benchmarks do not measure editor response time. Performance
+thresholds and baseline rules are unchanged.
 
 
 ## [0.3.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.5...v0.3.0) (2026-10-07)
