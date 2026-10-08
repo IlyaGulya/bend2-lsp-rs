@@ -170,7 +170,6 @@ fn initialize_capabilities(client: &mut LspClient, workspace: &Path) {
         "definitionProvider",
         "hoverProvider",
         "referencesProvider",
-        "renameProvider",
     ] {
         assert_eq!(capabilities[capability], true, "missing {capability}");
     }

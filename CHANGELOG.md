@@ -11,6 +11,13 @@
 - Keep `Base` imports unaliased, including Missing import quick fixes. Reuse the
   existing alias when completing another import of the same path.
 
+### More reliable editing
+
+- Show the actual alias, local, or resolved member name in Rename Symbol previews.
+  Reject Rename Symbol on import paths with guidance to rename the file or folder
+  in the project tree; never rewrite an alias or path segment instead.
+  Alias rename keeps matching import path segments unchanged.
+
 ### Development
 
 - Add default-off `dhat-heap` profiling for the actual LSP server, with

@@ -7,17 +7,34 @@ use tower_lsp::{
     lsp_types::{
         CodeLens, CodeLensParams, DocumentChanges, DocumentHighlight, DocumentHighlightKind,
         DocumentHighlightParams, Location, OneOf, OptionalVersionedTextDocumentIdentifier,
-        ReferenceParams, RenameParams, TextDocumentEdit, TextEdit, WorkspaceEdit,
+        PrepareRenameResponse, ReferenceParams, RenameParams, TextDocumentEdit,
+        TextDocumentPositionParams, TextEdit, WorkspaceEdit,
     },
 };
 use url::Url;
+
+enum RenameKind {
+    Alias(analysis::IndexedImport),
+    Binding(analysis::SymbolId),
+    Symbol { uri: Url, name: String },
+}
+
+struct RenameTarget {
+    range: analysis::TextRange,
+    kind: RenameKind,
+}
 
 fn alias_root(document: &Document, token: analysis::TokenId) -> bool {
     let syntax = &document.syntax;
     let Some(range) = syntax.token(token).map(|token| token.range) else {
         return false;
     };
-    if syntax.symbol_for_token(token).is_some()
+    // Import paths are module links, never alias usages, even when a path
+    // segment has the same spelling as an explicit alias.
+    if analysis::imports(document)
+        .iter()
+        .any(|import| import.path.contains(range.start))
+        || syntax.symbol_for_token(token).is_some()
         || token.0.checked_sub(1).is_some_and(|previous| {
             let previous = analysis::TokenId(previous);
             syntax
@@ -127,6 +144,93 @@ fn rename_alias(
 }
 
 impl Backend {
+    fn rename_target(&self, document: &Document, offset: usize) -> Result<Option<RenameTarget>> {
+        if analysis::imports(document)
+            .iter()
+            .any(|import| import.path.start <= offset && offset <= import.path.end)
+        {
+            return Err(Error::invalid_params(
+                "Import paths cannot be renamed with Rename Symbol; rename the file or folder in the project tree instead",
+            ));
+        }
+        if document.syntax.is_in_comment_or_string(offset) {
+            return Ok(None);
+        }
+        let Some(cursor) = document.syntax.token_at_or_before(offset) else {
+            return Ok(None);
+        };
+        let Some(token) = document.syntax.token(cursor) else {
+            return Ok(None);
+        };
+        if token.kind != analysis::TokenKind::Identifier
+            || offset < token.range.start
+            || offset > token.range.end
+        {
+            return Ok(None);
+        }
+        let range = document
+            .syntax
+            .reference_for_token(cursor)
+            .map_or(token.range, |reference| reference.range);
+        if let Some(import) = alias_at(document, offset) {
+            return Ok(Some(RenameTarget {
+                range,
+                kind: RenameKind::Alias(import),
+            }));
+        }
+        if let Some(symbol) = binding_at(document, offset) {
+            return Ok(Some(RenameTarget {
+                range,
+                kind: RenameKind::Binding(symbol),
+            }));
+        }
+        let Some(token) = declaration_token_at(document, offset) else {
+            return Ok(None);
+        };
+        let (uri, snapshot, name) = self.symbol_source(document, &token);
+        // The workspace reference index supports declarations represented as
+        // symbols. Do not offer a preview for targets rename cannot edit.
+        if snapshot
+            .syntax
+            .name_id(&snapshot.text, &name)
+            .and_then(|name| snapshot.syntax.symbol_by_name(name))
+            .is_none()
+        {
+            return Ok(None);
+        }
+        Ok(Some(RenameTarget {
+            range,
+            kind: RenameKind::Symbol { uri, name },
+        }))
+    }
+
+    pub(in crate::server) async fn handle_prepare_rename(
+        &self,
+        params: TextDocumentPositionParams,
+    ) -> Result<Option<PrepareRenameResponse>> {
+        let _workspace_read = self.workspace_ready_read().await;
+        let Some(doc) = self.document(&params.text_document.uri) else {
+            return Ok(None);
+        };
+        if !Self::supported(&doc) {
+            return Ok(None);
+        }
+        let offset = adapters::offset_at(&doc, params.position);
+        let Some(target) = self.rename_target(&doc, offset)? else {
+            return Ok(None);
+        };
+        let placeholder = match target.kind {
+            RenameKind::Symbol { name, .. } => name,
+            RenameKind::Alias(_) | RenameKind::Binding(_) => {
+                doc.text[target.range.start..target.range.end].to_owned()
+            }
+        };
+        Ok(Some(PrepareRenameResponse::RangeWithPlaceholder {
+            range: adapters::range(&doc, target.range),
+            placeholder,
+        }))
+    }
+
     pub(in crate::server) async fn handle_code_lens(
         &self,
         params: CodeLensParams,
@@ -277,10 +381,13 @@ impl Backend {
             return Ok(None);
         }
         let offset = adapters::offset_at(&doc, td.position);
-        if let Some(import) = alias_at(&doc, offset) {
+        let Some(target) = self.rename_target(&doc, offset)? else {
+            return Ok(None);
+        };
+        if let RenameKind::Alias(import) = target.kind {
             return rename_alias(&doc, import, &params.new_name).map(Some);
         }
-        if let Some(symbol) = binding_at(&doc, offset) {
+        if let RenameKind::Binding(symbol) = target.kind {
             let edits = binding_ranges(&doc, symbol, true)
                 .into_iter()
                 .map(|range| TextEdit {
@@ -293,15 +400,11 @@ impl Backend {
                 ..Default::default()
             }));
         }
-        let Some(token) = declaration_token_at(&doc, offset) else {
+        let RenameKind::Symbol { uri, name } = target.kind else {
             return Ok(None);
         };
-        let (target_uri, target_text, name) = self.symbol_source(&doc, &token);
-        if analysis::declaration_range(&target_text, &name).is_none() {
-            return Ok(None);
-        }
         let mut changes = HashMap::<Url, Vec<TextEdit>>::new();
-        for location in self.symbol_references(&target_uri, &name, true) {
+        for location in self.symbol_references(&uri, &name, true) {
             changes.entry(location.uri).or_default().push(TextEdit {
                 range: location.range,
                 new_text: params.new_name.clone(),

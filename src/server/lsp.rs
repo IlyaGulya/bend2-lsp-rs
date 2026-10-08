@@ -27,9 +27,10 @@ use tower_lsp::{
         DocumentRangeFormattingParams, DocumentSymbolParams, DocumentSymbolResponse, FoldingRange,
         FoldingRangeParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
         InitializeParams, InitializeResult, InitializedParams, InlayHint, InlayHintParams,
-        Location, MessageType, ReferenceParams, Registration, RenameFilesParams, RenameParams,
-        SelectionRange, SelectionRangeParams, SemanticTokensParams, SemanticTokensResult,
-        ServerInfo, SignatureHelp, SignatureHelpParams, SymbolInformation, TextEdit,
+        Location, MessageType, PrepareRenameResponse, ReferenceParams, Registration, RenameFilesParams,
+        RenameParams, SelectionRange, SelectionRangeParams, SemanticTokensParams, SemanticTokensResult,
+        ServerInfo, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentPositionParams,
+        TextEdit,
         TypeHierarchyItem, TypeHierarchyPrepareParams, TypeHierarchySubtypesParams,
         TypeHierarchySupertypesParams, WorkspaceEdit, WorkspaceSymbolParams,
     },
@@ -457,6 +458,13 @@ impl LanguageServer for Backend {
         params: DocumentHighlightParams,
     ) -> Result<Option<Vec<DocumentHighlight>>> {
         self.handle_document_highlight(params).await
+    }
+    #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "prepare_rename", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
+    async fn prepare_rename(
+        &self,
+        params: TextDocumentPositionParams,
+    ) -> Result<Option<PrepareRenameResponse>> {
+        self.handle_prepare_rename(params).await
     }
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "rename", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {

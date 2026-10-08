@@ -185,6 +185,13 @@ diagnostics cannot overwrite a reopened buffer, even when version numbering
 restarts. A prepared close also validates the disk snapshot before restoring its
 imports.
 
+Rename Symbol selects the name under the cursor: an explicit import alias, the
+qualifier in `Test.foo`, a supported resolved member such as `foo`, or a local
+binding. The rename preview highlights only that name. An import path such as
+`test.bend` is a file link, not an alias rename target; use the project tree's
+file/folder rename instead. Alias rename leaves import paths, shadowed locals,
+unrelated members, and comments unchanged.
+
 File-operation clients must request `workspace/willRenameFiles`, apply the
 returned versioned workspace edit, perform the filesystem move, and send
 `workspace/didRenameFiles`. Open buffers retain their unsaved snapshots; known
