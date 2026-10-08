@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.4.0...v0.5.0) (2026-10-08)
 
 ### Better import completion
 
@@ -26,8 +26,6 @@
 - Keep the popup's searchable file name separate from the full import path and
   insertion text. Document Zed's automatic-completion settings and inline
   prediction precedence.
-
-### Better completion
 
 - Accept a symbol suggestion from an already indexed module to insert its
   qualified name and missing import together. Suggestions show their source
