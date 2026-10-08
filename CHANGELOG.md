@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Development
+
+- Add default-off `dhat-heap` profiling for the actual LSP server, with
+  `BEND2_LSP_DHAT_FILE` enabling profiling and selecting the heap JSON output
+  (unset disables recording; empty selects the default path). Capture allocation totals,
+  peak/end-live heap, and allocation stacks across server and Tokio runtime
+  startup/shutdown; normal builds keep their existing allocator and release
+  profile. This complements the historical Valgrind DHAT example measurements.
+
 ## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.3.0...v0.4.0) (2026-10-08)
 
 ### Better completion

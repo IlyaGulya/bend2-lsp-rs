@@ -328,6 +328,111 @@ Keep the named Cargo and target volumes. Use `docker compose stop rust` /
 `docker compose start rust` for routine pause/resume; rebuild only when the
 container definition changes.
 
+### Opt-in server heap profiling
+
+The optional `dhat-heap` feature profiles allocations in the actual LSP server
+using the Rust [dhat crate](https://docs.rs/dhat/0.3.3/dhat/). Normal builds and
+published binaries do not include this allocator. Build a separate symbolized
+profiling binary without changing the default release profile:
+
+```sh
+cargo build --locked --release --features dhat-heap --bin bend2-lsp \
+  --target-dir target/dhat \
+  --config 'profile.release.debug=1' --config 'profile.release.strip="none"'
+BEND2_LSP_DHAT_FILE="$PWD/target/server-heap.json" \
+  ./target/dhat/release/bend2-lsp
+```
+
+Configure your editor to launch this binary and pass `BEND2_LSP_DHAT_FILE` to
+the server process. Unset disables profiling even in an all-features build;
+an explicitly empty value selects `dhat-heap.json` in the working directory.
+An explicit path selects that file. Its directory must already exist; the file
+is created or overwritten when profiling finishes, not at startup. A build without the
+feature ignores this variable. Release optimization and fat LTO remain unchanged;
+debug information and symbol retention above apply only to the profiling build.
+
+Capture a representative session, then let the client send LSP `shutdown`
+followed by `exit` and wait for the process to finish. The existing Unix SIGTERM
+shutdown path also finalizes the profile after server startup. Profiling starts
+before Tokio runtime creation and finishes after its teardown. A `shutdown`
+response alone does not write the file. Empty stdin before initialization was
+verified to finalize it; closing stdin immediately after initialization did not
+terminate either the profiling binary or the published v0.4.0 binary in the
+observed sessions. Use `shutdown`/`exit`, not EOF alone, for initialized sessions.
+Crashes, aborts, SIGKILL, and other termination that bypasses cleanup cannot be
+relied upon to save a profile.
+
+Open the JSON in the [DHAT viewer](https://nnethercote.github.io/dh_view/dh_view.html).
+It includes cumulative allocation bytes/blocks, peak live heap (`At t-gmax`),
+end-live heap (`At t-end`), and symbolized allocation stacks without a frame-count
+limit. The summary and any write errors go to stderr, never LSP stdout.
+End-live is measured after server/runtime teardown, not while documents remain
+open. Tracked heap is not process RSS or OS memory footprint: it excludes
+profiler bookkeeping, allocator overhead/retained pages, stacks, mappings, and
+compiler child processes. Collect OS process-memory measurements separately.
+Profiles can expose local paths and command-line arguments; review before sharing.
+
+This complements the existing
+[Valgrind DHAT example measurements](docs/performance-policy.md), including
+line-index/cold-snapshot profiles and folding allocation counts; those are not
+actual editor-driven LSP sessions. The upstream crate is experimental, and
+allocation stack collection can substantially slow the server and increase
+memory use. Use this build for attribution, not production latency measurements.
+
+#### Measured actual-server memory
+
+On macOS ARM64, three fresh alternating stdio sessions compared the
+checksum-verified public v0.3.0 and v0.4.0 executables. Each session used the
+260,429-byte large benchmark fixture, 100 completion requests after one full-text
+edit, 20 further unsaved full-text edits, then 100 additional 32,429-byte medium
+documents. Document-symbol responses and revision diagnostics confirmed that
+each snapshot was available before sampling. Compiler and prelude loading were
+disabled through isolated configuration with an unavailable compiler.
+
+Checkpoint RSS medians, in MiB (1,048,576 bytes), measured with macOS `ps`:
+
+| Checkpoint | v0.3.0 | v0.4.0 |
+| --- | ---: | ---: |
+| Initialized | 3.31 | 3.64 |
+| Large document open | 13.75 | 13.91 |
+| After 100 completion requests | 19.50 | 19.64 |
+| After 20 further unsaved edits | 39.83 | 37.75 |
+| Large plus 100 medium documents open | 192.05 | 190.88 |
+| All documents closed | 192.11 | 191.09 |
+
+These are checkpoint samples, not peak RSS, physical footprint, an editor
+measurement, or a memory regression gate. The v0.4.0 101-document samples ranged
+from 124.84 to 191.05 MiB; the lower sample's cause was not established. Do not
+interpret the small median decrease as a demonstrated optimization. Closing
+documents did not promptly reduce RSS; this alone cannot distinguish indexed
+cache retention, allocator-retained pages, or a leak.
+
+A separate symbolized `dhat-heap` build from v0.4.0 source
+`8c866cb6b9d66ed1255b17086222fe5dba39a3e4`, with the optional allocator integration,
+measured complete server lifetimes, including shutdown:
+
+| Session | Total allocated MiB / blocks | Peak live heap MiB |
+| --- | ---: | ---: |
+| Initialize and exit | 0.248 / 967 | 0.167 |
+| Open and close large document | 19.829 / 18,935 | 8.474 |
+| Large document, one edit, 100 completion requests, close | 47.659 / 105,955 | 12.970 |
+| Large plus 100 medium documents, then close | 530.163 / 650,448 | 157.802 |
+
+All four ended with 26,232 tracked bytes in 84 blocks after server/runtime
+teardown. The warm-session total includes snapshot rebuilding and protocol work,
+not just the individual queries. Global heap peak is the sum of program-point
+`gb` fields, not the sum of independent `mb` maxima. The 101-document fixture
+contains 3,503,329 source bytes and repeated nested function calls; it does not
+represent all project shapes, compiler child memory, generated Base, or package
+discovery. Its nine largest peak allocation program points account for 82.0% of
+tracked peak bytes, primarily `CallSite`, `Reference`, token storage, and dense
+token-to-index arrays. Compact index slots and capacity sizing are candidates
+for future measured improvements, not improvements demonstrated by this change.
+
+The existing scoped CPU/cache acceptances remain independent of these figures.
+Keep Callgrind thresholds unchanged; collect allocation/retained-heap and process
+memory evidence separately before proposing a memory gate.
+
 Further details:
 
 - [Performance policy, Callgrind gates, calibration, and LSP latency reports](docs/performance-policy.md) —

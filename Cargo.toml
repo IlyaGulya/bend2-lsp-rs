@@ -42,7 +42,11 @@ rust-version.workspace = true
 name = "bend2-lsp"
 path = "src/main.rs"
 
+[features]
+dhat-heap = ["dep:dhat"]
+
 [dependencies]
+dhat = { version = "0.3.3", optional = true }
 tower-lsp = "0.20"
 tower = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "io-util", "sync", "signal"] }
