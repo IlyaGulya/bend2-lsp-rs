@@ -306,8 +306,8 @@ mod protocol {
         let offered = actions(&mut client, &uri, unsaved, "builtin", "quickfix");
         assert_eq!(offered.len(), 1);
         let edited = apply(unsaved, &offered[0], &uri, 2);
-        assert!(edited.starts_with("import Base as Base\n"));
-        assert!(edited.contains("  Base.builtin\n"));
+        assert!(edited.starts_with("import Base\n"));
+        assert!(edited.contains("  builtin\n"));
         change(&mut client, &uri, &edited, 3);
         assert_eq!(
             definition(&mut client, &uri, &edited, "builtin")["uri"],

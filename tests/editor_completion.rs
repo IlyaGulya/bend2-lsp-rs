@@ -250,6 +250,92 @@ mod protocol {
     }
 
     #[test]
+    fn import_acceptance_replaces_middle_path_and_preserves_explicit_alias() {
+        let source = "# header 😀\nimport toOLD.bend as UserChosen # keep me\r\n";
+        let mut editor = Editor::new(source, Some("def value:\n  1\n"));
+        let items = editor.complete("import to");
+        assert_eq!(
+            apply(source, item(&items, "tools.bend")),
+            "# header 😀\nimport tools.bend as UserChosen # keep me\r\n"
+        );
+        editor.replace("import toOLD.bend as # keep me\n");
+        let items = editor.complete("import to");
+        assert_eq!(
+            apply(&editor.source, item(&items, "tools.bend")),
+            "import tools.bend as Tools # keep me\n"
+        );
+        editor.replace("import BOLD as Wrong # keep me\n");
+        let items = editor.complete("import B");
+        assert_eq!(
+            apply(&editor.source, item(&items, "Base")),
+            "import Base # keep me\n"
+        );
+        editor.finish();
+    }
+
+    #[test]
+    fn import_acceptance_generates_ascii_aliases_for_unicode_and_relative_paths() {
+        let mut editor = Editor::new("import ", None);
+        for (path, alias) in [
+            ("./nested/tools.bend", "Tools"),
+            ("../sibling.bend", "Sibling"),
+            ("./nested/工具.bend", "Module"),
+            ("./nested/😀value.bend", "Value"),
+            ("./nested/123-name.bend", "Module123name"),
+            ("./nested/_private.bend", "_private"),
+        ] {
+            let uri = Url::from_file_path(editor.temp.path().join(path))
+                .must_be("indexed relative target URI");
+            editor.client.notify("textDocument/didOpen", json!({"textDocument":{
+                "uri":uri,"languageId":"bend","version":1,"text":"def value:\n  1\n"
+            }}));
+            editor.client.request("textDocument/documentSymbol", json!({"textDocument":{"uri":uri}}));
+            editor.replace("import ");
+            let label = if path.starts_with("../") { path } else { &path[2..] };
+            let items = editor.complete("import ");
+            let edited = apply(&editor.source, item(&items, label));
+            assert_eq!(edited, format!("import {label} as {alias}"));
+            let alias = edited.rsplit_once(" as ").must_be("generated alias").1;
+            assert!(alias.as_bytes()[0].is_ascii_alphabetic() || alias.starts_with('_'));
+            assert!(alias.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_'));
+        }
+        editor.finish();
+    }
+
+    #[test]
+    fn import_acceptance_avoids_declarations_bindings_aliases_and_unicode_fallback_collisions() {
+        let source = "import other.bend as Tools\nimport toOLD.bend\ndef Tools2:\n  1\ndef Tools3.member:\n  2\ndef main(Tools4):\n  Tools5\n";
+        let mut editor = Editor::new(source, Some("def value:\n  1\n"));
+        let items = editor.complete("\nimport to");
+        let edited = apply(source, item(&items, "tools.bend"));
+        assert!(edited.contains("\nimport tools.bend as Tools6\n"), "{edited}");
+        let unicode = Url::from_file_path(editor.temp.path().join("工具.bend")).must_be("Unicode URI");
+        editor.client.notify("textDocument/didOpen", json!({"textDocument":{
+            "uri":unicode,"languageId":"bend","version":1,"text":"def value:\n  1\n"
+        }}));
+        editor.client.request("textDocument/documentSymbol", json!({"textDocument":{"uri":unicode}}));
+        editor.replace("import \ndef Module:\n  1\ndef Module2:\n  2\n");
+        let items = editor.complete("import ");
+        assert_eq!(
+            apply(&editor.source, item(&items, "工具.bend")),
+            "import 工具.bend as Module3\ndef Module:\n  1\ndef Module2:\n  2\n"
+        );
+        editor.finish();
+    }
+
+    #[test]
+    fn import_acceptance_reuses_existing_namespace_for_relative_spelling() {
+        let source = "import ./tools.bend as Existing\nimport toOLD.bend # repeated\n";
+        let mut editor = Editor::new(source, Some("def value:\n  1\n"));
+        let items = editor.complete("\nimport to");
+        assert_eq!(
+            apply(source, item(&items, "tools.bend")),
+            "import ./tools.bend as Existing\nimport tools.bend as Existing # repeated\n"
+        );
+        editor.finish();
+    }
+
+    #[test]
     fn cached_package_import_continuation_uses_indexed_spelling() {
         let package = "0x0123456789abcdef0123456789abcdef";
         let source = format!("import {package}/library.bend as Cached\nimport {package}/li");
@@ -261,7 +347,10 @@ mod protocol {
         });
         let label = format!("{package}/library.bend");
         let items = editor.complete(&format!("\nimport {package}/li"));
-        assert_eq!(item(&items, &label)["textEdit"]["newText"], label);
+        assert_eq!(
+            apply(&source, item(&items, &label)),
+            format!("import {package}/library.bend as Cached\nimport {package}/library.bend as Cached")
+        );
         editor.finish();
     }
 }

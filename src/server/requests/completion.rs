@@ -1,11 +1,12 @@
 use super::super::{adapters, features::cursor_in_comment_or_string, lsp::Backend};
+use super::import_edits::import_path_edit;
 use crate::{analysis, workspace::Document};
 use std::collections::HashSet;
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
-        CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, InlayHint,
-        InlayHintParams, SignatureHelp, SignatureHelpParams,
+        CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
+        InlayHint, InlayHintParams, SignatureHelp, SignatureHelpParams,
     },
 };
 
@@ -79,10 +80,12 @@ impl Backend {
                 .available_import_targets(&doc)
                 .into_iter()
                 .filter(|target| analysis::completion_match(target, prefix).is_some())
-                .map(|target| {
+                .filter_map(|target| {
+                    let edit = import_path_edit(&doc, path, &target)?;
                     let mut item = CompletionItem::new_simple(target, "Available import".into());
                     item.kind = Some(CompletionItemKind::MODULE);
-                    item
+                    item.text_edit = Some(CompletionTextEdit::Edit(edit));
+                    Some(item)
                 })
                 .collect();
             return Ok(Some(CompletionResponse::Array(

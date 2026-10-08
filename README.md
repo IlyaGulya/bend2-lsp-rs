@@ -151,6 +151,15 @@ aliases; a shadowed alias does not offer the imported module's members.
 Known explicit ADT annotations narrow case-pattern constructor candidates.
 Unknown types keep the available candidates rather than pretending to infer a type.
 
+Accepting an import completion inserts `import Base` without an alias, or a
+complete local/cached-package import such as `import tools.bend as Tools`.
+An alias you already typed is preserved; accepting in the middle of a path
+replaces its old suffix too. New aliases use the filename stem with non-ASCII
+and punctuation characters removed, an uppercase first ASCII letter, and
+`Module` prefixed for empty or digit-leading stems. Name conflicts add `2`, `3`,
+and so on (`Tools2`); repeated imports reuse their existing alias. Unicode
+filenames remain unchanged in the path.
+
 Local imports are indexed for cross-file features. `Base` comes from `bend base`.
 Hub package navigation uses packages already present in the local Bend library
 cache (`BEND_LIB` or the Bend home library); the server does not fetch packages.

@@ -106,13 +106,15 @@ pub(super) fn finish_completion_items(
             ));
         }
         item.filter_text = Some(item.label.clone());
-        item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
-            range: replacement,
-            new_text: item
-                .insert_text
-                .clone()
-                .unwrap_or_else(|| item.label.clone()),
-        }));
+        if item.text_edit.is_none() {
+            item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: replacement,
+                new_text: item
+                    .insert_text
+                    .clone()
+                    .unwrap_or_else(|| item.label.clone()),
+            }));
+        }
     }
     items.sort_unstable_by(|left, right| left.sort_text.cmp(&right.sort_text));
     items

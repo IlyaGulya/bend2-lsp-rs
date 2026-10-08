@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Better import completion
+
+- Accept local and cached-package import suggestions without manually adding an
+  alias. Keep explicit aliases and comments, replace the full path when the
+  caret is in its middle, and generate valid collision-free ASCII aliases for
+  nested, relative, and Unicode filenames.
+- Keep `Base` imports unaliased, including Missing import quick fixes. Reuse the
+  existing alias when completing another import of the same path.
+
 ### Development
 
 - Add default-off `dhat-heap` profiling for the actual LSP server, with
