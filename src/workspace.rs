@@ -406,6 +406,35 @@ impl WorkspaceDb {
     }
 
     pub(crate) fn import_candidates(&self, source: &Url, name: &str) -> Vec<(Document, String)> {
+        self.import_candidates_matching(source, |snapshot| {
+            analysis::declaration_range(snapshot, name).map(|_| ())
+        })
+        .into_iter()
+        .map(|(document, path, ())| (document, path))
+        .collect()
+    }
+
+    pub(crate) fn import_completion_candidates(
+        &self,
+        source: &Url,
+        prefix: &str,
+        in_case_pattern: bool,
+    ) -> Vec<(Document, String, Vec<analysis::Completion>)> {
+        self.import_candidates_matching(source, |snapshot| {
+            let items = if in_case_pattern {
+                analysis::constructor_completion_items(snapshot, None, prefix)
+            } else {
+                analysis::module_completion_items(snapshot, prefix)
+            };
+            (!items.is_empty()).then_some(items)
+        })
+    }
+
+    fn import_candidates_matching<T>(
+        &self,
+        source: &Url,
+        mut matching: impl FnMut(&DocumentSnapshot) -> Option<T>,
+    ) -> Vec<(Document, String, T)> {
         let Some(source_path) = self
             .file_id_by_uri(source)
             .and_then(|id| self.entries[id.0].path.as_deref())
@@ -422,10 +451,12 @@ impl WorkspaceDb {
                     .compiler_documents
                     .as_ref()
                     .is_some_and(|documents| documents.contains_key(&id))
-                || analysis::declaration_range(snapshot, name).is_none()
             {
                 return;
             }
+            let Some(items) = matching(snapshot) else {
+                return;
+            };
             let Some(path) = entry.path.as_deref().filter(|path| {
                 path.extension()
                     .is_some_and(|extension| extension == "bend")
@@ -439,7 +470,7 @@ impl WorkspaceDb {
                 return;
             };
             if let Some(document) = entry.document() {
-                candidates.push((document, relative));
+                candidates.push((document, relative, items));
             }
         });
         candidates.sort_unstable_by(|left, right| left.1.cmp(&right.1));

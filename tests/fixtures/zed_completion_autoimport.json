@@ -1,0 +1,37 @@
+{
+  "purpose": "Real Zed acceptance and undo checks; protocol regressions live in editor_completion.rs.",
+  "files": {
+    "tools.bend": "def value:\n  1\n",
+    "other.bend": "def value:\n  2\n",
+    "main.bend": "def value_local:\n  0\ndef main(Tools):\n  value\n"
+  },
+  "indexing": "Open tools.bend and other.bend in Zed before main.bend. Wait for document symbols for both; no whole-project discovery is expected.",
+  "scenarios": [
+    {
+      "name": "browse, distinguish, cancel",
+      "actions": "At the final value in main.bend, open regular completion. Inspect both value candidates, browse, then press Escape.",
+      "expect": "Both source modules are visible. In-scope value_local ranks before out-of-scope candidates. No import or buffer modification occurs."
+    },
+    {
+      "name": "accept, collide, navigate, undo",
+      "actions": "Reopen completion at final value and accept the tools.bend candidate. Navigate from the inserted value, return to main.bend, then undo once.",
+      "accepted_main": "import ./tools.bend as Tools2\ndef value_local:\n  0\ndef main(Tools):\n  Tools2.value\n",
+      "expect": "Definition opens tools.bend. One undo restores the exact original main.bend, removing both qualification and inserted import. Redo restores accepted_main."
+    },
+    {
+      "name": "existing unsaved alias and repeat acceptance",
+      "unsaved_main": "import tools.bend as Kit\ndef main:\n  val\n",
+      "actions": "Accept tools.bend value. Change Kit to Unsaved in the buffer without saving. On a new indented line type val and accept tools.bend value again.",
+      "accepted_main": "import tools.bend as Unsaved\ndef main:\n  Unsaved.value\n  Unsaved.value\n",
+      "expect": "Each acceptance uses the current alias. The existing import spelling stays unchanged, and no duplicate import appears. Undo the second acceptance as one operation."
+    },
+    {
+      "name": "unsaved target and UTF-16 middle-token replacement",
+      "unsaved_tools": "def newest(x):\n  x\n",
+      "unsaved_main": "def main:\n  \"😀\"; nwzz(1)\n",
+      "actions": "Replace tools.bend with unsaved_tools without saving. In main.bend place the cursor after nw but before zz, open completion, and accept tools.bend newest.",
+      "accepted_main": "import ./tools.bend as Tools\ndef main:\n  \"😀\"; Tools.newest(1)\n",
+      "expect": "The current unsaved symbol is offered. The old zz suffix disappears, emoji and call suffix survive, and one undo restores unsaved_main."
+    }
+  ]
+}

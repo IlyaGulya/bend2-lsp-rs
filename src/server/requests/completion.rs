@@ -1,13 +1,13 @@
 use super::super::{adapters, features::cursor_in_comment_or_string, lsp::Backend};
-use super::import_edits::import_path_edit;
+use super::import_edits::{auto_import_plan, import_path_edit};
 use crate::{analysis, workspace::Document};
 use std::collections::HashSet;
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
-        CompletionItem, CompletionItemKind, CompletionList, CompletionParams, CompletionResponse,
-        CompletionTextEdit,
-        InlayHint, InlayHintParams, SignatureHelp, SignatureHelpParams,
+        CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionList,
+        CompletionParams, CompletionResponse, CompletionTextEdit, InlayHint, InlayHintParams,
+        SignatureHelp, SignatureHelpParams,
     },
 };
 
@@ -281,7 +281,59 @@ impl Backend {
                 }
             }
         }
+        self.append_import_completion_items(doc, prefix_start, prefix, in_case_pattern, &mut items);
         items
+    }
+
+    fn append_import_completion_items(
+        &self,
+        doc: &Document,
+        offset: usize,
+        prefix: &str,
+        in_case_pattern: bool,
+        items: &mut Vec<CompletionItem>,
+    ) {
+        let workspace = self.workspace.read();
+        let candidates = workspace.import_completion_candidates(&doc.uri, prefix, in_case_pattern);
+        let base = self.compiler.base_module.read().clone().filter(|_| {
+            !doc
+                .syntax
+                .imports()
+                .iter()
+                .any(|import| import.path_text(&doc.text) == "Base")
+        });
+        let base_candidates = base.map(|module| {
+            let completions = if in_case_pattern {
+                analysis::constructor_completion_items(&module.snapshot, None, prefix)
+            } else {
+                analysis::module_completion_items(&module.snapshot, prefix)
+            };
+            (
+                Document::with_snapshot(module.uri, "bend".into(), module.snapshot),
+                "Base".to_owned(),
+                completions,
+            )
+        });
+        for (target, path, completions) in candidates.into_iter().chain(base_candidates) {
+            for mut item in adapters::completion_items(completions) {
+                let Some(plan) =
+                    auto_import_plan(doc, &workspace, &target.uri, &path, &item.label, offset)
+                else {
+                    continue;
+                };
+                let detail = item.detail.get_or_insert_with(String::new);
+                detail.push_str(" — from ");
+                detail.push_str(&path);
+                item.label_details = Some(CompletionItemLabelDetails {
+                    detail: None,
+                    description: Some(path.clone()),
+                });
+                item.insert_text = Some(plan.qualified_name);
+                item.additional_text_edits = plan.import_edit.map(|edit| vec![edit]);
+                item.sort_text = adapters::completion_sort_text(&item, prefix, true);
+                items.push(item);
+            }
+        }
     }
 
     pub(in crate::server) async fn handle_signature_help(

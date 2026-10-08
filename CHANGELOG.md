@@ -27,6 +27,14 @@
   insertion text. Document Zed's automatic-completion settings and inline
   prediction precedence.
 
+### Better completion
+
+- Accept a symbol suggestion from an already indexed module to insert its
+  qualified name and missing import together. Suggestions show their source
+  module, reuse existing aliases, and avoid duplicate imports and alias conflicts.
+  Unsaved modules and imports are supported; browsing or cancelling leaves the
+  document unchanged. In-scope suggestions retain priority over cross-module names.
+
 ### Development
 
 - Add default-off `dhat-heap` profiling for the actual LSP server, with

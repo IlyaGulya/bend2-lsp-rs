@@ -89,6 +89,20 @@ pub(super) fn completion_items(items: Vec<analysis::Completion>) -> Vec<Completi
         .collect()
 }
 
+pub(super) fn completion_sort_text(
+    item: &CompletionItem,
+    prefix: &str,
+    out_of_scope: bool,
+) -> Option<String> {
+    let (class, gaps, length) = analysis::completion_match(&item.label, prefix)?;
+    let priority = u8::from(out_of_scope);
+    let scope = u8::from(item.kind != Some(CompletionItemKind::VARIABLE));
+    Some(format!(
+        "{priority}{class:01}{gaps:010}{scope:01}{length:010}{}",
+        item.label
+    ))
+}
+
 /// Apply snapshot-local edits without disturbing an auto-import's additional edits.
 pub(super) fn finish_completion_items(
     snapshot: &DocumentSnapshot,
@@ -98,21 +112,35 @@ pub(super) fn finish_completion_items(
 ) -> Vec<CompletionItem> {
     let replacement = range(snapshot, replacement);
     for item in &mut items {
-        if let Some((class, gaps, length)) = analysis::completion_match(&item.label, prefix) {
-            let scope = u8::from(item.kind != Some(CompletionItemKind::VARIABLE));
-            item.sort_text = Some(format!(
-                "{class:01}{gaps:010}{scope:01}{length:010}{}",
-                item.label
-            ));
+        if item.sort_text.is_none() {
+            item.sort_text = completion_sort_text(item, prefix, false);
         }
         item.filter_text = Some(item.label.clone());
         if item.text_edit.is_none() {
+            let mut new_text = item
+                .insert_text
+                .take()
+                .unwrap_or_else(|| item.label.clone());
+            if let Some(edits) = &mut item.additional_text_edits {
+                edits.retain(|edit| {
+                    if edit.range.start == edit.range.end
+                        && replacement.start <= edit.range.start
+                        && edit.range.start <= replacement.end
+                    {
+                        if edit.range.start == replacement.end && replacement.start != replacement.end {
+                            new_text.push_str(&edit.new_text);
+                        } else {
+                            new_text.insert_str(0, &edit.new_text);
+                        }
+                        false
+                    } else {
+                        true
+                    }
+                });
+            }
             item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
                 range: replacement,
-                new_text: item
-                    .insert_text
-                    .clone()
-                    .unwrap_or_else(|| item.label.clone()),
+                new_text,
             }));
         }
     }

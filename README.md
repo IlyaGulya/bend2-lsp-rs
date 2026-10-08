@@ -111,7 +111,7 @@ editor. Source-based features are **not** a full compiler type checker.
 | Feature | Support and scope |
 | --- | --- |
 | Diagnostics | Local lexical checks plus errors from the installed Bend CLI; see limitations below |
-| Completion | Fuzzy ranked names, UTF-16 identifier replacement edits, scoped bindings, explicit-type constructor filtering in nested case patterns, imported members, `Base`, and indexed import paths |
+| Completion | Fuzzy ranked names, UTF-16 identifier replacement edits, scoped bindings, explicit-type constructor filtering in nested case patterns, imported members, `Base`, indexed import paths, and indexed symbols with acceptance-time auto-imports |
 | Signature help | Function parameters and the active argument |
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
@@ -175,6 +175,16 @@ word-triggered completions. If that prevents LSP suggestions, add
 `"show_edit_predictions": false` to the same `"Bend 2"` object to prefer LSP
 completion without changing predictions for other languages. The extension does
 not disable automatic completion or change your personal settings.
+
+Regular symbol completion also offers matching declarations from already indexed
+modules, including their unsaved buffers. The source module is shown beside each
+candidate, so same-named symbols remain distinguishable. Accepting a suggestion
+inserts its qualified name and the needed import together; an existing usable alias
+is reused, and new aliases avoid indexed names. In-scope names rank before these
+cross-module candidates. Browsing or cancelling the popup does not change the buffer.
+Repeat acceptance uses the latest unsaved imports and does not add duplicates.
+The Missing import quick fix remains available and follows the same alias rules.
+This does not discover unopened project files or download packages.
 
 Known explicit ADT annotations narrow case-pattern constructor candidates.
 Unknown types keep the available candidates rather than pretending to infer a type.
