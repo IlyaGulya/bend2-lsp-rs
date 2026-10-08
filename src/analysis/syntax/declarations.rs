@@ -232,7 +232,7 @@ fn parse_function_parameters(
     let mut parameter_start = open.0 + 1;
     for comma in open.0 + 1..close {
         if context.tokens[comma].kind == TokenKind::Punctuation
-            && context.delimiter_context[comma] == Some(open)
+            && context.delimiter_context[comma].value() == Some(open.0)
             && &context.source[context.tokens[comma].range.start..context.tokens[comma].range.end]
                 == ","
         {
@@ -295,7 +295,7 @@ fn parse_pattern_bindings(
         }
         let colon = (first + 1..limit).find(|index| {
             context.tokens[*index].kind == TokenKind::Punctuation
-                && context.delimiter_context[*index].is_none()
+                && context.delimiter_context[*index].value().is_none()
                 && &context.source
                     [context.tokens[*index].range.start..context.tokens[*index].range.end]
                     == ":"

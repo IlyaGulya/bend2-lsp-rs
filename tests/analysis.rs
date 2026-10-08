@@ -536,3 +536,59 @@ fn inlay_hints_order_nested_calls_and_limit_labels_to_declared_parameters() {
         ]
     );
 }
+
+#[test]
+fn dense_index_lookups_distinguish_zero_ids_missing_entries_and_nested_calls() {
+    use bend2_lsp::analysis::{SymbolId, TokenId};
+
+    let snapshot = DocumentSnapshot::new(
+        Revision(1),
+        "def first(value: U32) -> U32:\n  value\n\
+         def main() -> U32:\n  first(first(1))\n  unknown\n"
+            .to_owned(),
+    );
+    let syntax = &snapshot.syntax;
+    let first = snapshot
+        .text
+        .find("first")
+        .must_be("first declaration");
+    let declaration = syntax.token_at_or_before(first).must_be("declaration token");
+    assert_eq!(syntax.symbol_for_token(declaration), Some(SymbolId(0)));
+    assert_eq!(
+        syntax.reference_for_token(declaration).must_be("declaration reference").resolved,
+        Some(SymbolId(0))
+    );
+    assert_eq!(syntax.name_text(&snapshot.text, syntax.name_for_token(TokenId(0)).must_be("first name")), "def");
+    assert_eq!(syntax.symbol_for_token(TokenId(0)), None);
+    assert_eq!(syntax.reference_for_token(TokenId(0)).must_be("keyword reference").resolved, None);
+    let punctuation = syntax.token_at_or_before(first + "first".len()).must_be("opening delimiter");
+    assert_eq!(syntax.name_for_token(punctuation), None);
+    assert_eq!(syntax.reference_for_token(punctuation), None);
+    assert_eq!(syntax.call_for_token(TokenId(0)), None);
+    assert_eq!(syntax.call_by_open(TokenId(0)), None);
+    for token in [TokenId(syntax.tokens().len()), TokenId(usize::MAX)] {
+        assert_eq!(syntax.name_for_token(token), None);
+        assert_eq!(syntax.symbol_for_token(token), None);
+        assert!(syntax.reference_for_token(token).is_none());
+        assert!(syntax.call_for_token(token).is_none());
+        assert!(syntax.call_by_open(token).is_none());
+    }
+
+    let outer = snapshot.text.find("first(first").must_be("outer call");
+    let inner = outer + "first(".len();
+    let outer_token = syntax.token_at_or_before(outer).must_be("outer callee");
+    let inner_token = syntax.token_at_or_before(inner).must_be("inner callee");
+    let outer_call = syntax.call_for_token(outer_token).must_be("first call index");
+    let inner_call = syntax.call_for_token(inner_token).must_be("nested call");
+    assert_eq!(outer_call.callee, Some(SymbolId(0)));
+    assert_eq!(inner_call.callee, Some(SymbolId(0)));
+    assert_eq!(syntax.call_by_open(outer_call.open), Some(outer_call));
+    assert_eq!(syntax.call_by_open(inner_call.open), Some(inner_call));
+    assert_eq!(syntax.call_at(inner + "first(".len()).map(|(call, argument)| (call.callee_token, argument)), Some((inner_token, 0)));
+
+    let unknown = snapshot.text.find("unknown").must_be("unresolved name");
+    let unknown_token = syntax.token_at_or_before(unknown).must_be("unresolved token");
+    assert_eq!(syntax.symbol_for_token(unknown_token), None);
+    assert_eq!(syntax.reference_for_token(unknown_token).must_be("unresolved reference").resolved, None);
+    assert_eq!(syntax.call_for_token(unknown_token), None);
+}

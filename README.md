@@ -426,12 +426,43 @@ contains 3,503,329 source bytes and repeated nested function calls; it does not
 represent all project shapes, compiler child memory, generated Base, or package
 discovery. Its nine largest peak allocation program points account for 82.0% of
 tracked peak bytes, primarily `CallSite`, `Reference`, token storage, and dense
-token-to-index arrays. Compact index slots and capacity sizing are candidates
-for future measured improvements, not improvements demonstrated by this change.
+token-to-index arrays. These historical runs precede the compact storage change.
 
 The existing scoped CPU/cache acceptances remain independent of these figures.
 Keep Callgrind thresholds unchanged; collect allocation/retained-heap and process
 memory evidence separately before proposing a memory gate.
+
+#### Compact indexes: source-identical compiler workload
+
+Six private token-to-name/symbol/reference/call/delimiter arrays now store empty
+slots in one machine word rather than two-word `Option<usize>` records. Public
+IDs retain their `usize` domain. The cold scanner counts identifier tokens while
+already scanning; reference construction reserves for that count rather than all
+tokens, without another scan. Published references were already boxed slices:
+this reservation change reduces construction allocations, not retained vector
+capacity. `Token`, `Reference`, and `CallSite` remain contiguous records; no
+hot/cold split or public record-layout migration is needed for these savings.
+
+A frozen 908,972-byte, 16-module selfhost compiler graph, real Bend 2.0.34, and
+the identical 71,530-byte generated `Base` were exercised over stdio. The session
+opened five compiler sources and Base, issued 100 warm feature requests, applied
+five unsaved parser revisions, closed all buffers, and completed shutdown/exit.
+Every revision's compiler diagnostics was empty.
+
+| Complete-session heap | Before | Compact indexes and reservation |
+| --- | ---: | ---: |
+| Total allocated bytes | 798,861,979 | 642,049,185 |
+| Peak live bytes | 118,943,743 | 87,044,204 |
+| End-live bytes | 26,808 | 26,808 |
+
+That is 19.6% less allocation traffic and 26.8% less peak live heap. Separate
+ordinary-binary sessions sampled LSP physical footprint with macOS libproc:
+96.45 → 75.52 MiB after opening the graph, and 153.78 → 101.36 MiB after the
+five revisions. These are one source-identical pair, not medians or a host-wide
+unique-memory measurement. Compiler child memory is not part of DHAT.
+The initial Linux ARM64 Callgrind comparison improved cold snapshot instructions
+but failed several unchanged warm instruction/cache thresholds. The evidence
+does not authorize a regression or replace hosted x86_64 CI.
 
 Further details:
 

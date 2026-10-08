@@ -37,6 +37,34 @@ pub struct NameId(pub usize);
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SymbolId(pub usize);
 
+// usize::MAX cannot index any of the non-ZST token/symbol/reference/call buffers.
+// Keep empty dense slots in one word without narrowing the public ID domain.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct IndexSlot(usize);
+
+impl IndexSlot {
+    const EMPTY: Self = Self(usize::MAX);
+
+    const fn some(index: usize) -> Self {
+        Self(index)
+    }
+
+    const fn from_option(index: Option<usize>) -> Self {
+        match index {
+            Some(index) => Self(index),
+            None => Self::EMPTY,
+        }
+    }
+
+    const fn value(self) -> Option<usize> {
+        if self.0 == usize::MAX {
+            None
+        } else {
+            Some(self.0)
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TokenKind {
     Identifier,
@@ -220,7 +248,7 @@ struct BindingContext<'a> {
     lines: &'a [SyntaxLine],
     tokens: &'a [Token],
     delimiter_pairs: &'a [DelimiterPair],
-    delimiter_context: &'a [Option<TokenId>],
+    delimiter_context: &'a [IndexSlot],
     symbol_count: usize,
     names: &'a NameTable,
 }
@@ -229,10 +257,10 @@ struct CallInputs<'a> {
     source: &'a str,
     tokens: &'a [Token],
     delimiter_pairs: &'a [DelimiterPair],
-    delimiter_context: &'a [Option<TokenId>],
+    delimiter_context: &'a [IndexSlot],
     symbols: &'a [IndexedSymbol],
     bindings: &'a [IndexedBinding],
-    token_symbols: &'a [Option<SymbolId>],
+    token_symbols: &'a [IndexSlot],
     names: &'a mut NameTable,
 }
 
@@ -240,9 +268,9 @@ struct CallBuild<'a> {
     source: &'a str,
     tokens: &'a [Token],
     delimiter_pairs: &'a [DelimiterPair],
-    delimiter_context: &'a [Option<TokenId>],
+    delimiter_context: &'a [IndexSlot],
     symbols: &'a [IndexedSymbol],
-    token_symbols: &'a [Option<SymbolId>],
+    token_symbols: &'a [IndexSlot],
     declarations: &'a [bool],
     names: &'a mut NameTable,
 }
@@ -251,8 +279,8 @@ struct CallIndex {
     calls: Vec<CallSite>,
     arguments: Vec<TextRange>,
     separators: Vec<usize>,
-    by_open: Vec<Option<usize>>,
-    by_name_token: Vec<Option<usize>>,
+    by_open: Vec<IndexSlot>,
+    by_name_token: Vec<IndexSlot>,
     from_indices: Vec<usize>,
     from_spans: Vec<TextRange>,
     to_indices: Vec<usize>,
@@ -262,10 +290,11 @@ struct CallIndex {
 struct ReferenceInputs<'a> {
     source: &'a str,
     tokens: &'a [Token],
+    identifier_count: usize,
     names: &'a mut NameTable,
     symbols: &'a [IndexedSymbol],
     bindings: &'a [IndexedBinding],
-    token_symbols: &'a [Option<SymbolId>],
+    token_symbols: &'a [IndexSlot],
     calls: &'a [CallSite],
 }
 
@@ -275,7 +304,7 @@ struct ReferenceIndex {
     by_symbol_spans: Vec<TextRange>,
     by_name_indices: Vec<usize>,
     by_name_spans: Vec<TextRange>,
-    token_references: Vec<Option<usize>>,
+    token_references: Vec<IndexSlot>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -290,7 +319,7 @@ struct SyntaxLine {
 struct NameTable {
     ranges: Vec<TextRange>,
     lookup: HashMap<u64, Vec<NameId>>,
-    token_names: Vec<Option<NameId>>,
+    token_names: Vec<IndexSlot>,
 }
 impl NameTable {
     fn new() -> Self {
@@ -308,7 +337,7 @@ impl NameTable {
             for &candidate in candidates {
                 let existing = self.ranges[candidate.0];
                 if source[existing.start..existing.end] == *text {
-                    self.token_names.push(Some(candidate));
+                    self.token_names.push(IndexSlot::some(candidate.0));
                     return candidate;
                 }
             }
@@ -316,7 +345,7 @@ impl NameTable {
         let id = NameId(self.ranges.len());
         self.ranges.push(range);
         self.lookup.entry(hash).or_default().push(id);
-        self.token_names.push(Some(id));
+        self.token_names.push(IndexSlot::some(id.0));
         id
     }
 
@@ -332,7 +361,7 @@ impl NameTable {
     }
 
     fn append_non_name(&mut self) {
-        self.token_names.push(None);
+        self.token_names.push(IndexSlot::EMPTY);
     }
 
     fn find(&self, source: &str, text: &str) -> Option<NameId> {
@@ -348,7 +377,11 @@ impl NameTable {
     }
 
     fn for_token(&self, id: TokenId) -> Option<NameId> {
-        self.token_names.get(id.0).copied().flatten()
+        self.token_names
+            .get(id.0)
+            .copied()
+            .and_then(IndexSlot::value)
+            .map(NameId)
     }
 }
 
@@ -375,7 +408,7 @@ pub struct SyntaxIndex {
     reference_spans: Box<[TextRange]>,
     name_reference_indices: Box<[usize]>,
     name_reference_spans: Box<[TextRange]>,
-    token_references: Box<[Option<usize>]>,
+    token_references: Box<[IndexSlot]>,
     calls: Box<[CallSite]>,
     call_arguments: Box<[TextRange]>,
     call_separators: Box<[usize]>,
@@ -383,14 +416,14 @@ pub struct SyntaxIndex {
     calls_from_spans: Box<[TextRange]>,
     calls_to_indices: Box<[usize]>,
     calls_to_spans: Box<[TextRange]>,
-    call_by_open: Box<[Option<usize>]>,
-    call_by_name_token: Box<[Option<usize>]>,
+    call_by_open: Box<[IndexSlot]>,
+    call_by_name_token: Box<[IndexSlot]>,
     lines: Box<[SyntaxLine]>,
     auxiliary: AuxiliaryIndex,
     delimiter_pairs: Box<[DelimiterPair]>,
-    delimiter_context: Box<[Option<TokenId>]>,
+    delimiter_context: Box<[IndexSlot]>,
     symbol_by_name: HashMap<NameId, SymbolId>,
-    token_symbols: Box<[Option<SymbolId>]>,
+    token_symbols: Box<[IndexSlot]>,
     completion: completion::CompletionIndex,
 }
 
@@ -416,6 +449,7 @@ impl SyntaxIndex {
         let imports = parse_imports(source, &lines);
         let ScanOutput {
             tokens,
+            identifier_count,
             names,
             diagnostics,
             delimiter_pairs,
@@ -474,6 +508,7 @@ impl SyntaxIndex {
         let references = build_references(ReferenceInputs {
             source,
             tokens: &tokens,
+            identifier_count,
             names: &mut names,
             symbols: &symbols,
             bindings: &bindings,
@@ -576,7 +611,8 @@ impl SyntaxIndex {
             .delimiter_context
             .get(binding.declaration.0)
             .copied()
-            .flatten()?;
+            .and_then(IndexSlot::value)
+            .map(TokenId)?;
         let close = self
             .delimiter_pairs
             .binary_search_by_key(&open, |pair| pair.open)
@@ -597,7 +633,7 @@ impl SyntaxIndex {
             .position(|(offset, token)| {
                 let index = start + offset;
                 token.kind == TokenKind::Punctuation
-                    && self.delimiter_context[index] == Some(open)
+                    && self.delimiter_context[index].value() == Some(open.0)
                     && self.token_text(source, TokenId(index)) == Some(",")
             })
             .unwrap_or(tokens.len());
@@ -729,7 +765,11 @@ impl SyntaxIndex {
 
     #[must_use]
     pub fn symbol_for_token(&self, token: TokenId) -> Option<SymbolId> {
-        self.token_symbols.get(token.0).copied().flatten()
+        self.token_symbols
+            .get(token.0)
+            .copied()
+            .and_then(IndexSlot::value)
+            .map(SymbolId)
     }
 
     #[must_use]
@@ -775,7 +815,7 @@ impl SyntaxIndex {
 
     #[must_use]
     pub fn reference_for_token(&self, token: TokenId) -> Option<&Reference> {
-        let index = *self.token_references.get(token.0)?.as_ref()?;
+        let index = self.token_references.get(token.0)?.value()?;
         self.references.get(index)
     }
 
@@ -805,13 +845,13 @@ impl SyntaxIndex {
 
     #[must_use]
     pub fn call_by_open(&self, open: TokenId) -> Option<&CallSite> {
-        let index = self.call_by_open.get(open.0).copied().flatten()?;
+        let index = self.call_by_open.get(open.0)?.value()?;
         self.calls.get(index)
     }
 
     #[must_use]
     pub fn call_for_token(&self, token: TokenId) -> Option<&CallSite> {
-        let index = self.call_by_name_token.get(token.0).copied().flatten()?;
+        let index = self.call_by_name_token.get(token.0)?.value()?;
         self.calls.get(index)
     }
 
@@ -821,8 +861,8 @@ impl SyntaxIndex {
             .tokens
             .partition_point(|token| token.range.start < offset)
             .checked_sub(1)?;
-        let open = self.delimiter_context[previous]?;
-        let index = self.call_by_open.get(open.0).copied().flatten()?;
+        let open = self.delimiter_context[previous].value()?;
+        let index = self.call_by_open.get(open)?.value()?;
         let call = &self.calls[index];
         let separators =
             &self.call_separators[call.separator_indices.start..call.separator_indices.end];
@@ -912,10 +952,11 @@ fn hash_name(name: &str) -> u64 {
 
 struct ScanOutput {
     tokens: Vec<Token>,
+    identifier_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
     delimiter_pairs: Vec<DelimiterPair>,
-    delimiter_context: Vec<Option<TokenId>>,
+    delimiter_context: Vec<IndexSlot>,
     line_starts: Vec<usize>,
     line_ascii: Vec<u64>,
 }
@@ -927,28 +968,28 @@ fn resolve_symbols(
     symbols: &[IndexedSymbol],
     bindings: &[IndexedBinding],
     symbol_by_name: &HashMap<NameId, SymbolId>,
-) -> Vec<Option<SymbolId>> {
-    let mut token_symbols = vec![None; tokens.len()];
+) -> Vec<IndexSlot> {
+    let mut token_symbols = vec![IndexSlot::EMPTY; tokens.len()];
     for symbol in symbols {
         let start = tokens.partition_point(|token| token.range.end <= symbol.name_range.start);
         let end = tokens.partition_point(|token| token.range.start < symbol.name_range.end);
         for (offset, token) in tokens[start..end].iter().enumerate() {
             let index = start + offset;
             if token.kind == TokenKind::Identifier {
-                token_symbols[index] = Some(symbol.id);
+                token_symbols[index] = IndexSlot::some(symbol.id.0);
             }
         }
     }
     let mut bindings_by_name = HashMap::<NameId, Vec<usize>>::new();
     for (index, binding) in bindings.iter().enumerate() {
-        token_symbols[binding.declaration.0] = Some(binding.id);
+        token_symbols[binding.declaration.0] = IndexSlot::some(binding.id.0);
         bindings_by_name
             .entry(binding.name)
             .or_default()
             .push(index);
     }
     for (index, token) in tokens.iter().enumerate() {
-        if token.kind != TokenKind::Identifier || token_symbols[index].is_some() {
+        if token.kind != TokenKind::Identifier || token_symbols[index].value().is_some() {
             continue;
         }
         let token_id = TokenId(index);
@@ -975,7 +1016,7 @@ fn resolve_symbols(
                     .or_else(|| symbol_by_name.get(&name).copied())
             })
         };
-        token_symbols[index] = symbol;
+        token_symbols[index] = IndexSlot::from_option(symbol.map(|id| id.0));
     }
     token_symbols
 }
@@ -1005,8 +1046,8 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
     let mut calls = Vec::new();
     let mut arguments = Vec::new();
     let mut separators = Vec::new();
-    let mut by_open = vec![None; tokens.len()];
-    let mut by_name_token = vec![None; tokens.len()];
+    let mut by_open = vec![IndexSlot::EMPTY; tokens.len()];
+    let mut by_name_token = vec![IndexSlot::EMPTY; tokens.len()];
     for (open_index, (open_token, by_open_slot)) in
         context.tokens.iter().copied().zip(&mut by_open).enumerate()
     {
@@ -1020,10 +1061,10 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
             continue;
         };
         let call_index = calls.len();
-        *by_open_slot = Some(call_index);
-        by_name_token[call.callee_token.0] = Some(call_index);
+        *by_open_slot = IndexSlot::some(call_index);
+        by_name_token[call.callee_token.0] = IndexSlot::some(call_index);
         if let Some(qualifier_token) = call.qualifier_token {
-            by_name_token[qualifier_token.0] = Some(call_index);
+            by_name_token[qualifier_token.0] = IndexSlot::some(call_index);
         }
         calls.push(call);
     }
@@ -1095,7 +1136,7 @@ fn parse_call(
     for index in open_index + 1..limit {
         let token = context.tokens[index];
         if token.kind == TokenKind::Punctuation
-            && context.delimiter_context[index] == Some(TokenId(open_index))
+            && context.delimiter_context[index].value() == Some(open_index)
             && &context.source[token.range.start..token.range.end] == ","
         {
             if let Some(range) = trimmed_range(context.source, segment_start, token.range.start) {
@@ -1110,7 +1151,7 @@ fn parse_call(
     }
     Some(CallSite {
         caller: enclosing_function(context.symbols, callee_token.range.start),
-        callee: context.token_symbols[callee_index],
+        callee: context.token_symbols[callee_index].value().map(SymbolId),
         name,
         qualifier,
         qualifier_token,
@@ -1128,14 +1169,15 @@ fn build_references(input: ReferenceInputs<'_>) -> ReferenceIndex {
     let ReferenceInputs {
         source,
         tokens,
+        identifier_count,
         names,
         symbols,
         bindings,
         token_symbols,
         calls,
     } = input;
-    let mut references = Vec::with_capacity(tokens.len());
-    let mut token_references = vec![None; tokens.len()];
+    let mut references = Vec::with_capacity(identifier_count);
+    let mut token_references = vec![IndexSlot::EMPTY; tokens.len()];
     let mut call_tokens = vec![false; tokens.len()];
     for call in calls {
         call_tokens[call.callee_token.0] = true;
@@ -1148,7 +1190,7 @@ fn build_references(input: ReferenceInputs<'_>) -> ReferenceIndex {
         &mut token_references,
     );
     for (token_index, token) in tokens.iter().enumerate() {
-        if token.kind != TokenKind::Identifier || token_references[token_index].is_some() {
+        if token.kind != TokenKind::Identifier || token_references[token_index].value().is_some() {
             continue;
         }
         let token_id = TokenId(token_index);
@@ -1180,9 +1222,9 @@ fn build_references(input: ReferenceInputs<'_>) -> ReferenceIndex {
             } else {
                 ReferenceKind::Read
             },
-            resolved: token_symbols[token_index],
+            resolved: token_symbols[token_index].value().map(SymbolId),
         });
-        token_references[token_index] = Some(index);
+        token_references[token_index] = IndexSlot::some(index);
     }
     let (by_symbol_indices, by_symbol_spans) =
         compact_groups(&references, symbols.len() + bindings.len(), |reference| {
@@ -1207,7 +1249,7 @@ fn append_declaration_references(
     symbols: &[IndexedSymbol],
     bindings: &[IndexedBinding],
     references: &mut Vec<Reference>,
-    token_references: &mut [Option<usize>],
+    token_references: &mut [IndexSlot],
 ) {
     for symbol in symbols {
         let start = tokens.partition_point(|token| token.range.start < symbol.name_range.start);
@@ -1232,7 +1274,7 @@ fn append_declaration_references(
         });
         for (offset, token) in tokens[start..end].iter().enumerate() {
             if token.kind == TokenKind::Identifier {
-                token_references[start + offset] = Some(index);
+                token_references[start + offset] = IndexSlot::some(index);
             }
         }
     }
@@ -1248,7 +1290,7 @@ fn append_declaration_references(
             kind: ReferenceKind::Declaration,
             resolved: Some(binding.id),
         });
-        token_references[binding.declaration.0] = Some(index);
+        token_references[binding.declaration.0] = IndexSlot::some(index);
     }
 }
 

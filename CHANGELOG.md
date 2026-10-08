@@ -11,6 +11,14 @@
   startup/shutdown; normal builds keep their existing allocator and release
   profile. This complements the historical Valgrind DHAT example measurements.
 
+### Memory
+
+- Halve private dense optional-index slot storage without narrowing public IDs.
+  Count identifiers during cold scanning to avoid reserving reference rows for
+  punctuation. A source-identical selfhost compiler/Base session measured 26.8%
+  less peak live heap and 19.6% less allocation traffic; CPU/cache gates remain
+  independent and unchanged.
+
 ## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.3.0...v0.4.0) (2026-10-08)
 
 ### Better completion

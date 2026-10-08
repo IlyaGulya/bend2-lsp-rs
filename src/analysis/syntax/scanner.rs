@@ -1,5 +1,5 @@
 use super::{
-    DelimiterPair, DiagnosticKind, NameId, NameTable, ScanOutput, SyntaxDiagnostic, TextRange,
+    DelimiterPair, DiagnosticKind, IndexSlot, NameId, NameTable, ScanOutput, SyntaxDiagnostic, TextRange,
     Token, TokenFlags, TokenId, TokenKind,
 };
 
@@ -8,11 +8,12 @@ pub(super) struct Scanner<'a> {
     bytes: &'a [u8],
     offset: usize,
     tokens: Vec<Token>,
+    identifier_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
     delimiters: Vec<(char, TokenId)>,
     delimiter_pairs: Vec<DelimiterPair>,
-    delimiter_context: Vec<Option<TokenId>>,
+    delimiter_context: Vec<IndexSlot>,
     line_starts: Vec<usize>,
     line_ascii: Vec<u64>,
 }
@@ -29,6 +30,7 @@ impl<'a> Scanner<'a> {
             bytes: source.as_bytes(),
             offset: 0,
             tokens: Vec::new(),
+            identifier_count: 0,
             names: NameTable::new(),
             diagnostics: Vec::new(),
             delimiters: Vec::new(),
@@ -81,6 +83,7 @@ impl<'a> Scanner<'a> {
         self.delimiter_pairs.sort_unstable_by_key(|pair| pair.open);
         ScanOutput {
             tokens: self.tokens,
+            identifier_count: self.identifier_count,
             names: self.names,
             diagnostics: self.diagnostics,
             delimiter_pairs: self.delimiter_pairs,
@@ -200,7 +203,7 @@ impl<'a> Scanner<'a> {
         );
         if matches!(delimiter, '(' | '[' | '{') {
             self.delimiters.push((delimiter, id));
-            self.delimiter_context[id.0] = Some(id);
+            self.delimiter_context[id.0] = IndexSlot::some(id.0);
             return;
         }
         let expected = match delimiter {
@@ -215,7 +218,8 @@ impl<'a> Scanner<'a> {
                     open: open_token,
                     close: id,
                 });
-                self.delimiter_context[id.0] = self.delimiters.last().map(|(_, open)| *open);
+                self.delimiter_context[id.0] =
+                    IndexSlot::from_option(self.delimiters.last().map(|(_, open)| open.0));
             }
             _ => {
                 self.diagnostics.push(SyntaxDiagnostic {
@@ -284,9 +288,11 @@ impl<'a> Scanner<'a> {
             flags,
         });
         self.delimiter_context
-            .push(self.delimiters.last().map(|(_, id)| *id));
+            .push(IndexSlot::from_option(self.delimiters.last().map(|(_, id)| id.0)));
         if name.is_none() {
             self.names.append_non_name();
+        } else {
+            self.identifier_count += 1;
         }
     }
 }
