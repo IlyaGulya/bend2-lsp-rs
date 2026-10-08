@@ -35,6 +35,13 @@
   Unsaved modules and imports are supported; browsing or cancelling leaves the
   document unchanged. In-scope suggestions retain priority over cross-module names.
 
+### Editor instructions
+
+- Document Zed's whole-document Organize Imports command and default shortcut,
+  with before/after examples, safe sorting/deduplication rules, and the normal
+  unchanged-buffer result. Cover unsaved LF/CRLF buffers and import-group
+  boundaries with protocol regressions. Unused imports are not removed.
+
 ### Development
 
 - Add default-off `dhat-heap` profiling for the actual LSP server, with

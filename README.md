@@ -254,6 +254,62 @@ Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors
 `tabSize` and `insertSpaces` and declines unsafe rewrites.
 
+### Organize imports in Zed
+
+With a `.bend` editor focused, open the command palette and run
+**editor: organize imports** (`editor::OrganizeImports`), or use the default
+**Alt+Shift+O** shortcut (**Option+Shift+O** on macOS). This is a whole-document
+source action, not a diagnostic quick fix: the cursor can be in the function
+body, and no error or selection is required. It uses the current unsaved buffer
+and leaves saving to the editor. The server must support `source.organizeImports`
+(available since v0.4.0); an older configured or extension-installed binary will
+not offer it.
+
+For example, before:
+
+```bend
+# File header
+import ./z.bend as Z # keep this comment
+# Dependency documentation
+import ./dep.bend as D
+
+def main: U32
+  D.value
+```
+
+After:
+
+```bend
+# File header
+# Dependency documentation
+import ./dep.bend as D
+import ./z.bend as Z # keep this comment
+
+def main: U32
+  D.value
+```
+
+Rules:
+
+- Organize each leading import group independently. Blank lines and incomplete
+  import suffixes separate groups; imports are not moved into another group.
+- Sort by the written import path, then alias, without rewriting either.
+  Preserve order when different targets share an alias, including multiple
+  unaliased targets whose exposed names may conflict.
+- Deduplicate only the same indexed target (or identical written path when
+  unresolved) with the same alias. Distinct aliases remain. Keep duplicate
+  comments attached to the surviving import.
+- Inline comments and contiguous comment-only lines before a following import
+  move with that import. The file header before the first import stays in place.
+  Preserve LF/CRLF, final-newline presence, and text outside the affected groups.
+- **Do not remove unused imports.** This action does not perform compiler-backed
+  usage analysis.
+
+When there is nothing safe to change, the server returns no organize action.
+Zed's command then completes without changing the buffer or showing a success
+message; a second invocation is normally this same no-op. This also applies to
+files without imports and groups whose existing order must be preserved.
+
 ## Not supported
 
 - **Full compiler-powered semantic analysis:** expression type inference,
