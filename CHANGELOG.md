@@ -18,6 +18,15 @@
   in the project tree; never rewrite an alias or path segment instead.
   Alias rename keeps matching import path segments unchanged.
 
+### Better completion
+
+- Refresh import suggestions as you type, backspace, or continue after a path
+  separator. Find indexed files by fuzzy file names or paths, with file-name
+  exact and prefix matches ahead of fuzzy matches.
+- Keep the popup's searchable file name separate from the full import path and
+  insertion text. Document Zed's automatic-completion settings and inline
+  prediction precedence.
+
 ### Development
 
 - Add default-off `dhat-heap` profiling for the actual LSP server, with

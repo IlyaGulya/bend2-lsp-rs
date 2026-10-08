@@ -120,6 +120,97 @@ pub(super) fn finish_completion_items(
     items
 }
 
+/// Match file names without making leading `./`, directories, or `.bend` part
+/// of a filename's exact/prefix rank. Explicit directories still constrain the
+/// candidate through its import path.
+pub(super) fn import_completion_match(
+    target: &str,
+    prefix: &str,
+) -> Option<(u8, usize, usize)> {
+    let component = prefix.rsplit('/').next().unwrap_or(prefix);
+    let filename = target.rsplit('/').next().unwrap_or(target);
+    let with_extension = component.contains('.');
+    let filename = if with_extension {
+        filename
+    } else {
+        filename.strip_suffix(".bend").unwrap_or(filename)
+    };
+    let path = if with_extension {
+        target
+    } else {
+        target.strip_suffix(".bend").unwrap_or(target)
+    };
+    let path = if prefix.starts_with("./") {
+        path
+    } else {
+        path.strip_prefix("./").unwrap_or(path)
+    };
+    let path_match = analysis::completion_match(path, prefix);
+    if prefix.contains('/') {
+        path_match
+    } else {
+        analysis::completion_match(filename, prefix)
+            .into_iter()
+            .chain(path_match)
+            .min()
+    }
+}
+
+/// Zed filters LSP items against the surrounding completion word, not the
+/// replacement edit. Keep its searchable file component separate from the full
+/// import label and insertion text, and recompute it when the path changes.
+pub(super) fn finish_import_completion_items(
+    snapshot: &DocumentSnapshot,
+    replacement: TextRange,
+    prefix: &str,
+    mut items: Vec<CompletionItem>,
+) -> Vec<CompletionItem> {
+    let replacement = range(snapshot, replacement);
+    let component = prefix.rsplit('/').next().unwrap_or(prefix);
+    for item in &mut items {
+        if let Some((class, gaps, length)) = import_completion_match(&item.label, prefix) {
+            item.sort_text = Some(format!("{class:01}{gaps:010}{length:010}{}", item.label));
+        }
+        let filename = item.label.rsplit('/').next().unwrap_or(&item.label);
+        let filename = if component.contains('.') {
+            filename
+        } else {
+            filename.strip_suffix(".bend").unwrap_or(filename)
+        };
+        let path = if component.contains('.') {
+            item.label.as_str()
+        } else {
+            item.label.strip_suffix(".bend").unwrap_or(&item.label)
+        };
+        let path = if prefix.starts_with("./") {
+            path
+        } else {
+            path.strip_prefix("./").unwrap_or(path)
+        };
+        let filename_match = analysis::completion_match(filename, component);
+        let path_match = analysis::completion_match(path, component);
+        let filter = if filename_match.is_some()
+            && (path_match.is_none() || filename_match <= path_match)
+        {
+            filename
+        } else {
+            path
+        };
+        item.filter_text = Some(filter.to_owned());
+        if item.text_edit.is_none() {
+            item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: replacement,
+                new_text: item
+                    .insert_text
+                    .clone()
+                    .unwrap_or_else(|| item.label.clone()),
+            }));
+        }
+    }
+    items.sort_unstable_by(|left, right| left.sort_text.cmp(&right.sort_text));
+    items
+}
+
 pub(super) fn inlay_hints(
     snapshot: &DocumentSnapshot,
     hints: Vec<analysis::InlayHint>,

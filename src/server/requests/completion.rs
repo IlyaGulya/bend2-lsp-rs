@@ -5,7 +5,8 @@ use std::collections::HashSet;
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
-        CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
+        CompletionItem, CompletionItemKind, CompletionList, CompletionParams, CompletionResponse,
+        CompletionTextEdit,
         InlayHint, InlayHintParams, SignatureHelp, SignatureHelpParams,
     },
 };
@@ -79,7 +80,7 @@ impl Backend {
             let items = self
                 .available_import_targets(&doc)
                 .into_iter()
-                .filter(|target| analysis::completion_match(target, prefix).is_some())
+                .filter(|target| adapters::import_completion_match(target, prefix).is_some())
                 .filter_map(|target| {
                     let edit = import_path_edit(&doc, path, &target)?;
                     let mut item = CompletionItem::new_simple(target, "Available import".into());
@@ -88,9 +89,12 @@ impl Backend {
                     Some(item)
                 })
                 .collect();
-            return Ok(Some(CompletionResponse::Array(
-                adapters::finish_completion_items(&doc, path, prefix, items),
-            )));
+            // Import filtering and file-vs-path metadata depend on the current
+            // query. A complete array lets Zed reuse stale items after typing.
+            return Ok(Some(CompletionResponse::List(CompletionList {
+                is_incomplete: true,
+                items: adapters::finish_import_completion_items(&doc, path, prefix, items),
+            })));
         }
         let prefix_token = offset
             .checked_sub(1)

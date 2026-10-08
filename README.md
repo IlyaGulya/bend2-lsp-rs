@@ -148,6 +148,34 @@ Completion includes parameters and case-pattern bindings only in their indexed
 scope. Local bindings shadow same-named declarations, prelude names and import
 aliases; a shadowed alias does not offer the imported module's members.
 
+Import completion searches indexed file names and import paths, including fuzzy
+input such as `apd` for `./nested/append.bend`. File-name exact and prefix matches
+rank ahead of fuzzy matches; directory prefixes still constrain the path.
+The suggestions refresh while typing, after `/` or `.`, and after backspace.
+Candidates come from open documents and already indexed imports, not a hidden
+scan of every project file. Open a target file to make an otherwise unknown file
+available.
+
+In Zed, enable automatic LSP suggestions for the extension's language name:
+
+```json
+{
+  "languages": {
+    "Bend 2": {
+      "show_completions_on_input": true,
+      "completions": { "lsp": true }
+    }
+  }
+}
+```
+
+Type the file name normally after `import `; a manual completion command is not
+required. Zed can give an active inline edit prediction precedence over ordinary
+word-triggered completions. If that prevents LSP suggestions, add
+`"show_edit_predictions": false` to the same `"Bend 2"` object to prefer LSP
+completion without changing predictions for other languages. The extension does
+not disable automatic completion or change your personal settings.
+
 Known explicit ADT annotations narrow case-pattern constructor candidates.
 Unknown types keep the available candidates rather than pretending to infer a type.
 

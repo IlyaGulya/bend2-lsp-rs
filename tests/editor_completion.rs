@@ -70,11 +70,23 @@ mod protocol {
             }
         }
         fn complete(&mut self, marker: &str) -> Vec<Value> {
+            let response = self.complete_response(marker, json!({"triggerKind":1}));
+            let result = &response["result"];
+            result
+                .as_array()
+                .or_else(|| result["items"].as_array())
+                .must_be("completion result")
+                .clone()
+        }
+
+        fn complete_response(&mut self, marker: &str, context: Value) -> Value {
             let offset = self.source.find(marker).must_be("completion marker") + marker.len();
             let snapshot = DocumentSnapshot::new(Revision(1), self.source.clone());
             let (line, character) = snapshot.line_index.position(&self.source, offset);
-            self.client.request("textDocument/completion", json!({"textDocument":{"uri":self.uri},"position":{"line":line,"character":character}}))["result"]
-                .as_array().must_be("completion result").clone()
+            self.client.request(
+                "textDocument/completion",
+                json!({"textDocument":{"uri":self.uri},"position":{"line":line,"character":character},"context":context}),
+            )
         }
 
         fn replace(&mut self, source: &str) {
@@ -303,6 +315,48 @@ mod protocol {
     }
 
     #[test]
+    fn import_filename_ranking_and_client_filtering_agree_for_automatic_requests() {
+        let mut editor = Editor::new("import ad", None);
+        for path in ["nested/ad.bend", "nested/adder.bend", "distant/alpha_delta.bend"] {
+            let uri = Url::from_file_path(editor.temp.path().join(path)).must_be("target URI");
+            editor.client.notify(
+                "textDocument/didOpen",
+                json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":"def exported:\n  1\n"}}),
+            );
+        }
+        // Ordinary Zed input uses INVOKED; clients may omit manual context.
+        let automatic = editor.complete_response("import ad", json!({"triggerKind":1}));
+        let manual = editor.complete_response("import ad", Value::Null);
+        assert_eq!(automatic["result"], manual["result"]);
+        let result = &automatic["result"];
+        assert_eq!(result["isIncomplete"], true, "query-specific metadata must refresh");
+        let items = result["items"].as_array().must_be("import items");
+        let exact = item(items, "./nested/ad.bend");
+        let prefix = item(items, "./nested/adder.bend");
+        let fuzzy = item(items, "./distant/alpha_delta.bend");
+        assert_eq!(exact["filterText"], "ad");
+        assert_eq!(prefix["filterText"], "adder");
+        assert_eq!(fuzzy["filterText"], "alpha_delta");
+        assert!(exact["sortText"].as_str() < prefix["sortText"].as_str());
+        assert!(prefix["sortText"].as_str() < fuzzy["sortText"].as_str());
+        for candidate in [exact, prefix, fuzzy] {
+            assert!(
+                bend2_lsp::analysis::completion_match(
+                    candidate["filterText"].as_str().must_be("search text"),
+                    "ad",
+                )
+                .is_some(),
+                "a returned candidate must survive client filtering: {candidate}"
+            );
+            assert_eq!(
+                candidate["textEdit"]["range"],
+                json!({"start":{"line":0,"character":7},"end":{"line":0,"character":9}})
+            );
+        }
+        editor.finish();
+    }
+
+    #[test]
     fn import_acceptance_avoids_declarations_bindings_aliases_and_unicode_fallback_collisions() {
         let source = "import other.bend as Tools\nimport toOLD.bend\ndef Tools2:\n  1\ndef Tools3.member:\n  2\ndef main(Tools4):\n  Tools5\n";
         let mut editor = Editor::new(source, Some("def value:\n  1\n"));
@@ -324,6 +378,49 @@ mod protocol {
     }
 
     #[test]
+    fn import_popup_refreshes_after_path_separators_backspace_and_retyping() {
+        let mut editor = Editor::new("import a", None);
+        for path in ["nested/append.bend", "elsewhere/append.bend", "nested/unrelated.bend"] {
+            let uri = Url::from_file_path(editor.temp.path().join(path)).must_be("target URI");
+            editor.client.notify(
+                "textDocument/didOpen",
+                json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":"def exported:\n  1\n"}}),
+            );
+        }
+        for (prefix, search) in [
+            ("a", "append"),
+            ("apd", "append"),
+            ("nst", "nested/append"),
+            ("nested/", "append"),
+            ("nested/ap", "append"),
+            ("nested/apd", "append"),
+            ("./nested/apd", "append"),
+            ("nested/append.be", "append.bend"),
+            ("nested/ap", "append"),
+            ("apd", "append"),
+        ] {
+            editor.replace(&format!("import {prefix}"));
+            let context = if prefix.ends_with('/') {
+                json!({"triggerKind":2,"triggerCharacter":"/"})
+            } else {
+                json!({"triggerKind":1})
+            };
+            let response = editor.complete_response(&format!("import {prefix}"), context);
+            let result = &response["result"];
+            assert_eq!(result["isIncomplete"], true);
+            let items = result["items"].as_array().must_be("import items");
+            assert_eq!(item(items, "./nested/append.bend")["filterText"], search);
+            if prefix.contains("nested/") || prefix == "nst" {
+                assert!(!items.iter().any(|candidate| candidate["label"] == "./elsewhere/append.bend"));
+            }
+            if prefix.ends_with("apd") {
+                assert!(!items.iter().any(|candidate| candidate["label"] == "./nested/unrelated.bend"));
+            }
+        }
+        editor.finish();
+    }
+
+    #[test]
     fn import_acceptance_reuses_existing_namespace_for_relative_spelling() {
         let source = "import ./tools.bend as Existing\nimport toOLD.bend # repeated\n";
         let mut editor = Editor::new(source, Some("def value:\n  1\n"));
@@ -332,6 +429,35 @@ mod protocol {
             apply(source, item(&items, "tools.bend")),
             "import ./tools.bend as Existing\nimport tools.bend as Existing # repeated\n"
         );
+        editor.finish();
+    }
+
+    #[test]
+    fn import_separator_trigger_does_not_offer_paths_in_comments_strings_or_expressions() {
+        let mut editor = Editor::new("# import nested/", None);
+        let uri = Url::from_file_path(editor.temp.path().join("nested/append.bend"))
+            .must_be("target URI");
+        editor.client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":"def exported:\n  1\n"}}),
+        );
+        for source in ["# import nested/", "def main:\n  \"nested/\"", "def main:\n  1 /"] {
+            editor.replace(source);
+            let marker = if source.contains('\"') { "\"nested/" } else { source };
+            let response = editor.complete_response(
+                marker,
+                json!({"triggerKind":2,"triggerCharacter":"/"}),
+            );
+            let result = &response["result"];
+            let items = result
+                .as_array()
+                .or_else(|| result["items"].as_array())
+                .must_be("completion items");
+            assert!(!items.iter().any(|candidate| candidate["label"] == "./nested/append.bend"));
+            if !source.ends_with("1 /") {
+                assert!(items.is_empty(), "comments and strings suppress completion");
+            }
+        }
         editor.finish();
     }
 

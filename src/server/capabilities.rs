@@ -36,7 +36,8 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
         })),
         document_highlight_provider: Some(OneOf::Left(true)),
         completion_provider: Some(CompletionOptions {
-            trigger_characters: Some(vec![".".into()]),
+            // `/` continues an import path; Zed does not classify it as a word.
+            trigger_characters: Some(vec![".".into(), "/".into()]),
             ..Default::default()
         }),
         signature_help_provider: Some(SignatureHelpOptions {
