@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.3.0...v0.4.0) (2026-10-08)
 
 ### Better completion
 
@@ -45,6 +45,7 @@ completion uses 3.28% more instructions, and several instruction-cache metrics
 exceed the existing thresholds. The separate latency checks passed. These
 function-level benchmarks do not measure editor response time. Performance
 thresholds and baseline rules are unchanged.
+
 
 
 ## [0.3.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.2.5...v0.3.0) (2026-10-07)
