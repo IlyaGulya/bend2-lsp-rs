@@ -158,6 +158,9 @@ pub(super) fn auto_import_edits(
         .qualifier_token
         .and_then(|token| syntax.token(token))
         .map_or(reference.range.start, |token| token.range.start);
+    if edits.is_empty() && document.text[start..reference.range.end] == plan.qualified_name {
+        return None;
+    }
     edits.push(TextEdit {
         range: adapters::range(document, TextRange::new(start, reference.range.end)),
         new_text: plan.qualified_name,

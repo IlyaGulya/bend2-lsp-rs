@@ -313,6 +313,7 @@ mod protocol {
             definition(&mut client, &uri, &edited, "builtin")["uri"],
             generated
         );
+        assert!(actions(&mut client, &uri, &edited, "builtin", "quickfix").is_empty());
         client.finish();
     }
 
