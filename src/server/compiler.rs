@@ -20,7 +20,7 @@ use tower_lsp::lsp_types::Diagnostic;
 use super::features::diag;
 use crate::analysis::{self, DocumentSnapshot};
 use crate::workspace::{SourceGraph, is_hub_import_path};
-#[derive(Clone)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub(super) struct CompilerConfig {
     pub(super) path: String,
     pub(super) arguments: Vec<String>,
@@ -197,7 +197,7 @@ async fn record_compiler_metrics(path: PathBuf, metrics: CompilerCheckMetrics) {
 struct CompilerSnapshot {
     compiler_path: String,
     compiler_arguments: Vec<String>,
-    compiler_stamp: Option<(u64, SystemTime)>,
+    compiler_stamp: Option<CompilerStamp>,
     source_graph: Arc<SourceGraph>,
 }
 
@@ -285,6 +285,126 @@ impl CompilerConfig {
         }
         (config, warnings)
     }
+}
+
+#[derive(Clone)]
+pub(super) enum CompilerCompatibility {
+    Available { version: String },
+    Unknown { message: String },
+    Unavailable { message: String },
+    Incompatible { message: String },
+}
+
+impl CompilerCompatibility {
+    pub(super) fn warning(&self) -> Option<&str> {
+        match self {
+            Self::Available { .. } => None,
+            Self::Unknown { message }
+            | Self::Unavailable { message }
+            | Self::Incompatible { message } => Some(message),
+        }
+    }
+
+    pub(super) fn failure(&self) -> Option<(&str, &'static str)> {
+        match self {
+            Self::Unavailable { message } => Some((message, "compiler-unavailable")),
+            Self::Incompatible { message } => Some((message, "compiler-incompatible")),
+            Self::Available { .. } | Self::Unknown { .. } => None,
+        }
+    }
+}
+
+pub(super) async fn compiler_compatibility(
+    config: &CompilerConfig,
+    reapers: Arc<CompilerReapers>,
+) -> CompilerCompatibility {
+    let version = match compiler_probe(config, "version", reapers.clone()).await {
+        Ok(output) => {
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+            (output.status.success() && text.to_ascii_lowercase().starts_with("bend"))
+                .then_some(text)
+        }
+        Err(error) => {
+            return CompilerCompatibility::Unavailable {
+                message: compiler_unavailable_message(config, &error),
+            };
+        }
+    };
+    let help = match compiler_probe(config, "--help", reapers).await {
+        Ok(output) => output,
+        Err(error) => {
+            return CompilerCompatibility::Unavailable {
+                message: compiler_unavailable_message(config, &error),
+            };
+        }
+    };
+    let text = output_text(&help);
+    let bend_help = help.status.success()
+        && text.to_ascii_lowercase().contains("bend")
+        && text.contains("usage:")
+        && text.contains("bend <");
+    let missing = if !text.contains("--check-only") {
+        Some("--check-only")
+    } else if !text.contains("bend base") {
+        Some("base")
+    } else {
+        None
+    };
+    if bend_help && let Some(missing) = missing {
+        return CompilerCompatibility::Incompatible {
+            message: format!(
+                "Bend compiler '{}'{} does not advertise the required {missing} command/option. Select a Bend compiler supporting 'bend <file> --check-only' and 'bend base' with bend2-lsp.compilerPath.",
+                config.path,
+                version
+                    .as_ref()
+                    .map_or(String::new(), |version| format!(" ({version})")),
+            ),
+        };
+    }
+    if bend_help && let Some(version) = version {
+        CompilerCompatibility::Available { version }
+    } else {
+        CompilerCompatibility::Unknown {
+            message: format!(
+                "Could not identify the version and CLI contract of Bend compiler '{}'. Compiler checks will still run; verify that it supports 'bend <file> --check-only' and 'bend base'.",
+                config.path,
+            ),
+        }
+    }
+}
+
+async fn compiler_probe(
+    config: &CompilerConfig,
+    argument: &str,
+    reapers: Arc<CompilerReapers>,
+) -> io::Result<std::process::Output> {
+    let (output, _child) = run_compiler_command(
+        Command::new(&config.path)
+            .args(&config.arguments)
+            .arg(argument),
+        None,
+        reapers,
+    )
+    .await?;
+    Ok(output)
+}
+
+fn compiler_unavailable_message(config: &CompilerConfig, error: &io::Error) -> String {
+    format!(
+        "Unable to run Bend compiler '{}': {error}. Install Bend or set bend2-lsp.compilerPath to its executable.",
+        config.path,
+    )
+}
+
+fn output_text(output: &std::process::Output) -> String {
+    let mut text = String::from_utf8_lossy(&output.stderr).into_owned();
+    if !output.stdout.is_empty() {
+        if !text.is_empty() && !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str(&String::from_utf8_lossy(&output.stdout));
+    }
+    text
 }
 #[tracing::instrument(
     name = "compiler.check",
@@ -405,7 +525,7 @@ async fn compiler_diagnostics_inner(
         match run_compiler(&config, entry, permit, staging, reapers, metrics).await {
             Ok(output) => output,
             Err(error) => {
-                let message = format!("Unable to run Bend compiler '{}': {error}", config.path);
+                let message = compiler_unavailable_message(&config, &error);
                 return vec![(
                     root,
                     diag(&root_snapshot, 0, 0, message, "compiler-unavailable"),
@@ -583,40 +703,101 @@ fn compiler_output_diagnostics(
     if output.status.success() {
         return Vec::new();
     }
-    let raw = if output.stderr.is_empty() {
-        &output.stdout
-    } else {
-        &output.stderr
-    };
-    let raw = String::from_utf8_lossy(raw);
-    let detail = raw.split("\nLocation:").next().unwrap_or(&raw).trim();
-    let message = detail.strip_prefix("Error:\n").unwrap_or(detail).trim();
-    if message.is_empty() {
-        return Vec::new();
+    let mut diagnostics = Vec::new();
+    for stream in [&output.stderr, &output.stdout] {
+        let text = String::from_utf8_lossy(stream);
+        let mut block = String::new();
+        for line in text.lines() {
+            // Bend's expected, observed, Context and Location rows belong
+            // to one error. Only its real Error header starts another block.
+            if line.starts_with("Error:") && !block.is_empty() {
+                append_compiler_error(root, root_snapshot, sources, &block, &mut diagnostics);
+                block.clear();
+            }
+            if line.starts_with("Error:") || !block.is_empty() {
+                // Stop this stream's update notice, not the other stream.
+                if line.starts_with("bend ") && line.contains(" is available:") {
+                    break;
+                }
+                block.push_str(line);
+                block.push('\n');
+            }
+        }
+        if !block.is_empty() {
+            append_compiler_error(root, root_snapshot, sources, &block, &mut diagnostics);
+        }
     }
-    let marker = raw.lines().find_map(|line| {
-        let (line_number, code) = line.split_once(">|")?;
-        Some((
-            line_number.trim().parse::<usize>().ok()?,
-            code.strip_prefix(' ')
-                .unwrap_or(code)
-                .trim_end_matches('\r'),
-        ))
-    });
-    let location = marker.and_then(|(line, excerpt)| {
+    if diagnostics.is_empty() {
+        let raw = output_text(output);
+        let detail = raw.trim();
+        let message = if detail.is_empty() {
+            format!(
+                "Bend compiler exited with {} without an error message.",
+                output.status
+            )
+        } else {
+            detail.to_owned()
+        };
+        let incompatible = [
+            "unknown option --check-only",
+            "unrecognized option '--check-only'",
+        ]
+        .iter()
+        .any(|needle| message.contains(needle));
+        diagnostics.push((
+            root.to_path_buf(),
+            diag(
+                root_snapshot,
+                0,
+                0,
+                message,
+                if incompatible {
+                    "compiler-incompatible"
+                } else {
+                    "checking"
+                },
+            ),
+        ));
+    }
+    diagnostics
+}
+
+fn append_compiler_error(
+    root: &Path,
+    root_snapshot: &DocumentSnapshot,
+    sources: &[SourceSnapshot],
+    block: &str,
+    diagnostics: &mut Vec<(PathBuf, Diagnostic)>,
+) {
+    let (detail, location) = block.split_once("\nLocation:").unwrap_or((block, ""));
+    let message = detail.strip_prefix("Error:").unwrap_or(detail).trim();
+    if message.is_empty() {
+        return;
+    }
+    let excerpts: Vec<_> = location
+        .lines()
+        .filter_map(parse_compiler_excerpt)
+        .collect();
+    let marked = excerpts.iter().find(|(_, marked, _)| *marked);
+    let mapped = marked.and_then(|(line, _, _)| {
         let mut matches = sources.iter().filter_map(|(source_path, snapshot)| {
-            let (start, end) = source_line_range(snapshot, line.saturating_sub(1))?;
-            (snapshot.text.get(start..end)? == excerpt).then_some((
-                source_path.as_path(),
-                snapshot.as_ref(),
-                start,
-                end,
-            ))
+            // The CLI does not identify a source path. Validate every available
+            // context line before using its line/caret coordinates.
+            for (number, _, excerpt) in &excerpts {
+                let (start, end) = source_line_range(snapshot, number.checked_sub(1)?)?;
+                if snapshot.text.get(start..end)? != *excerpt {
+                    return None;
+                }
+            }
+            let (start, end) = source_line_range(snapshot, line.checked_sub(1)?)?;
+            let (start, end) =
+                compiler_caret_range(snapshot, *line, location).unwrap_or((start, end));
+            Some((source_path.as_path(), snapshot.as_ref(), start, end))
         });
         let unique = matches.next()?;
         matches.next().is_none().then_some(unique)
     });
-    let (source_path, snapshot, start, end) = location.unwrap_or((root, root_snapshot, 0, 0));
+    let (source_path, snapshot, start, end) = mapped.unwrap_or((root, root_snapshot, 0, 0));
     let lowered = message.to_ascii_lowercase();
     let code = if ["import", "file", "hash", "namespace", "cycle", "bend_hub"]
         .iter()
@@ -628,10 +809,65 @@ fn compiler_output_diagnostics(
     } else {
         "checking"
     };
-    vec![(
-        source_path.to_path_buf(),
-        diag(snapshot, start, end, message, code),
-    )]
+    let diagnostic = diag(snapshot, start, end, message, code);
+    if !diagnostics
+        .iter()
+        .any(|(path, existing)| path == source_path && *existing == diagnostic)
+    {
+        diagnostics.push((source_path.to_path_buf(), diagnostic));
+    }
+}
+
+fn parse_compiler_excerpt(line: &str) -> Option<(usize, bool, &str)> {
+    let (prefix, excerpt) = line.split_once('|')?;
+    let marked = prefix.ends_with('>');
+    let number = prefix.trim_end_matches('>').trim().parse().ok()?;
+    Some((number, marked, excerpt.strip_prefix(' ').unwrap_or(excerpt)))
+}
+
+fn compiler_caret_range(
+    snapshot: &DocumentSnapshot,
+    line: usize,
+    location: &str,
+) -> Option<(usize, usize)> {
+    let mut lines = location.lines();
+    while let Some(excerpt) = lines.next() {
+        let Some((number, true, _)) = parse_compiler_excerpt(excerpt) else {
+            continue;
+        };
+        if number != line {
+            continue;
+        }
+        let (prefix, carets) = lines.next()?.split_once('|')?;
+        if !prefix.trim().is_empty() {
+            return None;
+        }
+        let carets = carets.strip_prefix(' ').unwrap_or(carets);
+        let first = carets.find('^')?;
+        let width = carets[first..].trim_end().len();
+        if !carets[..first].bytes().all(|byte| byte == b' ')
+            || !carets[first..first + width]
+                .bytes()
+                .all(|byte| byte == b'^')
+        {
+            return None;
+        }
+        let row = u32::try_from(line.checked_sub(1)?).ok()?;
+        let start_column = u32::try_from(first).ok()?;
+        let end_column = u32::try_from(first.checked_add(width)?).ok()?;
+        let start = snapshot
+            .line_index
+            .offset(&snapshot.text, row, start_column);
+        let end = snapshot.line_index.offset(&snapshot.text, row, end_column);
+        // Reject out-of-line or mid-surrogate coordinates instead of clamping.
+        if snapshot.line_index.position(&snapshot.text, start) != (row, start_column)
+            || snapshot.line_index.position(&snapshot.text, end) != (row, end_column)
+        {
+            return None;
+        }
+        return Some((start, end));
+    }
+    None
 }
 
 fn cacheable_source_graph(graph: &SourceGraph) -> bool {
@@ -655,15 +891,63 @@ fn cacheable_source_graph(graph: &SourceGraph) -> bool {
     })
 }
 
-fn compiler_stamp(path: &str) -> Option<(u64, SystemTime)> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct CompilerStamp {
+    length: u64,
+    modified: SystemTime,
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
+    #[cfg(unix)]
+    permissions: u32,
+    #[cfg(not(unix))]
+    created: Option<SystemTime>,
+}
+
+pub(super) fn compiler_stamp(path: &str) -> Option<CompilerStamp> {
+    #[cfg(unix)]
+    use std::os::unix::fs::MetadataExt as _;
     let executable = Path::new(path);
     let metadata = if executable.is_absolute() || executable.components().count() > 1 {
-        std::fs::metadata(executable).ok()?
+        compiler_metadata(executable)?
     } else {
         std::env::split_paths(&std::env::var_os("PATH")?)
-            .find_map(|directory| std::fs::metadata(directory.join(executable)).ok())?
+            .find_map(|directory| compiler_metadata(&directory.join(executable)))?
     };
-    Some((metadata.len(), metadata.modified().ok()?))
+    Some(CompilerStamp {
+        length: metadata.len(),
+        modified: metadata.modified().ok()?,
+        #[cfg(unix)]
+        device: metadata.dev(),
+        #[cfg(unix)]
+        inode: metadata.ino(),
+        #[cfg(unix)]
+        permissions: metadata.mode(),
+        #[cfg(not(unix))]
+        created: metadata.created().ok(),
+    })
+}
+
+fn compiler_metadata(path: &Path) -> Option<std::fs::Metadata> {
+    let metadata = std::fs::metadata(path)
+        .ok()
+        .filter(std::fs::Metadata::is_file);
+    #[cfg(windows)]
+    let metadata = metadata.or_else(|| {
+        path.extension()
+            .is_none()
+            .then(|| path.with_extension("exe"))
+            .and_then(|path| std::fs::metadata(path).ok())
+            .filter(std::fs::Metadata::is_file)
+    });
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        metadata.filter(|metadata| metadata.mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    metadata
 }
 
 fn source_line_range(snapshot: &DocumentSnapshot, wanted: usize) -> Option<(usize, usize)> {

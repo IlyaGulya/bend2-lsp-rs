@@ -24,3 +24,15 @@ jobs:
         run: ./scripts/install-tools.sh
       - name: Run quality gates
         run: ./scripts/quality
+      - name: Install checksum-pinned Neovim
+        run: python3 scripts/bootstrap_neovim.py --destination target/neovim
+      - name: Run real Neovim native LSP E2E
+        run: python3 scripts/neovim_e2e.py --nvim target/neovim/bin/nvim --binary target/debug/bend2-lsp --log-dir target/neovim-e2e
+      - name: Upload Neovim E2E failure logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: neovim-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/neovim-e2e/
+          if-no-files-found: ignore
+          retention-days: 7

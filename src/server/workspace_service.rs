@@ -12,7 +12,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, RwLockReadGuard},
 };
-use tokio::sync::{Mutex, RwLock, Semaphore};
+use tokio::sync::{Mutex, RwLock, RwLockReadGuard as AsyncReadGuard, RwLockWriteGuard, Semaphore};
 use url::Url;
 
 pub(super) struct WorkspaceState {
@@ -59,10 +59,16 @@ impl Deref for WorkspaceRead<'_> {
     }
 }
 
+pub(super) enum WorkspaceOperationGuard<'a> {
+    Concurrent { _guard: AsyncReadGuard<'a, ()> },
+    Ordered { _guard: RwLockWriteGuard<'a, ()> },
+}
+
 pub(super) struct WorkspaceService {
     pub(super) state: State<WorkspaceState>,
     pub(super) update_serial: Mutex<()>,
     pub(super) updates: RwLock<()>,
+    pub(super) file_operations: RwLock<()>,
     pub(super) roots: State<Vec<PathBuf>>,
     pub(super) staging: Arc<Semaphore>,
 }
@@ -76,12 +82,23 @@ impl Default for WorkspaceService {
             }),
             update_serial: Mutex::new(()),
             updates: RwLock::new(()),
+            file_operations: RwLock::new(()),
             roots: State::new(Vec::new()),
             staging: Arc::new(Semaphore::new(4)),
         }
     }
 }
 impl WorkspaceService {
+    pub(super) async fn document_operation(&self) -> WorkspaceOperationGuard<'_> {
+        match self.file_operations.try_read() {
+            Ok(guard) => WorkspaceOperationGuard::Concurrent { _guard: guard },
+            // A queued rename changes URI identity. Queue subsequent document
+            // notifications exclusively so close/reopen order is preserved.
+            Err(_) => WorkspaceOperationGuard::Ordered {
+                _guard: self.file_operations.write().await,
+            },
+        }
+    }
     pub(super) fn read(&self) -> WorkspaceRead<'_> {
         WorkspaceRead(self.state.read())
     }
@@ -171,6 +188,28 @@ impl WorkspaceService {
             return None;
         }
         state.apply(operation)
+    }
+    pub(super) fn commit_file_rename<T>(
+        &self,
+        generation: u64,
+        operation: impl FnOnce(&mut WorkspaceDb) -> Option<(Vec<(FileId, FileId)>, T)>,
+    ) -> Option<T> {
+        let mut state = self.state.write();
+        if generation != state.generation
+            || state
+                .revisions
+                .values()
+                .any(|sync| revision_result(sync.status()).is_pending())
+        {
+            return None;
+        }
+        let (identities, result) = state.apply(operation)?;
+        for (retired, canonical) in identities {
+            if let Some(sync) = state.revisions.remove(&retired) {
+                state.revisions.entry(canonical).or_insert(sync);
+            }
+        }
+        Some(result)
     }
     pub(super) fn finish_revision(&self, ticket: &RevisionTicket) -> bool {
         let _state = self.state.write();

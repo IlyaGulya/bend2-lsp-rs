@@ -1,12 +1,14 @@
 use tower_lsp::lsp_types::{
-    CallHierarchyServerCapability, CodeActionProviderCapability, CodeLensOptions,
-    CompletionOptions, DocumentLinkOptions, DocumentOnTypeFormattingOptions,
+    CallHierarchyServerCapability, CodeActionKind, CodeActionOptions, CodeActionProviderCapability,
+    CodeLensOptions, CompletionOptions, DocumentLinkOptions, DocumentOnTypeFormattingOptions,
+    FileOperationFilter, FileOperationPattern, FileOperationRegistrationOptions,
     FoldingRangeProviderCapability, HoverProviderCapability, OneOf,
     SelectionRangeProviderCapability, SemanticTokenType, SemanticTokensFullOptions,
     SemanticTokensLegend, SemanticTokensOptions, SemanticTokensServerCapabilities,
     ServerCapabilities, SignatureHelpOptions, TextDocumentSyncCapability, TextDocumentSyncKind,
     TextDocumentSyncOptions, TypeDefinitionProviderCapability, WorkDoneProgressOptions,
-    WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
+    WorkspaceFileOperationsServerCapabilities, WorkspaceFoldersServerCapabilities,
+    WorkspaceServerCapabilities,
 };
 pub(super) fn server_capabilities() -> ServerCapabilities {
     ServerCapabilities {
@@ -41,7 +43,14 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
         }),
         call_hierarchy_provider: Some(CallHierarchyServerCapability::Simple(true)),
         workspace_symbol_provider: Some(OneOf::Left(true)),
-        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
+        code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
+            code_action_kinds: Some(vec![
+                CodeActionKind::QUICKFIX,
+                CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
+            ]),
+            resolve_provider: Some(false),
+            ..Default::default()
+        })),
         code_lens_provider: Some(CodeLensOptions {
             resolve_provider: Some(false),
         }),
@@ -90,8 +99,24 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
                 supported: Some(true),
                 change_notifications: Some(OneOf::Left(true)),
             }),
-            file_operations: None,
+            file_operations: Some(WorkspaceFileOperationsServerCapabilities {
+                will_rename: Some(file_rename_options()),
+                did_rename: Some(file_rename_options()),
+                ..Default::default()
+            }),
         }),
         ..Default::default()
+    }
+}
+
+fn file_rename_options() -> FileOperationRegistrationOptions {
+    FileOperationRegistrationOptions {
+        filters: vec![FileOperationFilter {
+            scheme: Some("file".into()),
+            pattern: FileOperationPattern {
+                glob: "**/*".into(),
+                ..Default::default()
+            },
+        }],
     }
 }

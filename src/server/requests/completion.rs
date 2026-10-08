@@ -9,6 +9,50 @@ use tower_lsp::{
     },
 };
 
+struct ExplicitCompletionType {
+    uri: url::Url,
+    snapshot: std::sync::Arc<analysis::DocumentSnapshot>,
+    name: String,
+    alias: Option<String>,
+}
+
+fn completion_qualifier(
+    doc: &analysis::DocumentSnapshot,
+    prefix_start: usize,
+) -> Option<(analysis::TokenId, &str)> {
+    let syntax = &doc.syntax;
+    let previous = prefix_start.checked_sub(1)?;
+    let dot_id = syntax.token_at_or_before(previous)?;
+    let dot = syntax.token(dot_id)?;
+    if syntax.token_text(&doc.text, dot_id) != Some(".") || dot.range.end != prefix_start {
+        return None;
+    }
+    let mut root = analysis::TokenId(dot_id.0.checked_sub(1)?);
+    let end = syntax.token(root)?.range.end;
+    loop {
+        let token = syntax.token(root)?;
+        if token.kind != analysis::TokenKind::Identifier {
+            return None;
+        }
+        let Some(previous_dot) = root.0.checked_sub(1).map(analysis::TokenId) else {
+            break;
+        };
+        let previous = syntax.token(previous_dot)?;
+        if syntax.token_text(&doc.text, previous_dot) != Some(".")
+            || previous.range.end != token.range.start
+        {
+            break;
+        }
+        let previous_name = analysis::TokenId(previous_dot.0.checked_sub(1)?);
+        if syntax.token(previous_name)?.range.end != previous.range.start {
+            break;
+        }
+        root = previous_name;
+    }
+    let start = syntax.token(root)?.range.start;
+    Some((root, &doc.text[start..end]))
+}
+
 impl Backend {
     pub(in crate::server) async fn handle_completion(
         &self,
@@ -29,84 +73,165 @@ impl Backend {
             return Ok(Some(CompletionResponse::Array(Vec::new())));
         }
         let syntax = &doc.syntax;
-        let prefix_token = syntax
-            .token_at_or_before(offset)
-            .and_then(|id| syntax.token(id))
-            .filter(|token| {
+        if let Some(path) = syntax.completion_import_path(offset) {
+            let prefix = &doc.text[path.start..offset];
+            let items = self
+                .available_import_targets(&doc)
+                .into_iter()
+                .filter(|target| analysis::completion_match(target, prefix).is_some())
+                .map(|target| {
+                    let mut item = CompletionItem::new_simple(target, "Available import".into());
+                    item.kind = Some(CompletionItemKind::MODULE);
+                    item
+                })
+                .collect();
+            return Ok(Some(CompletionResponse::Array(
+                adapters::finish_completion_items(&doc, path, prefix, items),
+            )));
+        }
+        let prefix_token = offset
+            .checked_sub(1)
+            .and_then(|previous| syntax.token_at_or_before(previous))
+            .and_then(|id| syntax.token(id).map(|token| (id, token)))
+            .filter(|(_, token)| {
                 matches!(
                     token.kind,
                     analysis::TokenKind::Identifier | analysis::TokenKind::Number
                 ) && token.range.start <= offset
                     && offset <= token.range.end
             });
-        let prefix_start = prefix_token.map_or(offset, |token| token.range.start);
-        let prefix = &doc.text[prefix_start..offset];
-        let alias = prefix_start
-            .checked_sub(1)
-            .and_then(|position| syntax.token_at_or_before(position))
-            .and_then(|dot_id| {
-                let dot = syntax.token(dot_id)?;
-                if dot.kind != analysis::TokenKind::Punctuation
-                    || syntax.token_text(&doc.text, dot_id) != Some(".")
-                    || dot.range.end != prefix_start
-                {
-                    return None;
-                }
-                let alias_id = analysis::TokenId(dot_id.0.checked_sub(1)?);
-                let alias = syntax.token(alias_id)?;
-                (alias.kind == analysis::TokenKind::Identifier
-                    && alias.range.end == dot.range.start)
-                    .then(|| (alias_id, &doc.text[alias.range.start..alias.range.end]))
+        let replacement = prefix_token
+            .map_or(analysis::TextRange::new(offset, offset), |(_, token)| {
+                token.range
             });
-        let pattern_start = alias.map_or(prefix_start, |(id, _)| {
-            syntax
-                .token(id)
-                .map_or(prefix_start, |token| token.range.start)
-        });
-        let in_case_pattern = syntax
-            .line_code_range(td.position.line as usize)
-            .and_then(|line| syntax.token_at_or_before(line.start))
-            .and_then(|id| syntax.token(id).map(|token| (id, token)))
-            .is_some_and(|(id, token)| {
-                syntax.token_text(&doc.text, id) == Some("case")
-                    && token.range.end < pattern_start
-                    && doc.text[token.range.end..pattern_start]
-                        .bytes()
-                        .all(|byte| matches!(byte, b' ' | b'\t'))
-            });
-        if let Some((alias_id, alias)) = alias {
+        let prefix = &doc.text[replacement.start..offset];
+        let qualifier = completion_qualifier(&doc, replacement.start);
+        let pattern = syntax.case_pattern_type(offset);
+        let expected = pattern
+            .and_then(|pattern| pattern.explicit_type)
+            .and_then(|range| doc.text.get(range.start..range.end))
+            .and_then(|name| self.explicit_completion_type(&doc, name));
+        let items = if let Some((root, qualifier)) = qualifier {
             if syntax
-                .symbol_for_token(alias_id)
-                .and_then(|symbol| syntax.binding_by_id(symbol))
+                .symbol_for_token(root)
+                .and_then(|id| syntax.binding_by_id(id))
                 .is_some()
             {
-                return Ok(Some(CompletionResponse::Array(Vec::new())));
+                Vec::new()
+            } else {
+                self.qualified_context_completion_items(
+                    &doc,
+                    qualifier,
+                    prefix,
+                    pattern.is_some(),
+                    expected.as_ref(),
+                )
             }
-            if let Some((_, source)) = self.module_document(&doc, alias) {
-                return Ok(Some(CompletionResponse::Array(adapters::completion_items(
-                    if in_case_pattern {
-                        analysis::constructor_completion_items(&source, None, prefix)
-                    } else {
-                        analysis::module_completion_items(&source, prefix)
-                    },
-                ))));
+        } else if let Some(expected) = expected {
+            let mut items = analysis::typed_constructor_completion_items(
+                &expected.snapshot,
+                None,
+                prefix,
+                Some(&expected.name),
+            );
+            if let Some(alias) = expected.alias {
+                for item in &mut items {
+                    item.label = format!("{alias}.{}", item.label);
+                }
             }
-            if let Some(module) = self.prelude_module(&doc) {
-                return Ok(Some(CompletionResponse::Array(adapters::completion_items(
-                    if in_case_pattern {
-                        analysis::constructor_completion_items(&module, Some(alias), prefix)
-                    } else {
-                        analysis::qualified_completion_items(&module, alias, prefix)
-                    },
-                ))));
-            }
-            if in_case_pattern {
-                return Ok(Some(CompletionResponse::Array(Vec::new())));
-            }
-        }
+            adapters::completion_items(items)
+        } else {
+            self.unqualified_completion_items(&doc, replacement.start, prefix, pattern.is_some())
+        };
         Ok(Some(CompletionResponse::Array(
-            self.unqualified_completion_items(&doc, prefix_start, prefix, in_case_pattern),
+            adapters::finish_completion_items(&doc, replacement, prefix, items),
         )))
+    }
+
+    fn qualified_context_completion_items(
+        &self,
+        doc: &Document,
+        qualifier: &str,
+        prefix: &str,
+        in_case_pattern: bool,
+        expected: Option<&ExplicitCompletionType>,
+    ) -> Vec<CompletionItem> {
+        let (alias, namespace) = qualifier
+            .split_once('.')
+            .map_or((qualifier, None), |(alias, rest)| (alias, Some(rest)));
+        if let Some((source_uri, source)) = self.module_document(doc, alias) {
+            if in_case_pattern {
+                if expected.is_some_and(|target| target.uri != source_uri) {
+                    return Vec::new();
+                }
+                adapters::completion_items(analysis::typed_constructor_completion_items(
+                    &source,
+                    namespace,
+                    prefix,
+                    expected.map(|target| target.name.as_str()),
+                ))
+            } else {
+                adapters::completion_items(namespace.map_or_else(
+                    || analysis::module_completion_items(&source, prefix),
+                    |namespace| analysis::qualified_completion_items(&source, namespace, prefix),
+                ))
+            }
+        } else {
+            let source = expected
+                .map(|target| target.snapshot.clone())
+                .or_else(|| self.prelude_module(doc).map(|module| module.snapshot))
+                .unwrap_or_else(|| doc.snapshot.clone());
+            adapters::completion_items(if in_case_pattern {
+                analysis::typed_constructor_completion_items(
+                    &source,
+                    Some(qualifier),
+                    prefix,
+                    expected.map(|target| target.name.as_str()),
+                )
+            } else {
+                analysis::qualified_completion_items(&source, qualifier, prefix)
+            })
+        }
+    }
+
+    fn explicit_completion_type(
+        &self,
+        doc: &Document,
+        name: &str,
+    ) -> Option<ExplicitCompletionType> {
+        let has_type = |source: &analysis::DocumentSnapshot, name: &str| {
+            source
+                .syntax
+                .name_id(&source.text, name)
+                .and_then(|id| source.syntax.symbol_by_name(id))
+                .is_some_and(|symbol| symbol.kind == analysis::SymbolKind::Struct)
+        };
+        if has_type(doc, name) {
+            return Some(ExplicitCompletionType {
+                uri: doc.uri.clone(),
+                snapshot: doc.snapshot.clone(),
+                name: name.to_owned(),
+                alias: None,
+            });
+        }
+        if let Some((alias, member)) = name.split_once('.')
+            && let Some((uri, source)) = self.module_document(doc, alias)
+            && has_type(&source, member)
+        {
+            return Some(ExplicitCompletionType {
+                uri,
+                snapshot: source,
+                name: member.to_owned(),
+                alias: Some(alias.to_owned()),
+            });
+        }
+        let source = self.prelude_module(doc)?;
+        has_type(&source, name).then(|| ExplicitCompletionType {
+            uri: source.uri,
+            snapshot: source.snapshot,
+            name: name.to_owned(),
+            alias: None,
+        })
     }
 
     fn unqualified_completion_items(
@@ -116,41 +241,28 @@ impl Backend {
         prefix: &str,
         in_case_pattern: bool,
     ) -> Vec<CompletionItem> {
-        if in_case_pattern {
-            let mut items = adapters::completion_items(analysis::constructor_completion_items(
-                doc, None, prefix,
-            ));
-            if let Some(module) = self.prelude_module(doc) {
-                let mut labels: HashSet<String> =
-                    items.iter().map(|item| item.label.clone()).collect();
-                items.extend(
-                    adapters::completion_items(analysis::constructor_completion_items(
-                        &module, None, prefix,
-                    ))
-                    .into_iter()
-                    .filter(|item| labels.insert(item.label.clone())),
-                );
-            }
-            return items;
+        let mut items = adapters::completion_items(if in_case_pattern {
+            analysis::constructor_completion_items(doc, None, prefix)
+        } else {
+            analysis::scoped_completion_items(doc, prefix_start, prefix)
+        });
+        let mut labels: HashSet<String> = items.iter().map(|item| item.label.clone()).collect();
+        if let Some(module) = self.prelude_module(doc) {
+            items.extend(
+                adapters::completion_items(if in_case_pattern {
+                    analysis::constructor_completion_items(&module, None, prefix)
+                } else {
+                    analysis::completion_items(&module, prefix)
+                })
+                .into_iter()
+                .filter(|item| labels.insert(item.label.clone())),
+            );
         }
-        let mut items = adapters::completion_items(analysis::scoped_completion_items(
-            doc,
-            prefix_start,
-            prefix,
-        ));
-        if !prefix.is_empty() {
-            let mut labels: HashSet<String> = items.iter().map(|item| item.label.clone()).collect();
-            if let Some(module) = self.prelude_module(doc) {
-                items.extend(
-                    adapters::completion_items(analysis::completion_items(&module, prefix))
-                        .into_iter()
-                        .filter(|item| labels.insert(item.label.clone())),
-                );
-            }
+        if !in_case_pattern {
             for import in analysis::imports(doc) {
                 if let Some(alias) = import
                     .alias_text(&doc.text)
-                    .filter(|alias| alias.starts_with(prefix))
+                    .filter(|alias| analysis::completion_match(alias, prefix).is_some())
                     && labels.insert(alias.to_owned())
                 {
                     let mut item = CompletionItem::new_simple(

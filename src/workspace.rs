@@ -46,6 +46,145 @@ impl Deref for Document {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct FileId(usize);
 
+pub(crate) type DocumentImportEdits = (Document, Vec<(analysis::TextRange, String)>);
+
+#[derive(Clone)]
+pub(crate) struct PathRename {
+    pub(crate) old: PathBuf,
+    pub(crate) new: PathBuf,
+}
+
+pub(crate) fn renamed_path(path: &Path, renames: &[PathRename]) -> PathBuf {
+    renames
+        .iter()
+        .filter_map(|rename| {
+            path.strip_prefix(&rename.old)
+                .ok()
+                .map(|suffix| (rename, suffix))
+        })
+        .max_by_key(|(rename, _)| rename.old.components().count())
+        .map_or_else(
+            || path.to_path_buf(),
+            |(rename, suffix)| {
+                if suffix.as_os_str().is_empty() {
+                    rename.new.clone()
+                } else {
+                    rename.new.join(suffix)
+                }
+            },
+        )
+}
+
+pub(crate) fn relative_import_path(source: &Path, target: &Path) -> Option<String> {
+    let mut source = source.parent()?.components();
+    let mut target = target.components();
+    let mut common = 0;
+    let (source_tail, target_head) = loop {
+        let pair = (source.next(), target.next());
+        if let (Some(left), Some(right)) = pair
+            && left == right
+        {
+            common += 1;
+        } else {
+            break pair;
+        }
+    };
+    if common == 0 {
+        return None;
+    }
+    let parents = source.count() + usize::from(source_tail.is_some());
+    if parents == 0 && target_head.is_none() {
+        return None;
+    }
+    let capacity = parents * 3
+        + 2
+        + target_head.map_or(0, |part| part.as_os_str().as_encoded_bytes().len())
+        + target.as_path().as_os_str().as_encoded_bytes().len();
+    let mut path = String::with_capacity(capacity);
+    if parents == 0 || (parents == 1 && target_head.is_none()) {
+        path.push_str("./");
+    }
+    for index in 0..parents {
+        if index > 0 {
+            path.push('/');
+        }
+        path.push_str("..");
+    }
+    for component in target_head.into_iter().chain(target) {
+        let text = component.as_os_str().to_str()?;
+        if text
+            .chars()
+            .any(|character| character.is_whitespace() || character == '#')
+        {
+            return None;
+        }
+        if !path.ends_with('/') {
+            path.push('/');
+        }
+        path.push_str(text);
+    }
+    Some(path)
+}
+
+pub(crate) fn import_rename_edits<'a>(
+    source: &Path,
+    snapshot: &DocumentSnapshot,
+    renames: &[PathRename],
+    target_for: impl Fn(analysis::TextRange) -> Option<&'a Path>,
+) -> Option<Vec<(analysis::TextRange, String)>> {
+    let new_source = renamed_path(source, renames);
+    let mut edits = Vec::new();
+    for import in analysis::imports(snapshot) {
+        let imported = import.path_text(&snapshot.text);
+        if imported == "Base" || is_hub_import_path(imported) {
+            continue;
+        }
+        let fallback;
+        let target = if let Some(target) = target_for(import.path) {
+            target
+        } else {
+            fallback = normalize_path(&source.parent()?.join(imported));
+            &fallback
+        };
+        let new_target = renamed_path(target, renames);
+        if new_source == source && new_target == target {
+            continue;
+        }
+        let current_target = normalize_path(&new_source.parent()?.join(imported));
+        let extensionless = Path::new(imported).extension().is_none()
+            && target
+                .extension()
+                .is_some_and(|extension| extension == "bend");
+        if current_target == new_target
+            || (extensionless && current_target.with_extension("bend") == new_target)
+        {
+            continue;
+        }
+        let mut replacement = if Path::new(imported).is_absolute() {
+            let text = new_target.to_str()?;
+            if text
+                .chars()
+                .any(|character| character.is_whitespace() || character == '#')
+            {
+                return None;
+            }
+            #[cfg(windows)]
+            let replacement = text.replace('\\', "/");
+            #[cfg(not(windows))]
+            let replacement = text.to_owned();
+            replacement
+        } else {
+            relative_import_path(&new_source, &new_target)?
+        };
+        if extensionless && replacement.ends_with(".bend") {
+            replacement.truncate(replacement.len() - 5);
+        }
+        if replacement != imported {
+            edits.push((import.path, replacement));
+        }
+    }
+    Some(edits)
+}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct ImportEdge {
     pub(crate) path: analysis::TextRange,
@@ -137,6 +276,14 @@ impl WorkspaceDb {
             .is_some_and(|id| self.entries[id.0].open_snapshot.is_some())
     }
 
+    pub(crate) fn is_compiler_document(&self, uri: &Url) -> bool {
+        self.file_id_by_uri(uri).is_some_and(|id| {
+            self.compiler_documents
+                .as_ref()
+                .is_some_and(|documents| documents.contains_key(&id))
+        })
+    }
+
     pub(crate) fn imports_prelude(&self, uri: &Url) -> bool {
         self.by_uri
             .get(uri)
@@ -185,6 +332,298 @@ impl WorkspaceDb {
             .filter(|entry| entry.open_snapshot.is_some())
             .filter_map(FileEntry::document)
             .collect()
+    }
+
+    pub(crate) fn loaded_documents(&self) -> Vec<Document> {
+        self.entries
+            .iter()
+            .filter_map(FileEntry::document)
+            .filter(|document| !self.is_compiler_document(&document.uri))
+            .collect()
+    }
+
+    pub(crate) fn available_import_targets(&self, source: &Url) -> Vec<String> {
+        let mut targets = vec!["Base".into()];
+        let Some(source_path) = self
+            .file_id_by_uri(source)
+            .and_then(|id| self.entries[id.0].path.as_deref())
+        else {
+            return targets;
+        };
+        self.visit_indexed_entries(|id, entry| {
+            let Some(snapshot) = entry.snapshot() else {
+                return;
+            };
+            for import in analysis::imports(snapshot) {
+                let path = import.path_text(&snapshot.text);
+                if is_hub_import_path(path)
+                    && entry.imports.iter().any(|edge| {
+                        edge.path == import.path && self.entries[edge.target.0].snapshot().is_some()
+                    })
+                {
+                    targets.push(path.into());
+                }
+            }
+            if entry.uri == *source
+                || self
+                    .compiler_documents
+                    .as_ref()
+                    .is_some_and(|documents| documents.contains_key(&id))
+            {
+                return;
+            }
+            if let Some(path) = entry.path.as_deref()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension == "bend")
+                && let Some(mut relative) = self
+                    .known_hub_import(id)
+                    .or_else(|| relative_import_path(source_path, path))
+            {
+                if relative.starts_with("./") && !relative[2..].contains('/') {
+                    relative.drain(..2);
+                }
+                targets.push(relative);
+            }
+        });
+        targets.sort_unstable();
+        targets.dedup();
+        targets
+    }
+
+    fn known_hub_import(&self, target: FileId) -> Option<String> {
+        for source in &self.entries[target.0].reverse_imports {
+            let entry = &self.entries[source.0];
+            let snapshot = entry.snapshot()?;
+            for edge in &entry.imports {
+                let path = snapshot.text.get(edge.path.start..edge.path.end)?;
+                if edge.target == target && is_hub_import_path(path) {
+                    return Some(path.into());
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn import_candidates(&self, source: &Url, name: &str) -> Vec<(Document, String)> {
+        let Some(source_path) = self
+            .file_id_by_uri(source)
+            .and_then(|id| self.entries[id.0].path.as_deref())
+        else {
+            return Vec::new();
+        };
+        let mut candidates = Vec::new();
+        self.visit_indexed_entries(|id, entry| {
+            let Some(snapshot) = entry.snapshot() else {
+                return;
+            };
+            if entry.uri == *source
+                || self
+                    .compiler_documents
+                    .as_ref()
+                    .is_some_and(|documents| documents.contains_key(&id))
+                || analysis::declaration_range(snapshot, name).is_none()
+            {
+                return;
+            }
+            let Some(path) = entry.path.as_deref().filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "bend")
+            }) else {
+                return;
+            };
+            let Some(relative) = self
+                .known_hub_import(id)
+                .or_else(|| relative_import_path(source_path, path))
+            else {
+                return;
+            };
+            if let Some(document) = entry.document() {
+                candidates.push((document, relative));
+            }
+        });
+        candidates.sort_unstable_by(|left, right| left.1.cmp(&right.1));
+        candidates
+    }
+
+    pub(crate) fn rename_import_edits(
+        &self,
+        renames: &[PathRename],
+    ) -> Option<Vec<DocumentImportEdits>> {
+        let mut changes = Vec::new();
+        for document in self.loaded_documents() {
+            let id = self.file_id_by_uri(&document.uri)?;
+            if self
+                .compiler_documents
+                .as_ref()
+                .is_some_and(|documents| documents.contains_key(&id))
+            {
+                continue;
+            }
+            let Some(source) = self.entries[id.0].path.as_deref() else {
+                continue;
+            };
+            let edits = import_rename_edits(source, &document, renames, |range| {
+                self.entries[id.0]
+                    .imports
+                    .iter()
+                    .find(|edge| edge.path == range)
+                    .and_then(|edge| self.entries[edge.target.0].path.as_deref())
+            })?;
+            if !edits.is_empty() {
+                changes.push((document, edits));
+            }
+        }
+        changes.sort_unstable_by(|(left, _), (right, _)| left.uri.cmp(&right.uri));
+        Some(changes)
+    }
+
+    pub(crate) fn rename_paths_compatible(&self, renames: &[PathRename]) -> bool {
+        if self.compiler_documents.as_ref().is_some_and(|documents| {
+            documents.keys().any(|id| {
+                self.entries[id.0].path.as_deref().is_some_and(|path| {
+                    renamed_path(path, renames) != path
+                        || renames.iter().any(|rename| path.starts_with(&rename.new))
+                })
+            })
+        }) {
+            return false;
+        }
+        let mut destinations: HashMap<PathBuf, FileId> = HashMap::new();
+        let moving: HashSet<_> = self
+            .entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| {
+                if self.is_compiler_document(&entry.uri) {
+                    return None;
+                }
+                let path = entry.path.as_deref()?;
+                (renamed_path(path, renames) != path).then_some(FileId(index))
+            })
+            .collect();
+        for id in &moving {
+            let entry = &self.entries[id.0];
+            let Some(path) = entry.path.as_deref() else {
+                continue;
+            };
+            let destination = renamed_path(path, renames);
+            if let Some(previous) = destinations.get(&destination).copied() {
+                let previous_entry: &FileEntry = &self.entries[previous.0];
+                if entry
+                    .open_snapshot
+                    .as_ref()
+                    .zip(previous_entry.open_snapshot.as_ref())
+                    .is_some_and(|(source, target)| {
+                        source.revision != target.revision || source.text != target.text
+                    })
+                {
+                    return false;
+                }
+                if previous_entry.open_snapshot.is_none() && entry.open_snapshot.is_some() {
+                    destinations.insert(destination.clone(), *id);
+                }
+            } else {
+                destinations.insert(destination.clone(), *id);
+            }
+            if let Some(other) = self.by_path.get(&destination)
+                && !moving.contains(other)
+                && let (Some(source), Some(target)) = (
+                    entry.open_snapshot.as_ref(),
+                    self.entries[other.0].open_snapshot.as_ref(),
+                )
+                && (source.revision != target.revision || source.text != target.text)
+            {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Relocate identities only; the client owns filesystem and buffer edits.
+    /// Return merged identities so revision synchronization follows an already
+    /// opened destination buffer rather than the retired source identity.
+    pub(crate) fn rename_paths(&mut self, renames: &[PathRename]) -> Vec<(FileId, FileId)> {
+        let moves: Vec<_> = self
+            .entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| {
+                let id = FileId(index);
+                if self
+                    .compiler_documents
+                    .as_ref()
+                    .is_some_and(|documents| documents.contains_key(&id))
+                {
+                    return None;
+                }
+                let old = entry.path.as_ref()?;
+                let new = renamed_path(old, renames);
+                (new != *old).then_some((id, old.clone(), new))
+            })
+            .collect();
+        for (id, old, _) in &moves {
+            if self.by_path.get(old) == Some(id) {
+                self.by_path.remove(old);
+            }
+            self.by_uri.remove(&self.entries[id.0].uri);
+        }
+        let mut merged = Vec::new();
+        for (id, _, path) in moves {
+            let Ok(uri) = Url::from_file_path(&path) else {
+                continue;
+            };
+            let destination = self
+                .by_path
+                .get(&path)
+                .copied()
+                .filter(|other| *other != id);
+            let canonical = destination
+                .filter(|other| self.entries[other.0].open_snapshot.is_some())
+                .unwrap_or(id);
+            if let Some(destination) = destination {
+                let retired = if canonical == id { destination } else { id };
+                if self.entries[canonical.0].disk_snapshot.is_none() {
+                    self.entries[canonical.0].disk_snapshot =
+                        self.entries[retired.0].disk_snapshot.take();
+                }
+                if self.entries[canonical.0].open_snapshot.is_none() {
+                    self.entries[canonical.0].open_snapshot =
+                        self.entries[retired.0].open_snapshot.take();
+                }
+                self.entries[retired.0].open_snapshot = None;
+                self.entries[retired.0].disk_snapshot = None;
+                self.entries[retired.0].path = None;
+                self.entries[retired.0].imports = Box::default();
+                merged.push((retired, canonical));
+            }
+            self.entries[canonical.0].uri = uri.clone();
+            self.entries[canonical.0].path = Some(path.clone());
+            self.by_path.insert(path, canonical);
+            self.by_uri.insert(uri, canonical);
+        }
+        for entry in &mut self.entries {
+            for edge in &mut entry.imports {
+                if let Some((_, canonical)) =
+                    merged.iter().find(|(retired, _)| *retired == edge.target)
+                {
+                    edge.target = *canonical;
+                }
+            }
+            entry.reverse_imports.clear();
+        }
+        for index in 0..self.entries.len() {
+            for edge_index in 0..self.entries[index].imports.len() {
+                let edge = self.entries[index].imports[edge_index];
+                let reverse = &mut self.entries[edge.target.0].reverse_imports;
+                let source = FileId(index);
+                if !reverse.contains(&source) {
+                    reverse.push(source);
+                }
+            }
+        }
+        self.recompute_reachable();
+        merged
     }
 
     pub(crate) fn source_graph(&self, root: FileId) -> Option<SourceGraph> {
@@ -329,6 +768,22 @@ impl WorkspaceDb {
         self.entries.get(self.by_uri.get(uri)?.0)?.path.clone()
     }
 
+    pub(crate) fn indexed_paths(&self) -> impl Iterator<Item = (&Path, bool)> {
+        self.entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| {
+                entry.path.as_deref().map(|path| {
+                    (
+                        path,
+                        self.compiler_documents
+                            .as_ref()
+                            .is_some_and(|documents| documents.contains_key(&FileId(index))),
+                    )
+                })
+            })
+    }
+
     pub(crate) fn disk_document(&self, uri: &Url) -> Option<(PathBuf, Arc<DocumentSnapshot>)> {
         let entry = self.entries.get(self.by_uri.get(uri)?.0)?;
         Some((entry.path.clone()?, entry.disk_snapshot.clone()?))
@@ -418,8 +873,7 @@ impl WorkspaceDb {
         visited
     }
 
-    #[must_use]
-    pub fn indexed_documents(&self) -> Vec<Document> {
+    fn visit_indexed_entries(&self, mut visit: impl FnMut(FileId, &FileEntry)) {
         let mut pending: Vec<FileId> = self
             .entries
             .iter()
@@ -428,17 +882,24 @@ impl WorkspaceDb {
             .map(|(index, _)| FileId(index))
             .collect();
         let mut visited = HashSet::new();
-        let mut documents = Vec::new();
         while let Some(id) = pending.pop() {
             if !visited.insert(id) {
                 continue;
             }
             let entry = &self.entries[id.0];
+            visit(id, entry);
+            pending.extend(entry.imports.iter().map(|edge| edge.target));
+        }
+    }
+
+    #[must_use]
+    pub fn indexed_documents(&self) -> Vec<Document> {
+        let mut documents = Vec::new();
+        self.visit_indexed_entries(|_, entry| {
             if let Some(document) = entry.document() {
                 documents.push(document);
             }
-            pending.extend(entry.imports.iter().map(|edge| edge.target));
-        }
+        });
         documents
     }
 

@@ -1,10 +1,14 @@
 use super::{
     compiler::compiler_diagnostics, features::lexical_diagnostics, lsp::Backend, state::State,
 };
-use crate::{analysis::Revision, workspace::normalize_path};
+use crate::{
+    analysis::Revision,
+    workspace::{Document, SourceGraph, normalize_path},
+};
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
+    path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
@@ -255,15 +259,7 @@ impl Backend {
                 span.record("outcome", "stale_snapshot");
                 return;
             }
-            let compiler_config = self.compiler.config.read().clone();
-            let compiler = compiler_diagnostics(
-                source_graph,
-                compiler_config,
-                self.compiler.semaphore.clone(),
-                self.compiler.results.clone(),
-                self.compiler.reapers.clone(),
-            )
-            .await;
+            let compiler = self.compiler_errors(&doc, &path, source_graph).await;
             if !diagnostics
                 .iter()
                 .any(|item| item.code == Some(NumberOrString::String("holes".into())))
@@ -317,6 +313,31 @@ impl Backend {
         )
         .await;
         span.record("outcome", if published { "published" } else { "stale" });
+    }
+
+    async fn compiler_errors(
+        &self,
+        doc: &Document,
+        path: &Path,
+        source_graph: SourceGraph,
+    ) -> Vec<(PathBuf, Diagnostic)> {
+        let config = self.compiler.config.read().clone();
+        let compatibility = self.compiler.compatibility(&config).await;
+        if let Some((message, code)) = compatibility.failure() {
+            vec![(
+                path.to_path_buf(),
+                super::features::diag(&doc.snapshot, 0, 0, message, code),
+            )]
+        } else {
+            compiler_diagnostics(
+                source_graph,
+                config,
+                self.compiler.semaphore.clone(),
+                self.compiler.results.clone(),
+                self.compiler.reapers.clone(),
+            )
+            .await
+        }
     }
     pub(super) async fn replace_import_diagnostics(
         &self,

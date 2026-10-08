@@ -111,18 +111,18 @@ editor. Source-based features are **not** a full compiler type checker.
 | Feature | Support and scope |
 | --- | --- |
 | Diagnostics | Local lexical checks plus errors from the installed Bend CLI; see limitations below |
-| Completion | In-scope parameters and case bindings, ADT constructors at case-pattern heads, declarations, keywords, imported module members, and indexed `Base` declarations |
+| Completion | Fuzzy ranked names, UTF-16 identifier replacement edits, scoped bindings, explicit-type constructor filtering in nested case patterns, imported members, `Base`, and indexed import paths |
 | Signature help | Function parameters and the active argument |
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
 | Go to definition | Indexed declarations, ADT constructors, and resolved imports |
 | Go to type definition | Declaration-derived type navigation |
 | Find references | Indexed symbol occurrences in the loaded workspace graph |
-| Rename | Symbol rename across indexed, loaded documents; not file/module rename |
+| Rename | Indexed symbols and module aliases; client-driven file/folder rename updates imports and indexed identities |
 | Document highlights | Matching symbol occurrences in the current document |
 | Document symbols | Outline of declarations in a document |
 | Workspace symbols | Search over indexed workspace documents; not a scan of every file on disk |
 | Semantic highlighting | Full-document semantic tokens |
-| Code actions | Limited quick fixes for missing closing delimiters |
+| Code actions | Auto-import of available indexed symbols, comment-preserving organize imports, and missing closing delimiters |
 | Inlay hints | Argument-name hints; not inferred-type hints |
 | Code lenses | Reference counts |
 | Call hierarchy | Incoming/outgoing calls through indexed declarations and local imports |
@@ -130,7 +130,7 @@ editor. Source-based features are **not** a full compiler type checker.
 | Formatting | Whole document, selected range, and on-type formatting triggered by newline |
 | Folding | Foldable source regions |
 | Selection ranges | Expand selection through enclosing source ranges |
-| Document links | Import navigation |
+| Document links | Resolved `Base`, local/extensionless paths, and already cached package imports |
 | Incremental editing | Unsaved changes are used by source features and staged compiler checks |
 | Workspace folders | Multiple roots and workspace-folder changes |
 | Watched files | Rechecks affected documents when the client sends file-change notifications; dynamic watcher registration when supported |
@@ -141,12 +141,15 @@ The same navigation works in type annotations, match patterns, and expressions.
 
 Declaration queries respect lexical shadowing: a local parameter never resolves
 to a same-named global declaration or imported module. Hover and type navigation
-use that parameter's own indexed annotation when available. Module aliases remain
-navigation targets, but alias rename is rejected rather than applied to a member.
+use that parameter's own indexed annotation when available. Renaming a module
+alias changes its declaration and unshadowed qualified uses; conflicts are rejected.
 
 Completion includes parameters and case-pattern bindings only in their indexed
 scope. Local bindings shadow same-named declarations, prelude names and import
 aliases; a shadowed alias does not offer the imported module's members.
+
+Known explicit ADT annotations narrow case-pattern constructor candidates.
+Unknown types keep the available candidates rather than pretending to infer a type.
 
 Local imports are indexed for cross-file features. `Base` comes from `bend base`.
 Hub package navigation uses packages already present in the local Bend library
@@ -173,6 +176,12 @@ diagnostics cannot overwrite a reopened buffer, even when version numbering
 restarts. A prepared close also validates the disk snapshot before restoring its
 imports.
 
+File-operation clients must request `workspace/willRenameFiles`, apply the
+returned versioned workspace edit, perform the filesystem move, and send
+`workspace/didRenameFiles`. Open buffers retain their unsaved snapshots; known
+closed sources are refreshed during cold staging. Compiler-owned `Base` cannot
+be moved or overwritten. This does not discover unrelated project files.
+
 Global semantic/reverse-index research is closed. Production keeps immutable
 snapshots, dense per-document syntax indexes and the loaded/reachable import
 graph, without a mandatory global semantic database. See the
@@ -197,10 +206,9 @@ comments, line endings, and whether the file ends with a newline. It honors
   compiler-derived hover/completion, and inferred-type inlay hints.
 - **Go to implementation** and the separate LSP **go to declaration** request.
   Go to definition is supported.
-- **General refactorings:** extract function, organize imports, automatic import
-  insertion, and compiler-driven quick fixes.
-- **File-operation hooks:** automatic import updates when files are created,
-  renamed, or deleted through LSP file-operation requests.
+- **General refactorings:** extract function and compiler-driven semantic quick fixes.
+- **File creation/deletion hooks:** rename hooks are supported, but creation and
+  deletion do not provide automatic import rewrites.
 - **Whole-project discovery:** indexing every unrelated file on disk or fetching
   missing Hub packages automatically.
 - **Pull diagnostics** (`textDocument/diagnostic`, `workspace/diagnostic`).
@@ -209,8 +217,8 @@ comments, line endings, and whether the file ends with a newline. It honors
   on-type formatting triggers other than newline.
 - **Build/run/debug integration:** the server does not replace Bend's CLI or a
   debug adapter.
-- **Bend version negotiation:** no supported-version range, startup version
-  check, or automatic compiler installation/update.
+- **Automatic compiler installation/update:** compatibility probes do not install
+  Bend or enforce a supported numeric version range.
 
 ## Roadmap
 
@@ -218,20 +226,12 @@ These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
 limitations above describe this checkout; see the changelog for unreleased work.
 
-1. **Further context-aware completion:** extend current local binding and
-   case-head constructor completion with type filtering, nested patterns,
-   import continuations, replacement ranges and ranking.
-2. **Auto-import and useful quick fixes:** insert imports for selected symbols,
-   reuse existing aliases, and avoid name conflicts.
-3. **Background whole-project indexing — deferred:** reconsider only after a
+1. **Background whole-project indexing — deferred:** reconsider only after a
    real-workspace editor/LSP latency problem and an agreed performance budget
    satisfy the [architecture decision](docs/adr-global-indexing.md).
-4. **Alias and file/module rename:** update affected imports and references with
-   conflict checks and coordinated workspace edits.
-5. **Compiler integration research:** investigate structured compiler output or
-   APIs for more precise types and diagnostics before committing to
-   compiler-powered hover, completion, or inferred-type hints. Do not introduce
-   an independent type checker that can diverge from Bend.
+2. **Compiler integration — blocked on upstream APIs:** structured diagnostics,
+   semantic fixes, expression types and inferred-type hints require a real Bend
+   compiler contract. Do not introduce a divergent independent type checker.
 
 New semantic data must be prepared during cold snapshot/index construction.
 Warm features must reuse immutable snapshots and workspace indexes rather than
@@ -253,11 +253,16 @@ error-output format can break compiler integration or source-based features.
 The server has its own syntax index, so acceptance by the compiler does not
 necessarily mean a new language construct is understood by every editor feature.
 
+Startup/configuration probes check `version` and `--help`; known missing CLI
+operations produce a clear compatibility warning. Unknown version output is not
+a numeric-version rejection. Installing or replacing an executable allows a new probe.
+
 Compiler diagnostics are parsed from human-readable output, not a structured
-compiler API. The current integration can report at most one compiler diagnostic
-per check; independent lexical diagnostics can appear alongside it. Locations
-are matched using source excerpts. If a match is ambiguous, the diagnostic falls
-back to the start of the root document rather than pointing at the wrong import.
+compiler API. Every genuine error block emitted by a check is retained and
+deduplicated across stdout and stderr. Bend 2.0.34 can stop after the first
+independent error; the server cannot invent errors the compiler did not emit.
+Locations use validated source excerpts and UTF-16 caret spans. Ambiguous matches
+fall back to the start of the root document rather than pointing at a wrong import.
 
 Checks use the latest unsaved buffers and reachable relative imports in a
 temporary tree. Changes are debounced by 250 ms; superseded checks are cancelled.
@@ -298,6 +303,19 @@ Before submitting a change, install the pinned helper tools and run the full gat
 Installing the helpers requires Rust/Cargo and Go. The gate covers formatting,
 rustc, Clippy, tests, feature combinations, dependency policy, and GitHub Actions
 security checks (`actionlint`, `ghalint`, `zizmor`).
+
+Real Neovim E2E coverage runs the native server through Neovim's built-in LSP
+client with default and explicit configurations:
+
+```sh
+cargo build --locked --bin bend2-lsp
+python3 scripts/neovim_e2e.py --nvim nvim --binary target/debug/bend2-lsp
+```
+
+Quality CI uses checksum-pinned Neovim 0.12.5 on Linux. The harness isolates
+editor/compiler configuration and exercises unsaved buffers, navigation,
+completion edits and diagnostic recovery. Completion edits are applied through
+Neovim's LSP edit utility; popup handling of a middle-token suffix is not asserted.
 
 For the persistent ARM64 Linux environment:
 

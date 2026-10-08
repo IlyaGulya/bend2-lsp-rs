@@ -115,13 +115,17 @@ mod protocol {
         std::env::join_paths(paths).must_be("construct test PATH")
     }
 
+    fn compiler_fixture_script(body: impl AsRef<str>) -> String {
+        let body = body.as_ref();
+        let body = body.strip_prefix("#!/bin/sh\n").unwrap_or(body);
+        let probes = "#!/bin/sh\nfor arg in \"$@\"; do\ncase \"$arg\" in\nversion) printf 'bend 2.0.99\\n'; exit 0;;\n--help) printf 'usage: bend <file.bend> --check-only; bend base\\n'; exit 0;;\nesac\ndone\n";
+        format!("{probes}{body}")
+    }
+
     fn install_compiler_stub(dir: &Path) -> PathBuf {
         fs::create_dir_all(dir).must_be("create stub bin directory");
         let executable = dir.join("bend");
-        fs::write(
-            &executable,
-            "#!/bin/sh\ndep=\"${1%/*}/dep.bend\"\nif grep -q 'dep\\.bend as Dep$' \"$1\" && grep -q '^BAD$' \"$dep\"; then\n  printf 'Error:\\nsynthetic imported error\\nLocation:\\n1>| BAD\\n' >&2\n  exit 1\nfi\nexit 0\n",
-        ).must_be("write compiler stub");
+        fs::write(&executable, compiler_fixture_script("#!/bin/sh\ndep=\"${1%/*}/dep.bend\"\nif grep -q 'dep\\.bend as Dep$' \"$1\" && grep -q '^BAD$' \"$dep\"; then\n  printf 'Error:\\nsynthetic imported error\\nLocation:\\n1>| BAD\\n' >&2\n  exit 1\nfi\nexit 0\n")).must_be("write compiler stub");
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))
             .must_be("make compiler stub executable");
         dir.to_path_buf()
@@ -182,7 +186,8 @@ mod protocol {
             started = shell_quote(started_fifo),
             blocked = shell_quote(blocked_fifo),
         );
-        fs::write(&executable, script).must_be("write blocked compiler stub");
+        fs::write(&executable, compiler_fixture_script(script))
+            .must_be("write blocked compiler stub");
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))
             .must_be("make blocked compiler executable");
         dir.to_path_buf()
@@ -1549,10 +1554,12 @@ mod protocol {
                 .as_array()
                 .is_some_and(|actions| actions.iter().any(|action| {
                     action["title"] == "Insert ')'"
-                        && action["edit"]["changes"][uri.as_str()][0]["newText"] == ")"
-                        && action["edit"]["changes"][uri.as_str()][0]["range"]["start"]
+                        && action["edit"]["documentChanges"][0]["textDocument"]
+                            == json!({"uri":uri,"version":1})
+                        && action["edit"]["documentChanges"][0]["edits"][0]["newText"] == ")"
+                        && action["edit"]["documentChanges"][0]["edits"][0]["range"]["start"]
                             == json!({"line":1,"character":4})
-                        && action["edit"]["changes"][uri.as_str()][0]["range"]["end"]
+                        && action["edit"]["documentChanges"][0]["edits"][0]["range"]["end"]
                             == json!({"line":1,"character":4})
                 })),
             "an unclosed-delimiter diagnostic must offer a safe insertion fix: {response}"
@@ -1901,10 +1908,7 @@ mod protocol {
         fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let custom_compiler = temp.path().join("configured-bend");
-        fs::write(
-            &custom_compiler,
-            "#!/bin/sh\nprintf 'run\\n' >> \"$0.runs\"\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--report-error\" ]; then\n    printf 'Error:\\nconfigured compiler error\\nLocation:\\n1>| def main: Type\\n' >&2\n    exit 1\n  fi\ndone\nexit 0\n",
-        ).must_be("write custom compiler");
+        fs::write(&custom_compiler, compiler_fixture_script("#!/bin/sh\nfor arg in \"$@\"; do\n  case \"$arg\" in version|--help) exit 0;; esac\ndone\nprintf 'run\\n' >> \"$0.runs\"\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--report-error\" ]; then\n    printf 'Error:\\nconfigured compiler error\\nLocation:\\n1>| def main: Type\\n' >&2\n    exit 1\n  fi\ndone\nexit 0\n")).must_be("write custom compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
             .must_be("make custom compiler executable");
         let uri = Url::from_file_path(&main_path)
@@ -2162,10 +2166,7 @@ mod protocol {
         fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let custom_compiler = compiler_dir.join("bend");
-        fs::write(
-            &custom_compiler,
-            "#!/bin/sh\nif [ \"$1\" = base ]; then\n  printf 'type Builtin is Data:\\n  Builtin{}\\ndef List.map(x: U32) -> U32:\\n  x\\n'\n  exit 0\nfi\nexit 0\n",
-        ).must_be("write compiler with Base source");
+        fs::write(&custom_compiler, compiler_fixture_script("#!/bin/sh\nif [ \"$1\" = base ]; then\n  printf 'type Builtin is Data:\\n  Builtin{}\\ndef List.map(x: U32) -> U32:\\n  x\\n'\n  exit 0\nfi\nexit 0\n")).must_be("write compiler with Base source");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
             .must_be("make compiler executable");
         let mut client = spawn_client(&compiler_dir);
@@ -2286,10 +2287,7 @@ mod protocol {
         fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let compiler = compiler_dir.join("bend");
-        fs::write(
-            &compiler,
-            "#!/bin/sh\nvalue=7\nif [ \"$1\" = --fresh ]; then value=9; shift; fi\nif [ \"$1\" = base ]; then\n  printf 'def library_value() -> U32:\\n  %s\\n' \"$value\"\n  exit 0\nfi\nif grep -q '^def library_value' \"$1\"; then\n  printf 'Error:\\nstandalone compiler input is not builtin Base\\nLocation:\\n1>| def library_value() -> U32:\\n' >&2\n  exit 1\nfi\nexit 0\n",
-        )
+        fs::write(&compiler, compiler_fixture_script("#!/bin/sh\nvalue=7\nif [ \"$1\" = --fresh ]; then value=9; shift; fi\nif [ \"$1\" = base ]; then\n  printf 'def library_value() -> U32:\\n  %s\\n' \"$value\"\n  exit 0\nfi\nif grep -q '^def library_value' \"$1\"; then\n  printf 'Error:\\nstandalone compiler input is not builtin Base\\nLocation:\\n1>| def library_value() -> U32:\\n' >&2\n  exit 1\nfi\nexit 0\n"))
         .must_be("write compiler with builtin-only declarations");
         let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
@@ -2433,10 +2431,7 @@ mod protocol {
     #[test]
     fn failed_and_empty_base_reload_detach_prelude_and_allow_recovery() {
         let (temp, mut client, compiler, old_uri, old_text) = open_generated_base_document();
-        fs::write(
-            &compiler,
-            "#!/bin/sh\nmode=old\ncase \"$1\" in --fail|--empty|--current) mode=\"$1\"; shift;; esac\nif [ \"$1\" = base ]; then\n  case \"$mode\" in\n    --fail) exit 1;;\n    --empty) exit 0;;\n    --current) printf 'def library_value() -> U32:\\n  9\\ndef current_only() -> U32:\\n  2\\n';;\n    *) printf 'def library_value() -> U32:\\n  7\\n';;\n  esac\nfi\nexit 0\n",
-        )
+        fs::write(&compiler, compiler_fixture_script("#!/bin/sh\nmode=old\ncase \"$1\" in --fail|--empty|--current) mode=\"$1\"; shift;; esac\nif [ \"$1\" = base ]; then\n  case \"$mode\" in\n    --fail) exit 1;;\n    --empty) exit 0;;\n    --current) printf 'def library_value() -> U32:\\n  9\\ndef current_only() -> U32:\\n  2\\n';;\n    *) printf 'def library_value() -> U32:\\n  7\\n';;\n  esac\nfi\nexit 0\n"))
         .must_be("write reload-mode compiler");
         let root_uri = "untitled:base-consumer.bend";
         let definition_params =
@@ -2521,10 +2516,7 @@ mod protocol {
         fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let custom_compiler = compiler_dir.join("bend");
-        fs::write(
-            &custom_compiler,
-            "#!/bin/sh\nif [ \"$1\" != --profile=custom ]; then exit 64; fi\nshift\nif [ \"$1\" = base ]; then\n  printf 'def profile_builtin() -> U32:\\n  7\\n'\nfi\nexit 0\n",
-        )
+        fs::write(&custom_compiler, compiler_fixture_script("#!/bin/sh\nif [ \"$1\" != --profile=custom ]; then exit 64; fi\nshift\nif [ \"$1\" = base ]; then\n  printf 'def profile_builtin() -> U32:\\n  7\\n'\nfi\nexit 0\n"))
         .must_be("write profile-dependent compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
             .must_be("make compiler executable");
@@ -3151,13 +3143,10 @@ mod protocol {
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let pid_path = temp.path().join("slow-compiler.pid");
         let custom_compiler = temp.path().join("slow-bend");
-        fs::write(
-            &custom_compiler,
-            format!(
-                "#!/bin/sh\nif grep -q '^# slow$' \"$1\"; then\n  echo $$ > '{}'\n  exec sleep 30\nfi\nexit 0\n",
-                pid_path.display()
-            ),
-        ).must_be("write slow compiler");
+        fs::write(&custom_compiler, compiler_fixture_script(format!(
+            "#!/bin/sh\nif grep -q '^# slow$' \"$1\"; then\n  echo $$ > '{}'\n  exec sleep 30\nfi\nexit 0\n",
+            pid_path.display()
+        ))).must_be("write slow compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
             .must_be("make slow compiler executable");
         let uri = Url::from_file_path(&main_path)
@@ -3455,10 +3444,10 @@ mod protocol {
         let custom_compiler = temp.path().join("slow-bend");
         fs::write(
             &custom_compiler,
-            format!(
+            compiler_fixture_script(format!(
                 "#!/bin/sh\necho $$ > '{}'\nexec sleep 30\n",
                 pid_path.display()
-            ),
+            )),
         )
         .must_be("write slow compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
@@ -3528,16 +3517,13 @@ mod protocol {
         fs::create_dir_all(&active_dir).must_be("create compiler activity directory");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let custom_compiler = temp.path().join("counting-bend");
-        fs::write(
-            &custom_compiler,
-            format!(
-                "#!/bin/sh\ntouch '{}/pid-'$$\nactive=$(find '{}' -type f -name 'pid-*' | wc -l)\nif [ \"$active\" -gt 4 ]; then touch '{}/overflow'; fi\nsleep 0.5\nrm -f '{}/pid-'$$\nexit 0\n",
-                active_dir.display(),
-                active_dir.display(),
-                active_dir.display(),
-                active_dir.display()
-            ),
-        ).must_be("write counting compiler");
+        fs::write(&custom_compiler, compiler_fixture_script(format!(
+            "#!/bin/sh\nfor arg in \"$@\"; do\n  case \"$arg\" in version|--help) exit 0;; esac\ndone\ntouch '{}/pid-'$$\nactive=$(find '{}' -type f -name 'pid-*' | wc -l)\nif [ \"$active\" -gt 4 ]; then touch '{}/overflow'; fi\nsleep 0.5\nrm -f '{}/pid-'$$\nexit 0\n",
+            active_dir.display(),
+            active_dir.display(),
+            active_dir.display(),
+            active_dir.display()
+        ))).must_be("write counting compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
             .must_be("make counting compiler executable");
         let mut client = spawn_client(&compiler_dir);
@@ -3601,11 +3587,11 @@ mod protocol {
         let compiler = temp.path().join("blocked-bend");
         fs::write(
             &compiler,
-            format!(
+            compiler_fixture_script(format!(
                 "#!/bin/sh\nprintf '%s\\n' \"$$\" > {}\nIFS= read -r _ < {}\n",
                 shell_quote(&started_fifo),
                 shell_quote(&release_fifo),
-            ),
+            )),
         )
         .must_be("write blocked compiler");
         fs::set_permissions(&compiler, fs::Permissions::from_mode(0o755))
@@ -3671,13 +3657,10 @@ mod protocol {
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let pid_path = temp.path().join("slow-compiler.pid");
         let custom_compiler = temp.path().join("slow-bend");
-        fs::write(
-            &custom_compiler,
-            format!(
-                "#!/bin/sh\nif grep -q '^# slow$' \"$1\"; then\n  echo $$ > '{}'\n  exec sleep 30\nfi\nexit 0\n",
-                pid_path.display()
-            ),
-        ).must_be("write slow compiler");
+        fs::write(&custom_compiler, compiler_fixture_script(format!(
+            "#!/bin/sh\nif grep -q '^# slow$' \"$1\"; then\n  echo $$ > '{}'\n  exec sleep 30\nfi\nexit 0\n",
+            pid_path.display()
+        ))).must_be("write slow compiler");
         fs::set_permissions(&custom_compiler, fs::Permissions::from_mode(0o755))
             .must_be("make slow compiler executable");
         let uri = Url::from_file_path(&main_path)
@@ -3900,13 +3883,10 @@ mod protocol {
         fs::create_dir_all(&workspace).must_be("create workspace");
         let compiler = temp.path().join("counting-bend");
         let calls = temp.path().join("calls");
-        fs::write(
-            &compiler,
-            format!(
-                "#!/bin/sh\nprintf 'called\\n' >> '{}'\nexit 0\n",
-                calls.display()
-            ),
-        )
+        fs::write(&compiler, compiler_fixture_script(format!(
+            "#!/bin/sh\nfor arg in \"$@\"; do\n  case \"$arg\" in version|--help) exit 0;; esac\ndone\nprintf 'called\\n' >> '{}'\nexit 0\n",
+            calls.display()
+        )))
         .must_be("write counting compiler");
         fs::set_permissions(&compiler, fs::Permissions::from_mode(0o755))
             .must_be("make counting compiler executable");
@@ -3973,7 +3953,8 @@ mod protocol {
         let mut compiler_source =
             fs::read_to_string(&compiler).must_be("read compiler before stamp change");
         compiler_source.push_str("# compiler stamp changed\n");
-        fs::write(&compiler, compiler_source).must_be("change compiler stamp");
+        fs::write(&compiler, compiler_fixture_script(compiler_source))
+            .must_be("change compiler stamp");
         configure_counting_compiler(&mut client, &compiler);
         wait_for_clean_diagnostics(&mut client, &uri);
         wait_for_clean_diagnostics(&mut client, &second_uri);
@@ -4056,7 +4037,7 @@ mod protocol {
         );
 
         let script = format!(
-            "#!/bin/sh\nprintf 'called\\n' >> {}\n{} \"$@\"\n",
+            "#!/bin/sh\nprobe=0\nfor arg in \"$@\"; do\n  case \"$arg\" in version|--help) probe=1;; esac\ndone\nif [ \"$probe\" = 0 ]; then printf 'called\\n' >> {}; fi\n{} \"$@\"\n",
             shell_quote(calls),
             shell_quote(&bend)
         );
@@ -4591,10 +4572,7 @@ mod protocol {
         fs::write(&first_dependency, repeated_excerpt).must_be("write first dependency");
         fs::write(&second_dependency, repeated_excerpt).must_be("write second dependency");
         let compiler = temp.path().join("ambiguous-bend");
-        fs::write(
-            &compiler,
-            "#!/bin/sh\nprintf 'Error:\\nambiguous compiler error\\nLocation:\\n1>| def value: U32\\n' >&2\nexit 1\n",
-        ).must_be("write compiler");
+        fs::write(&compiler, compiler_fixture_script("#!/bin/sh\nprintf 'Error:\\nambiguous compiler error\\nLocation:\\n1>| def value: U32\\n' >&2\nexit 1\n")).must_be("write compiler");
         fs::set_permissions(&compiler, fs::Permissions::from_mode(0o755))
             .must_be("make compiler executable");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
@@ -4884,8 +4862,30 @@ mod protocol {
         client.finish();
     }
 
+    fn assert_module_alias_rename(client: &mut LspClient, uri: &str, line: u32, character: u32) {
+        let renamed = client.request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":line,"character":character},
+                "newName":"NewLeft"
+            }),
+        );
+        assert_eq!(
+            renamed["result"]["documentChanges"],
+            json!([{
+                "textDocument":{"uri":uri,"version":1},
+                "edits":[
+                    {"range":{"start":{"line":0,"character":21},"end":{"line":0,"character":25}},"newText":"NewLeft"},
+                    {"range":{"start":{"line":4,"character":2},"end":{"line":4,"character":6}},"newText":"NewLeft"}
+                ]
+            }]),
+            "rename must preserve the shadowed parameter and its member access"
+        );
+    }
+
     #[test]
-    fn b2_b3_module_cursor_resolution_rejects_shadowed_members_and_alias_rename() {
+    fn b2_b3_module_cursor_resolution_rejects_shadowed_members_and_renames_aliases() {
         let temp = tempdir().must_be("temporary workspace");
         let main_path = temp.path().join("main.bend");
         let dep_path = temp.path().join("dep.bend");
@@ -4925,7 +4925,6 @@ mod protocol {
         }
         for (line, character) in [(0, 21), (4, 3)] {
             for method in [
-                "textDocument/rename",
                 "textDocument/hover",
                 "textDocument/references",
                 "textDocument/documentHighlight",
@@ -4943,6 +4942,7 @@ mod protocol {
                     "unsupported module alias: {method}"
                 );
             }
+            assert_module_alias_rename(&mut client, &uri, line, character);
         }
         let alias_definition = client.request(
             "textDocument/definition",

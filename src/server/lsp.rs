@@ -27,11 +27,11 @@ use tower_lsp::{
         DocumentRangeFormattingParams, DocumentSymbolParams, DocumentSymbolResponse, FoldingRange,
         FoldingRangeParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
         InitializeParams, InitializeResult, InitializedParams, InlayHint, InlayHintParams,
-        Location, MessageType, ReferenceParams, Registration, RenameParams, SelectionRange,
-        SelectionRangeParams, SemanticTokensParams, SemanticTokensResult, ServerInfo,
-        SignatureHelp, SignatureHelpParams, SymbolInformation, TextEdit, TypeHierarchyItem,
-        TypeHierarchyPrepareParams, TypeHierarchySubtypesParams, TypeHierarchySupertypesParams,
-        WorkspaceEdit, WorkspaceSymbolParams,
+        Location, MessageType, ReferenceParams, Registration, RenameFilesParams, RenameParams,
+        SelectionRange, SelectionRangeParams, SemanticTokensParams, SemanticTokensResult,
+        ServerInfo, SignatureHelp, SignatureHelpParams, SymbolInformation, TextEdit,
+        TypeHierarchyItem, TypeHierarchyPrepareParams, TypeHierarchySubtypesParams,
+        TypeHierarchySupertypesParams, WorkspaceEdit, WorkspaceSymbolParams,
     },
 };
 use tracing::Instrument;
@@ -121,6 +121,10 @@ impl LanguageServer for Backend {
         if !registrations.is_empty() {
             let _ = self.client.register_capability(registrations).await;
         }
+        let compatibility = self.check_compiler_compatibility().await;
+        if let Some(warning) = compatibility.warning() {
+            self.client.log_message(MessageType::WARNING, warning).await;
+        }
     }
 
     #[tracing::instrument(
@@ -129,6 +133,7 @@ impl LanguageServer for Backend {
         fields(method = "did_change_workspace_folders")
     )]
     async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
+        let _operation = self.workspace.document_operation().await;
         {
             let mut roots = self.workspace.roots.write();
             for folder in params.event.removed {
@@ -166,6 +171,7 @@ impl LanguageServer for Backend {
         fields(method = "did_change_configuration")
     )]
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
+        let _operation = self.workspace.document_operation().await;
         let (config, warnings) = CompilerConfig::from_settings(&params.settings);
         {
             let _load = self.compiler.base_module_load.lock().await;
@@ -176,6 +182,11 @@ impl LanguageServer for Backend {
                 *self.compiler.base_module_attempted.write() = false;
                 Some(())
             });
+        }
+        self.compiler.invalidate_compatibility().await;
+        let compatibility = self.check_compiler_compatibility().await;
+        if let Some(warning) = compatibility.warning() {
+            self.client.log_message(MessageType::WARNING, warning).await;
         }
         for warning in warnings {
             self.client.log_message(MessageType::WARNING, warning).await;
@@ -201,6 +212,7 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_open", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        let _operation = self.workspace.document_operation().await;
         let item = params.text_document;
         let uri = item.uri;
         let version = item.version;
@@ -223,6 +235,7 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        let _operation = self.workspace.document_operation().await;
         let uri = params.text_document.uri.clone();
         let version = params.text_document.version;
         if !self.change_workspace_document(params).await {
@@ -248,6 +261,7 @@ impl LanguageServer for Backend {
         fields(method = "did_change_watched_files")
     )]
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
+        let _operation = self.workspace.document_operation().await;
         let events = params
             .changes
             .into_iter()
@@ -263,6 +277,7 @@ impl LanguageServer for Backend {
 
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_close", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
+        let _operation = self.workspace.document_operation().await;
         let uri = params.text_document.uri;
         let Some(closed) = self.workspace.begin_close(&uri) else {
             return;
@@ -446,6 +461,23 @@ impl LanguageServer for Backend {
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "rename", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
         self.handle_rename(params).await
+    }
+    #[tracing::instrument(
+        name = "lsp.request",
+        skip_all,
+        fields(method = "workspace/willRenameFiles")
+    )]
+    async fn will_rename_files(&self, params: RenameFilesParams) -> Result<Option<WorkspaceEdit>> {
+        self.handle_will_rename_files(params).await
+    }
+    #[tracing::instrument(
+        name = "lsp.notification",
+        skip_all,
+        fields(method = "workspace/didRenameFiles")
+    )]
+    async fn did_rename_files(&self, params: RenameFilesParams) {
+        let _operation = self.workspace.file_operations.write().await;
+        self.handle_did_rename_files(params).await;
     }
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "goto_type_definition", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn goto_type_definition(

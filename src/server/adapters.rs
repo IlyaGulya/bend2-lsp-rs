@@ -1,8 +1,9 @@
 use crate::analysis::{self, CompletionKind, DocumentSnapshot, SymbolKind, TextRange};
 use tower_lsp::lsp_types::{
-    CompletionItem, CompletionItemKind, DocumentSymbol, FoldingRange, FoldingRangeKind, InlayHint,
-    InlayHintKind, InlayHintLabel, Location, ParameterInformation, ParameterLabel, Position, Range,
-    SelectionRange, SemanticToken, SignatureHelp, SignatureInformation, SymbolInformation,
+    CompletionItem, CompletionItemKind, CompletionTextEdit, DocumentSymbol, FoldingRange,
+    FoldingRangeKind, InlayHint, InlayHintKind, InlayHintLabel, Location, ParameterInformation,
+    ParameterLabel, Position, Range, SelectionRange, SemanticToken, SignatureHelp,
+    SignatureInformation, SymbolInformation, TextEdit,
 };
 use url::Url;
 
@@ -86,6 +87,35 @@ pub(super) fn completion_items(items: Vec<analysis::Completion>) -> Vec<Completi
             result
         })
         .collect()
+}
+
+/// Apply snapshot-local edits without disturbing an auto-import's additional edits.
+pub(super) fn finish_completion_items(
+    snapshot: &DocumentSnapshot,
+    replacement: TextRange,
+    prefix: &str,
+    mut items: Vec<CompletionItem>,
+) -> Vec<CompletionItem> {
+    let replacement = range(snapshot, replacement);
+    for item in &mut items {
+        if let Some((class, gaps, length)) = analysis::completion_match(&item.label, prefix) {
+            let scope = u8::from(item.kind != Some(CompletionItemKind::VARIABLE));
+            item.sort_text = Some(format!(
+                "{class:01}{gaps:010}{scope:01}{length:010}{}",
+                item.label
+            ));
+        }
+        item.filter_text = Some(item.label.clone());
+        item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+            range: replacement,
+            new_text: item
+                .insert_text
+                .clone()
+                .unwrap_or_else(|| item.label.clone()),
+        }));
+    }
+    items.sort_unstable_by(|left, right| left.sort_text.cmp(&right.sort_text));
+    items
 }
 
 pub(super) fn inlay_hints(

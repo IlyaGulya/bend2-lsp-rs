@@ -5,6 +5,8 @@ use std::{
 
 use super::{LineIndex, SymbolKind, TextRange};
 
+#[path = "syntax/completion.rs"]
+mod completion;
 #[path = "syntax/declarations.rs"]
 mod declarations;
 #[path = "syntax/scanner.rs"]
@@ -15,6 +17,11 @@ use declarations::{
     parse_symbols,
 };
 use scanner::Scanner;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CasePatternType {
+    pub explicit_type: Option<TextRange>,
+}
 
 const KEYWORDS: &[&str] = &[
     "def", "law", "type", "is", "match", "case", "do", "return", "for", "exs", "where", "import",
@@ -384,6 +391,7 @@ pub struct SyntaxIndex {
     delimiter_context: Box<[Option<TokenId>]>,
     symbol_by_name: HashMap<NameId, SymbolId>,
     token_symbols: Box<[Option<SymbolId>]>,
+    completion: completion::CompletionIndex,
 }
 
 impl SyntaxIndex {
@@ -472,7 +480,7 @@ impl SyntaxIndex {
             token_symbols: &token_symbols,
             calls: &calls.calls,
         });
-        Self {
+        let mut index = Self {
             tokens: tokens.into_boxed_slice(),
             names,
             imports: imports.into_boxed_slice(),
@@ -500,7 +508,10 @@ impl SyntaxIndex {
             delimiter_context: delimiter_context.into_boxed_slice(),
             symbol_by_name,
             token_symbols: token_symbols.into_boxed_slice(),
-        }
+            completion: completion::CompletionIndex::default(),
+        };
+        index.completion = completion::CompletionIndex::build(source, &index);
+        index
     }
 
     #[must_use]
@@ -651,6 +662,11 @@ impl SyntaxIndex {
     }
 
     #[must_use]
+    pub fn is_keyword_text(name: &str) -> bool {
+        KEYWORDS.contains(&name)
+    }
+
+    #[must_use]
     pub fn name_range(&self, name: NameId) -> TextRange {
         self.names.range(name)
     }
@@ -745,6 +761,15 @@ impl SyntaxIndex {
         self.name_reference_indices[span.start..span.end]
             .iter()
             .map(|index| &self.references[*index])
+    }
+
+    pub fn qualified_references(&self, root: NameId) -> impl Iterator<Item = &Reference> {
+        self.references.iter().filter(move |reference| {
+            reference
+                .qualifier_token
+                .and_then(|token| self.name_for_token(token))
+                == Some(root)
+        })
     }
 
     #[must_use]
@@ -864,6 +889,17 @@ impl SyntaxIndex {
             .binary_search_by_key(&open, |pair| pair.open)
             .ok()
             .map(|index| self.delimiter_pairs[index].close)
+    }
+
+    /// An indexed pattern context; an absent explicit type keeps constructor choices unrestricted.
+    #[must_use]
+    pub fn case_pattern_type(&self, offset: usize) -> Option<CasePatternType> {
+        self.completion.pattern_type(offset)
+    }
+
+    #[must_use]
+    pub fn completion_import_path(&self, offset: usize) -> Option<TextRange> {
+        self.completion.import_path(offset)
     }
 }
 

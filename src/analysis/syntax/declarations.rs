@@ -205,16 +205,15 @@ fn parse_function_parameters(
     let start = context
         .tokens
         .partition_point(|token| token.range.start < symbol.name_range.end);
-    let end = context
+    let open = context
         .tokens
-        .partition_point(|token| token.range.start < header_end);
-    let open = (start..end)
-        .find(|index| {
-            let token = context.tokens[*index];
-            token.kind == TokenKind::Delimiter
+        .get(start)
+        .filter(|token| {
+            token.range.start < header_end
+                && token.kind == TokenKind::Delimiter
                 && &context.source[token.range.start..token.range.end] == "("
         })
-        .map(TokenId);
+        .map(|_| TokenId(start));
     let Some(open) = open else {
         return;
     };

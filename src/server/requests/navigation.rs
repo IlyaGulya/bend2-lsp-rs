@@ -17,12 +17,14 @@ use tracing::Instrument;
 use url::Url;
 
 impl Backend {
-    fn import_definition(
-        &self,
-        document: &Document,
-        import: &analysis::IndexedImport,
-    ) -> Option<GotoDefinitionResponse> {
-        let uri = tracing::info_span!("navigation.module_lookup").in_scope(|| {
+    pub(in crate::server) fn available_import_targets(&self, document: &Document) -> Vec<String> {
+        self.workspace
+            .read()
+            .available_import_targets(&document.uri)
+    }
+
+    fn import_uri(&self, document: &Document, import: &analysis::IndexedImport) -> Option<Url> {
+        tracing::info_span!("navigation.module_lookup").in_scope(|| {
             if import.path_text(&document.text) == "Base" {
                 self.prelude_module(document).map(|module| module.uri)
             } else {
@@ -31,15 +33,19 @@ impl Backend {
                     .import_target(&document.uri, import.path)
                     .map(|target| target.uri)
             }
-        })?;
-        Some(
-            tracing::info_span!("navigation.location", scope = "import").in_scope(|| {
-                GotoDefinitionResponse::Scalar(Location {
-                    uri,
-                    range: Range::default(),
-                })
-            }),
-        )
+        })
+    }
+
+    fn import_definition(
+        &self,
+        document: &Document,
+        import: &analysis::IndexedImport,
+    ) -> Option<GotoDefinitionResponse> {
+        let uri = self.import_uri(document, import)?;
+        Some(GotoDefinitionResponse::Scalar(Location {
+            uri,
+            range: Range::default(),
+        }))
     }
 
     fn module_uri_at(&self, document: &Document, offset: usize) -> Option<Url> {
@@ -65,7 +71,9 @@ impl Backend {
         &self,
         params: DocumentLinkParams,
     ) -> Result<Option<Vec<DocumentLink>>> {
-        let _workspace_read = self.document_read(&params.text_document.uri).await;
+        let _workspace_read = self
+            .document_read_with_prelude(&params.text_document.uri)
+            .await;
         let Some(doc) = self.document(&params.text_document.uri) else {
             return Ok(None);
         };
@@ -75,14 +83,10 @@ impl Backend {
         let mut links = Vec::new();
         for import in analysis::imports(&doc) {
             let path = import.path_text(&doc.text);
-            if !path.ends_with(".bend") {
-                continue;
-            }
-            let target = self.workspace.read().import_target(&doc.uri, import.path);
-            if let Some(target) = target {
+            if let Some(target) = self.import_uri(&doc, import) {
                 links.push(DocumentLink {
                     range: adapters::range(&doc, import.path),
-                    target: Some(target.uri),
+                    target: Some(target),
                     tooltip: Some(format!("Open {path}")),
                     data: None,
                 });
