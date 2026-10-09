@@ -132,6 +132,9 @@ target directories. Quality tools and the Iai runner have separate caches
 including Cargo installation metadata. Keys include native platform, Rust
 compiler identity, and installation/setup recipes; quality tool keys also
 include the Go version.
+Tool installation itself does not use sccache: Cargo's temporary install paths
+prevent reliable object reuse and generate unnecessary remote cache traffic.
+The installed-tool cache is the reuse boundary; project builds still use sccache.
 
 Only successful trusted `push` or `workflow_dispatch` runs on `main` save
 download/tool caches. Their sccache backend is read-write; PR and publication
