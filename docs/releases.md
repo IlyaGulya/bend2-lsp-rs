@@ -117,6 +117,40 @@ do not rerun it on pushes. Mandatory CI and maintainer review enforcement depend
 on server-side branch rules. A successful push quality run does not prove those
 rules exist.
 
+### CI caches and native tool installation
+
+Quality, native release builds, and installer E2E use pinned sccache 0.18.0
+with GitHub's cache backend. Rust incremental compilation is disabled only
+for these wrapped builds. The wrapper caches eligible Rust library compilation;
+linked executables and procedural macros still compile normally. The final
+release executable is staged, hashed, and exercised through the same native
+and installed-binary gates as before.
+
+All build jobs restore only Cargo registry downloads and Git dependency
+checkouts, never Cargo credentials, configuration, rustup wrappers, or measured
+target directories. Quality tools and the Iai runner have separate caches
+including Cargo installation metadata. Keys include native platform, Rust
+compiler identity, and installation/setup recipes; quality tool keys also
+include the Go version.
+
+Only successful trusted `push` or `workflow_dispatch` runs on `main` save
+download/tool caches. Their sccache backend is read-write; PR and publication
+`workflow_run` consumers are read-only. The `cache-warm` workflow seeds all six
+native platforms from trusted main changes or a manual main dispatch, runs the
+full native/installer matrices, and never publishes a release. Its separate
+Ubuntu job seeds the pinned Iai runner without running calibration.
+
+Callgrind comparison, calibration, and paired latency builds restore dependency
+inputs and tools only: no compiler wrapper, shared objects, or restored measured
+targets. Their independent-build and regression policies remain unchanged.
+Cache hits and sccache statistics are visible in job logs and summaries.
+
+Native jobs install official nextest 0.9.131 archives through
+`scripts/bootstrap_nextest.py`, not twelve independent source builds.
+The bootstrap verifies reviewed archive sizes/SHA256 and copies only the
+expected regular executable. macOS uses the universal archive; Windows ARM64
+selection follows the validated Rust target rather than Python's architecture.
+
 ## One-time repository setup
 
 These are administrator operations, not changes performed by preparing these

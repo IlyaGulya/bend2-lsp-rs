@@ -20,9 +20,25 @@ if [[ "${1:-}" == "dist" ]]; then
   exit 0
 fi
 
+source scripts/check-tool-version.sh
+
+# A dedicated install root lets CI restore binaries together with Cargo's
+# installation metadata without caching rustup proxies or Cargo credentials.
+if [[ "${1:-}" == "performance" ]]; then
+  cargo install --locked --version 0.16.1 iai-callgrind-runner
+  exit 0
+fi
+
 cargo install --locked --version 0.9.131 cargo-nextest
 cargo install --locked --version 0.20.2 cargo-deny
 cargo install --locked --version 0.6.45 cargo-hack
 cargo install --locked --version 1.30.1 zizmor
-go install -ldflags='-X main.version=1.5.6' github.com/suzuki-shunsuke/ghalint/cmd/ghalint@v1.5.6
-go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+go_bin="${GOBIN:-$(go env GOPATH)/bin}"
+if [[ ! -x "$go_bin/ghalint" ]] || ! check_tool_version ghalint 1.5.6 "$("$go_bin/ghalint" version)"; then
+  go install -ldflags='-X main.version=1.5.6' github.com/suzuki-shunsuke/ghalint/cmd/ghalint@v1.5.6
+fi
+if [[ ! -x "$go_bin/actionlint" ]] || ! check_tool_version actionlint 1.7.12 "$("$go_bin/actionlint" --version)"; then
+  go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+fi
+check_tool_version ghalint 1.5.6 "$("$go_bin/ghalint" version)"
+check_tool_version actionlint 1.7.12 "$("$go_bin/actionlint" --version)"
