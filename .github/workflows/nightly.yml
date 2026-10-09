@@ -48,6 +48,8 @@ jobs:
       sha: ${{ github.event.workflow_run.head_sha }}
       tag: ${{ needs.prepare.outputs.tag }}
       channel: nightly
+    secrets:
+      BUILDFETCH_TOKEN_READONLY: ${{ secrets.BUILDFETCH_TOKEN_READONLY }}
   publish:
     needs: [prepare, binaries]
     runs-on: ubuntu-24.04
