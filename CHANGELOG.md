@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### CI
+
+- Cache Cargo dependency inputs and pinned helper installations, including
+  Cargo install metadata, with trusted-main writes and read-only consumers.
+- Enable pinned sccache for quality/native/installer builds and seed all six
+  native platforms without publication. Measured Callgrind, calibration, and
+  latency builds retain their independent fresh object/target construction.
+- Install checksum-pinned official nextest 0.9.131 native archives instead of
+  compiling the runner separately in every native and installer E2E job.
+
 ## [0.5.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.4.0...v0.5.0) (2026-10-08)
 
 ### Better import completion

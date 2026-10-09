@@ -5,6 +5,8 @@ on:
     paths:
       - .github/workflows/installer-validation.yml
       - .github/workflows/release-binaries.yml
+      - scripts/ci-cache.sh
+      - scripts/bootstrap_nextest.py
       - scripts/release.py
       - scripts/test_release.py
       - scripts/dist_installers.py
