@@ -53,6 +53,9 @@ jobs:
           path: ${{ runner.temp }}/ci-quality-tools
           key: quality-tools-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ steps.tool-identity.outputs.go-version }}-${{ hashFiles('scripts/install-tools.sh', 'rust-toolchain.toml', 'scripts/ci-cache.sh') }}
       - name: Install pinned quality tools
+        env:
+          # Reuse installed tools, not objects under Cargo's temporary install paths.
+          RUSTC_WRAPPER: ''
         run: ./scripts/install-tools.sh
       - name: Run quality gates
         run: ./scripts/quality
