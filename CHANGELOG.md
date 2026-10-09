@@ -25,6 +25,8 @@
   probe encounters storage I/O failures.
 - Use the exact BuildFetch project prefix and normalize the WebDAV endpoint
   separator rather than appending custom cache namespaces.
+- Distinguish WebDAV directory-creation failures from authenticated object
+  routing failures using reserved health-file HTTP diagnostics.
 - Add snapshot-ownership regressions and Linux stdio FIFO barriers for watcher
   admission, missing/recreated dependencies, overlays, and late staging commits.
 - Cache Cargo dependency inputs and pinned helper installations, including

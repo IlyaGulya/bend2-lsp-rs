@@ -180,6 +180,10 @@ Unknown WebDAV `cache_size` is not zero usage.
 Probe I/O failures also preserve info-level sccache diagnostics as `.error.txt`
 in the same artifact. Password and Basic-auth credential forms are redacted
 before printing or uploading; raw daemon logs stay in the runner's temporary directory.
+On writer failure, protocol diagnostics report `MKCOL`, direct `PUT`, and `GET`
+statuses for sccache's reserved `.sccache_check` health file, with and without
+the project prefix. Only status and payload-match metadata are retained;
+these requests do not store a compiler artifact or satisfy the roundtrip gate.
 The existing approximately 1.85 GiB GitHub cache observation supports an initial
 10 GiB budget, not a demonstrated BuildFetch footprint or a need for 20 GiB.
 

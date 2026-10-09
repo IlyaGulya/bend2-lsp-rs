@@ -39,6 +39,38 @@ def quota():
         return {"used_bytes": None, "available_bytes": None, "http_status": error.code}
 
 
+def write_protocol():
+    """Discriminate MKCOL and object routing using sccache's reserved health file."""
+    credentials = f"{os.environ['SCCACHE_WEBDAV_USERNAME']}:{os.environ['SCCACHE_WEBDAV_PASSWORD']}"
+    authorization = base64.b64encode(credentials.encode()).decode()
+    endpoint = os.environ["SCCACHE_WEBDAV_ENDPOINT"].rstrip("/")
+    prefix = "/" + os.environ["SCCACHE_WEBDAV_KEY_PREFIX"].strip("/")
+    payload = b"Hello, World!"
+    results = []
+    for method, path, data in (
+        ("MKCOL", prefix + "/", None),
+        ("PUT", prefix + "/.sccache_check", payload),
+        ("GET", prefix + "/.sccache_check", None),
+        ("PUT", "/.sccache_check", payload),
+        ("GET", "/.sccache_check", None),
+    ):
+        request = urllib.request.Request(
+            endpoint + path, data=data,
+            headers={"Authorization": f"Basic {authorization}"},
+            method=method,
+        )
+        result = {"method": method, "path": path}
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                result["http_status"] = response.status
+                if method == "GET":
+                    result["health_payload_matches"] = response.read() == payload
+        except urllib.error.HTTPError as error:
+            result["http_status"] = error.code
+        results.append(result)
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("write", "read"))
@@ -79,6 +111,10 @@ def main():
                 diagnostic = diagnostic.replace(secret, "[REDACTED]")
             args.report.with_suffix(".error.txt").write_text(diagnostic)
             print(diagnostic)
+        if args.mode == "write":
+            info["webdav_protocol"] = write_protocol()
+            args.report.write_text(json.dumps(info, indent=2) + "\n")
+            print(json.dumps(info["webdav_protocol"]))
         raise RuntimeError("remote compiler cache reported I/O errors")
     if args.mode == "write":
         if not stats["cache_writes"]:
