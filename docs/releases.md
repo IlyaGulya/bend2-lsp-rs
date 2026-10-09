@@ -160,11 +160,14 @@ gh secret set BUILDFETCH_TOKEN_READONLY --repo IlyaGulya/bend2-lsp-rs
 gh secret set BUILDFETCH_TOKEN_READWRITE --repo IlyaGulya/bend2-lsp-rs
 ```
 
-The endpoint, project prefix, `token-auth` username, platform/compiler/recipe
-namespace, and [pinned WebDAV access modes](https://github.com/mozilla/sccache/blob/v0.18.0/docs/Webdav.md)
+The endpoint, exact provider project prefix, `token-auth` username, and
+[pinned WebDAV access modes](https://github.com/mozilla/sccache/blob/v0.18.0/docs/Webdav.md)
 are configured by `scripts/ci-cache.sh`. Read-only access is enforced by the
 readonly token, not just a client environment flag. Reusable native workflows
 receive explicit cache secrets, never inherited release-App credentials.
+The endpoint has no trailing slash: pinned OpenDAL joins it with an absolute
+WebDAV path. Additional namespace segments are not appended to the provider
+prefix; sccache's own input keys distinguish compilers, platforms, and build flags.
 
 The trusted-main `cache-warm` probe writes a real Rust library, stops the
 sccache server, then uses the readonly token in a new server to retrieve the

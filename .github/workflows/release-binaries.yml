@@ -90,7 +90,6 @@ jobs:
         env:
           ENABLE_SCCACHE: 'true'
           CACHE_WRITABLE: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-          CACHE_RECIPE_KEY: ${{ hashFiles('scripts/ci-cache.sh') }}
           BUILDFETCH_TOKEN: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.BUILDFETCH_TOKEN_READWRITE || secrets.BUILDFETCH_TOKEN_READONLY }}
         run: bash scripts/ci-cache.sh
       - name: Restore Cargo downloads
@@ -221,7 +220,6 @@ jobs:
         env:
           ENABLE_SCCACHE: 'true'
           CACHE_WRITABLE: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-          CACHE_RECIPE_KEY: ${{ hashFiles('scripts/ci-cache.sh') }}
           BUILDFETCH_TOKEN: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.BUILDFETCH_TOKEN_READWRITE || secrets.BUILDFETCH_TOKEN_READONLY }}
         run: bash scripts/ci-cache.sh
       - name: Restore Cargo downloads

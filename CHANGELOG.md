@@ -23,6 +23,8 @@
   cache credentials. Add a real write/restart/readonly-hit compiler probe.
 - Preserve credential-redacted daemon diagnostics when the BuildFetch compiler
   probe encounters storage I/O failures.
+- Use the exact BuildFetch project prefix and normalize the WebDAV endpoint
+  separator rather than appending custom cache namespaces.
 - Add snapshot-ownership regressions and Linux stdio FIFO barriers for watcher
   admission, missing/recreated dependencies, overlays, and late staging commits.
 - Cache Cargo dependency inputs and pinned helper installations, including

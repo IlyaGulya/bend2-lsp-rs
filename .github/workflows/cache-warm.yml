@@ -64,7 +64,6 @@ jobs:
         env:
           ENABLE_SCCACHE: 'true'
           CACHE_WRITABLE: 'true'
-          CACHE_RECIPE_KEY: ${{ hashFiles('scripts/ci-cache.sh') }}
           BUILDFETCH_TOKEN: ${{ secrets.BUILDFETCH_TOKEN_READWRITE }}
         run: |
           test -n "$BUILDFETCH_TOKEN"
@@ -81,7 +80,6 @@ jobs:
         env:
           ENABLE_SCCACHE: 'true'
           CACHE_WRITABLE: 'false'
-          CACHE_RECIPE_KEY: ${{ hashFiles('scripts/ci-cache.sh') }}
           BUILDFETCH_TOKEN: ${{ secrets.BUILDFETCH_TOKEN_READONLY }}
         run: |
           test -n "$BUILDFETCH_TOKEN"

@@ -35,8 +35,8 @@ if [[ "${ENABLE_SCCACHE:-false}" == true ]]; then
     printf 'RUSTC_WRAPPER=sccache\n'
     printf 'CARGO_INCREMENTAL=0\n'
     if [[ -n "${BUILDFETCH_TOKEN:-}" ]]; then
-      printf 'SCCACHE_WEBDAV_ENDPOINT=https://cache.eu-central-a.buildfetch.com/hVXWOX/sccache/\n'
-      printf 'SCCACHE_WEBDAV_KEY_PREFIX=hVXWOX/bend2-v1-%s-%s-%s-%s\n' "$RUNNER_OS" "$RUNNER_ARCH" "$toolchain_key" "$CACHE_RECIPE_KEY"
+      printf 'SCCACHE_WEBDAV_ENDPOINT=https://cache.eu-central-a.buildfetch.com/hVXWOX/sccache\n'
+      printf 'SCCACHE_WEBDAV_KEY_PREFIX=hVXWOX\n'
       printf 'SCCACHE_WEBDAV_USERNAME=token-auth\n'
       printf 'SCCACHE_WEBDAV_PASSWORD=%s\n' "$BUILDFETCH_TOKEN"
       printf 'SCCACHE_WEBDAV_RW_MODE=%s\n' "$mode"
