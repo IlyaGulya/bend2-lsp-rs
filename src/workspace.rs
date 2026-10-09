@@ -216,7 +216,9 @@ struct FileEntry {
     path: Option<PathBuf>,
     language_id: String,
     open_snapshot: Option<Arc<DocumentSnapshot>>,
+    disk_generation: u64,
     disk_snapshot: Option<Arc<DocumentSnapshot>>,
+    retired: bool,
     imports: Box<[ImportEdge]>,
     reverse_imports: Vec<FileId>,
 }
@@ -241,8 +243,9 @@ pub struct WorkspaceDb {
     by_uri: HashMap<Url, FileId>,
     by_path: HashMap<PathBuf, FileId>,
     compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
+    // User file identities stay interned; graph liveness governs their payloads.
     reachable: HashSet<FileId>,
-    reachability_dirty: bool,
+    retired: Vec<FileId>,
 }
 
 impl WorkspaceDb {
@@ -256,7 +259,9 @@ impl WorkspaceDb {
         directory: tempfile::TempDir,
     ) {
         let id = self.intern(uri, Some(path));
+        self.release_retired_payload(id);
         self.entries[id.0].disk_snapshot = Some(snapshot);
+        self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
         self.compiler_documents
             .get_or_insert_with(HashMap::new)
             .insert(id, directory);
@@ -597,6 +602,8 @@ impl WorkspaceDb {
             })
             .collect();
         for (id, old, _) in &moves {
+            self.release_retired_payload(*id);
+            self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
             if self.by_path.get(old) == Some(id) {
                 self.by_path.remove(old);
             }
@@ -616,7 +623,15 @@ impl WorkspaceDb {
                 .filter(|other| self.entries[other.0].open_snapshot.is_some())
                 .unwrap_or(id);
             if let Some(destination) = destination {
+                self.release_retired_payload(destination);
+                self.entries[destination.0].disk_generation =
+                    self.entries[destination.0].disk_generation.wrapping_add(1);
                 let retired = if canonical == id { destination } else { id };
+                // Import edges belong to the effective snapshot. A destination
+                // may already have been loaded by the client's preceding edit.
+                let transfer_imports = self.entries[canonical.0].snapshot().is_none()
+                    || (self.entries[canonical.0].open_snapshot.is_none()
+                        && self.entries[retired.0].open_snapshot.is_some());
                 if self.entries[canonical.0].disk_snapshot.is_none() {
                     self.entries[canonical.0].disk_snapshot =
                         self.entries[retired.0].disk_snapshot.take();
@@ -624,6 +639,10 @@ impl WorkspaceDb {
                 if self.entries[canonical.0].open_snapshot.is_none() {
                     self.entries[canonical.0].open_snapshot =
                         self.entries[retired.0].open_snapshot.take();
+                }
+                if transfer_imports {
+                    self.entries[canonical.0].imports =
+                        std::mem::take(&mut self.entries[retired.0].imports);
                 }
                 self.entries[retired.0].open_snapshot = None;
                 self.entries[retired.0].disk_snapshot = None;
@@ -717,10 +736,12 @@ impl WorkspaceDb {
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> FileId {
         let id = self.intern(document.uri.clone(), path);
+        self.release_retired_payload(id);
         let entry = &mut self.entries[id.0];
         entry.language_id = document.language_id;
         entry.open_snapshot = Some(document.snapshot);
         self.refresh_imports_with_targets(id, imports);
+        self.extend_reachable(id);
         id
     }
 
@@ -742,43 +763,64 @@ impl WorkspaceDb {
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> Option<(FileId, bool)> {
         let id = *self.by_uri.get(uri)?;
+        self.release_retired_payload(id);
         let entry = self.entries.get_mut(id.0)?;
+        let was_open = entry.open_snapshot.is_some();
         entry.open_snapshot = Some(snapshot);
         let imports_changed = self.refresh_imports_with_targets(id, imports);
+        if !was_open {
+            self.extend_reachable(id);
+        }
         Some((id, imports_changed))
     }
 
     pub fn close_document(&mut self, uri: &Url) -> Option<FileId> {
-        let imports = self
-            .disk_document(uri)
-            .map_or_else(Vec::new, |(path, snapshot)| {
-                resolve_import_targets(&path, &snapshot)
-            });
-        self.close_document_prepared(uri, imports)
+        self.close_document_prepared(uri)
     }
 
-    pub(crate) fn close_document_prepared(
-        &mut self,
-        uri: &Url,
-        imports: Vec<(analysis::TextRange, PathBuf)>,
-    ) -> Option<FileId> {
+    pub(crate) fn close_document_prepared(&mut self, uri: &Url) -> Option<FileId> {
         let id = *self.by_uri.get(uri)?;
+        let compiler_owned = self.is_compiler_document(uri);
         let entry = self.entries.get_mut(id.0)?;
-        if entry.open_snapshot.take().is_some() {
-            self.reachability_dirty = true;
+        entry.open_snapshot.take()?;
+        // Generated navigation source has independent workspace ownership.
+        // User disk snapshots and overlay imports must be loaded afresh.
+        if !compiler_owned {
+            entry.disk_snapshot = None;
         }
-        self.entries[id.0].language_id = "bend".into();
-        self.refresh_imports_with_targets(id, imports);
+        entry.disk_generation = entry.disk_generation.wrapping_add(1);
+        entry.language_id = "bend".into();
+        let imports = if compiler_owned {
+            entry
+                .path
+                .as_deref()
+                .zip(entry.disk_snapshot.as_ref())
+                .map_or_else(Vec::new, |(path, snapshot)| {
+                    resolve_import_targets(path, snapshot)
+                })
+        } else {
+            Vec::new()
+        };
+        let imports_changed = self.refresh_imports_with_targets(id, imports);
+        if compiler_owned || !imports_changed {
+            self.recompute_reachable();
+        }
         Some(id)
     }
 
     pub fn sync_disk_path(&mut self, path: &Path, text: Option<String>) -> Option<(FileId, bool)> {
+        let path = normalize_path(path);
+        let uri = Url::from_file_path(&path).ok()?;
+        let id = self.intern(uri, Some(path.clone()));
+        if !self.is_needed(id) {
+            return Some((id, false));
+        }
         let snapshot =
             text.map(|text| Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text)));
         let imports = snapshot
             .as_ref()
-            .map_or_else(Vec::new, |snapshot| resolve_import_targets(path, snapshot));
-        self.sync_disk_snapshot_prepared(path, snapshot, imports)
+            .map_or_else(Vec::new, |snapshot| resolve_import_targets(&path, snapshot));
+        self.sync_disk_snapshot_prepared(&path, snapshot, imports)
     }
 
     pub(crate) fn sync_disk_snapshot_prepared(
@@ -788,9 +830,12 @@ impl WorkspaceDb {
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> Option<(FileId, bool)> {
         let path = normalize_path(path);
-        let uri = Url::from_file_path(&path).ok()?;
-        let id = self.intern(uri, Some(path));
+        let id = *self.by_path.get(&path)?;
+        if !self.is_needed(id) {
+            return None;
+        }
         self.entries[id.0].disk_snapshot = snapshot;
+        self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
         // The prepared imports belong to the disk snapshot, not an open overlay
         // that may have changed while the disk snapshot was being constructed.
         let imports_changed = self.entries[id.0].open_snapshot.is_none()
@@ -818,17 +863,16 @@ impl WorkspaceDb {
             })
     }
 
-    pub(crate) fn disk_document(&self, uri: &Url) -> Option<(PathBuf, Arc<DocumentSnapshot>)> {
-        let entry = self.entries.get(self.by_uri.get(uri)?.0)?;
-        Some((entry.path.clone()?, entry.disk_snapshot.clone()?))
-    }
-
     pub(crate) fn missing_disk_paths(&self, roots: &[FileId]) -> Vec<PathBuf> {
-        let mut pending = roots.to_vec();
+        let mut pending: Vec<_> = roots
+            .iter()
+            .copied()
+            .filter(|id| self.is_needed(*id))
+            .collect();
         let mut visited = HashSet::new();
         let mut paths = Vec::new();
         while let Some(id) = pending.pop() {
-            if !visited.insert(id) {
+            if !self.is_needed(id) || !visited.insert(id) {
                 continue;
             }
             let Some(entry) = self.entries.get(id.0) else {
@@ -847,13 +891,14 @@ impl WorkspaceDb {
     }
 
     pub fn load_reachable(&mut self, roots: &[FileId]) {
-        let extend_reachable = roots
+        let mut pending: Vec<_> = roots
             .iter()
-            .any(|id| self.entries[id.0].open_snapshot.is_some() || self.reachable.contains(id));
-        let mut pending = roots.to_vec();
+            .copied()
+            .filter(|id| self.is_needed(*id))
+            .collect();
         let mut visited = HashSet::new();
         while let Some(id) = pending.pop() {
-            if !visited.insert(id) {
+            if !self.is_needed(id) || !visited.insert(id) {
                 continue;
             }
             if self.entries[id.0].snapshot().is_none()
@@ -864,32 +909,44 @@ impl WorkspaceDb {
             }
             pending.extend(self.entries[id.0].imports.iter().map(|edge| edge.target));
         }
-        if self.reachability_dirty {
-            self.recompute_reachable();
-        } else if extend_reachable {
-            self.reachable.extend(visited);
+        self.finish_load_reachable();
+    }
+
+    pub(crate) fn finish_load_reachable(&mut self) {
+        // In-flight readers retain their Arcs; release only database ownership
+        // once the lifecycle transaction has finished.
+        while let Some(id) = self.retired.pop() {
+            if self.is_needed(id) {
+                continue;
+            }
+            self.release_retired_payload(id);
         }
     }
 
-    pub(crate) fn finish_load_reachable(&mut self, roots: &[FileId]) {
-        let extend_reachable = roots
-            .iter()
-            .any(|id| self.entries[id.0].open_snapshot.is_some() || self.reachable.contains(id));
-        let mut pending = roots.to_vec();
-        let mut visited = HashSet::new();
-        while let Some(id) = pending.pop() {
-            if !visited.insert(id) {
-                continue;
-            }
-            let Some(entry) = self.entries.get(id.0) else {
-                continue;
-            };
-            pending.extend(entry.imports.iter().map(|edge| edge.target));
+    fn release_retired_payload(&mut self, id: FileId) {
+        let entry = &mut self.entries[id.0];
+        if !std::mem::take(&mut entry.retired) {
+            return;
         }
-        if self.reachability_dirty {
-            self.recompute_reachable();
-        } else if extend_reachable {
-            self.reachable.extend(visited);
+        let compiler_owned = self
+            .compiler_documents
+            .as_ref()
+            .is_some_and(|documents| documents.contains_key(&id));
+        // Compiler navigation payloads and their canonical disk import edges
+        // have independent ownership and must remain traversable on reactivation.
+        if compiler_owned {
+            return;
+        }
+        if entry.disk_snapshot.take().is_some() {
+            entry.disk_generation = entry.disk_generation.wrapping_add(1);
+        }
+        let imports = std::mem::take(&mut entry.imports);
+        // Incoming links may belong to a new revision; remove only this
+        // retired source's outgoing reverse links.
+        for edge in imports {
+            self.entries[edge.target.0]
+                .reverse_imports
+                .retain(|dependent| *dependent != id);
         }
     }
 
@@ -908,21 +965,8 @@ impl WorkspaceDb {
     }
 
     fn visit_indexed_entries(&self, mut visit: impl FnMut(FileId, &FileEntry)) {
-        let mut pending: Vec<FileId> = self
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(_, entry)| entry.open_snapshot.is_some())
-            .map(|(index, _)| FileId(index))
-            .collect();
-        let mut visited = HashSet::new();
-        while let Some(id) = pending.pop() {
-            if !visited.insert(id) {
-                continue;
-            }
-            let entry = &self.entries[id.0];
-            visit(id, entry);
-            pending.extend(entry.imports.iter().map(|edge| edge.target));
+        for &id in &self.reachable {
+            visit(id, &self.entries[id.0]);
         }
     }
 
@@ -935,6 +979,34 @@ impl WorkspaceDb {
             }
         });
         documents
+    }
+
+    pub(crate) fn is_needed(&self, id: FileId) -> bool {
+        self.reachable.contains(&id)
+    }
+
+    pub(crate) fn disk_generation(&self, id: FileId) -> Option<u64> {
+        Some(self.entries.get(id.0)?.disk_generation)
+    }
+
+    fn extend_reachable(&mut self, root: FileId) {
+        if self.reachable.contains(&root) {
+            return;
+        }
+        self.release_retired_payload(root);
+        self.reachable.insert(root);
+        let mut pending: Vec<_> = self.entries[root.0]
+            .imports
+            .iter()
+            .map(|edge| edge.target)
+            .collect();
+        while let Some(id) = pending.pop() {
+            if !self.reachable.insert(id) {
+                continue;
+            }
+            self.release_retired_payload(id);
+            pending.extend(self.entries[id.0].imports.iter().map(|edge| edge.target));
+        }
     }
 
     fn recompute_reachable(&mut self) {
@@ -950,15 +1022,20 @@ impl WorkspaceDb {
             if !reachable.insert(id) {
                 continue;
             }
+            self.release_retired_payload(id);
             pending.extend(self.entries[id.0].imports.iter().map(|edge| edge.target));
         }
+        for id in self.reachable.difference(&reachable) {
+            self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
+            self.entries[id.0].retired = true;
+            self.retired.push(*id);
+        }
         self.reachable = reachable;
-        self.reachability_dirty = false;
     }
 
     #[must_use]
     pub fn dependents(&self, changed: FileId) -> Vec<Document> {
-        if self.reachability_dirty || !self.reachable.contains(&changed) {
+        if !self.reachable.contains(&changed) {
             return Vec::new();
         }
         let mut pending = vec![changed];
@@ -1029,7 +1106,9 @@ impl WorkspaceDb {
             path: path.clone(),
             language_id: "bend".into(),
             open_snapshot: None,
+            disk_generation: 0,
             disk_snapshot: None,
+            retired: false,
             imports: Box::default(),
             reverse_imports: Vec::new(),
         });
@@ -1045,8 +1124,7 @@ impl WorkspaceDb {
         source: FileId,
         targets: Vec<(analysis::TextRange, PathBuf)>,
     ) -> bool {
-        let old_imports = self.entries[source.0].imports.to_vec();
-        let mut imports = Vec::new();
+        let mut imports = Vec::with_capacity(targets.len());
         for (import_path, target_path) in targets {
             if let Ok(uri) = Url::from_file_path(&target_path) {
                 let target = self.intern(uri, Some(target_path));
@@ -1059,21 +1137,42 @@ impl WorkspaceDb {
         if self.entries[source.0].imports.as_ref() == imports.as_slice() {
             return false;
         }
-        if old_imports.iter().any(|old| !imports.contains(old)) {
-            self.reachability_dirty = true;
-        }
+        let old_imports = std::mem::replace(
+            &mut self.entries[source.0].imports,
+            imports.into_boxed_slice(),
+        );
+        let removed_target = old_imports.iter().any(|old| {
+            !self.entries[source.0]
+                .imports
+                .iter()
+                .any(|new| new.target == old.target)
+        });
         for edge in old_imports {
-            self.entries[edge.target.0]
-                .reverse_imports
-                .retain(|dependent| *dependent != source);
+            if !self.entries[source.0]
+                .imports
+                .iter()
+                .any(|new| new.target == edge.target)
+            {
+                self.entries[edge.target.0]
+                    .reverse_imports
+                    .retain(|dependent| *dependent != source);
+            }
         }
-        for edge in &imports {
-            let reverse = &mut self.entries[edge.target.0].reverse_imports;
+        for index in 0..self.entries[source.0].imports.len() {
+            let target = self.entries[source.0].imports[index].target;
+            let reverse = &mut self.entries[target.0].reverse_imports;
             if !reverse.contains(&source) {
                 reverse.push(source);
             }
         }
-        self.entries[source.0].imports = imports.into_boxed_slice();
+        if removed_target {
+            self.recompute_reachable();
+        } else if self.is_needed(source) {
+            for index in 0..self.entries[source.0].imports.len() {
+                let target = self.entries[source.0].imports[index].target;
+                self.extend_reachable(target);
+            }
+        }
         true
     }
 }

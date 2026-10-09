@@ -24,9 +24,15 @@ use tower_lsp::{
 use tracing::Instrument;
 use url::Url;
 
-struct PreparedDiskUpdate {
+struct WatchedFile {
+    id: FileId,
+    disk_generation: u64,
     uri: Url,
     path: PathBuf,
+}
+
+struct PreparedDiskUpdate {
+    file: WatchedFile,
     snapshot: Option<Arc<DocumentSnapshot>>,
     imports: Vec<(analysis::TextRange, PathBuf)>,
 }
@@ -419,16 +425,23 @@ impl Backend {
 
     #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "load_reachable", root_count = roots.len(), outcome = tracing::field::Empty))]
     pub(super) async fn load_reachable_async(&self, roots: &[FileId]) {
-        let roots = roots.to_vec();
         let mut attempted = HashSet::new();
         loop {
-            let generation = self.workspace.generation();
             let paths = {
                 let database = self.workspace.read();
                 database
-                    .missing_disk_paths(&roots)
+                    .missing_disk_paths(roots)
                     .into_iter()
-                    .filter(|path| !attempted.contains(path))
+                    .filter_map(|path| {
+                        if attempted.contains(&path) {
+                            return None;
+                        }
+                        let id = database.file_id_by_path(&path)?;
+                        if !database.is_needed(id) {
+                            return None;
+                        }
+                        Some((id, database.disk_generation(id)?, path))
+                    })
                     .collect::<Vec<_>>()
             };
             if paths.is_empty() {
@@ -437,20 +450,20 @@ impl Backend {
             let Some(prepared) = run_staging(self.workspace.staging.clone(), move || {
                 paths
                     .into_iter()
-                    .map(|path| {
+                    .map(|(id, generation, path)| {
                         let snapshot = std::fs::read_to_string(&path).ok().map(|text| {
                             Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text))
                         });
                         let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
                             crate::workspace::resolve_import_targets(&path, snapshot)
                         });
-                        (path, snapshot, imports)
+                        (id, generation, path, snapshot, imports)
                     })
                     .collect::<Vec<_>>()
             })
             .await
             else {
-                return;
+                break;
             };
             let _workspace_update = self.workspace.updates.write().await;
             let commit_span = tracing::info_span!(
@@ -459,23 +472,30 @@ impl Backend {
                 file_count = prepared.len(),
                 outcome = tracing::field::Empty,
             );
-            let committed = commit_span.in_scope(|| {
-                self.workspace.commit(None, Some(generation), |database| {
-                    for (path, snapshot, imports) in prepared {
-                        if snapshot.is_none() {
-                            attempted.insert(path.clone());
+            commit_span.in_scope(|| {
+                self.workspace.commit(None, None, |database| {
+                    let mut committed = false;
+                    for (id, generation, path, snapshot, imports) in prepared {
+                        if !database.is_needed(id)
+                            || database.disk_generation(id) != Some(generation)
+                        {
+                            continue;
                         }
-                        database.sync_disk_snapshot_prepared(&path, snapshot, imports);
+                        let missing = snapshot.is_none();
+                        committed |= database
+                            .sync_disk_snapshot_prepared(&path, snapshot, imports)
+                            .is_some();
+                        if missing {
+                            attempted.insert(path);
+                        }
                     }
-                    Some(())
+                    committed.then_some(())
                 })
             });
-            if committed.is_none() {
-                continue;
-            }
             commit_span.record("outcome", "committed");
         }
-        let generation = self.workspace.generation();
+        // Retire payloads even when closed roots or an empty path set required no
+        // reads. Finalize the current graph rather than a captured root's graph.
         let _workspace_update = self.workspace.updates.write().await;
         let commit_span = tracing::info_span!(
             "workspace.commit",
@@ -483,17 +503,12 @@ impl Backend {
             root_count = roots.len(),
             outcome = tracing::field::Empty,
         );
-        if commit_span
-            .in_scope(|| {
-                self.workspace.commit(None, Some(generation), |database| {
-                    database.finish_load_reachable(&roots);
-                    Some(())
-                })
+        commit_span.in_scope(|| {
+            self.workspace.commit(None, None, |database| {
+                database.finish_load_reachable();
+                Some(())
             })
-            .is_none()
-        {
-            return;
-        }
+        });
         commit_span.record("outcome", "committed");
         tracing::Span::current().record("outcome", "complete");
     }
@@ -587,29 +602,7 @@ impl Backend {
         uri: Url,
         closed: super::workspace_service::ClosedRevision,
     ) -> bool {
-        let _serial = self.workspace.update_serial.lock().await;
-        let id = loop {
-            if !self.workspace.is_closed(closed) {
-                return false;
-            }
-            let workspace = self.workspace.clone();
-            let read_uri = uri.clone();
-            let Some((imports, snapshot)) =
-                run_staging(self.workspace.staging.clone(), move || {
-                    let disk = workspace.read().disk_document(&read_uri);
-                    disk.map_or_else(
-                        || (Vec::new(), None),
-                        |(path, snapshot)| {
-                            let imports =
-                                crate::workspace::resolve_import_targets(&path, &snapshot);
-                            (imports, Some(snapshot))
-                        },
-                    )
-                })
-                .await
-            else {
-                return false;
-            };
+        let id = {
             let _workspace_update = self.workspace.updates.write().await;
             let commit_span = tracing::info_span!(
                 "workspace.commit",
@@ -617,24 +610,15 @@ impl Backend {
                 file_id = tracing::field::Empty,
                 outcome = tracing::field::Empty,
             );
-            match commit_span.in_scope(|| {
-                self.workspace
-                    .commit_close(closed, &uri, imports, snapshot.as_ref())
-            }) {
-                super::workspace_service::CloseCommit::Committed(id) => {
-                    commit_span.record("file_id", tracing::field::debug(&id));
-                    commit_span.record("outcome", "committed");
-                    tracing::Span::current().record("file_id", tracing::field::debug(&id));
-                    break id;
-                }
-                super::workspace_service::CloseCommit::RetryDisk => {
-                    commit_span.record("outcome", "disk_changed");
-                }
-                super::workspace_service::CloseCommit::Superseded => {
-                    commit_span.record("outcome", "superseded");
-                    return false;
-                }
-            }
+            let Some(id) = commit_span.in_scope(|| self.workspace.commit_close(closed, &uri))
+            else {
+                commit_span.record("outcome", "superseded");
+                return false;
+            };
+            commit_span.record("file_id", tracing::field::debug(&id));
+            commit_span.record("outcome", "committed");
+            tracing::Span::current().record("file_id", tracing::field::debug(&id));
+            id
         };
         self.load_reachable_async(std::slice::from_ref(&id)).await;
         tracing::Span::current().record("outcome", "committed");
@@ -891,40 +875,56 @@ impl Backend {
         )
     }
 
-    pub(super) fn watched_snapshot_context(&self, events: &[(Url, PathBuf)]) -> HashMap<Url, i32> {
+    fn watched_snapshot_context(
+        &self,
+        events: Vec<(Url, PathBuf)>,
+    ) -> (Vec<WatchedFile>, HashMap<Url, i32>) {
         let database = self.workspace.read();
+        let mut admitted = Vec::new();
+        let mut seen = HashSet::new();
         let mut affected = HashMap::new();
         for (uri, path) in events {
             let Some(id) = database
-                .file_id_by_uri(uri)
-                .or_else(|| database.file_id_by_path(path))
+                .file_id_by_uri(&uri)
+                .or_else(|| database.file_id_by_path(&path))
             else {
                 continue;
             };
+            if !database.is_needed(id) || !seen.insert(id) {
+                continue;
+            }
+            let Some(disk_generation) = database.disk_generation(id) else {
+                continue;
+            };
+            admitted.push(WatchedFile {
+                id,
+                disk_generation,
+                uri,
+                path,
+            });
             for document in database.dependents(id) {
                 affected.insert(document.uri.clone(), document.revision.0);
             }
         }
-        affected
+        (admitted, affected)
     }
 
     async fn prepare_watched_updates(
         semaphore: Arc<Semaphore>,
-        events: Vec<(Url, PathBuf)>,
+        events: Vec<WatchedFile>,
     ) -> Option<Vec<PreparedDiskUpdate>> {
         run_staging(semaphore, move || {
             events
                 .into_iter()
-                .map(|(uri, path)| {
-                    let snapshot = std::fs::read_to_string(&path)
+                .map(|file| {
+                    let snapshot = std::fs::read_to_string(&file.path)
                         .ok()
                         .map(|text| Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text)));
                     let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                        crate::workspace::resolve_import_targets(&path, snapshot)
+                        crate::workspace::resolve_import_targets(&file.path, snapshot)
                     });
                     PreparedDiskUpdate {
-                        uri,
-                        path,
+                        file,
                         snapshot,
                         imports,
                     }
@@ -943,7 +943,10 @@ impl Backend {
             return HashMap::new();
         }
         let _serial = self.workspace.update_serial.lock().await;
-        let mut affected = self.watched_snapshot_context(&events);
+        let (events, mut affected) = self.watched_snapshot_context(events);
+        if events.is_empty() {
+            return HashMap::new();
+        }
         let Some(prepared) =
             Self::prepare_watched_updates(self.workspace.staging.clone(), events).await
         else {
@@ -961,19 +964,25 @@ impl Backend {
                 self.workspace.commit(None, None, |database| {
                     let mut updates = Vec::with_capacity(prepared.len());
                     for update in prepared {
+                        if !database.is_needed(update.file.id)
+                            || database.disk_generation(update.file.id)
+                                != Some(update.file.disk_generation)
+                        {
+                            continue;
+                        }
                         let Some((id, imports_changed)) = database.sync_disk_snapshot_prepared(
-                            &update.path,
+                            &update.file.path,
                             update.snapshot,
                             update.imports,
                         ) else {
                             continue;
                         };
-                        if let Some(document) = database.open_document(&update.uri) {
+                        if let Some(document) = database.open_document(&update.file.uri) {
                             affected.insert(document.uri.clone(), document.revision.0);
                         }
                         updates.push((id, imports_changed));
                     }
-                    Some(updates)
+                    (!updates.is_empty()).then_some(updates)
                 })
             });
             let Some(updates) = updates else {
@@ -988,21 +997,26 @@ impl Backend {
             }
         }
         let workspace_db = self.workspace.clone();
-        let Some(after) = run_staging(self.workspace.staging.clone(), move || {
+        let Some(affected) = run_staging(self.workspace.staging.clone(), move || {
             let database = workspace_db.read();
-            let mut affected = HashMap::<Url, i32>::new();
             for (id, _) in updates {
                 for document in database.dependents(id) {
                     affected.insert(document.uri.clone(), document.revision.0);
                 }
             }
+            affected.retain(|uri, version| {
+                let Some(document) = database.open_document(uri) else {
+                    return false;
+                };
+                *version = document.revision.0;
+                true
+            });
             affected
         })
         .await
         else {
             return HashMap::new();
         };
-        affected.extend(after);
         tracing::Span::current().record("outcome", "committed");
         affected
     }

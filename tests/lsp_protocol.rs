@@ -219,6 +219,18 @@ mod protocol {
         wait_for_clean_diagnostics(client, uri);
     }
 
+    fn close_clean_document(client: &mut LspClient, uri: &str) {
+        client.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}));
+        let publication = client
+            .receive_matching(Duration::from_secs(5), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == uri
+                    && message["params"]["version"].is_null()
+            })
+            .must_be("closed document must clear diagnostics");
+        assert_eq!(publication["params"]["diagnostics"], json!([]));
+    }
+
     fn change_clean_document(client: &mut LspClient, uri: &str, version: i32, source: &str) {
         client.notify(
             "textDocument/didChange",
@@ -235,6 +247,73 @@ mod protocol {
             "workspace/didChangeWatchedFiles",
             json!({"changes":[{"uri":uri,"type":2}]}),
         );
+    }
+
+    fn imported_value_definition(client: &mut LspClient, uri: &str) -> Value {
+        client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":uri},
+                "position":{"line":2,"character":7}
+            }),
+        )
+    }
+
+    const WATCH_IMPORT: &str = "import ./dep.bend as Dep\ndef main() -> U32:\n  Dep.value(1)\n";
+    const WATCH_NO_IMPORT: &str = "def main() -> U32:\n  1\n";
+
+    // No blocking helper thread is needed: opening a nonblocking writer proves
+    // that the server has opened its reader, and holding it delays EOF. Dropping
+    // the client kills the server on every assertion failure; dropping this
+    // writer also releases a server already blocked in read_to_string.
+    #[cfg(target_os = "linux")]
+    struct SourceReadBarrier {
+        path: PathBuf,
+        writer: Option<fs::File>,
+    }
+
+    #[cfg(target_os = "linux")]
+    impl SourceReadBarrier {
+        fn new(path: PathBuf) -> Self {
+            create_fifo(&path);
+            Self { path, writer: None }
+        }
+
+        fn wait_until_reading(&mut self) {
+            use std::os::unix::fs::OpenOptionsExt as _;
+
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                match fs::OpenOptions::new()
+                    .write(true)
+                    .custom_flags(0o4000) // Linux O_NONBLOCK.
+                    .open(&self.path)
+                {
+                    Ok(writer) => {
+                        self.writer = Some(writer);
+                        return;
+                    }
+                    Err(error) => assert_eq!(
+                        error.raw_os_error(),
+                        Some(6), // Linux ENXIO: no FIFO reader yet.
+                        "opening source read barrier: {error}"
+                    ),
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "server did not start reading {}",
+                    self.path.display()
+                );
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+
+        fn release(&mut self, source: &str) {
+            let mut writer = self.writer.take().must_be("source reader reached barrier");
+            writer
+                .write_all(source.as_bytes())
+                .must_be("release staged source read");
+        }
     }
 
     fn configure_counting_compiler(client: &mut LspClient, compiler: &Path) {
@@ -1846,6 +1925,445 @@ mod protocol {
             diagnostics_for(&mut client, &dependency_uri, false, Duration::from_secs(5)),
             "a watched imported-file change must recheck and publish diagnostics: {dependency_uri}"
         );
+        client.finish();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn unrelated_watcher_batch_never_reads_sources() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
+        fs::write(&dependency_path, "def value(old: U32) -> U32:\n  old\n")
+            .must_be("write initial dependency");
+        let noise = (0..16)
+            .map(|index| SourceReadBarrier::new(workspace.join(format!("unrelated_{index}.bend"))))
+            .collect::<Vec<_>>();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &main_uri, WATCH_IMPORT);
+
+        fs::write(
+            &dependency_path,
+            "\n\ndef value(fresh: U32) -> U32:\n  fresh\n",
+        )
+        .must_be("update reachable dependency");
+        let mut changes = Vec::new();
+        for source in &noise {
+            let uri = regression_file_uri(&source.path);
+            changes.push(json!({"uri":uri,"type":1}));
+            changes.push(json!({"uri":uri,"type":2}));
+        }
+        changes.push(json!({"uri":dependency_uri,"type":2}));
+        changes.push(json!({"uri":dependency_uri,"type":2}));
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":changes}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        let definition = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(definition["result"]["uri"], dependency_uri);
+        assert_eq!(
+            definition["result"]["range"]["start"]["line"], 2,
+            "unrelated FIFO events must not block the valid dependency update: {definition}"
+        );
+        let symbols = client.request("workspace/symbol", json!({"query":"unrelated"}));
+        assert_eq!(symbols["result"], json!([]));
+        client.finish();
+    }
+
+    #[test]
+    fn reimport_uses_fresh_disk_after_unknown_and_unreachable_watcher_events() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        fs::write(&main_path, WATCH_NO_IMPORT).must_be("write nonimporting root");
+        fs::write(&dependency_path, "def value(old: U32) -> U32:\n  old\n")
+            .must_be("write unrelated source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &main_uri, WATCH_NO_IMPORT);
+
+        // A watched open root in the same batch supplies an observable completion
+        // barrier without requesting the unrelated document.
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[
+                {"uri":dependency_uri,"type":2},
+                {"uri":main_uri,"type":2}
+            ]}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        assert_eq!(
+            client.request("workspace/symbol", json!({"query":"value"}))["result"],
+            json!([]),
+            "unrelated declarations must not enter workspace navigation"
+        );
+        fs::write(
+            &dependency_path,
+            "\n\ndef value(fresh: U32) -> U32:\n  fresh\n",
+        )
+        .must_be("change unrelated disk source without an event");
+        change_clean_document(&mut client, &main_uri, 2, WATCH_IMPORT);
+        let first = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(first["result"]["uri"], dependency_uri);
+        assert_eq!(first["result"]["range"]["start"]["line"], 2);
+
+        change_clean_document(&mut client, &main_uri, 3, WATCH_NO_IMPORT);
+        fs::write(
+            &dependency_path,
+            "\ndef value(obsolete: U32) -> U32:\n  obsolete\n",
+        )
+        .must_be("write now unreachable source");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[
+                {"uri":dependency_uri,"type":2},
+                {"uri":main_uri,"type":2}
+            ]}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        fs::write(
+            &dependency_path,
+            "\n\n\ndef value(current: U32) -> U32:\n  current\n",
+        )
+        .must_be("update unreachable source again without an event");
+        change_clean_document(&mut client, &main_uri, 4, WATCH_IMPORT);
+        let second = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(second["result"]["uri"], dependency_uri);
+        assert_eq!(
+            second["result"]["range"]["start"]["line"], 3,
+            "reimport must not reuse a snapshot admitted while unreachable: {second}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn missing_reachable_watcher_target_supports_creation_deletion_and_recreation() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &main_uri, WATCH_IMPORT);
+        assert!(imported_value_definition(&mut client, &main_uri)["result"].is_null());
+
+        fs::write(
+            &dependency_path,
+            "def value(created: U32) -> U32:\n  created\n",
+        )
+        .must_be("create missing reachable dependency");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":dependency_uri,"type":1}]}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        assert_eq!(
+            imported_value_definition(&mut client, &main_uri)["result"]["uri"],
+            dependency_uri
+        );
+
+        fs::remove_file(&dependency_path).must_be("delete reachable dependency");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":dependency_uri,"type":3}]}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        assert!(imported_value_definition(&mut client, &main_uri)["result"].is_null());
+        assert_eq!(
+            client.request("workspace/symbol", json!({"query":"value"}))["result"],
+            json!([])
+        );
+
+        fs::write(
+            &dependency_path,
+            "\n\ndef value(recreated: U32) -> U32:\n  recreated\n",
+        )
+        .must_be("recreate reachable dependency");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":dependency_uri,"type":1}]}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        let definition = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(definition["result"]["uri"], dependency_uri);
+        assert_eq!(definition["result"]["range"]["start"]["line"], 2);
+        client.finish();
+    }
+
+    #[test]
+    fn reachable_watcher_updates_preserve_open_dependency_overlay() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
+        fs::write(&dependency_path, "def value(disk: U32) -> U32:\n  disk\n")
+            .must_be("write disk dependency");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &main_uri, WATCH_IMPORT);
+        open_clean_document(
+            &mut client,
+            &dependency_uri,
+            "\n\ndef value(unsaved: U32) -> U32:\n  unsaved\n",
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        fs::write(
+            &dependency_path,
+            "\ndef value(updated: U32) -> U32:\n  updated\n",
+        )
+        .must_be("update dependency disk while overlay is open");
+        notify_watched_file_change(&mut client, &dependency_uri);
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        let overlay = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(overlay["result"]["range"]["start"]["line"], 2);
+
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":dependency_uri}}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        let disk = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(disk["result"]["uri"], dependency_uri);
+        assert_eq!(
+            disk["result"]["range"]["start"]["line"], 1,
+            "closing a reachable overlay must expose the latest watched disk version: {disk}"
+        );
+        client.finish();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn known_unreachable_watcher_event_never_reads_source() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
+        fs::write(&dependency_path, "def value(old: U32) -> U32:\n  old\n")
+            .must_be("write dependency");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &main_uri, WATCH_IMPORT);
+        change_clean_document(&mut client, &main_uri, 2, WATCH_NO_IMPORT);
+        fs::remove_file(&dependency_path).must_be("remove now unreachable source");
+        let _orphan = SourceReadBarrier::new(dependency_path);
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[
+                {"uri":dependency_uri,"type":2},
+                {"uri":main_uri,"type":2}
+            ]}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        client.finish();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn staged_watcher_result_cannot_resurrect_removed_import() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        let other_path = workspace.join("other.bend");
+        let marker_path = workspace.join("marker.bend");
+        let other_source =
+            "import ./marker.bend as Marker\ndef other() -> U32:\n  Marker.marker(1)\n";
+        fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
+        fs::write(&dependency_path, "def value(old: U32) -> U32:\n  old\n")
+            .must_be("write dependency");
+        fs::write(&other_path, other_source).must_be("write independent root");
+        fs::write(&marker_path, "def marker(old: U32) -> U32:\n  old\n")
+            .must_be("write independent dependency");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let other_uri = regression_file_uri(&other_path);
+        let marker_uri = regression_file_uri(&marker_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &main_uri, WATCH_IMPORT);
+        open_clean_document(&mut client, &other_uri, other_source);
+
+        fs::remove_file(&dependency_path).must_be("replace dependency with source barrier");
+        let mut staged = SourceReadBarrier::new(dependency_path.clone());
+        fs::write(
+            &marker_path,
+            "\n\ndef marker(current: U32) -> U32:\n  current\n",
+        )
+        .must_be("update independent reachable dependency");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[
+                {"uri":dependency_uri,"type":2},
+                {"uri":marker_uri,"type":2}
+            ]}),
+        );
+        staged.wait_until_reading();
+        change_clean_document(&mut client, &main_uri, 2, WATCH_NO_IMPORT);
+        fs::remove_file(&dependency_path).must_be("remove staged FIFO pathname");
+        fs::write(
+            &dependency_path,
+            "\n\n\ndef value(fresh: U32) -> U32:\n  fresh\n",
+        )
+        .must_be("write fresh source after last import was removed");
+        staged.release("def value(stale: U32) -> U32:\n  stale\n");
+        wait_for_clean_diagnostics(&mut client, &other_uri);
+
+        let marker = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":other_uri},
+                "position":{"line":2,"character":11}
+            }),
+        );
+        assert_eq!(marker["result"]["uri"], marker_uri);
+        assert_eq!(
+            marker["result"]["range"]["start"]["line"], 2,
+            "a concurrent root edit must not discard unrelated valid watched updates: {marker}"
+        );
+        assert_eq!(
+            client.request("workspace/symbol", json!({"query":"value"}))["result"],
+            json!([])
+        );
+        change_clean_document(&mut client, &main_uri, 3, WATCH_IMPORT);
+        let definition = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(definition["result"]["uri"], dependency_uri);
+        assert_eq!(
+            definition["result"]["range"]["start"]["line"], 3,
+            "a stale staged result must not become the reimported disk cache: {definition}"
+        );
+        client.finish();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn staged_watcher_result_cannot_replace_reimported_disk() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
+        fs::write(&dependency_path, "def value(old: U32) -> U32:\n  old\n")
+            .must_be("write dependency");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &main_uri, WATCH_IMPORT);
+        fs::remove_file(&dependency_path).must_be("replace dependency with source barrier");
+        let mut staged = SourceReadBarrier::new(dependency_path.clone());
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[
+                {"uri":dependency_uri,"type":2},
+                {"uri":main_uri,"type":2}
+            ]}),
+        );
+        staged.wait_until_reading();
+        change_clean_document(&mut client, &main_uri, 2, WATCH_NO_IMPORT);
+        fs::remove_file(&dependency_path).must_be("remove staged FIFO pathname");
+        fs::write(
+            &dependency_path,
+            "\n\n\ndef value(fresh: U32) -> U32:\n  fresh\n",
+        )
+        .must_be("write current disk source");
+        change_clean_document(&mut client, &main_uri, 3, WATCH_IMPORT);
+        let before_release = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(before_release["result"]["range"]["start"]["line"], 3);
+
+        staged.release("def value(stale: U32) -> U32:\n  stale\n");
+        // The still-needed open root event in the same batch confirms watcher
+        // completion even though the old dependency generation is rejected.
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        let after_release = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(after_release["result"]["uri"], dependency_uri);
+        assert_eq!(
+            after_release["result"]["range"]["start"]["line"], 3,
+            "a new live tenure must not accept an old staged disk generation: {after_release}"
+        );
+        client.finish();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn closing_root_during_staged_load_does_not_reload_or_resurrect_it() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let main_path = workspace.join("main.bend");
+        let dependency_path = workspace.join("dep.bend");
+        fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
+        let mut staged = SourceReadBarrier::new(dependency_path.clone());
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let main_uri = regression_file_uri(&main_path);
+        let dependency_uri = regression_file_uri(&dependency_path);
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":main_uri,"languageId":"bend","version":1,"text":WATCH_IMPORT
+            }}),
+        );
+        staged.wait_until_reading();
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":main_uri}}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        assert_eq!(
+            client.request("workspace/symbol", json!({"query":"main"}))["result"],
+            json!([]),
+            "closing a root must complete without trying to read its orphan imports"
+        );
+        fs::remove_file(&dependency_path).must_be("remove staged FIFO pathname");
+        fs::write(
+            &dependency_path,
+            "\n\ndef value(fresh: U32) -> U32:\n  fresh\n",
+        )
+        .must_be("write fresh dependency after close");
+        staged.release("def value(stale: U32) -> U32:\n  stale\n");
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":main_uri,"languageId":"bend","version":2,"text":WATCH_IMPORT
+            }}),
+        );
+        wait_for_clean_diagnostics(&mut client, &main_uri);
+        let definition = imported_value_definition(&mut client, &main_uri);
+        assert_eq!(definition["result"]["uri"], dependency_uri);
+        assert_eq!(definition["result"]["range"]["start"]["line"], 2);
         client.finish();
     }
     #[test]
@@ -4664,12 +5182,8 @@ mod protocol {
         mut writer: fs::File,
         path: &Path,
         source: &str,
-        sentinel_uri: &str,
+        affected_uri: &str,
     ) {
-        client.notify(
-            "textDocument/didClose",
-            json!({"textDocument":{"uri":sentinel_uri}}),
-        );
         writer
             .write_all(source.as_bytes())
             .must_be("release watched snapshot");
@@ -4679,10 +5193,10 @@ mod protocol {
         client
             .receive_matching(Duration::from_secs(5), |message| {
                 message["method"] == "textDocument/publishDiagnostics"
-                    && message["params"]["uri"] == sentinel_uri
-                    && message["params"]["version"].is_null()
+                    && message["params"]["uri"] == affected_uri
+                    && message["params"]["version"].is_number()
             })
-            .must_be("sentinel close must complete after the watched update");
+            .must_be("watched update must publish the affected open root");
     }
 
     #[test]
@@ -5015,22 +5529,18 @@ mod protocol {
         let root_path = temp.path().join("root.bend");
         let dependency_path = temp.path().join("dep.bend");
         let gate_path = temp.path().join("gate.bend");
-        let sentinel_path = temp.path().join("sentinel.bend");
         let root_source = "import ./dep.bend as Dep\ndef main: Type\n  Dep.value\n";
         let gate_source = "def gate() -> U32:\n  0\n";
-        let sentinel_source = "def sentinel() -> U32:\n  0\n";
         for (path, source) in [
             (&root_path, root_source),
             (&dependency_path, "BAD\n"),
             (&gate_path, gate_source),
-            (&sentinel_path, sentinel_source),
         ] {
             fs::write(path, source).must_be("write imported diagnostics epoch fixture");
         }
         let root_uri = regression_file_uri(&root_path);
         let dependency_uri = regression_file_uri(&dependency_path);
         let gate_uri = regression_file_uri(&gate_path);
-        let sentinel_uri = regression_file_uri(&sentinel_path);
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let mut client = spawn_client(&compiler_dir);
         client.initialize(temp.path());
@@ -5046,7 +5556,7 @@ mod protocol {
             false,
             Duration::from_secs(5)
         ));
-        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+        open_clean_document(&mut client, &gate_uri, gate_source);
         fs::remove_file(&gate_path).must_be("replace unrelated gate with FIFO");
         create_fifo(&gate_path);
         notify_watched_file_change(&mut client, &gate_uri);
@@ -5074,7 +5584,7 @@ mod protocol {
             diagnostics_for(&mut client, &dependency_uri, true, Duration::from_secs(2)),
             "closed epoch diagnostics must not survive a lower-version reopened buffer"
         );
-        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &sentinel_uri);
+        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &gate_uri);
         client.finish();
     }
 
@@ -5083,26 +5593,19 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let target_path = temp.path().join("target.bend");
         let gate_path = temp.path().join("gate.bend");
-        let sentinel_path = temp.path().join("sentinel.bend");
         let old_source = "import ./gate.bend as Gate\ndef old_value() -> U32:\n  1\n";
         let reopened_source = "import ./gate.bend as Gate\ndef reopened() -> U32:\n  2\n";
         let gate_source = "def gate() -> U32:\n  0\n";
-        let sentinel_source = "def sentinel() -> U32:\n  0\n";
-        for (path, source) in [
-            (&target_path, old_source),
-            (&gate_path, gate_source),
-            (&sentinel_path, sentinel_source),
-        ] {
+        for (path, source) in [(&target_path, old_source), (&gate_path, gate_source)] {
             fs::write(path, source).must_be("write close-reopen fixture");
         }
         let target_uri = regression_file_uri(&target_path);
         let gate_uri = regression_file_uri(&gate_path);
-        let sentinel_uri = regression_file_uri(&sentinel_path);
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let mut client = spawn_client(&compiler_dir);
         client.initialize(temp.path());
         open_clean_document(&mut client, &target_uri, old_source);
-        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
+        open_clean_document(&mut client, &gate_uri, gate_source);
         fs::remove_file(&gate_path).must_be("replace gate with FIFO");
         create_fifo(&gate_path);
         notify_watched_file_change(&mut client, &gate_uri);
@@ -5123,13 +5626,13 @@ mod protocol {
         let before = client.request("textDocument/hover", params.clone());
         assert_eq!(
             before["result"]["contents"]["value"], "```bend\ndef reopened() -> U32\n```",
-            "reopen must commit while the old close is queued behind watcher staging"
+            "reopen must commit while an independent watcher read is blocked"
         );
-        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &sentinel_uri);
+        finish_watched_disk_read(&mut client, writer, &gate_path, gate_source, &gate_uri);
         let after = client.request("textDocument/hover", params);
         assert_eq!(
             after["result"]["contents"]["value"], "```bend\ndef reopened() -> U32\n```",
-            "old queued close must not remove the new open epoch"
+            "the closed epoch must not remove the new open epoch"
         );
         client.finish();
     }
@@ -5140,29 +5643,24 @@ mod protocol {
         let main_path = temp.path().join("main.bend");
         let dep_path = temp.path().join("dep.bend");
         let consumer_path = temp.path().join("consumer.bend");
-        let sentinel_path = temp.path().join("sentinel.bend");
         let main_source = "import ./dep.bend as Dep\nimport ./consumer.bend as Consumer\ndef main: U32\n  Dep.shared(1)\n";
         let dep_source = "def shared(x: U32) -> U32:\n  x\n";
         let consumer_source = "import ./dep.bend as Dep\ndef consume: U32\n  Dep.shared(2)\n";
         let updated_consumer = format!("{consumer_source}  Dep.shared(3)\n");
-        let sentinel_source = "def sentinel: U32\n  1\n";
         for (path, source) in [
             (&main_path, main_source),
             (&dep_path, dep_source),
             (&consumer_path, consumer_source),
-            (&sentinel_path, sentinel_source),
         ] {
             fs::write(path, source).must_be("write watcher fixture");
         }
         let main_uri = regression_file_uri(&main_path);
         let dep_uri = regression_file_uri(&dep_path);
         let consumer_uri = regression_file_uri(&consumer_path);
-        let sentinel_uri = regression_file_uri(&sentinel_path);
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let mut client = spawn_client(&compiler_dir);
         client.initialize(temp.path());
         open_clean_document(&mut client, &main_uri, main_source);
-        open_clean_document(&mut client, &sentinel_uri, sentinel_source);
         let params = json!({
             "textDocument":{"uri":main_uri},
             "position":{"line":3,"character":7},
@@ -5194,14 +5692,15 @@ mod protocol {
             "textDocument/documentSymbol",
             json!({"textDocument":{"uri":main_uri}}),
         );
-        // Closing a separate root queues behind the watched update's existing
-        // serial commit boundary, even when that update is incorrectly dropped.
+        // Drain the revision's diagnostics before using the next affected-root
+        // publication as the watcher commit barrier.
+        wait_for_clean_diagnostics(&mut client, &main_uri);
         finish_watched_disk_read(
             &mut client,
             writer,
             &consumer_path,
             &updated_consumer,
-            &sentinel_uri,
+            &main_uri,
         );
 
         let references = client.request("textDocument/references", params);
@@ -5369,7 +5868,15 @@ mod protocol {
 
         fs::remove_file(&consumer_path).must_be("replace open consumer disk with a FIFO");
         create_fifo(&consumer_path);
-        notify_watched_file_change(&mut client, &consumer_uri);
+        // The independently open sentinel remains admitted while the consumer
+        // overlay changes, so its publication proves the whole batch committed.
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[
+                {"uri":consumer_uri,"type":2},
+                {"uri":sentinel_uri,"type":2}
+            ]}),
+        );
         let writer = b5_b6_hold_pending_disk_read(&consumer_path);
         client.notify(
             "textDocument/didChange",
@@ -5404,17 +5911,7 @@ mod protocol {
             "a watched disk commit must not replace newer open-overlay import edges"
         );
 
-        client.notify(
-            "textDocument/didClose",
-            json!({"textDocument":{"uri":consumer_uri}}),
-        );
-        client
-            .receive_matching(Duration::from_secs(5), |message| {
-                message["method"] == "textDocument/publishDiagnostics"
-                    && message["params"]["uri"] == consumer_uri
-                    && message["params"]["version"].is_null()
-            })
-            .must_be("consumer close must activate its disk snapshot");
+        close_clean_document(&mut client, &consumer_uri);
         let disk_references = client.request(
             "textDocument/references",
             json!({

@@ -3,7 +3,7 @@ use super::{
     state::{State, revision_result},
 };
 use crate::{
-    analysis::{DocumentSnapshot, Revision, TextRange},
+    analysis::Revision,
     workspace::{FileId, WorkspaceDb},
 };
 use std::{
@@ -25,12 +25,6 @@ pub(super) struct WorkspaceState {
 pub(super) struct ClosedRevision {
     file: FileId,
     generation: u64,
-}
-
-pub(super) enum CloseCommit {
-    Committed(FileId),
-    RetryDisk,
-    Superseded,
 }
 
 impl WorkspaceState {
@@ -146,32 +140,12 @@ impl WorkspaceService {
         self.state.read().is_closed(closed)
     }
 
-    pub(super) fn commit_close(
-        &self,
-        closed: ClosedRevision,
-        uri: &Url,
-        imports: Vec<(TextRange, PathBuf)>,
-        snapshot: Option<&Arc<DocumentSnapshot>>,
-    ) -> CloseCommit {
+    pub(super) fn commit_close(&self, closed: ClosedRevision, uri: &Url) -> Option<FileId> {
         let mut state = self.state.write();
         if !state.is_closed(closed) || state.database.file_id_by_uri(uri) != Some(closed.file) {
-            return CloseCommit::Superseded;
+            return None;
         }
-        // Prepared imports must belong to the disk snapshot restored below.
-        // A concurrent reachable-load commit can replace it despite update_serial.
-        let disk = state.database.disk_document(uri);
-        let same_snapshot = match (disk.as_ref(), snapshot) {
-            (None, None) => true,
-            (Some((_, current)), Some(prepared)) => Arc::ptr_eq(current, prepared),
-            _ => false,
-        };
-        if !same_snapshot {
-            return CloseCommit::RetryDisk;
-        }
-        match state.apply(|database| database.close_document_prepared(uri, imports)) {
-            Some(file) => CloseCommit::Committed(file),
-            None => CloseCommit::Superseded,
-        }
+        state.apply(|database| database.close_document_prepared(uri))
     }
     /// Validation and all database/index changes share the same exclusive
     /// state guard as reservation and close. Snapshot construction happens first.
@@ -225,16 +199,13 @@ pub(super) struct RegistrationState {
 
 #[cfg(test)]
 mod tests {
-    use super::{CloseCommit, WorkspaceService};
-    use crate::{
-        analysis::Revision,
-        workspace::{Document, resolve_import_targets},
-    };
+    use super::WorkspaceService;
+    use crate::{analysis::Revision, workspace::Document};
     use std::io;
     use url::Url;
 
     #[test]
-    fn close_retries_changed_disk_without_restoring_stale_imports() -> io::Result<()> {
+    fn closing_reachable_overlay_invalidates_old_disk_and_imports() -> io::Result<()> {
         let temp = tempfile::tempdir()?;
         let path = temp.path().join("main.bend");
         let uri = Url::from_file_path(&path).map_err(|()| io::Error::other("file URI"))?;
@@ -245,59 +216,54 @@ mod tests {
         let old_source = "import ./old.bend as Old\ndef main = Old.value\n";
         let new_source = "import ./new.bend as New\ndef main = New.value\n";
         service
-            .state
-            .write()
-            .database
-            .sync_disk_path(&path, Some(old_source.into()));
-        service
             .commit(Some(&ticket), None, |database| {
                 Some(database.set_open_document(
-                    Document::new(
-                        uri.clone(),
-                        "bend".into(),
-                        Revision(1),
-                        "def overlay = 1\n".into(),
-                    ),
+                    Document::new(uri.clone(), "bend".into(), Revision(1), old_source.into()),
                     Some(path.clone()),
                 ))
             })
             .ok_or_else(|| io::Error::other("commit open"))?;
         assert!(service.finish_revision(&ticket));
         drop(ticket);
+        service
+            .state
+            .write()
+            .database
+            .sync_disk_path(&path, Some(old_source.into()));
+        let consumer_path = temp.path().join("consumer.bend");
+        let consumer_uri =
+            Url::from_file_path(&consumer_path).map_err(|()| io::Error::other("consumer URI"))?;
+        service.state.write().database.set_open_document(
+            Document::new(
+                consumer_uri,
+                "bend".into(),
+                Revision(1),
+                "import ./main.bend as Main\ndef consumer = Main.main\n".into(),
+            ),
+            Some(consumer_path),
+        );
         let closed = service
             .begin_close(&uri)
             .ok_or_else(|| io::Error::other("close epoch"))?;
-        let (_, old_snapshot) = service
-            .read()
-            .disk_document(&uri)
-            .ok_or_else(|| io::Error::other("old disk"))?;
-        let old_imports = resolve_import_targets(&path, &old_snapshot);
+        assert!(service.commit_close(closed, &uri).is_some());
+        {
+            let database = service.read();
+            assert!(!database.is_document_open(&uri));
+            assert!(database.cached_document(&uri).is_none());
+            let id = database
+                .file_id_by_uri(&uri)
+                .ok_or_else(|| io::Error::other("root"))?;
+            let old = database
+                .file_id_by_path(&temp.path().join("old.bend"))
+                .ok_or_else(|| io::Error::other("old target"))?;
+            assert!(!database.dependencies(id).contains(&old));
+            assert!(database.missing_disk_paths(&[id]).contains(&path));
+        }
         service
             .state
             .write()
             .database
             .sync_disk_path(&path, Some(new_source.into()));
-        assert!(matches!(
-            service.commit_close(closed, &uri, old_imports, Some(&old_snapshot)),
-            CloseCommit::RetryDisk
-        ));
-        assert_eq!(
-            service
-                .read()
-                .open_document(&uri)
-                .ok_or_else(|| io::Error::other("overlay"))?
-                .text,
-            "def overlay = 1\n"
-        );
-        let (_, current_snapshot) = service
-            .read()
-            .disk_document(&uri)
-            .ok_or_else(|| io::Error::other("new disk"))?;
-        let current_imports = resolve_import_targets(&path, &current_snapshot);
-        assert!(matches!(
-            service.commit_close(closed, &uri, current_imports, Some(&current_snapshot)),
-            CloseCommit::Committed(_)
-        ));
         let database = service.read();
         assert!(!database.is_document_open(&uri));
         let restored = database
@@ -346,10 +312,7 @@ mod tests {
                 ))
             })
             .ok_or_else(|| io::Error::other("commit reopen"))?;
-        assert!(matches!(
-            service.commit_close(closed, &uri, Vec::new(), None),
-            CloseCommit::Superseded
-        ));
+        assert!(service.commit_close(closed, &uri).is_none());
         assert_eq!(
             service
                 .read()
