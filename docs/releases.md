@@ -169,7 +169,7 @@ The endpoint has no trailing slash: pinned OpenDAL joins it with an absolute
 WebDAV path. Additional namespace segments are not appended to the provider
 prefix; sccache's own input keys distinguish compilers, platforms, and build flags.
 
-The trusted-main `cache-warm` probe writes a real Rust library, stops the
+The trusted-main `buildfetch-probe` workflow writes a real Rust library, stops the
 sccache server, then uses the readonly token in a new server to retrieve the
 same artifact and execute a linked consumer. Its JSON statistics are preserved
 as `buildfetch-probe-*` artifacts, including a depth-zero request for the
@@ -184,6 +184,10 @@ On writer failure, protocol diagnostics report `MKCOL`, direct `PUT`, and `GET`
 statuses for sccache's reserved `.sccache_check` health file, with and without
 the project prefix. Only status and payload-match metadata are retained;
 these requests do not store a compiler artifact or satisfy the roundtrip gate.
+For an isolated compiler/cache check without native builds or installer E2E, run
+`gh workflow run buildfetch-probe.yml --ref main`. The same standalone workflow
+runs on main pushes, independently of `cache-warm`; both use the shared cache helper.
+Changes only to the probe script do not trigger the full native cache-warm matrix.
 The existing approximately 1.85 GiB GitHub cache observation supports an initial
 10 GiB budget, not a demonstrated BuildFetch footprint or a need for 20 GiB.
 

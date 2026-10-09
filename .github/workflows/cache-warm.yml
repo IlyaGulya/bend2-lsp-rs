@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - scripts/ci-cache.sh
-      - scripts/check_buildfetch.py
       - .github/workflows/cache-warm.yml
       - .github/workflows/release-binaries.yml
       - Cargo.toml
@@ -48,52 +47,6 @@ jobs:
     secrets:
       BUILDFETCH_TOKEN_READONLY: ${{ secrets.BUILDFETCH_TOKEN_READONLY }}
       BUILDFETCH_TOKEN_READWRITE: ${{ secrets.BUILDFETCH_TOKEN_READWRITE }}
-  buildfetch-probe:
-    needs: prepare
-    permissions:
-      contents: read
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.98.1 --profile minimal
-      - name: Configure BuildFetch writer
-        env:
-          ENABLE_SCCACHE: 'true'
-          CACHE_WRITABLE: 'true'
-          BUILDFETCH_TOKEN: ${{ secrets.BUILDFETCH_TOKEN_READWRITE }}
-        run: |
-          test -n "$BUILDFETCH_TOKEN"
-          bash scripts/ci-cache.sh
-      - name: Install pinned sccache
-        uses: Mozilla-Actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
-        with:
-          version: v0.18.0
-      - name: Prove remote compiler artifact write
-        run: |
-          python3 scripts/check_buildfetch.py write --directory "$RUNNER_TEMP/buildfetch-probe" --report target/buildfetch-probe/write.json
-          sccache --stop-server
-      - name: Configure independent readonly cache client
-        env:
-          ENABLE_SCCACHE: 'true'
-          CACHE_WRITABLE: 'false'
-          BUILDFETCH_TOKEN: ${{ secrets.BUILDFETCH_TOKEN_READONLY }}
-        run: |
-          test -n "$BUILDFETCH_TOKEN"
-          bash scripts/ci-cache.sh
-      - name: Prove readonly remote hit and execute cached code
-        run: python3 scripts/check_buildfetch.py read --directory "$RUNNER_TEMP/buildfetch-probe" --report target/buildfetch-probe/read.json
-      - name: Preserve remote cache probe statistics
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: buildfetch-probe-${{ github.run_id }}-${{ github.run_attempt }}
-          path: target/buildfetch-probe/
-          if-no-files-found: warn
-          retention-days: 14
   performance-tools:
     needs: prepare
     permissions:
