@@ -38,3 +38,5 @@ jobs:
       sha: ${{ github.sha }}
       tag: ${{ needs.prepare.outputs.tag }}
       channel: nightly
+    secrets:
+      BUILDFETCH_TOKEN_READONLY: ${{ secrets.BUILDFETCH_TOKEN_READONLY }}

@@ -17,6 +17,10 @@
 
 ### CI
 
+- Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
+  separate trusted-main writer and readonly consumer credentials. Keep GitHub
+  caches for Cargo downloads and installed tools; fork PRs receive no remote
+  cache credentials. Add a real write/restart/readonly-hit compiler probe.
 - Add snapshot-ownership regressions and Linux stdio FIFO barriers for watcher
   admission, missing/recreated dependencies, overlays, and late staging commits.
 - Cache Cargo dependency inputs and pinned helper installations, including

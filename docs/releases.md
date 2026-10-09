@@ -120,8 +120,9 @@ rules exist.
 ### CI caches and native tool installation
 
 Quality, native release builds, and installer E2E use pinned sccache 0.18.0
-with GitHub's cache backend. Rust incremental compilation is disabled only
-for these wrapped builds. The wrapper caches eligible Rust library compilation;
+with [BuildFetch WebDAV storage](https://buildfetch.com/docs/buildfetch-cache/sccache-remote-storage),
+not GitHub's compiler-object cache backend. Rust incremental compilation is
+disabled only for these wrapped builds. The wrapper caches eligible Rust library compilation;
 linked executables and procedural macros still compile normally. The final
 release executable is staged, hashed, and exercised through the same native
 and installed-binary gates as before.
@@ -137,8 +138,11 @@ prevent reliable object reuse and generate unnecessary remote cache traffic.
 The installed-tool cache is the reuse boundary; project builds still use sccache.
 
 Only successful trusted `push` or `workflow_dispatch` runs on `main` save
-download/tool caches. Their sccache backend is read-write; PR and publication
-`workflow_run` consumers are read-only. The `cache-warm` workflow seeds all six
+download/tool caches. BuildFetch uses `BUILDFETCH_TOKEN_READWRITE` for these trusted
+main builds and `BUILDFETCH_TOKEN_READONLY` for internal PR and publication
+`workflow_run` consumers. Fork PRs receive neither token and use only the
+job-local compiler cache. GitHub caches still hold Cargo downloads and installed
+tools, not sccache objects. The `cache-warm` workflow seeds all six
 native platforms from trusted main changes or a manual main dispatch, runs the
 full native/installer matrices, and never publishes a release. Its separate
 Ubuntu job seeds the pinned Iai runner without running calibration.
@@ -147,6 +151,31 @@ Callgrind comparison, calibration, and paired latency builds restore dependency
 inputs and tools only: no compiler wrapper, shared objects, or restored measured
 targets. Their independent-build and regression policies remain unchanged.
 Cache hits and sccache statistics are visible in job logs and summaries.
+
+Add both BuildFetch tokens directly as repository Actions secrets; never commit
+or paste them into an issue, PR, or chat. Interactive local commands:
+
+```sh
+gh secret set BUILDFETCH_TOKEN_READONLY --repo IlyaGulya/bend2-lsp-rs
+gh secret set BUILDFETCH_TOKEN_READWRITE --repo IlyaGulya/bend2-lsp-rs
+```
+
+The endpoint, project prefix, `token-auth` username, platform/compiler/recipe
+namespace, and [pinned WebDAV access modes](https://github.com/mozilla/sccache/blob/v0.18.0/docs/Webdav.md)
+are configured by `scripts/ci-cache.sh`. Read-only access is enforced by the
+readonly token, not just a client environment flag. Reusable native workflows
+receive explicit cache secrets, never inherited release-App credentials.
+
+The trusted-main `cache-warm` probe writes a real Rust library, stops the
+sccache server, then uses the readonly token in a new server to retrieve the
+same artifact and execute a linked consumer. Its JSON statistics are preserved
+as `buildfetch-probe-*` artifacts, including a depth-zero request for the
+standard WebDAV quota properties. Missing quota properties or unsupported HTTP
+responses remain explicitly unknown. Provider-reported quota may cover more
+than this project's objects; confirm its scope through BuildFetch usage reporting.
+Unknown WebDAV `cache_size` is not zero usage.
+The existing approximately 1.85 GiB GitHub cache observation supports an initial
+10 GiB budget, not a demonstrated BuildFetch footprint or a need for 20 GiB.
 
 Native jobs install official nextest 0.9.131 archives through
 `scripts/bootstrap_nextest.py`, not twelve independent source builds.
