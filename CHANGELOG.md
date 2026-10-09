@@ -2,8 +2,23 @@
 
 ## Unreleased
 
+### Bug Fixes
+
+- Ignore unrelated and no-longer-reachable watcher events before file reads or
+  indexing. Release orphan user-owned workspace snapshots when imports are
+  removed or documents close, including cycles.
+- Reject stale staged disk loads across close and re-import transitions without
+  dropping independent valid updates. Reload current disk contents when a
+  still-imported unsaved user-owned buffer closes.
+- Keep exact compiler-result cache matching without retaining complete semantic
+  snapshots after checks finish.
+- Preserve closed consumer references when a filesystem move merges an already
+  loaded destination snapshot into an existing file identity.
+
 ### CI
 
+- Add snapshot-ownership regressions and Linux stdio FIFO barriers for watcher
+  admission, missing/recreated dependencies, overlays, and late staging commits.
 - Cache Cargo dependency inputs and pinned helper installations, including
   Cargo install metadata, with trusted-main writes and read-only consumers.
 - Enable pinned sccache for quality/native/installer builds and seed all six

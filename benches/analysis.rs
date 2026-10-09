@@ -653,6 +653,39 @@ fn workspace_burst_revision_invalidation(
 }
 
 #[library_benchmark]
+#[bench::hundred_files(InitialWorkspace::default())]
+fn workspace_orphan_graph_release(mut fixture: InitialWorkspace) -> usize {
+    let root_uri = url::Url::from_file_path(&fixture.files.paths[0]).must_be("root URI");
+    let root = fixture.database.set_open_document(
+        workspace::Document::new(
+            root_uri.clone(),
+            "bend".into(),
+            analysis::Revision(1),
+            std::mem::take(&mut fixture.files.root_text),
+        ),
+        Some(fixture.files.paths[0].clone()),
+    );
+    fixture.database.load_reachable(std::slice::from_ref(&root));
+    let snapshot = std::sync::Arc::new(analysis::DocumentSnapshot::new(
+        analysis::Revision(2),
+        "def detached: U32\n  0\n".to_owned(),
+    ));
+    fixture
+        .database
+        .update_open_snapshot(&root_uri, snapshot)
+        .must_be("detach imported graph");
+    fixture.database.load_reachable(std::slice::from_ref(&root));
+    let closed = fixture
+        .database
+        .close_document(&root_uri)
+        .must_be("close root");
+    fixture
+        .database
+        .load_reachable(std::slice::from_ref(&closed));
+    std::hint::black_box(fixture.database.indexed_documents().len())
+}
+
+#[library_benchmark]
 #[bench::prewarmed(LazyLock::force(&CONSTRUCTOR_SNAPSHOT))]
 fn constructor_definition_warm(
     snapshot: &analysis::DocumentSnapshot,
@@ -720,7 +753,7 @@ library_benchmark_group!(
         unicode_position_conversion, unicode_offset_conversion,
         folding_100_lines, folding_1000_lines, folding_10000_lines,
         workspace_initial_build, workspace_incremental_invalidation,
-        workspace_references, workspace_burst_revision_invalidation,
+        workspace_references, workspace_burst_revision_invalidation, workspace_orphan_graph_release,
         constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm,
         cold_completion_context_build, pattern_completion_context_warm,
         import_completion_candidates_warm

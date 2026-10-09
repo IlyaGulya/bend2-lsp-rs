@@ -213,15 +213,27 @@ compiler settings change or the editor closes/reopens it. User-owned files named
 
 Cross-file document queries wait for pending revisions in their indexed import
 graph; unrelated documents remain queryable while snapshots are built. Watched
-disk updates do not overwrite active unsaved import edges. Closing a document
-restores the latest disk snapshot and its imports.
+disk updates do not overwrite active unsaved import edges. Closing a user-owned
+document reloads its current disk contents only if another open document still
+needs it; otherwise its workspace snapshot is released.
 
 Snapshots and import metadata are prepared outside workspace locks. A validated
 workspace commit publishes them together with revision state and generation.
 Closing starts a new revision epoch: queued closes, cancelled tickets, and old
 diagnostics cannot overwrite a reopened buffer, even when version numbering
-restarts. A prepared close also validates the disk snapshot before restoring its
-imports.
+restarts. Disk loads validate per-file generations before publication, so a late
+load cannot restore a graph retired by close or import removal.
+
+User-owned workspace snapshots follow the import graph of open documents.
+Unrelated and no-longer-reachable watcher events are ignored before file reads or
+index construction. Removing imports or closing the last importing root releases
+orphan snapshots and outgoing import edges, including cycles. Shared dependencies
+remain available while any open root needs them; missing reachable targets can
+still be loaded when a watcher reports their creation. Stable file identities
+survive eviction, and in-flight readers may retain their immutable snapshots.
+Compiler-result cache keys retain exact source bytes, not complete semantic
+indexes. This is demand-driven ownership, not an RSS cap; compiler-owned generated
+navigation sources retain the lifetime described above.
 
 Rename Symbol selects the name under the cursor: an explicit import alias, the
 qualifier in `Test.foo`, a supported resolved member such as `foo`, or a local
@@ -573,6 +585,11 @@ unique-memory measurement. Compiler child memory is not part of DHAT.
 The initial Linux ARM64 Callgrind comparison improved cold snapshot instructions
 but failed several unchanged warm instruction/cache thresholds. The evidence
 does not authorize a regression or replace hosted x86_64 CI.
+
+The `workspace_orphan_graph_release` benchmark separately measures releasing a
+hundred-file user-owned graph after import removal and root close, including
+fixture destruction. Warm workspace queries reuse the authoritative reachable
+file index rather than rebuilding the same graph during each query.
 
 Further details:
 

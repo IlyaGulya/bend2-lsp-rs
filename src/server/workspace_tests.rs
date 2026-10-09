@@ -8,7 +8,7 @@ mod tests {
     };
 
     use crate::analysis::{self, DocumentSnapshot, Revision};
-    use crate::workspace::{Document, WorkspaceDb, normalize_path};
+    use crate::workspace::{Document, PathRename, WorkspaceDb, normalize_path};
     use url::Url;
 
     fn write_graph(root: &Path) -> std::io::Result<Vec<PathBuf>> {
@@ -160,6 +160,12 @@ mod tests {
         let old_id = database
             .file_id_by_path(&old_path)
             .ok_or_else(|| std::io::Error::other("old dependency ID"))?;
+        let old_payload = Arc::downgrade(
+            &database
+                .cached_document(&file_uri(&old_path)?)
+                .ok_or_else(|| std::io::Error::other("old dependency payload"))?
+                .snapshot,
+        );
         assert!(
             database
                 .dependents(old_id)
@@ -176,6 +182,11 @@ mod tests {
             .ok_or_else(|| std::io::Error::other("update open root"))?;
         assert!(imports_changed);
         database.load_reachable(std::slice::from_ref(&main_id));
+        assert!(
+            old_payload.upgrade().is_none(),
+            "replacing an import must release the orphaned cyclic dependency"
+        );
+        assert!(database.cached_document(&file_uri(&old_path)?).is_none());
         let new_id = database
             .file_id_by_path(&new_path)
             .ok_or_else(|| std::io::Error::other("new dependency ID"))?;
@@ -200,13 +211,253 @@ mod tests {
         assert_eq!(target.uri, file_uri(&new_path)?);
 
         fs::remove_file(&old_path)?;
-        let (old_id, imports_changed) = database
+        let (removed_id, _) = database
             .sync_disk_path(&old_path, None)
             .ok_or_else(|| std::io::Error::other("remove old dependency"))?;
-        assert!(imports_changed);
+        assert_eq!(removed_id, old_id);
         database.load_reachable(std::slice::from_ref(&old_id));
         assert!(database.cached_document(&file_uri(&old_path)?).is_none());
         assert!(database.dependents(old_id).is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn renamed_identity_keeps_imports_of_an_already_loaded_destination() -> std::io::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let old_directory = temp.path().join("old");
+        let new_directory = temp.path().join("new");
+        fs::create_dir_all(&old_directory)?;
+        fs::create_dir_all(&new_directory)?;
+        let old_dependency = old_directory.join("dep.bend");
+        let old_consumer = old_directory.join("consumer.bend");
+        let new_dependency = new_directory.join("renamed.bend");
+        let new_consumer = new_directory.join("consumer.bend");
+        fs::write(&old_dependency, "def value = 1\n")?;
+        fs::write(
+            &old_consumer,
+            "import ./dep.bend as Dep\ndef exported = Dep.value\n",
+        )?;
+        let root_path = temp.path().join("main.bend");
+        let root_uri = file_uri(&root_path)?;
+        let mut database = WorkspaceDb::default();
+        let root = database.set_open_document(
+            Document::new(
+                root_uri.clone(),
+                "bend".into(),
+                Revision(1),
+                "import ./old/dep.bend as Dep\nimport ./old/consumer.bend as Consumer\ndef main = Dep.value\n".into(),
+            ),
+            Some(root_path),
+        );
+        database.load_reachable(&[root]);
+        let original_consumer = database
+            .file_id_by_path(&old_consumer)
+            .ok_or_else(|| std::io::Error::other("original consumer identity"))?;
+        fs::rename(&old_dependency, &new_dependency)?;
+        fs::rename(&old_consumer, &new_consumer)?;
+        fs::write(
+            &new_consumer,
+            "import ./renamed.bend as Dep\ndef exported = Dep.value\n",
+        )?;
+        database.update_open_snapshot(
+            &root_uri,
+            Arc::new(DocumentSnapshot::new(
+                Revision(2),
+                "import ./new/renamed.bend as Dep\nimport ./new/consumer.bend as Consumer\ndef main = Dep.value\n".into(),
+            )),
+        )
+        .ok_or_else(|| std::io::Error::other("update root imports"))?;
+        database.load_reachable(&[root]);
+        database.rename_paths(&[
+            PathRename {
+                old: old_dependency,
+                new: new_dependency.clone(),
+            },
+            PathRename {
+                old: old_consumer,
+                new: new_consumer.clone(),
+            },
+        ]);
+        let consumer_uri = file_uri(&new_consumer)?;
+        assert_eq!(
+            database.file_id_by_uri(&consumer_uri),
+            Some(original_consumer)
+        );
+        let consumer = database
+            .cached_document(&consumer_uri)
+            .ok_or_else(|| std::io::Error::other("renamed consumer"))?;
+        let import = analysis::imports(&consumer)
+            .first()
+            .ok_or_else(|| std::io::Error::other("consumer import"))?;
+        let target = database
+            .import_target(&consumer_uri, import.path)
+            .ok_or_else(|| std::io::Error::other("renamed consumer import target"))?;
+        assert_eq!(target.uri, file_uri(&new_dependency)?);
+        Ok(())
+    }
+
+    #[test]
+    fn disk_sync_respects_demand_and_invalidates_retired_generations() -> std::io::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let root_path = temp.path().join("main.bend");
+        let dep_path = temp.path().join("dep.bend");
+        let unknown_path = temp.path().join("unknown.bend");
+        let dep_uri = file_uri(&dep_path)?;
+        let root_uri = file_uri(&root_path)?;
+        let disk_source = "def value: U32\n  1\n";
+        let importing_source = "import ./dep.bend as Dep\ndef main: U32\n  Dep.value\n";
+        fs::write(&dep_path, disk_source)?;
+        let mut database = WorkspaceDb::default();
+        let (dep_id, changed) = database
+            .sync_disk_path(&dep_path, Some(disk_source.into()))
+            .ok_or_else(|| std::io::Error::other("intern unneeded disk identity"))?;
+        assert!(!changed);
+        assert!(database.cached_document(&dep_uri).is_none());
+        assert_eq!(database.file_id_by_uri(&dep_uri), Some(dep_id));
+        let initial_generation = database.disk_generation(dep_id);
+        let late_snapshot = Arc::new(DocumentSnapshot::new(
+            Revision::UNVERSIONED,
+            "def value: U32\n  99\n".into(),
+        ));
+        assert!(
+            database
+                .sync_disk_snapshot_prepared(&unknown_path, Some(late_snapshot.clone()), Vec::new())
+                .is_none()
+        );
+        assert!(database.file_id_by_path(&unknown_path).is_none());
+        assert!(
+            database
+                .sync_disk_snapshot_prepared(&dep_path, Some(late_snapshot.clone()), Vec::new())
+                .is_none()
+        );
+        assert_eq!(database.disk_generation(dep_id), initial_generation);
+
+        let root = database.set_open_document(
+            Document::new(
+                root_uri.clone(),
+                "bend".into(),
+                Revision(1),
+                importing_source.into(),
+            ),
+            Some(root_path.clone()),
+        );
+        assert!(database.is_needed(dep_id));
+        database.load_reachable(&[root]);
+        let loaded_generation = database.disk_generation(dep_id);
+        assert_ne!(loaded_generation, initial_generation);
+        database
+            .update_open_snapshot(
+                &root_uri,
+                Arc::new(DocumentSnapshot::new(
+                    Revision(2),
+                    "def main: U32\n  0\n".into(),
+                )),
+            )
+            .ok_or_else(|| std::io::Error::other("remove dependency demand"))?;
+        assert!(!database.is_needed(dep_id));
+        assert_ne!(database.disk_generation(dep_id), loaded_generation);
+        assert!(
+            database
+                .sync_disk_snapshot_prepared(&dep_path, Some(late_snapshot), Vec::new())
+                .is_none()
+        );
+        database.load_reachable(&[root]);
+        assert!(database.cached_document(&dep_uri).is_none());
+        assert_eq!(database.file_id_by_path(&dep_path), Some(dep_id));
+        Ok(())
+    }
+
+    #[test]
+    fn compiler_navigation_source_survives_editor_overlay_close_and_retirement()
+    -> std::io::Result<()> {
+        let directory = tempfile::tempdir()?;
+        let generated_path = directory.path().join("Base.bend");
+        let dependency_path = directory.path().join("dep.bend");
+        let canonical_path = directory.path().join("canonical.bend");
+        let user_path = directory.path().join("user.bend");
+        let generated_uri = file_uri(&generated_path)?;
+        let generated_source =
+            "import ./canonical.bend as Canonical\ndef generated: U32\n  Canonical.value\n";
+        fs::write(&generated_path, generated_source)?;
+        fs::write(&dependency_path, "def value: U32\n  2\n")?;
+        fs::write(&canonical_path, "def value: U32\n  3\n")?;
+        let snapshot = Arc::new(DocumentSnapshot::new(
+            Revision::UNVERSIONED,
+            generated_source.into(),
+        ));
+        let generated_payload = Arc::downgrade(&snapshot);
+        let mut database = WorkspaceDb::default();
+        database.register_compiler_document(
+            generated_uri.clone(),
+            generated_path.clone(),
+            snapshot,
+            directory,
+        );
+        let id = database.set_open_document(
+            Document::new(
+                generated_uri.clone(),
+                "bend".into(),
+                Revision(1),
+                "import ./dep.bend as Dep\ndef generated: U32\n  Dep.value\n".into(),
+            ),
+            Some(generated_path.clone()),
+        );
+        database.load_reachable(&[id]);
+        let dependency_payload = Arc::downgrade(
+            &database
+                .cached_document(&file_uri(&dependency_path)?)
+                .ok_or_else(|| std::io::Error::other("overlay dependency"))?
+                .snapshot,
+        );
+        database
+            .close_document(&generated_uri)
+            .ok_or_else(|| std::io::Error::other("close generated source overlay"))?;
+        database.load_reachable(&[id]);
+
+        let retained = database
+            .cached_document(&generated_uri)
+            .ok_or_else(|| std::io::Error::other("retained compiler navigation source"))?;
+        assert_eq!(retained.text, generated_source);
+        assert!(generated_payload.upgrade().is_some());
+        assert!(dependency_payload.upgrade().is_none());
+        assert_eq!(fs::read_to_string(&generated_path)?, generated_source);
+        assert!(database.is_compiler_document(&generated_uri));
+        assert!(database.source_graph(id).is_none());
+        assert!(database.indexed_documents().is_empty());
+        drop(retained);
+        let canonical_source = "def value: U32\n  4\n";
+        fs::write(&canonical_path, canonical_source)?;
+        let user = database.set_open_document(
+            Document::new(
+                file_uri(&user_path)?,
+                "bend".into(),
+                Revision(1),
+                "import ./Base.bend as Base\ndef main: U32\n  Base.generated\n".into(),
+            ),
+            Some(user_path),
+        );
+        database.load_reachable(&[user]);
+        let retained = database
+            .cached_document(&generated_uri)
+            .ok_or_else(|| std::io::Error::other("reactivated generated source"))?;
+        let canonical_import = analysis::imports(&retained)
+            .first()
+            .ok_or_else(|| std::io::Error::other("generated source canonical import"))?;
+        let canonical = database
+            .import_target(&generated_uri, canonical_import.path)
+            .ok_or_else(|| std::io::Error::other("reactivated generated import navigation"))?;
+        assert_eq!(canonical.text, canonical_source);
+        assert_eq!(canonical.uri, file_uri(&canonical_path)?);
+        assert!(
+            database
+                .cached_document(&file_uri(&dependency_path)?)
+                .is_none()
+        );
+        drop(canonical);
+        drop(retained);
+        drop(database);
+        assert!(generated_payload.upgrade().is_none());
+        assert!(!generated_path.exists());
         Ok(())
     }
 }

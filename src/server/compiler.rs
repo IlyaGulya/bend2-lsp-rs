@@ -4,7 +4,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::Stdio,
     sync::{
-        Arc, LazyLock, RwLock,
+        Arc, LazyLock, RwLock, Weak,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::{Instant, SystemTime},
@@ -19,7 +19,7 @@ use tower_lsp::lsp_types::Diagnostic;
 
 use super::features::diag;
 use crate::analysis::{self, DocumentSnapshot};
-use crate::workspace::{SourceGraph, is_hub_import_path};
+use crate::workspace::{FileId, ImportEdge, SourceGraph, is_hub_import_path};
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub(super) struct CompilerConfig {
     pub(super) path: String,
@@ -193,45 +193,79 @@ async fn record_compiler_metrics(path: PathBuf, metrics: CompilerCheckMetrics) {
     .await;
 }
 
-#[derive(Clone)]
+// Cache exact source identities and bytes, not their potentially much larger
+// semantic indexes. Borrowed matching avoids allocating a new key on a hit.
+struct CompilerSource {
+    id: FileId,
+    path: PathBuf,
+    imports: Box<[ImportEdge]>,
+    identity: Weak<DocumentSnapshot>,
+    text: Option<Box<str>>,
+}
+
 struct CompilerSnapshot {
     compiler_path: String,
     compiler_arguments: Vec<String>,
     compiler_stamp: Option<CompilerStamp>,
-    source_graph: Arc<SourceGraph>,
+    root: FileId,
+    sources: Box<[CompilerSource]>,
 }
 
-impl PartialEq for CompilerSnapshot {
-    fn eq(&self, other: &Self) -> bool {
-        self.compiler_path == other.compiler_path
-            && self.compiler_arguments == other.compiler_arguments
-            && self.compiler_stamp == other.compiler_stamp
-            && self.source_graph.root == other.source_graph.root
-            && self
-                .source_graph
+impl CompilerSnapshot {
+    fn matches(
+        &self,
+        config: &CompilerConfig,
+        stamp: Option<CompilerStamp>,
+        graph: &SourceGraph,
+    ) -> bool {
+        self.compiler_path == config.path
+            && self.compiler_arguments == config.arguments
+            && self.compiler_stamp == stamp
+            && self.root == graph.root
+            && self.sources.len() == graph.nodes.len()
+            && self.sources.iter().zip(&graph.nodes).all(|(cached, node)| {
+                cached.id == node.id
+                    && cached.path == node.path
+                    && cached.imports == node.imports
+                    && match (cached.text.as_deref(), node.snapshot.as_ref()) {
+                        (Some(text), Some(snapshot)) => {
+                            cached.identity.as_ptr() == Arc::as_ptr(snapshot)
+                                || text == snapshot.text
+                        }
+                        (None, None) => true,
+                        _ => false,
+                    }
+            })
+    }
+
+    fn capture(
+        config: CompilerConfig,
+        compiler_stamp: Option<CompilerStamp>,
+        graph: &SourceGraph,
+    ) -> Self {
+        Self {
+            compiler_path: config.path,
+            compiler_arguments: config.arguments,
+            compiler_stamp,
+            root: graph.root,
+            sources: graph
                 .nodes
                 .iter()
-                .zip(&other.source_graph.nodes)
-                .all(|(left, right)| {
-                    left.id == right.id
-                        && left.path == right.path
-                        && left.imports == right.imports
-                        && same_snapshot(left.snapshot.as_ref(), right.snapshot.as_ref())
+                .map(|node| CompilerSource {
+                    id: node.id,
+                    path: node.path.clone(),
+                    imports: node.imports.clone(),
+                    identity: node
+                        .snapshot
+                        .as_ref()
+                        .map_or_else(Weak::new, Arc::downgrade),
+                    text: node
+                        .snapshot
+                        .as_ref()
+                        .map(|snapshot| snapshot.text.as_str().into()),
                 })
-            && self.source_graph.nodes.len() == other.source_graph.nodes.len()
-    }
-}
-
-impl Eq for CompilerSnapshot {}
-
-fn same_snapshot(
-    left: Option<&Arc<DocumentSnapshot>>,
-    right: Option<&Arc<DocumentSnapshot>>,
-) -> bool {
-    match (left, right) {
-        (Some(left), Some(right)) => Arc::ptr_eq(left, right) || left.text == right.text,
-        (None, None) => true,
-        _ => false,
+                .collect(),
+        }
     }
 }
 
@@ -493,12 +527,6 @@ async fn compiler_diagnostics_inner(
         None
     };
     let cacheable = cacheable_sources && compiler_stamp.is_some();
-    let snapshot = CompilerSnapshot {
-        compiler_path: config.path.clone(),
-        compiler_arguments: config.arguments.clone(),
-        compiler_stamp,
-        source_graph: source_graph.clone(),
-    };
     if let Some(metrics) = metrics.as_deref_mut() {
         metrics.cache_hit = Some(false);
     }
@@ -506,7 +534,9 @@ async fn compiler_diagnostics_inner(
     if cacheable {
         let results = super::state::read_lock(&cache);
         if let Some(result) = results.get(&root)
-            && result.snapshot == snapshot
+            && result
+                .snapshot
+                .matches(&config, compiler_stamp, &source_graph)
         {
             if let Some(metrics) = metrics.as_deref_mut() {
                 metrics.cache_hit = Some(true);
@@ -516,7 +546,7 @@ async fn compiler_diagnostics_inner(
         }
     }
     let Some((permit, staging, staged)) =
-        stage_compiler_graph(source_graph, permit, metrics.as_deref_mut()).await
+        stage_compiler_graph(source_graph.clone(), permit, metrics.as_deref_mut()).await
     else {
         return Vec::new();
     };
@@ -544,7 +574,7 @@ async fn compiler_diagnostics_inner(
         results.insert(
             root,
             CachedCompilerResult {
-                snapshot,
+                snapshot: CompilerSnapshot::capture(config, compiler_stamp, &source_graph),
                 diagnostics: diagnostics.clone(),
             },
         );
@@ -988,4 +1018,65 @@ fn stage_source_graph(graph: &SourceGraph, staging: &Path) -> Option<StagedImpor
         staged_bytes,
         sources,
     })
+}
+
+#[cfg(all(test, unix))]
+mod snapshot_lifetime_tests {
+    use super::{CompilerConfig, CompilerReapers, compiler_diagnostics};
+    use crate::{
+        analysis::Revision,
+        workspace::{Document, WorkspaceDb},
+    };
+    use std::{
+        collections::HashMap,
+        sync::{Arc, RwLock},
+    };
+    use tokio::sync::Semaphore;
+    use url::Url;
+
+    #[tokio::test]
+    async fn completed_compiler_cache_does_not_retain_semantic_snapshots()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("main.bend");
+        let uri = Url::from_file_path(&path).map_err(|()| std::io::Error::other("source URI"))?;
+        let document = Document::new(
+            uri,
+            "bend".into(),
+            Revision(1),
+            "def main: U32\n  1\n".into(),
+        );
+        let weak = Arc::downgrade(&document.snapshot);
+        let mut database = WorkspaceDb::default();
+        let root = database.set_open_document(document, Some(path));
+        let graph = database
+            .source_graph(root)
+            .ok_or_else(|| std::io::Error::other("source graph"))?;
+        let cache = Arc::new(RwLock::new(HashMap::new()));
+        let reapers = Arc::new(CompilerReapers::default());
+        let diagnostics = compiler_diagnostics(
+            graph,
+            CompilerConfig {
+                path: "/usr/bin/true".into(),
+                arguments: Vec::new(),
+            },
+            Arc::new(Semaphore::new(1)),
+            cache.clone(),
+            reapers.clone(),
+        )
+        .await;
+        assert!(
+            diagnostics.is_empty(),
+            "the real successful child must not report compiler failures"
+        );
+        reapers.close();
+        reapers.wait().await;
+        drop(database);
+        assert!(
+            weak.upgrade().is_none(),
+            "completed compiler results must not own full semantic snapshots"
+        );
+        drop(cache);
+        Ok(())
+    }
 }
