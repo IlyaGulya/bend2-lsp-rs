@@ -53,6 +53,9 @@ def main():
         source.write_text(f"pub fn answer() -> u64 {{ {expected} }}\n")
     output = directory / args.mode
     output.mkdir(exist_ok=True)
+    log_path = directory / f"sccache-{args.mode}.log"
+    os.environ["SCCACHE_LOG"] = "info"
+    os.environ["SCCACHE_ERROR_LOG"] = str(log_path)
     run(["sccache", "--zero-stats"])
     environment = os.environ.copy()
     if args.mode == "write":
@@ -68,6 +71,14 @@ def main():
         raise RuntimeError("compiler probe did not use the WebDAV backend")
     stats = info["stats"]
     if stats["cache_write_errors"] or stats["cache_read_errors"]:
+        if log_path.exists():
+            diagnostic = log_path.read_text()
+            password = os.environ["SCCACHE_WEBDAV_PASSWORD"]
+            credentials = f"{os.environ['SCCACHE_WEBDAV_USERNAME']}:{password}"
+            for secret in (base64.b64encode(credentials.encode()).decode(), credentials, password):
+                diagnostic = diagnostic.replace(secret, "[REDACTED]")
+            args.report.with_suffix(".error.txt").write_text(diagnostic)
+            print(diagnostic)
         raise RuntimeError("remote compiler cache reported I/O errors")
     if args.mode == "write":
         if not stats["cache_writes"]:

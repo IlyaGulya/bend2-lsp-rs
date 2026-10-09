@@ -174,6 +174,9 @@ standard WebDAV quota properties. Missing quota properties or unsupported HTTP
 responses remain explicitly unknown. Provider-reported quota may cover more
 than this project's objects; confirm its scope through BuildFetch usage reporting.
 Unknown WebDAV `cache_size` is not zero usage.
+Probe I/O failures also preserve info-level sccache diagnostics as `.error.txt`
+in the same artifact. Password and Basic-auth credential forms are redacted
+before printing or uploading; raw daemon logs stay in the runner's temporary directory.
 The existing approximately 1.85 GiB GitHub cache observation supports an initial
 10 GiB budget, not a demonstrated BuildFetch footprint or a need for 20 GiB.
 

@@ -21,6 +21,8 @@
   separate trusted-main writer and readonly consumer credentials. Keep GitHub
   caches for Cargo downloads and installed tools; fork PRs receive no remote
   cache credentials. Add a real write/restart/readonly-hit compiler probe.
+- Preserve credential-redacted daemon diagnostics when the BuildFetch compiler
+  probe encounters storage I/O failures.
 - Add snapshot-ownership regressions and Linux stdio FIFO barriers for watcher
   admission, missing/recreated dependencies, overlays, and late staging commits.
 - Cache Cargo dependency inputs and pinned helper installations, including
