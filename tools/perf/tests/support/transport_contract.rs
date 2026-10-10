@@ -46,6 +46,26 @@ pub(crate) fn fixture_child(scenario: &str) -> ToolResult<()> {
             fixture_send(&json!({"jsonrpc":"2.0","method":"not-reading"}))?;
             loop { thread::sleep(Duration::from_secs(60)); }
         }
+        "finalization" | "finalization-blocked" | "finalization-invalid" => {
+            fixture_send(&json!({"jsonrpc":"2.0","method":"ready-to-shutdown"}))?;
+            fixture_shutdown(&mut stdin, None)?;
+            let mut remaining = Vec::new();
+            stdin.read_to_end(&mut remaining)?;
+            assert!(remaining.is_empty(), "stdin retained data after exit");
+            fixture_send(&json!({"jsonrpc":"2.0","method":"finalizing"}))?;
+            if scenario == "finalization-invalid" {
+                io::stdout().write_all(b"Content-Length: 1\r\n\r\nx")?;
+                io::stdout().flush()?;
+                loop { thread::sleep(Duration::from_secs(60)); }
+            }
+            if scenario == "finalization-blocked" {
+                loop { thread::sleep(Duration::from_secs(60)); }
+            }
+            thread::sleep(Duration::from_millis(300));
+            eprintln!("finalization-stderr {}", "x".repeat(1024 * 1024));
+            eprintln!("finalization-complete");
+            Ok(())
+        }
         "configuration" => fixture_configuration(&mut stdin),
         "out-of-order" => {
             let first = fixture_receive(&mut stdin)?;
@@ -235,10 +255,77 @@ fn protocol_failure_contracts() -> ToolResult<()> {
     Ok(())
 }
 
+fn finalization_contracts() -> ToolResult<()> {
+    let (_workspace, mut client) = fixture_process("finalization")?;
+    fixture_status(&client, "ready-to-shutdown")?;
+    client.timeout = Duration::from_millis(100);
+    client.finish_profiled(Duration::from_secs(10))?;
+    let evidence = client.shutdown_evidence();
+    assert_eq!(evidence.protocol_timeout_ms, 100);
+    assert_eq!(evidence.finalization_timeout_ms, 10_000);
+    assert_eq!(evidence.protocol_stage, ShutdownProtocolStage::ExitNotified);
+    assert!(evidence.stdin_closed);
+    assert!(evidence.stdout_eof);
+    assert_eq!(evidence.stdout_frames_drained, 1);
+    assert_eq!(evidence.child_exit_code, Some(0));
+    assert_eq!(evidence.child_exit_success, Some(true));
+    assert!(!evidence.forced_termination);
+    assert!(client.reader.is_none() && client.writer.is_none());
+    assert!(client.messages.is_none() && client.writes.is_none());
+    assert!(client.stderr_tail()?.ends_with("finalization-complete"));
+
+    for profiled in [false, true] {
+        let (_workspace, mut client) = fixture_process("finalization-blocked")?;
+        fixture_status(&client, "ready-to-shutdown")?;
+        client.timeout = Duration::from_millis(100);
+        let started = Instant::now();
+        let outcome = if profiled {
+            client.finish_profiled(Duration::from_millis(100))
+        } else {
+            client.finish()
+        };
+        let error = outcome.err().ok_or("unbounded finalization unexpectedly accepted")?;
+        assert!(error.to_string().contains("LSP did not exit after shutdown"));
+        assert!(started.elapsed() < Duration::from_secs(5), "failure cleanup was not bounded");
+        assert_eq!(client.shutdown_evidence().protocol_stage, ShutdownProtocolStage::ExitNotified);
+        assert!(client.shutdown_evidence().stdin_closed);
+        assert!(client.shutdown_evidence().forced_termination);
+        assert!(client.child.try_wait()?.is_some());
+        assert!(client.reader.is_none() && client.writer.is_none());
+        assert!(client.messages.is_none() && client.writes.is_none());
+    }
+    let (_workspace, mut client) = fixture_process("finalization-invalid")?;
+    fixture_status(&client, "ready-to-shutdown")?;
+    let started = Instant::now();
+    let error = client
+        .finish_profiled(Duration::from_secs(10))
+        .err()
+        .ok_or("invalid finalization output unexpectedly accepted")?;
+    assert!(!error.to_string().contains("LSP did not exit after shutdown"));
+    assert!(started.elapsed() < Duration::from_secs(5), "output was not drained while finalizing");
+    assert!(client.shutdown_evidence().forced_termination);
+    assert!(client.child.try_wait()?.is_some());
+    assert!(client.reader.is_none() && client.writer.is_none());
+    assert!(client.messages.is_none() && client.writes.is_none());
+
+    let (_workspace, mut client) = fixture_process("blocked")?;
+    fixture_status(&client, "not-reading")?;
+    client.timeout = Duration::from_millis(100);
+    let started = Instant::now();
+    assert!(client.finish_profiled(Duration::from_secs(10)).is_err());
+    assert!(started.elapsed() < Duration::from_secs(5), "profiling grace extended JSON-RPC timeout");
+    assert_eq!(client.shutdown_evidence().protocol_stage, ShutdownProtocolStage::Pending);
+    assert!(client.child.try_wait()?.is_some());
+    assert!(client.reader.is_none() && client.writer.is_none());
+    assert!(client.messages.is_none() && client.writes.is_none());
+    Ok(())
+}
+
 pub(crate) fn contract_regressions() -> ToolResult<()> {
     large_and_pipeline_contracts()?;
     write_failure_contracts()?;
     lifecycle_contracts()?;
+    finalization_contracts()?;
     protocol_failure_contracts()?;
     let (_workspace, mut client) = fixture_process("stderr")?;
     assert_eq!(client.request("probe", Value::Null, None)?.0, true);

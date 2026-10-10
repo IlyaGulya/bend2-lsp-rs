@@ -1,4 +1,5 @@
 use crate::ToolResult;
+use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -31,6 +32,29 @@ pub(crate) struct PendingRequest {
     deadline: Instant,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ShutdownProtocolStage {
+    #[default]
+    Pending,
+    Acknowledged,
+    ExitNotified,
+}
+
+#[derive(Default, Serialize)]
+pub(crate) struct ShutdownEvidence {
+    pub(crate) protocol_timeout_ms: u128,
+    pub(crate) finalization_timeout_ms: u128,
+    pub(crate) protocol_stage: ShutdownProtocolStage,
+    pub(crate) stdin_closed: bool,
+    pub(crate) stdout_frames_drained: usize,
+    pub(crate) stdout_eof: bool,
+    pub(crate) child_exit_code: Option<i32>,
+    pub(crate) child_exit_success: Option<bool>,
+    pub(crate) finalization_elapsed_ms: u128,
+    pub(crate) forced_termination: bool,
+}
+
 pub(crate) struct LspProcess {
     child: Child,
     workspace: PathBuf,
@@ -46,6 +70,7 @@ pub(crate) struct LspProcess {
     diagnostics: BTreeMap<String, Value>,
     next_id: u64,
     timeout: Duration,
+    shutdown: ShutdownEvidence,
 }
 
 fn failure(message: impl std::fmt::Display) -> io::Error {
@@ -251,6 +276,7 @@ impl LspProcess {
             diagnostics: BTreeMap::new(),
             next_id: 1,
             timeout: REQUEST_TIMEOUT,
+            shutdown: ShutdownEvidence::default(),
         })
     }
 
@@ -547,31 +573,97 @@ impl LspProcess {
     }
 
     pub(crate) fn finish(&mut self) -> ToolResult<()> {
+        self.finish_with_finalization_timeout(self.timeout)
+    }
+
+    pub(crate) fn finish_profiled(&mut self, finalization_timeout: Duration) -> ToolResult<()> {
+        self.finish_with_finalization_timeout(finalization_timeout)
+    }
+
+    pub(crate) fn shutdown_evidence(&self) -> &ShutdownEvidence {
+        &self.shutdown
+    }
+
+    fn finish_with_finalization_timeout(
+        &mut self,
+        finalization_timeout: Duration,
+    ) -> ToolResult<()> {
+        self.shutdown = ShutdownEvidence {
+            protocol_timeout_ms: self.timeout.as_millis(),
+            finalization_timeout_ms: finalization_timeout.as_millis(),
+            ..ShutdownEvidence::default()
+        };
+        let outcome = self.shutdown_and_exit(finalization_timeout);
+        if outcome.is_err() {
+            self.abort();
+        }
+        outcome
+    }
+
+    fn shutdown_and_exit(&mut self, finalization_timeout: Duration) -> ToolResult<()> {
         let (result, _) = self.request("shutdown", Value::Null, None)?;
         if !result.is_null() {
             return Err(failure("shutdown returned non-null result").into());
         }
+        self.shutdown.protocol_stage = ShutdownProtocolStage::Acknowledged;
         self.notify("exit", Value::Null)?;
+        self.shutdown.protocol_stage = ShutdownProtocolStage::ExitNotified;
         self.writes.take();
         if let Some(writer) = self.writer.take() {
             writer.join().map_err(|_| failure("LSP writer panicked"))?;
         }
-        let deadline = Instant::now() + self.timeout;
-        let status = loop {
+        self.shutdown.stdin_closed = true;
+        let started = Instant::now();
+        let outcome = self.drain_until_exit(started + finalization_timeout);
+        self.shutdown.finalization_elapsed_ms = started.elapsed().as_millis();
+        outcome
+    }
+
+    fn drain_until_exit(&mut self, deadline: Instant) -> ToolResult<()> {
+        loop {
             if let Some(status) = self.child.try_wait()? {
-                break status;
+                self.shutdown.child_exit_code = status.code();
+                self.shutdown.child_exit_success = Some(status.success());
+                if !status.success() {
+                    return Err(failure(format!("LSP exited with status {status}")).into());
+                }
+                if self.shutdown.stdout_eof {
+                    break;
+                }
             }
-            if Instant::now() >= deadline {
-                self.abort();
-                return Err(failure("LSP did not exit after shutdown").into());
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                let message = if self.shutdown.child_exit_success.is_some() {
+                    "timed out draining LSP stdout after shutdown"
+                } else {
+                    "LSP did not exit after shutdown"
+                };
+                return Err(failure(message).into());
             }
-            thread::sleep(Duration::from_millis(5));
-        };
-        if !status.success() {
-            return Err(failure(format!("LSP exited with status {status}")).into());
-        }
-        while let Some((body, received)) = self.next_message(deadline)? {
-            self.dispatch(&body, received, deadline)?;
+            let interval = remaining.min(Duration::from_millis(5));
+            if self.shutdown.stdout_eof {
+                thread::sleep(interval);
+                continue;
+            }
+            let received = self
+                .messages
+                .as_ref()
+                .ok_or_else(|| failure("LSP stdout is closed"))?
+                .recv_timeout(interval);
+            match received {
+                Ok(Ok(Some((body, received)))) => {
+                    self.shutdown.stdout_frames_drained += 1;
+                    self.dispatch(&body, received, deadline)?;
+                }
+                Ok(Ok(None)) => self.shutdown.stdout_eof = true,
+                Ok(Err(error)) => {
+                    return Err(failure(format!("LSP transport failed: {error}")).into());
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err(failure("LSP stdout disconnected without EOF").into());
+                }
+            }
         }
         if let Some(reader) = self.reader.take() {
             reader.join().map_err(|_| failure("LSP reader panicked"))?;
@@ -591,9 +683,13 @@ impl LspProcess {
 
     fn abort(&mut self) {
         if self.child.try_wait().ok().flatten().is_none() {
+            self.shutdown.forced_termination = true;
             let _ = self.child.kill();
         }
-        let _ = self.child.wait();
+        if let Ok(status) = self.child.wait() {
+            self.shutdown.child_exit_code = status.code();
+            self.shutdown.child_exit_success = Some(status.success());
+        }
         self.writes.take();
         self.messages.take();
         if let Some(writer) = self.writer.take() {

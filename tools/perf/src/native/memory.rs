@@ -322,24 +322,65 @@ fn verify_debug_sidecars(
         .into());
     }
     if symbols.exists() {
-        let dwarf_root = symbols.join("Contents/Resources/DWARF");
-        let direct_dwarf = dwarf_root.join(stem);
-        let dwarf = if direct_dwarf.exists() {
-            direct_dwarf
-        } else {
-            dwarf_root.join(normalized)
-        };
-        let plist = symbols.join("Contents/Info.plist");
-        for path in [dwarf, plist] {
-            if !path.is_file() || fs::metadata(&path)?.len() == 0 {
-                return Err(format!("Malformed dSYM sidecar: {}", path.display()).into());
-            }
-            let path = path.canonicalize()?;
-            verify_identity(
-                files
-                    .get(path.to_str().ok_or("Non-Unicode debug path")?)
-                    .ok_or("dSYM component missing from provenance")?,
-            )?;
+        verify_dsym(&symbols, stem, &normalized, files)?;
+    }
+    Ok(())
+}
+
+fn verify_dsym(
+    symbols: &Path,
+    stem: &str,
+    normalized: &str,
+    files: &serde_json::Map<String, Value>,
+) -> ToolResult<()> {
+    let contents = symbols.join("Contents");
+    let resources = contents.join("Resources");
+    let dwarf_root = resources.join("DWARF");
+    for directory in [symbols, &contents, &resources, &dwarf_root] {
+        if !fs::symlink_metadata(directory)?.is_dir() {
+            return Err(format!(
+                "Malformed or unmaterialized dSYM directory: {}",
+                directory.display()
+            )
+            .into());
+        }
+    }
+    let mut members = fs::read_dir(&dwarf_root)?;
+    let member = members.next().ok_or("Missing dSYM DWARF member")??;
+    if members.next().is_some() {
+        return Err("Native executable dSYM must contain exactly one DWARF member".into());
+    }
+    let name = member.file_name();
+    let name = name.to_str().ok_or("Non-Unicode dSYM DWARF member")?;
+    // Cargo uplifts the bundle name, not its contents. dsymutil retains the
+    // original crate-name[-UnitHash] input basename (UnitHash is 16 lower hex).
+    let cargo_hash = name
+        .strip_prefix(normalized)
+        .and_then(|suffix| suffix.strip_prefix('-'))
+        .is_some_and(|hash| {
+            hash.len() == 16
+                && hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        });
+    if name != stem && name != normalized && !cargo_hash {
+        return Err(format!("Unrelated or unknown dSYM DWARF member: {name}").into());
+    }
+    for path in [member.path(), contents.join("Info.plist")] {
+        let metadata = fs::symlink_metadata(&path)?;
+        if !metadata.is_file() || metadata.len() == 0 {
+            return Err(format!(
+                "Malformed or unmaterialized dSYM component: {}",
+                path.display()
+            )
+            .into());
+        }
+        let key = path.canonicalize()?;
+        let item = files
+            .get(key.to_str().ok_or("Non-Unicode debug path")?)
+            .ok_or("dSYM component missing from provenance")?;
+        if identity(&path)? != *item {
+            return Err(format!("dSYM component identity changed: {}", path.display()).into());
         }
     }
     Ok(())
@@ -518,6 +559,162 @@ mod tests {
             item,
         );
         assert!(verify_debug_sidecars(&binary, &files, false).is_err());
+        Ok(())
+    }
+
+    fn dsym_fixture(
+        directory: &Path,
+        stem: &str,
+        member: &str,
+    ) -> ToolResult<(PathBuf, serde_json::Map<String, Value>)> {
+        let suffix = if cfg!(target_os = "windows") {
+            ".exe"
+        } else {
+            ""
+        };
+        let binary = directory.join(format!("{stem}{suffix}"));
+        fs::write(&binary, b"binary fixture")?;
+        fs::write(
+            directory.join(format!("{stem}.pdb")),
+            b"Microsoft C/C++ MSF 7.00\r\n\x1aDS\0\0\0",
+        )?;
+        let contents = directory.join(format!("{stem}.dSYM/Contents"));
+        let dwarf_root = contents.join("Resources/DWARF");
+        fs::create_dir_all(&dwarf_root)?;
+        fs::write(contents.join("Info.plist"), b"<plist><dict/></plist>")?;
+        fs::write(dwarf_root.join(member), b"DWARF fixture")?;
+        let mut paths = Vec::new();
+        visit_files(directory, &mut paths)?;
+        let files = paths
+            .iter()
+            .map(|path| -> ToolResult<_> {
+                let item = identity(path)?;
+                Ok((
+                    item["path"].as_str().ok_or("Missing path")?.to_owned(),
+                    item,
+                ))
+            })
+            .collect::<ToolResult<_>>()?;
+        Ok((binary, files))
+    }
+
+    #[test]
+    fn cargo_dsym_sidecars_accept_materialized_binary_and_example_members() -> ToolResult<()> {
+        for (stem, member) in [
+            ("bend2-lsp", "bend2-lsp"),
+            ("bend2-lsp", "bend2_lsp"),
+            ("bend2-lsp", "bend2_lsp-0123456789abcdef"),
+            ("line_index_profile", "line_index_profile-0123456789abcdef"),
+            (
+                "folding_allocations",
+                "folding_allocations-fedcba9876543210",
+            ),
+        ] {
+            let temporary = tempfile::tempdir()?;
+            let (binary, files) = dsym_fixture(temporary.path(), stem, member)?;
+            verify_debug_sidecars(&binary, &files, true)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn cargo_dsym_sidecars_reject_unknown_or_ambiguous_members() -> ToolResult<()> {
+        for member in [
+            "unrelated-0123456789abcdef",
+            "line_index_profile_backup-0123456789abcdef",
+            "line_index_profile-not-a-cargo-hash",
+            "line_index_profile-0123456789abcde",
+            "line_index_profile-0123456789abcdef0",
+            "line_index_profile-0123456789abcdeg",
+            "line_index_profile-0123456789ABCDEf",
+        ] {
+            let temporary = tempfile::tempdir()?;
+            let (binary, files) = dsym_fixture(temporary.path(), "line_index_profile", member)?;
+            assert!(
+                verify_debug_sidecars(&binary, &files, true).is_err(),
+                "{member}"
+            );
+        }
+        let temporary = tempfile::tempdir()?;
+        let (binary, files) = dsym_fixture(
+            temporary.path(),
+            "line_index_profile",
+            "line_index_profile-0123456789abcdef",
+        )?;
+        fs::write(
+            temporary
+                .path()
+                .join("line_index_profile.dSYM/Contents/Resources/DWARF/line_index_profile"),
+            b"second DWARF member",
+        )?;
+        assert!(verify_debug_sidecars(&binary, &files, true).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn cargo_dsym_sidecars_require_exact_identities_and_nonempty_components() -> ToolResult<()> {
+        let stem = "line_index_profile";
+        let member = "line_index_profile-0123456789abcdef";
+        for component in [
+            "Contents/Info.plist",
+            "Contents/Resources/DWARF/line_index_profile-0123456789abcdef",
+        ] {
+            let temporary = tempfile::tempdir()?;
+            let (binary, files) = dsym_fixture(temporary.path(), stem, member)?;
+            let symbols = temporary.path().join(format!("{stem}.dSYM"));
+            let path = symbols.join(component);
+            let key = path.canonicalize()?;
+            let key = key.to_str().ok_or("Missing component path")?;
+            let mut missing = files.clone();
+            missing.remove(key);
+            assert!(verify_dsym(&symbols, stem, stem, &missing).is_err());
+            let mut unrelated = files.clone();
+            unrelated.insert(key.to_owned(), identity(&binary)?);
+            assert!(verify_dsym(&symbols, stem, stem, &unrelated).is_err());
+            fs::write(&path, b"changed component")?;
+            assert!(verify_dsym(&symbols, stem, stem, &files).is_err());
+            fs::write(&path, b"")?;
+            let mut empty = files.clone();
+            empty.insert(key.to_owned(), identity(&path)?);
+            assert!(verify_dsym(&symbols, stem, stem, &empty).is_err());
+            fs::remove_file(&path)?;
+            assert!(verify_dsym(&symbols, stem, stem, &files).is_err());
+            fs::create_dir(&path)?;
+            assert!(verify_dsym(&symbols, stem, stem, &files).is_err());
+        }
+        let temporary = tempfile::tempdir()?;
+        assert!(
+            verify_dsym(
+                &temporary.path().join("absent.dSYM"),
+                stem,
+                stem,
+                &serde_json::Map::new()
+            )
+            .is_err()
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cargo_dsym_sidecars_reject_unmaterialized_bundle_and_member_links() -> ToolResult<()> {
+        let temporary = tempfile::tempdir()?;
+        let stem = "line_index_profile";
+        let member = "line_index_profile-0123456789abcdef";
+        let (binary, files) = dsym_fixture(temporary.path(), stem, member)?;
+        let symbols = temporary.path().join(format!("{stem}.dSYM"));
+        let hashed_symbols = temporary.path().join(format!("{member}.dSYM"));
+        fs::rename(&symbols, &hashed_symbols)?;
+        std::os::unix::fs::symlink(&hashed_symbols, &symbols)?;
+        assert!(verify_debug_sidecars(&binary, &files, true).is_err());
+        assert!(visit_files(temporary.path(), &mut Vec::new()).is_err());
+        fs::remove_file(&symbols)?;
+        fs::rename(&hashed_symbols, &symbols)?;
+        let dwarf = symbols.join("Contents/Resources/DWARF").join(member);
+        let target = temporary.path().join("linked-dwarf");
+        fs::rename(&dwarf, &target)?;
+        std::os::unix::fs::symlink(&target, &dwarf)?;
+        assert!(verify_debug_sidecars(&binary, &files, true).is_err());
         Ok(())
     }
 }

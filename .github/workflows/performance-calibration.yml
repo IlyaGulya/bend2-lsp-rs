@@ -49,8 +49,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Check calibration contracts
-        run: python3 -m unittest discover -s scripts -p 'test_*calibration*.py'
       - name: Install Valgrind
         run: |
           sudo apt-get update
@@ -84,6 +82,9 @@ jobs:
         run: ./scripts/install-tools.sh performance
       - name: Build isolated Rust calibration tooling
         run: cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
+      - name: Check Rust calibration contracts
+        run: |
+          cargo test --locked --release -p bend2-perf --bin bend2-perf calibration:: --target-dir "$RUNNER_TEMP/perf-tools-target"
       - name: Collect balanced independent-build measurements
         env:
           CALIBRATION_JOB: ${{ matrix.job }}

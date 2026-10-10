@@ -15,6 +15,8 @@
 
 ### Bug Fixes
 
+- Resolve references from discovered closed declarations and importers without
+  requiring the queried file to be opened in the editor first.
 - Ignore unrelated and no-longer-reachable watcher events before file reads or
   indexing. Release orphan user-owned workspace snapshots when imports are
   removed or documents close, including cycles.

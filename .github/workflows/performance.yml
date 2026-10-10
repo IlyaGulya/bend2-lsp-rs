@@ -247,13 +247,13 @@ jobs:
           cp "$RUNNER_TEMP/native-target-memory/release/bend2-lsp$EXE_SUFFIX" "$MEMORY_BIN_DIR/"
           cp "$RUNNER_TEMP/native-target-memory/release/examples/line_index_profile$EXE_SUFFIX" "$MEMORY_BIN_DIR/"
           cp "$RUNNER_TEMP/native-target-memory/release/examples/folding_allocations$EXE_SUFFIX" "$MEMORY_BIN_DIR/"
-          # Keep native debug sidecars next to executables for DHAT symbol resolution.
+          # Materialize Cargo dSYM aliases next to executables for DHAT symbol resolution.
           shopt -s nullglob
           for symbols in "$RUNNER_TEMP/native-target-memory/release/"*.pdb \
                          "$RUNNER_TEMP/native-target-memory/release/"*.dSYM \
                          "$RUNNER_TEMP/native-target-memory/release/examples/"*.pdb \
                          "$RUNNER_TEMP/native-target-memory/release/examples/"*.dSYM; do
-            cp -R "$symbols" "$MEMORY_BIN_DIR/"
+            cp -RL "$symbols" "$MEMORY_BIN_DIR/"
           done
           run "$PERF_TOOL" native memory provenance \
             --baseline-revision "$BASE_SHA" --candidate-revision "$CANDIDATE_SHA" \

@@ -275,6 +275,8 @@ fn exact_known_anchors_reject_harness_drift_and_ambiguity() -> ToolResult<()> {
         variant_harness(harness, variant)?;
         for altered in &alterations {
             assert!(variant_harness(altered, variant).is_err(), "{variant}");
+            let crlf = altered.replace("\r\n", "\n").replace('\n', "\r\n");
+            assert!(variant_harness(&crlf, variant).is_err(), "{variant}");
         }
     }
     assert_eq!(
@@ -282,6 +284,27 @@ fn exact_known_anchors_reject_harness_drift_and_ambiguity() -> ToolResult<()> {
         variant_harness(harness, "b")?
     );
     assert!(variant_harness(harness, "unknown").is_err());
+    Ok(())
+}
+
+#[test]
+fn harness_newline_representations_preserve_exact_variants_and_anchor_counts() -> ToolResult<()> {
+    let lf = include_str!("../../../../benches/analysis.rs").replace("\r\n", "\n");
+    let crlf = lf.replace('\n', "\r\n");
+    let mixed = lf.replace("        Self {\n", "        Self {\r\n");
+    let ambiguous = format!("{lf}{crlf}");
+    let bare_cr = lf.replace('\n', "\r");
+    let malformed_crlf = lf.replace('\n', "\r\r\n");
+    for variant in VARIANTS {
+        let expected = variant_harness(&lf, variant)?;
+        assert!(!expected.contains('\r'), "{variant}");
+        assert_eq!(variant_harness(&crlf, variant)?, expected, "{variant}");
+        assert_eq!(variant_harness(&mixed, variant)?, expected, "{variant}");
+        for rejected in [&ambiguous, &bare_cr, &malformed_crlf] {
+            assert!(variant_harness(rejected, variant).is_err(), "{variant}");
+        }
+    }
+    assert_eq!(variant_harness(&crlf, "a")?, variant_harness(&lf, "b")?);
     Ok(())
 }
 

@@ -267,6 +267,24 @@ candidate-only observations, not fabricated baseline comparisons. Artifacts bind
 source revisions, binary/harness/dataset digests, commands, toolchain, and runner
 identity. Missing/malformed evidence and semantic failures fail CI.
 
+macOS symbol copies materialize Cargo's dSYM aliases. A bundle retains its
+single original DWARF member, including Cargo's crate-name/hash form; component
+hashes and link-free structure remain required
+([Cargo output naming](https://github.com/rust-lang/cargo/blob/f96969bb236ab59543a5fdf5f131c874cece23aa/src/compiler/build_runner/compilation_files.rs)).
+DHAT block counts at a byte peak are not maximum block counts: `mbk` need not
+bound `gbk` or `ebk`. All three remain bounded by total allocated blocks, while
+the existing byte-size invariants remain enforced
+([DHAT 0.3.3 source](https://docs.rs/crate/dhat/0.3.3/source/src/lib.rs)).
+
+The profiled LSP retains the 30-second JSON-RPC deadlines, then allows up to
+300 seconds for child finalization, matching the existing native DHAT example
+bound. Ordinary latency runs retain their original exit deadline. DHAT resolves
+backtraces before printing its summary or creating the output file; shutdown
+stage and exact child-exit evidence are retained separately. The first Windows
+x86_64 failure's empty stderr and missing profile were consistent with slow
+finalization, not proof of its cause; successful hosted profile generation is
+required before treating this path as verified.
+
 The canonical Linux/x86_64 Callgrind gate and the calibration workflow remain
 unchanged. Callgrind is unavailable on the supported macOS/Windows runners;
 native timing/allocation reports do not replace its instruction/cache metrics.

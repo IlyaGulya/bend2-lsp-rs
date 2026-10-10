@@ -11,6 +11,9 @@
 //! five-variant pair samples, execution positions, raw stdout/stderr and verified
 //! Callgrind profiles. Reports preserve this provenance and exact signed deltas,
 //! learn cache floors only from discovery A/A, and leave active gates untouched.
+//!
+//! Harness transforms canonicalize LF/CRLF source to LF before exact anchor
+//! matching; mixed-newline duplicates and non-newline anchor drift still fail.
 
 mod collector;
 mod integrity;

@@ -1541,6 +1541,95 @@ mod protocol {
         client.finish();
     }
     #[test]
+    fn cold_references_cover_exact_discovered_workspaces_without_open_documents() {
+        for count in [10, 1000] {
+            let temp = tempdir().must_be("temporary workspace");
+            let workspace = temp.path().join("workspace with spaces");
+            fs::create_dir_all(&workspace).must_be("create workspace");
+            // Keep these sources identical to the native discovery collector.
+            let mut files = std::collections::BTreeMap::from([
+                (
+                    "common.bend".to_owned(),
+                    "def identity(value: U32) -> U32:\n  value\n".to_owned(),
+                ),
+                (
+                    "entry.bend".to_owned(),
+                    "import ./common.bend as Common\ndef main: U32\n  Common.identity(1)\n"
+                        .to_owned(),
+                ),
+            ]);
+            for index in 0..count - 2 {
+                let name = format!("consumer_{index:04}");
+                files.insert(
+                    format!("{name}.bend"),
+                    format!("import ./common.bend as Common\ndef {name}(value: U32) -> U32:\n  Common.identity(value)\n"),
+                );
+            }
+            let mut expected_refs = Vec::with_capacity(count);
+            let mut expected_symbols = Vec::with_capacity(count);
+            for (filename, source) in &files {
+                let path = workspace.join(filename);
+                fs::write(&path, source).must_be("write discovery source");
+                let uri = regression_file_uri(&path);
+                let (name, line, reference_line, reference_start, reference_end) =
+                    if filename == "common.bend" {
+                        ("identity", 0, 0, 4, 12)
+                    } else {
+                        let name = if filename == "entry.bend" {
+                            "main"
+                        } else {
+                            filename.trim_end_matches(".bend")
+                        };
+                        (name, 1, 2, 9, 17)
+                    };
+                expected_refs.push(json!({
+                    "uri":uri,
+                    "range":{"start":{"line":reference_line,"character":reference_start},
+                        "end":{"line":reference_line,"character":reference_end}}
+                }));
+                expected_symbols.push(json!({
+                    "name":name,"kind":12,
+                    "location":{"uri":uri,"range":{"start":{"line":line,"character":4},
+                        "end":{"line":line,"character":4 + name.len()}}}
+                }));
+            }
+            let common_uri = regression_file_uri(&workspace.join("common.bend"));
+            let entry_uri = regression_file_uri(&workspace.join("entry.bend"));
+            let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+            let mut client = spawn_client(&compiler_dir);
+            client.initialize(&workspace);
+            let symbols = client.request("workspace/symbol", json!({"query":""}));
+            let actual_symbols = symbols["result"].as_array().must_be("cold symbols");
+            assert_eq!(actual_symbols.len(), count, "{symbols}");
+            for expected in &expected_symbols {
+                assert!(actual_symbols.contains(expected), "{symbols}");
+            }
+            // Neither the declaration nor any importer has received didOpen.
+            // Both cursor sources must address the same full workspace identity.
+            for (uri, line, character) in [(&common_uri, 0, 7), (&entry_uri, 2, 12)] {
+                for include_declaration in [true, false] {
+                    let references = client.request(
+                        "textDocument/references",
+                        json!({"textDocument":{"uri":uri},
+                            "position":{"line":line,"character":character},
+                            "context":{"includeDeclaration":include_declaration}}),
+                    );
+                    let locations = references["result"].as_array().must_be("cold references");
+                    let expected: Vec<_> = expected_refs
+                        .iter()
+                        .filter(|location| include_declaration || location["uri"] != common_uri)
+                        .collect();
+                    assert_eq!(locations.len(), expected.len(), "{references}");
+                    for location in expected {
+                        assert!(locations.contains(location), "{references}");
+                    }
+                }
+            }
+            client.finish();
+        }
+    }
+
+    #[test]
     fn references_and_rename_include_unopened_importers_and_remove_deleted_files() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");

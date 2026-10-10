@@ -42,6 +42,9 @@ fn exact_replace(text: &str, anchor: &str, replacement: &str) -> ToolResult<Stri
 
 pub(super) fn variant_harness(text: &str, variant: &str) -> ToolResult<String> {
     require(VARIANTS.contains(&variant), "unknown calibration variant")?;
+    // Rust source treats CRLF as LF; canonicalize before counting exact anchors so
+    // checkout newlines cannot hide drift or mixed-newline duplicate anchors.
+    let mut text = text.replace("\r\n", "\n");
     require(
         !text.contains(PROBE),
         "source harness already contains a calibration layout probe",
@@ -50,7 +53,6 @@ pub(super) fn variant_harness(text: &str, variant: &str) -> ToolResult<String> {
         text.matches(INLAY_ANCHOR).count() == 1,
         "calibration anchor must occur exactly once",
     )?;
-    let mut text = text.to_owned();
     for anchor in SETUP_ANCHORS {
         let replacement = anchor.replacen("        Self {", "        std::hint::black_box(calibration_layout_probe as fn(u64) -> u64);\n        std::hint::black_box(calibration_allocation_control as fn());\n        Self {", 1);
         text = exact_replace(&text, anchor, &replacement)?;

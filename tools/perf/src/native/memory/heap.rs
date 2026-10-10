@@ -54,15 +54,17 @@ fn allocation_totals(data: &Value, frame_count: usize) -> ToolResult<BTreeMap<&'
                     .ok_or("DHAT allocation total overflow")?;
             }
         }
-        for (total, peak, observed) in [
-            ("tb", "mb", "gb"),
-            ("tb", "mb", "eb"),
-            ("tbk", "mbk", "gbk"),
-            ("tbk", "mbk", "ebk"),
-        ] {
+        for (total, peak, observed) in [("tb", "mb", "gb"), ("tb", "mb", "eb")] {
             if integer(point, total)? < integer(point, peak)?
                 || integer(point, peak)? < integer(point, observed)?
             {
+                return Err("Inconsistent DHAT allocation sizes".into());
+            }
+        }
+        // mbk is the count at the point's byte peak, not its maximum block count.
+        let total_blocks = integer(point, "tbk")?;
+        for key in ["mbk", "gbk", "ebk"] {
+            if integer(point, key)? > total_blocks {
                 return Err("Inconsistent DHAT allocation sizes".into());
             }
         }
@@ -141,6 +143,20 @@ mod tests {
         assert_eq!(summary["allocation_points"], 1);
         Ok(())
     }
+    #[test]
+    fn byte_peak_block_count_does_not_bound_other_instants() -> ToolResult<()> {
+        let mut data = fixture();
+        data["pps"] = json!([{
+            "tb": 300, "tbk": 30, "mb": 100, "mbk": 1,
+            "gb": 90, "gbk": 9, "eb": 80, "ebk": 16,
+            "tl": 5, "fs": [1]
+        }]);
+        let summary = validate(&data, 42, &["bend2-lsp".to_owned()])?;
+        assert_eq!(summary["total_allocated_blocks"], 30);
+        assert_eq!(summary["global_peak_live_blocks"], 9);
+        assert_eq!(summary["end_live_blocks"], 16);
+        Ok(())
+    }
 
     #[test]
     fn rejects_wrong_process_schema_symbols_and_allocation_invariants() {
@@ -162,6 +178,9 @@ mod tests {
             ("/pps/0/tbk", json!(1.5)),
             ("/pps/0/mb", json!(101)),
             ("/pps/0/eb", json!(91)),
+            ("/pps/0/mbk", json!(11)),
+            ("/pps/0/gbk", json!(11)),
+            ("/pps/0/ebk", json!(11)),
             ("/pps/0/fs", json!([2])),
             ("/pps/0/fs", json!([])),
             ("/pps/0/tl", json!(-1)),

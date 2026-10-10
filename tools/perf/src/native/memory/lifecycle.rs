@@ -4,7 +4,12 @@ use crate::{
     transport::{LspProcess, file_uri},
 };
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, ffi::OsString, fs, path::Path};
+use std::{collections::BTreeMap, ffi::OsString, fs, path::Path, time::Duration};
+
+// DHAT resolves all allocation backtraces after the runtime exits and before
+// creating its profile. Match the existing native example process bound without
+// extending JSON-RPC request deadlines or default latency shutdown deadlines.
+const PROFILE_FINALIZATION_TIMEOUT: Duration = Duration::from_secs(300);
 
 pub(super) fn collect(binary: &Path, profile: &Path, output: &Path) -> ToolResult<u32> {
     let large = fs::read_to_string(root().join("benches/fixtures/analyzer_large.bend"))?;
@@ -45,6 +50,7 @@ pub(super) fn collect(binary: &Path, profile: &Path, output: &Path) -> ToolResul
         "initialized": false, "graceful_shutdown": false, "opened_revisions": {}, "responses": {}, "source_inputs": source_inputs});
     common::write_json(&output.join("semantics.json"), &semantics)?;
     let outcome = protocol(&mut client, &documents, &uris, output, &mut semantics);
+    semantics["shutdown"] = serde_json::to_value(client.shutdown_evidence())?;
     if let Err(error) = &outcome {
         semantics["error"] = json!(error.to_string());
     }
@@ -159,7 +165,7 @@ fn protocol(
         .diagnostics(uri(uris, "dep")?)
         .ok_or("Missing observed dependency revision diagnostics")?
         .clone();
-    client.finish()?;
+    client.finish_profiled(PROFILE_FINALIZATION_TIMEOUT)?;
     semantics["graceful_shutdown"] = json!(true);
     Ok(())
 }
