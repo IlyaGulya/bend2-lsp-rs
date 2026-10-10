@@ -411,6 +411,25 @@ recorder, then requires the actual tracing-started notification and a live
 recorder. Linux ARM64 software-clock DWARF capture requests the complete
 baseline register set, excluding hardware-only SVE VG.
 
+Before creating the cold LSP, native Instruments preparation starts a one-second
+Time Profiler run on `/usr/bin/true` to initialize Apple's tracing and
+authorization services, under the existing 300-second preparation-command bound.
+Its trace and command logs are preparation evidence, not scenario samples.
+The actual LSP capture still requires its own tracing-started notification
+within 60 seconds.
+
+Native Allocations captures set `MallocNanoZone=0` only in their LSP child and
+retain that override in `profiler.target_environment`. Apple's
+[libmalloc source](https://github.com/apple-oss-distributions/libmalloc/blob/libmalloc-715.140.5/src/nanov2_malloc.c)
+shows that its in-process nano-zone enumerator allocates from the helper zone;
+the retained Intel attach stall contains this path alongside the target's tiny
+allocator. Disabling nano removes that allocating enumeration path without
+changing production binaries or weakening allocation-record validation.
+This is a source-supported tracing compatibility configuration, not an
+Apple-documented public API. Small allocations use the scalable allocator
+instead, so these native heap numbers do not describe the default allocator.
+Clean process-memory/latency and DHAT runs do not receive this override.
+
 An attached scenario owner finalizes its collector before terminating a failed
 LSP target; ordinary transport clients retain immediate failure cleanup.
 Responses received after their request deadline remain timeout failures even
@@ -430,6 +449,10 @@ Raw files, checksums, pairing checks, and completeness validation are unchanged.
 CI records the report command before inventory checksums are finalized, so
 rendering does not invalidate the command log. Job summaries point to the
 uploaded full report instead of embedding it beyond GitHub's 1 MiB limit.
+HTML/Markdown show generated discovery inputs through the full verified JSON
+artifact catalog rather than creating thousands of source-file links in the
+page. Every source path/hash and original file remains retained. Repeated
+identical scope warnings appear once visually; per-round evidence is unchanged.
 
 The canonical Callgrind evaluator retains `callgrind-policy.json` from the same
 authoritative comparison, including workload metrics, failed gates, source/run

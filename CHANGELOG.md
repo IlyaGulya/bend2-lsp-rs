@@ -76,6 +76,16 @@
 - Retain the authoritative Callgrind policy verdict and actual workflow job/step
   outcomes so numerical regressions remain distinct from collection failures.
   Historical missing verdicts never imply a passing gate.
+- Initialize Instruments tracing/authorization services on a trusted system
+  process before creating the cold LSP; retain the preparation trace separately.
+  Actual capture readiness still requires its own notification within 60 seconds.
+- Set and retain `MallocNanoZone=0` only for native macOS Allocations captures to
+  remove allocating nano-zone enumeration during attach. These heap profiles
+  reflect the scalable allocator, not default-allocator process memory.
+  Clean latency/process-memory and DHAT collection remain unchanged.
+- Keep large reports navigable by linking generated source inputs through the
+  complete verified JSON artifact catalog and displaying identical scope
+  warnings once; original files, identities and per-round evidence remain intact.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub
