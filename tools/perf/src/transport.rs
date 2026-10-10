@@ -8,7 +8,10 @@ use std::{
     io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    sync::mpsc::{self, Receiver, SyncSender},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, SyncSender},
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
@@ -71,6 +74,7 @@ pub(crate) struct LspProcess {
     next_id: u64,
     timeout: Duration,
     shutdown: ShutdownEvidence,
+    cancellation: Option<&'static AtomicBool>,
 }
 
 fn failure(message: impl std::fmt::Display) -> io::Error {
@@ -277,11 +281,47 @@ impl LspProcess {
             next_id: 1,
             timeout: REQUEST_TIMEOUT,
             shutdown: ShutdownEvidence::default(),
+            cancellation: None,
         })
     }
 
     pub(crate) fn pid(&self) -> u32 {
         self.child.id()
+    }
+
+    pub(crate) fn set_cancellation_flag(&mut self, cancellation: &'static AtomicBool) {
+        self.cancellation = Some(cancellation);
+    }
+
+    pub(crate) fn check_cancelled(&self) -> ToolResult<()> {
+        if self
+            .cancellation
+            .is_some_and(|flag| flag.load(Ordering::Relaxed))
+        {
+            return Err(failure("Performance scenario cancelled").into());
+        }
+        Ok(())
+    }
+
+    fn receive_cancellable<T>(&self, receiver: &Receiver<T>, deadline: Instant) -> ToolResult<T> {
+        loop {
+            self.check_cancelled()?;
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            // Existing collectors keep their single blocking wait. Only the
+            // shared profile runner opts in to cooperative signal handling.
+            let interval = if self.cancellation.is_some() {
+                remaining.min(Duration::from_millis(100))
+            } else {
+                remaining
+            };
+            match receiver.recv_timeout(interval) {
+                Ok(value) => return Ok(value),
+                Err(mpsc::RecvTimeoutError::Timeout) if Instant::now() < deadline => {}
+                Err(error) => {
+                    return Err(failure(format!("LSP channel wait failed: {error}")).into());
+                }
+            }
+        }
     }
     pub(crate) fn settings(&self) -> &Value {
         &self.settings
@@ -291,18 +331,22 @@ impl LspProcess {
     }
 
     fn write_frame(&mut self, data: Vec<u8>, deadline: Instant) -> ToolResult<()> {
+        if let Err(error) = self.check_cancelled() {
+            self.abort();
+            return Err(error);
+        }
         let (completed, completion) = mpsc::channel();
         self.writes
             .as_ref()
             .ok_or_else(|| failure("LSP stdin is closed"))?
             .try_send((data, completed))
             .map_err(|error| failure(format!("LSP writer unavailable: {error}")))?;
-        match completion.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        match self.receive_cancellable(&completion, deadline) {
             Ok(Ok(())) => Ok(()),
             Ok(Err(error)) => Err(failure(format!("LSP write failed: {error}")).into()),
-            Err(_) => {
+            Err(error) => {
                 self.abort();
-                Err(failure("timed out writing an LSP frame").into())
+                Err(error)
             }
         }
     }
@@ -357,6 +401,10 @@ impl LspProcess {
     }
 
     pub(crate) fn response(&mut self, pending: PendingRequest) -> ToolResult<(Value, u64)> {
+        if let Err(error) = self.check_cancelled() {
+            self.abort();
+            return Err(error);
+        }
         while !self.responses.contains_key(&pending.id) {
             self.receive(pending.deadline)?;
         }
@@ -500,13 +548,7 @@ impl LspProcess {
             .messages
             .as_ref()
             .ok_or_else(|| failure("LSP stdout is closed"))?;
-        let result = receiver
-            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .map_err(|error| {
-                failure(format!(
-                    "timed out or disconnected waiting for LSP output: {error}"
-                ))
-            })?;
+        let result = self.receive_cancellable(receiver, deadline)?;
         result.map_err(|error| failure(format!("LSP transport failed: {error}")).into())
     }
 
@@ -621,6 +663,7 @@ impl LspProcess {
 
     fn drain_until_exit(&mut self, deadline: Instant) -> ToolResult<()> {
         loop {
+            self.check_cancelled()?;
             if let Some(status) = self.child.try_wait()? {
                 self.shutdown.child_exit_code = status.code();
                 self.shutdown.child_exit_success = Some(status.success());
@@ -681,7 +724,7 @@ impl LspProcess {
         Ok(String::from_utf8_lossy(&bytes).trim().to_owned())
     }
 
-    fn abort(&mut self) {
+    pub(crate) fn abort(&mut self) {
         if self.child.try_wait().ok().flatten().is_none() {
             self.shutdown.forced_termination = true;
             let _ = self.child.kill();

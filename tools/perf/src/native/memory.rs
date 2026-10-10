@@ -15,6 +15,14 @@ mod heap;
 mod lifecycle;
 mod profiles;
 
+pub(super) fn validate_dhat_profile(
+    path: &Path,
+    pid: u32,
+    command: &[String],
+) -> ToolResult<Value> {
+    heap::validate_profile(path, pid, command)
+}
+
 const APPLICATIONS: [&str; 3] = ["bend2-lsp", "line_index_profile", "folding_allocations"];
 const LINE_INDEX_MODES: [&str; 6] = [
     "position-ascii",
@@ -105,30 +113,40 @@ fn visit_files(directory: &Path, files: &mut Vec<PathBuf>) -> ToolResult<()> {
 }
 
 fn source_inputs() -> ToolResult<Vec<Value>> {
-    let root = root();
+    let product_root = env::current_dir()?;
+    let tooling_root = root();
     let mut paths: Vec<_> = [
         "Cargo.toml",
         "Cargo.lock",
-        "src/main.rs",
         "examples/line_index_profile.rs",
         "examples/folding_allocations.rs",
-        "tools/perf/Cargo.toml",
-        ".github/workflows/performance.yml",
         "benches/fixtures/analyzer_input.bend",
         "benches/fixtures/analyzer_medium.bend",
         "benches/fixtures/analyzer_large.bend",
     ]
     .into_iter()
-    .map(|name| root.join(name))
+    .map(|name| product_root.join(name))
     .collect();
+    paths.extend(
+        [
+            "Cargo.toml",
+            "Cargo.lock",
+            "tools/perf/Cargo.toml",
+            ".github/workflows/performance.yml",
+        ]
+        .into_iter()
+        .map(|name| tooling_root.join(name)),
+    );
     let mut rust_sources = Vec::new();
-    visit_files(&root.join("tools/perf/src"), &mut rust_sources)?;
+    visit_files(&product_root.join("src"), &mut rust_sources)?;
+    visit_files(&tooling_root.join("tools/perf/src"), &mut rust_sources)?;
     paths.extend(
         rust_sources
             .into_iter()
             .filter(|path| path.extension().is_some_and(|extension| extension == "rs")),
     );
     paths.sort();
+    paths.dedup();
     paths.iter().map(|path| identity(path)).collect()
 }
 
@@ -194,7 +212,7 @@ fn provenance(
             "baseline_revision": baseline_revision, "candidate_revision": candidate_revision,
             "baseline_tree": command_output(&["git", "rev-parse", &format!("{baseline_revision}^{{tree}}")])?,
             "candidate_tree": command_output(&["git", "rev-parse", &format!("{candidate_revision}^{{tree}}")])?,
-            "candidate_revision_kind": "workflow PR merge commit", "inputs": source_inputs()?,
+            "candidate_revision_kind": "exact checked-out source commit", "inputs": source_inputs()?,
         },
         "toolchain": {"rustc": rustc, "cargo": command_output(&["cargo", "-V"])?, "rustup": command_output(&["rustup", "show", "active-toolchain"])?},
         "build_environment": build_environment, "hardware": hardware_metadata(), "harness": executable_identity()?,

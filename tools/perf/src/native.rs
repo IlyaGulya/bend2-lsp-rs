@@ -7,8 +7,16 @@ use std::{
     process::Command,
 };
 
-mod discovery;
+pub(crate) mod discovery;
 mod memory;
+
+pub(crate) fn validate_dhat_profile(
+    path: &Path,
+    pid: u32,
+    command: &[String],
+) -> ToolResult<Value> {
+    memory::validate_dhat_profile(path, pid, command)
+}
 
 pub(crate) fn run(args: &[String]) -> ToolResult<()> {
     let (command, rest) = args
