@@ -39,6 +39,13 @@
 - Install checksum-pinned official nextest 0.9.131 native archives instead of
   compiling the runner separately in every native and installer E2E job.
 
+## [0.5.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.5.0...v0.5.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* release orphan workspace snapshots and filter watcher admission ([#39](https://github.com/IlyaGulya/bend2-lsp-rs/issues/39)) ([c6b4307](https://github.com/IlyaGulya/bend2-lsp-rs/commit/c6b4307eb0981b44a85ea781562869c2e4294f75))
+
 ## [0.5.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.4.0...v0.5.0) (2026-10-08)
 
 ### Better import completion
