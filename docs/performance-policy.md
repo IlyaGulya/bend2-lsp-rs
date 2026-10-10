@@ -252,12 +252,26 @@ analysis functions. Release/install scripting remains outside this perf tooling.
 
 The same six-platform matrix runs
 [`bend2-perf native discovery`](../tools/perf/src/native.rs) against the
-already-built binary pair. Deterministic 10/1000-file workspaces distinguish
+already-built binary pair. Deterministic 10/1000/10000-file workspaces distinguish
 protocol initialization from complete unopened-file discovery, warm feature
 queries, and dependency revisions. A base revision without discovery is reported
 as scope-incomplete; its partial references/symbols are not equivalent-work
 latency comparisons. Candidate completeness and correct public LSP results are
 required, independently of numeric report-only latency changes.
+
+The collector requests local parameter completion immediately after opening an
+independent untitled buffer, before waiting for discovery. The raw result and
+`isIncomplete` flag are preserved: a true flag establishes server-reported partial
+discovery, while false or a legacy array does not establish overlap. There is no
+numeric completion threshold or deterministic scan barrier.
+
+Linux RSS observations retain timestamped samples every 20 ms, cold sampled
+peaks, retained state, and observations immediately and 100 ms after workspace
+root removal. Candidate workspace symbols must become empty after removal.
+Sampled peaks are lower bounds; kernel high-water marks cover the process
+lifetime. RSS may remain high after snapshots are freed because the allocator
+retains pages. macOS/Windows RSS is unavailable, explicitly null with an
+observation error, and is not inferred from DHAT allocation totals.
 
 Allocation profiles use separately built optimized, symbolized `dhat-heap`
 executables for the real LSP lifecycle and the existing line-index/folding

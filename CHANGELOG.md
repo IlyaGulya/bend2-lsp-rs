@@ -17,6 +17,9 @@
 
 - Resolve references from discovered closed declarations and importers without
   requiring the queried file to be opened in the editor first.
+- Return local completion while initial workspace discovery is still running,
+  marking partial lists incomplete so editors can refresh project candidates.
+  Preserve completion readiness after preceding watched-file updates.
 - Ignore unrelated and no-longer-reachable watcher events before file reads or
   indexing. Release orphan user-owned workspace snapshots when imports are
   removed or documents close, including cycles.
@@ -34,6 +37,10 @@
   baseline/candidate LSP latency and workspace-discovery evidence on all six native
   platforms, plus separate symbolized DHAT server/example allocation profiles.
   Preserve raw samples, source/binary provenance, and existing Callgrind gates.
+- Observe completion during initial discovery and cold/retained/released memory
+  in 10, 1000, and 10000-file workspaces. Preserve timestamped Linux RSS samples
+  and distinguish sampled cold peaks from full-process high-water marks and DHAT
+  allocations; unavailable platform RSS remains explicitly null.
 - Replace Python performance collectors, comparators, reports, and calibration
   with an unpublished Rust tooling crate and a shared portable JSON-RPC transport.
   Preserve contract coverage and regression thresholds; keep tooling separate

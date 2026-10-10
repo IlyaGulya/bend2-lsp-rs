@@ -161,14 +161,25 @@ impl WorkspaceService {
         self.load_reachable_async(&discovered, Some(epoch)).await;
     }
 
+    pub(super) fn discovery_pending(&self) -> bool {
+        // A query waiting on the owned worker can hold this mutex. Completion
+        // must not join that wait merely to decide whether its list is partial.
+        self.discovery.try_lock().map_or(true, |task| {
+            task.as_ref().is_some_and(|handle| !handle.is_finished())
+        })
+    }
+
+    pub(super) async fn wait_for_discovery_worker(&self) {
+        let mut task = self.discovery.lock().await;
+        if let Some(handle) = task.as_mut() {
+            blocking_result(handle.await);
+        }
+        task.take();
+    }
+
     pub(super) async fn wait_for_discovery(&self) {
         loop {
-            let mut task = self.discovery.lock().await;
-            if let Some(handle) = task.as_mut() {
-                blocking_result(handle.await);
-            }
-            task.take();
-            drop(task);
+            self.wait_for_discovery_worker().await;
             let serial = self.update_serial.lock().await;
             if self.discovery.lock().await.is_none() {
                 return;

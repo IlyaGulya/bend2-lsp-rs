@@ -863,8 +863,10 @@ impl Backend {
         if events.is_empty() {
             return HashMap::new();
         }
-        self.workspace.wait_for_discovery().await;
         let _serial = self.workspace.update_serial.lock().await;
+        // Reserve watcher order before joining the initial scan. Completion may
+        // bypass that scan, but must not bypass a preceding watcher update.
+        self.workspace.wait_for_discovery_worker().await;
         self.workspace.admit_watched_sources(&events).await;
         let (events, mut affected) = self.watched_snapshot_context(events);
         if events.is_empty() {

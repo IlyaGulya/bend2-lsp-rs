@@ -27,6 +27,10 @@ const WORKLOADS: [&str; 5] = [
     "dependency_edit_to_correct_hover",
 ];
 
+const DATASET_COUNTS: [usize; 3] = [10, 1000, 10000];
+const COMPLETION_URI: &str = "untitled:discovery-completion.bend";
+const COMPLETION_SOURCE: &str = "def transform(value: U32) -> U32:\n  va\n";
+
 #[derive(Parser)]
 #[command(no_binary_name = true)]
 struct Args {
@@ -116,6 +120,37 @@ fn expected_results(
     Ok((symbols, references))
 }
 
+fn require_local_completion(result: &Value) -> ToolResult<Value> {
+    let items = result
+        .get("items")
+        .unwrap_or(result)
+        .as_array()
+        .ok_or("Initial completion did not return items")?;
+    let bindings = items
+        .iter()
+        .filter(|item| item["label"] == "value" && item["kind"] == 6)
+        .count();
+    if bindings != 1 {
+        return Err(format!(
+            "Initial completion must offer exactly one local value binding: {result}"
+        )
+        .into());
+    }
+    let incomplete = if result.is_object() {
+        json!(
+            result["isIncomplete"]
+                .as_bool()
+                .ok_or("CompletionList missing isIncomplete")?
+        )
+    } else {
+        Value::Null
+    };
+    Ok(
+        json!({"local_binding_count": bindings, "is_incomplete": incomplete,
+        "response_shape": if result.is_object() { "CompletionList" } else { "array" }}),
+    )
+}
+
 fn require_subset(
     result: &Value,
     expected: &[Value],
@@ -193,6 +228,7 @@ fn read_memory(pid: u32) -> Result<Value, String> {
 
 struct ResidentMemory {
     pid: u32,
+    started: Instant,
     stop: Option<mpsc::Sender<()>>,
     thread: Option<thread::JoinHandle<(Vec<Value>, BTreeSet<String>)>>,
     errors: BTreeSet<String>,
@@ -200,9 +236,11 @@ struct ResidentMemory {
 
 impl ResidentMemory {
     fn new(pid: u32) -> Self {
+        let started = Instant::now();
         if !cfg!(target_os = "linux") {
             return Self {
                 pid,
+                started,
                 stop: None,
                 thread: None,
                 errors: BTreeSet::from([
@@ -212,21 +250,18 @@ impl ResidentMemory {
         }
         let (stop, receiver) = mpsc::channel();
         let thread = thread::spawn(move || {
-            let started = Instant::now();
             let mut samples = Vec::new();
             let mut errors = BTreeSet::new();
             loop {
-                match read_memory(pid) {
-                    Ok(mut value) => {
-                        if !value["rss_bytes"].is_null() {
-                            value["elapsed_ns"] = json!(elapsed(started));
-                            samples.push(value);
-                        }
-                    }
+                let mut value = match read_memory(pid) {
+                    Ok(value) => value,
                     Err(error) => {
-                        errors.insert(error);
+                        errors.insert(error.clone());
+                        json!({"rss_bytes": null, "kernel_high_watermark_bytes": null, "error": error})
                     }
-                }
+                };
+                value["elapsed_ns"] = json!(elapsed(started));
+                samples.push(value);
                 if !matches!(
                     receiver.recv_timeout(Duration::from_millis(20)),
                     Err(mpsc::RecvTimeoutError::Timeout)
@@ -238,6 +273,7 @@ impl ResidentMemory {
         });
         Self {
             pid,
+            started,
             stop: Some(stop),
             thread: Some(thread),
             errors: BTreeSet::new(),
@@ -245,16 +281,15 @@ impl ResidentMemory {
     }
 
     fn checkpoint(&mut self) -> Value {
-        if !cfg!(target_os = "linux") {
-            return json!({"rss_bytes": null, "kernel_high_watermark_bytes": null});
-        }
-        match read_memory(self.pid) {
+        let mut value = match read_memory(self.pid) {
             Ok(value) => value,
             Err(error) => {
-                self.errors.insert(error);
-                json!({"rss_bytes": null, "kernel_high_watermark_bytes": null})
+                self.errors.insert(error.clone());
+                json!({"rss_bytes": null, "kernel_high_watermark_bytes": null, "error": error})
             }
-        }
+        };
+        value["elapsed_ns"] = json!(elapsed(self.started));
+        value
     }
 
     fn close(&mut self, result: &mut Value) {
@@ -282,7 +317,43 @@ impl ResidentMemory {
         );
         result["rss_samples"] = json!(samples);
         result["memory_errors"] = json!(self.errors);
+        result["memory_lifecycle"] = memory_lifecycle(result);
     }
+}
+
+fn memory_lifecycle(result: &Value) -> Value {
+    let checkpoints = &result["memory_checkpoints"];
+    let cold_end = checkpoints["cold_discovery_observed"]["elapsed_ns"].as_u64();
+    let cold_peak = cold_end.and_then(|end| {
+        result["rss_samples"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|sample| {
+                sample["elapsed_ns"]
+                    .as_u64()
+                    .is_some_and(|time| time <= end)
+            })
+            .filter_map(|sample| sample["rss_bytes"].as_u64())
+            .chain(
+                [
+                    "initialize_response",
+                    "initial_completion_response",
+                    "cold_discovery_observed",
+                ]
+                .into_iter()
+                .filter_map(|name| checkpoints[name]["rss_bytes"].as_u64()),
+            )
+            .max()
+    });
+    json!({
+        "cold_sampled_peak_rss_bytes": cold_peak,
+        "cold_kernel_high_watermark_bytes": checkpoints["cold_discovery_observed"]["kernel_high_watermark_bytes"],
+        "retained_rss_bytes": checkpoints["cold_discovery_observed"]["rss_bytes"],
+        "before_root_removal_rss_bytes": checkpoints["before_root_removal"]["rss_bytes"],
+        "after_root_removal_rss_bytes": checkpoints["after_root_removal"]["rss_bytes"],
+        "after_root_removal_settled_rss_bytes": checkpoints["after_root_removal_settled"]["rss_bytes"]
+    })
 }
 
 impl Drop for ResidentMemory {
@@ -385,6 +456,8 @@ fn measure_round(
         spawn_start,
     }
     .run();
+    memory.close(result);
+    let outcome = outcome.and_then(|()| client.finish());
     if let Err(error) = &outcome {
         result["status"] = json!("failed");
         result["error"] = json!(error.to_string());
@@ -396,7 +469,6 @@ fn measure_round(
     } else {
         result["status"] = json!("complete");
     }
-    memory.close(result);
     outcome
 }
 
@@ -426,6 +498,7 @@ impl Round<'_> {
 
     fn run(&mut self) -> ToolResult<()> {
         let initialized = self.initialize()?;
+        self.initial_completion(initialized)?;
         let symbols_ready = self.cold_symbols(initialized)?;
         let common_uri = file_uri(&self.workspace.join("common.bend"))?;
         let entry_uri = file_uri(&self.workspace.join("entry.bend"))?;
@@ -467,9 +540,102 @@ impl Round<'_> {
         }) {
             return Err("Round did not produce every required sample".into());
         }
-        self.client.finish()
+        self.remove_root(&common_uri, &entry_uri)?;
+        Ok(())
     }
 
+    fn initial_completion(&mut self, initialized: Instant) -> ToolResult<()> {
+        let response = self.request(
+            "initial_open_to_local_completion",
+            "textDocument/completion",
+            latency::position(COMPLETION_URI, 1, 4),
+            Some(latency::open_message(COMPLETION_URI, COMPLETION_SOURCE, 1)),
+        )?;
+        self.result["initial_completion_result"] = response.clone();
+        self.result["timings_ns"]["initialized_to_local_completion_response"] =
+            json!(elapsed(initialized));
+        self.result["semantics"]["initial_completion"] = require_local_completion(&response)?;
+        self.result["memory_checkpoints"]["initial_completion_response"] = self.memory.checkpoint();
+        self.client.notify(
+            "textDocument/didClose",
+            json!({"textDocument": {"uri": COMPLETION_URI}}),
+        )?;
+        Ok(())
+    }
+
+    fn remove_root(&mut self, common_uri: &str, entry_uri: &str) -> ToolResult<()> {
+        for uri in [common_uri, entry_uri] {
+            self.client.notify(
+                "textDocument/didClose",
+                json!({"textDocument": {"uri": uri}}),
+            )?;
+        }
+        // A checked query drains close notifications before the removal observation.
+        let symbols = self.request(
+            "symbols_after_close",
+            "workspace/symbol",
+            json!({"query": ""}),
+            None,
+        )?;
+        self.result["semantics"]["symbols_after_close"] = require_subset(
+            &symbols,
+            self.expected_symbols,
+            "symbols after close",
+            true,
+            self.candidate,
+        )?;
+        self.result["memory_checkpoints"]["before_root_removal"] = self.memory.checkpoint();
+        let root_uri = file_uri(self.workspace)?;
+        let started = Instant::now();
+        self.client.notify(
+            "workspace/didChangeWorkspaceFolders",
+            json!({
+                "event": {"added": [], "removed": [{"uri": root_uri, "name": "discovery"}]}
+            }),
+        )?;
+        let deadline = started
+            .checked_add(Duration::try_from_secs_f64(self.args.discovery_timeout)?)
+            .ok_or("Root removal timeout overflow")?;
+        self.result["root_removal_polls"] = json!([]);
+        loop {
+            let symbols = self.request(
+                "symbols_after_root_removal",
+                "workspace/symbol",
+                json!({"query": ""}),
+                None,
+            )?;
+            let scope = require_subset(
+                &symbols,
+                self.expected_symbols,
+                "root removal symbols",
+                true,
+                false,
+            )?;
+            self.result["root_removal_symbol_result"] = symbols;
+            self.result["semantics"]["root_removal"] = json!({
+                "observed_symbols": scope["observed"], "empty": scope["observed"] == 0
+            });
+            self.result["root_removal_polls"]
+                .as_array_mut()
+                .ok_or("Missing root removal polls")?
+                .push(
+                    json!({"elapsed_ns": elapsed(started), "observed_symbols": scope["observed"]}),
+                );
+            if scope["observed"] == 0 || !self.candidate {
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err("Root removal did not release candidate workspace symbols".into());
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        self.result["timings_ns"]["root_removal_to_observed_response"] = json!(elapsed(started));
+        self.result["memory_checkpoints"]["after_root_removal"] = self.memory.checkpoint();
+        // Fixed observation window, not an assertion that allocators return pages.
+        thread::sleep(Duration::from_millis(100));
+        self.result["memory_checkpoints"]["after_root_removal_settled"] = self.memory.checkpoint();
+        Ok(())
+    }
     fn initialize(&mut self) -> ToolResult<Instant> {
         let root_uri = file_uri(self.workspace)?;
         let capabilities = self.request(
@@ -748,10 +914,14 @@ pub(super) fn run(arguments: &[String]) -> ToolResult<()> {
         "candidate_revision_kind": "workflow checkout revision (PR merge commit in pull_request workflows)",
         "harness": harness, "binaries": {}, "round_order": round_order(args.rounds),
         "timing": "Instant nanoseconds; request write start through full body receipt before JSON parsing; causal edits include notification write",
-        "cold_timing": "readiness includes dispatch, semantic validation and polling; no buffer opened before cold symbol/reference checks",
+        "cold_timing": "readiness includes dispatch, semantic validation and polling; independent untitled local completion is opened and closed before exact disk symbols/references",
         "baseline_readiness": "first public cold observation only; missing discovery is neither polled to timeout nor treated as complete",
         "compiler": "unavailable; isolated PATH/HOME; BEND_LIB/trace/metrics removed; analysis/protocol only",
-        "memory": "Linux procfs VmRSS/VmHWM only; unsupported platforms null; sampled every 20ms; sampled peak is a lower bound, not allocations"
+        "memory": "Linux procfs VmRSS/VmHWM only; unsupported platforms null with explicit errors; sampled every 20ms from observer start before initialize through root removal; cold sampled peak ends at cold references and is a lower bound, not allocations; VmHWM is process-lifetime high watermark, not a phase delta; retained RSS is after cold readiness; removal RSS follows warm edits and closing open documents, with immediate and fixed 100ms observations; no promise of OS page reclamation",
+        "dataset_counts": DATASET_COUNTS,
+        "initial_completion": {"uri": COMPLETION_URI, "source": COMPLETION_SOURCE,
+            "position": {"line": 1, "character": 4},
+            "limitation": "Immediate request after initialized/didOpen without diagnostics or discovery waits; isIncomplete reports server readiness but is null for legacy array responses; no deterministic scan barrier, so discovery may already finish on fast runners"}
     }, "datasets": {}});
     persist(&output, &data)?;
     let outcome = collect(&args, &binaries, &output, &mut data);
@@ -787,7 +957,7 @@ fn collect(
     for (variant, binary) in binaries {
         data["metadata"]["binaries"][variant] = identity(binary)?;
     }
-    for count in [10, 1000] {
+    for count in DATASET_COUNTS {
         let (files, manifest) = dataset(count);
         let key = count.to_string();
         let root = output.join("datasets").join(&key);
@@ -890,12 +1060,17 @@ fn report(data: &Value) -> ToolResult<(Value, String)> {
     let mut markdown = format!(
         "# Whole-workspace discovery and warm LSP queries\n\nCollection status: **{}**.\n\n\
          Report-only: no numerical regression gate. Cold protocol readiness differs from exact \
-         complete symbols and references before opening buffers. Baseline absence is recorded, \
+         complete disk symbols and references after the independent untitled completion probe. Baseline absence is recorded, \
          not failed. Incomplete baseline references/symbols are different work, not comparable \
          latencies. Warm p50/p95 are medians of nearest-rank per-round percentiles, not pooled. \
          Cold times and RSS are medians of completed rounds. Linux /proc RSS samples every 20ms \
-         are a lower bound, not allocation peaks; other platforms report null. Fresh \
-         processes/workspaces do not flush OS caches.\n",
+         are a lower bound, not allocation peaks; other platforms report null with explicit errors. \
+         Cold peak covers observer start before initialize through cold reference validation, not warm edits. \
+         Retained RSS is observed at cold readiness; root removal follows closing warm buffers. \
+         Immediate and 100ms post-removal RSS do not imply allocators returned pages to the OS. \
+         Initial completion is issued without diagnostics/discovery waits; isIncomplete is a server \
+         readiness observation (unavailable for legacy array responses), not a deterministic scan barrier. \
+         Fresh processes/workspaces do not flush OS caches.\n",
         data["status"].as_str().unwrap_or("unknown")
     );
     if let Some(error) = data["error"].as_str() {
@@ -926,6 +1101,45 @@ fn report(data: &Value) -> ToolResult<(Value, String)> {
         write_cold_table(&mut markdown, &summary)?;
         write_warm_table(&mut markdown, &summary, section)?;
         write_memory_table(&mut markdown, &summary)?;
+        writeln!(
+            markdown,
+            "\nInitial completion observations (including failed rounds):\n"
+        )?;
+        for variant in ["baseline", "candidate"] {
+            writeln!(
+                markdown,
+                "- {variant}: `{}`",
+                serde_json::to_string(&summary[variant]["initial_completion_observations"])?
+            )?;
+            if let Some(all) = section["variants"][variant].as_array() {
+                for round in all {
+                    if round["status"] == "failed" {
+                        writeln!(
+                            markdown,
+                            "- {variant} round {} failed: {}",
+                            round["round"], round["error"]
+                        )?;
+                    }
+                    if let Some(errors) = round["memory_errors"].as_array()
+                        && !errors.is_empty()
+                    {
+                        writeln!(
+                            markdown,
+                            "- {variant} round {} RSS observation limitations: `{}`",
+                            round["round"],
+                            serde_json::to_string(errors)?
+                        )?;
+                    }
+                    if !round["semantics"]["root_removal"].is_null() {
+                        writeln!(
+                            markdown,
+                            "- {variant} round {} root-removal semantic observation: `{}`",
+                            round["round"], round["semantics"]["root_removal"]
+                        )?;
+                    }
+                }
+            }
+        }
         output["datasets"][count] = summary;
     }
     writeln!(
@@ -962,7 +1176,20 @@ fn dataset_summary(section: &Value) -> ToolResult<Value> {
         let mut value = json!({
             "completed_rounds": rounds.len(), "workloads": {}, "cold_medians_ns": {},
             "memory_medians_bytes": {},
-            "semantic_observations": all.iter().map(|round| &round["semantics"]).collect::<Vec<_>>()
+            "semantic_observations": all.iter().map(|round| &round["semantics"]).collect::<Vec<_>>(),
+            "initial_completion_observations": all.iter().map(|round| json!({
+                "round": round["round"], "status": round["status"], "error": round["error"],
+                "open_to_response_ns": round["timings_ns"]["initial_open_to_local_completion"],
+                "semantics": round["semantics"]["initial_completion"],
+                "result": round["initial_completion_result"]
+            })).collect::<Vec<_>>(),
+            "memory_observations": all.iter().map(|round| json!({
+                "round": round["round"], "status": round["status"], "error": round["error"],
+                "lifecycle": round["memory_lifecycle"], "checkpoints": round["memory_checkpoints"],
+                "samples": round["rss_samples"], "errors": round["memory_errors"],
+                "root_removal": round["semantics"]["root_removal"],
+                "root_removal_polls": round["root_removal_polls"]
+            })).collect::<Vec<_>>()
         });
         if let Some(first) = rounds.first() {
             for workload in WORKLOADS {
@@ -978,6 +1205,17 @@ fn dataset_summary(section: &Value) -> ToolResult<Value> {
             }
             value["memory_medians_bytes"]["sampled_peak_rss"] =
                 observations(&rounds, |round| &round["sampled_peak_rss_bytes"]);
+            for name in [
+                "cold_sampled_peak_rss_bytes",
+                "cold_kernel_high_watermark_bytes",
+                "retained_rss_bytes",
+                "before_root_removal_rss_bytes",
+                "after_root_removal_rss_bytes",
+                "after_root_removal_settled_rss_bytes",
+            ] {
+                value["memory_medians_bytes"][name] =
+                    observations(&rounds, |round| &round["memory_lifecycle"][name]);
+            }
             for name in first["memory_checkpoints"]
                 .as_object()
                 .ok_or("Missing memory checkpoints")?
@@ -998,6 +1236,8 @@ fn write_cold_table(markdown: &mut String, summary: &Value) -> ToolResult<()> {
     markdown.push_str("\n| Cold observation | Baseline median (ms) | Candidate median (ms) |\n| --- | ---: | ---: |\n");
     for name in [
         "spawn_to_initialize_response",
+        "initial_open_to_local_completion",
+        "initialized_to_local_completion_response",
         "first_workspace_symbol",
         "initialized_to_first_workspace_symbol_response",
         "whole_workspace_symbols_ready",
@@ -1214,6 +1454,51 @@ mod tests {
                 ["baseline", "candidate"]
             ]
         );
+        Ok(())
+    }
+
+    #[test]
+    fn cold_memory_excludes_warm_peaks_and_preserves_unavailable_values() {
+        let result = json!({
+            "memory_checkpoints": {
+                "initialize_response": {"rss_bytes": 20},
+                "cold_discovery_observed": {"elapsed_ns": 50, "rss_bytes": 30, "kernel_high_watermark_bytes": 40},
+                "before_root_removal": {"rss_bytes": 80},
+                "after_root_removal": {"rss_bytes": 60},
+                "after_root_removal_settled": {"rss_bytes": 55}
+            },
+            "rss_samples": [
+                {"elapsed_ns": 10, "rss_bytes": 40},
+                {"elapsed_ns": 60, "rss_bytes": 100},
+                {"elapsed_ns": 20, "rss_bytes": null, "error": "unavailable"}
+            ]
+        });
+        let lifecycle = memory_lifecycle(&result);
+        assert_eq!(lifecycle["cold_sampled_peak_rss_bytes"], 40);
+        assert_eq!(lifecycle["retained_rss_bytes"], 30);
+        assert_eq!(lifecycle["after_root_removal_rss_bytes"], 60);
+        assert_eq!(lifecycle["after_root_removal_settled_rss_bytes"], 55);
+        let unavailable = memory_lifecycle(&json!({}));
+        assert!(
+            unavailable
+                .as_object()
+                .unwrap()
+                .values()
+                .all(Value::is_null)
+        );
+    }
+
+    #[test]
+    fn initial_completion_checks_local_binding_and_preserves_readiness() -> ToolResult<()> {
+        let item = json!({"label": "value", "kind": 6});
+        assert!(require_local_completion(&json!([item.clone()]))?["is_incomplete"].is_null());
+        assert_eq!(
+            require_local_completion(&json!({"items": [item.clone()], "isIncomplete": true}))?["is_incomplete"],
+            true
+        );
+        assert!(require_local_completion(&json!([{"label": "value", "kind": 3}])).is_err());
+        assert!(require_local_completion(&json!([item.clone(), item.clone()])).is_err());
+        assert!(require_local_completion(&json!({"items": [item]})).is_err());
         Ok(())
     }
 

@@ -651,6 +651,7 @@ mod protocol {
         assert!(
             response["result"]
                 .as_array()
+                .or_else(|| response["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "add")),
             "completion must include declarations matching the current prefix: {response}"
         );
@@ -675,7 +676,10 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":1,"character":4}}),
         );
-        let items = response["result"].as_array().must_be("completion result");
+        let items = response["result"]
+            .as_array()
+            .or_else(|| response["result"]["items"].as_array())
+            .must_be("completion result");
         assert!(
             items
                 .iter()
@@ -706,6 +710,7 @@ mod protocol {
             );
             let matches: Vec<_> = response["result"]
                 .as_array()
+                .or_else(|| response["result"]["items"].as_array())
                 .must_be("completion result")
                 .iter()
                 .filter(|item| item["label"] == "value")
@@ -740,7 +745,13 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":2,"character":8}}),
         );
-        assert_eq!(shadowed["result"], json!([]));
+        assert!(
+            shadowed["result"]
+                .as_array()
+                .or_else(|| shadowed["result"]["items"].as_array())
+                .must_be("shadowed completion items")
+                .is_empty()
+        );
         let unshadowed = client.request(
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":4,"character":8}}),
@@ -748,6 +759,7 @@ mod protocol {
         assert!(
             unshadowed["result"]
                 .as_array()
+                .or_else(|| unshadowed["result"]["items"].as_array())
                 .must_be("module completion result")
                 .iter()
                 .any(|item| item["label"] == "shared" && item["kind"] == 3),
@@ -774,7 +786,10 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":6,"character":11}}),
         );
-        let items = pattern["result"].as_array().must_be("completion result");
+        let items = pattern["result"]
+            .as_array()
+            .or_else(|| pattern["result"]["items"].as_array())
+            .must_be("completion result");
         assert_eq!(
             items
                 .iter()
@@ -787,7 +802,10 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":7,"character":8}}),
         );
-        let items = body["result"].as_array().must_be("completion result");
+        let items = body["result"]
+            .as_array()
+            .or_else(|| body["result"]["items"].as_array())
+            .must_be("completion result");
         assert!(items.iter().any(|item| item["label"] == "PairFactory"));
         assert!(!items.iter().any(|item| item["kind"] == 4));
         client.finish();
@@ -819,7 +837,10 @@ mod protocol {
                 "textDocument/completion",
                 json!({"textDocument":{"uri":uri},"position":{"line":line,"character":15}}),
             );
-            let items = response["result"].as_array().must_be("completion result");
+            let items = response["result"]
+                .as_array()
+                .or_else(|| response["result"]["items"].as_array())
+                .must_be("completion result");
             assert_eq!(
                 items
                     .iter()
@@ -840,6 +861,7 @@ mod protocol {
         );
         let labels: Vec<_> = response["result"]
             .as_array()
+            .or_else(|| response["result"]["items"].as_array())
             .must_be("completion result")
             .iter()
             .map(|item| item["label"].clone())
@@ -869,6 +891,7 @@ mod protocol {
             );
             let has_inner = response["result"]
                 .as_array()
+                .or_else(|| response["result"]["items"].as_array())
                 .must_be("case completion result")
                 .iter()
                 .any(|item| item["label"] == "inner" && item["kind"] == 6);
@@ -885,6 +908,7 @@ mod protocol {
         );
         let locals: Vec<_> = response["result"]
             .as_array()
+            .or_else(|| response["result"]["items"].as_array())
             .must_be("EOF completion result")
             .iter()
             .filter(|item| item["kind"] == 6)
@@ -976,6 +1000,7 @@ mod protocol {
             responses.iter().any(|(response, _)| {
                 response["result"]
                     .as_array()
+                    .or_else(|| response["result"]["items"].as_array())
                     .is_some_and(|items| items.iter().any(|item| item["label"] == "revision_two"))
             }),
             "completion after didChange(v2) must use v2 declarations: {responses:?}"
@@ -2070,6 +2095,7 @@ mod protocol {
         assert!(
             completion["result"]
                 .as_array()
+                .or_else(|| completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "value")),
             "untitled buffers must receive contextual completion: {completion}"
         );
@@ -3397,6 +3423,7 @@ mod protocol {
         assert!(
             completion["result"]
                 .as_array()
+                .or_else(|| completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "map")),
             "completion after a Base namespace should offer matching declarations: {completion}"
         );
@@ -3410,6 +3437,7 @@ mod protocol {
         assert!(
             base_completion["result"]
                 .as_array()
+                .or_else(|| base_completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "List.map")),
             "unqualified completion should include imported Base declarations: {base_completion}"
         );
@@ -3603,6 +3631,7 @@ mod protocol {
             assert!(
                 !completions["result"]
                     .as_array()
+                    .or_else(|| completions["result"]["items"].as_array())
                     .must_be("detached completion items")
                     .iter()
                     .any(|item| item["label"] == "library_value"),
@@ -3644,6 +3673,7 @@ mod protocol {
             assert!(
                 completions["result"]
                     .as_array()
+                    .or_else(|| completions["result"]["items"].as_array())
                     .must_be("recovered completion items")
                     .iter()
                     .any(|item| item["label"] == "library_value"),
@@ -3872,6 +3902,7 @@ mod protocol {
         assert!(
             completion["result"]
                 .as_array()
+                .or_else(|| completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "exported")),
             "completion after an import alias should offer module declarations: {completion}"
         );
@@ -3885,6 +3916,7 @@ mod protocol {
         assert!(
             alias_completion["result"]
                 .as_array()
+                .or_else(|| alias_completion["result"]["items"].as_array())
                 .is_some_and(|items| { items.iter().any(|item| item["label"] == "Dep") }),
             "completion should suggest imported module aliases in code context: {alias_completion}"
         );

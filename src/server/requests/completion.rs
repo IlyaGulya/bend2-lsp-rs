@@ -60,7 +60,12 @@ impl Backend {
         &self,
         params: CompletionParams,
     ) -> Result<Option<CompletionResponse>> {
-        self.workspace.wait_for_discovery().await;
+        let discovery_incomplete = {
+            // Preserve preceding watcher updates without waiting for the
+            // background initial scan. Local bindings are already indexed.
+            let _serial = self.workspace.update_serial.lock().await;
+            self.workspace.discovery_pending()
+        };
         let _workspace_read = self
             .document_read_with_prelude(&params.text_document_position.text_document.uri)
             .await;
@@ -151,9 +156,10 @@ impl Backend {
         } else {
             self.unqualified_completion_items(&doc, replacement.start, prefix, pattern.is_some())
         };
-        Ok(Some(CompletionResponse::Array(
-            adapters::finish_completion_items(&doc, replacement, prefix, items),
-        )))
+        Ok(Some(CompletionResponse::List(CompletionList {
+            is_incomplete: discovery_incomplete,
+            items: adapters::finish_completion_items(&doc, replacement, prefix, items),
+        })))
     }
 
     fn qualified_context_completion_items(

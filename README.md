@@ -231,6 +231,11 @@ Workspace symbols, references/rename, and auto-import candidates include these
 unopened files. Explicit imports still load their dependencies, including paths
 outside workspace roots and discovery exclusions.
 
+Local completion does not wait for the initial background scan. While discovery
+is pending, completion lists are marked incomplete so the editor can request
+updated auto-import candidates. Preceding watched-file updates still finish
+before completion reads their results.
+
 User-owned snapshots follow the import graph of open documents and discovered
 workspace roots. Watched create/change/delete events update the index; unsaved
 buffers take precedence over disk snapshots. Removing a workspace folder retires
