@@ -91,8 +91,11 @@ fn issues(output: &mut String, title: &str, values: &[String]) -> ToolResult<()>
         "<div class=\"issues\"><h3>{}</h3><ul>",
         escape(title)
     )?;
+    let mut seen = BTreeSet::new();
     for value in values {
-        write!(output, "<li>{}</li>", escape(value))?;
+        if seen.insert(value) {
+            write!(output, "<li>{}</li>", escape(value))?;
+        }
     }
     output.push_str("</ul></div>");
     Ok(())
@@ -612,6 +615,12 @@ fn profile(output: &mut String, document: &Document) -> ToolResult<()> {
             escape(&text(&data["target_pid"]))
         )?;
     }
+    if data["profiler"]["target_environment"]
+        .as_object()
+        .is_some_and(|environment| !environment.is_empty())
+    {
+        output.push_str("<p>Trace-only target environment overrides apply. Heap figures are not default-allocator memory evidence; see the retained target_environment provenance.</p>");
+    }
     artifact_links(output, &document.links)?;
     if data["heap_summary"].is_object() {
         let mut value = data["heap_summary"].clone();
@@ -690,13 +699,22 @@ fn profile(output: &mut String, document: &Document) -> ToolResult<()> {
     Ok(())
 }
 
+fn is_dataset_source(artifact: &Artifact) -> bool {
+    artifact.path.contains("/discovery/datasets/") && artifact.path.ends_with(".bend")
+}
+
 fn artifact_links(output: &mut String, artifacts: &[Artifact]) -> ToolResult<()> {
     if artifacts.is_empty() {
         output.push_str("<p>No verified artifact files available.</p>");
         return Ok(());
     }
     output.push_str("<ul class=\"artifacts\">");
+    let mut source_inputs = 0;
     for artifact in artifacts {
+        if is_dataset_source(artifact) {
+            source_inputs += 1;
+            continue;
+        }
         write!(
             output,
             "<li><a href=\"{}\" download>{}</a> <span class=\"note\">{} bytes · {}</span><code>SHA256 {}</code></li>",
@@ -708,6 +726,12 @@ fn artifact_links(output: &mut String, artifacts: &[Artifact]) -> ToolResult<()>
         )?;
     }
     output.push_str("</ul>");
+    if source_inputs > 0 {
+        write!(
+            output,
+            "<p>{source_inputs} Bend source input identities are retained in the <a href=\"unified-report.json\">full verified artifact catalog</a> and downloaded bundle.</p>"
+        )?;
+    }
     Ok(())
 }
 
@@ -775,7 +799,11 @@ pub(super) fn markdown(report: &Report) -> ToolResult<String> {
             markdown_document(&mut output, document)?;
         }
         output.push_str("\n### Verified original artifacts\n\n");
+        output.push_str("All source input paths and hashes remain in the [full verified artifact catalog](unified-report.json).\n\n");
         for artifact in &target.artifacts {
+            if is_dataset_source(artifact) {
+                continue;
+            }
             writeln!(
                 output,
                 "- [{}]({}) — {} bytes; SHA256 {}",
@@ -821,6 +849,12 @@ fn markdown_document(output: &mut String, document: &Document) -> ToolResult<()>
                 md(&text(&document.data["scenario"])),
                 md(&text(&document.data["backend"]))
             )?;
+            if document.data["profiler"]["target_environment"]
+                .as_object()
+                .is_some_and(|environment| !environment.is_empty())
+            {
+                output.push_str("- Trace-only target environment overrides apply. Heap figures are not default-allocator memory evidence; see retained target_environment provenance.\n");
+            }
             if !document.data["profiler"]["viewer_command"].is_null() {
                 writeln!(
                     output,
@@ -832,6 +866,9 @@ fn markdown_document(output: &mut String, document: &Document) -> ToolResult<()>
         _ => {}
     }
     for artifact in &document.links {
+        if is_dataset_source(artifact) {
+            continue;
+        }
         writeln!(
             output,
             "- [Download {}]({}) — SHA256 {}",

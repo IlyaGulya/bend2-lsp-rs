@@ -336,6 +336,28 @@ impl Session {
                 self.tools
                     .push(doctor::tool_identity(path.trim(), version.trim())?);
                 self.version = json!({"xcode": version.trim(), "sdk": sdk.trim(), "os": os.trim()});
+                // Initialize Apple's tracing/authorization services before the
+                // cold LSP exists. This trusted target is not scenario evidence;
+                // the actual capture still requires its own 60-second start ACK.
+                self.command(
+                    path.trim(),
+                    &[
+                        "record".to_owned(),
+                        "--template".to_owned(),
+                        "Time Profiler".to_owned(),
+                        "--time-limit".to_owned(),
+                        "1s".to_owned(),
+                        "--no-prompt".to_owned(),
+                        "--output".to_owned(),
+                        self.output
+                            .join("tracing-preflight.trace")
+                            .to_string_lossy()
+                            .into_owned(),
+                        "--launch".to_owned(),
+                        "--".to_owned(),
+                        "/usr/bin/true".to_owned(),
+                    ],
+                )?;
             }
             "wpr" => {
                 let version = self.command("wpr", &["-profiles".to_owned()])?;
@@ -900,6 +922,9 @@ foreach ($helper in $helpers) {
             "heap_ifeo_state_before": self.heap_ifeo, "heap_ifeo_restored": self.heap_ifeo_restored,
             "source": if self.backend == "samply" { doctor::samply_source() } else { "OS/Xcode/kernel tool identity pinned by version and binary SHA256" },
             "viewer_command": viewer, "viewer_url": if self.backend == "dhat" {Some("https://nnethercote.github.io/dh_view/dh_view.html")} else {None},
+            "target_environment": if self.backend == "xctrace" && self.kind == "heap" {
+                json!({"MallocNanoZone": "0"})
+            } else {json!({})},
             "phase_markers": if self.backend == "wpr" {"ETW wpr -marker and manifest timestamps"} else {"manifest timestamps; no fabricated in-trace marker support"}})
     }
 
@@ -1148,6 +1173,11 @@ impl ScenarioSession for Session {
                 OsString::from("BEND2_LSP_DHAT_FILE"),
                 self.trace.as_os_str().to_owned(),
             )]
+        } else if self.backend == "xctrace" && self.kind == "heap" {
+            // Nano's in-process heap enumerator allocates from the helper zone.
+            // Trace only the scalable allocator to avoid that attach interaction.
+            // This compatibility setting is not default-process memory evidence.
+            vec![(OsString::from("MallocNanoZone"), OsString::from("0"))]
         } else {
             Vec::new()
         }
