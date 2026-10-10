@@ -56,6 +56,13 @@
 - Keep ordinary PR measurements lightweight; retain all thirteen DHAT workloads
   and four shared scenarios in full diagnostic/weekly coverage, with six-target
   backend verification for performance-infrastructure changes.
+- Preserve report command-log hashes during rendering and keep CI job summaries
+  within GitHub's upload limit; full reports and raw evidence remain in artifacts.
+- Deliver sampler stop signals to the owned recorder on macOS/Windows and wait
+  for Instruments notification registration before recording. Use the baseline
+  ARM64 register mask for software-clock DWARF captures.
+- Adapt canonical Windows paths for the ETL decoder and reject WPR traces that
+  report dropped events instead of treating successful file saving as completeness.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub

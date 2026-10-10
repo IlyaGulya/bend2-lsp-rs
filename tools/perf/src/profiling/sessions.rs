@@ -4,6 +4,10 @@ use super::{
 };
 use std::io::{Read, Write};
 
+#[cfg(all(test, target_os = "linux"))]
+#[path = "linux_perf_tests.rs"]
+mod linux_perf_tests;
+
 #[derive(Clone, Copy)]
 enum CommandMode {
     Active,
@@ -352,6 +356,12 @@ impl Session {
                 "997".to_owned(),
                 "--call-graph".to_owned(),
                 "dwarf".to_owned(),
+                // perf 6.8 probes hardware cycles for its default ARM64 DWARF
+                // register mask, which can include SVE VG. The software clock
+                // PMU rejects extended registers with EOPNOTSUPP. Keep every
+                // baseline GPR needed for DWARF, without that hardware-only VG.
+                #[cfg(target_arch = "aarch64")]
+                "--user-regs=x0,x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20,x21,x22,x23,x24,x25,x26,x27,x28,x29,lr,sp,pc".to_owned(),
                 "--output".to_owned(),
                 self.trace.to_string_lossy().into_owned(),
                 "--delay=-1".to_owned(),
@@ -390,7 +400,15 @@ impl Session {
                 .ok_or("Missing perf record process")?
                 .try_wait()?
             {
-                return Err(format!("perf exited before enable acknowledgement: {status}").into());
+                let mut stderr = Vec::new();
+                File::open(self.output.join("profiler.stderr.log"))?
+                    .take(8192)
+                    .read_to_end(&mut stderr)?;
+                return Err(format!(
+                    "perf exited before enable acknowledgement: {status}; profiler.stderr.log (first 8192 bytes): {}",
+                    String::from_utf8_lossy(&stderr)
+                )
+                .into());
             }
             if Instant::now() >= deadline {
                 return Err("perf did not acknowledge sampling enable within 60s".into());
@@ -436,15 +454,37 @@ impl Session {
         }
     }
 
-    fn start_xctrace(&mut self, pid: u32) -> ToolResult<()> {
-        let notification = format!("org.bend2.perf.started.{}.{}", std::process::id(), pid);
-        let args = vec!["-1".to_owned(), notification.clone()];
+    fn start_xctrace_notifier(&mut self, notification: &str, deadline: Instant) -> ToolResult<()> {
+        // Darwin notifications are edges, not retained messages. Process creation
+        // does not establish registration. Have notifyutil acknowledge its own
+        // registration on a separate key before the recorder can post anything.
+        let barrier = format!("{notification}.observer");
+        let args = [
+            "-z".to_owned(),
+            "0".to_owned(),
+            "-1".to_owned(),
+            notification.to_owned(),
+            "-1".to_owned(),
+            barrier.clone(),
+            "-p".to_owned(),
+            barrier.clone(),
+        ];
         self.record("notifyutil", &args);
+        let stdout_name = "profiler-notifier.stdout.log";
+        if let Some(command) = self.commands.last_mut() {
+            command["stdout_path"] = json!(stdout_name);
+            command["stderr_path"] = json!("profiler.stderr.log");
+        }
         self.notifier = Some(
             Command::new("notifyutil")
                 .args(&args)
                 .stdin(Stdio::null())
-                .stdout(Stdio::null())
+                .stdout(
+                    OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(self.output.join(stdout_name))?,
+                )
                 .stderr(
                     OpenOptions::new()
                         .create(true)
@@ -453,15 +493,57 @@ impl Session {
                 )
                 .spawn()?,
         );
+        let mut stdout = File::open(self.output.join(stdout_name))?;
+        let mut evidence = String::new();
+        loop {
+            crate::scenario::check_cancelled()?;
+            stdout.read_to_string(&mut evidence)?;
+            if let Some(status) = self
+                .notifier
+                .as_mut()
+                .ok_or("Missing readiness notifier")?
+                .try_wait()?
+            {
+                return Err(format!(
+                    "xctrace notification observer exited before registration ({status}); stdout: {evidence}; stderr: {}",
+                    fs::read_to_string(self.output.join("profiler.stderr.log"))?
+                )
+                .into());
+            }
+            if notification_received(&evidence, &barrier) {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "xctrace notification observer did not acknowledge registration within 60s; stdout: {evidence}; stderr: {}",
+                    fs::read_to_string(self.output.join("profiler.stderr.log"))?
+                )
+                .into());
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn start_xctrace(&mut self, pid: u32) -> ToolResult<()> {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        let notification = format!("org.bend2.perf.started.{}.{}", std::process::id(), pid);
+        self.start_xctrace_notifier(&notification, deadline)?;
+        // Launch the executable whose identity prepare recorded, not an xcrun
+        // launcher with an independently owned startup/signal lifetime.
+        let program = self
+            .tools
+            .first()
+            .and_then(|tool| tool["path"].as_str())
+            .ok_or("Missing prepared xctrace executable identity")?
+            .to_owned();
         let template = if self.kind == "heap" {
             "Allocations"
         } else {
             "Time Profiler"
         };
         self.spawn(
-            "xcrun",
+            &program,
             &[
-                "xctrace".to_owned(),
                 "record".to_owned(),
                 "--template".to_owned(),
                 template.to_owned(),
@@ -471,38 +553,53 @@ impl Session {
                 "600s".to_owned(),
                 "--no-prompt".to_owned(),
                 "--notify-tracing-started".to_owned(),
-                notification,
+                notification.clone(),
                 "--output".to_owned(),
                 self.trace.to_string_lossy().into_owned(),
             ],
         )?;
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let mut stdout = File::open(self.output.join("profiler-notifier.stdout.log"))?;
+        let mut evidence = String::new();
         loop {
             crate::scenario::check_cancelled()?;
-            if let Some(status) = self
-                .notifier
-                .as_mut()
-                .ok_or("Missing readiness notifier")?
-                .try_wait()?
-            {
-                if !status.success() {
-                    return Err(format!("xctrace notification observer failed: {status}").into());
-                }
-                self.notifier = None;
-                return Ok(());
-            }
+            stdout.read_to_string(&mut evidence)?;
             if let Some(status) = self
                 .child
                 .as_mut()
                 .ok_or("Missing xctrace process")?
                 .try_wait()?
             {
-                return Err(format!("xctrace exited before started notification: {status}").into());
+                return Err(format!(
+                    "xctrace exited before started notification ({status}); stdout: {}; stderr: {}",
+                    fs::read_to_string(self.output.join("profiler.stdout.log"))?,
+                    fs::read_to_string(self.output.join("profiler.stderr.log"))?
+                )
+                .into());
+            }
+            if let Some(status) = self
+                .notifier
+                .as_mut()
+                .ok_or("Missing readiness notifier")?
+                .try_wait()?
+            {
+                stdout.read_to_string(&mut evidence)?;
+                if !status.success() || !notification_received(&evidence, &notification) {
+                    return Err(format!(
+                        "xctrace notification observer failed ({status}); stdout: {evidence}; stderr: {}",
+                        fs::read_to_string(self.output.join("profiler.stderr.log"))?
+                    )
+                    .into());
+                }
+                self.notifier = None;
+                return Ok(());
             }
             if Instant::now() >= deadline {
-                return Err(
-                    "xctrace did not post its tracing-started notification within 60s".into(),
-                );
+                return Err(format!(
+                    "xctrace did not post its tracing-started notification within 60s; observer: {evidence}; stdout: {}; stderr: {}",
+                    fs::read_to_string(self.output.join("profiler.stdout.log"))?,
+                    fs::read_to_string(self.output.join("profiler.stderr.log"))?
+                )
+                .into());
             }
             thread::sleep(Duration::from_millis(20));
         }
@@ -527,10 +624,14 @@ impl Session {
                     None => Err("Missing perf control FIFO".into()),
                 }
             } else if self.samply_elevated {
-                // sudo relays user-generated SIGINT to its command; do not signal
-                // the target LSP or depend on permission to signal a root process.
-                let args = ["-n", "--", "/bin/kill", "-INT", &pid.to_string()].map(str::to_owned);
-                self.cleanup_command("/usr/bin/sudo", &args).map(|_| ())
+                // The owned child can be sudo's monitor, not the sampler. A
+                // successful kill of that monitor is not delivery to samply.
+                // Interrupt the unique prepared executable in our owned group.
+                self.elevated_samply_pid(pid).and_then(|sampler_pid| {
+                    let args = ["-n", "--", "/bin/kill", "-INT", &sampler_pid.to_string()]
+                        .map(str::to_owned);
+                    self.cleanup_command("/usr/bin/sudo", &args).map(|_| ())
+                })
             } else if cfg!(windows) {
                 self.interrupt_windows(pid)
             } else {
@@ -572,6 +673,24 @@ impl Session {
         }
     }
 
+    fn elevated_samply_pid(&self, group: u32) -> ToolResult<u32> {
+        #[cfg(target_os = "macos")]
+        {
+            let path = self
+                .tools
+                .iter()
+                .find(|tool| tool["program"] == "samply")
+                .and_then(|tool| tool["path"].as_str())
+                .ok_or("Missing prepared samply executable identity")?;
+            owned_executable_pid(group, Path::new(path))
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = group;
+            Err("Elevated samply process ownership is only supported on macOS".into())
+        }
+    }
+
     fn force_reap(&mut self) -> ToolResult<()> {
         if self.samply_elevated
             && let Some(child) = self.child.as_ref()
@@ -600,14 +719,20 @@ impl Session {
     }
 
     fn interrupt_windows(&mut self, pid: u32) -> ToolResult<()> {
+        // CTRL_C can be ignored through an inherited console attribute even
+        // after samply installs ctrlc's handler. CTRL_BREAK always invokes that
+        // handler. Only the collector's separately created console receives it.
         const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class BendPerfConsole { [DllImport("kernel32.dll", SetLastError=true)] public static extern bool FreeConsole(); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool AttachConsole(uint pid); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetConsoleCtrlHandler(IntPtr handler, bool ignore); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool GenerateConsoleCtrlEvent(uint ctrl, uint group); }'
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; using System.Threading; public static class BendPerfConsole { public delegate bool HandlerRoutine(uint ctrl); public static readonly ManualResetEvent Delivered = new ManualResetEvent(false); public static readonly HandlerRoutine IgnoreBreak = delegate(uint ctrl) { if (ctrl != 1) return false; Delivered.Set(); return true; }; [DllImport("kernel32.dll", SetLastError=true)] public static extern bool FreeConsole(); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool AttachConsole(uint pid); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetConsoleCtrlHandler(HandlerRoutine handler, bool add); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool GenerateConsoleCtrlEvent(uint ctrl, uint group); }'
 [void][BendPerfConsole]::FreeConsole()
 if (![BendPerfConsole]::AttachConsole([uint32]$env:BEND_PERF_COLLECTOR_PID)) { throw 'AttachConsole failed' }
-if (![BendPerfConsole]::SetConsoleCtrlHandler([IntPtr]::Zero,$true)) { throw 'SetConsoleCtrlHandler failed' }
-if (![BendPerfConsole]::GenerateConsoleCtrlEvent(0,0)) { throw 'GenerateConsoleCtrlEvent failed' }
-Start-Sleep -Milliseconds 100
-[void][BendPerfConsole]::FreeConsole()"#;
+try {
+  if (![BendPerfConsole]::SetConsoleCtrlHandler([BendPerfConsole]::IgnoreBreak,$true)) { throw 'SetConsoleCtrlHandler failed' }
+  if (![BendPerfConsole]::GenerateConsoleCtrlEvent(1,0)) { throw 'GenerateConsoleCtrlEvent failed' }
+  [void][BendPerfConsole]::Delivered.WaitOne()
+} finally {
+  [void][BendPerfConsole]::FreeConsole()
+}"#;
         let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
         let pid = pid.to_string();
         self.command_env_mode(
@@ -654,11 +779,12 @@ foreach ($helper in $helpers) {
     fn stop_wpr(&mut self) -> ToolResult<()> {
         if self.wpr_active {
             let path = self.trace.to_string_lossy().into_owned();
-            self.wpr_mode(
+            let result = self.wpr_mode(
                 &["-stop", &path, "Bend2 LSP isolated semantic scenario"],
                 CommandMode::Cleanup,
             )?;
             self.wpr_active = false;
+            windows::validate_wpr_stop(&result)?;
         }
         Ok(())
     }
@@ -734,11 +860,11 @@ foreach ($helper in $helpers) {
             self.trace.clone()
         };
         let args = [
-            trace.to_string_lossy().into_owned(),
+            windows::tracerpt_path(&trace)?,
             "-of".to_owned(),
             "XML".to_owned(),
             "-o".to_owned(),
-            path.to_string_lossy().into_owned(),
+            windows::tracerpt_path(&path)?,
             "-y".to_owned(),
         ];
         self.command("tracerpt", &args)?;
@@ -810,6 +936,39 @@ foreach ($helper in $helpers) {
         }
         Ok(())
     }
+}
+
+#[cfg(target_os = "macos")]
+fn owned_executable_pid(group: u32, executable: &Path) -> ToolResult<u32> {
+    use libproc::libproc::proc_pid::pidpath;
+    use libproc::processes::{ProcFilter, pids_by_type};
+
+    let executable = fs::canonicalize(executable)?;
+    let mut owned_pid = None;
+    for pid in pids_by_type(ProcFilter::ByProgramGroup { pgrpid: group })? {
+        let path = pidpath(i32::try_from(pid)?)
+            .map_err(|error| format!("Cannot inspect owned process {pid}: {error}"))?;
+        if Path::new(&path) == executable && owned_pid.replace(pid).is_some() {
+            return Err(format!(
+                "Multiple instances of {} in owned process group {group}",
+                executable.display()
+            )
+            .into());
+        }
+    }
+    owned_pid.ok_or_else(|| {
+        format!(
+            "No instance of {} in owned process group {group}",
+            executable.display()
+        )
+        .into()
+    })
+}
+
+fn notification_received(stdout: &str, key: &str) -> bool {
+    stdout
+        .split_inclusive('\n')
+        .any(|line| line.strip_suffix('\n') == Some(key))
 }
 
 fn samply_elevation_requested(
@@ -1102,6 +1261,173 @@ mod tests {
         for os in ["linux", "windows"] {
             assert!(!samply_elevation_requested(os, Some("true"), Some("true"))?);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn notification_requires_a_complete_exact_key() {
+        let key = "org.bend2.perf.started.17357.17358";
+        let event = format!("{key}\n");
+        assert!(super::notification_received(&event, key));
+        assert!(super::notification_received(
+            &format!("{key}.observer\n{event}"),
+            key
+        ));
+        for end in 0..event.len() {
+            assert!(!super::notification_received(&event[..end], key));
+        }
+        for stdout in [
+            format!("{key}.observer\n"),
+            format!("{key}0\n"),
+            format!("{key}: Failed with code 1\n"),
+        ] {
+            assert!(!super::notification_received(&stdout, key), "{stdout:?}");
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn notification_observer_registers_before_the_recorder_can_post() -> super::ToolResult<()> {
+        let directory = tempfile::tempdir()?;
+        let key = format!(
+            "org.bend2.perf.test.{}.{}",
+            std::process::id(),
+            directory.path().display()
+        );
+        let mut session = super::Session::new("xctrace", "cpu", directory.path());
+        let deadline = super::Instant::now() + super::Duration::from_secs(10);
+        session.start_xctrace_notifier(&key, deadline)?;
+        let path = directory.path().join("profiler-notifier.stdout.log");
+        let registered = super::fs::read_to_string(&path)?;
+        assert!(super::notification_received(
+            &registered,
+            &format!("{key}.observer")
+        ));
+        assert!(!super::notification_received(&registered, &key));
+        assert!(
+            session
+                .notifier
+                .as_mut()
+                .ok_or("Missing test observer")?
+                .try_wait()?
+                .is_none()
+        );
+        // Post immediately after the registration ACK; no timing sleep bridges
+        // a lost-edge race, and no Instruments measurement is collected.
+        assert!(
+            std::process::Command::new("notifyutil")
+                .args(["-z", "0", "-p", &key])
+                .status()?
+                .success()
+        );
+        loop {
+            if let Some(status) = session
+                .notifier
+                .as_mut()
+                .ok_or("Missing test observer")?
+                .try_wait()?
+            {
+                session.notifier = None;
+                assert!(status.success(), "{status}");
+                break;
+            }
+            assert!(super::Instant::now() < deadline, "Notification was lost");
+            super::thread::sleep(super::Duration::from_millis(10));
+        }
+        assert!(super::notification_received(
+            &super::fs::read_to_string(path)?,
+            &key
+        ));
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn sampler_interrupt_selects_the_executable_not_its_monitor() -> super::ToolResult<()> {
+        use std::os::unix::process::CommandExt;
+
+        let monitor = super::OwnedCommand(
+            std::process::Command::new("/bin/sh")
+                .args(["-c", "read -r line"])
+                .stdin(std::process::Stdio::piped())
+                .process_group(0)
+                .spawn()?,
+        );
+        let group = monitor.0.id();
+        let sampler = super::OwnedCommand(
+            std::process::Command::new("/bin/sleep")
+                .arg("300")
+                .process_group(i32::try_from(group)?)
+                .spawn()?,
+        );
+        let mut unrelated = super::OwnedCommand(
+            std::process::Command::new("/bin/sleep")
+                .arg("300")
+                .process_group(0)
+                .spawn()?,
+        );
+        assert_eq!(
+            super::owned_executable_pid(group, std::path::Path::new("/bin/sleep"))?,
+            sampler.0.id()
+        );
+        assert_ne!(sampler.0.id(), group);
+        assert!(unrelated.0.try_wait()?.is_none());
+        let _ambiguous = super::OwnedCommand(
+            std::process::Command::new("/bin/sleep")
+                .arg("300")
+                .process_group(i32::try_from(group)?)
+                .spawn()?,
+        );
+        assert!(
+            super::owned_executable_pid(group, std::path::Path::new("/bin/sleep")).is_err(),
+            "Do not guess which of two matching owned executables to interrupt"
+        );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn collector_interrupt_reaches_a_console_ignoring_ctrl_c() -> super::ToolResult<()> {
+        // Exercise the actual console APIs with an owned waiting process, not
+        // a fabricated profiler trace or an assertion about a command string.
+        const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; using System.Threading; public static class IgnoringConsole { public delegate bool HandlerRoutine(uint ctrl); public static readonly ManualResetEvent Stopped = new ManualResetEvent(false); public static readonly HandlerRoutine Stop = delegate(uint ctrl) { if (ctrl != 1) return false; Stopped.Set(); return true; }; [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Ignore(IntPtr handler, bool add); [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Register(HandlerRoutine handler, bool add); }'
+if (![IgnoringConsole]::Ignore([IntPtr]::Zero,$true)) { throw 'Could not ignore CTRL_C' }
+if (![IgnoringConsole]::Register([IgnoringConsole]::Stop,$true)) { throw 'Could not register CTRL_BREAK handler' }
+[Console]::Error.WriteLine('console.fixture.ready')
+[void][IgnoringConsole]::Stopped.WaitOne()
+"#;
+        let directory = tempfile::tempdir()?;
+        let mut session = super::Session::new("samply", "cpu", directory.path());
+        let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
+        session.spawn("powershell.exe", &args)?;
+        session.wait_ready_text("console.fixture.ready\n")?;
+        let pid = session
+            .child
+            .as_ref()
+            .ok_or("Missing console fixture")?
+            .id();
+        session.interrupt_windows(pid)?;
+        let deadline = super::Instant::now() + super::Duration::from_secs(10);
+        let completed = loop {
+            if let Some(status) = session
+                .child
+                .as_mut()
+                .ok_or("Missing console fixture")?
+                .try_wait()?
+            {
+                break status.success();
+            }
+            if super::Instant::now() >= deadline {
+                break false;
+            }
+            super::thread::sleep(super::Duration::from_millis(10));
+        };
+        session.force_reap()?;
+        assert!(
+            completed,
+            "CTRL_C ignore must not block collector finalization"
+        );
         Ok(())
     }
 
