@@ -608,6 +608,28 @@ fn initial_result(
     Ok(result)
 }
 
+fn timeout_diagnostic(
+    error: &(dyn std::error::Error + Send + Sync + 'static),
+    session: &mut dyn ScenarioSession,
+    result: &mut Value,
+    started: Instant,
+) -> ToolResult<()> {
+    if error
+        .downcast_ref::<std::io::Error>()
+        .is_some_and(|error| error.kind() == std::io::ErrorKind::TimedOut)
+    {
+        // Temporary hosted diagnosis runs after the request has failed,
+        // while its owner still keeps the collector and target alive.
+        let phase = "request_timeout.before_abort";
+        record_phase(result, started, phase)?;
+        if let Err(diagnostic) = session.phase(phase) {
+            result["timeout_diagnostic_error"] = json!(diagnostic.to_string());
+        }
+        record_phase(result, started, "request_timeout.after_diagnostic")?;
+    }
+    Ok(())
+}
+
 pub(crate) fn execute(
     binary: &Path,
     scenario: Scenario,
@@ -654,6 +676,7 @@ pub(crate) fn execute(
         )?);
         record_phase(&mut result, started, "process_spawn.after")?;
         let client = owner.client.as_mut().ok_or("Missing spawned LSP")?;
+        client.defer_abort_to_owner();
         client.set_cancellation_flag(&CANCELLED);
         client.check_cancelled()?;
         result["pid"] = json!(client.pid());
@@ -689,6 +712,7 @@ pub(crate) fn execute(
     if let Err(error) = &outcome {
         result["status"] = json!("failed");
         result["error"] = json!(error.to_string());
+        timeout_diagnostic(error.as_ref(), owner.session, &mut result, started)?;
         record_phase(&mut result, started, "abort.before")?;
         if let Err(cleanup) = owner.abort() {
             result["abort_error"] = json!(cleanup.to_string());

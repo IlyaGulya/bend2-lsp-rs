@@ -111,6 +111,17 @@ impl Session {
         environment: &[(&str, &str)],
         mode: CommandMode,
     ) -> ToolResult<String> {
+        self.command_env_mode_timeout(program, args, environment, mode, Duration::from_secs(300))
+    }
+
+    fn command_env_mode_timeout(
+        &mut self,
+        program: &str,
+        args: &[String],
+        environment: &[(&str, &str)],
+        mode: CommandMode,
+        timeout: Duration,
+    ) -> ToolResult<String> {
         mode.check()?;
         self.record(program, args);
         let stdout_name = format!("command-{}.stdout.log", self.commands.len());
@@ -138,7 +149,7 @@ impl Session {
                 .stderr(File::create(&stderr)?)
                 .spawn()?,
         );
-        let deadline = Instant::now() + Duration::from_secs(300);
+        let deadline = Instant::now() + timeout;
         let status = loop {
             mode.check()?;
             if let Some(status) = child.0.try_wait()? {
@@ -146,7 +157,8 @@ impl Session {
             }
             if Instant::now() >= deadline {
                 return Err(format!(
-                    "{program} timed out after 300s; owned child is killed and reaped"
+                    "{program} timed out after {}s; owned child is killed and reaped",
+                    timeout.as_secs()
                 )
                 .into());
             }
@@ -159,6 +171,34 @@ impl Session {
         }
         text.push_str(&error);
         Ok(text)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn sample_stall(&mut self, pid: u32, name: &str) {
+        // Temporary hosted failure evidence; never a successful profile or retry.
+        let path = self.output.join(format!("{name}.sample.txt"));
+        let args = [
+            pid.to_string(),
+            "1".to_owned(),
+            "-file".to_owned(),
+            path.to_string_lossy().into_owned(),
+        ];
+        let outcome = self.command_env_mode_timeout(
+            "/usr/bin/sample",
+            &args,
+            &[],
+            CommandMode::Cleanup,
+            Duration::from_secs(10),
+        );
+        self.control_messages.push(json!({
+            "transport":"temporary-hosted-stall-sample",
+            "target_pid":pid,
+            "name":name,
+            "completed_elapsed_ns":self.started.elapsed().as_nanos(),
+            "wall_timeout_seconds":10,
+            "status":if outcome.is_ok() {"complete"} else {"failed"},
+            "error":outcome.err().map(|error| error.to_string()),
+        }));
     }
 
     fn spawn(&mut self, program: &str, args: &[String]) -> ToolResult<()> {
@@ -205,6 +245,54 @@ impl Session {
         let mut args: Vec<_> = args.iter().map(|arg| (*arg).to_owned()).collect();
         args.extend(["-instancename".to_owned(), self.instance.clone()]);
         self.command_env_mode("wpr", &args, &[], mode)
+    }
+
+    fn prepare_wpr_profile(&mut self) -> ToolResult<()> {
+        let name = if self.kind == "heap" { "Heap" } else { "CPU" };
+        let source = windows::tracerpt_path(&self.output.join("native-source.wprp"))?;
+        let profile = windows::tracerpt_path(&self.output.join("native-recording.wprp"))?;
+        self.command(
+            "wpr",
+            &[
+                "-exportprofile".to_owned(),
+                name.to_owned(),
+                source.clone(),
+                "-filemode".to_owned(),
+            ],
+        )?;
+        let args = [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            windows::CONFIGURE_WPR,
+        ]
+        .map(str::to_owned);
+        self.command_env(
+            "powershell.exe",
+            &args,
+            &[
+                ("BEND_PERF_WPR_SOURCE", &source),
+                ("BEND_PERF_WPR_PROFILE", &profile),
+                ("BEND_PERF_WPR_PROFILE_NAME", name),
+            ],
+        )?;
+        self.command(
+            "wpr",
+            &[
+                "-profiledetails".to_owned(),
+                format!("{profile}!{name}"),
+                "-filemode".to_owned(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn start_wpr_profile(&mut self) -> ToolResult<()> {
+        let name = if self.kind == "heap" { "Heap" } else { "CPU" };
+        let profile = windows::tracerpt_path(&self.output.join("native-recording.wprp"))?;
+        self.wpr_active = true;
+        self.wpr(&["-start", &format!("{profile}!{name}"), "-filemode"])?;
+        Ok(())
     }
 
     pub(super) fn prepare(&mut self, binary: &Path) -> ToolResult<()> {
@@ -254,6 +342,7 @@ impl Session {
                 self.tools
                     .push(doctor::tool_identity("wpr", version.trim())?);
                 self.version = json!(version.trim());
+                self.prepare_wpr_profile()?;
                 if self.kind == "heap" {
                     let image = binary
                         .file_name()
@@ -268,8 +357,7 @@ impl Session {
                         &["-HeapTracingConfig".to_owned(), image, "enable".to_owned()],
                     )?;
                     // IFEO configuration and Heap session must precede the target process's birth.
-                    self.wpr_active = true;
-                    self.wpr(&["-start", "Heap", "-filemode"])?;
+                    self.start_wpr_profile()?;
                 }
             }
             _ => return Err("Unknown profiler backend".into()),
@@ -594,6 +682,10 @@ impl Session {
                 return Ok(());
             }
             if Instant::now() >= deadline {
+                #[cfg(target_os = "macos")]
+                if let Some(recorder) = self.child.as_ref() {
+                    self.sample_stall(recorder.id(), "recorder-readiness-timeout");
+                }
                 return Err(format!(
                     "xctrace did not post its tracing-started notification within 60s; observer: {evidence}; stdout: {}; stderr: {}",
                     fs::read_to_string(self.output.join("profiler.stdout.log"))?,
@@ -627,7 +719,7 @@ impl Session {
                 // The owned child can be sudo's monitor, not the sampler. A
                 // successful kill of that monitor is not delivery to samply.
                 // Interrupt the unique prepared executable in our owned group.
-                self.elevated_samply_pid(pid).and_then(|sampler_pid| {
+                Self::elevated_samply_pid(&self.tools, pid).and_then(|sampler_pid| {
                     let args = ["-n", "--", "/bin/kill", "-INT", &sampler_pid.to_string()]
                         .map(str::to_owned);
                     self.cleanup_command("/usr/bin/sudo", &args).map(|_| ())
@@ -673,11 +765,10 @@ impl Session {
         }
     }
 
-    fn elevated_samply_pid(&self, group: u32) -> ToolResult<u32> {
+    fn elevated_samply_pid(tools: &[Value], group: u32) -> ToolResult<u32> {
         #[cfg(target_os = "macos")]
         {
-            let path = self
-                .tools
+            let path = tools
                 .iter()
                 .find(|tool| tool["program"] == "samply")
                 .and_then(|tool| tool["path"].as_str())
@@ -686,7 +777,7 @@ impl Session {
         }
         #[cfg(not(target_os = "macos"))]
         {
-            let _ = group;
+            let _ = (tools, group);
             Err("Elevated samply process ownership is only supported on macOS".into())
         }
     }
@@ -991,7 +1082,17 @@ fn samply_attach_ready(stderr: &str, marker: &str) -> bool {
     // Pinned samply 0.13.1 emits a complete PID-bound stderr line after obtaining
     // the macOS root Mach task (Linux: initialized perf events; Windows: started xperf).
     // A partial line, stdout echo, or banner for another PID is not an attach ACK.
-    stderr.split_inclusive('\n').any(|line| line == marker)
+    let Some(marker) = marker.strip_suffix('\n') else {
+        return false;
+    };
+    stderr.split_inclusive('\n').any(|line| {
+        line.strip_suffix('\n')
+            .map(|line| match line.strip_suffix('\r') {
+                Some(native_line) => native_line,
+                None => line,
+            })
+            == Some(marker)
+    })
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -1137,13 +1238,13 @@ impl ScenarioSession for Session {
             "xctrace" => self.start_xctrace(pid)?,
             "wpr" => {
                 if !self.wpr_active {
-                    self.wpr_active = true;
-                    self.wpr(&["-start", "CPU", "-filemode"])?;
+                    self.start_wpr_profile()?;
                 }
                 let status = self.wpr(&["-status"])?;
                 if !status.contains("recording is in progress") {
                     return Err(format!("WPR session failed readiness: {status}").into());
                 }
+                self.wpr(&["-status", "collectors", "-details"])?;
             }
             _ => return Err("Unknown backend".into()),
         }
@@ -1153,6 +1254,14 @@ impl ScenarioSession for Session {
         crate::scenario::check_cancelled()?;
         self.phases
             .push(json!({"name": name, "elapsed_ns": self.started.elapsed().as_nanos()}));
+        #[cfg(target_os = "macos")]
+        if self.backend == "xctrace"
+            && self.kind == "heap"
+            && name == "request_timeout.before_abort"
+            && let Some(pid) = self.pid
+        {
+            self.sample_stall(pid, "request-timeout");
+        }
         if self.backend == "wpr" && self.wpr_active {
             self.wpr(&["-marker", name])?;
         }
@@ -1486,6 +1595,29 @@ if (![IgnoringConsole]::Register([IgnoringConsole]::Stop,$true)) { throw 'Could 
         ] {
             assert!(!samply_attach_ready(stderr, marker), "{stderr:?}");
         }
+    }
+
+    #[test]
+    fn native_console_readiness_requires_the_complete_crlf_banner() {
+        let marker = "console.fixture.ready\n";
+        let banner = "console.fixture.ready\r\n";
+        assert!(samply_attach_ready(banner, marker));
+        assert!(samply_attach_ready(
+            &format!("earlier line\r\n{banner}"),
+            marker
+        ));
+        for end in 0..banner.len() {
+            assert!(!samply_attach_ready(&banner[..end], marker));
+        }
+        for stderr in [
+            "console.fixture.ready\r",
+            "console.fixture.ready\r\r\n",
+            "console.fixture.ready.extra\r\n",
+            "error: console.fixture.ready\r\n",
+        ] {
+            assert!(!samply_attach_ready(stderr, marker), "{stderr:?}");
+        }
+        assert!(!samply_attach_ready(banner, "console.fixture.ready"));
     }
 
     #[cfg(unix)]

@@ -368,6 +368,19 @@ Missing permissions, symbols, target samples/allocation records, or complete
 trace data fail collection rather than falling back to metadata-only success.
 WPR's successful save exit status is not sufficient when its stop output reports
 dropped events: the trace is retained, but collection fails as incomplete.
+The ETL decoder also rejects header loss counters and lost-event notifications.
+Windows sampled CPU attribution uses the kernel event-class GUID and the sampled
+thread's lifecycle ownership, not the event reporter's PID. Raw lifecycle
+payloads require the documented version, pointer width, and complete payload.
+Installed native CPU/Heap profiles are exported before configuration; provider,
+keyword, stack, and file-mode semantics are preserved. Collectors use 1 MiB
+buffers (256 system, 64 ordinary event, 512 heap event) and lossless stack caches
+(16 MiB ordinary, 64 MiB heap). These are explicit tuning choices, not Microsoft
+recommendations; hosted capture must still demonstrate zero event loss and
+complete target-process evidence. Source/configured profiles and collector logs
+remain in the artifact ([WPR collector definitions](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/collector-definitions),
+[stack caching](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/stackcaching)).
+
 Decoder command arguments use ordinary Win32 drive/UNC paths; canonical paths
 remain the artifact identity.
 Windows heap tracing is prepared before process creation and restores the prior
@@ -389,6 +402,11 @@ Instruments waits for a notification-registration barrier before starting its
 recorder, then requires the actual tracing-started notification and a live
 recorder. Linux ARM64 software-clock DWARF capture requests the complete
 baseline register set, excluding hardware-only SVE VG.
+
+An attached scenario owner finalizes its collector before terminating a failed
+LSP target; ordinary transport clients retain immediate failure cleanup.
+Responses received after their request deadline remain timeout failures even
+when already buffered, so they follow the same failure-diagnostic path.
 
 Each target's `artifact-manifest.json` records expected collectors, source and
 tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.

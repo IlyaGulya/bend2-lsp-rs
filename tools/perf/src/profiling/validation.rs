@@ -691,6 +691,9 @@ pub(super) fn instrument_rows(
 
 #[derive(Clone, Copy, Default)]
 enum Provider {
+    Kernel,
+    Header,
+    Lost,
     Cpu,
     Heap,
     Thread,
@@ -704,6 +707,12 @@ enum Field {
     Thread,
     Size,
     Instruction,
+    EventGuid,
+    Version,
+    Payload,
+    ErrorCode,
+    PointerSize,
+    Lost,
     #[default]
     Other,
 }
@@ -711,8 +720,14 @@ enum Field {
 struct EtwEvent {
     provider: Provider,
     opcode: Option<u64>,
+    version: Option<u64>,
+    kernel: bool,
+    raw_identity: Option<(u32, u32, usize)>,
+    processing_error: bool,
+    error_code: Option<u64>,
+    pointer_size: Option<u64>,
+    lost: u64,
     pid: Option<u32>,
-    tid: Option<u32>,
     payload_pid: Option<u32>,
     payload_tid: Option<u32>,
     size: u64,
@@ -729,6 +744,24 @@ fn number(text: &str) -> Option<u64> {
 }
 
 fn provider(text: &str) -> Provider {
+    if text
+        .trim_matches(['{', '}'])
+        .eq_ignore_ascii_case("9e814aad-3204-11d2-9a82-006008a86939")
+    {
+        return Provider::Kernel;
+    }
+    if text
+        .trim_matches(['{', '}'])
+        .eq_ignore_ascii_case("68fdd900-4a3e-11d1-84f4-0000f80464e3")
+    {
+        return Provider::Header;
+    }
+    if text
+        .trim_matches(['{', '}'])
+        .eq_ignore_ascii_case("6a399ae0-4bc6-4de9-870b-3657f8947e7e")
+    {
+        return Provider::Lost;
+    }
     let text = text.trim_matches(['{', '}']);
     if text.eq_ignore_ascii_case("ce1dbfb4-137e-4da6-87b0-3f59aa102cbc") {
         Provider::Cpu
@@ -753,6 +786,10 @@ fn field(name: &str) -> Field {
         Field::Size
     } else if name.eq_ignore_ascii_case("InstructionPointer") {
         Field::Instruction
+    } else if name.eq_ignore_ascii_case("PointerSize") {
+        Field::PointerSize
+    } else if name.eq_ignore_ascii_case("EventsLost") || name.eq_ignore_ascii_case("BuffersLost") {
+        Field::Lost
     } else {
         Field::Other
     }
@@ -760,20 +797,26 @@ fn field(name: &str) -> Field {
 
 fn event_element(element: &BytesStart<'_>, event: &mut EtwEvent) -> ToolResult<Field> {
     let local = element.local_name();
-    if local.as_ref() == b"Opcode" {
-        return Ok(Field::Opcode);
+    match local.as_ref() {
+        b"Opcode" => return Ok(Field::Opcode),
+        b"Version" => return Ok(Field::Version),
+        b"EventGuid" => return Ok(Field::EventGuid),
+        b"EventPayload" => return Ok(Field::Payload),
+        b"ErrorCode" => return Ok(Field::ErrorCode),
+        b"ProcessingErrorData" => event.processing_error = true,
+        _ => {}
     }
     let mut active = Field::Other;
     for item in element.attributes() {
         let item = item?;
         let value = std::str::from_utf8(item.value.as_ref())?;
         match (local.as_ref(), item.key.as_ref()) {
-            (b"Provider", b"Guid") => event.provider = provider(value),
+            (b"Provider", b"Guid") => {
+                event.provider = provider(value);
+                event.kernel = matches!(event.provider, Provider::Kernel);
+            }
             (b"Execution", b"ProcessID") => {
                 event.pid = number(value).and_then(|value| u32::try_from(value).ok());
-            }
-            (b"Execution", b"ThreadID") => {
-                event.tid = number(value).and_then(|value| u32::try_from(value).ok());
             }
             (b"Data", b"Name") => active = field(value),
             _ => {}
@@ -782,16 +825,164 @@ fn event_element(element: &BytesStart<'_>, event: &mut EtwEvent) -> ToolResult<F
     Ok(active)
 }
 
+// Thread v1-v3 wire prefix, not a guessed PID from the reporting thread.
+// Microsoft PerfView v3.1.20 ThreadTraceData: PID at byte 0, TID at byte 4;
+// v2/v3 minimum is HostOffset(40, 7). Decode only the eight required bytes.
+fn thread_wire_identity(text: &str) -> Option<(u32, u32, usize)> {
+    let text = text.trim();
+    if text.len() < 16
+        || !text.len().is_multiple_of(2)
+        || !text.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    let mut prefix = [0_u8; 8];
+    for (index, byte) in prefix.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(text.get(index * 2..index * 2 + 2)?, 16).ok()?;
+    }
+    Some((
+        u32::from_le_bytes(prefix[..4].try_into().ok()?),
+        u32::from_le_bytes(prefix[4..].try_into().ok()?),
+        text.len() / 2,
+    ))
+}
+
+fn thread_identity(event: &EtwEvent, pointer_size: Option<u64>) -> ToolResult<(u32, u32)> {
+    if !matches!(event.version, Some(0..=3)) {
+        return Err("ETL thread lifecycle has an unsupported version".into());
+    }
+    if event.processing_error {
+        if event.error_code != Some(15005) {
+            return Err("ETL thread export contains an unsupported decoding error".into());
+        }
+        let (pid, tid, bytes) = event
+            .raw_identity
+            .ok_or("ETL thread identity payload is malformed or truncated")?;
+        let minimum = match (event.version, pointer_size) {
+            (Some(1), _) => 8,
+            (Some(2..=3), Some(4)) => 40,
+            (Some(2..=3), Some(8)) => 68,
+            _ => return Err("ETL thread payload has an unsupported version/pointer size".into()),
+        };
+        if bytes < minimum || (event.version == Some(2) && bytes != minimum) {
+            return Err("ETL thread identity payload has an invalid length".into());
+        }
+        return Ok((pid, tid));
+    }
+    match (event.payload_pid, event.payload_tid) {
+        (Some(pid), Some(tid)) => Ok((pid, tid)),
+        _ => Err("ETL thread lifecycle omitted its subject PID/TID".into()),
+    }
+}
+
+#[derive(Default)]
+struct EtwSummary {
+    threads: BTreeMap<u32, u32>,
+    pending_samples: BTreeMap<u32, u64>,
+    pointer_size: Option<u64>,
+    samples: u64,
+    allocations: u64,
+    bytes: u64,
+}
+
+impl EtwSummary {
+    fn record(&mut self, event: &EtwEvent, target: u32) -> ToolResult<()> {
+        match event.provider {
+            Provider::Header => {
+                if event.lost != 0 {
+                    return Err(
+                        format!("ETL header reports {} lost events/buffers", event.lost).into(),
+                    );
+                }
+                if let Some(size) = event.pointer_size {
+                    if !matches!(size, 4 | 8) {
+                        return Err("ETL header has an unsupported pointer size".into());
+                    }
+                    self.pointer_size = Some(size);
+                }
+            }
+            Provider::Lost => {
+                return Err("ETL contains lost-event notifications".into());
+            }
+            Provider::Thread if matches!(event.opcode, Some(1..=4)) => {
+                let (pid, tid) = thread_identity(event, self.pointer_size)?;
+                // DCStart describes an already-existing thread, so samples
+                // emitted before its initial rundown belong to that lifetime.
+                // A real Start must not claim samples from a reused older TID.
+                if let Some(pending) = self.pending_samples.remove(&tid)
+                    && event.opcode != Some(1)
+                    && pid == target
+                {
+                    self.samples = self
+                        .samples
+                        .checked_add(pending)
+                        .ok_or("CPU sample count overflow")?;
+                }
+                if matches!(event.opcode, Some(1 | 3)) {
+                    self.threads.insert(tid, pid);
+                } else if event.opcode == Some(2) {
+                    self.threads.remove(&tid);
+                }
+            }
+            Provider::Cpu if event.opcode == Some(46) => {
+                if event.version != Some(2) || event.instruction == 0 {
+                    return Err(
+                        "ETL CPU sample has an unsupported version or missing instruction pointer"
+                            .into(),
+                    );
+                }
+                if event.processing_error {
+                    return Err("ETL CPU sample payload could not be decoded".into());
+                }
+                let tid = event
+                    .payload_tid
+                    .ok_or("ETL CPU sample omitted its subject ThreadId")?;
+                if let Some(pid) = self.threads.get(&tid) {
+                    if *pid == target {
+                        self.samples = self
+                            .samples
+                            .checked_add(1)
+                            .ok_or("CPU sample count overflow")?;
+                    }
+                } else {
+                    let pending = self.pending_samples.entry(tid).or_default();
+                    *pending = pending.checked_add(1).ok_or("CPU sample count overflow")?;
+                }
+            }
+            Provider::Heap
+                if event.opcode == Some(33) && event.pid == Some(target) && event.size > 0 =>
+            {
+                self.allocations = self
+                    .allocations
+                    .checked_add(1)
+                    .ok_or("Allocation event count overflow")?;
+                self.bytes = self
+                    .bytes
+                    .checked_add(event.size)
+                    .ok_or("Native allocation byte total overflow")?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn finish(&self, target: u32, heap: bool) -> ToolResult<Value> {
+        if (heap && self.allocations == 0) || (!heap && self.samples == 0) {
+            return Err("ETL contains no decoded target-PID sampled CPU / heap allocation events; session metadata is not a successful profile".into());
+        }
+        Ok(
+            json!({"target_pid": target, "cpu_sample_records": self.samples, "allocation_records": self.allocations, "total_allocated_bytes": if heap {Some(self.bytes)} else {None}, "measurement": "Decoded ETW provider/opcode records, not RSS or clean latency", "decoder": "Windows tracerpt XML; Windows SDK wmicore.mof provider/opcode identities"}),
+        )
+    }
+}
+
 pub(super) fn etl_summary(path: &Path, target: u32, heap: bool) -> ToolResult<Value> {
     let mut reader = Reader::from_reader(xml_input(path)?);
     reader.config_mut().trim_text(true);
     let mut buffer = Vec::new();
     let mut event = EtwEvent::default();
     let mut active = Field::Other;
-    let mut threads = BTreeMap::new();
-    let mut samples = 0_u64;
-    let mut allocations = 0_u64;
-    let mut bytes = 0_u64;
+    let mut summary = EtwSummary::default();
     let mut document = XmlDocument::default();
     loop {
         let xml_event = reader.read_event_into(&mut buffer)?;
@@ -801,55 +992,40 @@ pub(super) fn etl_summary(path: &Path, target: u32, heap: bool) -> ToolResult<Va
                 active = event_element(&element, &mut event)?;
             }
             Event::Text(text) => {
-                if let Some(value) = number(&text.decode()?) {
-                    match active {
-                        Field::Opcode => event.opcode = Some(value),
-                        Field::Process => event.payload_pid = u32::try_from(value).ok(),
-                        Field::Thread => event.payload_tid = u32::try_from(value).ok(),
-                        Field::Size => event.size = value,
-                        Field::Instruction => event.instruction = value,
-                        Field::Other => {}
+                let text = text.decode()?;
+                match active {
+                    Field::EventGuid if event.kernel => event.provider = provider(&text),
+                    Field::Payload => event.raw_identity = thread_wire_identity(&text),
+                    Field::Lost => {
+                        event.lost = event
+                            .lost
+                            .checked_add(
+                                number(&text)
+                                    .ok_or("ETL has an invalid lost-event/buffer count")?,
+                            )
+                            .ok_or("ETL loss count overflow")?;
+                    }
+                    _ => {
+                        if let Some(value) = number(&text) {
+                            match active {
+                                Field::Opcode => event.opcode = Some(value),
+                                Field::Version => event.version = Some(value),
+                                Field::ErrorCode => event.error_code = Some(value),
+                                Field::PointerSize => event.pointer_size = Some(value),
+                                Field::Process => event.payload_pid = u32::try_from(value).ok(),
+                                Field::Thread => event.payload_tid = u32::try_from(value).ok(),
+                                Field::Size => event.size = value,
+                                Field::Instruction => event.instruction = value,
+                                _ => {}
+                            }
+                        }
                     }
                 }
             }
             Event::End(element) => {
                 active = Field::Other;
                 if element.local_name().as_ref() == b"Event" {
-                    match event.provider {
-                        Provider::Thread => {
-                            if let (Some(tid), Some(pid)) = (event.payload_tid, event.payload_pid) {
-                                if matches!(event.opcode, Some(1 | 3)) {
-                                    threads.insert(tid, pid);
-                                } else if matches!(event.opcode, Some(2 | 4)) {
-                                    threads.remove(&tid);
-                                }
-                            }
-                        }
-                        Provider::Cpu if event.opcode == Some(46) && event.instruction != 0 => {
-                            let attributed = event.pid == Some(target)
-                                || event
-                                    .payload_tid
-                                    .or(event.tid)
-                                    .is_some_and(|tid| threads.get(&tid) == Some(&target));
-                            if attributed {
-                                samples =
-                                    samples.checked_add(1).ok_or("CPU sample count overflow")?;
-                            }
-                        }
-                        Provider::Heap
-                            if event.opcode == Some(33)
-                                && event.pid == Some(target)
-                                && event.size > 0 =>
-                        {
-                            allocations = allocations
-                                .checked_add(1)
-                                .ok_or("Allocation event count overflow")?;
-                            bytes = bytes
-                                .checked_add(event.size)
-                                .ok_or("Native allocation byte total overflow")?;
-                        }
-                        _ => {}
-                    }
+                    summary.record(&event, target)?;
                     event = EtwEvent::default();
                 }
             }
@@ -858,12 +1034,7 @@ pub(super) fn etl_summary(path: &Path, target: u32, heap: bool) -> ToolResult<Va
         }
         buffer.clear();
     }
-    if (heap && allocations == 0) || (!heap && samples == 0) {
-        return Err("ETL contains no decoded target-PID sampled CPU / heap allocation events; session metadata is not a successful profile".into());
-    }
-    Ok(
-        json!({"target_pid": target, "cpu_sample_records": samples, "allocation_records": allocations, "total_allocated_bytes": if heap {Some(bytes)} else {None}, "measurement": "Decoded ETW provider/opcode records, not RSS or clean latency", "decoder": "Windows tracerpt XML; Windows SDK wmicore.mof provider/opcode identities"}),
-    )
+    summary.finish(target, heap)
 }
 
 #[cfg(test)]
@@ -877,7 +1048,7 @@ mod tests {
 
     fn event(provider: &str, opcode: u32, pid: u32, data: &str) -> String {
         format!(
-            "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Guid='{{{provider}}}'/><Opcode>{opcode}</Opcode><Execution ProcessID='{pid}' ThreadID='17'/></System><EventData>{data}</EventData></Event>"
+            "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Guid='{{{provider}}}'/><Version>2</Version><Opcode>{opcode}</Opcode><Execution ProcessID='{pid}' ThreadID='17'/></System><EventData>{data}</EventData></Event>"
         )
     }
 
@@ -885,6 +1056,185 @@ mod tests {
         let mut file = tempfile::NamedTempFile::new()?;
         write!(file, "<Events>{events}</Events>")?;
         Ok(file)
+    }
+
+    fn target_cpu_events() -> String {
+        event(
+            THREAD,
+            3,
+            0,
+            "<Data Name='ProcessId'>42</Data><Data Name='TThreadId'>17</Data>",
+        ) + &event(
+            CPU,
+            46,
+            0,
+            "<Data Name='InstructionPointer'>0x1000</Data><Data Name='ThreadId'>17</Data>",
+        )
+    }
+
+    // Exact schema/payload retained in hosted artifact 11681154458, CPU PID 6640.
+    const RETAINED_THREAD_PAYLOAD: &str = "F0190000A41000000000782884CFFFFF0090772884CFFFFF000000C2CA00000000D0FFC1CA0000000F00000000000000E0A2C67DF67F000000400BC1CA00000000000000060201000000";
+
+    fn retained_thread(payload: &str, version: u32) -> String {
+        format!(
+            "<Event><System><Provider Guid='{{9e814aad-3204-11d2-9a82-006008a86939}}'/><Version>{version}</Version><Opcode>3</Opcode><Execution ProcessID='6640' ThreadID='4260'/></System><ProcessingErrorData><ErrorCode>15005</ErrorCode><EventPayload>{payload}</EventPayload></ProcessingErrorData><RenderingInfo><Opcode>DCStart</Opcode><Provider>MSNT_SystemTrace</Provider></RenderingInfo><ExtendedTracingInfo xmlns='http://schemas.microsoft.com/win/2004/08/events/trace'><EventGuid>{{{THREAD}}}</EventGuid></ExtendedTracingInfo></Event>"
+        )
+    }
+
+    fn retained_sample() -> String {
+        format!(
+            "<Event><System><Provider Guid='{{9e814aad-3204-11d2-9a82-006008a86939}}'/><Version>2</Version><Opcode>46</Opcode><Execution ProcessID='4294967295' ThreadID='4294967295'/></System><EventData><Data Name='InstructionPointer'>0x7FF67D7E5E80</Data><Data Name='ThreadId'>4260</Data><Data Name='Count'>1</Data><Data Name='Reserved'>64</Data></EventData><RenderingInfo><Opcode>SampleProf</Opcode><Provider>MSNT_SystemTrace</Provider></RenderingInfo><ExtendedTracingInfo xmlns='http://schemas.microsoft.com/win/2004/08/events/trace'><EventGuid>{{{CPU}}}</EventGuid></ExtendedTracingInfo></Event>"
+        )
+    }
+
+    fn retained_header(lost: u32) -> String {
+        event(
+            "68fdd900-4a3e-11d1-84f4-0000f80464e3",
+            0,
+            0,
+            &format!(
+                "<Data Name='PointerSize'>8</Data><Data Name='EventsLost'>{lost}</Data><Data Name='BuffersLost'>0</Data>"
+            ),
+        )
+    }
+
+    #[test]
+    fn retained_kernel_event_guids_and_raw_thread_schema_resolve_target_samples() -> ToolResult<()>
+    {
+        let thread = retained_thread(RETAINED_THREAD_PAYLOAD, 3);
+        let sample = retained_sample();
+        for events in [thread.clone() + &sample, sample.clone() + &thread] {
+            let file = trace(&(retained_header(0) + &events))?;
+            assert_eq!(
+                etl_summary(file.path(), 6640, false)?["cpu_sample_records"],
+                1
+            );
+            assert!(etl_summary(file.path(), 42, false).is_err());
+        }
+        let file = trace(&(retained_header(0) + &sample))?;
+        assert!(etl_summary(file.path(), 6640, false).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn retained_raw_thread_records_reject_malformed_truncated_and_unknown_versions()
+    -> ToolResult<()> {
+        for payload in [
+            "",
+            "F0190000A4100000",
+            "F0190000A410000",
+            "Z0190000A4100000",
+        ] {
+            let file =
+                trace(&(retained_header(0) + &retained_thread(payload, 3) + &retained_sample()))?;
+            assert!(etl_summary(file.path(), 6640, false).is_err(), "{payload}");
+        }
+        let file = trace(
+            &(retained_header(0)
+                + &retained_thread(RETAINED_THREAD_PAYLOAD, 99)
+                + &retained_sample()),
+        )?;
+        assert!(etl_summary(file.path(), 6640, false).is_err());
+        let file = trace(&(retained_thread(RETAINED_THREAD_PAYLOAD, 3) + &retained_sample()))?;
+        assert!(etl_summary(file.path(), 6640, false).is_err());
+        let wrong_error = retained_thread(RETAINED_THREAD_PAYLOAD, 3)
+            .replace("<ErrorCode>15005</ErrorCode>", "<ErrorCode>5</ErrorCode>");
+        let file = trace(&(retained_header(0) + &wrong_error + &retained_sample()))?;
+        assert!(etl_summary(file.path(), 6640, false).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn subject_thread_not_reporting_process_controls_cpu_attribution_and_reuse() -> ToolResult<()> {
+        let start = event(
+            THREAD,
+            1,
+            0,
+            "<Data Name='ProcessId'>99</Data><Data Name='TThreadId'>17</Data>",
+        );
+        let claimed = event(
+            CPU,
+            46,
+            42,
+            "<Data Name='InstructionPointer'>0x1000</Data><Data Name='ThreadId'>17</Data>",
+        );
+        let file = trace(&(start.clone() + &claimed))?;
+        assert!(etl_summary(file.path(), 42, false).is_err());
+        let target = event(
+            THREAD,
+            3,
+            0,
+            "<Data Name='ProcessId'>42</Data><Data Name='TThreadId'>17</Data>",
+        );
+        let end = event(
+            THREAD,
+            2,
+            0,
+            "<Data Name='ProcessId'>42</Data><Data Name='TThreadId'>17</Data>",
+        );
+        let file = trace(&(target + &claimed + &end + &start + &claimed))?;
+        assert_eq!(
+            etl_summary(file.path(), 42, false)?["cpu_sample_records"],
+            1
+        );
+        // A new lifetime cannot retrospectively claim a previous owner's sample.
+        let target_start = event(
+            THREAD,
+            1,
+            0,
+            "<Data Name='ProcessId'>42</Data><Data Name='TThreadId'>17</Data>",
+        );
+        let file = trace(&(claimed + &target_start))?;
+        assert!(etl_summary(file.path(), 42, false).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn valid_cpu_sample_cannot_hide_a_malformed_record_or_unrelated_source() -> ToolResult<()> {
+        let sample = retained_sample();
+        for malformed in [
+            sample.replace("<Version>2</Version>", "<Version>99</Version>"),
+            sample.replace("0x7FF67D7E5E80", "0"),
+            sample.replace("<Data Name='ThreadId'>4260</Data>", ""),
+        ] {
+            let file = trace(
+                &(retained_header(0)
+                    + &retained_thread(RETAINED_THREAD_PAYLOAD, 3)
+                    + &sample
+                    + &malformed),
+            )?;
+            assert!(etl_summary(file.path(), 6640, false).is_err());
+        }
+        let unrelated = sample.replace(
+            "9e814aad-3204-11d2-9a82-006008a86939",
+            "00000000-0000-0000-0000-000000000000",
+        );
+        let file = trace(
+            &(retained_header(0) + &retained_thread(RETAINED_THREAD_PAYLOAD, 3) + &unrelated),
+        )?;
+        assert!(etl_summary(file.path(), 6640, false).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn retained_etl_loss_evidence_cannot_be_hidden_by_valid_target_samples() -> ToolResult<()> {
+        for field in ["EventsLost", "BuffersLost"] {
+            let header = retained_header(0)
+                .replace(&format!("Name='{field}'>0"), &format!("Name='{field}'>1"));
+            let file = trace(
+                &(header + &retained_thread(RETAINED_THREAD_PAYLOAD, 3) + &retained_sample()),
+            )?;
+            assert!(etl_summary(file.path(), 6640, false).is_err());
+        }
+        let loss = event("6a399ae0-4bc6-4de9-870b-3657f8947e7e", 32, 0, "");
+        let file = trace(
+            &(retained_header(0)
+                + &retained_thread(RETAINED_THREAD_PAYLOAD, 3)
+                + &retained_sample()
+                + &loss),
+        )?;
+        assert!(etl_summary(file.path(), 6640, false).is_err());
+        Ok(())
     }
 
     #[test]
@@ -918,9 +1268,23 @@ mod tests {
 
     #[test]
     fn heap_records_require_allocator_provider_pid_and_size() -> ToolResult<()> {
-        let valid = event(HEAP, 33, 42, "<Data Name='AllocSize'>128</Data>");
-        let unrelated = event(HEAP, 33, 99, "<Data Name='AllocSize'>256</Data>");
-        let file = trace(&(valid + &unrelated))?;
+        // PerfView v3.1.20 HeapAlloc MOF: HeapHandle, AllocSize (SizeT),
+        // AllocAddress and SourceId. Ownership is the allocation's header PID.
+        let valid = event(
+            HEAP,
+            33,
+            42,
+            "<Data Name='HeapHandle'>0x1000</Data><Data Name='AllocSize'>128</Data><Data Name='AllocAddress'>0x2000</Data><Data Name='SourceId'>0</Data>",
+        );
+        let unrelated = event(
+            HEAP,
+            33,
+            99,
+            "<Data Name='AllocSize'>256</Data><Data Name='ProcessId'>42</Data>",
+        );
+        let reallocation = event(HEAP, 34, 42, "<Data Name='AllocSize'>512</Data>");
+        let wrong_provider = event(CPU, 33, 42, "<Data Name='AllocSize'>1024</Data>");
+        let file = trace(&(valid + &unrelated + &reallocation + &wrong_provider))?;
         let summary = etl_summary(file.path(), 42, true)?;
         assert_eq!(summary["allocation_records"], 1);
         assert_eq!(summary["total_allocated_bytes"], 128);
@@ -932,15 +1296,14 @@ mod tests {
             "<Data Name='HeapHandle'>0x1000</Data>",
         ))?;
         assert!(etl_summary(metadata.path(), 42, true).is_err());
+        let zero = trace(&event(HEAP, 33, 42, "<Data Name='AllocSize'>0</Data>"))?;
+        assert!(etl_summary(zero.path(), 42, true).is_err());
         Ok(())
     }
 
     #[test]
     fn windows_utf16_exports_decode_without_losing_events() -> ToolResult<()> {
-        let xml = format!(
-            "<Events>{}</Events>",
-            event(CPU, 46, 42, "<Data Name='InstructionPointer'>0x1000</Data>")
-        );
+        let xml = format!("<Events>{}</Events>", target_cpu_events());
         let mut file = tempfile::NamedTempFile::new()?;
         file.write_all(&[0xff, 0xfe])?;
         for unit in xml.encode_utf16() {
@@ -1174,7 +1537,7 @@ mod tests {
 
     #[test]
     fn etl_rejects_truncated_document_after_complete_target_event() -> ToolResult<()> {
-        let sample = event(CPU, 46, 42, "<Data Name='InstructionPointer'>0x1000</Data>");
+        let sample = target_cpu_events();
         let file = xml_file(&format!("<Events>{sample}"))?;
         assert!(etl_summary(file.path(), 42, false).is_err());
         let file = xml_file(&format!("<Events>{sample}<Event><System>"))?;
@@ -1279,7 +1642,7 @@ mod tests {
         assert!(instrument_rows(file.path(), 42, false, None).is_err());
         let file = xml_file(&(sample + "trailing text"))?;
         assert!(instrument_rows(file.path(), 42, false, None).is_err());
-        let event = event(CPU, 46, 42, "<Data Name='InstructionPointer'>0x1000</Data>");
+        let event = target_cpu_events();
         let file = xml_file(&format!("<Events>{event}</Events><Events/>"))?;
         assert!(etl_summary(file.path(), 42, false).is_err());
         Ok(())

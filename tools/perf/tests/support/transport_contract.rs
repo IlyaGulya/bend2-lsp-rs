@@ -337,12 +337,76 @@ fn finalization_contracts() -> ToolResult<()> {
     Ok(())
 }
 
+fn owner_cleanup_contracts() -> ToolResult<()> {
+    for operation in ["request", "write", "cancellation", "finalization"] {
+        static CANCEL_OWNED_REQUEST: AtomicBool = AtomicBool::new(false);
+        let fixture = if operation == "finalization" { "finalization-blocked" } else { "blocked" };
+        let (_workspace, mut client) = fixture_process(fixture)?;
+        fixture_status(&client, if operation == "finalization" { "ready-to-shutdown" } else { "not-reading" })?;
+        client.defer_abort_to_owner();
+        client.timeout = Duration::from_millis(100);
+        let started = Instant::now();
+        let outcome = match operation {
+            "write" => client.notify("large", json!({"text":"x".repeat(8 * 1024 * 1024)})),
+            "cancellation" => {
+                client.set_cancellation_flag(&CANCEL_OWNED_REQUEST);
+                CANCEL_OWNED_REQUEST.store(true, Ordering::Relaxed);
+                client.request("probe", Value::Null, None).map(|_| ())
+            }
+            "finalization" => client.finish_profiled(Duration::from_millis(100)),
+            _ => client.request("probe", Value::Null, None).map(|_| ()),
+        };
+        let error = outcome.err().ok_or_else(|| format!("owned operation unexpectedly succeeded: {operation}"))?;
+        if operation == "request" || operation == "write" {
+            assert_eq!(error.downcast_ref::<io::Error>().map(io::Error::kind), Some(io::ErrorKind::TimedOut));
+        }
+        assert!(started.elapsed() < Duration::from_secs(5), "owned operation did not return within its bound: {operation}");
+        // An attach collector's owner must get the first chance to finalize
+        // against its live target, rather than a process already reaped here.
+        assert!(client.child.try_wait()?.is_none(), "target died before its collector could stop: {operation}");
+        assert!(!client.shutdown_evidence().forced_termination);
+        client.abort();
+        assert!(client.child.try_wait()?.is_some(), "owner did not reap target: {operation}");
+        assert!(client.reader.is_none() && client.writer.is_none());
+        assert!(client.messages.is_none() && client.writes.is_none());
+    }
+    Ok(())
+}
+
+fn late_response_contract() -> ToolResult<()> {
+    for owned in [false, true] {
+        let (_workspace, mut client) = fixture_process("out-of-order")?;
+        if owned { client.defer_abort_to_owner(); }
+        let first = client.prepare_request("first", Value::Null)?;
+        let second = client.prepare_request("second", Value::Null)?;
+        let first = client.send_request(first, None)?;
+        let second = client.send_request(second, None)?;
+        assert_eq!(client.response(second)?.0, "second");
+        client.receive(Instant::now() + Duration::from_secs(10))?;
+        // A real response is buffered; require rejection at the exact expired
+        // request boundary rather than depending on scheduler timing.
+        let expired = PendingRequest { deadline: first.started, ..first };
+        let error = client.response(expired).err().ok_or("late response accepted")?;
+        assert_eq!(error.downcast_ref::<io::Error>().map(io::Error::kind), Some(io::ErrorKind::TimedOut));
+        if owned {
+            assert!(client.child.try_wait()?.is_none());
+            assert!(!client.shutdown_evidence().forced_termination);
+            client.abort();
+        }
+        assert!(client.child.try_wait()?.is_some());
+        assert!(client.reader.is_none() && client.writer.is_none());
+    }
+    Ok(())
+}
+
 pub(crate) fn contract_regressions() -> ToolResult<()> {
     large_and_pipeline_contracts()?;
     write_failure_contracts()?;
     lifecycle_contracts()?;
     cancellation_contract()?;
     finalization_contracts()?;
+    owner_cleanup_contracts()?;
+    late_response_contract()?;
     protocol_failure_contracts()?;
     let (_workspace, mut client) = fixture_process("stderr")?;
     assert_eq!(client.request("probe", Value::Null, None)?.0, true);
