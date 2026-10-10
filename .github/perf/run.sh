@@ -101,10 +101,10 @@ case "${1:?Expected workflow stage}" in
   heap)
     mkdir -p "$MEMORY_BIN_DIR"
     if [[ "$RUNNER_OS" == macOS ]]; then export CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=packed; fi
-    examples=()
-    if [[ "$MODE" == full ]]; then examples=(--example line_index_profile --example folding_allocations); fi
+    build_targets=(--bin bend2-lsp)
+    if [[ "$MODE" == full ]]; then build_targets+=(--example line_index_profile --example folding_allocations); fi
     run env CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_STRIP=none \
-      cargo build --locked --release --features dhat-heap --bin bend2-lsp "${examples[@]}" \
+      cargo build --locked --release --features dhat-heap "${build_targets[@]}" \
       --manifest-path "$RUNNER_TEMP/perf-candidate/Cargo.toml" --target-dir "$RUNNER_TEMP/heap-candidate"
     cp "$RUNNER_TEMP/heap-candidate/release/bend2-lsp$EXE_SUFFIX" "$MEMORY_BIN_DIR/"
     symbols "$RUNNER_TEMP/heap-candidate/release" "$MEMORY_BIN_DIR"

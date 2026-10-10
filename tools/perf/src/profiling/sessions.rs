@@ -28,6 +28,7 @@ pub(super) struct Session {
     control: Option<File>,
     wpr_active: bool,
     samply_etw_owned: bool,
+    samply_elevated: bool,
     heap_image: Option<String>,
     heap_ifeo: Option<Value>,
     heap_ifeo_restored: Option<bool>,
@@ -61,6 +62,7 @@ impl Session {
             control: None,
             wpr_active: false,
             samply_etw_owned: false,
+            samply_elevated: false,
             heap_image: None,
             heap_ifeo: None,
             heap_ifeo_restored: None,
@@ -373,13 +375,10 @@ impl Session {
             match ack.read(&mut buffer) {
                 Ok(count) => {
                     response.extend_from_slice(&buffer[..count]);
-                    if response == b"ack\n" {
+                    if perf_enable_acknowledged(&response)? {
                         fs::remove_file(control_path)?;
                         fs::remove_file(ack_path)?;
                         return Ok(());
-                    }
-                    if response.contains(&b'\n') {
-                        return Err(format!("perf enable rejected: {response:?}").into());
                     }
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
@@ -409,14 +408,12 @@ impl Session {
         let deadline = Instant::now() + Duration::from_secs(60);
         let mut stdout = File::open(self.output.join("profiler.stdout.log"))?;
         let mut stderr = File::open(self.output.join("profiler.stderr.log"))?;
-        let mut evidence = String::new();
+        let mut stdout_evidence = String::new();
+        let mut stderr_evidence = String::new();
         loop {
             crate::scenario::check_cancelled()?;
-            stdout.read_to_string(&mut evidence)?;
-            stderr.read_to_string(&mut evidence)?;
-            if evidence.contains(marker) {
-                return Ok(());
-            }
+            stdout.read_to_string(&mut stdout_evidence)?;
+            stderr.read_to_string(&mut stderr_evidence)?;
             if let Some(status) = self
                 .child
                 .as_mut()
@@ -424,12 +421,15 @@ impl Session {
                 .try_wait()?
             {
                 return Err(
-                    format!("Profiler exited before readiness ({status}): {evidence}").into(),
+                    format!("Profiler exited before readiness ({status}); stdout: {stdout_evidence}; stderr: {stderr_evidence}").into(),
                 );
+            }
+            if samply_attach_ready(&stderr_evidence, marker) {
+                return Ok(());
             }
             if Instant::now() >= deadline {
                 return Err(
-                    format!("Profiler did not report readiness {marker:?}: {evidence}").into(),
+                    format!("Profiler did not report readiness {marker:?}; stdout: {stdout_evidence}; stderr: {stderr_evidence}").into(),
                 );
             }
             thread::sleep(Duration::from_millis(20));
@@ -526,6 +526,11 @@ impl Session {
                     Some(control) => control.write_all(b"stop\n").map_err(Into::into),
                     None => Err("Missing perf control FIFO".into()),
                 }
+            } else if self.samply_elevated {
+                // sudo relays user-generated SIGINT to its command; do not signal
+                // the target LSP or depend on permission to signal a root process.
+                let args = ["-n", "--", "/bin/kill", "-INT", &pid.to_string()].map(str::to_owned);
+                self.cleanup_command("/usr/bin/sudo", &args).map(|_| ())
             } else if cfg!(windows) {
                 self.interrupt_windows(pid)
             } else {
@@ -553,6 +558,7 @@ impl Session {
             {
                 self.child = None;
                 self.control = None;
+                self.samply_elevated = false;
                 if !status.success() {
                     return Err(format!("Profiler finalization failed: {status}").into());
                 }
@@ -567,6 +573,20 @@ impl Session {
     }
 
     fn force_reap(&mut self) -> ToolResult<()> {
+        if self.samply_elevated
+            && let Some(child) = self.child.as_ref()
+        {
+            // Child::kill would only kill sudo, whose SIGKILL cannot be relayed.
+            // spawn owns an isolated process group and uses no terminal, so kill
+            // that whole group with the same explicitly authorized elevation.
+            let group = format!("-{}", child.id());
+            let args = ["-n", "--", "/bin/kill", "-KILL", "--", &group].map(str::to_owned);
+            if let Err(error) = self.cleanup_command("/usr/bin/sudo", &args)
+                && !matches!(self.child.as_mut().map(Child::try_wait), Some(Ok(Some(_))))
+            {
+                return Err(error);
+            }
+        }
         if let Some(child) = self.child.as_mut() {
             if child.try_wait()?.is_none() {
                 child.kill()?;
@@ -574,6 +594,7 @@ impl Session {
             child.wait()?;
             self.child = None;
         }
+        self.samply_elevated = false;
         self.control = None;
         Ok(())
     }
@@ -768,7 +789,7 @@ foreach ($helper in $helpers) {
                 "--input".to_owned(),
                 self.trace.to_string_lossy().into_owned(),
                 "--xpath".to_owned(),
-                entity.xpath,
+                entity.xpath.clone(),
                 "--output".to_owned(),
                 path.to_string_lossy().into_owned(),
             ],
@@ -777,6 +798,7 @@ foreach ($helper in $helpers) {
             &path,
             self.pid.ok_or("Missing Instruments target PID")?,
             heap,
+            Some(&entity),
         )?;
         if rows == 0 {
             return Err("Instruments exported no actual CPU sample / allocation rows".into());
@@ -788,6 +810,40 @@ foreach ($helper in $helpers) {
         }
         Ok(())
     }
+}
+
+fn samply_elevation_requested(
+    os: &str,
+    configured: Option<&str>,
+    github_actions: Option<&str>,
+) -> ToolResult<bool> {
+    if os != "macos" || configured != Some("true") {
+        return Ok(false);
+    }
+    if github_actions != Some("true") {
+        return Err(
+            "Explicit macOS samply elevation is restricted to hosted GitHub Actions".into(),
+        );
+    }
+    Ok(true)
+}
+
+fn samply_attach_ready(stderr: &str, marker: &str) -> bool {
+    // Pinned samply 0.13.1 emits a complete PID-bound stderr line after obtaining
+    // the macOS root Mach task (Linux: initialized perf events; Windows: started xperf).
+    // A partial line, stdout echo, or banner for another PID is not an attach ACK.
+    stderr.split_inclusive('\n').any(|line| line == marker)
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn perf_enable_acknowledged(response: &[u8]) -> ToolResult<bool> {
+    // perf's evlist__ctlfd_ack writes sizeof("ack\n"), including the C NUL.
+    // A fragmented newline is not yet a complete frame; no other bytes are valid.
+    const ACK: &[u8] = b"ack\n\0";
+    if !ACK.starts_with(response) {
+        return Err(format!("perf enable rejected: {response:?}").into());
+    }
+    Ok(response.len() == ACK.len())
 }
 
 pub(super) fn has_samples(data: &Value, pid: u32) -> bool {
@@ -859,12 +915,51 @@ impl ScenarioSession for Session {
                 if cfg!(windows) {
                     args.push("--keep-etl".to_owned());
                 }
-                self.spawn("samply", &args)?;
+                let elevated = samply_elevation_requested(
+                    std::env::consts::OS,
+                    std::env::var("BEND_PERF_MACOS_SAMPLY_ELEVATED")
+                        .ok()
+                        .as_deref(),
+                    std::env::var("GITHUB_ACTIONS").ok().as_deref(),
+                )?;
+                if elevated {
+                    // sudo can allocate a separate pty/process group if /dev/tty
+                    // opens, even when standard streams are files. Hosted-only
+                    // elevation must remain in our isolated owned process group.
+                    match OpenOptions::new().read(true).write(true).open("/dev/tty") {
+                        // Darwin ENXIO: this process has no controlling terminal.
+                        Err(error) if error.raw_os_error() == Some(6) => {}
+                        Err(error) => {
+                            return Err(format!(
+                                "Cannot establish headless macOS samply elevation: {error}"
+                            )
+                            .into());
+                        }
+                        Ok(_) => {
+                            return Err(
+                                "Explicit macOS samply elevation requires no controlling terminal"
+                                    .into(),
+                            );
+                        }
+                    }
+                    let path = self
+                        .tools
+                        .iter()
+                        .find(|tool| tool["program"] == "samply")
+                        .and_then(|tool| tool["path"].as_str())
+                        .ok_or("Missing prepared samply executable identity for elevation")?;
+                    let mut sudo_args = vec!["-n".to_owned(), "--".to_owned(), path.to_owned()];
+                    sudo_args.extend(args);
+                    self.samply_elevated = true;
+                    self.spawn("/usr/bin/sudo", &sudo_args)?;
+                } else {
+                    self.spawn("samply", &args)?;
+                }
                 self.samply_etw_owned = cfg!(windows);
                 let marker = match std::env::consts::OS {
-                    "linux" => format!("Recording process with PID {pid} until Ctrl+C"),
-                    "macos" => format!("Profiling {pid}, press Ctrl-C"),
-                    _ => format!("Profiling process with pid {pid}"),
+                    "linux" => format!("Recording process with PID {pid} until Ctrl+C...\n"),
+                    "macos" => format!("Profiling {pid}, press Ctrl-C to stop...\n"),
+                    _ => format!("Profiling process with pid {pid}...\n"),
                 };
                 self.wait_ready_text(&marker)?;
                 if cfg!(windows) {
@@ -982,8 +1077,137 @@ impl Drop for OwnedCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::has_samples;
+    use super::{
+        has_samples, perf_enable_acknowledged, samply_attach_ready, samply_elevation_requested,
+    };
     use serde_json::{Value, json};
+
+    #[test]
+    fn macos_samply_elevation_requires_explicit_hosted_configuration() -> super::ToolResult<()> {
+        assert!(samply_elevation_requested(
+            "macos",
+            Some("true"),
+            Some("true")
+        )?);
+        for configuration in [None, Some("false"), Some("1"), Some("TRUE")] {
+            assert!(!samply_elevation_requested(
+                "macos",
+                configuration,
+                Some("true")
+            )?);
+        }
+        for hosted in [None, Some("false"), Some("1")] {
+            assert!(samply_elevation_requested("macos", Some("true"), hosted).is_err());
+        }
+        for os in ["linux", "windows"] {
+            assert!(!samply_elevation_requested(os, Some("true"), Some("true"))?);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn perf_ack_requires_the_upstream_nul_terminated_frame() -> super::ToolResult<()> {
+        let hosted_ack = [97, 99, 107, 10, 0];
+        assert!(perf_enable_acknowledged(&hosted_ack)?);
+        // Every possible FIFO split must wait for the complete sizeof("ack\n") write.
+        for split in 0..hosted_ack.len() {
+            assert!(!perf_enable_acknowledged(&hosted_ack[..split])?);
+            let mut response = hosted_ack[..split].to_vec();
+            response.extend_from_slice(&hosted_ack[split..]);
+            assert!(perf_enable_acknowledged(&response)?);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn perf_ack_rejects_malformed_or_extra_frames() {
+        for response in [
+            b"nak\n\0".as_slice(),
+            b"ack\0",
+            b"ack\r\n\0",
+            b"ack\n\n",
+            b"ack\n\0\0",
+            b"ack\n\0ack\n\0",
+            b"ack\n\0garbage",
+        ] {
+            assert!(
+                perf_enable_acknowledged(response).is_err(),
+                "Accepted malformed ACK {response:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn samply_attach_requires_the_complete_pid_bound_stderr_banner() {
+        // ExistingProcessRunner::run_root_task in the pinned da75c28 source.
+        let marker = "Profiling 17357, press Ctrl-C to stop...\n";
+        assert!(samply_attach_ready(marker, marker));
+        assert!(samply_attach_ready(
+            &format!("Warning: child task already exited.\n{marker}"),
+            marker
+        ));
+        for end in 0..marker.len() {
+            assert!(!samply_attach_ready(&marker[..end], marker));
+        }
+        for stderr in [
+            "",
+            "Profiling 17358, press Ctrl-C to stop...\n",
+            "Profiling 173570, press Ctrl-C to stop...\n",
+            "error: Profiling 17357, press Ctrl-C to stop...\n",
+            "Profiling 17357, press Ctrl-C to stop...not attached\n",
+            "Error: task_for_pid for target task failed with error code 5.\n",
+            "Code signing successful!\n",
+        ] {
+            assert!(!samply_attach_ready(stderr, marker), "{stderr:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exited_samply_banner_cannot_acknowledge_attachment() -> super::ToolResult<()> {
+        let directory = tempfile::tempdir()?;
+        let marker = "Profiling 17357, press Ctrl-C to stop...\n";
+        super::fs::write(directory.path().join("profiler.stdout.log"), "")?;
+        super::fs::write(directory.path().join("profiler.stderr.log"), marker)?;
+        let mut session = super::Session::new("samply", "cpu", directory.path());
+        let mut child = std::process::Command::new("/bin/sh")
+            .args(["-c", "exit 0"])
+            .spawn()?;
+        child.wait()?;
+        session.child = Some(child);
+        let error = session
+            .wait_ready_text(marker)
+            .expect_err("An exited recorder is not ready even with a valid banner");
+        assert!(
+            error.to_string().contains("exited before readiness"),
+            "{error}"
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn samply_stdout_banner_is_not_an_attach_ack() -> super::ToolResult<()> {
+        let directory = tempfile::tempdir()?;
+        let marker = "Profiling 17357, press Ctrl-C to stop...\n";
+        super::fs::write(directory.path().join("profiler.stdout.log"), marker)?;
+        // Real hosted run 38071554112 had empty logs; empty stderr is never ready.
+        super::fs::write(directory.path().join("profiler.stderr.log"), "")?;
+        let mut session = super::Session::new("samply", "cpu", directory.path());
+        session.child = Some(
+            std::process::Command::new("/bin/sleep")
+                .arg("0.1")
+                .spawn()?,
+        );
+        let error = session
+            .wait_ready_text(marker)
+            .expect_err("A stdout echo must not unblock the workload");
+        assert!(
+            error.to_string().contains("exited before readiness"),
+            "{error}"
+        );
+        Ok(())
+    }
 
     fn profile(pid: &Value) -> Value {
         json!({"threads": [{"pid": pid, "samples": {
@@ -1088,6 +1312,7 @@ mod tests {
                 ])
                 .env("BEND_PERF_CANCELLATION_CASE", mode)
                 .env("BEND_PERF_CANCELLATION_DIR", directory.path())
+                .env_remove("BEND_PERF_MACOS_SAMPLY_ELEVATED")
                 .env("PATH", directory.path())
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
