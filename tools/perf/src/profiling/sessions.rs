@@ -1,0 +1,1212 @@
+use super::{
+    Child, Command, Duration, File, Instant, OpenOptions, OsString, Path, PathBuf, ScenarioSession,
+    Stdio, ToolResult, Value, doctor, fs, json, thread, validation, windows,
+};
+use std::io::{Read, Write};
+
+#[derive(Clone, Copy)]
+enum CommandMode {
+    Active,
+    Cleanup,
+}
+
+impl CommandMode {
+    fn check(self) -> ToolResult<()> {
+        match self {
+            Self::Active => crate::scenario::check_cancelled(),
+            Self::Cleanup => Ok(()),
+        }
+    }
+}
+
+pub(super) struct Session {
+    backend: String,
+    kind: String,
+    output: PathBuf,
+    child: Option<Child>,
+    notifier: Option<Child>,
+    control: Option<File>,
+    wpr_active: bool,
+    samply_etw_owned: bool,
+    heap_image: Option<String>,
+    heap_ifeo: Option<Value>,
+    heap_ifeo_restored: Option<bool>,
+    started: Instant,
+    pub(super) pid: Option<u32>,
+    pub(super) phases: Vec<Value>,
+    pub(super) heap_summary: Value,
+    commands: Vec<Value>,
+    control_messages: Vec<Value>,
+    version: Value,
+    tools: Vec<Value>,
+    trace: PathBuf,
+    instance: String,
+}
+
+impl Session {
+    pub(super) fn new(backend: &str, kind: &str, output: &Path) -> Self {
+        let filename = match backend {
+            "samply" => "samply.json",
+            "dhat" => "dhat-heap.json",
+            "perf" => "perf.data",
+            "xctrace" => "native.trace",
+            _ => "native.etl",
+        };
+        Self {
+            backend: backend.to_owned(),
+            kind: kind.to_owned(),
+            output: output.to_owned(),
+            child: None,
+            notifier: None,
+            control: None,
+            wpr_active: false,
+            samply_etw_owned: false,
+            heap_image: None,
+            heap_ifeo: None,
+            heap_ifeo_restored: None,
+            started: Instant::now(),
+            pid: None,
+            phases: Vec::new(),
+            heap_summary: Value::Null,
+            commands: Vec::new(),
+            control_messages: Vec::new(),
+            version: Value::Null,
+            tools: Vec::new(),
+            trace: output.join(filename),
+            instance: format!("bend2-perf-{}", std::process::id()),
+        }
+    }
+
+    fn record(&mut self, program: &str, args: &[String]) {
+        self.commands.push(json!({"program": program, "args": args, "elapsed_ns": self.started.elapsed().as_nanos()}));
+    }
+
+    fn command(&mut self, program: &str, args: &[String]) -> ToolResult<String> {
+        self.command_env(program, args, &[])
+    }
+
+    fn command_env(
+        &mut self,
+        program: &str,
+        args: &[String],
+        environment: &[(&str, &str)],
+    ) -> ToolResult<String> {
+        self.command_env_mode(program, args, environment, CommandMode::Active)
+    }
+
+    fn cleanup_command(&mut self, program: &str, args: &[String]) -> ToolResult<String> {
+        self.command_env_mode(program, args, &[], CommandMode::Cleanup)
+    }
+
+    fn command_env_mode(
+        &mut self,
+        program: &str,
+        args: &[String],
+        environment: &[(&str, &str)],
+        mode: CommandMode,
+    ) -> ToolResult<String> {
+        mode.check()?;
+        self.record(program, args);
+        let stdout_name = format!("command-{}.stdout.log", self.commands.len());
+        let stderr_name = format!("command-{}.stderr.log", self.commands.len());
+        let stdout = self.output.join(&stdout_name);
+        let stderr = self.output.join(&stderr_name);
+        if let Some(command) = self.commands.last_mut() {
+            command["stdout_path"] = json!(stdout_name);
+            command["stderr_path"] = json!(stderr_name);
+            if !environment.is_empty() {
+                command["environment"] = serde_json::to_value(
+                    environment
+                        .iter()
+                        .copied()
+                        .collect::<std::collections::BTreeMap<_, _>>(),
+                )?;
+            }
+        }
+        let mut child = OwnedCommand(
+            Command::new(program)
+                .args(args)
+                .envs(environment.iter().copied())
+                .stdin(Stdio::null())
+                .stdout(File::create(&stdout)?)
+                .stderr(File::create(&stderr)?)
+                .spawn()?,
+        );
+        let deadline = Instant::now() + Duration::from_secs(300);
+        let status = loop {
+            mode.check()?;
+            if let Some(status) = child.0.try_wait()? {
+                break status;
+            }
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "{program} timed out after 300s; owned child is killed and reaped"
+                )
+                .into());
+            }
+            thread::sleep(Duration::from_millis(25));
+        };
+        let mut text = fs::read_to_string(stdout)?;
+        let error = fs::read_to_string(stderr)?;
+        if !status.success() {
+            return Err(format!("{program} {args:?} failed ({status}): {error}").into());
+        }
+        text.push_str(&error);
+        Ok(text)
+    }
+
+    fn spawn(&mut self, program: &str, args: &[String]) -> ToolResult<()> {
+        crate::scenario::check_cancelled()?;
+        self.record(program, args);
+        let mut command = Command::new(program);
+        command
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(
+                OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(self.output.join("profiler.stdout.log"))?,
+            )
+            .stderr(
+                OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(self.output.join("profiler.stderr.log"))?,
+            );
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            // Own console: CTRL_C cannot reach the LSP's transport or hosted harness.
+            const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+            command.creation_flags(CREATE_NEW_CONSOLE);
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            // The harness cancellation handler controls the collector's one SIGINT.
+            command.process_group(0);
+        }
+        self.child = Some(command.spawn()?);
+        Ok(())
+    }
+
+    fn wpr(&mut self, args: &[&str]) -> ToolResult<String> {
+        self.wpr_mode(args, CommandMode::Active)
+    }
+
+    fn wpr_mode(&mut self, args: &[&str], mode: CommandMode) -> ToolResult<String> {
+        let mut args: Vec<_> = args.iter().map(|arg| (*arg).to_owned()).collect();
+        args.extend(["-instancename".to_owned(), self.instance.clone()]);
+        self.command_env_mode("wpr", &args, &[], mode)
+    }
+
+    pub(super) fn prepare(&mut self, binary: &Path) -> ToolResult<()> {
+        // HeapTracingConfig mutates machine-wide IFEO before execute starts.
+        // Install the cooperative handler at this preparation boundary too.
+        crate::scenario::install_cancellation_handler()?;
+        crate::scenario::check_cancelled()?;
+        match self.backend.as_str() {
+            "dhat" => {
+                self.version = json!("dhat 0.3.3 (embedded allocator; profile format v2)");
+            }
+            "samply" => {
+                let version = self.command("samply", &["--version".to_owned()])?;
+                self.tools
+                    .push(doctor::tool_identity("samply", version.trim())?);
+                self.version = json!(version.trim());
+                if cfg!(windows) {
+                    let version = self.command("xperf", &["-help".to_owned()])?;
+                    self.tools
+                        .push(doctor::tool_identity("xperf", version.trim())?);
+                }
+            }
+            "perf" => {
+                let version = self.command("perf", &["--version".to_owned()])?;
+                self.tools
+                    .push(doctor::tool_identity("perf", version.trim())?);
+                self.version = json!({"perf": version.trim(), "kernel": self.command("uname", &["-a".to_owned()])?.trim()});
+            }
+            "xctrace" => {
+                let version = self.command("xcodebuild", &["-version".to_owned()])?;
+                let sdk = self.command(
+                    "xcrun",
+                    &[
+                        "--sdk".to_owned(),
+                        "macosx".to_owned(),
+                        "--show-sdk-version".to_owned(),
+                    ],
+                )?;
+                let os = self.command("sw_vers", &[])?;
+                let path = self.command("xcrun", &["--find".to_owned(), "xctrace".to_owned()])?;
+                self.tools
+                    .push(doctor::tool_identity(path.trim(), version.trim())?);
+                self.version = json!({"xcode": version.trim(), "sdk": sdk.trim(), "os": os.trim()});
+            }
+            "wpr" => {
+                let version = self.command("wpr", &["-profiles".to_owned()])?;
+                self.tools
+                    .push(doctor::tool_identity("wpr", version.trim())?);
+                self.version = json!(version.trim());
+                if self.kind == "heap" {
+                    let image = binary
+                        .file_name()
+                        .and_then(std::ffi::OsStr::to_str)
+                        .ok_or("Non-Unicode heap image name")?
+                        .to_owned();
+                    self.heap_ifeo = Some(self.snapshot_ifeo(&image, CommandMode::Active)?);
+                    self.heap_image = Some(image.clone());
+                    self.heap_ifeo_restored = Some(false);
+                    self.command(
+                        "wpr",
+                        &["-HeapTracingConfig".to_owned(), image, "enable".to_owned()],
+                    )?;
+                    // IFEO configuration and Heap session must precede the target process's birth.
+                    self.wpr_active = true;
+                    self.wpr(&["-start", "Heap", "-filemode"])?;
+                }
+            }
+            _ => return Err("Unknown profiler backend".into()),
+        }
+        Ok(())
+    }
+
+    fn snapshot_ifeo(&mut self, image: &str, mode: CommandMode) -> ToolResult<Value> {
+        let args = [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            windows::SNAPSHOT_IFEO,
+        ]
+        .map(str::to_owned);
+        let text = self.command_env_mode(
+            "powershell.exe",
+            &args,
+            &[("BEND_PERF_IMAGE_NAME", image)],
+            mode,
+        )?;
+        let state: Value = serde_json::from_str(text.trim())?;
+        windows::validate_snapshot(&state)?;
+        Ok(state)
+    }
+
+    fn restore_ifeo(&mut self, image: &str) -> ToolResult<()> {
+        let state =
+            serde_json::to_string(self.heap_ifeo.as_ref().ok_or("Missing prior IFEO state")?)?;
+        let args = [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            windows::RESTORE_IFEO,
+        ]
+        .map(str::to_owned);
+        self.command_env_mode(
+            "powershell.exe",
+            &args,
+            &[
+                ("BEND_PERF_IMAGE_NAME", image),
+                ("BEND_PERF_IFEO_STATE", &state),
+            ],
+            CommandMode::Cleanup,
+        )?;
+        let restored = self.snapshot_ifeo(image, CommandMode::Cleanup)?;
+        if self.heap_ifeo.as_ref() != Some(&restored) {
+            return Err("IFEO state readback differs from the pre-profile snapshot".into());
+        }
+        self.heap_ifeo_restored = Some(true);
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    fn start_perf(&mut self, pid: u32) -> ToolResult<()> {
+        use nix::{
+            fcntl::{OFlag, open},
+            sys::stat::Mode,
+            unistd::mkfifo,
+        };
+        let control_path = self.output.join("perf-control.fifo");
+        let ack_path = self.output.join("perf-ack.fifo");
+        mkfifo(&control_path, Mode::S_IRUSR | Mode::S_IWUSR)?;
+        mkfifo(&ack_path, Mode::S_IRUSR | Mode::S_IWUSR)?;
+        self.control = Some(File::from(open(
+            &control_path,
+            OFlag::O_RDWR | OFlag::O_NONBLOCK,
+            Mode::empty(),
+        )?));
+        let mut ack = File::from(open(
+            &ack_path,
+            OFlag::O_RDWR | OFlag::O_NONBLOCK,
+            Mode::empty(),
+        )?);
+        self.spawn(
+            "perf",
+            &[
+                "record".to_owned(),
+                "--pid".to_owned(),
+                pid.to_string(),
+                "--event".to_owned(),
+                "cpu-clock:u".to_owned(),
+                "--freq".to_owned(),
+                "997".to_owned(),
+                "--call-graph".to_owned(),
+                "dwarf".to_owned(),
+                "--output".to_owned(),
+                self.trace.to_string_lossy().into_owned(),
+                "--delay=-1".to_owned(),
+                format!(
+                    "--control=fifo:{},{}",
+                    control_path.display(),
+                    ack_path.display()
+                ),
+            ],
+        )?;
+        self.control_messages.push(json!({"transport": "perf-control-fifo", "payload": "enable\n", "elapsed_ns": self.started.elapsed().as_nanos()}));
+        self.control
+            .as_mut()
+            .ok_or("Missing perf control FIFO")?
+            .write_all(b"enable\n")?;
+        let deadline = Instant::now() + Duration::from_secs(60);
+        let mut response = Vec::new();
+        let mut buffer = [0_u8; 64];
+        loop {
+            crate::scenario::check_cancelled()?;
+            match ack.read(&mut buffer) {
+                Ok(count) => {
+                    response.extend_from_slice(&buffer[..count]);
+                    if response == b"ack\n" {
+                        fs::remove_file(control_path)?;
+                        fs::remove_file(ack_path)?;
+                        return Ok(());
+                    }
+                    if response.contains(&b'\n') {
+                        return Err(format!("perf enable rejected: {response:?}").into());
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(error) => return Err(error.into()),
+            }
+            if let Some(status) = self
+                .child
+                .as_mut()
+                .ok_or("Missing perf record process")?
+                .try_wait()?
+            {
+                return Err(format!("perf exited before enable acknowledgement: {status}").into());
+            }
+            if Instant::now() >= deadline {
+                return Err("perf did not acknowledge sampling enable within 60s".into());
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn start_perf(_pid: u32) -> ToolResult<()> {
+        Err("The perf backend requires native Linux".into())
+    }
+
+    fn wait_ready_text(&mut self, marker: &str) -> ToolResult<()> {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        let mut stdout = File::open(self.output.join("profiler.stdout.log"))?;
+        let mut stderr = File::open(self.output.join("profiler.stderr.log"))?;
+        let mut evidence = String::new();
+        loop {
+            crate::scenario::check_cancelled()?;
+            stdout.read_to_string(&mut evidence)?;
+            stderr.read_to_string(&mut evidence)?;
+            if evidence.contains(marker) {
+                return Ok(());
+            }
+            if let Some(status) = self
+                .child
+                .as_mut()
+                .ok_or("Profiler child not running")?
+                .try_wait()?
+            {
+                return Err(
+                    format!("Profiler exited before readiness ({status}): {evidence}").into(),
+                );
+            }
+            if Instant::now() >= deadline {
+                return Err(
+                    format!("Profiler did not report readiness {marker:?}: {evidence}").into(),
+                );
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn start_xctrace(&mut self, pid: u32) -> ToolResult<()> {
+        let notification = format!("org.bend2.perf.started.{}.{}", std::process::id(), pid);
+        let args = vec!["-1".to_owned(), notification.clone()];
+        self.record("notifyutil", &args);
+        self.notifier = Some(
+            Command::new("notifyutil")
+                .args(&args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(
+                    OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(self.output.join("profiler.stderr.log"))?,
+                )
+                .spawn()?,
+        );
+        let template = if self.kind == "heap" {
+            "Allocations"
+        } else {
+            "Time Profiler"
+        };
+        self.spawn(
+            "xcrun",
+            &[
+                "xctrace".to_owned(),
+                "record".to_owned(),
+                "--template".to_owned(),
+                template.to_owned(),
+                "--attach".to_owned(),
+                pid.to_string(),
+                "--time-limit".to_owned(),
+                "600s".to_owned(),
+                "--no-prompt".to_owned(),
+                "--notify-tracing-started".to_owned(),
+                notification,
+                "--output".to_owned(),
+                self.trace.to_string_lossy().into_owned(),
+            ],
+        )?;
+        let deadline = Instant::now() + Duration::from_secs(60);
+        loop {
+            crate::scenario::check_cancelled()?;
+            if let Some(status) = self
+                .notifier
+                .as_mut()
+                .ok_or("Missing readiness notifier")?
+                .try_wait()?
+            {
+                if !status.success() {
+                    return Err(format!("xctrace notification observer failed: {status}").into());
+                }
+                self.notifier = None;
+                return Ok(());
+            }
+            if let Some(status) = self
+                .child
+                .as_mut()
+                .ok_or("Missing xctrace process")?
+                .try_wait()?
+            {
+                return Err(format!("xctrace exited before started notification: {status}").into());
+            }
+            if Instant::now() >= deadline {
+                return Err(
+                    "xctrace did not post its tracing-started notification within 60s".into(),
+                );
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn stop_child(&mut self, mode: CommandMode) -> ToolResult<()> {
+        // Cancellation must not leave a collector waiting out finalization.
+        // Cleanup still reaps it, without allowing cancellation to skip work.
+        if crate::scenario::check_cancelled().is_err() {
+            self.force_reap()?;
+            return mode.check();
+        }
+        let Some(child) = self.child.as_mut() else {
+            return Ok(());
+        };
+        let pid = child.id();
+        if child.try_wait()?.is_none() {
+            let signal = if self.backend == "perf" {
+                self.control_messages.push(json!({"transport": "perf-control-fifo", "payload": "stop\n", "elapsed_ns": self.started.elapsed().as_nanos()}));
+                match self.control.as_mut() {
+                    Some(control) => control.write_all(b"stop\n").map_err(Into::into),
+                    None => Err("Missing perf control FIFO".into()),
+                }
+            } else if cfg!(windows) {
+                self.interrupt_windows(pid)
+            } else {
+                let args = ["-INT".to_owned(), pid.to_string()];
+                self.cleanup_command("kill", &args).map(|_| ())
+            };
+            if let Err(error) = signal {
+                self.force_reap()?;
+                return Err(
+                    format!("Failed to interrupt profiler, forcibly reaped: {error}").into(),
+                );
+            }
+        }
+        let deadline = Instant::now() + Duration::from_secs(300);
+        loop {
+            if let Err(error) = mode.check() {
+                self.force_reap()?;
+                return Err(error);
+            }
+            if let Some(status) = self
+                .child
+                .as_mut()
+                .ok_or("Missing profiler child")?
+                .try_wait()?
+            {
+                self.child = None;
+                self.control = None;
+                if !status.success() {
+                    return Err(format!("Profiler finalization failed: {status}").into());
+                }
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                self.force_reap()?;
+                return Err("Profiler did not finalize within 300s; killed and reaped".into());
+            }
+            thread::sleep(Duration::from_millis(25));
+        }
+    }
+
+    fn force_reap(&mut self) -> ToolResult<()> {
+        if let Some(child) = self.child.as_mut() {
+            if child.try_wait()?.is_none() {
+                child.kill()?;
+            }
+            child.wait()?;
+            self.child = None;
+        }
+        self.control = None;
+        Ok(())
+    }
+
+    fn interrupt_windows(&mut self, pid: u32) -> ToolResult<()> {
+        const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class BendPerfConsole { [DllImport("kernel32.dll", SetLastError=true)] public static extern bool FreeConsole(); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool AttachConsole(uint pid); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetConsoleCtrlHandler(IntPtr handler, bool ignore); [DllImport("kernel32.dll", SetLastError=true)] public static extern bool GenerateConsoleCtrlEvent(uint ctrl, uint group); }'
+[void][BendPerfConsole]::FreeConsole()
+if (![BendPerfConsole]::AttachConsole([uint32]$env:BEND_PERF_COLLECTOR_PID)) { throw 'AttachConsole failed' }
+if (![BendPerfConsole]::SetConsoleCtrlHandler([IntPtr]::Zero,$true)) { throw 'SetConsoleCtrlHandler failed' }
+if (![BendPerfConsole]::GenerateConsoleCtrlEvent(0,0)) { throw 'GenerateConsoleCtrlEvent failed' }
+Start-Sleep -Milliseconds 100
+[void][BendPerfConsole]::FreeConsole()"#;
+        let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
+        let pid = pid.to_string();
+        self.command_env_mode(
+            "powershell.exe",
+            &args,
+            &[("BEND_PERF_COLLECTOR_PID", &pid)],
+            CommandMode::Cleanup,
+        )?;
+        Ok(())
+    }
+
+    fn cleanup_samply_etw(&mut self) -> ToolResult<()> {
+        // A forcibly terminated sampler can orphan its hidden elevated helper.
+        // Match this unique output path, never another recording's helper.
+        const SCRIPT: &str = r"$ErrorActionPreference='Stop'
+$helpers = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'samply.exe' -and $_.CommandLine -and $_.CommandLine.Contains('run-elevated-helper') -and $_.CommandLine.Contains($env:BEND_PERF_TRACE_PATH) })
+foreach ($helper in $helpers) {
+  $process = Get-Process -Id $helper.ProcessId -ErrorAction SilentlyContinue
+  if ($process) { $process.Kill(); if (!$process.WaitForExit(30000)) { throw 'Owned sampler helper did not exit after termination' } }
+}";
+        if !self.samply_etw_owned {
+            return Ok(());
+        }
+        let loggers = self.cleanup_command("xperf", &["-loggers".to_owned()])?;
+        if doctor::kernel_logger_running(&loggers) {
+            self.cleanup_command("xperf", &["-stop".to_owned()])?;
+            let remaining = self.cleanup_command("xperf", &["-loggers".to_owned()])?;
+            if doctor::kernel_logger_running(&remaining) {
+                return Err("Owned samply kernel ETW session remained active after stop".into());
+            }
+        }
+        let trace = self.trace.to_string_lossy().into_owned();
+        let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
+        self.command_env_mode(
+            "powershell.exe",
+            &args,
+            &[("BEND_PERF_TRACE_PATH", &trace)],
+            CommandMode::Cleanup,
+        )?;
+        self.samply_etw_owned = false;
+        Ok(())
+    }
+
+    fn stop_wpr(&mut self) -> ToolResult<()> {
+        if self.wpr_active {
+            let path = self.trace.to_string_lossy().into_owned();
+            self.wpr_mode(
+                &["-stop", &path, "Bend2 LSP isolated semantic scenario"],
+                CommandMode::Cleanup,
+            )?;
+            self.wpr_active = false;
+        }
+        Ok(())
+    }
+
+    pub(super) fn profiler(&self) -> Value {
+        let viewer = match self.backend.as_str() {
+            "samply" => vec![
+                "samply",
+                "load",
+                "samply.json",
+                "--symbol-dir",
+                "symbols",
+                "--address",
+                "127.0.0.1",
+            ],
+            "perf" => vec!["perf", "report", "--input", "perf.data"],
+            "xctrace" => vec!["open", "-a", "Instruments", "native.trace"],
+            "wpr" => vec!["wpa.exe", "native.etl"],
+            _ => Vec::new(),
+        };
+        json!({"version": self.version, "commands": self.commands, "control_messages": self.control_messages, "tools": self.tools,
+            "heap_ifeo_state_before": self.heap_ifeo, "heap_ifeo_restored": self.heap_ifeo_restored,
+            "source": if self.backend == "samply" { doctor::SAMPLY_SOURCE } else { "OS/Xcode/kernel tool identity pinned by version and binary SHA256" },
+            "viewer_command": viewer, "viewer_url": if self.backend == "dhat" {Some("https://nnethercote.github.io/dh_view/dh_view.html")} else {None},
+            "phase_markers": if self.backend == "wpr" {"ETW wpr -marker and manifest timestamps"} else {"manifest timestamps; no fabricated in-trace marker support"}})
+    }
+
+    pub(super) fn validate(&mut self, binary: &Path) -> ToolResult<()> {
+        if self.backend == "dhat" {
+            self.heap_summary = crate::native::validate_dhat_profile(
+                &self.trace,
+                self.pid.ok_or("Missing DHAT target PID")?,
+                &[binary.to_str().ok_or("Non-Unicode binary path")?.to_owned()],
+            )?;
+        } else if self.backend == "samply" {
+            let data: Value = serde_json::from_reader(File::open(&self.trace)?)?;
+            let pid = self.pid.ok_or("Missing sampler target PID")?;
+            if !has_samples(&data, pid) {
+                return Err("Samply profile has no actual target-PID CPU samples".into());
+            }
+            if cfg!(windows) {
+                self.validate_etl()?;
+            }
+        } else if self.backend == "perf" {
+            let trace = self.trace.to_string_lossy().into_owned();
+            let samples = self.command(
+                "perf",
+                &[
+                    "script".to_owned(),
+                    "--input".to_owned(),
+                    trace,
+                    "--fields".to_owned(),
+                    "pid".to_owned(),
+                ],
+            )?;
+            let pid = self.pid.ok_or("Missing perf target PID")?.to_string();
+            if !samples.lines().any(|line| line.trim() == pid) {
+                return Err("perf.data has no actual target-PID sample records".into());
+            }
+        } else if self.backend == "xctrace" {
+            self.validate_instruments()?;
+        } else {
+            self.validate_etl()?;
+        }
+        Ok(())
+    }
+
+    fn validate_etl(&mut self) -> ToolResult<()> {
+        let path = self.output.join("native-events.xml");
+        let trace = if self.backend == "samply" {
+            self.trace.with_extension("kernel.etl")
+        } else {
+            self.trace.clone()
+        };
+        let args = [
+            trace.to_string_lossy().into_owned(),
+            "-of".to_owned(),
+            "XML".to_owned(),
+            "-o".to_owned(),
+            path.to_string_lossy().into_owned(),
+            "-y".to_owned(),
+        ];
+        self.command("tracerpt", &args)?;
+        self.tools.push(doctor::tool_identity(
+            "tracerpt",
+            "Windows OS ETL decoder; executable identity",
+        )?);
+        let summary = validation::etl_summary(
+            &path,
+            self.pid.ok_or("Missing ETW target PID")?,
+            self.kind == "heap",
+        )?;
+        crate::common::write_json(&self.output.join("native-validation.json"), &summary)?;
+        if self.kind == "heap" {
+            self.heap_summary = summary;
+        }
+        Ok(())
+    }
+
+    fn validate_instruments(&mut self) -> ToolResult<()> {
+        let toc = self.command(
+            "xcrun",
+            &[
+                "xctrace".to_owned(),
+                "export".to_owned(),
+                "--input".to_owned(),
+                self.trace.to_string_lossy().into_owned(),
+                "--toc".to_owned(),
+            ],
+        )?;
+        fs::write(self.output.join("native-toc.xml"), &toc)?;
+        let heap = self.kind == "heap";
+        let entities = validation::instrument_entities(
+            &toc,
+            self.pid.ok_or("Missing Instruments target PID")?,
+            heap,
+        )?;
+        let entity = entities
+            .into_iter()
+            .next()
+            .ok_or("Missing instrument table")?;
+        let path = self.output.join("native-table.xml");
+        self.command(
+            "xcrun",
+            &[
+                "xctrace".to_owned(),
+                "export".to_owned(),
+                "--input".to_owned(),
+                self.trace.to_string_lossy().into_owned(),
+                "--xpath".to_owned(),
+                entity.xpath,
+                "--output".to_owned(),
+                path.to_string_lossy().into_owned(),
+            ],
+        )?;
+        let rows = validation::instrument_rows(
+            &path,
+            self.pid.ok_or("Missing Instruments target PID")?,
+            heap,
+        )?;
+        if rows == 0 {
+            return Err("Instruments exported no actual CPU sample / allocation rows".into());
+        }
+        let summary = json!({"target_pid": self.pid, "schema_or_detail": entity.label, "recorded_rows": rows, "measurement": "Original Instruments CPU/allocator diagnostic rows, not RSS or clean latency"});
+        crate::common::write_json(&self.output.join("native-validation.json"), &summary)?;
+        if heap {
+            self.heap_summary = summary;
+        }
+        Ok(())
+    }
+}
+
+pub(super) fn has_samples(data: &Value, pid: u32) -> bool {
+    let pid_text = pid.to_string();
+    data["threads"].as_array().is_some_and(|threads| {
+        threads.iter().any(|thread| {
+            if thread["pid"].as_u64() != Some(u64::from(pid))
+                && thread["pid"].as_str() != Some(pid_text.as_str())
+            {
+                return false;
+            }
+            let samples = &thread["samples"];
+            let (Some(count), Some(stacks), Some(weights), Some(deltas)) = (
+                samples["length"].as_u64(),
+                samples["stack"].as_array(),
+                samples["weight"].as_array(),
+                samples["threadCPUDelta"].as_array(),
+            ) else {
+                return false;
+            };
+            count > 0
+                && [stacks.len(), weights.len(), deltas.len()]
+                    .into_iter()
+                    .all(|length| u64::try_from(length).ok() == Some(count))
+                && stacks
+                    .iter()
+                    .zip(weights)
+                    .zip(deltas)
+                    .any(|((stack, weight), delta)| {
+                        stack.as_u64().is_some()
+                            && weight.as_f64().is_some_and(|value| value > 0.0)
+                            && delta.as_f64().is_some_and(|value| value > 0.0)
+                    })
+        })
+    })
+}
+
+impl ScenarioSession for Session {
+    fn child_environment(&self) -> Vec<(OsString, OsString)> {
+        if self.backend == "dhat" {
+            vec![(
+                OsString::from("BEND2_LSP_DHAT_FILE"),
+                self.trace.as_os_str().to_owned(),
+            )]
+        } else {
+            Vec::new()
+        }
+    }
+    fn finish_before_shutdown(&self) -> bool {
+        self.backend != "dhat"
+    }
+    fn finalization_timeout(&self) -> Duration {
+        Duration::from_secs(300)
+    }
+    fn started(&mut self, pid: u32) -> ToolResult<()> {
+        crate::scenario::check_cancelled()?;
+        self.pid = Some(pid);
+        match self.backend.as_str() {
+            "dhat" => {}
+            "samply" => {
+                let mut args = vec![
+                    "record".to_owned(),
+                    "--save-only".to_owned(),
+                    "--pid".to_owned(),
+                    pid.to_string(),
+                    "--output".to_owned(),
+                    self.trace.to_string_lossy().into_owned(),
+                ];
+                if cfg!(windows) {
+                    args.push("--keep-etl".to_owned());
+                }
+                self.spawn("samply", &args)?;
+                self.samply_etw_owned = cfg!(windows);
+                let marker = match std::env::consts::OS {
+                    "linux" => format!("Recording process with PID {pid} until Ctrl+C"),
+                    "macos" => format!("Profiling {pid}, press Ctrl-C"),
+                    _ => format!("Profiling process with pid {pid}"),
+                };
+                self.wait_ready_text(&marker)?;
+                if cfg!(windows) {
+                    let loggers = self.command("xperf", &["-loggers".to_owned()])?;
+                    if !doctor::kernel_logger_running(&loggers) {
+                        return Err("Samply did not start its kernel ETW session; the upstream banner alone is not readiness".into());
+                    }
+                }
+            }
+            "perf" => {
+                #[cfg(target_os = "linux")]
+                self.start_perf(pid)?;
+                #[cfg(not(target_os = "linux"))]
+                Self::start_perf(pid)?;
+            }
+            "xctrace" => self.start_xctrace(pid)?,
+            "wpr" => {
+                if !self.wpr_active {
+                    self.wpr_active = true;
+                    self.wpr(&["-start", "CPU", "-filemode"])?;
+                }
+                let status = self.wpr(&["-status"])?;
+                if !status.contains("recording is in progress") {
+                    return Err(format!("WPR session failed readiness: {status}").into());
+                }
+            }
+            _ => return Err("Unknown backend".into()),
+        }
+        self.phase("profiler.ready")
+    }
+    fn phase(&mut self, name: &str) -> ToolResult<()> {
+        crate::scenario::check_cancelled()?;
+        self.phases
+            .push(json!({"name": name, "elapsed_ns": self.started.elapsed().as_nanos()}));
+        if self.backend == "wpr" && self.wpr_active {
+            self.wpr(&["-marker", name])?;
+        }
+        Ok(())
+    }
+    fn finished(&mut self) -> ToolResult<()> {
+        self.stop_child(CommandMode::Active)?;
+        self.stop_wpr()?;
+        self.cleanup_samply_etw()?;
+        crate::scenario::check_cancelled()?;
+        Ok(())
+    }
+    fn abort(&mut self) -> ToolResult<()> {
+        let mut errors = Vec::new();
+        if let Some(mut notifier) = self.notifier.take() {
+            if let Err(error) = notifier.kill() {
+                errors.push(error.to_string());
+            }
+            if let Err(error) = notifier.wait() {
+                errors.push(error.to_string());
+            }
+        }
+        if let Err(error) = self.stop_child(CommandMode::Cleanup) {
+            errors.push(error.to_string());
+        }
+        if let Err(error) = self.cleanup_samply_etw() {
+            errors.push(error.to_string());
+        }
+        if self.wpr_active {
+            match self.wpr_mode(&["-cancel"], CommandMode::Cleanup) {
+                Ok(_) => self.wpr_active = false,
+                Err(error) => errors.push(error.to_string()),
+            }
+        }
+        if let Some(image) = self.heap_image.clone() {
+            let args = [
+                "-HeapTracingConfig".to_owned(),
+                image.clone(),
+                "disable".to_owned(),
+            ];
+            if let Err(error) = self.cleanup_command("wpr", &args) {
+                errors.push(error.to_string());
+            }
+            // Restore even if WPR's disable failed; retain state for Drop retry on failure.
+            match self.restore_ifeo(&image) {
+                Ok(()) => self.heap_image = None,
+                Err(error) => errors.push(error.to_string()),
+            }
+        }
+        for name in ["perf-control.fifo", "perf-ack.fifo"] {
+            if let Err(error) = fs::remove_file(self.output.join(name))
+                && error.kind() != std::io::ErrorKind::NotFound
+            {
+                errors.push(error.to_string());
+            }
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.join("; ").into())
+        }
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        let _ = self.abort();
+    }
+}
+
+struct OwnedCommand(Child);
+
+impl Drop for OwnedCommand {
+    fn drop(&mut self) {
+        if !matches!(self.0.try_wait(), Ok(Some(_))) {
+            let _ = self.0.kill();
+        }
+        let _ = self.0.wait();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::has_samples;
+    use serde_json::{Value, json};
+
+    fn profile(pid: &Value) -> Value {
+        json!({"threads": [{"pid": pid, "samples": {
+            "length": 1, "stack": [0], "weight": [1], "threadCPUDelta": [125.0]
+        }}]})
+    }
+
+    #[test]
+    fn cpu_evidence_requires_actual_target_pid() {
+        assert!(has_samples(&profile(&json!(123)), 123));
+        assert!(has_samples(&profile(&json!("123")), 123));
+        assert!(!has_samples(&profile(&json!(124)), 123));
+    }
+
+    #[test]
+    fn cpu_evidence_rejects_idle_or_metadata_only_samples() {
+        let mut data = profile(&json!(123));
+        data["threads"][0]["samples"]["threadCPUDelta"] = json!([0]);
+        assert!(!has_samples(&data, 123));
+        data["threads"][0]["samples"]["threadCPUDelta"] = json!([125]);
+        data["threads"][0]["samples"]["stack"] = json!([null]);
+        assert!(!has_samples(&data, 123));
+    }
+
+    #[test]
+    fn cpu_evidence_rejects_incoherent_columns() {
+        let mut data = profile(&json!(123));
+        data["threads"][0]["samples"]["length"] = json!(2);
+        assert!(!has_samples(&data, 123));
+        data["threads"][0]["samples"]["length"] = json!(1);
+        data["threads"][0]["samples"]["weight"] = json!([]);
+        assert!(!has_samples(&data, 123));
+    }
+
+    #[cfg(unix)]
+    fn wait_for_cancellation_ready(
+        child: &mut std::process::Child,
+        ready: &std::path::Path,
+        mode: &str,
+    ) -> super::ToolResult<()> {
+        use super::{Duration, Instant, thread};
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !ready.exists() {
+            assert!(
+                child.try_wait()?.is_none(),
+                "Cancellation fixture exited before reaching {mode}"
+            );
+            assert!(
+                Instant::now() < deadline,
+                "Cancellation fixture never reached {mode}"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    fn cancellation_case(mode: &str, signal: &str) -> super::ToolResult<()> {
+        use std::{
+            fs,
+            os::unix::fs::PermissionsExt,
+            process::{Command, Stdio},
+            thread,
+            time::{Duration, Instant},
+        };
+        struct FixtureCleanup {
+            pid_file: std::path::PathBuf,
+            active: bool,
+        }
+        impl Drop for FixtureCleanup {
+            fn drop(&mut self) {
+                if self.active
+                    && let Ok(pid) = fs::read_to_string(&self.pid_file)
+                {
+                    let _ = Command::new("/bin/kill")
+                        .args(["-KILL", &pid])
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .status();
+                }
+            }
+        }
+        let directory = tempfile::tempdir()?;
+        let collector = directory.path().join("samply");
+        // A real blocked collector, not synthetic profiler-success evidence.
+        fs::write(
+            &collector,
+            "#!/bin/sh\ntrap '' INT\nprintf '%s' \"$$\" > \"$BEND_PERF_CANCELLATION_DIR/collector.pid\"\nexec /bin/sleep 30\n",
+        )?;
+        fs::set_permissions(&collector, fs::Permissions::from_mode(0o700))?;
+        // Keep failing-before regressions from orphaning their blocked fixture.
+        let mut cleanup = FixtureCleanup {
+            pid_file: directory.path().join("collector.pid"),
+            active: true,
+        };
+        let mut child = super::OwnedCommand(
+            Command::new(std::env::current_exe()?)
+                .args([
+                    "--exact",
+                    "profiling::sessions::tests::cancellation_fixture",
+                    "--nocapture",
+                ])
+                .env("BEND_PERF_CANCELLATION_CASE", mode)
+                .env("BEND_PERF_CANCELLATION_DIR", directory.path())
+                .env("PATH", directory.path())
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()?,
+        );
+        let ready = directory.path().join(if mode == "prepare-signal" {
+            "prepared"
+        } else {
+            "collector.pid"
+        });
+        wait_for_cancellation_ready(&mut child.0, &ready, mode)?;
+        let started = Instant::now();
+        assert!(
+            Command::new("/bin/kill")
+                .args([signal, &child.0.id().to_string()])
+                .status()?
+                .success()
+        );
+        let status = loop {
+            if let Some(status) = child.0.try_wait()? {
+                break status;
+            }
+            assert!(
+                started.elapsed() < Duration::from_secs(3),
+                "Cancellation did not unblock {mode} promptly"
+            );
+            thread::sleep(Duration::from_millis(10));
+        };
+        let mut evidence = String::new();
+        if let Some(mut stdout) = child.0.stdout.take() {
+            std::io::Read::read_to_string(&mut stdout, &mut evidence)?;
+        }
+        if let Some(mut stderr) = child.0.stderr.take() {
+            std::io::Read::read_to_string(&mut stderr, &mut evidence)?;
+        }
+        assert!(
+            status.success(),
+            "{mode} cancellation failed: {status}: {evidence}"
+        );
+        if mode != "prepare-signal" {
+            let pid = fs::read_to_string(directory.path().join("collector.pid"))?;
+            assert!(
+                !Command::new("/bin/kill")
+                    .args(["-0", &pid])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status()?
+                    .success(),
+                "Owned collector remained alive after {mode} cancellation"
+            );
+        }
+        cleanup.active = false;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preparation_installs_cleanup_capable_signal_handler() -> super::ToolResult<()> {
+        cancellation_case("prepare-signal", "-TERM")
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn blocked_preparation_command_is_cancelled_and_reaped() -> super::ToolResult<()> {
+        cancellation_case("command", "-INT")
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn blocked_recorder_readiness_is_cancelled_and_reaped() -> super::ToolResult<()> {
+        cancellation_case("readiness", "-TERM")
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancellation_fixture() -> super::ToolResult<()> {
+        use super::{ScenarioSession, Session};
+        use std::{
+            fs,
+            path::Path,
+            thread,
+            time::{Duration, Instant},
+        };
+        let Ok(mode) = std::env::var("BEND_PERF_CANCELLATION_CASE") else {
+            return Ok(());
+        };
+        let directory = std::path::PathBuf::from(
+            std::env::var_os("BEND_PERF_CANCELLATION_DIR").ok_or("Missing fixture directory")?,
+        );
+        let mut session = Session::new("dhat", "heap", &directory);
+        session.prepare(Path::new("not-spawned"))?;
+        if mode == "prepare-signal" {
+            fs::write(directory.join("prepared"), b"")?;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            // Observe cancellation through the collector hook, not handler internals.
+            loop {
+                if let Err(error) = session.started(123) {
+                    assert!(error.to_string().contains("cancelled"), "{error}");
+                    session.abort()?;
+                    return Ok(());
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "Preparation did not install a cooperative handler"
+                );
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+        let mut session = Session::new("samply", "cpu", &directory);
+        let outcome = if mode == "command" {
+            session.prepare(Path::new("not-spawned"))
+        } else {
+            session.started(123)
+        };
+        let error = outcome.expect_err("Blocked collector unexpectedly succeeded");
+        assert!(error.to_string().contains("cancelled"), "{error}");
+        // Drop must clean up even when the caller does not explicitly abort.
+        drop(session);
+        Ok(())
+    }
+}

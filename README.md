@@ -459,6 +459,39 @@ Keep the named Cargo and target volumes. Use `docker compose stop rust` /
 `docker compose start rust` for routine pause/resume; rebuild only when the
 container definition changes.
 
+### Hosted performance workflow
+
+Use the same Rust entrypoint on Linux, macOS, and Windows:
+
+```sh
+cargo perf doctor
+cargo perf compare --base main --candidate HEAD
+cargo perf profile discovery-10000 --cpu
+cargo perf profile discovery-10000 --heap
+cargo perf profile discovery-10000 --native
+cargo perf open <run-id-or-downloaded-directory>
+```
+
+`compare` and `profile` resolve pushed source commits, launch hosted CI, and
+download the exact requested run. They do not measure the local machine.
+`--target` selects a native triple; the default runs all six targets.
+The offline report separates failed or incomplete collection, changed workload
+scope, report-only measurements, and the original Callgrind gate.
+
+Process-memory observations use Linux resident pages, macOS resident size and
+separate physical footprint, or Windows working set and separate private commit.
+CPU sampling uses pinned samply; native diagnostics use Linux perf, macOS
+Instruments, and Windows WPR/WPA. Clean latency, CPU sampling, and heap profiling
+run in separate LSP processes against shared, semantically checked scenarios.
+
+For an interactive CPU view, run
+`cargo perf open <downloaded-directory> --cpu --scenario discovery-10000 --target <triple>`.
+This validates the selected trace and supplies its downloaded symbols to samply;
+it does not collect another measurement. The viewer requires samply installed.
+Native traces retain their original formats for Instruments, WPA, or perf.
+See [the performance policy](docs/performance-policy.md) for prerequisites,
+artifact verification, and the diagnostic and weekly workflows.
+
 ### Opt-in server heap profiling
 
 The optional `dhat-heap` feature profiles allocations in the actual LSP server

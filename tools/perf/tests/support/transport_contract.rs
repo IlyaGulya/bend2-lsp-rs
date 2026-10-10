@@ -210,8 +210,10 @@ fn write_failure_contracts() -> ToolResult<()> {
     let (_workspace, mut client) = fixture_process("blocked")?;
     fixture_status(&client, "not-reading")?;
     client.timeout = Duration::from_millis(100);
-    let error = client.notify("large", json!({"text":"x".repeat(8 * 1024 * 1024)})).err().ok_or("blocked writer unexpectedly completed")?;
-    assert!(error.to_string().contains("timed out writing"));
+    let started = Instant::now();
+    assert!(client.notify("large", json!({"text":"x".repeat(8 * 1024 * 1024)})).is_err());
+    assert!(started.elapsed() >= client.timeout);
+    assert!(started.elapsed() < Duration::from_secs(5));
     assert!(client.child.try_wait()?.is_some());
     assert!(client.reader.is_none() && client.writer.is_none());
     assert!(client.writes.is_none());
@@ -239,6 +241,20 @@ fn lifecycle_contracts() -> ToolResult<()> {
     fixture_status(&client, "not-reading")?;
     client.timeout = Duration::from_millis(100);
     assert!(client.request("probe", Value::Null, None).is_err());
+    assert!(client.child.try_wait()?.is_some());
+    assert!(client.reader.is_none() && client.writer.is_none());
+    Ok(())
+}
+
+fn cancellation_contract() -> ToolResult<()> {
+    static CANCEL_REQUEST: AtomicBool = AtomicBool::new(false);
+    let (_workspace, mut client) = fixture_process("blocked")?;
+    fixture_status(&client, "not-reading")?;
+    client.set_cancellation_flag(&CANCEL_REQUEST);
+    CANCEL_REQUEST.store(true, Ordering::Relaxed);
+    let started = Instant::now();
+    assert!(client.request("probe", Value::Null, None).is_err());
+    assert!(started.elapsed() < Duration::from_secs(5));
     assert!(client.child.try_wait()?.is_some());
     assert!(client.reader.is_none() && client.writer.is_none());
     Ok(())
@@ -325,6 +341,7 @@ pub(crate) fn contract_regressions() -> ToolResult<()> {
     large_and_pipeline_contracts()?;
     write_failure_contracts()?;
     lifecycle_contracts()?;
+    cancellation_contract()?;
     finalization_contracts()?;
     protocol_failure_contracts()?;
     let (_workspace, mut client) = fixture_process("stderr")?;

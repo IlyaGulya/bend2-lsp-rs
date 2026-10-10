@@ -271,13 +271,26 @@ JSON checkpoints use buffered writes to a temporary sibling followed by atomic
 replacement. Interrupted serialization preserves the preceding valid checkpoint;
 an incomplete collection still cannot become a successful comparison.
 
-Linux RSS observations retain timestamped samples every 20 ms, cold sampled
-peaks, retained state, and observations immediately and 100 ms after workspace
-root removal. Candidate workspace symbols must become empty after removal.
-Sampled peaks are lower bounds; kernel high-water marks cover the process
-lifetime. RSS may remain high after snapshots are freed because the allocator
-retains pages. macOS/Windows RSS is unavailable, explicitly null with an
-observation error, and is not inferred from DHAT allocation totals.
+Process resident-memory observations retain timestamped samples every 20 ms,
+cold sampled peaks, retained state, and observations immediately and 100 ms
+after workspace root removal. Candidate workspace symbols must become empty
+after removal. Sampled peaks are lower bounds; exposed kernel high-water marks
+cover the process lifetime. Resident memory may remain high after snapshots are
+freed because the allocator retains pages.
+
+- Linux reads `VmRSS` and `VmHWM` from the target PID's `/proc/<pid>/status`,
+  with separate anonymous/file/shared resident and swap observations.
+- macOS uses safe `libproc` wrappers for `proc_pid_rusage`: resident size is
+  separate from physical footprint and wired memory. Its resident high-water
+  mark is explicitly unavailable, not replaced with a footprint peak.
+- Windows uses safe `winsafe` wrappers: working set and peak working set are
+  separate from private commit and paged/nonpaged pool usage. Private commit is
+  not RSS or pagefile occupancy.
+
+Native field definitions and byte units travel with the report metadata.
+Missing required resident samples/checkpoints make the report incomplete;
+optional unavailable metrics stay null. No values are inferred from DHAT totals,
+and no numerical comparisons are made across native targets.
 
 Allocation profiles use separately built optimized, symbolized `dhat-heap`
 executables for the real LSP lifecycle and the existing line-index/folding
@@ -309,6 +322,70 @@ The canonical Linux/x86_64 Callgrind gate and the calibration workflow remain
 unchanged. Callgrind is unavailable on the supported macOS/Windows runners;
 native timing/allocation reports do not replace its instruction/cache metrics.
 Workflow/enforcement changes require the `policy-approved` pull-request label.
+
+
+### Unified hosted CLI and reports
+
+The workspace Cargo alias runs the unpublished Rust tool:
+
+```sh
+cargo perf doctor
+cargo perf compare --base main --candidate HEAD
+cargo perf profile discovery-10000 --cpu
+cargo perf profile discovery-10000 --heap
+cargo perf profile discovery-10000 --native --native-kind cpu
+cargo perf open <run-id-or-downloaded-directory>
+```
+
+`doctor` inspects prerequisites without elevation, installation, authentication
+changes, or measurements. Its default checks local Rust/Cargo, `gh`, repository
+identity and existing authentication. Optional `--backend cpu|heap|native`
+inspects that local diagnostic tool; those tools are not required locally to
+dispatch hosted collection.
+
+`compare`/`profile` resolve exact pushed source SHAs. `HEAD` means the committed
+head, not uncommitted edits. The workflow definition defaults to the repository's
+default branch; `--workflow-ref` can select a published branch or tag after the
+workflow is registered on the default branch. A unique request ID selects the
+exact run; the tool never downloads an arbitrary latest run. `--target` defaults
+to all six triples or selects one explicitly. Existing output directories are
+never overwritten.
+
+The diagnostic workflow supports `compare`, `cpu`, `heap`, `native`, and `full`.
+Ordinary PRs retain clean native latency/discovery/process-memory collection and
+the unchanged canonical Linux x86-64 Callgrind job. Infrastructure-source changes
+add six-target backend verification and native tooling contract tests.
+The weekly/manual full workflow additionally retains every original thirteen
+DHAT workload and profiles all four shared scenarios: `discovery-10`,
+`discovery-1000`, `discovery-10000`, and `latency`. CPU, allocation, and native
+traces use separate processes, never the clean latency process.
+
+CPU profiling pins samply 0.13.1 to its official source commit. Native diagnostics
+use Linux perf, macOS Xcode Instruments, or Windows WPR with the pinned Microsoft
+Windows Performance Toolkit. Native heap tracing is supported on macOS/Windows;
+Linux native heap requests reject explicitly and point to `--heap` DHAT.
+Missing permissions, symbols, target samples/allocation records, or complete
+trace data fail collection rather than falling back to metadata-only success.
+Windows heap tracing is prepared before process creation and restores the prior
+IFEO state on normal failure or cooperative cancellation. Hard process kills
+cannot promise in-process cleanup.
+
+Each target's `artifact-manifest.json` records expected collectors, source and
+tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.
+Downloads are validated with confined relative paths. Interrupted/failed runs
+keep their raw data and explicit failure state. The report writes `index.html`,
+`unified-report.json`, and `summary.md`; an incomplete/failed/regressed report
+still produces diagnostic files before returning nonzero. CI uses
+`dashboard <root> --target-only` for a single uploaded bundle; that mode explicitly
+does not claim complete aggregate matrix coverage.
+
+`cargo perf open <downloaded-directory> --cpu --scenario <scenario> --target <triple>`
+opens a validated CPU trace through `samply load`, with its packaged binary/debug
+symbol directories. This local command is viewing, not measurement; it requires
+the pinned viewer installed and does not install it automatically. Native
+`.trace`/`.etl`/`perf.data` artifacts keep their original viewers and formats.
+Canonical Callgrind verdicts remain separate from collection success; a
+diagnostic comparison without Callgrind evidence says so, not that the gate passed.
 
 ## Crate, runner, and build setup
 

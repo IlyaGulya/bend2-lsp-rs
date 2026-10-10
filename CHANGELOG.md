@@ -38,15 +38,24 @@
   platforms, plus separate symbolized DHAT server/example allocation profiles.
   Preserve raw samples, source/binary provenance, and existing Callgrind gates.
 - Observe completion during initial discovery and cold/retained/released memory
-  in 10, 1000, and 10000-file workspaces. Preserve timestamped Linux RSS samples
-  and distinguish sampled cold peaks from full-process high-water marks and DHAT
-  allocations; unavailable platform RSS remains explicitly null.
+  in 10, 1000, and 10000-file workspaces. Preserve timestamped resident-memory
+  samples on Linux/macOS/Windows with distinct native footprint/private-commit
+  definitions; distinguish sampled peaks, lifetime high-water marks and DHAT
+  allocations. Missing required observations make reports incomplete.
 - Buffer and atomically replace performance JSON checkpoints so interrupted
   collection preserves previously completed results instead of truncating them.
 - Replace Python performance collectors, comparators, reports, and calibration
   with an unpublished Rust tooling crate and a shared portable JSON-RPC transport.
   Preserve contract coverage and regression thresholds; keep tooling separate
   from production server binaries and measured analysis functions.
+- Add unified `cargo perf doctor`, hosted `compare`/`profile`, and validated
+  `open` commands with offline HTML/JSON/Markdown reports and exact-run downloads.
+- Add separate samply CPU, Linux perf, macOS Instruments, and Windows WPR/WPA
+  diagnostic captures with target-process evidence, packaged symbols and
+  cooperative cancellation cleanup. Preserve original native trace formats.
+- Keep ordinary PR measurements lightweight; retain all thirteen DHAT workloads
+  and four shared scenarios in full diagnostic/weekly coverage, with six-target
+  backend verification for performance-infrastructure changes.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub
