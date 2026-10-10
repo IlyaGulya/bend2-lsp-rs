@@ -106,6 +106,27 @@ same strict fail-if-flaky policy; test outcomes are not cached. Installer jobs
 retain pinned native Rust because the controlled compiler fixture is built at
 runtime, as well as the pinned nextest bootstrap.
 
+Hosted validation run [38032535429](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38032535429)
+passed all six native and installer targets. Compared with warmed pre-cutover
+run [38029350448](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38029350448),
+the installer verification/E2E step changed as follows (seconds):
+
+| Target | Rebuild | Archive reuse | Archive download | Producer archive + upload |
+| --- | ---: | ---: | ---: | ---: |
+| Linux x86_64 | 19 | 3 | 2 | 1 |
+| Linux ARM64 | 19 | 4 | 1 | 2 |
+| macOS x86_64 | 71 | 45 | 0 | 4 |
+| macOS ARM64 | 61 | 44 | 2 | 3 |
+| Windows x86_64 | 75 | 7 | 1 | 4 |
+| Windows ARM64 | 59 | 8 | 2 | 4 |
+
+These are single before/after runs on different hosted runners, not controlled
+same-SHA repeats or guaranteed speedups. GitHub timestamps have one-second
+resolution; zero means below that resolution. Archive creation, upload, and
+download overhead remained below the measured E2E savings on every target.
+Both runs retain the mandatory native suite, doctests, direct-binary E2E,
+altered-archive rejection, and installed-binary E2E.
+
 Publication depends on the entire native and installer matrices succeeding.
 Each native runner packages an additional versionless `.tar.gz` (Unix, one
 root directory) or `.zip` (Windows, flat) from the exact staged executable.
