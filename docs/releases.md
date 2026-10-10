@@ -58,8 +58,11 @@ cargo build --locked --release --bin bend2-lsp
 # scripts/release.py copies the final executable and hashes its bytes.
 # BEND2_LSP_TEST_BINARY points to that exact release asset.
 cargo nextest run --workspace --all-features --locked --release --profile ci
+cargo nextest archive --workspace --all-features --locked --release \
+  --archive-file target/release-tests.tar.zst
 cargo test --doc --locked --release
-cargo nextest run --locked --test release_e2e --profile ci
+cargo nextest run --archive-file target/release-tests.tar.zst \
+  --workspace-remap "$GITHUB_WORKSPACE" -E 'binary(release_e2e)' --profile ci
 ```
 
 Executable/version integrity regression tests also run on each native
@@ -79,6 +82,29 @@ architectures. Full release-profile tests additionally run natively on all six
 runners. Nextest uses quality's serialized CI profile: retries collect failure
 evidence, but `flaky-result = "fail"` rejects a flaky test even if its retry passes.
 Doctests still run separately.
+
+The full release suite is compiled once per native target. Nextest archives
+those same test binaries with the identical workspace, feature, lockfile, and
+release flags; the mandatory direct-executable E2E runs from that archive, not
+from a separately compiled debug suite. Each archive lives outside `dist` at
+`target/release-tests.tar.zst` and transfers within the same workflow run as the
+internal artifact `native-tests-${channel}-${target}`. Installer E2E downloads
+only its exact target's artifact into `native-tests`, requires
+`RELEASE_TEST_ARCHIVE` to point to it, and runs:
+
+```sh
+cargo nextest run --archive-file "$RELEASE_TEST_ARCHIVE" \
+  --workspace-remap "$GITHUB_WORKSPACE" -E 'binary(release_e2e)' --profile ci
+```
+
+The checkout is verified against the release source SHA, and both producers and
+consumers verify the native host target. `BEND2_LSP_TEST_BINARY` selects the
+staged direct executable in native jobs and the actual installed executable in
+installer jobs. A missing archive is an error, never a rebuild fallback.
+Archives reuse compilation only: every selected test executes again under the
+same strict fail-if-flaky policy; test outcomes are not cached. Installer jobs
+retain pinned native Rust because the controlled compiler fixture is built at
+runtime, as well as the pinned nextest bootstrap.
 
 Publication depends on the entire native and installer matrices succeeding.
 Each native runner packages an additional versionless `.tar.gz` (Unix, one
@@ -106,7 +132,9 @@ Unprivileged installer PR validation runs the same matrices without publication.
 
 Public assets are six direct executables, six archives, two installers, their
 fourteen checksum sidecars, and `SHA256SUMS`. Source/version/channel/target and
-generator identity metadata remain internal. Remote sizes and SHA256 digests
+generator identity metadata and nextest test archives remain internal. Test
+archives have a distinct artifact prefix, so public `${channel}-*` downloads
+cannot include them, and they are never published. Remote sizes and SHA256 digests
 must match before a draft becomes public; a failed build, installer, E2E or
 upload leaves it private.
 
@@ -119,13 +147,15 @@ rules exist.
 
 ### CI caches and native tool installation
 
-Quality, native release builds, and installer E2E use pinned sccache 0.18.0
+Quality and native release builds use pinned sccache 0.18.0
 with [BuildFetch WebDAV storage](https://buildfetch.com/docs/buildfetch-cache/sccache-remote-storage),
 not GitHub's compiler-object cache backend. Rust incremental compilation is
 disabled only for these wrapped builds. The wrapper caches eligible Rust library compilation;
 linked executables and procedural macros still compile normally. The final
 release executable is staged, hashed, and exercised through the same native
 and installed-binary gates as before.
+Installer E2E reuses the same-run native test archive and does not restore or
+save Cargo dependency caches or configure sccache.
 
 All build jobs restore only Cargo registry downloads and Git dependency
 checkouts, never Cargo credentials, configuration, rustup wrappers, or measured

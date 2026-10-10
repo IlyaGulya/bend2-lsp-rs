@@ -116,16 +116,27 @@ jobs:
         run: '"$PYTHON" scripts/release.py package'
       - name: Run full native release test suite
         run: cargo nextest run --workspace --all-features --locked --release --profile ci
+      - name: Archive full native release test suite
+        run: cargo nextest archive --workspace --all-features --locked --release --archive-file target/release-tests.tar.zst
       - name: Run native release documentation tests
         run: cargo test --doc --locked --release
       - name: Mandatory native E2E against direct release executable
-        run: cargo nextest run --locked --test release_e2e --profile ci
+        run: cargo nextest run --archive-file target/release-tests.tar.zst --workspace-remap "$GITHUB_WORKSPACE" -E 'binary(release_e2e)' --profile ci
       - name: Upload tested executable, checksum, and internal release metadata
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.channel }}-${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 14
+          overwrite: true
+      - name: Upload internal native release test archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-tests-${{ inputs.channel }}-${{ matrix.target }}
+          path: target/release-tests.tar.zst
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 14
           overwrite: true
       - name: Save Cargo downloads from trusted main
@@ -192,6 +203,7 @@ jobs:
       RELEASE_TARGET: ${{ matrix.target }}
       EXPECTED_ARCH: ${{ matrix.arch }}
       PYTHON: ${{ matrix.python }}
+      RELEASE_TEST_ARCHIVE: ${{ github.workspace }}/native-tests/release-tests.tar.zst
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -209,31 +221,17 @@ jobs:
           pattern: ${{ inputs.channel }}-*
           path: dist
           merge-multiple: true
+      - name: Download exact native release test archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-tests-${{ inputs.channel }}-${{ matrix.target }}
+          path: native-tests
       - name: Install pinned native Rust toolchain
         run: |
           rustup toolchain install "1.98.1-$RELEASE_TARGET" --profile minimal
           rustup override set "1.98.1-$RELEASE_TARGET"
           rustc -vV
           "$PYTHON" -c 'import os, subprocess; host = next(line.removeprefix("host: ") for line in subprocess.check_output(["rustc", "-vV"], text=True).splitlines() if line.startswith("host: ")); assert host == os.environ["RELEASE_TARGET"], host'
-      - name: Configure native CI cache identity
-        id: ci-cache
-        env:
-          ENABLE_SCCACHE: 'true'
-          CACHE_WRITABLE: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-          BUILDFETCH_TOKEN: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.BUILDFETCH_TOKEN_READWRITE || secrets.BUILDFETCH_TOKEN_READONLY }}
-        run: bash scripts/ci-cache.sh
-      - name: Restore Cargo downloads
-        id: cargo-downloads
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
-          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh') }}
-          restore-keys: |
-            cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
-      - name: Enable native compiler cache
-        uses: Mozilla-Actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad
-        with:
-          version: v0.18.0
       - name: Install pinned native test runner
         run: |
           "$PYTHON" scripts/bootstrap_nextest.py --target "$RELEASE_TARGET" --destination "$RUNNER_TEMP/nextest"
@@ -242,13 +240,3 @@ jobs:
         run: cargo nextest --version
       - name: Reject altered archive, install verified archive and exercise installed LSP
         run: '"$PYTHON" scripts/installer_e2e.py'
-      - name: Save Cargo downloads from trusted main
-        if: >-
-          success() &&
-          github.ref == 'refs/heads/main' &&
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          steps.cargo-downloads.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
-          key: ${{ steps.cargo-downloads.outputs.cache-primary-key }}

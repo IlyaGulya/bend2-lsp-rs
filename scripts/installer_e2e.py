@@ -14,6 +14,9 @@ from release import TARGETS, archive_name, asset_name, file_sha256, verify, writ
 
 
 def main():
+    test_archive = Path(os.environ["RELEASE_TEST_ARCHIVE"]).resolve(strict=True)
+    if not test_archive.is_file():
+        raise ValueError("RELEASE_TEST_ARCHIVE must point to a nextest archive file")
     verify()
     target = os.environ["RELEASE_TARGET"]
     if target not in TARGETS:
@@ -62,7 +65,8 @@ def main():
             # client uses Unix-only pipe select and cannot validate Windows.
             environment["BEND2_LSP_TEST_BINARY"] = str(binary)
             subprocess.run([
-                "cargo", "nextest", "run", "--locked", "--test", "release_e2e", "--profile", "ci",
+                "cargo", "nextest", "run", "--archive-file", str(test_archive),
+                "--workspace-remap", str(Path.cwd()), "-E", "binary(release_e2e)", "--profile", "ci",
             ], env=environment, check=True, timeout=600)
             print(f"Native generated installer and installed executable E2E passed: {target}")
         finally:

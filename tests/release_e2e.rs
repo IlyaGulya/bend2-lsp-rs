@@ -19,12 +19,16 @@ use url::Url;
 const TIMEOUT: Duration = Duration::from_secs(15);
 
 fn compiler_fixture(directory: &Path) -> PathBuf {
+    let source = PathBuf::from(
+        std::env::var_os("CARGO_MANIFEST_DIR").must_be("resolve runtime fixture source root"),
+    )
+    .join("tests/fixtures/release_compiler.rs");
     let executable = directory.join(format!("portable compiler{}", std::env::consts::EXE_SUFFIX));
     let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
     let output = Command::new(rustc)
         .arg("--edition=2024")
         .arg("-Dwarnings")
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/release_compiler.rs"))
+        .arg(&source)
         .arg("-o")
         .arg(&executable)
         .output()

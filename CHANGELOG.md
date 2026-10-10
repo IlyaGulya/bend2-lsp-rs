@@ -37,11 +37,16 @@
   admission, missing/recreated dependencies, overlays, and late staging commits.
 - Cache Cargo dependency inputs and pinned helper installations, including
   Cargo install metadata, with trusted-main writes and read-only consumers.
-- Enable pinned sccache for quality/native/installer builds and seed all six
+- Enable pinned sccache for quality/native builds and seed all six
   native platforms without publication. Measured Callgrind, calibration, and
   latency builds retain their independent fresh object/target construction.
 - Install checksum-pinned official nextest 0.9.131 native archives instead of
   compiling the runner separately in every native and installer E2E job.
+- Reuse same-run, exact-target nextest archives of the full native release suite
+  for mandatory direct and installed-binary E2E on all six platforms, without
+  duplicate debug test compilation or installer Cargo/sccache caches. Keep
+  native Rust for runtime fixtures, every test gate, and strict flaky-test
+  rejection; test archives remain internal and are never published.
 
 ## [0.5.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.4.0...v0.5.0) (2026-10-08)
 
