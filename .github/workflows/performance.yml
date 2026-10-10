@@ -275,7 +275,7 @@ jobs:
           inventory_status=0
           "$PERF_TOOL" workflow finalize || inventory_status=$?
           "$PERF_TOOL" dashboard "$PERF_ROOT" --target-only
-          cat "$PERF_ROOT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          printf '### Native performance evidence\n\nTarget: %s\n\nDownload this job artifact for index.html, unified-report.json, summary.md, and validated raw evidence.\n' "$PERF_TARGET" >> "$GITHUB_STEP_SUMMARY"
           exit "$inventory_status"
       - name: Inventory raw native evidence and failures
         if: always()

@@ -366,6 +366,10 @@ Windows Performance Toolkit. Native heap tracing is supported on macOS/Windows;
 Linux native heap requests reject explicitly and point to `--heap` DHAT.
 Missing permissions, symbols, target samples/allocation records, or complete
 trace data fail collection rather than falling back to metadata-only success.
+WPR's successful save exit status is not sufficient when its stop output reports
+dropped events: the trace is retained, but collection fails as incomplete.
+Decoder command arguments use ordinary Win32 drive/UNC paths; canonical paths
+remain the artifact identity.
 Windows heap tracing is prepared before process creation and restores the prior
 IFEO state on normal failure or cooperative cancellation. Hard process kills
 cannot promise in-process cleanup.
@@ -377,6 +381,14 @@ controlling terminal. Missing authorization fails rather than opening a dialog
 or silently retrying with privileges. `doctor` and local trace viewing do not
 elevate. Locally signed debugger-entitled tools otherwise require an administrator
 authorization dialog ([Apple debugger entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.debugger)).
+Sampler finalization targets the uniquely identified executable inside the
+owned macOS process group, not a possible sudo monitor. Windows uses a
+collector-console CTRL_BREAK event so inherited CTRL_C-ignore does not lose
+the stop request ([console control events](https://learn.microsoft.com/en-us/windows/console/generateconsolectrlevent)).
+Instruments waits for a notification-registration barrier before starting its
+recorder, then requires the actual tracing-started notification and a live
+recorder. Linux ARM64 software-clock DWARF capture requests the complete
+baseline register set, excluding hardware-only SVE VG.
 
 Each target's `artifact-manifest.json` records expected collectors, source and
 tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.
@@ -389,6 +401,9 @@ does not claim complete aggregate matrix coverage.
 The unified JSON retains summary measurements and links to validated raw
 discovery evidence rather than embedding a second copy of its full payload.
 Raw files, checksums, pairing checks, and completeness validation are unchanged.
+CI records the report command before inventory checksums are finalized, so
+rendering does not invalidate the command log. Job summaries point to the
+uploaded full report instead of embedding it beyond GitHub's 1 MiB limit.
 
 `cargo perf open <downloaded-directory> --cpu --scenario <scenario> --target <triple>`
 opens a validated CPU trace through `samply load`, with its packaged binary/debug

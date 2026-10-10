@@ -1,6 +1,40 @@
 use crate::ToolResult;
 use serde_json::Value;
 
+// tracerpt rejects Rust's canonical verbatim paths even when WPR saved the ETL.
+// Keep filesystem identity canonical; adapt only the legacy decoder arguments.
+pub(super) fn tracerpt_path(path: &std::path::Path) -> ToolResult<String> {
+    let value = path.to_str().ok_or("Non-Unicode ETL decoder path")?;
+    if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
+        return Ok(format!(r"\\{unc}"));
+    }
+    if let Some(disk) = value.strip_prefix(r"\\?\") {
+        if disk.as_bytes().get(1) != Some(&b':') {
+            return Err("ETL decoder cannot address this verbatim device path".into());
+        }
+        return Ok(disk.to_owned());
+    }
+    Ok(value.to_owned())
+}
+
+pub(super) fn validate_wpr_stop(stdout: &str) -> ToolResult<()> {
+    for line in stdout.lines() {
+        if let Some(dropped) = line.trim().strip_prefix("This trace has dropped ") {
+            let count = dropped
+                .split_whitespace()
+                .next()
+                .ok_or("WPR omitted its dropped-event count")?
+                .parse::<u64>()?;
+            if count != 0 {
+                return Err(
+                    format!("WPR saved an incomplete trace: {count} dropped events").into(),
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 // WPR HeapTracingConfig changes this one value. Snapshot it before enabling,
 // preserve its registry type, and never replace unrelated IFEO values/subkeys.
 pub(super) const SNAPSHOT_IFEO: &str = r"$ErrorActionPreference='Stop'

@@ -146,10 +146,11 @@ case "${1:?Expected workflow stage}" in
       --provenance "$PERF_ROOT/provenance.json" --output-dir "$PERF_ROOT/memory"
     ;;
   report)
+    { printf '%q ' "$PERF_TOOL" dashboard "$PERF_ROOT" --target-only; printf '\n'; } >> "$PERF_ROOT/commands.txt"
     inventory_status=0
     "$PERF_TOOL" workflow finalize || inventory_status=$?
-    run "$PERF_TOOL" dashboard "$PERF_ROOT" --target-only
-    cat "$PERF_ROOT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+    "$PERF_TOOL" dashboard "$PERF_ROOT" --target-only
+    printf '### Native performance evidence\n\nTarget: %s\n\nDownload this job artifact for index.html, unified-report.json, summary.md, and validated raw evidence.\n' "$PERF_TARGET" >> "$GITHUB_STEP_SUMMARY"
     exit "$inventory_status"
     ;;
   finalize)
