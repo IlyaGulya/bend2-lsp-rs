@@ -467,10 +467,13 @@ fn validate_workload_metrics(workload: &Value, pairs: Pairs) -> ToolResult<Vec<S
         {
             return Err("Verdict numeric evidence differs from retained raw summary".into());
         }
-        if !metric_data["passed"]
+        let passed = metric_data["passed"]
             .as_bool()
-            .ok_or("Missing verdict metric outcome")?
-        {
+            .ok_or("Missing verdict metric outcome")?;
+        if passed != within_limit(metric, baseline, candidate)? {
+            return Err("Verdict metric outcome differs from authoritative policy".into());
+        }
+        if !passed {
             failed.push(*metric);
             evidence.push(format!("{metric} {baseline}→{candidate}"));
         }

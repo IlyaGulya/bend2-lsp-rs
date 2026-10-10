@@ -1,5 +1,6 @@
 use super::data::{Artifact, Document, Report, TargetEvidence};
 use crate::ToolResult;
+use serde::ser::{Serialize, SerializeMap as _, Serializer};
 use serde_json::Value;
 use std::{collections::BTreeSet, fmt::Write as _};
 
@@ -72,7 +73,7 @@ fn table_end(output: &mut String) {
     output.push_str("</tbody></table></div>");
 }
 
-fn json_details(output: &mut String, title: &str, value: &Value) -> ToolResult<()> {
+fn json_details(output: &mut String, title: &str, value: &impl Serialize) -> ToolResult<()> {
     write!(
         output,
         "<details><summary>{}</summary><pre>{}</pre></details>",
@@ -80,6 +81,26 @@ fn json_details(output: &mut String, title: &str, value: &Value) -> ToolResult<(
         escape(&serde_json::to_string_pretty(value)?)
     )?;
     Ok(())
+}
+
+struct JsonWithoutFields<'a> {
+    value: &'a Value,
+    omitted: &'a [&'a str],
+}
+
+impl Serialize for JsonWithoutFields<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let Some(fields) = self.value.as_object() else {
+            return self.value.serialize(serializer);
+        };
+        let mut map = serializer.serialize_map(None)?;
+        for (key, value) in fields {
+            if !self.omitted.contains(&key.as_str()) {
+                map.serialize_entry(key, value)?;
+            }
+        }
+        map.end()
+    }
 }
 
 fn issues(output: &mut String, title: &str, values: &[String]) -> ToolResult<()> {
@@ -240,8 +261,12 @@ fn render_target(output: &mut String, target: &TargetEvidence, index: usize) -> 
     json_details(
         output,
         "Verified artifact manifest, source revisions, file identities and build/collector status",
-        &target.provenance,
+        &JsonWithoutFields {
+            value: &target.provenance,
+            omitted: &["files", "expected"],
+        },
     )?;
+    output.push_str("<p>Complete expected-file coverage, source paths and hashes are retained in the <a href=\"./unified-report.json\">full verified artifact catalog</a> and original manifests.</p>");
     output.push_str("</div></section>");
     Ok(())
 }
@@ -387,30 +412,7 @@ fn discovery(output: &mut String, document: &Document) -> ToolResult<()> {
                 1_048_576.0,
             )?;
             for variant in ["baseline", "candidate"] {
-                for observation in data[variant]["memory_observations"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                {
-                    write!(
-                        output,
-                        "<details><summary>{variant} · memory round {} · {}</summary>",
-                        escape(&text(&observation["round"])),
-                        escape(&text(&observation["status"]))
-                    )?;
-                    timeline(output, &observation["samples"], &observation["checkpoints"])?;
-                    json_details(
-                        output,
-                        "Phase checkpoints, native metrics, descriptions and observation errors",
-                        observation,
-                    )?;
-                    output.push_str("</details>");
-                }
-                json_details(
-                    output,
-                    &format!("{variant} warm per-round distributions and initial completion"),
-                    &data[variant],
-                )?;
+                discovery_rounds(output, variant, &data[variant])?;
             }
         }
     }
@@ -422,6 +424,38 @@ fn discovery(output: &mut String, document: &Document) -> ToolResult<()> {
     )?;
     output.push_str("</section>");
     Ok(())
+}
+
+fn discovery_rounds(output: &mut String, variant: &str, data: &Value) -> ToolResult<()> {
+    for observation in data["memory_observations"].as_array().into_iter().flatten() {
+        write!(
+            output,
+            "<details><summary>{} · memory round {} · {}</summary>",
+            escape(variant),
+            escape(&text(&observation["round"])),
+            escape(&text(&observation["status"]))
+        )?;
+        timeline(output, &observation["samples"], &observation["checkpoints"])?;
+        json_details(
+            output,
+            "Phase checkpoints, native metrics, descriptions and observation errors",
+            &JsonWithoutFields {
+                value: observation,
+                omitted: &["samples"],
+            },
+        )?;
+        output.push_str("</details>");
+    }
+    json_details(
+        output,
+        &format!("{variant} warm per-round distributions and initial completion"),
+        &data["workloads"],
+    )?;
+    json_details(
+        output,
+        &format!("{variant} initial completion observations"),
+        &data["initial_completion_observations"],
+    )
 }
 
 fn paired_metrics(

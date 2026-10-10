@@ -76,6 +76,8 @@
 - Retain the authoritative Callgrind policy verdict and actual workflow job/step
   outcomes so numerical regressions remain distinct from collection failures.
   Historical missing verdicts never imply a passing gate.
+- Reject retained metric outcomes that contradict the producer's unchanged
+  authoritative limits, even when hashes and every verdict flag are consistent.
 - Initialize Instruments tracing/authorization services on a trusted system
   process before creating the cold LSP; retain the preparation trace separately.
   Actual capture readiness still requires its own notification within 60 seconds.
@@ -86,6 +88,9 @@
 - Keep large reports navigable by linking generated source inputs through the
   complete verified JSON artifact catalog and displaying identical scope
   warnings once; original files, identities and per-round evidence remain intact.
+- Stop embedding resident sample arrays and manifest inventories repeatedly in
+  HTML. Keep timelines, per-round request distributions and completion details;
+  full samples and source inventories remain in verified JSON and original files.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub

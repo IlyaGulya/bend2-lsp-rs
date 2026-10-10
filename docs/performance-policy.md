@@ -453,6 +453,11 @@ HTML/Markdown show generated discovery inputs through the full verified JSON
 artifact catalog rather than creating thousands of source-file links in the
 page. Every source path/hash and original file remains retained. Repeated
 identical scope warnings appear once visually; per-round evidence is unchanged.
+HTML renders each round's resident samples as its timeline instead of embedding
+the same arrays again in JSON details. Warm detail panels contain request
+distributions and initial completion, not another copy of memory observations.
+Full samples, manifest inventories and expected paths remain in the verified
+JSON catalog and original reports; no collection or validation input is removed.
 
 The canonical Callgrind evaluator retains `callgrind-policy.json` from the same
 authoritative comparison, including workload metrics, failed gates, source/run
@@ -462,6 +467,10 @@ failure. A failed GitHub workflow is attributed to regression only when retained
 job/step conclusions establish that its only failed step is that source-bound
 comparison. Historical bundles without authoritative verdicts or attribution
 evidence remain conservatively incomplete/failed; no pass is inferred.
+Retained per-metric outcomes must also agree with the same authoritative
+`within_limit` function used by the producer. Hash-bound numeric inputs and
+internally consistent flags alone cannot establish a passing or regressed gate;
+an outcome contradicting the unchanged limits is rejected as invalid evidence.
 
 `cargo perf open <downloaded-directory> --cpu --scenario <scenario> --target <triple>`
 opens a validated CPU trace through `samply load`, with its packaged binary/debug
