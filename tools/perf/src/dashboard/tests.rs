@@ -399,6 +399,46 @@ fn missing_old_policy_verdict_never_infers_a_passing_gate() -> ToolResult<()> {
 }
 
 #[test]
+fn coherent_verdict_cannot_invert_the_authoritative_metric_outcome() -> ToolResult<()> {
+    for genuine_failure in [true, false] {
+        let directory = tempfile::tempdir()?;
+        policy_bundle(directory.path(), 1, usize::from(genuine_failure))?;
+        let path = directory.path().join("callgrind-policy.json");
+        let mut verdict: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+        let forged_pass = genuine_failure;
+        verdict["workloads"][0]["metrics"]["Ir"]["passed"] = json!(forged_pass);
+        verdict["workloads"][0]["passed"] = json!(forged_pass);
+        verdict["workloads"][0]["failed_metrics"] = if forged_pass {
+            json!([])
+        } else {
+            json!(["Ir"])
+        };
+        verdict["passed"] = json!(forged_pass);
+        verdict["passed_count"] = json!(usize::from(forged_pass));
+        verdict["status"] = json!(if forged_pass {
+            "complete"
+        } else {
+            "regression"
+        });
+        common::write_json(&path, &verdict)?;
+        refresh_identity(directory.path(), "callgrind-policy.json")?;
+        let manifest_path = directory.path().join("artifact-manifest.json");
+        let mut manifest: Value = serde_json::from_reader(fs::File::open(&manifest_path)?)?;
+        manifest["statuses"]["candidate"] = json!({
+            "status": if forged_pass { "success" } else { "failure" },
+            "benchmark_exit_code": if forged_pass { 0 } else { 3 },
+            "policy_exit_code": i32::from(!forged_pass)
+        });
+        common::write_json(&manifest_path, &manifest)?;
+        let report = data::collect(&directory.path().canonicalize()?)?;
+        assert_eq!(report.status, "failed");
+        assert!(report.targets[0].regressions.is_empty());
+        assert!(report.result().is_err());
+    }
+    Ok(())
+}
+
+#[test]
 fn malformed_source_or_numeric_verdict_cannot_classify_a_failed_gate_as_regression()
 -> ToolResult<()> {
     for mutation in [
