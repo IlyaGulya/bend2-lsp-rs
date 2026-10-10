@@ -12,6 +12,7 @@ on:
       - tools/perf/Cargo.toml
       - Cargo.lock
       - scripts/install-tools.sh
+      - scripts/patches/samply-windows-arm64.patch
   workflow_dispatch:
     inputs:
       request_id:
@@ -166,7 +167,7 @@ jobs:
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
-          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh') }}
+          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh', 'scripts/patches/samply-windows-arm64.patch') }}
           restore-keys: |
             cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
       - name: Build pinned native tooling from immutable workflow source

@@ -335,6 +335,7 @@ fn dispatch(request: &Request) -> ToolResult<()> {
         &format!("perf-{}-*", request.id),
         &root,
     )?;
+    retain_workflow_run(&root, &request.repository, run)?;
     render(&root, request.hosted.open)?;
     if !status.success() {
         return Err(format!(
@@ -445,6 +446,25 @@ fn download(repository: &str, run: u64, pattern: &str, root: &Path) -> ToolResul
     Ok(())
 }
 
+fn retain_workflow_run(root: &Path, repository: &str, run: u64) -> ToolResult<()> {
+    let metadata = gh(&[
+        "run",
+        "view",
+        &run.to_string(),
+        "--repo",
+        repository,
+        "--json",
+        "databaseId,attempt,headSha,event,status,conclusion,jobs,url,workflowName",
+    ])
+    .and_then(|data| Ok(serde_json::from_str::<Value>(&data)?));
+    let value = match metadata {
+        Ok(metadata) => json!({"format_version":1,"repository":repository,"run":metadata}),
+        Err(error) => json!({"format_version":1,"repository":repository,"run_id":run,
+            "status":"failed","error":error.to_string()}),
+    };
+    common::write_json(&root.join("workflow-run.json"), &value)
+}
+
 fn render(root: &Path, open: bool) -> ToolResult<()> {
     let result = if open {
         dashboard::open(root)
@@ -504,6 +524,7 @@ pub(crate) fn open_args(args: &[String]) -> ToolResult<()> {
     let repository = repository(args.repo.as_deref())?;
     let root = new_output(args.output_dir.as_deref(), &repository, run)?;
     download(&repository, run, "perf-*", &root)?;
+    retain_workflow_run(&root, &repository, run)?;
     open_evidence(&root, &args)
 }
 

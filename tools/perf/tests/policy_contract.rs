@@ -519,3 +519,65 @@ fn prior_cli_flags_modes_and_help_are_preserved() -> TestResult {
     assert!(text(&output.stderr)?.contains("summary root is not a directory"));
     Ok(())
 }
+
+#[test]
+fn retained_verdict_uses_the_authoritative_comparison_and_preserves_cli_failures() -> TestResult {
+    let temporary = TempDir::new()?;
+    let manifest = baseline(temporary.path(), 48)?;
+    let root = temporary.path().join("candidate");
+    for index in 0..48 {
+        write_summary(
+            &root,
+            &format!("candidate-{index:03}"),
+            &summary(
+                index,
+                [if index < 5 { 103 } else { 100 }, 2, 2],
+                [100, 2, 2],
+            ),
+        )?;
+    }
+    let artifact_manifest = temporary.path().join("artifact-manifest.json");
+    fs::write(
+        &artifact_manifest,
+        serde_json::to_vec(&json!({
+            "schema_version":1,"mode":"callgrind","target":"x86_64-unknown-linux-gnu",
+            "base_sha":"a".repeat(40),"candidate_sha":"b".repeat(40),"workflow_sha":"c".repeat(40),
+            "repository":"owner/repository","request_id":"fixture-run-0001",
+            "run_id":"12345","run_attempt":"1"
+        }))?,
+    )?;
+    let verdict = temporary.path().join("callgrind-policy.json");
+    let arguments = [
+        "--baseline-name=selected".to_owned(),
+        format!("--baseline-manifest={}", manifest.display()),
+        format!("--artifact-manifest={}", artifact_manifest.display()),
+        format!("--verdict={}", verdict.display()),
+    ];
+    let output = cli(&root, &arguments)?;
+    assert_status(&output, 1)?;
+    assert!(output.stderr.is_empty());
+    assert!(text(&output.stdout)?.contains("43/48 baseline workloads passed."));
+    let retained: Value = serde_json::from_slice(&fs::read(&verdict)?)?;
+    assert_eq!(retained["status"], "regression");
+    assert_eq!(retained["passed"], false);
+    assert_eq!(retained["passed_count"], 43);
+    assert_eq!(retained["workload_count"], 48);
+    assert_eq!(retained["workloads"][0]["metrics"]["Ir"]["baseline"], 100);
+    assert_eq!(retained["workloads"][0]["metrics"]["Ir"]["candidate"], 103);
+    assert_eq!(retained["workloads"][0]["failed_metrics"], json!(["Ir"]));
+    assert_eq!(
+        retained["inputs"]["summaries"]
+            .as_array()
+            .ok_or("Missing retained inventory")?
+            .len(),
+        48
+    );
+    fs::write(root.join("candidate-000/summary.json"), b"{}")?;
+    let output = cli(&root, &arguments)?;
+    assert_status(&output, 2)?;
+    let failed: Value = serde_json::from_slice(&fs::read(&verdict)?)?;
+    assert_eq!(failed["status"], "failed");
+    assert_eq!(failed["passed"], false);
+    assert!(failed["workloads"].is_null());
+    Ok(())
+}

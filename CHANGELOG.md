@@ -68,6 +68,14 @@
   configuring bounded buffers and lossless stack caches. Require zero lost events.
 - Keep failed attached LSP targets alive until collector cleanup runs, and
   classify already-buffered late responses as request timeouts.
+- Configure WPR stack caches only on collector definitions; reference-level
+  cache overrides rejected by the native WPR parser are no longer synthesized.
+- Repair the pinned Windows ARM64 sampler's SampleProf/StackWalk join, preserving
+  CPU deltas and separate kernel/user stacks. Bind its modified-source patch and
+  installed binary identity in retained provenance.
+- Retain the authoritative Callgrind policy verdict and actual workflow job/step
+  outcomes so numerical regressions remain distinct from collection failures.
+  Historical missing verdicts never imply a passing gate.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub

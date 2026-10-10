@@ -27,8 +27,45 @@ if [[ "${1:-}" == "profiling" ]]; then
     printf '%s\n' 'Profiling bootstrap is hosted-only; use cargo perf doctor for local prerequisites.' >&2
     exit 1
   fi
-  cargo install --locked --git https://github.com/mstange/samply \
-    --rev da75c28f367454c621e690eeb4e44ec2ebb29a78 samply
+  samply_revision=da75c28f367454c621e690eeb4e44ec2ebb29a78
+  rustc_identity="$(rustc -vV)"
+  if [[ "$rustc_identity" == *$'\nhost: aarch64-pc-windows-msvc\n'* ]]; then
+    # The pinned importer drops ARM64 SampleProf CPU deltas and mistakes split
+    # kernel/user StackWalk records for independent samples. Only ARM64 is patched.
+    patch_path=scripts/patches/samply-windows-arm64.patch
+    patch_sha256=37bc36692372474829e099ce5faad0ca765184c76c01b31544fae5bd7365de51
+    printf '%s  %s\n' "$patch_sha256" "$patch_path" | sha256sum --check -
+    temporary="$(mktemp -d)"
+    trap 'rm -rf "$temporary"' EXIT
+    git -C "$temporary" init --quiet
+    git -C "$temporary" config core.autocrlf false
+    git -C "$temporary" remote add origin https://github.com/mstange/samply
+    git -C "$temporary" fetch --depth 1 origin "$samply_revision"
+    git -C "$temporary" checkout --detach --quiet FETCH_HEAD
+    test "$(git -C "$temporary" rev-parse HEAD)" = "$samply_revision"
+    git -C "$temporary" apply "$PWD/$patch_path"
+    cargo test --locked --manifest-path "$temporary/samply/Cargo.toml" \
+      --target aarch64-pc-windows-msvc bend2_arm64_regressions
+    cargo install --locked --force --path "$temporary/samply" \
+      --target aarch64-pc-windows-msvc samply
+    BEND_PERF_SAMPLY_PATCH_SHA256="$patch_sha256" powershell.exe -NoProfile -NonInteractive -Command '
+      $ErrorActionPreference = "Stop"
+      $sampler = (Get-Command samply.exe -CommandType Application).Source
+      $identity = @{
+        format_version=1
+        upstream_revision="da75c28f367454c621e690eeb4e44ec2ebb29a78"
+        patch_path="scripts/patches/samply-windows-arm64.patch"
+        patch_sha256=$env:BEND_PERF_SAMPLY_PATCH_SHA256
+        target="aarch64-pc-windows-msvc"
+        executable_sha256=(Get-FileHash -Algorithm SHA256 $sampler).Hash.ToLowerInvariant()
+      }
+      $identity | ConvertTo-Json | Set-Content -Encoding ascii ($sampler + ".bend-perf-source.json")
+      $identity | ConvertTo-Json
+    '
+  else
+    cargo install --locked --git https://github.com/mstange/samply \
+      --rev "$samply_revision" samply
+  fi
   case "$(uname -s)" in
     Darwin)
       # Explicit requested installation action, not an implicit doctor elevation.
