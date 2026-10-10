@@ -213,6 +213,7 @@ pub(super) async fn run() -> io::Result<()> {
     });
     let (exit, mut exit_rx) = tokio::sync::watch::channel(false);
     let mut diagnostics_failure = diagnostics.fatal_receiver();
+    let mut discovery_failure = workspace.discovery_failure.subscribe();
     let service = ExitAwareService {
         inner: service,
         exit,
@@ -234,6 +235,10 @@ pub(super) async fn run() -> io::Result<()> {
             internal_failure = true;
             None
         }
+        _ = discovery_failure.changed() => {
+            internal_failure = true;
+            None
+        }
         _ = exit_rx.changed() => None,
         () = termination_signal() => None,
     };
@@ -246,11 +251,12 @@ pub(super) async fn run() -> io::Result<()> {
         tracing::error!(%error, "LSP transport failed; draining owned work");
     }
     compiler_reapers.close();
+    workspace.shutdown_discovery().await;
     diagnostics.shutdown().await;
     compiler_reapers.wait().await;
     drop(trace_guard);
-    if internal_failure || *diagnostics_failure.borrow() {
-        return Err(io::Error::other("diagnostics state invariant failed"));
+    if internal_failure || *diagnostics_failure.borrow() || *discovery_failure.borrow() {
+        return Err(io::Error::other("background service invariant failed"));
     }
     failure.map_or(Ok(()), |error| Err(io::Error::other(error)))
 }

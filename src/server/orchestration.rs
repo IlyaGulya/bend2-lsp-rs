@@ -188,7 +188,9 @@ impl Backend {
             commit_span.record("outcome", "committed");
             root
         };
-        self.load_reachable_async(std::slice::from_ref(&root)).await;
+        self.workspace
+            .load_reachable_async(std::slice::from_ref(&root), None)
+            .await;
         if !self.workspace.finish_revision(&ticket) {
             return None;
         }
@@ -314,6 +316,9 @@ impl Backend {
     }
 
     async fn ready_read_inner(&self, uri: Option<&Url>) -> RwLockReadGuard<'_, ()> {
+        if uri.is_none() {
+            self.workspace.wait_for_discovery().await;
+        }
         loop {
             let read = self.workspace_read().await;
             let pending = self.pending_revisions(uri);
@@ -415,102 +420,14 @@ impl Backend {
             root
         };
         tracing::Span::current().record("file_id", tracing::field::debug(&root));
-        self.load_reachable_async(std::slice::from_ref(&root)).await;
+        self.workspace
+            .load_reachable_async(std::slice::from_ref(&root), None)
+            .await;
         if self.workspace.finish_revision(&ticket) {
             tracing::Span::current().record("outcome", "committed");
         } else {
             tracing::Span::current().record("outcome", "superseded");
         }
-    }
-
-    #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "load_reachable", root_count = roots.len(), outcome = tracing::field::Empty))]
-    pub(super) async fn load_reachable_async(&self, roots: &[FileId]) {
-        let mut attempted = HashSet::new();
-        loop {
-            let paths = {
-                let database = self.workspace.read();
-                database
-                    .missing_disk_paths(roots)
-                    .into_iter()
-                    .filter_map(|path| {
-                        if attempted.contains(&path) {
-                            return None;
-                        }
-                        let id = database.file_id_by_path(&path)?;
-                        if !database.is_needed(id) {
-                            return None;
-                        }
-                        Some((id, database.disk_generation(id)?, path))
-                    })
-                    .collect::<Vec<_>>()
-            };
-            if paths.is_empty() {
-                break;
-            }
-            let Some(prepared) = run_staging(self.workspace.staging.clone(), move || {
-                paths
-                    .into_iter()
-                    .map(|(id, generation, path)| {
-                        let snapshot = std::fs::read_to_string(&path).ok().map(|text| {
-                            Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text))
-                        });
-                        let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                            crate::workspace::resolve_import_targets(&path, snapshot)
-                        });
-                        (id, generation, path, snapshot, imports)
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .await
-            else {
-                break;
-            };
-            let _workspace_update = self.workspace.updates.write().await;
-            let commit_span = tracing::info_span!(
-                "workspace.commit",
-                kind = "load_reachable",
-                file_count = prepared.len(),
-                outcome = tracing::field::Empty,
-            );
-            commit_span.in_scope(|| {
-                self.workspace.commit(None, None, |database| {
-                    let mut committed = false;
-                    for (id, generation, path, snapshot, imports) in prepared {
-                        if !database.is_needed(id)
-                            || database.disk_generation(id) != Some(generation)
-                        {
-                            continue;
-                        }
-                        let missing = snapshot.is_none();
-                        committed |= database
-                            .sync_disk_snapshot_prepared(&path, snapshot, imports)
-                            .is_some();
-                        if missing {
-                            attempted.insert(path);
-                        }
-                    }
-                    committed.then_some(())
-                })
-            });
-            commit_span.record("outcome", "committed");
-        }
-        // Retire payloads even when closed roots or an empty path set required no
-        // reads. Finalize the current graph rather than a captured root's graph.
-        let _workspace_update = self.workspace.updates.write().await;
-        let commit_span = tracing::info_span!(
-            "workspace.commit",
-            kind = "finish_load_reachable",
-            root_count = roots.len(),
-            outcome = tracing::field::Empty,
-        );
-        commit_span.in_scope(|| {
-            self.workspace.commit(None, None, |database| {
-                database.finish_load_reachable();
-                Some(())
-            })
-        });
-        commit_span.record("outcome", "committed");
-        tracing::Span::current().record("outcome", "complete");
     }
 
     #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "revision", revision = params.text_document.version, file_id = tracing::field::Empty, outcome = tracing::field::Empty))]
@@ -588,7 +505,9 @@ impl Backend {
             imports_changed
         };
         if imports_changed {
-            self.load_reachable_async(std::slice::from_ref(&id)).await;
+            self.workspace
+                .load_reachable_async(std::slice::from_ref(&id), None)
+                .await;
         }
         if !self.workspace.finish_revision(&ticket) {
             return false;
@@ -620,7 +539,9 @@ impl Backend {
             tracing::Span::current().record("file_id", tracing::field::debug(&id));
             id
         };
-        self.load_reachable_async(std::slice::from_ref(&id)).await;
+        self.workspace
+            .load_reachable_async(std::slice::from_ref(&id), None)
+            .await;
         tracing::Span::current().record("outcome", "committed");
         true
     }
@@ -942,7 +863,9 @@ impl Backend {
         if events.is_empty() {
             return HashMap::new();
         }
+        self.workspace.wait_for_discovery().await;
         let _serial = self.workspace.update_serial.lock().await;
+        self.workspace.admit_watched_sources(&events).await;
         let (events, mut affected) = self.watched_snapshot_context(events);
         if events.is_empty() {
             return HashMap::new();
@@ -993,7 +916,9 @@ impl Backend {
         };
         for (id, imports_changed) in &updates {
             if *imports_changed {
-                self.load_reachable_async(std::slice::from_ref(id)).await;
+                self.workspace
+                    .load_reachable_async(std::slice::from_ref(id), None)
+                    .await;
             }
         }
         let workspace_db = self.workspace.clone();

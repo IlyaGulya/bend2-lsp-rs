@@ -184,7 +184,8 @@ is reused, and new aliases avoid indexed names. In-scope names rank before these
 cross-module candidates. Browsing or cancelling the popup does not change the buffer.
 Repeat acceptance uses the latest unsaved imports and does not add duplicates.
 The Missing import quick fix remains available and follows the same alias rules.
-This does not discover unopened project files or download packages.
+Unopened `.bend` files discovered under workspace roots are also candidates;
+the server does not download packages.
 
 Known explicit ADT annotations narrow case-pattern constructor candidates.
 Unknown types keep the available candidates rather than pretending to infer a type.
@@ -224,13 +225,20 @@ diagnostics cannot overwrite a reopened buffer, even when version numbering
 restarts. Disk loads validate per-file generations before publication, so a late
 load cannot restore a graph retired by close or import removal.
 
-User-owned workspace snapshots follow the import graph of open documents.
-Unrelated and no-longer-reachable watcher events are ignored before file reads or
-index construction. Removing imports or closing the last importing root releases
-orphan snapshots and outgoing import edges, including cycles. Shared dependencies
-remain available while any open root needs them; missing reachable targets can
-still be loaded when a watcher reports their creation. Stable file identities
-survive eviction, and in-flight readers may retain their immutable snapshots.
+Background discovery indexes regular `.bend` files under workspace roots,
+respecting ignore rules and excluding hidden/service directories and symlinks.
+Workspace symbols, references/rename, and auto-import candidates include these
+unopened files. Explicit imports still load their dependencies, including paths
+outside workspace roots and discovery exclusions.
+
+User-owned snapshots follow the import graph of open documents and discovered
+workspace roots. Watched create/change/delete events update the index; unsaved
+buffers take precedence over disk snapshots. Removing a workspace folder retires
+its discovered roots, while open buffers and explicit imports retain their
+dependencies. Removing the last owning root releases orphan snapshots and
+outgoing import edges, including cycles. Events outside this scope are ignored
+before source reads. Stable identities survive eviction, and in-flight readers
+may retain their immutable snapshots.
 Compiler-result cache keys retain exact source bytes, not complete semantic
 indexes. This is demand-driven ownership, not an RSS cap; compiler-owned generated
 navigation sources retain the lifetime described above.
@@ -246,21 +254,20 @@ File-operation clients must request `workspace/willRenameFiles`, apply the
 returned versioned workspace edit, perform the filesystem move, and send
 `workspace/didRenameFiles`. Open buffers retain their unsaved snapshots; known
 closed sources are refreshed during cold staging. Compiler-owned `Base` cannot
-be moved or overwritten. This does not discover unrelated project files.
+be moved or overwritten.
 
-Global semantic/reverse-index research is closed. Production keeps immutable
-snapshots, dense per-document syntax indexes and the loaded/reachable import
-graph, without a mandatory global semantic database. See the
-[architecture decision and reopening trigger](docs/adr-global-indexing.md).
+Global semantic/reverse-index research remains closed. Background file discovery
+uses the existing immutable snapshots, dense per-document syntax indexes, and
+import graph; it does not introduce a global semantic database. See the
+[architecture decision and scope amendment](docs/adr-global-indexing.md).
 The [integration salvage audit](docs/integration-salvage-audit.md) classifies
 every substantive change in the closed index/discovery PRs against main.
 
 Workspace, compiler, diagnostics, and registration services own server state.
 State poisoning and unexpected worker failure are fatal invariant errors, not
-missing feature results. Shutdown drains owned diagnostics work and compiler
-children. This server refactor retains the existing analysis representation,
-cross-file query implementation, and open/import-reachable workspace scope;
-it does not add whole-project discovery or change the LSP framework.
+missing feature results. Shutdown cancels and drains discovery and diagnostics
+workers and compiler children. Discovery retains the existing analysis
+representation, cross-file query implementation, and LSP framework.
 
 Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors
@@ -331,8 +338,8 @@ files without imports and groups whose existing order must be preserved.
 - **General refactorings:** extract function and compiler-driven semantic quick fixes.
 - **File creation/deletion hooks:** rename hooks are supported, but creation and
   deletion do not provide automatic import rewrites.
-- **Whole-project discovery:** indexing every unrelated file on disk or fetching
-  missing Hub packages automatically.
+- **Package discovery:** fetching missing Hub packages automatically or indexing
+  files outside workspace roots without an explicit import.
 - **Pull diagnostics** (`textDocument/diagnostic`, `workspace/diagnostic`).
   Diagnostics are pushed through `textDocument/publishDiagnostics`.
 - **Semantic token range/delta requests**, completion-item resolution, and
@@ -348,10 +355,7 @@ These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
 limitations above describe this checkout; see the changelog for unreleased work.
 
-1. **Background whole-project indexing — deferred:** reconsider only after a
-   real-workspace editor/LSP latency problem and an agreed performance budget
-   satisfy the [architecture decision](docs/adr-global-indexing.md).
-2. **Compiler integration — blocked on upstream APIs:** structured diagnostics,
+1. **Compiler integration — blocked on upstream APIs:** structured diagnostics,
    semantic fixes, expression types and inferred-type hints require a real Bend
    compiler contract. Do not introduce a divergent independent type checker.
 
@@ -454,27 +458,29 @@ container definition changes.
 
 The optional `dhat-heap` feature profiles allocations in the actual LSP server
 using the Rust [dhat crate](https://docs.rs/dhat/0.3.3/dhat/). Normal builds and
-published binaries do not include this allocator. Build a separate symbolized
-profiling binary without changing the default release profile:
+published binaries do not include this allocator. Hosted CI builds separate
+optimized, symbolized profiling executables without changing the default release
+profile, then captures the real LSP lifecycle and the line-index/folding examples
+on all six native platforms. Timing runs use the uninstrumented binaries.
 
-```sh
-cargo build --locked --release --features dhat-heap --bin bend2-lsp \
-  --target-dir target/dhat \
-  --config 'profile.release.debug=1' --config 'profile.release.strip="none"'
-BEND2_LSP_DHAT_FILE="$PWD/target/server-heap.json" \
-  ./target/dhat/release/bend2-lsp
-```
+All new performance measurements run on CI, including Callgrind, calibration,
+LSP latency/discovery, and allocation profiles. Local correctness checks are not
+performance evidence. See [the performance policy](docs/performance-policy.md)
+for workloads, per-platform comparisons, and raw artifact provenance.
+The unpublished [`bend2-perf`](tools/perf) Rust crate owns the portable LSP
+transport, collectors, reports, comparator, and calibration. It builds separately
+and is not linked into production server binaries or measured analysis functions.
 
-Configure your editor to launch this binary and pass `BEND2_LSP_DHAT_FILE` to
-the server process. Unset disables profiling even in an all-features build;
+CI explicitly sets `BEND2_LSP_DHAT_FILE` for each profiling child. Unset disables
+profiling even in an all-features build;
 an explicitly empty value selects `dhat-heap.json` in the working directory.
 An explicit path selects that file. Its directory must already exist; the file
 is created or overwritten when profiling finishes, not at startup. A build without the
 feature ignores this variable. Release optimization and fat LTO remain unchanged;
-debug information and symbol retention above apply only to the profiling build.
+debug information and symbol retention apply only to the profiling build.
 
-Capture a representative session, then let the client send LSP `shutdown`
-followed by `exit` and wait for the process to finish. The existing Unix SIGTERM
+The collector sends LSP `shutdown`
+followed by `exit` and waits for the process to finish. The existing Unix SIGTERM
 shutdown path also finalizes the profile after server startup. Profiling starts
 before Tokio runtime creation and finishes after its teardown. A `shutdown`
 response alone does not write the file. Empty stdin before initialization was

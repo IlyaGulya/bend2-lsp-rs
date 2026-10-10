@@ -8,10 +8,9 @@ on:
       - scripts/ci-cache.sh
       - scripts/install-tools.sh
       - rust-toolchain.toml
-      - scripts/performance_calibration.py
-      - scripts/test_performance_calibration.py
-      - scripts/calibration_report.py
-      - scripts/test_calibration_report.py
+      - tools/perf/**
+      - Cargo.toml
+      - Cargo.lock
   workflow_dispatch:
 
 permissions: {}
@@ -83,12 +82,14 @@ jobs:
             iai-runner-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-0.16.1-
       - name: Install matching Iai-Callgrind runner
         run: ./scripts/install-tools.sh performance
+      - name: Build isolated Rust calibration tooling
+        run: cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
       - name: Collect balanced independent-build measurements
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
           CALIBRATION_ROLE: ${{ matrix.role }}
         run: |
-          python3 scripts/performance_calibration.py \
+          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
             --source "$GITHUB_WORKSPACE" \
             --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
             --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
@@ -126,6 +127,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Install pinned Rust and build isolated report tooling
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
       - name: Download independent runner datasets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -133,7 +138,7 @@ jobs:
           path: target/performance-calibration-input
       - name: Report discovery allowances and untouched holdout sensitivity
         run: |
-          python3 scripts/calibration_report.py target/performance-calibration-input \
+          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
             --expected-discovery-jobs 7 --expected-validation-jobs 3 --expected-pairs 5 \
             --json-output target/performance-calibration-report/report.json \
             --markdown-output target/performance-calibration-report/report.md

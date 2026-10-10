@@ -10,7 +10,10 @@ use std::{
     collections::HashMap,
     ops::Deref,
     path::PathBuf,
-    sync::{Arc, RwLockReadGuard},
+    sync::{
+        Arc, RwLockReadGuard,
+        atomic::{AtomicBool, AtomicU64},
+    },
 };
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard as AsyncReadGuard, RwLockWriteGuard, Semaphore};
 use url::Url;
@@ -65,6 +68,10 @@ pub(super) struct WorkspaceService {
     pub(super) file_operations: RwLock<()>,
     pub(super) roots: State<Vec<PathBuf>>,
     pub(super) staging: Arc<Semaphore>,
+    pub(super) discovery: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    pub(super) discovery_epoch: AtomicU64,
+    pub(super) discovery_closed: AtomicBool,
+    pub(super) discovery_failure: tokio::sync::watch::Sender<bool>,
 }
 impl Default for WorkspaceService {
     fn default() -> Self {
@@ -79,6 +86,10 @@ impl Default for WorkspaceService {
             file_operations: RwLock::new(()),
             roots: State::new(Vec::new()),
             staging: Arc::new(Semaphore::new(4)),
+            discovery: Mutex::new(None),
+            discovery_epoch: AtomicU64::new(0),
+            discovery_closed: AtomicBool::new(false),
+            discovery_failure: tokio::sync::watch::channel(false).0,
         }
     }
 }

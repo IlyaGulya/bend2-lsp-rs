@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Features
+
+- Discover unopened regular `.bend` files under workspace roots in the background
+  using existing immutable snapshots and workspace indexes. Include them in
+  workspace symbols, references/rename, auto-import completion, and quick fixes.
+- Respect ignore rules and discovery exclusions without restricting explicit
+  imports. Preserve unsaved overlays across watched create/change/delete events,
+  workspace-folder removal, and merged file-renaming identities.
+- Own, supervise, cancel, and drain discovery workers; cancelled feature requests
+  cannot abandon pending indexing, and stale scans cannot restore removed roots.
+
 ### Bug Fixes
 
 - Ignore unrelated and no-longer-reachable watcher events before file reads or
@@ -16,6 +27,15 @@
   loaded destination snapshot into an existing file identity.
 
 ### CI
+
+- Run all new performance measurements on hosted CI only. Collect alternating
+  baseline/candidate LSP latency and workspace-discovery evidence on all six native
+  platforms, plus separate symbolized DHAT server/example allocation profiles.
+  Preserve raw samples, source/binary provenance, and existing Callgrind gates.
+- Replace Python performance collectors, comparators, reports, and calibration
+  with an unpublished Rust tooling crate and a shared portable JSON-RPC transport.
+  Preserve contract coverage and regression thresholds; keep tooling separate
+  from production server binaries and measured analysis functions.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub

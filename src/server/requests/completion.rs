@@ -60,6 +60,7 @@ impl Backend {
         &self,
         params: CompletionParams,
     ) -> Result<Option<CompletionResponse>> {
+        self.workspace.wait_for_discovery().await;
         let _workspace_read = self
             .document_read_with_prelude(&params.text_document_position.text_document.uri)
             .await;
