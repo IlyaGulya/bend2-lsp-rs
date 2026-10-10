@@ -27,6 +27,10 @@
   prefix, following the provider's correction to its generated setup instructions.
 - Distinguish WebDAV directory-creation failures from authenticated object
   routing failures using reserved health-file HTTP diagnostics.
+- Keep Cargo download and installed-tool cache identities independent of compiler
+  cache routing, and revalidate pinned tool versions after compatible restores.
+- Reuse compiler-cached libraries during cold quality-tool installation without
+  sharing its target directory with project or performance builds.
 - Move the trusted-main BuildFetch probe into an independent manual/push micro
   workflow to diagnose compiler caching without rerunning the native build matrix.
 - Add snapshot-ownership regressions and Linux stdio FIFO barriers for watcher

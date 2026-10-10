@@ -130,12 +130,22 @@ and installed-binary gates as before.
 All build jobs restore only Cargo registry downloads and Git dependency
 checkouts, never Cargo credentials, configuration, rustup wrappers, or measured
 target directories. Quality tools and the Iai runner have separate caches
-including Cargo installation metadata. Keys include native platform, Rust
-compiler identity, and installation/setup recipes; quality tool keys also
-include the Go version.
-Tool installation itself does not use sccache: Cargo's temporary install paths
-prevent reliable object reuse and generate unnecessary remote cache traffic.
-The installed-tool cache is the reuse boundary; project builds still use sccache.
+including Cargo installation metadata. Keys include native platform, the running
+Rust compiler identity, and the pinned installation recipe; quality tool keys
+also include the Go version. Backend configuration changes do not invalidate
+download or tool caches. Cargo download keys retain the project lockfile and
+tool recipe because both select downloaded dependencies.
+Tool restores may fall back to another recipe on the same platform/compiler
+(and Go version for quality tools); the installation script still checks or
+installs every pinned version before any checks run.
+Cold Cargo quality-tool builds also use sccache, with a separate, step-local
+`CARGO_TARGET_DIR`. This directory is neither archived nor shared with project
+or measured builds. The final tool binaries still link normally; restored
+installed binaries avoid that work entirely.
+To exercise source installation while preserving the existing installed-tool
+cache, dispatch `gh workflow run quality.yml --ref main -f rebuild-tools=true`.
+This skips only installed-tool cache restoration and saving, not quality gates
+or the compiler cache; tool-stage cache statistics are printed separately.
 
 Only successful trusted `push` or `workflow_dispatch` runs on `main` save
 download/tool caches. BuildFetch uses `BUILDFETCH_TOKEN_READWRITE` for these trusted

@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      rebuild-tools:
+        description: Rebuild tools without restoring or saving installed binaries
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -32,7 +37,7 @@ jobs:
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
-          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh', 'scripts/ci-cache.sh') }}
+          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh') }}
           restore-keys: |
             cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
       - name: Install pinned sccache
@@ -47,16 +52,21 @@ jobs:
           printf '%s\n' "$RUNNER_TEMP/ci-quality-tools/cargo/bin" "$RUNNER_TEMP/ci-quality-tools/go/bin" >> "$GITHUB_PATH"
           printf 'go-version=%s\n' "$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
       - name: Restore pinned quality tools and Cargo install metadata
+        if: ${{ !inputs.rebuild-tools }}
         id: tool-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ runner.temp }}/ci-quality-tools
-          key: quality-tools-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ steps.tool-identity.outputs.go-version }}-${{ hashFiles('scripts/install-tools.sh', 'rust-toolchain.toml', 'scripts/ci-cache.sh') }}
+          key: quality-tools-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ steps.tool-identity.outputs.go-version }}-${{ hashFiles('scripts/install-tools.sh') }}
+          restore-keys: |
+            quality-tools-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ steps.tool-identity.outputs.go-version }}-
       - name: Install pinned quality tools
         env:
-          # Reuse installed tools, not objects under Cargo's temporary install paths.
-          RUSTC_WRAPPER: ''
-        run: ./scripts/install-tools.sh
+          # Keep cold tool builds separate from the repository's target directory.
+          CARGO_TARGET_DIR: ${{ runner.temp }}/ci-quality-tool-build
+        run: |
+          ./scripts/install-tools.sh
+          sccache --show-stats --stats-format=json
       - name: Run quality gates
         run: ./scripts/quality
       - name: Install checksum-pinned Neovim
@@ -78,7 +88,7 @@ jobs:
           path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
           key: ${{ steps.cargo-downloads.outputs.cache-primary-key }}
       - name: Save trusted pinned quality tools
-        if: success() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.tool-cache.outputs.cache-hit != 'true'
+        if: success() && !inputs.rebuild-tools && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.tool-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ runner.temp }}/ci-quality-tools
