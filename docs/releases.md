@@ -160,14 +160,17 @@ gh secret set BUILDFETCH_TOKEN_READONLY --repo IlyaGulya/bend2-lsp-rs
 gh secret set BUILDFETCH_TOKEN_READWRITE --repo IlyaGulya/bend2-lsp-rs
 ```
 
-The endpoint, exact provider project prefix, `token-auth` username, and
+The endpoint, `token-auth` username, and
 [pinned WebDAV access modes](https://github.com/mozilla/sccache/blob/v0.18.0/docs/Webdav.md)
 are configured by `scripts/ci-cache.sh`. Read-only access is enforced by the
 readonly token, not just a client environment flag. Reusable native workflows
 receive explicit cache secrets, never inherited release-App credentials.
 The endpoint has no trailing slash: pinned OpenDAL joins it with an absolute
-WebDAV path. Additional namespace segments are not appended to the provider
-prefix; sccache's own input keys distinguish compilers, platforms, and build flags.
+WebDAV path. Do not set `SCCACHE_WEBDAV_KEY_PREFIX` to the project ID: it is
+already part of the endpoint, so setting it duplicates the ID in request URLs.
+The corrected provider route is `/sccache/<projectId>`, not
+`/<projectId>/sccache`; the project-generated instructions previously had both errors.
+sccache's own input keys distinguish compilers, platforms, and build flags.
 
 The trusted-main `buildfetch-probe` workflow writes a real Rust library, stops the
 sccache server, then uses the readonly token in a new server to retrieve the
@@ -181,15 +184,17 @@ Probe I/O failures also preserve info-level sccache diagnostics as `.error.txt`
 in the same artifact. Password and Basic-auth credential forms are redacted
 before printing or uploading; raw daemon logs stay in the runner's temporary directory.
 On writer failure, protocol diagnostics report `MKCOL`, direct `PUT`, and `GET`
-statuses for sccache's reserved `.sccache_check` health file, with and without
-the project prefix. Only status and payload-match metadata are retained;
+statuses for sccache's reserved `.sccache_check` health file at the configured
+endpoint. Only status and payload-match metadata are retained;
 these requests do not store a compiler artifact or satisfy the roundtrip gate.
 For an isolated compiler/cache check without native builds or installer E2E, run
 `gh workflow run buildfetch-probe.yml --ref main`. The same standalone workflow
 runs on main pushes, independently of `cache-warm`; both use the shared cache helper.
 Changes only to the probe script do not trigger the full native cache-warm matrix.
-The existing approximately 1.85 GiB GitHub cache observation supports an initial
-10 GiB budget, not a demonstrated BuildFetch footprint or a need for 20 GiB.
+The provider dashboard currently allocates 20 GB to this project. That is a
+storage limit, not a measured requirement. The historical approximately 1.85 GiB
+GitHub cache observation is not a BuildFetch footprint; measure project-scoped
+usage after native warming before changing the allocation.
 
 Native jobs install official nextest 0.9.131 archives through
 `scripts/bootstrap_nextest.py`, not twelve independent source builds.

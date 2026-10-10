@@ -23,8 +23,8 @@
   cache credentials. Add a real write/restart/readonly-hit compiler probe.
 - Preserve credential-redacted daemon diagnostics when the BuildFetch compiler
   probe encounters storage I/O failures.
-- Use the exact BuildFetch project prefix and normalize the WebDAV endpoint
-  separator rather than appending custom cache namespaces.
+- Correct BuildFetch routing to `/sccache/<projectId>` and omit the WebDAV key
+  prefix, following the provider's correction to its generated setup instructions.
 - Distinguish WebDAV directory-creation failures from authenticated object
   routing failures using reserved health-file HTTP diagnostics.
 - Move the trusted-main BuildFetch probe into an independent manual/push micro

@@ -44,13 +44,10 @@ def write_protocol():
     credentials = f"{os.environ['SCCACHE_WEBDAV_USERNAME']}:{os.environ['SCCACHE_WEBDAV_PASSWORD']}"
     authorization = base64.b64encode(credentials.encode()).decode()
     endpoint = os.environ["SCCACHE_WEBDAV_ENDPOINT"].rstrip("/")
-    prefix = "/" + os.environ["SCCACHE_WEBDAV_KEY_PREFIX"].strip("/")
     payload = b"Hello, World!"
     results = []
     for method, path, data in (
-        ("MKCOL", prefix + "/", None),
-        ("PUT", prefix + "/.sccache_check", payload),
-        ("GET", prefix + "/.sccache_check", None),
+        ("MKCOL", "/", None),
         ("PUT", "/.sccache_check", payload),
         ("GET", "/.sccache_check", None),
     ):
