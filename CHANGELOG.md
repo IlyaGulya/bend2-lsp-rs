@@ -41,6 +41,8 @@
   in 10, 1000, and 10000-file workspaces. Preserve timestamped Linux RSS samples
   and distinguish sampled cold peaks from full-process high-water marks and DHAT
   allocations; unavailable platform RSS remains explicitly null.
+- Buffer and atomically replace performance JSON checkpoints so interrupted
+  collection preserves previously completed results instead of truncating them.
 - Replace Python performance collectors, comparators, reports, and calibration
   with an unpublished Rust tooling crate and a shared portable JSON-RPC transport.
   Preserve contract coverage and regression thresholds; keep tooling separate

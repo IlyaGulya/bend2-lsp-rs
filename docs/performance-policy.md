@@ -267,6 +267,9 @@ numeric completion threshold or deterministic scan barrier.
 The probe and later warm buffers use diagnostics-clear acknowledgements for
 `didClose` before disk-only symbols and root-removal observations; a notification
 write alone does not establish that a buffer's ownership has been released.
+JSON checkpoints use buffered writes to a temporary sibling followed by atomic
+replacement. Interrupted serialization preserves the preceding valid checkpoint;
+an incomplete collection still cannot become a successful comparison.
 
 Linux RSS observations retain timestamped samples every 20 ms, cold sampled
 peaks, retained state, and observations immediately and 100 ms after workspace

@@ -2,7 +2,7 @@ use crate::ToolResult;
 use sha2::{Digest, Sha256};
 use std::{
     fs::File,
-    io::{Read, Write},
+    io::{BufWriter, Read, Write},
     path::Path,
 };
 
@@ -46,11 +46,18 @@ pub(crate) fn sha256_file(path: &Path) -> ToolResult<String> {
 }
 
 pub(crate) fn write_json(path: &Path, value: &serde_json::Value) -> ToolResult<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent)?;
+    let mut checkpoint = tempfile::NamedTempFile::new_in(parent)?;
+    {
+        let mut writer = BufWriter::new(checkpoint.as_file_mut());
+        serde_json::to_writer_pretty(&mut writer, value)?;
+        writer.write_all(b"\n")?;
+        writer.flush()?;
     }
-    let mut file = File::create(path)?;
-    serde_json::to_writer_pretty(&mut file, value)?;
-    file.write_all(b"\n")?;
+    checkpoint.persist(path).map_err(|error| error.error)?;
     Ok(())
 }
