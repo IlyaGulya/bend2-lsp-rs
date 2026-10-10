@@ -133,6 +133,8 @@ struct Example;
             "tests/nested/integration.rs",
             "benches/nested/benchmark.rs",
             "examples/nested/example.rs",
+            "tools/perf/src/nested/module.rs",
+            "tools/perf/tests/contract.rs",
             "build.rs",
         )
         for path in paths:

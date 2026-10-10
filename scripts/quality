@@ -16,12 +16,8 @@ python3 -m unittest discover -s scripts -p test_check_policy.py
 python3 -m unittest discover -s scripts -p test_tool_versions.py
 printf '== workflow security ==\n'
 ./scripts/check-workflows
-printf '== active performance comparator tests ==\n'
-python3 scripts/test_performance_policy.py
-printf '== performance calibration contract tests ==\n'
-python3 -m unittest discover -s scripts -p 'test_*calibration*.py'
-printf '== latency report contract tests ==\n'
-python3 scripts/test_latency_report.py
+printf '== Rust performance infrastructure contract tests ==\n'
+cargo test --package bend2-perf --all-features --locked
 printf '== release integrity ==\n'
 python3 -m unittest discover -s scripts -p test_release.py
 
@@ -37,9 +33,10 @@ cargo clippy --workspace --all-targets --all-features --locked -- \
 
 printf '== clippy (production binary; panic helpers denied) ==\n'
 cargo clippy --package bend2-lsp --bin bend2-lsp --all-features --locked -- -D warnings
+cargo clippy --package bend2-perf --bin bend2-perf --all-features --locked -- -D warnings
 
 printf '== tests ==\n'
-cargo nextest run --workspace --all-features --locked --profile ci
+cargo nextest run --workspace --exclude bend2-perf --all-features --locked --profile ci
 
 printf '== feature combinations ==\n'
 cargo hack check --workspace --feature-powerset --locked

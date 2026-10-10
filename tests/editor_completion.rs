@@ -742,10 +742,41 @@ mod protocol {
         assert_eq!(value["additionalTextEdits"], json!([]));
         editor.finish();
     }
+    #[test]
+    fn auto_import_completion_waits_for_a_new_unopened_watched_source() {
+        let source = "def main:\n  project_can\n";
+        let mut editor = Editor::new(source, None);
+        editor
+            .client
+            .request("workspace/symbol", json!({"query":"main"}));
+        let path = editor.temp.path().join("library.bend");
+        let mut library = "def project_candidate:\n  1\n".to_owned();
+        library.push_str(&"# unrelated source lines\n".repeat(40_000));
+        fs::write(&path, library).must_be("write unopened library");
+        let uri = Url::from_file_path(&path).must_be("library URI");
+        editor.client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({
+                "changes":[{"uri":uri,"type":1}]
+            }),
+        );
+        let offered = editor.complete("\n  project_can");
+        let candidate = imported_item(&offered, "project_candidate", "./library.bend");
+        assert_eq!(
+            apply(source, candidate),
+            "import ./library.bend as Library\ndef main:\n  Library.project_candidate\n"
+        );
+        assert_eq!(
+            fs::read_to_string(editor.temp.path().join("main.bend")).must_be("disk source"),
+            source
+        );
+        editor.finish();
+    }
 
     #[test]
-    fn unsaved_candidate_revisions_and_middle_token_suffix_are_used_without_disk_discovery() {
+    fn unsaved_candidate_revisions_and_middle_token_suffix_respect_discovery_exclusions() {
         let mut editor = Editor::with_setup("def main:\n  old\n", None, |root| {
+            fs::write(root.join(".gitignore"), "hidden.bend\n").must_be("exclude disk candidate");
             fs::write(root.join("hidden.bend"), "def newest:\n  9\n").must_be("unindexed source");
         });
         let uri = editor.index_unsaved("tools.bend", "def stale:\n  0\n");
