@@ -1,5 +1,5 @@
 use crate::{ToolResult, common};
-use serde::Serialize;
+use serde::{Serialize, Serializer, ser::SerializeStruct};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
@@ -49,13 +49,28 @@ pub(super) struct Artifact {
     pub size: u64,
 }
 
-#[derive(Serialize)]
 pub(super) struct Document {
     pub path: String,
     pub kind: String,
     pub status: String,
     pub data: Value,
     pub links: Vec<Artifact>,
+}
+
+impl Serialize for Document {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let include_data = self.kind != "discovery-raw";
+        let mut document =
+            serializer.serialize_struct("Document", if include_data { 5 } else { 4 })?;
+        document.serialize_field("path", &self.path)?;
+        document.serialize_field("kind", &self.kind)?;
+        document.serialize_field("status", &self.status)?;
+        if include_data {
+            document.serialize_field("data", &self.data)?;
+        }
+        document.serialize_field("links", &self.links)?;
+        document.end()
+    }
 }
 
 impl Report {

@@ -386,6 +386,9 @@ keep their raw data and explicit failure state. The report writes `index.html`,
 still produces diagnostic files before returning nonzero. CI uses
 `dashboard <root> --target-only` for a single uploaded bundle; that mode explicitly
 does not claim complete aggregate matrix coverage.
+The unified JSON retains summary measurements and links to validated raw
+discovery evidence rather than embedding a second copy of its full payload.
+Raw files, checksums, pairing checks, and completeness validation are unchanged.
 
 `cargo perf open <downloaded-directory> --cpu --scenario <scenario> --target <triple>`
 opens a validated CPU trace through `samply load`, with its packaged binary/debug
