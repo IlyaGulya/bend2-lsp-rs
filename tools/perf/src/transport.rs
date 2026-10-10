@@ -75,6 +75,7 @@ pub(crate) struct LspProcess {
     timeout: Duration,
     shutdown: ShutdownEvidence,
     cancellation: Option<&'static AtomicBool>,
+    abort_on_failure: bool,
 }
 
 fn failure(message: impl std::fmt::Display) -> io::Error {
@@ -282,6 +283,7 @@ impl LspProcess {
             timeout: REQUEST_TIMEOUT,
             shutdown: ShutdownEvidence::default(),
             cancellation: None,
+            abort_on_failure: true,
         })
     }
 
@@ -291,6 +293,18 @@ impl LspProcess {
 
     pub(crate) fn set_cancellation_flag(&mut self, cancellation: &'static AtomicBool) {
         self.cancellation = Some(cancellation);
+    }
+
+    /// The scenario owner stops attach collectors before terminating their
+    /// target. It must call `abort` on failure; Drop remains the final backstop.
+    pub(crate) fn defer_abort_to_owner(&mut self) {
+        self.abort_on_failure = false;
+    }
+
+    fn abort_failed_operation(&mut self) {
+        if self.abort_on_failure {
+            self.abort();
+        }
     }
 
     pub(crate) fn check_cancelled(&self) -> ToolResult<()> {
@@ -318,7 +332,13 @@ impl LspProcess {
                 Ok(value) => return Ok(value),
                 Err(mpsc::RecvTimeoutError::Timeout) if Instant::now() < deadline => {}
                 Err(error) => {
-                    return Err(failure(format!("LSP channel wait failed: {error}")).into());
+                    let kind = match error {
+                        mpsc::RecvTimeoutError::Timeout => io::ErrorKind::TimedOut,
+                        mpsc::RecvTimeoutError::Disconnected => io::ErrorKind::Other,
+                    };
+                    return Err(
+                        io::Error::new(kind, format!("LSP channel wait failed: {error}")).into(),
+                    );
                 }
             }
         }
@@ -332,7 +352,7 @@ impl LspProcess {
 
     fn write_frame(&mut self, data: Vec<u8>, deadline: Instant) -> ToolResult<()> {
         if let Err(error) = self.check_cancelled() {
-            self.abort();
+            self.abort_failed_operation();
             return Err(error);
         }
         let (completed, completion) = mpsc::channel();
@@ -345,7 +365,7 @@ impl LspProcess {
             Ok(Ok(())) => Ok(()),
             Ok(Err(error)) => Err(failure(format!("LSP write failed: {error}")).into()),
             Err(error) => {
-                self.abort();
+                self.abort_failed_operation();
                 Err(error)
             }
         }
@@ -402,7 +422,7 @@ impl LspProcess {
 
     pub(crate) fn response(&mut self, pending: PendingRequest) -> ToolResult<(Value, u64)> {
         if let Err(error) = self.check_cancelled() {
-            self.abort();
+            self.abort_failed_operation();
             return Err(error);
         }
         while !self.responses.contains_key(&pending.id) {
@@ -414,8 +434,12 @@ impl LspProcess {
             .ok_or_else(|| failure("missing buffered response"))?;
         self.pending.remove(&pending.id);
         if received > pending.deadline {
-            self.abort();
-            return Err(failure("LSP response arrived after request deadline").into());
+            self.abort_failed_operation();
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "LSP response arrived after request deadline",
+            )
+            .into());
         }
         let elapsed = u64::try_from(
             received
@@ -559,7 +583,7 @@ impl LspProcess {
             Err(error) => Err(error),
         };
         if result.is_err() {
-            self.abort();
+            self.abort_failed_operation();
         }
         result
     }
@@ -637,7 +661,7 @@ impl LspProcess {
         };
         let outcome = self.shutdown_and_exit(finalization_timeout);
         if outcome.is_err() {
-            self.abort();
+            self.abort_failed_operation();
         }
         outcome
     }

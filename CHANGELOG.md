@@ -63,6 +63,11 @@
   ARM64 register mask for software-clock DWARF captures.
 - Adapt canonical Windows paths for the ETL decoder and reject WPR traces that
   report dropped events instead of treating successful file saving as completeness.
+- Decode Windows sampled CPU events through thread lifecycle ownership, accept
+  native CRLF readiness lines, and preserve native WPR profile semantics while
+  configuring bounded buffers and lossless stack caches. Require zero lost events.
+- Keep failed attached LSP targets alive until collector cleanup runs, and
+  classify already-buffered late responses as request timeouts.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub

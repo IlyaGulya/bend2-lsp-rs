@@ -19,7 +19,7 @@ pub(super) fn tracerpt_path(path: &std::path::Path) -> ToolResult<String> {
 
 pub(super) fn validate_wpr_stop(stdout: &str) -> ToolResult<()> {
     for line in stdout.lines() {
-        if let Some(dropped) = line.trim().strip_prefix("This trace has dropped ") {
+        if let Some(dropped) = line.trim().strip_prefix("This trace has dropped") {
             let count = dropped
                 .split_whitespace()
                 .next()
@@ -34,6 +34,49 @@ pub(super) fn validate_wpr_stop(stdout: &str) -> ToolResult<()> {
     }
     Ok(())
 }
+
+// Export the installed native profile rather than copying its provider/stack
+// definitions. Fixed file-mode buffers absorb bursts without circular overwrite;
+// no keywords, samples, allocation events, or stacks are removed.
+// Microsoft WPRControlProfiles schema: EventBufferElementGroup ordering and
+// Buffers/BufferSize values; -exportprofile preserves native profile semantics.
+pub(super) const CONFIGURE_WPR: &str = r"$ErrorActionPreference='Stop'
+$profile = New-Object System.Xml.XmlDocument
+$profile.PreserveWhitespace = $true
+$profile.Load($env:BEND_PERF_WPR_SOURCE)
+if ($profile.DocumentElement.Name -ne 'WindowsPerformanceRecorder') { throw 'Unexpected native WPR profile root' }
+$selected = @($profile.SelectNodes('/WindowsPerformanceRecorder/Profiles/Profile') | Where-Object { $_.Name -eq $env:BEND_PERF_WPR_PROFILE_NAME -and $_.LoggingMode -eq 'File' })
+if ($selected.Count -eq 0) { throw 'Native WPR export omitted the requested file-mode profile' }
+$collectors = @($profile.SelectNodes('//SystemCollector | //EventCollector | //HeapEventCollector | //SystemCollectorId | //EventCollectorId | //HeapEventCollectorId'))
+if ($collectors.Count -eq 0) { throw 'Native WPR export omitted its collectors' }
+if ($env:BEND_PERF_WPR_PROFILE_NAME -eq 'Heap' -and !$profile.SelectSingleNode('//HeapEventCollector')) { throw 'Native Heap export omitted its heap collector' }
+foreach ($collector in $collectors) {
+  $count = switch ($collector.LocalName) {
+    { $_ -in @('HeapEventCollector','HeapEventCollectorId') } { 512; break }
+    { $_ -in @('SystemCollector','SystemCollectorId') } { 256; break }
+    default { 64 }
+  }
+  $size = $collector.SelectSingleNode('BufferSize')
+  if (!$size) { $size=$profile.CreateElement('BufferSize'); [void]$collector.PrependChild($size) }
+  $size.SetAttribute('Value','1024')
+  $buffers = $collector.SelectSingleNode('Buffers')
+  if (!$buffers) { $buffers=$profile.CreateElement('Buffers'); [void]$collector.InsertAfter($buffers,$size) }
+  $buffers.SetAttribute('Value',$count.ToString([Globalization.CultureInfo]::InvariantCulture))
+  $buffers.RemoveAttribute('PercentageOfTotalMemory')
+  $buffers.RemoveAttribute('MaximumBufferSpace')
+  $buffers.RemoveAttribute('MinimumRundownSpace')
+  $cache = $collector.SelectSingleNode('StackCaching')
+  if (!$cache) { $cache=$profile.CreateElement('StackCaching'); [void]$collector.InsertAfter($cache,$buffers) }
+  if ($collector.LocalName -in @('HeapEventCollector','HeapEventCollectorId')) {
+    $cache.SetAttribute('BucketCount','4096')
+    $cache.SetAttribute('CacheSize','65536')
+  } else {
+    $cache.SetAttribute('BucketCount','1024')
+    $cache.SetAttribute('CacheSize','16384')
+  }
+}
+$profile.Save($env:BEND_PERF_WPR_PROFILE)
+";
 
 // WPR HeapTracingConfig changes this one value. Snapshot it before enabling,
 // preserve its registry type, and never replace unrelated IFEO values/subkeys.
@@ -112,4 +155,89 @@ pub(super) fn validate_snapshot(state: &Value) -> ToolResult<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retained_wpr_loss_reports_remain_fatal() {
+        // Hosted x64 run 38082284299: WPR exited successfully and saved ETLs,
+        // but both stop reports explicitly declared incomplete recordings.
+        for count in [50_716, 84_437_624] {
+            let report = format!(
+                "\r\nThe trace has been successfully saved.\r\n\r\nThis trace has dropped {count} events. Please record this trace again.\r\n"
+            );
+            let result = validate_wpr_stop(&report);
+            assert!(result.is_err(), "Accepted a saved but incomplete ETL");
+            if let Err(error) = result {
+                assert!(error.to_string().contains(&count.to_string()), "{error}");
+            }
+        }
+        assert!(validate_wpr_stop("This trace has dropped invalid events.\r\n").is_err());
+        assert!(validate_wpr_stop("This trace has dropped \r\n").is_err());
+    }
+
+    #[test]
+    fn complete_wpr_stop_without_losses_is_accepted() -> ToolResult<()> {
+        validate_wpr_stop("\r\nThe trace has been successfully saved.\r\n")?;
+        validate_wpr_stop("This trace has dropped 0 events.\r\n")
+    }
+    #[cfg(windows)]
+    #[test]
+    fn bounded_profiles_preserve_the_installed_native_cpu_and_heap_schema() -> ToolResult<()> {
+        // Export/configure/decode profiles only: this test never starts a collector.
+        for name in ["CPU", "Heap"] {
+            let directory = tempfile::tempdir()?;
+            let source = directory.path().join("source.wprp");
+            let profile = directory.path().join("recording.wprp");
+            let exported = std::process::Command::new("wpr")
+                .args(["-exportprofile", name])
+                .arg(&source)
+                .arg("-filemode")
+                .output()?;
+            assert!(exported.status.success(), "{exported:?}");
+            let configured = std::process::Command::new("powershell.exe")
+                .args(["-NoProfile", "-NonInteractive", "-Command", CONFIGURE_WPR])
+                .env("BEND_PERF_WPR_SOURCE", &source)
+                .env("BEND_PERF_WPR_PROFILE", &profile)
+                .env("BEND_PERF_WPR_PROFILE_NAME", name)
+                .output()?;
+            assert!(configured.status.success(), "{configured:?}");
+            const CHECK: &str = r"$ErrorActionPreference='Stop'
+$before = New-Object System.Xml.XmlDocument
+$after = New-Object System.Xml.XmlDocument
+$before.Load($env:BEND_PERF_WPR_SOURCE)
+$after.Load($env:BEND_PERF_WPR_PROFILE)
+foreach ($collector in $after.SelectNodes('//SystemCollector | //EventCollector | //HeapEventCollector | //SystemCollectorId | //EventCollectorId | //HeapEventCollectorId')) {
+  if ($collector.BufferSize.Value -ne '1024') { throw 'Collector size not configured' }
+  $expected = switch ($collector.LocalName) {
+    { $_ -in @('HeapEventCollector','HeapEventCollectorId') } { '512'; break }
+    { $_ -in @('SystemCollector','SystemCollectorId') } { '256'; break }
+    default { '64' }
+  }
+  if ($collector.Buffers.Value -ne $expected -or $collector.Buffers.HasAttribute('PercentageOfTotalMemory')) { throw 'Collector buffer count is not bounded' }
+  if (!$collector.StackCaching -or [uint32]$collector.StackCaching.CacheSize -gt 65536) { throw 'Native stack cache is absent or unbounded' }
+}
+foreach ($document in @($before,$after)) {
+  foreach ($node in @($document.SelectNodes('//BufferSize | //Buffers | //StackCaching'))) { [void]$node.ParentNode.RemoveChild($node) }
+}
+if ($before.DocumentElement.OuterXml -cne $after.DocumentElement.OuterXml) { throw 'Native provider/profile/stack semantics changed' }
+";
+            let preserved = std::process::Command::new("powershell.exe")
+                .args(["-NoProfile", "-NonInteractive", "-Command", CHECK])
+                .env("BEND_PERF_WPR_SOURCE", &source)
+                .env("BEND_PERF_WPR_PROFILE", &profile)
+                .output()?;
+            assert!(preserved.status.success(), "{preserved:?}");
+            let details = std::process::Command::new("wpr")
+                .args(["-profiledetails"])
+                .arg(format!("{}!{name}", profile.display()))
+                .arg("-filemode")
+                .output()?;
+            assert!(details.status.success(), "{details:?}");
+        }
+        Ok(())
+    }
 }
