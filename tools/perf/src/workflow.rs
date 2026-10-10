@@ -299,7 +299,11 @@ fn expected(request: &CollectionRequest, target: &str) -> Vec<Value> {
         result.push(json!({"path": path, "kind": kind, "required": true}));
     };
     if request.mode == "callgrind" {
-        add("analysis_hot_paths-baseline.json".to_owned(), "callgrind");
+        add(
+            "analysis_hot_paths-baseline.json".to_owned(),
+            "callgrind-input",
+        );
+        add("callgrind-policy.json".to_owned(), "callgrind");
     }
     if matches!(request.mode.as_str(), "compare" | "full") {
         for (path, kind) in [
@@ -410,10 +414,22 @@ fn finalize(root: &Path, request: &CollectionRequest, value: &mut Value) -> Tool
         let outcome = step
             .remove("outcome")
             .ok_or("Missing workflow step outcome")?;
-        statuses.insert(
-            name,
-            Value::Object(Map::from_iter([("status".to_owned(), outcome)])),
-        );
+        let mut status = Map::from_iter([("status".to_owned(), outcome)]);
+        if request.mode == "callgrind"
+            && name == "candidate"
+            && let Some(outputs) = step.get("outputs").and_then(Value::as_object)
+        {
+            for field in ["benchmark_exit_code", "policy_exit_code"] {
+                if let Some(code) = outputs
+                    .get(field)
+                    .and_then(Value::as_str)
+                    .filter(|code| !code.is_empty())
+                {
+                    status.insert(field.to_owned(), json!(code.parse::<u8>()?));
+                }
+            }
+        }
+        statuses.insert(name, Value::Object(status));
     }
     value["statuses"] = Value::Object(statuses);
     let status_file = root.join("collection-status.jsonl");
@@ -439,7 +455,7 @@ fn finalize(root: &Path, request: &CollectionRequest, value: &mut Value) -> Tool
         for path in &paths {
             if path.file_name().is_some_and(|name| name == "summary.json") {
                 value["expected"].as_array_mut().ok_or("Expected artifacts must be an array")?.push(
-                    json!({"path": relative(root, path)?, "kind": "callgrind", "required": true}));
+                    json!({"path": relative(root, path)?, "kind": "callgrind-input", "required": true}));
                 count += 1;
             }
         }
@@ -475,12 +491,19 @@ fn manifest(finish: bool) -> ToolResult<()> {
     fs::create_dir_all(&root)?;
     let target = variable("PERF_TARGET")?;
     let expected_targets: Vec<&str> = request.targets().map(|target| target.triple).collect();
+    let gate_identity = if request.mode == "callgrind" {
+        json!({"workflow": "performance", "job": variable("GITHUB_JOB")?,
+            "step": "Compare pull request with main", "head_sha": variable("WORKFLOW_HEAD_SHA")?})
+    } else {
+        Value::Null
+    };
     let mut value = json!({
         "schema_version": 1, "request_id": request.request_id, "mode": request.mode,
         "base_sha": request.base_sha, "candidate_sha": request.candidate_sha,
         "workflow_sha": variable("WORKFLOW_SHA")?, "repository": variable("GITHUB_REPOSITORY")?,
         "target": target, "runner": variable("PERF_RUNNER")?,
         "run_id": variable("GITHUB_RUN_ID")?, "run_attempt": variable("GITHUB_RUN_ATTEMPT")?,
+        "gate_identity": gate_identity,
         "scenario": request.scenario, "native_kind": request.native_kind, "expected_targets": expected_targets,
         "expected": expected(&request, &target), "statuses": {"collection": "pending"}, "files": [],
         "native_heap": if target.contains("linux") {"not-applicable: Linux uses DHAT, not a native heap tracing backend"}

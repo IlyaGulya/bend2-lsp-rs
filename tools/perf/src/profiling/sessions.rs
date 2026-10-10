@@ -898,7 +898,7 @@ foreach ($helper in $helpers) {
         };
         json!({"version": self.version, "commands": self.commands, "control_messages": self.control_messages, "tools": self.tools,
             "heap_ifeo_state_before": self.heap_ifeo, "heap_ifeo_restored": self.heap_ifeo_restored,
-            "source": if self.backend == "samply" { doctor::SAMPLY_SOURCE } else { "OS/Xcode/kernel tool identity pinned by version and binary SHA256" },
+            "source": if self.backend == "samply" { doctor::samply_source() } else { "OS/Xcode/kernel tool identity pinned by version and binary SHA256" },
             "viewer_command": viewer, "viewer_url": if self.backend == "dhat" {Some("https://nnethercote.github.io/dh_view/dh_view.html")} else {None},
             "phase_markers": if self.backend == "wpr" {"ETW wpr -marker and manifest timestamps"} else {"manifest timestamps; no fabricated in-trace marker support"}})
     }

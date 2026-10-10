@@ -2,7 +2,7 @@ use crate::{ToolResult, common};
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Component, Path, PathBuf},
 };
@@ -180,9 +180,7 @@ pub(super) fn collect_scoped(root: &Path, target_only: bool) -> ToolResult<Repor
     }
     merge_callgrind(&mut targets, &mut errors);
     validate_coverage(&targets, &run, target_only, &mut issues, &mut errors);
-    if run["workflow_succeeded"] == false {
-        errors.push("Hosted workflow did not succeed; partial artifacts are retained, not accepted as a passing run".into());
-    }
+    validate_hosted_workflow(root, &mut run, &targets, &mut errors);
     let status = if validation_failed
         || !errors.is_empty()
         || targets.iter().any(|target| target.status == "failed")
@@ -214,6 +212,181 @@ pub(super) fn collect_scoped(root: &Path, target_only: bool) -> ToolResult<Repor
         errors,
         targets,
     })
+}
+
+fn metadata_number(value: &Value) -> Option<u64> {
+    value.as_u64().or_else(|| value.as_str()?.parse().ok())
+}
+
+fn validate_hosted_job(job: &Value, identity: &Value) -> ToolResult<bool> {
+    let failed = job["conclusion"] == "failure";
+    if failed {
+        if job["name"] != identity["job"] {
+            return Err("A non-canonical hosted job failed".into());
+        }
+    } else if job["conclusion"] != "success" {
+        return Err("A hosted job has an unsuccessful or unknown conclusion".into());
+    }
+    let steps = job["steps"]
+        .as_array()
+        .filter(|steps| !steps.is_empty())
+        .ok_or("Hosted job has no step conclusions")?;
+    let mut failed_steps = 0;
+    let mut step_ids = BTreeSet::new();
+    for step in steps {
+        let number = step["number"]
+            .as_u64()
+            .filter(|number| *number > 0)
+            .ok_or("Missing hosted step identity")?;
+        if !step_ids.insert(number) || step["status"] != "completed" {
+            return Err("Duplicate or incomplete hosted step conclusion".into());
+        }
+        if step["conclusion"] == "failure" {
+            failed_steps += 1;
+            if !failed || step["name"] != identity["step"] {
+                return Err("A non-canonical hosted step failed".into());
+            }
+        } else if step["conclusion"] != "success" && step["conclusion"] != "skipped" {
+            return Err("A hosted step has an unsuccessful or unknown conclusion".into());
+        }
+    }
+    if failed && failed_steps != 1 {
+        return Err("Canonical job does not have exactly its one failing comparison step".into());
+    }
+    Ok(failed)
+}
+
+fn attributable_gate_failure(
+    metadata: &Value,
+    repository: &str,
+    targets: &[TargetEvidence],
+) -> ToolResult<()> {
+    let gate_target = targets
+        .iter()
+        .find(|target| {
+            target
+                .documents
+                .iter()
+                .any(|document| document.kind == "callgrind" && document.status == "regression")
+        })
+        .ok_or("No validated authoritative gate regression")?;
+    if !gate_target.errors.is_empty() || !gate_target.missing.is_empty() {
+        return Err("Canonical gate bundle has failed or incomplete evidence".into());
+    }
+    let gate = if gate_target.provenance["mode"] == "callgrind" {
+        &gate_target.provenance
+    } else {
+        &gate_target.provenance["callgrind_manifest"]
+    };
+    let identity = &gate["gate_identity"];
+    if gate["repository"] != repository
+        || metadata_number(&gate["run_id"]) != metadata["databaseId"].as_u64()
+        || metadata_number(&gate["run_attempt"]) != metadata["attempt"].as_u64()
+        || identity["workflow"] != metadata["workflowName"]
+        || identity["workflow"] != "performance"
+        || identity["job"] != "compare"
+        || identity["step"] != "Compare pull request with main"
+        || identity["head_sha"] != metadata["headSha"]
+        || !identity["head_sha"]
+            .as_str()
+            .is_some_and(|value| hex(value, 40))
+        || metadata["event"] != "pull_request"
+    {
+        return Err("Hosted failure is not bound to the canonical gate run/source identity".into());
+    }
+    let candidate = &gate["statuses"]["candidate"];
+    if candidate["status"] != "failure"
+        || candidate["policy_exit_code"] != 1
+        || !matches!(candidate["benchmark_exit_code"].as_u64(), Some(0 | 3))
+    {
+        return Err("Hosted gate failure lacks agreeing actual command exit codes".into());
+    }
+    let jobs = metadata["jobs"]
+        .as_array()
+        .filter(|jobs| !jobs.is_empty())
+        .ok_or("Hosted failure has no job conclusions")?;
+    let mut failed_jobs = 0;
+    let mut seen = BTreeSet::new();
+    for job in jobs {
+        let id = job["databaseId"]
+            .as_u64()
+            .filter(|id| *id > 0)
+            .ok_or("Missing hosted job identity")?;
+        if !seen.insert(id) || job["status"] != "completed" {
+            return Err("Duplicate or incomplete hosted job conclusion".into());
+        }
+        failed_jobs += usize::from(validate_hosted_job(job, identity)?);
+    }
+    if failed_jobs != 1 {
+        return Err("Hosted failure does not have exactly its one failing canonical job".into());
+    }
+    Ok(())
+}
+
+fn validate_hosted_workflow(
+    root: &Path,
+    run: &mut Value,
+    targets: &[TargetEvidence],
+    errors: &mut Vec<String>,
+) {
+    if !root.join("workflow-run.json").exists() {
+        if run["workflow_succeeded"] == false {
+            errors.push("Hosted workflow did not succeed; no job/step evidence attributes its failure exclusively to the canonical gate".into());
+        }
+        return;
+    }
+    let outcome = (|| -> ToolResult<()> {
+        let evidence = read_json(&confined(root, root, "workflow-run.json")?)?;
+        if evidence["format_version"] != 1 || evidence["status"] == "failed" {
+            return Err(format!(
+                "Hosted workflow metadata unavailable or invalid: {}",
+                evidence["error"]
+            )
+            .into());
+        }
+        let repository = evidence["repository"]
+            .as_str()
+            .filter(|name| !name.is_empty())
+            .ok_or("Missing hosted workflow repository")?;
+        let metadata = &evidence["run"];
+        run.as_object_mut()
+            .ok_or("Aggregate manifest is not an object")?
+            .insert("hosted_workflow".into(), metadata.clone());
+        let id = metadata["databaseId"]
+            .as_u64()
+            .filter(|id| *id > 0)
+            .ok_or("Missing hosted workflow run ID")?;
+        if metadata["status"] != "completed"
+            || metadata["url"] != format!("https://github.com/{repository}/actions/runs/{id}")
+            || run["repository"] != repository
+        {
+            return Err(
+                "Hosted workflow metadata is incomplete or belongs to another repository".into(),
+            );
+        }
+        for target in targets {
+            if metadata_number(&target.provenance["run_id"]) != Some(id)
+                || metadata_number(&target.provenance["run_attempt"])
+                    != metadata["attempt"].as_u64()
+            {
+                return Err(
+                    "Hosted workflow run/attempt differs from target artifact provenance".into(),
+                );
+            }
+        }
+        if metadata["conclusion"] == "failure" {
+            attributable_gate_failure(metadata, repository, targets)?;
+        } else if metadata["conclusion"] != "success" || run["workflow_succeeded"] == false {
+            return Err(
+                "Hosted workflow did not succeed or has inconsistent outcome evidence".into(),
+            );
+        }
+        run["workflow_succeeded"] = json!(metadata["conclusion"] == "success");
+        Ok(())
+    })();
+    if let Err(error) = outcome {
+        errors.push(error.to_string());
+    }
 }
 
 fn load_target(root: &Path, path: &Path, manifest: &Value) -> ToolResult<TargetEvidence> {
@@ -268,6 +441,15 @@ fn load_target(root: &Path, path: &Path, manifest: &Value) -> ToolResult<TargetE
     }
     let verified = verify_bundle(root, directory, manifest, &mut target);
     load_documents(root, directory, manifest, &verified, &mut target)?;
+    validate_statuses(manifest, &mut target);
+    if manifest["mode"] == "callgrind"
+        && !target.documents.iter().any(|document| {
+            document.kind == "callgrind"
+                && matches!(document.status.as_str(), "complete" | "regression")
+        })
+    {
+        target.missing.push("Authoritative Callgrind policy verdict is absent or invalid; no passing gate is inferred".into());
+    }
     pair_discovery(&mut target);
     target.status = if !target.errors.is_empty() {
         "failed"
@@ -382,19 +564,83 @@ fn validate_document(
         }
         "memory" => validate_heap(root, directory, document, target),
         "profile" => validate_profile(root, directory, document, target),
-        // Do not redefine or weaken existing Callgrind policy: render its own gate verdict.
-        "callgrind"
-            if data["status"] == "regression"
-                || data["gate_status"] == "regression"
-                || data["passed"] == false =>
-        {
-            target
-                .regressions
-                .push("Callgrind gate reported a regression; see original gate evidence".into());
-        }
+        "callgrind" => validate_callgrind(root, directory, document, target),
         _ => {}
     }
 }
+fn validate_callgrind(
+    root: &Path,
+    directory: &Path,
+    document: &mut Document,
+    target: &mut TargetEvidence,
+) {
+    if document.data["kind"] != "callgrind-policy" {
+        document.status = "unknown".into();
+        target.missing.push(format!(
+            "{} is historical raw Callgrind evidence, not an authoritative policy verdict",
+            document.path
+        ));
+        return;
+    }
+    if document.data["status"] == "failed" {
+        document.status = "failed".into();
+        return;
+    }
+    let outcome = (|| -> ToolResult<Vec<String>> {
+        if target.provenance["mode"] != "callgrind" {
+            return Err("Callgrind policy verdict requires a canonical gate manifest".into());
+        }
+        let mut identities = vec![&document.data["inputs"]["baseline_manifest"]];
+        identities.extend(
+            document.data["inputs"]["summaries"]
+                .as_array()
+                .ok_or("Missing Callgrind policy summary inventory")?,
+        );
+        let files = target.provenance["files"]
+            .as_array()
+            .ok_or("Missing artifact inventory")?;
+        let mut inputs = BTreeMap::new();
+        for identity in identities {
+            let name = identity["path"]
+                .as_str()
+                .ok_or("Missing Callgrind policy input path")?;
+            let item = files
+                .iter()
+                .find(|item| item["path"] == name)
+                .ok_or("Callgrind policy input is absent from manifest inventory")?;
+            if item["sha256"] != identity["sha256"] || item["size"] != identity["size"] {
+                return Err(
+                    "Callgrind policy input identity differs from manifest inventory".into(),
+                );
+            }
+            let artifact = verify_artifact(root, directory, identity, "callgrind-input")?;
+            let path = confined(root, directory, name)?;
+            if inputs.insert(name.to_owned(), read_json(&path)?).is_some() {
+                return Err("Duplicate Callgrind policy input identity".into());
+            }
+            document.links.push(artifact);
+        }
+        crate::policy::validate_verdict(&document.data, &target.provenance, &inputs)
+    })();
+    match outcome {
+        Ok(failures) => {
+            document.status = if failures.is_empty() {
+                "complete"
+            } else {
+                "regression"
+            }
+            .into();
+            target.regressions.extend(failures);
+        }
+        Err(error) => {
+            document.status = "failed".into();
+            target
+                .errors
+                .push(format!("{} invalid policy verdict: {error}", document.path));
+        }
+    }
+}
+
 fn validate_latency(data: &Value, target: &mut TargetEvidence) {
     for variant in ["baseline", "candidate"] {
         let metadata = &data[format!("{variant}_metadata")];
@@ -939,21 +1185,47 @@ fn verify_bundle(
             .missing
             .push("Manifest file identities are absent".into());
     }
+    verified
+}
+
+fn validate_statuses(manifest: &Value, target: &mut TargetEvidence) {
+    let policy_regression = target
+        .documents
+        .iter()
+        .any(|document| document.kind == "callgrind" && document.status == "regression");
     if let Some(statuses) = manifest["statuses"].as_object() {
         for (name, value) in statuses {
             let status = value
                 .as_str()
                 .or_else(|| value["status"].as_str())
                 .unwrap_or("unknown");
+            // A failed candidate step is a numerical gate outcome only when the
+            // retained evaluator verdict and both actual command exits agree.
+            if manifest["mode"] == "callgrind"
+                && name == "candidate"
+                && status == "failure"
+                && policy_regression
+                && matches!(value["benchmark_exit_code"].as_u64(), Some(0 | 3))
+                && value["policy_exit_code"] == 1
+            {
+                continue;
+            }
             match status {
                 "complete" | "passed" | "success" | "skipped" | "not-applicable" => {}
-                "regression" => target.regressions.push(format!("{name}: {value}")),
-                "failed" | "failure" | "error" => target.errors.push(format!("{name}: {value}")),
+                "regression" if manifest["mode"] != "callgrind" => {
+                    target.regressions.push(format!("{name}: {value}"));
+                }
+                "failed" | "failure" | "error" | "regression" => {
+                    target.errors.push(format!("{name}: {value}"));
+                }
                 _ => target.missing.push(format!("{name}: {value}")),
             }
         }
+    } else {
+        target
+            .missing
+            .push("Workflow collection outcomes are absent".into());
     }
-    verified
 }
 
 fn load_documents(
@@ -1100,6 +1372,7 @@ fn load_targets(
             };
             let manifest = json!({"schema_version":1, "mode":"profile", "target":data["target"],
                 "candidate_sha":data["source_sha"], "expected":[{"path":"profile-manifest.json","kind":"profile","required":true}],
+                "statuses":{"profile-capture":{"status":data["status"],"evidence":"profile-manifest.json"}},
                 "files":[{"path":"profile-manifest.json", "sha256":common::sha256_file(path)?, "size":fs::metadata(path)?.len()}]});
             targets.push(load_target(root, path, &manifest)?);
         }

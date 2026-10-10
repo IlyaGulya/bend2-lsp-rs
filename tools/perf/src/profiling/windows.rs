@@ -40,6 +40,9 @@ pub(super) fn validate_wpr_stop(stdout: &str) -> ToolResult<()> {
 // no keywords, samples, allocation events, or stacks are removed.
 // Microsoft WPRControlProfiles schema: EventBufferElementGroup ordering and
 // Buffers/BufferSize values; -exportprofile preserves native profile semantics.
+// Native WPR's CProfileElement parser rejects StackCaching in *CollectorId
+// overrides with E_UNEXPECTED (0x8000ffff), despite the published schema.
+// Configure the cache once on each collector definition, not its references.
 pub(super) const CONFIGURE_WPR: &str = r"$ErrorActionPreference='Stop'
 $profile = New-Object System.Xml.XmlDocument
 $profile.PreserveWhitespace = $true
@@ -65,9 +68,10 @@ foreach ($collector in $collectors) {
   $buffers.RemoveAttribute('PercentageOfTotalMemory')
   $buffers.RemoveAttribute('MaximumBufferSpace')
   $buffers.RemoveAttribute('MinimumRundownSpace')
+  if ($collector.LocalName -in @('SystemCollectorId','EventCollectorId','HeapEventCollectorId')) { continue }
   $cache = $collector.SelectSingleNode('StackCaching')
   if (!$cache) { $cache=$profile.CreateElement('StackCaching'); [void]$collector.InsertAfter($cache,$buffers) }
-  if ($collector.LocalName -in @('HeapEventCollector','HeapEventCollectorId')) {
+  if ($collector.LocalName -eq 'HeapEventCollector') {
     $cache.SetAttribute('BucketCount','4096')
     $cache.SetAttribute('CacheSize','65536')
   } else {
@@ -198,6 +202,12 @@ mod tests {
                 .arg("-filemode")
                 .output()?;
             assert!(exported.status.success(), "{exported:?}");
+            let original_details = std::process::Command::new("wpr")
+                .arg("-profiledetails")
+                .arg(format!("{}!{name}", source.display()))
+                .arg("-filemode")
+                .output()?;
+            assert!(original_details.status.success(), "{original_details:?}");
             let configured = std::process::Command::new("powershell.exe")
                 .args(["-NoProfile", "-NonInteractive", "-Command", CONFIGURE_WPR])
                 .env("BEND_PERF_WPR_SOURCE", &source)
@@ -218,7 +228,13 @@ foreach ($collector in $after.SelectNodes('//SystemCollector | //EventCollector 
     default { '64' }
   }
   if ($collector.Buffers.Value -ne $expected -or $collector.Buffers.HasAttribute('PercentageOfTotalMemory')) { throw 'Collector buffer count is not bounded' }
-  if (!$collector.StackCaching -or [uint32]$collector.StackCaching.CacheSize -gt 65536) { throw 'Native stack cache is absent or unbounded' }
+  if ($collector.LocalName -in @('SystemCollectorId','EventCollectorId','HeapEventCollectorId')) {
+    if ($collector.StackCaching) { throw 'Stack caching on a collector reference is not supported by native WPR' }
+  } else {
+    $buckets = if ($collector.LocalName -eq 'HeapEventCollector') { '4096' } else { '1024' }
+    $cacheSize = if ($collector.LocalName -eq 'HeapEventCollector') { '65536' } else { '16384' }
+    if (!$collector.StackCaching -or $collector.StackCaching.BucketCount -ne $buckets -or $collector.StackCaching.CacheSize -ne $cacheSize) { throw 'Native stack cache is absent or unbounded' }
+  }
 }
 foreach ($document in @($before,$after)) {
   foreach ($node in @($document.SelectNodes('//BufferSize | //Buffers | //StackCaching'))) { [void]$node.ParentNode.RemoveChild($node) }

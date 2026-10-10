@@ -12,6 +12,43 @@ pub(crate) const SAMPLY_VERSION: &str = "0.13.1";
 pub(crate) const SAMPLY_SOURCE: &str =
     "https://github.com/mstange/samply/releases/tag/samply-v0.13.1";
 
+pub(crate) fn samply_source() -> &'static str {
+    if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+        "https://github.com/mstange/samply/tree/da75c28f367454c621e690eeb4e44ec2ebb29a78 + scripts/patches/samply-windows-arm64.patch (modified ARM64 importer; checksum-bound tool provenance)"
+    } else {
+        SAMPLY_SOURCE
+    }
+}
+
+fn validate_samply_provenance(provenance: &Value, executable_sha256: &str) -> ToolResult<()> {
+    use sha2::{Digest, Sha256};
+    let patch_sha256 = format!(
+        "{:x}",
+        Sha256::digest(include_bytes!(
+            "../../../scripts/patches/samply-windows-arm64.patch"
+        ))
+    );
+    for (field, expected) in [
+        ("format_version", json!(1)),
+        (
+            "upstream_revision",
+            json!("da75c28f367454c621e690eeb4e44ec2ebb29a78"),
+        ),
+        (
+            "patch_path",
+            json!("scripts/patches/samply-windows-arm64.patch"),
+        ),
+        ("patch_sha256", json!(patch_sha256)),
+        ("target", json!("aarch64-pc-windows-msvc")),
+        ("executable_sha256", json!(executable_sha256)),
+    ] {
+        if provenance[field] != expected {
+            return Err(format!("Patched ARM64 samply provenance mismatch: {field}").into());
+        }
+    }
+    Ok(())
+}
+
 #[derive(Parser)]
 struct Arguments {
     #[arg(long, default_value = "hosted", value_parser = ["hosted", "cpu", "heap", "native"])]
@@ -59,9 +96,18 @@ fn executable(program: &str) -> ToolResult<PathBuf> {
 
 pub(crate) fn tool_identity(program: &str, version: &str) -> ToolResult<Value> {
     let path = executable(program)?;
-    Ok(
-        json!({"program": program, "path": path, "sha256": common::sha256_file(&path)?, "version": version}),
-    )
+    let sha256 = common::sha256_file(&path)?;
+    let mut identity =
+        json!({"program": program, "path": path, "sha256": sha256, "version": version});
+    if program == "samply" && cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+        let mut provenance_path = path.as_os_str().to_os_string();
+        provenance_path.push(".bend-perf-source.json");
+        let provenance: Value = serde_json::from_reader(fs::File::open(provenance_path)?)?;
+        validate_samply_provenance(&provenance, &sha256)?;
+        identity["source"] = json!(samply_source());
+        identity["source_provenance"] = provenance;
+    }
+    Ok(identity)
 }
 
 fn check(name: &str, result: ToolResult<String>, remediation: &str) -> Value {
@@ -276,12 +322,15 @@ pub(crate) fn prerequisites(backend: &str, native_kind: &str, binary: Option<&Pa
         if backend == "cpu" {
             let version = output("samply", &["--version"]).and_then(|text| {
                 if text.split_whitespace().any(|word| word == SAMPLY_VERSION) {
+                    if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+                        tool_identity("samply", text.trim())?;
+                    }
                     Ok(text)
                 } else {
                     Err(format!("Pinned samply {SAMPLY_VERSION} required; found {text}").into())
                 }
             });
-            checks.push(check("samply", version, &format!("Install samply {SAMPLY_VERSION} from {SAMPLY_SOURCE}; no unpinned installer is run by this command.")));
+            checks.push(check("samply", version, &format!("Install samply {SAMPLY_VERSION} from {}; Windows ARM64 additionally requires the checksum-bound importer patch and binary provenance sidecar; no unpinned installer is run by this command.", samply_source())));
         }
         match env::consts::OS {
             "linux" => linux_checks(&mut checks, backend, native_kind),
@@ -341,4 +390,43 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    #[test]
+    fn patched_sampler_provenance_binds_revision_patch_target_and_executable() {
+        let binary_sha256 = "b5e74cea20fdf49338da233ce186aad9e7a26c11f72df6c70ff80d68c1cc3c1b";
+        let provenance = json!({
+            "format_version": 1,
+            "upstream_revision": "da75c28f367454c621e690eeb4e44ec2ebb29a78",
+            "patch_path": "scripts/patches/samply-windows-arm64.patch",
+            "patch_sha256": format!("{:x}", Sha256::digest(include_bytes!(
+                "../../../scripts/patches/samply-windows-arm64.patch"
+            ))),
+            "target": "aarch64-pc-windows-msvc",
+            "executable_sha256": binary_sha256,
+        });
+        validate_samply_provenance(&provenance, binary_sha256).unwrap();
+        for field in [
+            "format_version",
+            "upstream_revision",
+            "patch_path",
+            "patch_sha256",
+            "target",
+            "executable_sha256",
+        ] {
+            let mut changed = provenance.clone();
+            changed[field] = json!("unrelated source");
+            assert!(
+                validate_samply_provenance(&changed, binary_sha256).is_err(),
+                "{field}"
+            );
+        }
+        assert!(validate_samply_provenance(&provenance, "different binary bytes").is_err());
+        assert!(validate_samply_provenance(&Value::Null, binary_sha256).is_err());
+    }
 }

@@ -360,8 +360,16 @@ DHAT workload and profiles all four shared scenarios: `discovery-10`,
 `discovery-1000`, `discovery-10000`, and `latency`. CPU, allocation, and native
 traces use separate processes, never the clean latency process.
 
-CPU profiling pins samply 0.13.1 to its official source commit. Native diagnostics
-use Linux perf, macOS Xcode Instruments, or Windows WPR with the pinned Microsoft
+CPU profiling pins samply 0.13.1 to source revision
+`da75c28f367454c621e690eeb4e44ec2ebb29a78`. Windows ARM64 additionally applies
+`scripts/patches/samply-windows-arm64.patch` (SHA256
+`37bc36692372474829e099ce5faad0ca765184c76c01b31544fae5bd7365de51`) to join
+matching SampleProf records with their kernel/user StackWalk halves without
+discarding CPU deltas. Other platforms use the unmodified pinned source.
+The installed ARM64 sampler sidecar binds the upstream revision, patch digest,
+target, and executable SHA256; doctor and capture validate that identity and
+retain the modified-source provenance.
+Native diagnostics use Linux perf, macOS Xcode Instruments, or Windows WPR with the pinned Microsoft
 Windows Performance Toolkit. Native heap tracing is supported on macOS/Windows;
 Linux native heap requests reject explicitly and point to `--heap` DHAT.
 Missing permissions, symbols, target samples/allocation records, or complete
@@ -422,6 +430,15 @@ Raw files, checksums, pairing checks, and completeness validation are unchanged.
 CI records the report command before inventory checksums are finalized, so
 rendering does not invalidate the command log. Job summaries point to the
 uploaded full report instead of embedding it beyond GitHub's 1 MiB limit.
+
+The canonical Callgrind evaluator retains `callgrind-policy.json` from the same
+authoritative comparison, including workload metrics, failed gates, source/run
+provenance, and input identities. Reports require this verified verdict and
+actual command exit codes to distinguish numerical regression from collection
+failure. A failed GitHub workflow is attributed to regression only when retained
+job/step conclusions establish that its only failed step is that source-bound
+comparison. Historical bundles without authoritative verdicts or attribution
+evidence remain conservatively incomplete/failed; no pass is inferred.
 
 `cargo perf open <downloaded-directory> --cpu --scenario <scenario> --target <triple>`
 opens a validated CPU trace through `samply load`, with its packaged binary/debug

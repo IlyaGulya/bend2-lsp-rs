@@ -18,6 +18,7 @@ jobs:
       SCENARIO: analysis-hot-paths
       SELECTED_TARGET: all
       WORKFLOW_SHA: ${{ github.workflow_sha }}
+      WORKFLOW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
       CANDIDATE_SHA: ${{ github.sha }}
       PERF_TARGET: x86_64-unknown-linux-gnu
@@ -101,9 +102,17 @@ jobs:
           if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
             exit "$benchmark_status"
           fi
+          policy_status=0
           "$RUNNER_TEMP/bend2-perf" policy \
             target/iai/bend2-lsp/analysis/analysis_hot_paths \
-            --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main
+            --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main \
+            --artifact-manifest="$PERF_ROOT/artifact-manifest.json" \
+            --verdict="$PERF_ROOT/callgrind-policy.json" || policy_status=$?
+          printf 'benchmark_exit_code=%s\npolicy_exit_code=%s\n' \
+            "$benchmark_status" "$policy_status" >> "$GITHUB_OUTPUT"
+          if [[ "$policy_status" != 0 ]]; then
+            exit "$policy_status"
+          fi
           exit "$benchmark_status"
       - name: Record unchanged Callgrind gate outcomes and raw identities
         if: always()
@@ -118,6 +127,7 @@ jobs:
           path: |
             target/iai/bend2-lsp/analysis/analysis_hot_paths/
             target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
+            target/iai/bend2-lsp/analysis/callgrind-policy.json
             target/iai/bend2-lsp/analysis/artifact-manifest.json
             target/iai/bend2-lsp/analysis/tool-build.log
           if-no-files-found: error

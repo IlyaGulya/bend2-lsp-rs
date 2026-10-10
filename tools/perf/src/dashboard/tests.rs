@@ -20,6 +20,7 @@ fn manifest(root: &Path, expected: &Value) -> ToolResult<()> {
             "candidate_sha":"b".repeat(40),"expected":expected,"files":files,
             "expected_targets":[TARGET],
             "repository":"owner/repository","request_id":"fixture-run-0001","workflow_sha":"c".repeat(40),
+            "run_id":"12345","run_attempt":"1",
             "statuses":{"collector":{"status":"success"}}
         }),
     )
@@ -138,30 +139,32 @@ fn aggregate_requires_expected_targets_and_exact_source_pairing() -> ToolResult<
     Ok(())
 }
 
+fn navigation_profile(root: &Path, status: &str) -> ToolResult<()> {
+    let trace = "trace &unsafe#.json";
+    fs::write(root.join(trace), b"actual captured trace fixture")?;
+    fs::write(root.join("binary"), b"symbolized binary fixture")?;
+    common::write_json(
+        &root.join("profile-manifest.json"),
+        &json!({
+            "format_version":1,"status":status,"target":TARGET,"source_sha":"b".repeat(40),
+            "backend":"samply","scenario":"discovery-10<script>alert(1)</script>",
+            "binary":{"path":"binary","sha256":common::sha256_file(&root.join("binary"))?},"profiler":{"viewer_command":["samply","load",trace]},
+            "artifacts":[{"path":trace,"sha256":common::sha256_file(&root.join(trace))?,"kind":"cpu"}],
+            "target_pid":42,"scenario_result":{"scenario":"discovery-10<script>alert(1)</script>",
+                "status":"complete","pid":42,"binary_sha256":common::sha256_file(&root.join("binary"))?,
+                "semantics":{"shutdown":{"clean_exit":true}}},
+            "phases":[{"name":"initialized","elapsed_ns":1_000_000}],"errors":[],"error":"fixture capture failed"
+        }),
+    )
+}
+
 #[test]
 fn native_profile_navigation_is_verified_and_html_escaped() -> ToolResult<()> {
     let directory = tempfile::tempdir()?;
-    let trace = "trace &unsafe#.json";
-    fs::write(
-        directory.path().join(trace),
-        b"actual captured trace fixture",
-    )?;
-    fs::write(
-        directory.path().join("binary"),
-        b"symbolized binary fixture",
-    )?;
-    common::write_json(
-        &directory.path().join("profile-manifest.json"),
-        &json!({
-            "format_version":1,"status":"complete","target":TARGET,"source_sha":"b".repeat(40),
-            "backend":"samply","scenario":"discovery-10<script>alert(1)</script>",
-            "binary":{"path":"binary","sha256":common::sha256_file(&directory.path().join("binary"))?},"profiler":{"viewer_command":["samply","load",trace]},
-            "artifacts":[{"path":trace,"sha256":common::sha256_file(&directory.path().join(trace))?,"kind":"cpu"}],
-            "target_pid":42,"scenario_result":{"scenario":"discovery-10<script>alert(1)</script>",
-                "status":"complete","pid":42,"binary_sha256":common::sha256_file(&directory.path().join("binary"))?,
-                "semantics":{"shutdown":{"clean_exit":true}}},
-            "phases":[{"name":"initialized","elapsed_ns":1_000_000}],"errors":[]
-        }),
+    navigation_profile(directory.path(), "complete")?;
+    manifest(
+        directory.path(),
+        &json!([{"path":"profile-manifest.json","kind":"profile","required":true}]),
     )?;
     generate(directory.path())?;
     let html = fs::read_to_string(directory.path().join("index.html"))?;
@@ -171,6 +174,44 @@ fn native_profile_navigation_is_verified_and_html_escaped() -> ToolResult<()> {
     assert!(html.contains("samply"));
     assert!(html.contains("no command is run by this page"));
     assert!(!html.contains("<script"));
+    Ok(())
+}
+
+#[test]
+fn standalone_profile_outcome_is_derived_from_validated_retained_capture() -> ToolResult<()> {
+    for (capture_status, expected_status) in [
+        ("complete", "complete"),
+        ("failed", "failed"),
+        ("collecting", "incomplete"),
+        ("unknown", "incomplete"),
+    ] {
+        let directory = tempfile::tempdir()?;
+        navigation_profile(directory.path(), capture_status)?;
+        let report = data::collect(&directory.path().canonicalize()?)?;
+        assert_eq!(report.status, expected_status, "{capture_status}");
+        assert_eq!(
+            report.targets[0].provenance["statuses"]["profile-capture"]["status"],
+            capture_status
+        );
+        assert_eq!(report.result().is_ok(), capture_status == "complete");
+        if capture_status == "failed" {
+            assert!(
+                report.targets[0]
+                    .errors
+                    .iter()
+                    .any(|error| error.contains("fixture capture failed"))
+            );
+        }
+    }
+    let directory = tempfile::tempdir()?;
+    navigation_profile(directory.path(), "complete")?;
+    fs::write(
+        directory.path().join("trace &unsafe#.json"),
+        b"changed retained trace",
+    )?;
+    let report = data::collect(&directory.path().canonicalize()?)?;
+    assert_eq!(report.status, "failed");
+    assert!(report.result().is_err());
     Ok(())
 }
 
@@ -191,21 +232,318 @@ fn artifact_paths_cannot_traverse_or_turn_into_viewer_urls() -> ToolResult<()> {
     Ok(())
 }
 
+fn policy_bundle(root: &Path, workload_count: usize, regression_count: usize) -> ToolResult<()> {
+    let summaries = root.join("analysis_hot_paths");
+    fs::create_dir_all(&summaries)?;
+    let mut expected = vec![
+        json!({"path":"analysis_hot_paths-baseline.json","kind":"callgrind-input","required":true}),
+        json!({"path":"callgrind-policy.json","kind":"callgrind","required":true}),
+    ];
+    for index in 0..workload_count {
+        let name = format!("workload-{index:03}");
+        let directory = summaries.join(&name);
+        fs::create_dir(&directory)?;
+        let candidate = if index < regression_count { 1021 } else { 1000 };
+        common::write_json(
+            &directory.join("summary.json"),
+            &json!({
+                "function_name":"analyze", "id":name, "baselines":[null,"main"],
+                "profiles":[{"summaries":{"parts":[{"metrics_summary":{"Callgrind":{
+                    "Ir":{"metrics":{"Both":[{"Int":candidate},{"Int":1000}]}},
+                    "I1mr":{"metrics":{"Both":[{"Int":100},{"Int":100}]}},
+                    "ILmr":{"metrics":{"Both":[{"Int":100},{"Int":100}]}}
+                }}}]}}]
+            }),
+        )?;
+        expected.push(
+            json!({"path":format!("analysis_hot_paths/{name}/summary.json"),
+            "kind":"callgrind-input","required":true}),
+        );
+    }
+    let baseline = root.join("analysis_hot_paths-baseline.json");
+    crate::policy::run(&[
+        summaries.display().to_string(),
+        format!("--write-baseline-manifest={}", baseline.display()),
+    ])?;
+    let expected = Value::Array(expected);
+    manifest(root, &expected)?;
+    let path = root.join("artifact-manifest.json");
+    let mut value: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+    value["mode"] = json!("callgrind");
+    value["gate_identity"] = json!({"workflow":"performance","job":"compare",
+        "step":"Compare pull request with main","head_sha":"d".repeat(40)});
+    common::write_json(&path, &value)?;
+    let outcome = crate::policy::run(&[
+        summaries.display().to_string(),
+        format!("--baseline-manifest={}", baseline.display()),
+        "--baseline-name=main".into(),
+        format!("--artifact-manifest={}", path.display()),
+        format!("--verdict={}", root.join("callgrind-policy.json").display()),
+    ]);
+    if regression_count == 0 {
+        outcome?;
+    } else {
+        let error = outcome
+            .err()
+            .ok_or("Regression producer unexpectedly succeeded")?;
+        assert_eq!(
+            error
+                .downcast_ref::<crate::policy::ExitError>()
+                .map(|error| error.status),
+            Some(1)
+        );
+    }
+    manifest(root, &expected)?;
+    let mut value: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+    value["mode"] = json!("callgrind");
+    value["gate_identity"] = json!({"workflow":"performance","job":"compare",
+        "step":"Compare pull request with main","head_sha":"d".repeat(40)});
+    value["statuses"] = json!({
+        "baseline":{"status":"success"},"callgrind-data":{"status":"success"},
+        "candidate":{"status":if regression_count == 0 {"success"} else {"failure"},
+            "benchmark_exit_code":if regression_count == 0 {0} else {3},
+            "policy_exit_code":i32::from(regression_count != 0)}
+    });
+    common::write_json(&path, &value)
+}
+
 #[test]
 fn gate_regression_stays_distinct_from_failed_collection() -> ToolResult<()> {
     let directory = tempfile::tempdir()?;
-    common::write_json(
-        &directory.path().join("callgrind.json"),
-        &json!({"status":"regression","passed":false}),
-    )?;
-    manifest(
-        directory.path(),
-        &json!([{"path":"callgrind.json","kind":"callgrind","required":true}]),
-    )?;
+    policy_bundle(directory.path(), 48, 5)?;
     let report = data::collect(&directory.path().canonicalize()?)?;
     assert_eq!(report.status, "regression");
     assert!(report.targets[0].errors.is_empty());
     assert!(report.result().is_err());
+    assert_eq!(report.targets[0].regressions.len(), 5);
+    assert!(report.targets[0].regressions[0].contains("Ir 1000→1021"));
+    let verdict = &report.targets[0].documents[0].data;
+    assert_eq!(verdict["workload_count"], 48);
+    assert_eq!(verdict["passed_count"], 43);
+    assert_eq!(verdict["workloads"][0]["metrics"]["Ir"]["candidate"], 1021);
+    assert!(generate(directory.path()).is_err());
+    Ok(())
+}
+
+fn refresh_identity(root: &Path, name: &str) -> ToolResult<()> {
+    let path = root.join("artifact-manifest.json");
+    let mut value: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+    let identity = value["files"]
+        .as_array_mut()
+        .ok_or("Missing fixture inventory")?
+        .iter_mut()
+        .find(|item| item["path"] == name)
+        .ok_or("Missing fixture identity")?;
+    identity["sha256"] = json!(common::sha256_file(&root.join(name))?);
+    identity["size"] = json!(fs::metadata(root.join(name))?.len());
+    common::write_json(&path, &value)
+}
+
+#[test]
+fn completed_policy_pass_requires_real_retained_numeric_evidence() -> ToolResult<()> {
+    let directory = tempfile::tempdir()?;
+    policy_bundle(directory.path(), 48, 0)?;
+    let report = data::collect(&directory.path().canonicalize()?)?;
+    assert_eq!(report.status, "complete");
+    assert!(report.targets[0].regressions.is_empty());
+    assert_eq!(report.targets[0].documents[0].data["passed_count"], 48);
+    report.result()?;
+    Ok(())
+}
+
+#[test]
+fn unrelated_collection_failure_takes_precedence_over_policy_regression() -> ToolResult<()> {
+    for (name, value) in [
+        ("baseline", json!({"status":"failure"})),
+        ("other-collector", json!({"status":"failure"})),
+        (
+            "candidate",
+            json!({"status":"failure","benchmark_exit_code":101,"policy_exit_code":1}),
+        ),
+        ("candidate", json!({"status":"failure"})),
+    ] {
+        let directory = tempfile::tempdir()?;
+        policy_bundle(directory.path(), 48, 5)?;
+        let path = directory.path().join("artifact-manifest.json");
+        let mut manifest: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+        manifest["statuses"][name] = value;
+        common::write_json(&path, &manifest)?;
+        let report = data::collect(&directory.path().canonicalize()?)?;
+        assert_eq!(report.status, "failed");
+        assert_eq!(report.targets[0].regressions.len(), 5);
+        assert!(report.result().is_err());
+    }
+    Ok(())
+}
+
+#[test]
+fn missing_old_policy_verdict_never_infers_a_passing_gate() -> ToolResult<()> {
+    let directory = tempfile::tempdir()?;
+    policy_bundle(directory.path(), 48, 0)?;
+    let path = directory.path().join("artifact-manifest.json");
+    let mut manifest: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+    manifest["expected"]
+        .as_array_mut()
+        .ok_or("Missing fixture coverage")?
+        .retain(|item| item["path"] != "callgrind-policy.json");
+    manifest["files"]
+        .as_array_mut()
+        .ok_or("Missing fixture files")?
+        .retain(|item| item["path"] != "callgrind-policy.json");
+    common::write_json(&path, &manifest)?;
+    let report = data::collect(&directory.path().canonicalize()?)?;
+    assert_eq!(report.status, "incomplete");
+    assert!(report.targets[0].regressions.is_empty());
+    assert!(report.result().is_err());
+    Ok(())
+}
+
+#[test]
+fn malformed_source_or_numeric_verdict_cannot_classify_a_failed_gate_as_regression()
+-> ToolResult<()> {
+    for mutation in [
+        "numeric",
+        "source",
+        "missing-workload",
+        "outcome",
+        "failed-collection",
+    ] {
+        let directory = tempfile::tempdir()?;
+        policy_bundle(directory.path(), 48, 5)?;
+        let path = directory.path().join("callgrind-policy.json");
+        let mut verdict: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+        match mutation {
+            "numeric" => verdict["workloads"][0]["metrics"]["Ir"]["candidate"] = json!(1022),
+            "source" => verdict["provenance"]["candidate_sha"] = json!("d".repeat(40)),
+            "missing-workload" => {
+                verdict["workloads"]
+                    .as_array_mut()
+                    .ok_or("Missing fixture workloads")?
+                    .pop();
+            }
+            "outcome" => verdict["passed"] = json!(true),
+            "failed-collection" => {
+                verdict["status"] = json!("failed");
+                verdict["error"] = json!("candidate collection failed");
+            }
+            _ => return Err("Unknown fixture mutation".into()),
+        }
+        common::write_json(&path, &verdict)?;
+        refresh_identity(directory.path(), "callgrind-policy.json")?;
+        let report = data::collect(&directory.path().canonicalize()?)?;
+        assert_eq!(report.status, "failed", "{mutation}");
+        assert!(report.targets[0].regressions.is_empty(), "{mutation}");
+        assert!(report.result().is_err());
+    }
+    Ok(())
+}
+
+#[test]
+fn verdict_inputs_are_bound_to_raw_artifact_integrity() -> ToolResult<()> {
+    let directory = tempfile::tempdir()?;
+    policy_bundle(directory.path(), 48, 5)?;
+    let name = "analysis_hot_paths/workload-000/summary.json";
+    let path = directory.path().join(name);
+    let mut summary: Value = serde_json::from_reader(fs::File::open(&path)?)?;
+    summary["profiles"][0]["summaries"]["parts"][0]["metrics_summary"]["Callgrind"]["Ir"]["metrics"]
+        ["Both"][0]["Int"] = json!(2000);
+    common::write_json(&path, &summary)?;
+    // Updating the outer bundle inventory does not repair the evaluator's
+    // independently retained identity of the actual comparison input.
+    refresh_identity(directory.path(), name)?;
+    let report = data::collect(&directory.path().canonicalize()?)?;
+    assert_eq!(report.status, "failed");
+    assert!(report.targets[0].regressions.is_empty());
+    assert!(
+        report.targets[0]
+            .errors
+            .iter()
+            .any(|error| error.contains("input identity"))
+    );
+    Ok(())
+}
+
+fn workflow_failure() -> Value {
+    json!({"format_version":1,"repository":"owner/repository","run":{
+        "databaseId":12345,"attempt":1,"headSha":"d".repeat(40),"event":"pull_request",
+        "status":"completed","conclusion":"failure","workflowName":"performance",
+        "url":"https://github.com/owner/repository/actions/runs/12345",
+        "jobs":[
+            {"databaseId":1,"name":"compare","status":"completed","conclusion":"failure",
+                "steps":[{"number":1,"name":"Measure main baseline","status":"completed","conclusion":"success"},
+                    {"number":2,"name":"Compare pull request with main","status":"completed","conclusion":"failure"}]},
+            {"databaseId":2,"name":"native performance","status":"completed","conclusion":"success",
+                "steps":[{"number":1,"name":"Collect native measurements","status":"completed","conclusion":"success"}]}
+        ]
+    }})
+}
+
+#[test]
+fn hosted_failure_is_a_regression_only_when_every_failed_job_and_step_is_the_bound_gate()
+-> ToolResult<()> {
+    for mutation in [
+        "none",
+        "other-job",
+        "other-step",
+        "unknown-step",
+        "missing-steps",
+        "wrong-head",
+        "wrong-run",
+        "wrong-attempt",
+    ] {
+        let directory = tempfile::tempdir()?;
+        policy_bundle(directory.path(), 48, 5)?;
+        let mut evidence = workflow_failure();
+        match mutation {
+            "none" => {}
+            "other-job" => {
+                evidence["run"]["jobs"][1]["conclusion"] = json!("failure");
+                evidence["run"]["jobs"][1]["steps"][0]["conclusion"] = json!("failure");
+            }
+            "other-step" => {
+                evidence["run"]["jobs"][0]["steps"][0]["conclusion"] = json!("failure");
+            }
+            "unknown-step" => {
+                evidence["run"]["jobs"][1]["steps"][0]["conclusion"] = json!("cancelled");
+            }
+            "missing-steps" => evidence["run"]["jobs"][1]["steps"] = json!([]),
+            "wrong-head" => evidence["run"]["headSha"] = json!("e".repeat(40)),
+            "wrong-run" => evidence["run"]["databaseId"] = json!(12346),
+            "wrong-attempt" => evidence["run"]["attempt"] = json!(2),
+            _ => return Err("Unknown workflow fixture mutation".into()),
+        }
+        common::write_json(&directory.path().join("workflow-run.json"), &evidence)?;
+        let report = data::collect(&directory.path().canonicalize()?)?;
+        assert_eq!(
+            report.status,
+            if mutation == "none" {
+                "regression"
+            } else {
+                "failed"
+            },
+            "{mutation}"
+        );
+        assert!(report.result().is_err());
+        assert_eq!(report.targets[0].regressions.len(), 5);
+    }
+    Ok(())
+}
+
+#[test]
+fn historical_workflow_failure_without_job_metadata_is_not_reclassified() -> ToolResult<()> {
+    let directory = tempfile::tempdir()?;
+    policy_bundle(directory.path(), 48, 5)?;
+    common::write_json(
+        &directory.path().join("run-manifest.json"),
+        &json!({
+            "format_version":1,"mode":"callgrind","base_sha":"a".repeat(40),"candidate_sha":"b".repeat(40),
+            "repository":"owner/repository","request_id":"fixture-run-0001",
+            "expected_targets":[TARGET],"workflow_succeeded":false
+        }),
+    )?;
+    let report = data::collect(&directory.path().canonicalize()?)?;
+    assert_eq!(report.status, "failed");
+    assert_eq!(report.targets[0].regressions.len(), 5);
     Ok(())
 }
 
@@ -431,28 +769,15 @@ fn canonical_gate_bundle_merges_without_a_seventh_or_duplicate_target() -> ToolR
     latency(directory.path())?;
     let gate = directory.path().join("callgrind");
     fs::create_dir(&gate)?;
-    common::write_json(
-        &gate.join("summary.json"),
-        &json!({"format_version":1,
-        "benchmarks":{"fixture":{"instructions":1200}}}),
-    )?;
-    manifest(
-        &gate,
-        &json!([{"path":"summary.json","kind":"callgrind","required":true}]),
-    )?;
-    let path = gate.join("artifact-manifest.json");
-    let mut value: Value = serde_json::from_reader(fs::File::open(&path)?)?;
-    value["mode"] = json!("callgrind");
-    value["statuses"] =
-        json!({"candidate-gate":{"status":"success"},"baseline-gate":{"status":"success"}});
-    common::write_json(&path, &value)?;
-    generate(directory.path())?;
+    policy_bundle(&gate, 48, 5)?;
+    assert!(generate(directory.path()).is_err());
     let report = data::collect(&directory.path().canonicalize()?)?;
     assert_eq!(report.targets.len(), 1);
-    assert_eq!(report.status, "complete");
+    assert_eq!(report.status, "regression");
     let html = fs::read_to_string(directory.path().join("index.html"))?;
     assert!(html.contains("Canonical Callgrind gates"));
-    assert!(html.contains("candidate-gate"));
+    assert!(html.contains("candidate"));
+    assert!(html.contains("Ir 1000→1021"));
     assert!(!html.contains("not collected in this bundle"));
     Ok(())
 }
