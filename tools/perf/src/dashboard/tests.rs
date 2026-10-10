@@ -141,7 +141,7 @@ fn aggregate_requires_expected_targets_and_exact_source_pairing() -> ToolResult<
 #[test]
 fn native_profile_navigation_is_verified_and_html_escaped() -> ToolResult<()> {
     let directory = tempfile::tempdir()?;
-    let trace = "trace <unsafe>#.json";
+    let trace = "trace &unsafe#.json";
     fs::write(
         directory.path().join(trace),
         b"actual captured trace fixture",
@@ -165,7 +165,8 @@ fn native_profile_navigation_is_verified_and_html_escaped() -> ToolResult<()> {
     )?;
     generate(directory.path())?;
     let html = fs::read_to_string(directory.path().join("index.html"))?;
-    assert!(html.contains("trace%20%3Cunsafe%3E%23.json"));
+    assert!(html.contains("trace%20%26unsafe%23.json"));
+    assert!(html.contains("trace &amp;unsafe#.json"));
     assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
     assert!(html.contains("samply"));
     assert!(html.contains("no command is run by this page"));

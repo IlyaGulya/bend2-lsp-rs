@@ -206,7 +206,7 @@ jobs:
           sudo sysctl -w kernel.perf_event_paranoid=-1
           sudo sysctl -w kernel.kptr_restrict=0
           sudo sysctl -w kernel.yama.ptrace_scope=0
-      - name: Verify Xcode tracing prerequisites
+      - name: Explicitly authorize headless macOS sampler and verify Xcode tracing
         id: macos-tools
         if: ${{ !cancelled() && steps.tools.outcome == 'success' && runner.os == 'macOS' && contains(fromJSON('["cpu","native","full","verification"]'), env.MODE) }}
         run: |
@@ -214,6 +214,10 @@ jobs:
           xcrun xctrace version
           xcrun xctrace list templates
           sudo DevToolsSecurity -enable
+          # Locally signed samply otherwise asks for GUI task-port authorization.
+          # Elevate only its capture process, explicitly and without a prompt.
+          sudo -n -- "$(command -v samply)" --version
+          printf '%s\n' 'BEND_PERF_MACOS_SAMPLY_ELEVATED=true' >> "$GITHUB_ENV"
       - name: Verify explicitly privileged Windows tracing prerequisites
         id: windows-tools
         if: ${{ !cancelled() && steps.tools.outcome == 'success' && runner.os == 'Windows' && contains(fromJSON('["cpu","native","full","verification"]'), env.MODE) }}

@@ -370,6 +370,14 @@ Windows heap tracing is prepared before process creation and restores the prior
 IFEO state on normal failure or cooperative cancellation. Hard process kills
 cannot promise in-process cleanup.
 
+The macOS diagnostic workflow explicitly authorizes headless `samply` capture
+through `sudo -n`; only the sampler and its owned cleanup commands are elevated.
+`BEND_PERF_MACOS_SAMPLY_ELEVATED=true` is honored only in hosted CI without a
+controlling terminal. Missing authorization fails rather than opening a dialog
+or silently retrying with privileges. `doctor` and local trace viewing do not
+elevate. Locally signed debugger-entitled tools otherwise require an administrator
+authorization dialog ([Apple debugger entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.debugger)).
+
 Each target's `artifact-manifest.json` records expected collectors, source and
 tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.
 Downloads are validated with confined relative paths. Interrupted/failed runs
