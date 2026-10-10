@@ -556,21 +556,19 @@ impl Round<'_> {
             json!(elapsed(initialized));
         self.result["semantics"]["initial_completion"] = require_local_completion(&response)?;
         self.result["memory_checkpoints"]["initial_completion_response"] = self.memory.checkpoint();
-        self.client.notify(
-            "textDocument/didClose",
-            json!({"textDocument": {"uri": COMPLETION_URI}}),
-        )?;
+        // didClose is a notification, not a completed ownership transition.
+        // Wait for its existing diagnostics-clear acknowledgement before the
+        // exact disk-only symbols query; otherwise the baseline can still
+        // expose this independent untitled probe.
+        self.client.close_document(COMPLETION_URI)?;
         Ok(())
     }
 
     fn remove_root(&mut self, common_uri: &str, entry_uri: &str) -> ToolResult<()> {
         for uri in [common_uri, entry_uri] {
-            self.client.notify(
-                "textDocument/didClose",
-                json!({"textDocument": {"uri": uri}}),
-            )?;
+            self.client.close_document(uri)?;
         }
-        // A checked query drains close notifications before the removal observation.
+        // Both open overlays have acknowledged their close before observation.
         let symbols = self.request(
             "symbols_after_close",
             "workspace/symbol",

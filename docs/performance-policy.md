@@ -264,6 +264,9 @@ independent untitled buffer, before waiting for discovery. The raw result and
 `isIncomplete` flag are preserved: a true flag establishes server-reported partial
 discovery, while false or a legacy array does not establish overlap. There is no
 numeric completion threshold or deterministic scan barrier.
+The probe and later warm buffers use diagnostics-clear acknowledgements for
+`didClose` before disk-only symbols and root-removal observations; a notification
+write alone does not establish that a buffer's ownership has been released.
 
 Linux RSS observations retain timestamped samples every 20 ms, cold sampled
 peaks, retained state, and observations immediately and 100 ms after workspace
