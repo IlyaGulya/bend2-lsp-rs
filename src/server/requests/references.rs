@@ -291,7 +291,7 @@ impl Backend {
     ) -> Result<Option<Vec<Location>>> {
         let _workspace_read = self.workspace_ready_read().await;
         let td = params.text_document_position;
-        let Some(doc) = self.document(&td.text_document.uri) else {
+        let Some(doc) = self.cached_document(&td.text_document.uri) else {
             return Ok(None);
         };
         if !Self::supported(&doc) {

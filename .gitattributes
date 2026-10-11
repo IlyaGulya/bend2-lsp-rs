@@ -1,2 +1,4 @@
 # Golden analysis outputs contain byte offsets for these LF source fixtures.
 benches/fixtures/*.bend text eol=lf
+# The hosted sampler bootstrap verifies the exact patch bytes on Windows.
+scripts/patches/*.patch text eol=lf

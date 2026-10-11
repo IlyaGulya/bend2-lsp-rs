@@ -245,10 +245,60 @@ pub struct WorkspaceDb {
     compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
     // User file identities stay interned; graph liveness governs their payloads.
     reachable: HashSet<FileId>,
+    discovered: HashSet<FileId>,
     retired: Vec<FileId>,
 }
 
 impl WorkspaceDb {
+    pub(crate) fn is_discovered(&self, id: FileId) -> bool {
+        self.discovered.contains(&id)
+    }
+    pub(crate) fn discovered_roots(&self) -> Vec<FileId> {
+        self.discovered.iter().copied().collect()
+    }
+    pub(crate) fn has_discovered_snapshot(&self, path: &Path) -> bool {
+        self.by_path
+            .get(path)
+            .is_some_and(|id| self.is_discovered(*id) && self.entries[id.0].disk_snapshot.is_some())
+    }
+    pub(crate) fn admit_discovered_path(&mut self, path: PathBuf) -> Option<FileId> {
+        let uri = Url::from_file_path(&path).ok()?;
+        let id = self.intern(uri, Some(path));
+        if self
+            .compiler_documents
+            .as_ref()
+            .is_some_and(|documents| documents.contains_key(&id))
+        {
+            return None;
+        }
+        self.discovered.insert(id);
+        self.extend_reachable(id);
+        Some(id)
+    }
+    pub(crate) fn discover_snapshot(
+        &mut self,
+        path: &Path,
+        snapshot: Arc<DocumentSnapshot>,
+        imports: Vec<(analysis::TextRange, PathBuf)>,
+    ) -> Option<FileId> {
+        let id = self.admit_discovered_path(path.to_path_buf())?;
+        self.sync_disk_snapshot_prepared(path, Some(snapshot), imports)?;
+        Some(id)
+    }
+    pub(crate) fn retain_discovered_roots(&mut self, roots: &[PathBuf]) {
+        let previous = self.discovered.len();
+        let entries = &self.entries;
+        self.discovered.retain(|id| {
+            entries[id.0]
+                .path
+                .as_ref()
+                .is_some_and(|path| roots.iter().any(|root| path.starts_with(root)))
+        });
+        if self.discovered.len() != previous {
+            self.recompute_reachable();
+            self.finish_load_reachable();
+        }
+    }
     /// Register compiler-owned source for navigation, retaining its backing file
     /// for the lifetime of the workspace index, not just the active compiler cache.
     pub(crate) fn register_compiler_document(
@@ -627,6 +677,9 @@ impl WorkspaceDb {
                 self.entries[destination.0].disk_generation =
                     self.entries[destination.0].disk_generation.wrapping_add(1);
                 let retired = if canonical == id { destination } else { id };
+                if self.discovered.remove(&retired) {
+                    self.discovered.insert(canonical);
+                }
                 // Import edges belong to the effective snapshot. A destination
                 // may already have been loaded by the client's preceding edit.
                 let transfer_imports = self.entries[canonical.0].snapshot().is_none()
@@ -1017,6 +1070,7 @@ impl WorkspaceDb {
             .filter(|(_, entry)| entry.open_snapshot.is_some())
             .map(|(index, _)| FileId(index))
             .collect();
+        pending.extend(self.discovered.iter().copied());
         let mut reachable = HashSet::new();
         while let Some(id) = pending.pop() {
             if !reachable.insert(id) {

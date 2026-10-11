@@ -1,6 +1,19 @@
 use bend2_lsp::analysis::{DocumentSnapshot, Revision, folding_ranges};
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = std::env::var_os("BEND2_LSP_DHAT_FILE").map(|path| {
+        let mut builder = dhat::Profiler::builder().trim_backtraces(Some(usize::MAX));
+        if !path.is_empty() {
+            builder = builder.file_name(path);
+        }
+        builder.build()
+    });
+
     let mut arguments = std::env::args().skip(1);
     let Some(lines) = arguments
         .next()

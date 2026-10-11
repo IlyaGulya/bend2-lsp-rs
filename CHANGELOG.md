@@ -2,8 +2,24 @@
 
 ## Unreleased
 
+### Features
+
+- Discover unopened regular `.bend` files under workspace roots in the background
+  using existing immutable snapshots and workspace indexes. Include them in
+  workspace symbols, references/rename, auto-import completion, and quick fixes.
+- Respect ignore rules and discovery exclusions without restricting explicit
+  imports. Preserve unsaved overlays across watched create/change/delete events,
+  workspace-folder removal, and merged file-renaming identities.
+- Own, supervise, cancel, and drain discovery workers; cancelled feature requests
+  cannot abandon pending indexing, and stale scans cannot restore removed roots.
+
 ### Bug Fixes
 
+- Resolve references from discovered closed declarations and importers without
+  requiring the queried file to be opened in the editor first.
+- Return local completion while initial workspace discovery is still running,
+  marking partial lists incomplete so editors can refresh project candidates.
+  Preserve completion readiness after preceding watched-file updates.
 - Ignore unrelated and no-longer-reachable watcher events before file reads or
   indexing. Release orphan user-owned workspace snapshots when imports are
   removed or documents close, including cycles.
@@ -16,6 +32,74 @@
   loaded destination snapshot into an existing file identity.
 
 ### CI
+
+- Run all new performance measurements on hosted CI only. Collect alternating
+  baseline/candidate LSP latency and workspace-discovery evidence on all six native
+  platforms, plus separate symbolized DHAT server/example allocation profiles.
+  Preserve raw samples, source/binary provenance, and existing Callgrind gates.
+- Observe completion during initial discovery and cold/retained/released memory
+  in 10, 1000, and 10000-file workspaces. Preserve timestamped resident-memory
+  samples on Linux/macOS/Windows with distinct native footprint/private-commit
+  definitions; distinguish sampled peaks, lifetime high-water marks and DHAT
+  allocations. Missing required observations make reports incomplete.
+- Buffer and atomically replace performance JSON checkpoints so interrupted
+  collection preserves previously completed results instead of truncating them.
+- Replace Python performance collectors, comparators, reports, and calibration
+  with an unpublished Rust tooling crate and a shared portable JSON-RPC transport.
+  Preserve contract coverage and regression thresholds; keep tooling separate
+  from production server binaries and measured analysis functions.
+- Add unified `cargo perf doctor`, hosted `compare`/`profile`, and validated
+  `open` commands with offline HTML/JSON/Markdown reports and exact-run downloads.
+- Add separate samply CPU, Linux perf, macOS Instruments, and Windows WPR/WPA
+  diagnostic captures with target-process evidence, packaged symbols and
+  cooperative cancellation cleanup. Preserve original native trace formats.
+- Keep ordinary PR measurements lightweight; retain all thirteen DHAT workloads
+  and four shared scenarios in full diagnostic/weekly coverage, with six-target
+  backend verification for performance-infrastructure changes.
+- Preserve report command-log hashes during rendering and keep CI job summaries
+  within GitHub's upload limit; full reports and raw evidence remain in artifacts.
+- Deliver sampler stop signals to the owned recorder on macOS/Windows and wait
+  for Instruments notification registration before recording. Use the baseline
+  ARM64 register mask for software-clock DWARF captures.
+- Adapt canonical Windows paths for the ETL decoder and reject WPR traces that
+  report dropped events instead of treating successful file saving as completeness.
+- Decode Windows sampled CPU events through thread lifecycle ownership, accept
+  native CRLF readiness lines, and preserve native WPR profile semantics while
+  configuring bounded buffers and lossless stack caches. Require zero lost events.
+- Keep failed attached LSP targets alive until collector cleanup runs, and
+  classify already-buffered late responses as request timeouts.
+- Configure WPR stack caches only on collector definitions; reference-level
+  cache overrides rejected by the native WPR parser are no longer synthesized.
+- Repair the pinned Windows ARM64 sampler's SampleProf/StackWalk join, preserving
+  CPU deltas and separate kernel/user stacks. Bind its modified-source patch and
+  installed binary identity in retained provenance.
+- Preserve LF patch bytes on Windows checkouts so the pinned ARM64 sampler
+  bootstrap verifies the same SHA256 as the committed source.
+- Replace whole-recording `tracerpt` XML export with a pinned Microsoft TraceEvent
+  streaming decoder on Windows x64/ARM64. Keep full-EOF processing, real loss
+  counters, target-process allocation/sample validation, raw ETL, and the
+  existing timeout. Bind SDK, runtime, package lock, source and executable
+  identity in native tool provenance.
+- Disable persistent .NET build servers during the hosted ETL reader bootstrap
+  so compiler processes cannot keep temporary SDK DLLs locked during cleanup.
+- Retain the authoritative Callgrind policy verdict and actual workflow job/step
+  outcomes so numerical regressions remain distinct from collection failures.
+  Historical missing verdicts never imply a passing gate.
+- Reject retained metric outcomes that contradict the producer's unchanged
+  authoritative limits, even when hashes and every verdict flag are consistent.
+- Initialize Instruments tracing/authorization services on a trusted system
+  process before creating the cold LSP; retain the preparation trace separately.
+  Actual capture readiness still requires its own notification within 60 seconds.
+- Set and retain `MallocNanoZone=0` only for native macOS Allocations captures to
+  remove allocating nano-zone enumeration during attach. These heap profiles
+  reflect the scalable allocator, not default-allocator process memory.
+  Clean latency/process-memory and DHAT collection remain unchanged.
+- Keep large reports navigable by linking generated source inputs through the
+  complete verified JSON artifact catalog and displaying identical scope
+  warnings once; original files, identities and per-round evidence remain intact.
+- Stop embedding resident sample arrays and manifest inventories repeatedly in
+  HTML. Keep timelines, per-round request distributions and completion details;
+  full samples and source inventories remain in verified JSON and original files.
 
 - Move sccache compiler objects from GitHub storage to BuildFetch WebDAV with
   separate trusted-main writer and readonly consumer credentials. Keep GitHub

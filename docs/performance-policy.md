@@ -127,26 +127,13 @@ The discovery-only proposal did not remove those instruction exceedances; it
 never changes the instruction gate. This finite sample supplies no evidence that
 cache allowances need increasing and does not establish tail reliability.
 
-For a small collector/report smoke on Linux, use two new, disjoint work/output
-directories and keep source files unchanged throughout both collections:
-
-```sh
-docker compose exec -T rust python3 scripts/performance_calibration.py \
-  --source /workspace --work-dir /tmp/calibration-discovery \
-  --output-dir /workspace/target/calibration/discovery \
-  --job-id local-discovery --role discovery --pairs 1
-docker compose exec -T rust python3 scripts/performance_calibration.py \
-  --source /workspace --work-dir /tmp/calibration-validation \
-  --output-dir /workspace/target/calibration/validation \
-  --job-id local-validation --role validation --pairs 1
-docker compose exec -T rust python3 scripts/calibration_report.py \
-  target/calibration --json-output target/calibration-report/report.json \
-  --markdown-output target/calibration-report/report.md
-```
-
-This smoke has insufficient statistical coverage. CI additionally enforces
-exactly seven discovery jobs, three validation jobs, and five complete series
-per job with the reporter's `--expected-*-jobs` and `--expected-pairs` options.
+The hosted calibration workflow runs the Rust `bend2-perf calibration collect`
+and `calibration report` commands from [`tools/perf`](../tools/perf), with
+independent work/output directories and unchanged source inputs. Collection is
+CI-only. It enforces the predeclared seven discovery jobs, three validation jobs,
+and five independent pairs per job through the existing `--expected-*-jobs` and
+`--expected-pairs` report options. Local fixture-based report/contract tests do
+not collect measurements.
 
 ## Functional-fix performance acceptance (PR #4)
 
@@ -199,10 +186,12 @@ unchanged. This acceptance does not authorize later unrelated regressions.
 
 ## End-to-end LSP latency reports
 
-The `performance / latency` job builds the pull request's base and candidate
-release executables in **separate Cargo target directories**. It runs the same
-candidate-side [`scripts/lsp_latency.py`](../scripts/lsp_latency.py) harness and
-fixture against both binaries on one runner. Seven fresh-process rounds alternate
+The `performance / latency` matrix builds the pull request's base and candidate
+native release executables on Linux, macOS, and Windows, on x86_64 and ARM64, in
+**separate Cargo target directories**. Each platform runs the same candidate-side
+[`bend2-perf native latency`](../tools/perf/src/latency.rs) harness and fixture against
+both binaries on one runner. Results are compared only within that platform.
+Seven fresh-process rounds alternate
 baseline/candidate order; each workload has eight warm-up requests and 32 measured
 requests per round. Busy workloads use one warm-up burst and one measured burst.
 Initialization and readiness waits are outside the measured windows.
@@ -230,11 +219,15 @@ library, metrics, and tracing settings; revision-specific diagnostics establish
 readiness outside timing. These are controlled analysis/protocol workloads, not
 claims about every editor or compiler workload.
 
-[`scripts/latency_report.py`](../scripts/latency_report.py) computes nearest-rank
+[`bend2-perf reports latency`](../tools/perf/src/reports.rs) computes nearest-rank
 p50/p95 for each round, then the median of the **round percentiles**, not pooled
 requests. JSON includes every round's percentiles and paired deltas. Measurements
 must have identical workload digests, environment, round counts, and sample counts.
 Raw files record nanosecond samples and binary/harness/fixture SHA-256 identities.
+Completed latency rounds are checkpointed to both raw files. Collection failures
+retain those samples with `metadata.collection_status = "failed"` and an error;
+interrupted collections remain `"running"`. The report command rejects both
+states, so partial evidence cannot become a successful comparison.
 
 The job publishes a Markdown GitHub job summary and an `lsp-latency-*` artifact
 containing baseline/candidate samples, JSON/Markdown comparisons, and source
@@ -243,29 +236,260 @@ being characterized; even a large slowdown does not fail by a latency threshold.
 Malformed, incomplete, or incomparable measurements do fail. The existing
 blocking Callgrind limits remain unchanged.
 
-For a local comparison, build both revisions in separate target directories.
-With the baseline checkout in `$BASELINE_WORKTREE`:
+### Hosted-only measurements
+
+All new performance measurements run on hosted CI, not on a local workstation
+or its Docker container. Local correctness tests for the transport, comparators,
+and report validation remain allowed; they are not performance evidence.
+Collectors reject non-CI measurement invocations. Defaults remain seven rounds,
+32 samples, and eight warmups; do not run builds/tests concurrently with collection.
+
+All performance tooling is Rust in the separate, unpublished `bend2-perf`
+workspace crate: portable JSON-RPC transport, collectors, reports, active
+comparator, and calibration. CI builds it in a separate target directory before
+collecting anything; it is not linked into the production server or measured
+analysis functions. Release/install scripting remains outside this perf tooling.
+
+The same six-platform matrix runs
+[`bend2-perf native discovery`](../tools/perf/src/native.rs) against the
+already-built binary pair. Deterministic 10/1000/10000-file workspaces distinguish
+protocol initialization from complete unopened-file discovery, warm feature
+queries, and dependency revisions. A base revision without discovery is reported
+as scope-incomplete; its partial references/symbols are not equivalent-work
+latency comparisons. Candidate completeness and correct public LSP results are
+required, independently of numeric report-only latency changes.
+
+The collector requests local parameter completion immediately after opening an
+independent untitled buffer, before waiting for discovery. The raw result and
+`isIncomplete` flag are preserved: a true flag establishes server-reported partial
+discovery, while false or a legacy array does not establish overlap. There is no
+numeric completion threshold or deterministic scan barrier.
+The probe and later warm buffers use diagnostics-clear acknowledgements for
+`didClose` before disk-only symbols and root-removal observations; a notification
+write alone does not establish that a buffer's ownership has been released.
+JSON checkpoints use buffered writes to a temporary sibling followed by atomic
+replacement. Interrupted serialization preserves the preceding valid checkpoint;
+an incomplete collection still cannot become a successful comparison.
+
+Process resident-memory observations retain timestamped samples every 20 ms,
+cold sampled peaks, retained state, and observations immediately and 100 ms
+after workspace root removal. Candidate workspace symbols must become empty
+after removal. Sampled peaks are lower bounds; exposed kernel high-water marks
+cover the process lifetime. Resident memory may remain high after snapshots are
+freed because the allocator retains pages.
+
+- Linux reads `VmRSS` and `VmHWM` from the target PID's `/proc/<pid>/status`,
+  with separate anonymous/file/shared resident and swap observations.
+- macOS uses safe `libproc` wrappers for `proc_pid_rusage`: resident size is
+  separate from physical footprint and wired memory. Its resident high-water
+  mark is explicitly unavailable, not replaced with a footprint peak.
+- Windows uses safe `winsafe` wrappers: working set and peak working set are
+  separate from private commit and paged/nonpaged pool usage. Private commit is
+  not RSS or pagefile occupancy.
+
+Native field definitions and byte units travel with the report metadata.
+Missing required resident samples/checkpoints make the report incomplete;
+optional unavailable metrics stay null. No values are inferred from DHAT totals,
+and no numerical comparisons are made across native targets.
+
+Allocation profiles use separately built optimized, symbolized `dhat-heap`
+executables for the real LSP lifecycle and the existing line-index/folding
+examples on all six native platforms. Raw allocation profiles are distinct from
+RSS observations; unavailable RSS fields are null, not zero. Profiles are
+candidate-only observations, not fabricated baseline comparisons. Artifacts bind
+source revisions, binary/harness/dataset digests, commands, toolchain, and runner
+identity. Missing/malformed evidence and semantic failures fail CI.
+
+macOS symbol copies materialize Cargo's dSYM aliases. A bundle retains its
+single original DWARF member, including Cargo's crate-name/hash form; component
+hashes and link-free structure remain required
+([Cargo output naming](https://github.com/rust-lang/cargo/blob/f96969bb236ab59543a5fdf5f131c874cece23aa/src/compiler/build_runner/compilation_files.rs)).
+DHAT block counts at a byte peak are not maximum block counts: `mbk` need not
+bound `gbk` or `ebk`. All three remain bounded by total allocated blocks, while
+the existing byte-size invariants remain enforced
+([DHAT 0.3.3 source](https://docs.rs/crate/dhat/0.3.3/source/src/lib.rs)).
+
+The profiled LSP retains the 30-second JSON-RPC deadlines, then allows up to
+300 seconds for child finalization, matching the existing native DHAT example
+bound. Ordinary latency runs retain their original exit deadline. DHAT resolves
+backtraces before printing its summary or creating the output file; shutdown
+stage and exact child-exit evidence are retained separately. The first Windows
+x86_64 failure's empty stderr and missing profile were consistent with slow
+finalization, not proof of its cause; successful hosted profile generation is
+required before treating this path as verified.
+
+The canonical Linux/x86_64 Callgrind gate and the calibration workflow remain
+unchanged. Callgrind is unavailable on the supported macOS/Windows runners;
+native timing/allocation reports do not replace its instruction/cache metrics.
+Workflow/enforcement changes require the `policy-approved` pull-request label.
+
+
+### Unified hosted CLI and reports
+
+The workspace Cargo alias runs the unpublished Rust tool:
 
 ```sh
-cargo build --release --locked --bin bend2-lsp \
-  --manifest-path "$BASELINE_WORKTREE/Cargo.toml" --target-dir target/latency-main
-cargo build --release --locked --bin bend2-lsp --target-dir target/latency-candidate
-python3 scripts/lsp_latency.py \
-  --baseline-binary target/latency-main/release/bend2-lsp \
-  --candidate-binary target/latency-candidate/release/bend2-lsp \
-  --baseline-output target/lsp-latency/baseline.json \
-  --candidate-output target/lsp-latency/candidate.json
-python3 scripts/latency_report.py \
-  target/lsp-latency/baseline.json target/lsp-latency/candidate.json \
-  --json-output target/lsp-latency/report.json \
-  --markdown-output target/lsp-latency/report.md
+cargo perf doctor
+cargo perf compare --base main --candidate HEAD
+cargo perf profile discovery-10000 --cpu
+cargo perf profile discovery-10000 --heap
+cargo perf profile discovery-10000 --native --native-kind cpu
+cargo perf open <run-id-or-downloaded-directory>
 ```
 
-The collector requires Python's POSIX pipe/select support (Linux/macOS). CI
-defaults are `--rounds 7 --samples 32 --warmup 8`; smaller values are useful for
-smoke checks, not comparative latency evidence. Avoid concurrent builds/tests
-while measuring wall-clock latency. Workflow/enforcement changes require the
-repository's `policy-approved` pull-request label.
+`doctor` inspects prerequisites without elevation, installation, authentication
+changes, or measurements. Its default checks local Rust/Cargo, `gh`, repository
+identity and existing authentication. Optional `--backend cpu|heap|native`
+inspects that local diagnostic tool; those tools are not required locally to
+dispatch hosted collection.
+
+`compare`/`profile` resolve exact pushed source SHAs. `HEAD` means the committed
+head, not uncommitted edits. The workflow definition defaults to the repository's
+default branch; `--workflow-ref` can select a published branch or tag after the
+workflow is registered on the default branch. A unique request ID selects the
+exact run; the tool never downloads an arbitrary latest run. `--target` defaults
+to all six triples or selects one explicitly. Existing output directories are
+never overwritten.
+
+The diagnostic workflow supports `compare`, `cpu`, `heap`, `native`, and `full`.
+Ordinary PRs retain clean native latency/discovery/process-memory collection and
+the unchanged canonical Linux x86-64 Callgrind job. Infrastructure-source changes
+add six-target backend verification and native tooling contract tests.
+The weekly/manual full workflow additionally retains every original thirteen
+DHAT workload and profiles all four shared scenarios: `discovery-10`,
+`discovery-1000`, `discovery-10000`, and `latency`. CPU, allocation, and native
+traces use separate processes, never the clean latency process.
+
+CPU profiling pins samply 0.13.1 to source revision
+`da75c28f367454c621e690eeb4e44ec2ebb29a78`. Windows ARM64 additionally applies
+`scripts/patches/samply-windows-arm64.patch` (SHA256
+`37bc36692372474829e099ce5faad0ca765184c76c01b31544fae5bd7365de51`) to join
+matching SampleProf records with their kernel/user StackWalk halves without
+discarding CPU deltas. Other platforms use the unmodified pinned source.
+The installed ARM64 sampler sidecar binds the upstream revision, patch digest,
+target, and executable SHA256; doctor and capture validate that identity and
+retain the modified-source provenance.
+Native diagnostics use Linux perf, macOS Xcode Instruments, or Windows WPR with the pinned Microsoft
+Windows Performance Toolkit. Native heap tracing is supported on macOS/Windows;
+Linux native heap requests reject explicitly and point to `--heap` DHAT.
+Missing permissions, symbols, target samples/allocation records, or complete
+trace data fail collection rather than falling back to metadata-only success.
+WPR's successful save exit status is not sufficient when its stop output reports
+dropped events: the trace is retained, but collection fails as incomplete.
+The ETL decoder also rejects header loss counters and lost-event notifications.
+Windows ETL decoding uses the repository's streaming `bend2-etl-reader`, built
+with Microsoft TraceEvent 3.2.8, .NET SDK 10.0.401 and runtime 10.0.12.
+The SDK archive is SHA512-pinned; NuGet dependencies use a checksum-bound lock.
+Doctor validates the executable, target, SDK and all six build-input hashes.
+The hosted bootstrap disables persistent build servers so the temporary SDK's
+DLLs are released before cleanup; cleanup failures still fail the job.
+The reader processes the entire ETL to EOF and emits only header/lifecycle,
+CPU sample and target-PID heap allocation records for the existing validator.
+It does not serialize the whole recording through `tracerpt`, stop after the
+first target record, or invent zero loss counters. Raw ETL and symbols remain
+in the artifact; the existing 300-second decoder deadline remains unchanged.
+Windows sampled CPU attribution uses the kernel event-class GUID and the sampled
+thread's lifecycle ownership, not the event reporter's PID. Raw lifecycle
+payloads require the documented version, pointer width, and complete payload.
+Installed native CPU/Heap profiles are exported before configuration; provider,
+keyword, stack, and file-mode semantics are preserved. Collectors use 1 MiB
+buffers (256 system, 64 ordinary event, 512 heap event) and lossless stack caches
+(16 MiB ordinary, 64 MiB heap). These are explicit tuning choices, not Microsoft
+recommendations; hosted capture must still demonstrate zero event loss and
+complete target-process evidence. Source/configured profiles and collector logs
+remain in the artifact ([WPR collector definitions](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/collector-definitions),
+[stack caching](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/stackcaching)).
+
+Decoder command arguments use ordinary Win32 drive/UNC paths; canonical paths
+remain the artifact identity.
+Windows heap tracing is prepared before process creation and restores the prior
+IFEO state on normal failure or cooperative cancellation. Hard process kills
+cannot promise in-process cleanup.
+
+The macOS diagnostic workflow explicitly authorizes headless `samply` capture
+through `sudo -n`; only the sampler and its owned cleanup commands are elevated.
+`BEND_PERF_MACOS_SAMPLY_ELEVATED=true` is honored only in hosted CI without a
+controlling terminal. Missing authorization fails rather than opening a dialog
+or silently retrying with privileges. `doctor` and local trace viewing do not
+elevate. Locally signed debugger-entitled tools otherwise require an administrator
+authorization dialog ([Apple debugger entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.debugger)).
+Sampler finalization targets the uniquely identified executable inside the
+owned macOS process group, not a possible sudo monitor. Windows uses a
+collector-console CTRL_BREAK event so inherited CTRL_C-ignore does not lose
+the stop request ([console control events](https://learn.microsoft.com/en-us/windows/console/generateconsolectrlevent)).
+Instruments waits for a notification-registration barrier before starting its
+recorder, then requires the actual tracing-started notification and a live
+recorder. Linux ARM64 software-clock DWARF capture requests the complete
+baseline register set, excluding hardware-only SVE VG.
+
+Before creating the cold LSP, native Instruments preparation starts a one-second
+Time Profiler run on `/usr/bin/true` to initialize Apple's tracing and
+authorization services, under the existing 300-second preparation-command bound.
+Its trace and command logs are preparation evidence, not scenario samples.
+The actual LSP capture still requires its own tracing-started notification
+within 60 seconds.
+
+Native Allocations captures set `MallocNanoZone=0` only in their LSP child and
+retain that override in `profiler.target_environment`. Apple's
+[libmalloc source](https://github.com/apple-oss-distributions/libmalloc/blob/libmalloc-715.140.5/src/nanov2_malloc.c)
+shows that its in-process nano-zone enumerator allocates from the helper zone;
+the retained Intel attach stall contains this path alongside the target's tiny
+allocator. Disabling nano removes that allocating enumeration path without
+changing production binaries or weakening allocation-record validation.
+This is a source-supported tracing compatibility configuration, not an
+Apple-documented public API. Small allocations use the scalable allocator
+instead, so these native heap numbers do not describe the default allocator.
+Clean process-memory/latency and DHAT runs do not receive this override.
+
+An attached scenario owner finalizes its collector before terminating a failed
+LSP target; ordinary transport clients retain immediate failure cleanup.
+Responses received after their request deadline remain timeout failures even
+when already buffered, so they follow the same failure-diagnostic path.
+
+Each target's `artifact-manifest.json` records expected collectors, source and
+tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.
+Downloads are validated with confined relative paths. Interrupted/failed runs
+keep their raw data and explicit failure state. The report writes `index.html`,
+`unified-report.json`, and `summary.md`; an incomplete/failed/regressed report
+still produces diagnostic files before returning nonzero. CI uses
+`dashboard <root> --target-only` for a single uploaded bundle; that mode explicitly
+does not claim complete aggregate matrix coverage.
+The unified JSON retains summary measurements and links to validated raw
+discovery evidence rather than embedding a second copy of its full payload.
+Raw files, checksums, pairing checks, and completeness validation are unchanged.
+CI records the report command before inventory checksums are finalized, so
+rendering does not invalidate the command log. Job summaries point to the
+uploaded full report instead of embedding it beyond GitHub's 1 MiB limit.
+HTML/Markdown show generated discovery inputs through the full verified JSON
+artifact catalog rather than creating thousands of source-file links in the
+page. Every source path/hash and original file remains retained. Repeated
+identical scope warnings appear once visually; per-round evidence is unchanged.
+HTML renders each round's resident samples as its timeline instead of embedding
+the same arrays again in JSON details. Warm detail panels contain request
+distributions and initial completion, not another copy of memory observations.
+Full samples, manifest inventories and expected paths remain in the verified
+JSON catalog and original reports; no collection or validation input is removed.
+
+The canonical Callgrind evaluator retains `callgrind-policy.json` from the same
+authoritative comparison, including workload metrics, failed gates, source/run
+provenance, and input identities. Reports require this verified verdict and
+actual command exit codes to distinguish numerical regression from collection
+failure. A failed GitHub workflow is attributed to regression only when retained
+job/step conclusions establish that its only failed step is that source-bound
+comparison. Historical bundles without authoritative verdicts or attribution
+evidence remain conservatively incomplete/failed; no pass is inferred.
+Retained per-metric outcomes must also agree with the same authoritative
+`within_limit` function used by the producer. Hash-bound numeric inputs and
+internally consistent flags alone cannot establish a passing or regressed gate;
+an outcome contradicting the unchanged limits is rejected as invalid evidence.
+
+`cargo perf open <downloaded-directory> --cpu --scenario <scenario> --target <triple>`
+opens a validated CPU trace through `samply load`, with its packaged binary/debug
+symbol directories. This local command is viewing, not measurement; it requires
+the pinned viewer installed and does not install it automatically. Native
+`.trace`/`.etl`/`perf.data` artifacts keep their original viewers and formats.
+Canonical Callgrind verdicts remain separate from collection success; a
+diagnostic comparison without Callgrind evidence says so, not that the gate passed.
 
 ## Crate, runner, and build setup
 
@@ -280,7 +504,7 @@ Callgrind records `Ir` (instructions executed). Available cache events include `
 The active `performance` workflow enforces these regression limits:
 
 - `Ir`: Iai relative limit `candidate × 100 ≤ baseline × 102` (+2%).
-- `I1mr` and `ILmr`: `scripts/performance_policy.py` allows
+- `I1mr` and `ILmr`: `bend2-perf policy` allows
   `max(ceil(baseline × 0.03), 3 events)` additional misses.
 
 The workflow enables cache simulation and emits JSON summaries in both the
@@ -297,9 +521,9 @@ cycles or allocation counts. For Cachegrind as the selected tool, the separate
 options are `--cachegrind-limits` / `IAI_CALLGRIND_CACHEGRIND_LIMITS`.
 [Upstream regression guide (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/regressions.md) · [CLI reference (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/basics.md)
 
-To compare a candidate to a stable named reference, save its baseline and
-summaries on the reference revision, then generate the manifest from that
-summary tree:
+The hosted comparison saves baseline summaries on the reference revision, then
+generates the benchmark manifest before evaluating the candidate. Its runner
+commands are:
 
 ```sh
 # On the reference revision
@@ -308,7 +532,7 @@ cargo bench --bench analysis -- \
   --callgrind-args='--cache-sim=yes' \
   --output-format=json \
   --save-summary=pretty-json
-python3 scripts/performance_policy.py \
+"$PERF_TOOL" policy \
   target/iai/bend2-lsp/analysis/analysis_hot_paths \
   --write-baseline-manifest=target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
 
@@ -319,7 +543,7 @@ cargo bench --bench analysis -- \
   --callgrind-limits='ir=2%' \
   --output-format=json \
   --save-summary=pretty-json
-python3 scripts/performance_policy.py \
+"$PERF_TOOL" policy \
   target/iai/bend2-lsp/analysis/analysis_hot_paths \
   --baseline-manifest=target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json \
   --baseline-name=main
@@ -347,8 +571,8 @@ floor applies only to `I1mr` and `ILmr`; `Ir` remains a relative +2% limit with
 no absolute allowance.
 
 The comparator implementation and tests are
-[`scripts/performance_policy.py`](../scripts/performance_policy.py) and
-[`scripts/test_performance_policy.py`](../scripts/test_performance_policy.py).
+[`tools/perf/src/policy.rs`](../tools/perf/src/policy.rs) and
+[`tools/perf/tests/policy_contract.rs`](../tools/perf/tests/policy_contract.rs).
 The tests run from `scripts/quality` and use temporary synthetic
 `summary.json` files in Iai 0.16.1 shape. They cover `[candidate, baseline]`
 ordering; selected-baseline filtering; 25→25, 25→36 with 11 new, 36→36,
@@ -368,11 +592,15 @@ The fresh exact legacy comparison with baseline
 `rbt21_legacy_4669c65_policy_fresh2` passed **25/25** under this policy on
 2026-09-29. Full `./scripts/quality` passed, and local issue `.21` is closed.
 
-## CI and local platform constraints
+## CI platform constraints
 
 This is not intrinsically Linux-only: Iai-Callgrind requires Valgrind and therefore only runs on a platform Valgrind supports. Upstream's CI installation examples use the matching runner version, and its prerequisites list Linux distributions and FreeBSD for Valgrind installation ([prerequisites](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/installation/prerequisites.md), [runner install/CI guidance](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/installation/iai_callgrind.md)). A Linux CI job with Valgrind installed is the narrow, conventional gate; `apt-get install valgrind` is the upstream Debian/Ubuntu example.
 
-The native macOS/arm64 host is not a supported Valgrind platform. The persistent `rust` service in [`compose.yaml`](../compose.yaml) runs Linux/ARM64 with the pinned toolchain, Valgrind, Iai runner, and named Cargo/build-cache volumes, so the benchmark can run in Docker without treating macOS itself as supported ([Valgrind supported platforms](https://valgrind.org/info/platforms.html)).
+The native macOS/arm64 host is not a supported Valgrind platform. The persistent
+`rust` service in [`compose.yaml`](../compose.yaml) remains available for Linux
+correctness checks, but local Docker runs are not current performance evidence.
+New measurements use hosted CI; historical container measurements below are
+retained solely as provenance ([Valgrind supported platforms](https://valgrind.org/info/platforms.html)).
 
 The committed [`performance` workflow](../.github/workflows/performance.yml)
 saves a `main` baseline and its benchmark-ID manifest from the pull request's
@@ -545,16 +773,11 @@ Callgrind counts before and after adding parameter spans are:
 | Medium, 32,429 bytes | 6,569,209 → 6,567,392 | 634 → 623 | 580 → 576 |
 | Large, 260,429 bytes | 27,527,697 → 27,535,063 | 638 → 622 | 581 → 577 |
 
-Reproduce with the persistent Linux/ARM64 Valgrind container:
+These historical profiles used the persistent Linux/ARM64 Valgrind container.
+New profiles run on hosted native CI with the examples' opt-in Rust DHAT allocator.
+Different profiling backends/optimization modes are not equivalent baselines.
 
-```sh
-docker compose exec -T rust cargo build --locked --example line_index_profile
-docker compose exec -T rust valgrind --tool=dhat \
-  --dhat-out-file=/workspace/target/line-index-position-ascii.json \
-  /workspace/target/debug/examples/line_index_profile position-ascii
-```
-
-Repeat with `position-unicode`, `snapshot-small`, `snapshot-medium`,
+CI also collects `position-unicode`, `snapshot-small`, `snapshot-medium`,
 `snapshot-large`, and `snapshot-medium-unicode`; inspect `Total` and
 `At t-gmax` in DHAT output. The `.21` Callgrind table above gives direct
 instruction/cache-event costs for conversion and cold snapshot construction.
@@ -656,16 +879,10 @@ The returned vector still requires one allocation for nonempty output; exact
 capacity removes its geometric growth reallocations. Total allocation count
 stays constant at three per call, while the two auxiliary vectors are also
 one allocation each. This meets the issue's no-growth-allocation criterion;
-no acceptance limits changed. Reproduce a profile with:
+no acceptance limits changed. Current hosted native allocation profiles exercise
+the same example at `100`, `1000`, and `10000` lines, both snapshot-only and folding.
 
-```sh
-docker compose exec -T rust cargo build --locked --example folding_allocations
-docker compose exec -T rust valgrind --tool=dhat \
-  --dhat-out-file=/workspace/target/folding-100-fold.json \
-  /workspace/target/debug/examples/folding_allocations 100 fold
-```
-
-Repeat with `1000` and `10000`; inspect only allocation stacks containing
+Inspect only allocation stacks containing
 `folding_ranges`. DHAT allocation events are separate from Callgrind
 instruction events.
 

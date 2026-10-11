@@ -1,0 +1,130 @@
+--- a/samply/src/windows/profile_context.rs
++++ b/samply/src/windows/profile_context.rs
+@@ -1135,34 +1135,27 @@
+         tid: u32,
+         stack_address_iter: impl Iterator<Item = u64>,
+     ) {
+-        let Some(process) = self.processes.get_by_pid(pid) else {
+-            return;
+-        };
+-        let Some(thread) = self.threads.get_by_tid(tid) else {
+-            return;
+-        };
+-
+-        // On ARM64, this seems to be simpler -- stacks come in with full kernel and user frames.
+-        // At least, I've never seen a kernel stack come in separately.
+-        // TODO -- is this because I can't use PROFILE events in the VM?
+-
+-        let stack: Vec<StackFrame> = to_stack_frames(stack_address_iter, self.address_classifier);
+-
+-        let cpu_delta_raw = self
+-            .context_switch_handler
+-            .consume_cpu_delta(&mut thread.context_switch_data);
+-        let cpu_delta =
+-            CpuDelta::from_nanos(cpu_delta_raw * self.timestamp_converter.raw_to_ns_factor);
+-        let timestamp = self.timestamp_converter.convert_time(timestamp_raw);
+-        let stack_index = self.unresolved_stacks.convert(stack.into_iter().rev());
+-        process.unresolved_samples.add_sample(
+-            thread.handle,
+-            timestamp,
++        let Some(thread) = self.threads.get_by_tid_and_timestamp(tid, timestamp_raw) else {
++            return;
++        };
++        if thread.process_id != pid
++            || !thread
++                .samples_with_pending_stacks
++                .iter()
++                .any(|sample| sample.timestamp == timestamp_raw)
++        {
++            return;
++        }
++
++        // Native Windows ARM64 delivers separate kernel and user StackWalk records,
++        // just like x64. Match the pending SampleProf/CSwitch event and retain its
++        // already-consumed CPU delta; a StackWalk is not itself an on-CPU sample.
++        self.handle_stack_x86(
+             timestamp_raw,
+-            stack_index,
+-            cpu_delta,
+-            1,
+-            None,
++            pid,
++            tid,
++            stack_address_iter.size_hint().0,
++            stack_address_iter,
+         );
+     }
+ 
+@@ -2266,3 +2259,72 @@
+         None => path,
+     }
+ }
++
++#[cfg(test)]
++mod bend2_arm64_regressions {
++    use super::*;
++
++    fn context() -> ProfileContext {
++        let props = ProfileCreationProps {
++            profile_name: None,
++            fallback_profile_name: "ARM64 SampleProf regression".into(),
++            main_thread_only: false,
++            reuse_threads: false,
++            fold_recursive_prefix: false,
++            unlink_aux_files: false,
++            create_per_cpu_threads: false,
++            arg_count_to_include_in_process_name: 0,
++            override_arch: None,
++            unstable_presymbolicate: false,
++            coreclr: Default::default(),
++            unknown_event_markers: false,
++            time_range: None,
++            should_emit_jit_markers: false,
++            should_emit_cswitch_markers: false,
++        };
++        let profile = Profile::new(
++            "ARM64 SampleProf regression",
++            fxprof_processed_profile::ReferenceTimestamp::from_millis_since_unix_epoch(0.0),
++            SamplingInterval::from_nanos(1_000_000),
++        );
++        let mut context = ProfileContext::new(profile, "arm64", None, props);
++        context.handle_header(0, 10_000_000, 1);
++        context.handle_process_start(0, 8888, 0, "bend2-lsp.exe".into(), String::new());
++        context.handle_thread_start(0, 10708, 8888, None);
++        context
++    }
++
++    #[test]
++    fn arm64_sampleprof_preserves_cpu_delta_and_split_kernel_user_stacks() {
++        let mut context = context();
++        context.handle_sample(1000, 10708, 0);
++        context.handle_stack_arm64(1000, 8888, 10708, [0x7ffa944f2e74].into_iter());
++        context.handle_sample(2000, 10708, 0);
++        context.handle_stack_arm64(2000, 8888, 10708, [0xfffff8009a06c428].into_iter());
++        // The kernel half alone must not emit a second sample or lose its CPU delta.
++        assert_eq!(context.stack_sample_count, 1);
++        context.handle_stack_arm64(2000, 8888, 10708, [0x7ffa944f2e74].into_iter());
++        assert!(context.threads.get_by_tid(10708).unwrap().samples_with_pending_stacks.is_empty());
++        let profile = serde_json::to_value(context.finish()).unwrap();
++        let thread = &profile["threads"][0];
++        assert_eq!(thread["pid"], "8888");
++        assert_eq!(thread["samples"]["length"], 2);
++        assert_eq!(thread["samples"]["weight"], serde_json::json!([1, 1]));
++        assert_eq!(thread["samples"]["threadCPUDelta"], serde_json::json!([0, 100]));
++        let stack = thread["samples"]["stack"][1].as_u64().unwrap() as usize;
++        assert!(thread["stackTable"]["prefix"][stack].as_u64().is_some());
++    }
++
++    #[test]
++    fn arm64_stack_requires_matching_event_timestamp_and_process() {
++        let mut context = context();
++        context.handle_stack_arm64(500, 8888, 10708, [0x7ffa944f2e74].into_iter());
++        context.handle_sample(1000, 10708, 0);
++        context.handle_stack_arm64(1000, 9999, 10708, [0x7ffa944f2e74].into_iter());
++        context.handle_stack_arm64(1001, 8888, 10708, [0x7ffa944f2e74].into_iter());
++        assert_eq!(context.stack_sample_count, 0);
++        assert_eq!(context.threads.get_by_tid(10708).unwrap().samples_with_pending_stacks.len(), 1);
++        context.handle_stack_arm64(1000, 8888, 10708, [0x7ffa944f2e74].into_iter());
++        assert_eq!(context.stack_sample_count, 1);
++    }
++}

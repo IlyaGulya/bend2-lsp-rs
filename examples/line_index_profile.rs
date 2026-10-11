@@ -1,5 +1,9 @@
 use bend2_lsp::analysis::{DocumentSnapshot, LineIndex, Revision};
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 const SMALL_SOURCE: &str = include_str!("../benches/fixtures/analyzer_input.bend");
 const MEDIUM_SOURCE: &str = include_str!("../benches/fixtures/analyzer_medium.bend");
 const LARGE_SOURCE: &str = include_str!("../benches/fixtures/analyzer_large.bend");
@@ -22,6 +26,15 @@ fn profile_snapshot(source: &str) {
 }
 
 fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = std::env::var_os("BEND2_LSP_DHAT_FILE").map(|path| {
+        let mut builder = dhat::Profiler::builder().trim_backtraces(Some(usize::MAX));
+        if !path.is_empty() {
+            builder = builder.file_name(path);
+        }
+        builder.build()
+    });
+
     let Some(mode) = std::env::args().nth(1) else {
         eprintln!(
             "usage: line_index_profile <position-ascii|position-unicode|snapshot-small|snapshot-medium|snapshot-large|snapshot-medium-unicode>"
