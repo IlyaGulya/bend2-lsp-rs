@@ -1,159 +1,102 @@
-name: performance-calibration
+name: performance-attribution
+run-name: attribution main-to-42 and 42-to-43
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - .github/workflows/performance-calibration.yml
-      - scripts/ci-cache.sh
-      - scripts/install-tools.sh
-      - rust-toolchain.toml
-      - tools/perf/**
-      - Cargo.toml
-      - Cargo.lock
   workflow_dispatch:
 
 permissions: {}
 
 jobs:
-  collect:
+  compare:
     permissions:
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - job: discovery-01
-            role: discovery
-          - job: discovery-02
-            role: discovery
-          - job: discovery-03
-            role: discovery
-          - job: discovery-04
-            role: discovery
-          - job: discovery-05
-            role: discovery
-          - job: discovery-06
-            role: discovery
-          - job: discovery-07
-            role: discovery
-          - job: validation-01
-            role: validation
-          - job: validation-02
-            role: validation
-          - job: validation-03
-            role: validation
+          - pair: main-to-42
+            baseline: c44ca45fa0c91a4e9a3d46eb415799e3425cb6e5
+            candidate: 1f07cabc14051f532bf042361aa59e465ea5a4a8
+          - pair: 42-to-43
+            baseline: 1f07cabc14051f532bf042361aa59e465ea5a4a8
+            candidate: d811f249f95bb57a4a1f1fd0a4452ec6e9e1166a
+    env:
+      BASE_SHA: ${{ matrix.baseline }}
+      CANDIDATE_SHA: ${{ matrix.candidate }}
+      PAIR: ${{ matrix.pair }}
+      RUSTC_WRAPPER: ''
+      CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Install Valgrind
+      - name: Install unchanged pinned tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes valgrind
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
-      - name: Identify Rust dependency paths without object caching
-        id: ci-cache
-        run: bash scripts/ci-cache.sh
-      - name: Restore Cargo downloads only
-        id: cargo-downloads
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
-          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh') }}
-          restore-keys: |
-            cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
-      - name: Configure isolated Iai runner install
-        run: |
-          printf 'CARGO_INSTALL_ROOT=%s/ci-performance-tools\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf '%s/ci-performance-tools/bin\n' "$RUNNER_TEMP" >> "$GITHUB_PATH"
-      - name: Restore pinned Iai runner and Cargo install metadata
-        id: runner-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ runner.temp }}/ci-performance-tools
-          key: iai-runner-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-0.16.1-${{ hashFiles('scripts/install-tools.sh') }}
-          restore-keys: |
-            iai-runner-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-0.16.1-
-      - name: Install matching Iai-Callgrind runner
-        run: ./scripts/install-tools.sh performance
-      - name: Build isolated Rust calibration tooling
-        run: cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Check Rust calibration contracts
-        run: |
-          cargo test --locked --release -p bend2-perf --bin bend2-perf calibration:: --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Collect balanced independent-build measurements
-        env:
-          CALIBRATION_JOB: ${{ matrix.job }}
-          CALIBRATION_ROLE: ${{ matrix.role }}
-        run: |
-          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
-            --source "$GITHUB_WORKSPACE" \
-            --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
-            --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
-            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 5
-      - name: Preserve every collected result and failure diagnostic
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
-          path: target/performance-calibration/${{ matrix.job }}/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Save trusted Cargo downloads
-        if: success() && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && steps.cargo-downloads.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
-          key: ${{ steps.cargo-downloads.outputs.cache-primary-key }}
-      - name: Save trusted pinned Iai runner
-        if: success() && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && steps.runner-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ runner.temp }}/ci-performance-tools
-          key: ${{ steps.runner-cache.outputs.cache-primary-key }}
-
-  report:
-    if: always()
-    needs: collect
-    permissions:
-      contents: read
-      actions: read
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install pinned Rust and build isolated report tooling
-        run: |
+          sudo apt-get install --yes valgrind binutils
           rustup toolchain install 1.98.1 --profile minimal
-          cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Download independent runner datasets
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-*
-          path: target/performance-calibration-input
-      - name: Report discovery allowances and untouched holdout sensitivity
+          export CARGO_INSTALL_ROOT="$RUNNER_TEMP/attribution-tools"
+          printf 'CARGO_INSTALL_ROOT=%s/attribution-tools\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf '%s/attribution-tools/bin\n' "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          ./scripts/install-tools.sh performance
+      - name: Prepare immutable source pair and policy tool
         run: |
-          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
-            --expected-discovery-jobs 7 --expected-validation-jobs 3 --expected-pairs 5 \
-            --json-output target/performance-calibration-report/report.json \
-            --markdown-output target/performance-calibration-report/report.md
-      - name: Publish observed calibration summary
-        if: always()
+          mkdir -p evidence
+          printf 'baseline=%s\ncandidate=%s\npair=%s\n' "$BASE_SHA" "$CANDIDATE_SHA" "$PAIR" > evidence/source-pair.txt
+          git cat-file -e "$BASE_SHA^{commit}"
+          git cat-file -e "$CANDIDATE_SHA^{commit}"
+          git diff "$BASE_SHA" "$CANDIDATE_SHA" -- src benches Cargo.toml Cargo.lock > evidence/source.diff
+          cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/policy-target"
+          cp "$RUNNER_TEMP/policy-target/release/bend2-perf" "$RUNNER_TEMP/policy"
+          valgrind --version > evidence/valgrind-version.txt
+          rustc +1.98.1 -vV > evidence/rust-version.txt
+      - name: Measure exact baseline and preserve machine code
         run: |
-          if [[ -f target/performance-calibration-report/report.md ]]; then
-            cat target/performance-calibration-report/report.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - name: Preserve report without changing active gates
+          git checkout --detach "$BASE_SHA"
+          cargo bench --locked --bench analysis -- --save-baseline=attribution \
+            --callgrind-args='--cache-sim=yes' --output-format=json --save-summary=pretty-json \
+            2>&1 | tee evidence/baseline.log
+          "$RUNNER_TEMP/policy" policy target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            --write-baseline-manifest=evidence/baseline.json
+          cargo bench --locked --bench analysis --no-run --message-format=json > evidence/baseline-build.jsonl
+          binary=$(jq -r 'select(.reason == "compiler-artifact" and .target.name == "analysis" and .executable != null) | .executable' evidence/baseline-build.jsonl)
+          test -f "$binary"
+          cp "$binary" evidence/baseline-benchmark
+          sha256sum evidence/baseline-benchmark > evidence/baseline-benchmark.sha256
+          objdump -d -C evidence/baseline-benchmark > evidence/baseline.asm
+      - name: Compare exact candidate without changing gates
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          benchmark_status=0
+          cargo bench --locked --bench analysis -- --baseline=attribution \
+            --callgrind-args='--cache-sim=yes' --callgrind-limits='ir=2%' \
+            --output-format=json --save-summary=pretty-json \
+            > evidence/candidate.log 2>&1 || benchmark_status=$?
+          cat evidence/candidate.log
+          cargo bench --locked --bench analysis --no-run --message-format=json > evidence/candidate-build.jsonl
+          binary=$(jq -r 'select(.reason == "compiler-artifact" and .target.name == "analysis" and .executable != null) | .executable' evidence/candidate-build.jsonl)
+          test -f "$binary"
+          cp "$binary" evidence/candidate-benchmark
+          sha256sum evidence/candidate-benchmark > evidence/candidate-benchmark.sha256
+          objdump -d -C evidence/candidate-benchmark > evidence/candidate.asm
+          policy_status=0
+          "$RUNNER_TEMP/policy" policy target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            --baseline-manifest=evidence/baseline.json --baseline-name=attribution \
+            > evidence/policy.log 2>&1 || policy_status=$?
+          cat evidence/policy.log
+          printf 'benchmark_exit_code=%s\npolicy_exit_code=%s\n' "$benchmark_status" "$policy_status" > evidence/outcomes.txt
+          if [[ "$policy_status" != 0 ]]; then exit "$policy_status"; fi
+          exit "$benchmark_status"
+      - name: Preserve all evidence including failed comparisons
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: performance-calibration-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: target/performance-calibration-report/
+          name: attribution-${{ matrix.pair }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            target/iai/bend2-lsp/analysis/analysis_hot_paths/
           if-no-files-found: error
           retention-days: 14
