@@ -3,6 +3,7 @@ mod capabilities;
 mod compiler;
 mod compiler_service;
 mod diagnostics;
+mod discovery;
 mod document_text;
 mod features;
 mod formatter;

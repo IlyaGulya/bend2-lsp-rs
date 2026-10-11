@@ -1,5 +1,7 @@
 [workspace]
 resolver = "3"
+members = [".", "tools/perf"]
+default-members = ["."]
 
 [workspace.package]
 edition = "2024"
@@ -47,6 +49,7 @@ dhat-heap = ["dep:dhat"]
 
 [dependencies]
 dhat = { version = "0.3.3", optional = true }
+ignore = "0.4.33"
 tower-lsp = "0.20"
 tower = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "io-util", "sync", "signal"] }

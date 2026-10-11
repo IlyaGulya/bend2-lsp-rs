@@ -1,21 +1,42 @@
 # ADR: keep reachable, snapshot-based workspace analysis
 
-Status: accepted architectural direction; quality global-index and discovery
-research implementations **DEFERRED & PRESERVED**, not discarded.
+Status: accepted architectural direction; global semantic-index research remains
+**DEFERRED & PRESERVED**. File discovery is enabled under the amendment below.
 
 ## Decision
 
 The merged services/revision refactor [#14](https://github.com/IlyaGulya/bend2-lsp-rs/pull/14)
 (`a575cf26`) is the production base. Keep immutable `DocumentSnapshot`, dense
 per-document `SyntaxIndex`, and `WorkspaceDb` with import/reverse-import edges.
-Index actually loaded/reachable documents, not every file on disk. A global
-semantic database and whole-project/background discovery are not requirements.
+Index loaded/reachable documents and discovered workspace roots using this same
+representation. A global semantic database remains outside the production scope.
 
 Do not resume semantic/occurrence/call indexes, hierarchy indexes, memo, CSR,
 arenas, or cache-layout tuning merely to future-proof or turn experimental gates
 green. Performance thresholds, baselines, benchmark semantics and CI policy stay
-unchanged. Experimental PRs are closed without merge; their implementations and
-results are preserved as deferred research, not advertised as production features.
+unchanged. Experimental global-index PRs are closed without merge; their
+implementations and results remain preserved as deferred research.
+
+### File-discovery scope amendment
+
+The maintainer explicitly approved whole-project file discovery through TDD and
+public LSP E2E, independently of the global semantic-index experiments. Regular
+`.bend` files under workspace roots become additional ownership roots in the
+existing import graph. Cold discovery builds immutable snapshots off-lock;
+validated commits publish them through `WorkspaceService`. Warm feature queries
+reuse snapshots and workspace indexes; they do not scan source text again.
+
+Discovery respects ignore rules, skips hidden/service directories and symlinks,
+and does not constrain explicitly imported dependencies. Open overlays win over
+disk snapshots. Watched events and workspace-folder changes preserve ownership
+and disk-generation checks; stale scans cannot restore removed roots. Cancellation
+of a query does not abandon its owned worker; shutdown cancels and drains it.
+
+Performance measurements run only on hosted CI. Existing cold/warm Callgrind
+gates remain unchanged; discovery readiness and process-level query latency are
+reported separately with raw samples and binary/source provenance. The global
+semantic-index reopening criteria below remain unchanged.
+
 
 ## What the measurements established
 
@@ -89,8 +110,8 @@ traversal, background-worker ownership, readiness and root/deletion semantics
 beyond the loaded/reachable product scope. The product has not established the
 real hundreds/thousands-of-files latency need required below. Deferral reflects
 those measured tradeoffs and current product scale, not a claim of poor quality.
-Preservation does not justify restoring global indexes or discovery, changing
-policy gates, or presenting synthetic instruction reductions as editor latency.
+Preservation does not justify restoring experimental global semantic indexes,
+changing policy gates, or presenting synthetic instruction reductions as editor latency.
 
 ## Trigger for reconsideration
 

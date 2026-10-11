@@ -96,6 +96,37 @@ mod protocol {
             .must_be("code action list")
             .clone()
     }
+    #[test]
+    fn auto_import_quickfix_waits_for_new_unopened_watched_source() {
+        let source = "def main:\n  project_candidate\n";
+        let (root, mut client, uri, _) = fixture(source);
+        client.request("workspace/symbol", json!({"query":"main"}));
+        let path = root.path().join("library.bend");
+        let mut library = "def project_candidate:\n  1\n".to_owned();
+        library.push_str(&"# unrelated source lines\n".repeat(40_000));
+        fs::write(&path, library).must_be("write unopened library");
+        let library_uri = Url::from_file_path(path).must_be("library URI");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({
+                "changes":[{"uri":library_uri,"type":1}]
+            }),
+        );
+        let offered = actions(&mut client, &uri, source, "project_candidate", "quickfix");
+        let action = offered
+            .iter()
+            .find(|action| {
+                action["title"]
+                    .as_str()
+                    .is_some_and(|title| title.contains("./library.bend"))
+            })
+            .must_be("discovered source import quickfix");
+        assert_eq!(
+            apply(source, action, &uri, 1),
+            "import ./library.bend as Library\ndef main:\n  Library.project_candidate\n"
+        );
+        client.finish();
+    }
 
     fn apply(source: &str, action: &Value, uri: &Url, version: i32) -> String {
         let document = &action["edit"]["documentChanges"][0];

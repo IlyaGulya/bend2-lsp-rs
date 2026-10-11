@@ -16,6 +16,9 @@ impl Backend {
         &self,
         params: CodeActionParams,
     ) -> Result<Option<CodeActionResponse>> {
+        if kind_requested(params.context.only.as_deref(), &CodeActionKind::QUICKFIX) {
+            self.workspace.wait_for_discovery().await;
+        }
         let _workspace_read = self.document_read(&params.text_document.uri).await;
         let uri = params.text_document.uri;
         let Some(doc) = self.document(&uri) else {

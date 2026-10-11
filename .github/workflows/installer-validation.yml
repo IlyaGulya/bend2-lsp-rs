@@ -11,7 +11,7 @@ on:
       - scripts/test_release.py
       - scripts/dist_installers.py
       - scripts/installer_e2e.py
-      - scripts/lsp_latency.py
+      - tools/perf/**
       - scripts/install-tools.sh
       - dist-workspace.toml
 

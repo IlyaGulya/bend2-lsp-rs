@@ -68,6 +68,7 @@ impl LanguageServer for Backend {
             roots.push(normalize_path(&path));
         }
         *self.workspace.roots.write() = roots;
+        self.workspace.start_discovery().await;
         let supports_watch_registration = params
             .capabilities
             .workspace
@@ -134,7 +135,10 @@ impl LanguageServer for Backend {
         fields(method = "did_change_workspace_folders")
     )]
     async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
-        let _operation = self.workspace.document_operation().await;
+        let _operation = self.workspace.file_operations.write().await;
+        self.workspace.cancel_discovery().await;
+        let _serial = self.workspace.update_serial.lock().await;
+        let _update = self.workspace.updates.write().await;
         {
             let mut roots = self.workspace.roots.write();
             for folder in params.event.removed {
@@ -152,6 +156,13 @@ impl LanguageServer for Backend {
                 }
             }
         }
+        let roots = self.workspace.roots.read().clone();
+        self.workspace.commit(None, None, |database| {
+            database.retain_discovered_roots(&roots);
+            Some(())
+        });
+        drop(_update);
+        drop(_serial);
         for document in self
             .workspace_documents()
             .into_iter()
@@ -160,6 +171,7 @@ impl LanguageServer for Backend {
             let path = self.document_path(&document.uri);
             self.open_workspace_document(document, path).await;
         }
+        self.workspace.start_discovery().await;
         for document in self.workspace_documents() {
             let revision = document.revision.0;
             self.schedule_diagnostics(document.uri, revision).await;
@@ -283,8 +295,12 @@ impl LanguageServer for Backend {
         let Some(closed) = self.workspace.begin_close(&uri) else {
             return;
         };
-        self.detach_import_diagnostics(&uri, closed).await;
-        self.cancel_diagnostics(&uri, closed).await;
+        // Queue close before later workspace queries without delaying diagnostic
+        // cleanup behind an unrelated staged disk read.
+        let (_serial, ()) = tokio::join!(self.workspace.update_serial.lock(), async {
+            self.detach_import_diagnostics(&uri, closed).await;
+            self.cancel_diagnostics(&uri, closed).await;
+        });
         if !self.close_workspace_document(uri.clone(), closed).await {
             return;
         }

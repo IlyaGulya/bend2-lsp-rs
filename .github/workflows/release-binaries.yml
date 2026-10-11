@@ -115,9 +115,11 @@ jobs:
       - name: Stage direct release executable for E2E
         run: '"$PYTHON" scripts/release.py package'
       - name: Run full native release test suite
-        run: cargo nextest run --workspace --all-features --locked --release --profile ci
+        run: cargo nextest run --workspace --exclude bend2-perf --all-features --locked --release --profile ci
+      - name: Run native Rust performance tooling correctness contracts
+        run: cargo test --package bend2-perf --all-features --locked --release
       - name: Archive full native release test suite
-        run: cargo nextest archive --workspace --all-features --locked --release --archive-file target/release-tests.tar.zst
+        run: cargo nextest archive --workspace --exclude bend2-perf --all-features --locked --release --archive-file target/release-tests.tar.zst
       - name: Run native release documentation tests
         run: cargo test --doc --locked --release
       - name: Mandatory native E2E against direct release executable

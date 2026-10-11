@@ -47,6 +47,10 @@ jobs:
             iai-runner-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-0.16.1-
       - name: Install matching Iai-Callgrind runner
         run: ./scripts/install-tools.sh performance
+      - name: Build candidate Rust performance tooling independently
+        run: |
+          cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
+          cp "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" "$RUNNER_TEMP/bend2-perf"
       - name: Measure main baseline
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -60,8 +64,7 @@ jobs:
             --callgrind-args='--cache-sim=yes' \
             --output-format=json \
             --save-summary=pretty-json
-          git show "$CANDIDATE_SHA:scripts/performance_policy.py" > "$RUNNER_TEMP/performance_policy.py"
-          python3 "$RUNNER_TEMP/performance_policy.py" \
+          "$RUNNER_TEMP/bend2-perf" policy \
             target/iai/bend2-lsp/analysis/analysis_hot_paths \
             --write-baseline-manifest="$BASELINE_MANIFEST"
       - name: Compare pull request with main
@@ -81,7 +84,7 @@ jobs:
           if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
             exit "$benchmark_status"
           fi
-          python3 scripts/performance_policy.py \
+          "$RUNNER_TEMP/bend2-perf" policy \
             target/iai/bend2-lsp/analysis/analysis_hot_paths \
             --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main
           exit "$benchmark_status"
@@ -99,15 +102,77 @@ jobs:
   latency:
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    name: native performance (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: X64
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            arch: ARM64
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-15-intel
+            arch: X64
+            target: x86_64-apple-darwin
+          - runner: macos-15
+            arch: ARM64
+            target: aarch64-apple-darwin
+          - runner: windows-2022
+            arch: X64
+            target: x86_64-pc-windows-msvc
+          - runner: windows-11-arm
+            arch: ARM64
+            target: aarch64-pc-windows-msvc
+    defaults:
+      run:
+        shell: bash
+    env:
+      PERF_TARGET: ${{ matrix.target }}
+      PERF_RUNNER: ${{ matrix.runner }}
+      PERF_ROOT: target/native-perf/${{ matrix.target }}
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      CANDIDATE_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Prepare target-qualified evidence and verify native runner
+        env:
+          ACTUAL_ARCH: ${{ runner.arch }}
+        run: |
+          mkdir -p "$PERF_ROOT"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$ACTUAL_ARCH" = "$EXPECTED_ARCH"
+          cat > "$PERF_ROOT/run.sh" <<'BASH'
+          run() {
+            {
+              printf '%q ' "$@"
+              printf '\n'
+            } >> "$PERF_ROOT/commands.txt"
+            "$@"
+          }
+          BASH
+          exe_suffix=''
+          if [[ "$RUNNER_OS" == Windows ]]; then exe_suffix='.exe'; fi
+          {
+            printf 'EXE_SUFFIX=%s\n' "$exe_suffix"
+            printf 'TIMING_BIN_DIR=%s/native-timing-binaries\n' "$RUNNER_TEMP"
+            printf 'MEMORY_BIN_DIR=%s/native-memory-binaries\n' "$RUNNER_TEMP"
+            printf 'PERF_TOOL=%s/native-perf-tools/release/bend2-perf%s\n' "$RUNNER_TEMP" "$exe_suffix"
+          } >> "$GITHUB_ENV"
+      - name: Install and verify pinned native Rust host
+        run: |
+          source "$PERF_ROOT/run.sh"
+          run rustup toolchain install "1.98.1-$PERF_TARGET" --profile minimal
+          run rustup override set "1.98.1-$PERF_TARGET"
+          run rustc -vV
+          run cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/native-perf-tools"
       - name: Identify Rust dependency paths without object caching
         id: ci-cache
         run: bash scripts/ci-cache.sh
@@ -119,44 +184,141 @@ jobs:
           key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh') }}
           restore-keys: |
             cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
-      - name: Build baseline and candidate release executables
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CANDIDATE_SHA: ${{ github.sha }}
+      - name: Build independent baseline and candidate default release executables
+        id: latency-binaries
         run: |
-          mkdir -p "$RUNNER_TEMP/latency-binaries" target/lsp-latency
-          git fetch --no-tags origin "$BASE_SHA"
-          git worktree add --detach "$RUNNER_TEMP/latency-main" "$BASE_SHA"
-          cargo build --locked --release --bin bend2-lsp \
-            --manifest-path "$RUNNER_TEMP/latency-main/Cargo.toml" \
-            --target-dir "$RUNNER_TEMP/latency-target-main"
-          cp "$RUNNER_TEMP/latency-target-main/release/bend2-lsp" \
-            "$RUNNER_TEMP/latency-binaries/main"
-          cargo build --locked --release --bin bend2-lsp \
-            --target-dir "$RUNNER_TEMP/latency-target-candidate"
-          cp "$RUNNER_TEMP/latency-target-candidate/release/bend2-lsp" \
-            "$RUNNER_TEMP/latency-binaries/candidate"
-          printf '{"baseline":"%s","candidate":"%s"}\n' \
-            "$BASE_SHA" "$CANDIDATE_SHA" > target/lsp-latency/revisions.json
-      - name: Measure alternating baseline and candidate LSP latency
+          source "$PERF_ROOT/run.sh"
+          mkdir -p "$TIMING_BIN_DIR"
+          run git fetch --no-tags origin "$BASE_SHA"
+          run git worktree add --detach "$RUNNER_TEMP/native-main" "$BASE_SHA"
+          test "$(git -C "$RUNNER_TEMP/native-main" rev-parse HEAD)" = "$BASE_SHA"
+          run cargo build --locked --release --bin bend2-lsp \
+            --manifest-path "$RUNNER_TEMP/native-main/Cargo.toml" \
+            --target-dir "$RUNNER_TEMP/native-target-main"
+          cp "$RUNNER_TEMP/native-target-main/release/bend2-lsp$EXE_SUFFIX" \
+            "$TIMING_BIN_DIR/main$EXE_SUFFIX"
+          run cargo build --locked --release --bin bend2-lsp \
+            --target-dir "$RUNNER_TEMP/native-target-candidate"
+          cp "$RUNNER_TEMP/native-target-candidate/release/bend2-lsp$EXE_SUFFIX" \
+            "$TIMING_BIN_DIR/candidate$EXE_SUFFIX"
+          run "$PERF_TOOL" native memory provenance \
+            --baseline-revision "$BASE_SHA" --candidate-revision "$CANDIDATE_SHA" \
+            --commands-file "$PERF_ROOT/commands.txt" --binary-dir "$TIMING_BIN_DIR" \
+            --output "$PERF_ROOT/provenance.json"
+      - name: Measure alternating baseline and candidate LSP latency on this runner
         run: |
-          python3 scripts/lsp_latency.py \
-            --baseline-binary "$RUNNER_TEMP/latency-binaries/main" \
-            --candidate-binary "$RUNNER_TEMP/latency-binaries/candidate" \
-            --baseline-output target/lsp-latency/baseline.json \
-            --candidate-output target/lsp-latency/candidate.json \
+          source "$PERF_ROOT/run.sh"
+          run "$PERF_TOOL" native latency \
+            --baseline-binary "$TIMING_BIN_DIR/main$EXE_SUFFIX" \
+            --candidate-binary "$TIMING_BIN_DIR/candidate$EXE_SUFFIX" \
+            --baseline-output "$PERF_ROOT/baseline.json" \
+            --candidate-output "$PERF_ROOT/candidate.json" \
             --rounds 7 --samples 32 --warmup 8
-      - name: Report latency changes without a numeric regression gate
+      - name: Report latency without a numeric regression gate
         run: |
-          python3 scripts/latency_report.py \
-            target/lsp-latency/baseline.json target/lsp-latency/candidate.json \
-            --json-output target/lsp-latency/report.json \
-            --markdown-output target/lsp-latency/report.md
-          cat target/lsp-latency/report.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Preserve raw latency samples and comparison
+          source "$PERF_ROOT/run.sh"
+          run "$PERF_TOOL" reports latency \
+            "$PERF_ROOT/baseline.json" "$PERF_ROOT/candidate.json" \
+            --json-output "$PERF_ROOT/latency-report.json" \
+            --markdown-output "$PERF_ROOT/latency-report.md"
+          cat "$PERF_ROOT/latency-report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect alternating cold discovery and warm workspace evidence
+        if: ${{ !cancelled() && steps.latency-binaries.outcome == 'success' }}
+        run: |
+          source "$PERF_ROOT/run.sh"
+          run "$PERF_TOOL" native discovery \
+            --baseline-binary "$TIMING_BIN_DIR/main$EXE_SUFFIX" \
+            --candidate-binary "$TIMING_BIN_DIR/candidate$EXE_SUFFIX" \
+            --baseline-revision "$BASE_SHA" --candidate-revision "$CANDIDATE_SHA" \
+            --output-dir "$PERF_ROOT/discovery" --rounds 7 --samples 32 --warmup 8
+      - name: Build separate symbolized optimized native heap binaries
+        id: memory-binaries
+        if: ${{ !cancelled() && steps.latency-binaries.outcome == 'success' }}
+        run: |
+          source "$PERF_ROOT/run.sh"
+          mkdir -p "$MEMORY_BIN_DIR"
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            export CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=packed
+          fi
+          run env CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_STRIP=none \
+            cargo build --locked --release --features dhat-heap \
+            --bin bend2-lsp --example line_index_profile --example folding_allocations \
+            --target-dir "$RUNNER_TEMP/native-target-memory"
+          cp "$RUNNER_TEMP/native-target-memory/release/bend2-lsp$EXE_SUFFIX" "$MEMORY_BIN_DIR/"
+          cp "$RUNNER_TEMP/native-target-memory/release/examples/line_index_profile$EXE_SUFFIX" "$MEMORY_BIN_DIR/"
+          cp "$RUNNER_TEMP/native-target-memory/release/examples/folding_allocations$EXE_SUFFIX" "$MEMORY_BIN_DIR/"
+          # Materialize Cargo dSYM aliases next to executables for DHAT symbol resolution.
+          shopt -s nullglob
+          for symbols in "$RUNNER_TEMP/native-target-memory/release/"*.pdb \
+                         "$RUNNER_TEMP/native-target-memory/release/"*.dSYM \
+                         "$RUNNER_TEMP/native-target-memory/release/examples/"*.pdb \
+                         "$RUNNER_TEMP/native-target-memory/release/examples/"*.dSYM; do
+            cp -RL "$symbols" "$MEMORY_BIN_DIR/"
+          done
+          run "$PERF_TOOL" native memory provenance \
+            --baseline-revision "$BASE_SHA" --candidate-revision "$CANDIDATE_SHA" \
+            --commands-file "$PERF_ROOT/commands.txt" \
+            --binary-dir "$TIMING_BIN_DIR" --binary-dir "$MEMORY_BIN_DIR" \
+            --output "$PERF_ROOT/provenance.json"
+      - name: Collect actual LSP and all line-index and folding heap profiles
+        if: ${{ !cancelled() && steps.memory-binaries.outcome == 'success' }}
+        run: |
+          source "$PERF_ROOT/run.sh"
+          run "$PERF_TOOL" native memory collect \
+            --binary-dir "$MEMORY_BIN_DIR" --provenance "$PERF_ROOT/provenance.json" \
+            --output-dir "$PERF_ROOT/memory"
+      - name: Summarize native evidence including failed collection
+        if: always()
+        run: |
+          printf '## Native performance evidence: %s\n\n' "$PERF_TARGET" >> "$GITHUB_STEP_SUMMARY"
+          for report in "$PERF_ROOT/discovery/report.md" "$PERF_ROOT/memory/report.md"; do
+            if [[ -f "$report" ]]; then
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+            else
+              printf 'No evidence collected for %s; see failed build/collection step. No result inferred.\n\n' "$report" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+      - name: Preserve target-qualified raw timing and provenance
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lsp-latency-${{ github.run_id }}-${{ github.run_attempt }}
-          path: target/lsp-latency/
+          name: native-latency-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/native-perf/${{ matrix.target }}/baseline.json
+            target/native-perf/${{ matrix.target }}/candidate.json
+            target/native-perf/${{ matrix.target }}/latency-report.*
+            target/native-perf/${{ matrix.target }}/provenance.json
+            target/native-perf/${{ matrix.target }}/commands.txt
+            target/native-perf/${{ matrix.target }}/run.sh
           if-no-files-found: error
+          retention-days: 14
+      - name: Preserve target-qualified raw discovery including failed rounds
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-discovery-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/native-perf/${{ matrix.target }}/discovery/
+            target/native-perf/${{ matrix.target }}/provenance.json
+            target/native-perf/${{ matrix.target }}/commands.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve target-qualified raw heap profiles including failed workloads
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-dhat-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/native-perf/${{ matrix.target }}/memory/
+            target/native-perf/${{ matrix.target }}/provenance.json
+            target/native-perf/${{ matrix.target }}/commands.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve exact native heap binaries and debug sidecars
+        if: ${{ always() && steps.memory-binaries.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-heap-binaries-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.MEMORY_BIN_DIR }}/
+          if-no-files-found: error
+          retention-days: 14

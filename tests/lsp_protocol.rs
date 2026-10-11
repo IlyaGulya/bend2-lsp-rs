@@ -651,6 +651,7 @@ mod protocol {
         assert!(
             response["result"]
                 .as_array()
+                .or_else(|| response["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "add")),
             "completion must include declarations matching the current prefix: {response}"
         );
@@ -675,7 +676,10 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":1,"character":4}}),
         );
-        let items = response["result"].as_array().must_be("completion result");
+        let items = response["result"]
+            .as_array()
+            .or_else(|| response["result"]["items"].as_array())
+            .must_be("completion result");
         assert!(
             items
                 .iter()
@@ -706,6 +710,7 @@ mod protocol {
             );
             let matches: Vec<_> = response["result"]
                 .as_array()
+                .or_else(|| response["result"]["items"].as_array())
                 .must_be("completion result")
                 .iter()
                 .filter(|item| item["label"] == "value")
@@ -740,7 +745,13 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":2,"character":8}}),
         );
-        assert_eq!(shadowed["result"], json!([]));
+        assert!(
+            shadowed["result"]
+                .as_array()
+                .or_else(|| shadowed["result"]["items"].as_array())
+                .must_be("shadowed completion items")
+                .is_empty()
+        );
         let unshadowed = client.request(
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":4,"character":8}}),
@@ -748,6 +759,7 @@ mod protocol {
         assert!(
             unshadowed["result"]
                 .as_array()
+                .or_else(|| unshadowed["result"]["items"].as_array())
                 .must_be("module completion result")
                 .iter()
                 .any(|item| item["label"] == "shared" && item["kind"] == 3),
@@ -774,7 +786,10 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":6,"character":11}}),
         );
-        let items = pattern["result"].as_array().must_be("completion result");
+        let items = pattern["result"]
+            .as_array()
+            .or_else(|| pattern["result"]["items"].as_array())
+            .must_be("completion result");
         assert_eq!(
             items
                 .iter()
@@ -787,7 +802,10 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":7,"character":8}}),
         );
-        let items = body["result"].as_array().must_be("completion result");
+        let items = body["result"]
+            .as_array()
+            .or_else(|| body["result"]["items"].as_array())
+            .must_be("completion result");
         assert!(items.iter().any(|item| item["label"] == "PairFactory"));
         assert!(!items.iter().any(|item| item["kind"] == 4));
         client.finish();
@@ -797,6 +815,8 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "dep.bend\n")
+            .must_be("exclude discovery-only constructors");
         fs::write(
             workspace.join("dep.bend"),
             "type Remote is Data:\n  Pair{value: U32}\ndef PairFactory():\n  0\n",
@@ -817,7 +837,10 @@ mod protocol {
                 "textDocument/completion",
                 json!({"textDocument":{"uri":uri},"position":{"line":line,"character":15}}),
             );
-            let items = response["result"].as_array().must_be("completion result");
+            let items = response["result"]
+                .as_array()
+                .or_else(|| response["result"]["items"].as_array())
+                .must_be("completion result");
             assert_eq!(
                 items
                     .iter()
@@ -838,6 +861,7 @@ mod protocol {
         );
         let labels: Vec<_> = response["result"]
             .as_array()
+            .or_else(|| response["result"]["items"].as_array())
             .must_be("completion result")
             .iter()
             .map(|item| item["label"].clone())
@@ -867,6 +891,7 @@ mod protocol {
             );
             let has_inner = response["result"]
                 .as_array()
+                .or_else(|| response["result"]["items"].as_array())
                 .must_be("case completion result")
                 .iter()
                 .any(|item| item["label"] == "inner" && item["kind"] == 6);
@@ -883,6 +908,7 @@ mod protocol {
         );
         let locals: Vec<_> = response["result"]
             .as_array()
+            .or_else(|| response["result"]["items"].as_array())
             .must_be("EOF completion result")
             .iter()
             .filter(|item| item["kind"] == 6)
@@ -974,6 +1000,7 @@ mod protocol {
             responses.iter().any(|(response, _)| {
                 response["result"]
                     .as_array()
+                    .or_else(|| response["result"]["items"].as_array())
                     .is_some_and(|items| items.iter().any(|item| item["label"] == "revision_two"))
             }),
             "completion after didChange(v2) must use v2 declarations: {responses:?}"
@@ -1324,6 +1351,621 @@ mod protocol {
         client.finish();
     }
     #[test]
+    fn workspace_symbols_find_unopened_unimported_files_after_initialization() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(workspace.join("nested")).must_be("create nested workspace");
+        let path = workspace.join("nested/library.bend");
+        fs::write(&path, "def project_only(value: U32) -> U32:\n  value\n")
+            .must_be("write unopened source");
+        let uri = Url::from_file_path(&path).must_be("source URI").to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        let response = client.request("workspace/symbol", json!({"query":"project_only"}));
+        let symbols = response["result"]
+            .as_array()
+            .must_be("workspace symbols array");
+        assert!(
+            symbols.iter().any(|symbol| {
+                symbol["name"] == "project_only"
+                    && symbol["location"]["uri"] == uri
+                    && symbol["location"]["range"]["start"] == json!({"line":0,"character":4})
+            }),
+            "workspace search must discover unopened, unimported declarations: {response}"
+        );
+        client.finish();
+    }
+    #[test]
+    fn workspace_discovery_tracks_created_changed_deleted_and_recreated_files() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let path = workspace.join("new.bend");
+        let uri = Url::from_file_path(&path).must_be("source URI").to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        assert_eq!(
+            client.request("workspace/symbol", json!({"query":"project_"}))["result"],
+            json!([])
+        );
+        for (event, source, expected) in [
+            (
+                1,
+                Some("def project_created = 1\n"),
+                Some("project_created"),
+            ),
+            (
+                2,
+                Some("def project_changed = 2\n"),
+                Some("project_changed"),
+            ),
+            (3, None, None),
+            (
+                1,
+                Some("def project_recreated = 3\n"),
+                Some("project_recreated"),
+            ),
+        ] {
+            if let Some(source) = source {
+                fs::write(&path, source).must_be("write watched source");
+            } else {
+                fs::remove_file(&path).must_be("delete watched source");
+            }
+            client.notify(
+                "workspace/didChangeWatchedFiles",
+                json!({"changes":[{"uri":uri,"type":event}]}),
+            );
+            let response = client.request("workspace/symbol", json!({"query":"project_"}));
+            let symbols = response["result"].as_array().must_be("workspace symbols");
+            let names: Vec<_> = symbols
+                .iter()
+                .map(|symbol| symbol["name"].as_str())
+                .collect();
+            let expected: Vec<_> = expected.into_iter().map(Some).collect();
+            assert_eq!(names, expected, "watched event {event}: {response}");
+            for symbol in symbols {
+                assert_eq!(symbol["location"]["uri"], uri);
+            }
+        }
+        client.finish();
+    }
+    #[test]
+    fn discovered_file_preserves_unsaved_overlay_through_disk_deletion_and_close() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let path = workspace.join("overlay.bend");
+        fs::write(&path, "def project_disk = 1\n").must_be("write disk source");
+        let uri = Url::from_file_path(&path).must_be("source URI").to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        let initial = client.request("workspace/symbol", json!({"query":"project_disk"}));
+        assert_eq!(initial["result"][0]["name"], "project_disk");
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,"languageId":"bend","version":1,"text":"def project_unsaved = 2\n"
+            }}),
+        );
+        let open = client.request("workspace/symbol", json!({"query":"project_"}));
+        assert_eq!(open["result"][0]["name"], "project_unsaved");
+        fs::remove_file(&path).must_be("delete overlay backing file");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":uri,"type":3}]}),
+        );
+        let deleted = client.request("workspace/symbol", json!({"query":"project_"}));
+        assert_eq!(deleted["result"][0]["name"], "project_unsaved");
+        fs::write(&path, "def project_recreated = 3\n").must_be("recreate backing file");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":uri,"type":1}]}),
+        );
+        let recreated = client.request("workspace/symbol", json!({"query":"project_"}));
+        assert_eq!(recreated["result"][0]["name"], "project_unsaved");
+        client.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}));
+        let closed = client.request("workspace/symbol", json!({"query":"project_"}));
+        let names: Vec<_> = closed["result"]
+            .as_array()
+            .must_be("symbols")
+            .iter()
+            .map(|symbol| symbol["name"].as_str())
+            .collect();
+        assert_eq!(names, vec![Some("project_recreated")], "{closed}");
+        client.finish();
+    }
+    #[test]
+    fn removing_workspace_folder_retires_discovered_files_and_readding_restores_them() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let path = workspace.join("library.bend");
+        fs::write(&path, "def project_member = 1\n").must_be("write project source");
+        let root_uri = Url::from_directory_path(&workspace)
+            .must_be("root URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        let initial = client.request("workspace/symbol", json!({"query":"project_member"}));
+        assert_eq!(initial["result"][0]["name"], "project_member");
+        client.notify(
+            "workspace/didChangeWorkspaceFolders",
+            json!({"event":{
+                "added":[],"removed":[{"uri":root_uri,"name":"workspace"}]
+            }}),
+        );
+        let removed = client.request("workspace/symbol", json!({"query":"project_member"}));
+        assert_eq!(
+            removed["result"],
+            json!([]),
+            "removed root must not retain discovery: {removed}"
+        );
+        client.notify(
+            "workspace/didChangeWorkspaceFolders",
+            json!({"event":{
+                "added":[{"uri":root_uri,"name":"workspace"}],"removed":[]
+            }}),
+        );
+        let restored = client.request("workspace/symbol", json!({"query":"project_member"}));
+        assert_eq!(
+            restored["result"][0]["name"], "project_member",
+            "{restored}"
+        );
+        client.finish();
+    }
+    #[test]
+    fn immediate_folder_removal_cannot_publish_an_old_discovery_scan() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        for index in 0..64 {
+            fs::write(
+                workspace.join(format!("source_{index}.bend")),
+                format!("def project_old_{index}(value: U32) -> U32:\n  value\n"),
+            )
+            .must_be("write discovery source");
+        }
+        let root_uri = Url::from_directory_path(&workspace)
+            .must_be("root URI")
+            .to_string();
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.notify(
+            "workspace/didChangeWorkspaceFolders",
+            json!({"event":{
+                "added":[],"removed":[{"uri":root_uri,"name":"workspace"}]
+            }}),
+        );
+        let removed = client.request("workspace/symbol", json!({"query":"project_old_"}));
+        assert_eq!(
+            removed["result"],
+            json!([]),
+            "old scan must not resurrect removed roots: {removed}"
+        );
+        fs::write(workspace.join("source_0.bend"), "def project_new = 1\n")
+            .must_be("replace removed source");
+        client.notify(
+            "workspace/didChangeWorkspaceFolders",
+            json!({"event":{
+                "added":[{"uri":root_uri,"name":"workspace"}],"removed":[]
+            }}),
+        );
+        let stale = client.request("workspace/symbol", json!({"query":"project_old_0"}));
+        assert_eq!(
+            stale["result"],
+            json!([]),
+            "readding must not reuse the old snapshot: {stale}"
+        );
+        let fresh = client.request("workspace/symbol", json!({"query":"project_new"}));
+        assert_eq!(fresh["result"][0]["name"], "project_new", "{fresh}");
+        client.finish();
+    }
+    #[test]
+    fn cold_references_cover_exact_discovered_workspaces_without_open_documents() {
+        for count in [10, 1000] {
+            let temp = tempdir().must_be("temporary workspace");
+            let workspace = temp.path().join("workspace with spaces");
+            fs::create_dir_all(&workspace).must_be("create workspace");
+            // Keep these sources identical to the native discovery collector.
+            let mut files = std::collections::BTreeMap::from([
+                (
+                    "common.bend".to_owned(),
+                    "def identity(value: U32) -> U32:\n  value\n".to_owned(),
+                ),
+                (
+                    "entry.bend".to_owned(),
+                    "import ./common.bend as Common\ndef main: U32\n  Common.identity(1)\n"
+                        .to_owned(),
+                ),
+            ]);
+            for index in 0..count - 2 {
+                let name = format!("consumer_{index:04}");
+                files.insert(
+                    format!("{name}.bend"),
+                    format!("import ./common.bend as Common\ndef {name}(value: U32) -> U32:\n  Common.identity(value)\n"),
+                );
+            }
+            let mut expected_refs = Vec::with_capacity(count);
+            let mut expected_symbols = Vec::with_capacity(count);
+            for (filename, source) in &files {
+                let path = workspace.join(filename);
+                fs::write(&path, source).must_be("write discovery source");
+                let uri = regression_file_uri(&path);
+                let (name, line, reference_line, reference_start, reference_end) =
+                    if filename == "common.bend" {
+                        ("identity", 0, 0, 4, 12)
+                    } else {
+                        let name = if filename == "entry.bend" {
+                            "main"
+                        } else {
+                            filename.trim_end_matches(".bend")
+                        };
+                        (name, 1, 2, 9, 17)
+                    };
+                expected_refs.push(json!({
+                    "uri":uri,
+                    "range":{"start":{"line":reference_line,"character":reference_start},
+                        "end":{"line":reference_line,"character":reference_end}}
+                }));
+                expected_symbols.push(json!({
+                    "name":name,"kind":12,
+                    "location":{"uri":uri,"range":{"start":{"line":line,"character":4},
+                        "end":{"line":line,"character":4 + name.len()}}}
+                }));
+            }
+            let common_uri = regression_file_uri(&workspace.join("common.bend"));
+            let entry_uri = regression_file_uri(&workspace.join("entry.bend"));
+            let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+            let mut client = spawn_client(&compiler_dir);
+            client.initialize(&workspace);
+            let symbols = client.request("workspace/symbol", json!({"query":""}));
+            let actual_symbols = symbols["result"].as_array().must_be("cold symbols");
+            assert_eq!(actual_symbols.len(), count, "{symbols}");
+            for expected in &expected_symbols {
+                assert!(actual_symbols.contains(expected), "{symbols}");
+            }
+            // Neither the declaration nor any importer has received didOpen.
+            // Both cursor sources must address the same full workspace identity.
+            for (uri, line, character) in [(&common_uri, 0, 7), (&entry_uri, 2, 12)] {
+                for include_declaration in [true, false] {
+                    let references = client.request(
+                        "textDocument/references",
+                        json!({"textDocument":{"uri":uri},
+                            "position":{"line":line,"character":character},
+                            "context":{"includeDeclaration":include_declaration}}),
+                    );
+                    let locations = references["result"].as_array().must_be("cold references");
+                    let expected: Vec<_> = expected_refs
+                        .iter()
+                        .filter(|location| include_declaration || location["uri"] != common_uri)
+                        .collect();
+                    assert_eq!(locations.len(), expected.len(), "{references}");
+                    for location in expected {
+                        assert!(locations.contains(location), "{references}");
+                    }
+                }
+            }
+            client.finish();
+        }
+    }
+
+    #[test]
+    fn references_and_rename_include_unopened_importers_and_remove_deleted_files() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let common_path = workspace.join("common.bend");
+        let entry_path = workspace.join("entry.bend");
+        let unopened_path = workspace.join("unopened.bend");
+        fs::write(&common_path, "def project_value = 1\n").must_be("write declaration");
+        let entry = "import ./common.bend as Common\ndef entry = Common.project_value\n";
+        fs::write(&entry_path, entry).must_be("write entry");
+        fs::write(
+            &unopened_path,
+            "import ./common.bend as Common\ndef unopened = Common.project_value\n",
+        )
+        .must_be("write unopened importer");
+        let common_uri = regression_file_uri(&common_path);
+        let entry_uri = regression_file_uri(&entry_path);
+        let unopened_uri = regression_file_uri(&unopened_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &entry_uri, entry);
+        let params = json!({"textDocument":{"uri":entry_uri},"position":{"line":1,"character":20},
+            "context":{"includeDeclaration":true}});
+        let references = client.request("textDocument/references", params.clone());
+        let locations = references["result"]
+            .as_array()
+            .must_be("reference locations");
+        let expected = [
+            (common_uri.as_str(), 0, 4, 17),
+            (entry_uri.as_str(), 1, 19, 32),
+            (unopened_uri.as_str(), 1, 22, 35),
+        ];
+        for (uri, line, start, end) in expected {
+            let range = json!({"start":{"line":line,"character":start},"end":{"line":line,"character":end}});
+            assert!(
+                locations.contains(&json!({"uri":uri,"range":range})),
+                "{references}"
+            );
+        }
+        assert_eq!(locations.len(), 3, "each declaration/use appears once");
+        let rename = client.request("textDocument/rename", json!({
+            "textDocument":{"uri":entry_uri},"position":{"line":1,"character":20},"newName":"project_replaced"
+        }));
+        for (uri, line, start, end) in expected {
+            assert_eq!(
+                rename["result"]["changes"][uri],
+                json!([{
+                    "newText":"project_replaced",
+                    "range":{"start":{"line":line,"character":start},"end":{"line":line,"character":end}}
+                }]),
+                "{rename}"
+            );
+        }
+        fs::remove_file(unopened_path).must_be("delete unopened importer");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":unopened_uri,"type":3}]}),
+        );
+        let deleted = client.request("textDocument/references", params);
+        let locations = deleted["result"].as_array().must_be("remaining references");
+        assert_eq!(locations.len(), 2, "{deleted}");
+        assert!(
+            locations
+                .iter()
+                .all(|location| location["uri"] != unopened_uri),
+            "{deleted}"
+        );
+        client.finish();
+    }
+    #[test]
+    fn discovery_excludes_ignored_hidden_and_service_files_but_keeps_explicit_imports() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "ignored/\n").must_be("write ignore rules");
+        for (relative, name) in [
+            ("visible.bend", "project_visible"),
+            ("ignored/library.bend", "project_ignored"),
+            ("target/generated.bend", "project_target"),
+            ("node_modules/vendor.bend", "project_vendor"),
+            (".private/secret.bend", "project_private"),
+            (".hidden.bend", "project_hidden"),
+        ] {
+            let path = workspace.join(relative);
+            fs::create_dir_all(path.parent().must_be("source parent"))
+                .must_be("create source directory");
+            fs::write(path, format!("def {name} = 1\n")).must_be("write source");
+        }
+        let entry_path = workspace.join("entry.bend");
+        let entry =
+            "import ./ignored/library.bend as Ignored\ndef entry = Ignored.project_ignored\n";
+        fs::write(&entry_path, "def entry = 1\n").must_be("write unopened entry");
+        let entry_uri = regression_file_uri(&entry_path);
+        let ignored_uri = regression_file_uri(&workspace.join("ignored/library.bend"));
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        let discovered = client.request("workspace/symbol", json!({"query":"project_"}));
+        let names: Vec<_> = discovered["result"]
+            .as_array()
+            .must_be("symbols")
+            .iter()
+            .map(|symbol| symbol["name"].as_str())
+            .collect();
+        assert_eq!(names, vec![Some("project_visible")], "{discovered}");
+        open_clean_document(&mut client, &entry_uri, entry);
+        let definition = client.request(
+            "textDocument/definition",
+            json!({
+                "textDocument":{"uri":entry_uri},"position":{"line":1,"character":21}
+            }),
+        );
+        assert_eq!(definition["result"]["uri"], ignored_uri, "{definition}");
+        assert_eq!(
+            definition["result"]["range"]["start"],
+            json!({"line":0,"character":4})
+        );
+        client.finish();
+    }
+    #[test]
+    fn watched_creation_respects_ignore_rules_without_suppressing_visible_files() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(workspace.join("ignored")).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "ignored/\n").must_be("write ignore rules");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.request("workspace/symbol", json!({"query":"project_"}));
+        for (relative, declaration, expected) in [
+            ("ignored/new.bend", "project_ignored", false),
+            ("visible.bend", "project_visible", true),
+        ] {
+            let path = workspace.join(relative);
+            fs::write(&path, format!("def {declaration} = 1\n")).must_be("write created source");
+            let uri = regression_file_uri(&path);
+            client.notify(
+                "workspace/didChangeWatchedFiles",
+                json!({"changes":[{"uri":uri,"type":1}]}),
+            );
+            let response = client.request("workspace/symbol", json!({"query":declaration}));
+            if expected {
+                assert_eq!(response["result"][0]["name"], declaration, "{response}");
+                assert_eq!(response["result"][0]["location"]["uri"], uri, "{response}");
+            } else {
+                assert_eq!(response["result"], json!([]), "{response}");
+            }
+        }
+        client.finish();
+    }
+    #[test]
+    fn creating_a_previously_closed_unsaved_file_activates_its_known_identity() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let path = workspace.join("new.bend");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, "def project_transient = 1\n");
+        client.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}));
+        let closed = client.request("workspace/symbol", json!({"query":"project_"}));
+        assert_eq!(closed["result"], json!([]), "{closed}");
+        fs::write(&path, "def project_created = 2\n").must_be("create backing file");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":uri,"type":1}]}),
+        );
+        let created = client.request("workspace/symbol", json!({"query":"project_"}));
+        assert_eq!(created["result"][0]["name"], "project_created", "{created}");
+        assert_eq!(created["result"][0]["location"]["uri"], uri);
+        client.finish();
+    }
+    #[test]
+    fn saving_a_new_open_buffer_keeps_its_disk_declaration_indexed_after_close() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let path = workspace.join("saved.bend");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        open_clean_document(&mut client, &uri, "def project_unsaved = 1\n");
+        fs::write(&path, "def project_saved = 2\n").must_be("save new buffer to disk");
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":uri,"type":1}]}),
+        );
+        let open = client.request("workspace/symbol", json!({"query":"project_"}));
+        assert_eq!(open["result"][0]["name"], "project_unsaved", "{open}");
+        client.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}));
+        let closed = client.request("workspace/symbol", json!({"query":"project_"}));
+        assert_eq!(closed["result"][0]["name"], "project_saved", "{closed}");
+        assert_eq!(closed["result"][0]["location"]["uri"], uri);
+        client.finish();
+    }
+    #[test]
+    fn cancelling_a_workspace_query_does_not_abandon_pending_discovery() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let path = workspace.join("library.bend");
+        let mut source = "def project_after_cancel = 1\n".to_owned();
+        source.push_str(&"# source indexing work\n".repeat(200_000));
+        fs::write(&path, source).must_be("write source awaiting discovery");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        let pending =
+            client.send_request("workspace/symbol", json!({"query":"project_after_cancel"}));
+        client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":uri}}),
+        );
+        client.notify("$/cancelRequest", json!({"id":pending}));
+        let response = client.request("workspace/symbol", json!({"query":"project_after_cancel"}));
+        assert_eq!(
+            response["result"][0]["name"], "project_after_cancel",
+            "{response}"
+        );
+        assert_eq!(response["result"][0]["location"]["uri"], uri);
+        let cancelled = client
+            .receive_matching(Duration::from_secs(5), |message| message["id"] == pending)
+            .must_be("cancelled request response");
+        assert_eq!(cancelled["error"]["code"], -32800, "{cancelled}");
+        client.finish();
+    }
+    #[test]
+    fn shutdown_cancels_and_drains_background_workspace_discovery() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let mut source = "def project_shutdown = 1\n".to_owned();
+        source.push_str(&"# source indexing work\n".repeat(40_000));
+        for index in 0..32 {
+            fs::write(workspace.join(format!("source_{index}.bend")), &source)
+                .must_be("write background discovery source");
+        }
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        client.finish();
+    }
+    #[test]
+    fn discovered_unopened_importers_load_their_explicit_outside_workspace_dependencies() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        let external = temp.path().join("external");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::create_dir_all(&external).must_be("create external dependency directory");
+        let dependency = external.join("library.bend");
+        fs::write(&dependency, "def project_imported = 1\n").must_be("write external declaration");
+        fs::write(
+            workspace.join("entry.bend"),
+            "import ../external/library.bend as External\ndef entry = External.project_imported\n",
+        )
+        .must_be("write unopened importer");
+        let uri = regression_file_uri(&dependency);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        let response = client.request("workspace/symbol", json!({"query":"project_imported"}));
+        assert_eq!(
+            response["result"][0]["name"], "project_imported",
+            "{response}"
+        );
+        assert_eq!(response["result"][0]["location"]["uri"], uri);
+        assert_eq!(
+            response["result"][0]["location"]["range"]["start"],
+            json!({"line":0,"character":4})
+        );
+        client.finish();
+    }
+    #[test]
+    fn file_rename_preserves_discovered_membership_when_merging_a_known_destination() {
+        let temp = tempdir().must_be("temporary workspace");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).must_be("create workspace");
+        let old = workspace.join("old.bend");
+        let new = workspace.join("new.bend");
+        fs::write(&old, "def project_relocated = 1\n").must_be("write unopened source");
+        let old_uri = regression_file_uri(&old);
+        let new_uri = regression_file_uri(&new);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(&workspace);
+        let initial = client.request("workspace/symbol", json!({"query":"project_relocated"}));
+        assert_eq!(initial["result"][0]["location"]["uri"], old_uri);
+        open_clean_document(&mut client, &new_uri, "def destination_overlay = 2\n");
+        fs::rename(&old, &new).must_be("client moves source");
+        client.notify(
+            "workspace/didRenameFiles",
+            json!({"files":[{"oldUri":old_uri,"newUri":new_uri}]}),
+        );
+        client.notify(
+            "textDocument/didClose",
+            json!({"textDocument":{"uri":new_uri}}),
+        );
+        let relocated = client.request("workspace/symbol", json!({"query":"project_relocated"}));
+        assert_eq!(
+            relocated["result"][0]["name"], "project_relocated",
+            "{relocated}"
+        );
+        assert_eq!(relocated["result"][0]["location"]["uri"], new_uri);
+        client.finish();
+    }
+    #[test]
     fn incremental_change_preserves_unedited_source() {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
@@ -1453,6 +2095,7 @@ mod protocol {
         assert!(
             completion["result"]
                 .as_array()
+                .or_else(|| completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "value")),
             "untitled buffers must receive contextual completion: {completion}"
         );
@@ -1983,6 +2626,8 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "*.bend\n")
+            .must_be("keep explicit-import-only ownership");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         fs::write(&main_path, WATCH_NO_IMPORT).must_be("write nonimporting root");
@@ -2160,6 +2805,8 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "*.bend\n")
+            .must_be("keep explicit-import-only ownership");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
@@ -2191,6 +2838,8 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "*.bend\n")
+            .must_be("keep explicit-import-only ownership");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         let other_path = workspace.join("other.bend");
@@ -2270,6 +2919,8 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "*.bend\n")
+            .must_be("keep explicit-import-only ownership");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
@@ -2321,6 +2972,8 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
+        fs::write(workspace.join(".gitignore"), "*.bend\n")
+            .must_be("keep explicit-import-only ownership");
         let main_path = workspace.join("main.bend");
         let dependency_path = workspace.join("dep.bend");
         fs::write(&main_path, WATCH_IMPORT).must_be("write importing root");
@@ -2770,6 +3423,7 @@ mod protocol {
         assert!(
             completion["result"]
                 .as_array()
+                .or_else(|| completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "map")),
             "completion after a Base namespace should offer matching declarations: {completion}"
         );
@@ -2783,6 +3437,7 @@ mod protocol {
         assert!(
             base_completion["result"]
                 .as_array()
+                .or_else(|| base_completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "List.map")),
             "unqualified completion should include imported Base declarations: {base_completion}"
         );
@@ -2976,6 +3631,7 @@ mod protocol {
             assert!(
                 !completions["result"]
                     .as_array()
+                    .or_else(|| completions["result"]["items"].as_array())
                     .must_be("detached completion items")
                     .iter()
                     .any(|item| item["label"] == "library_value"),
@@ -3017,6 +3673,7 @@ mod protocol {
             assert!(
                 completions["result"]
                     .as_array()
+                    .or_else(|| completions["result"]["items"].as_array())
                     .must_be("recovered completion items")
                     .iter()
                     .any(|item| item["label"] == "library_value"),
@@ -3245,6 +3902,7 @@ mod protocol {
         assert!(
             completion["result"]
                 .as_array()
+                .or_else(|| completion["result"]["items"].as_array())
                 .is_some_and(|items| items.iter().any(|item| item["label"] == "exported")),
             "completion after an import alias should offer module declarations: {completion}"
         );
@@ -3258,6 +3916,7 @@ mod protocol {
         assert!(
             alias_completion["result"]
                 .as_array()
+                .or_else(|| alias_completion["result"]["items"].as_array())
                 .is_some_and(|items| { items.iter().any(|item| item["label"] == "Dep") }),
             "completion should suggest imported module aliases in code context: {alias_completion}"
         );

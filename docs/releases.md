@@ -57,8 +57,9 @@ runs, in order:
 cargo build --locked --release --bin bend2-lsp
 # scripts/release.py copies the final executable and hashes its bytes.
 # BEND2_LSP_TEST_BINARY points to that exact release asset.
-cargo nextest run --workspace --all-features --locked --release --profile ci
-cargo nextest archive --workspace --all-features --locked --release \
+cargo nextest run --workspace --exclude bend2-perf --all-features --locked --release --profile ci
+cargo test --package bend2-perf --all-features --locked --release
+cargo nextest archive --workspace --exclude bend2-perf --all-features --locked --release \
   --archive-file target/release-tests.tar.zst
 cargo test --doc --locked --release
 cargo nextest run --archive-file target/release-tests.tar.zst \
@@ -82,6 +83,10 @@ architectures. Full release-profile tests additionally run natively on all six
 runners. Nextest uses quality's serialized CI profile: retries collect failure
 evidence, but `flaky-result = "fail"` rejects a flaky test even if its retry passes.
 Doctests still run separately.
+The unpublished performance tooling has its own native Cargo-test contract gate,
+including its custom portable subprocess fixture. It is not shipped or included
+in installer test archives; all server test coverage and flaky-test policy remain
+unchanged.
 
 The full release suite is compiled once per native target. Nextest archives
 those same test binaries with the identical workspace, feature, lockfile, and

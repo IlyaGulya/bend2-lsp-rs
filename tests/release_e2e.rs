@@ -236,7 +236,10 @@ fn assert_workspace_queries(responses: &[Value], main_uri: &str, dependency_uri:
         "{}",
         responses[1]
     );
-    let completions = responses[2].as_array().must_be("completion array");
+    let completions = responses[2]
+        .as_array()
+        .or_else(|| responses[2]["items"].as_array())
+        .must_be("completion items");
     assert!(completions.iter().any(|item| item["label"] == "clamp"));
     assert!(!completions.iter().any(|item| item["label"] == "old"));
     let expected_locations = [

@@ -458,7 +458,7 @@ impl Backend {
                 .filter_map(|document| database.file_id_by_uri(&document.uri))
                 .collect()
         };
-        self.load_reachable_async(&roots).await;
+        self.workspace.load_reachable_async(&roots, None).await;
         for document in documents {
             let version = document.revision.0;
             self.schedule_diagnostics(document.uri, version).await;
