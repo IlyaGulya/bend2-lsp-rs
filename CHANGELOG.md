@@ -33,6 +33,14 @@
 
 ### CI
 
+- Separate validated ordinary Callgrind measurement from `performance admission`.
+  Preserve raw producer exits, source-bound verdicts, profiles, and historical
+  red results. Require a protected, exact-run owner review for valid regressions;
+  verify the sole-owner reviewer rule and disabled administrator bypass before
+  scheduling it. Require a fresh matching owner/environment approval-history
+  entry before admitting, rather than infer approval from job success or reuse
+  an earlier run attempt's approval. Collector/malformed-evidence errors stay
+  red, and prior exceptions never authorize later candidates.
 - Run all new performance measurements on hosted CI only. Collect alternating
   baseline/candidate LSP latency and workspace-discovery evidence on all six native
   platforms, plus separate symbolized DHAT server/example allocation profiles.

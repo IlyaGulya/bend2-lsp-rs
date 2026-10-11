@@ -581,3 +581,405 @@ fn retained_verdict_uses_the_authoritative_comparison_and_preserves_cli_failures
     assert!(failed["workloads"].is_null());
     Ok(())
 }
+
+fn admission_bundle(regression_metric: Option<usize>) -> TestResult<TempDir> {
+    let temporary = TempDir::new()?;
+    let root = temporary.path();
+    let baseline = baseline(root, 1)?;
+    let mut counts = [100, 2, 2];
+    if let Some(metric) = regression_metric {
+        counts[metric] = if metric == 0 { 103 } else { 6 };
+    }
+    let summary_root = root.join("candidate");
+    write_summary(
+        &summary_root,
+        "candidate-000",
+        &summary(0, counts, [100, 2, 2]),
+    )?;
+    let manifest_path = root.join("artifact-manifest.json");
+    let mut manifest = json!({
+        "schema_version":1, "mode":"callgrind", "target":"x86_64-unknown-linux-gnu",
+        "base_sha":"a".repeat(40), "candidate_sha":"b".repeat(40),
+        "workflow_sha":"c".repeat(40), "repository":"owner/repository",
+        "request_id":"fixture-run-0001", "run_id":"12345", "run_attempt":"1",
+        "gate_identity":{"workflow":"performance", "job":"compare",
+            "step":"Compare pull request with main", "head_sha":"d".repeat(40)}
+    });
+    fs::write(&manifest_path, serde_json::to_vec(&manifest)?)?;
+    let output = cli(
+        &summary_root,
+        &[
+            "--baseline-name=selected".into(),
+            format!("--baseline-manifest={}", baseline.display()),
+            format!("--artifact-manifest={}", manifest_path.display()),
+            format!("--verdict={}", root.join("callgrind-policy.json").display()),
+        ],
+    )?;
+    assert_status(&output, i32::from(regression_metric.is_some()))?;
+    let names = [
+        "baseline-manifest.json",
+        "candidate/candidate-000/summary.json",
+        "callgrind-policy.json",
+    ];
+    manifest["files"] = Value::Array(
+        names
+            .iter()
+            .map(|name| artifact_identity(root, name))
+            .collect::<TestResult<_>>()?,
+    );
+    manifest["expected"] = json!(names.map(|name| json!({
+        "path":name, "required":true, "present":true
+    })));
+    manifest["statuses"] = json!({
+        "baseline":{"status":"success"}, "callgrind-data":{"status":"success"},
+        "candidate":{
+            "status":if regression_metric.is_some() { "failure" } else { "success" },
+            "benchmark_exit_code":if regression_metric.is_some() { 3 } else { 0 },
+            "policy_exit_code":u8::from(regression_metric.is_some())
+        }
+    });
+    fs::write(manifest_path, serde_json::to_vec(&manifest)?)?;
+    Ok(temporary)
+}
+
+fn artifact_identity(root: &Path, name: &str) -> TestResult<Value> {
+    use sha2::Digest as _;
+    let bytes = fs::read(root.join(name))?;
+    Ok(json!({
+        "path":name, "sha256":format!("{:x}", sha2::Sha256::digest(&bytes)), "size":bytes.len()
+    }))
+}
+
+fn admission(
+    root: &Path,
+    benchmark_code: u8,
+    policy_code: u8,
+    extra: &[String],
+) -> TestResult<Output> {
+    Ok(Command::new(env!("CARGO_BIN_EXE_bend2-perf"))
+        .args(["admission", "measurement", "--root"])
+        .arg(root)
+        .args([
+            format!("--base-sha={}", "a".repeat(40)),
+            format!("--candidate-sha={}", "b".repeat(40)),
+            format!("--head-sha={}", "d".repeat(40)),
+            "--run-id=12345".into(),
+            format!("--benchmark-exit-code={benchmark_code}"),
+            format!("--policy-exit-code={policy_code}"),
+        ])
+        .args(extra)
+        .output()?)
+}
+
+fn mutate_json(path: &Path, change: impl FnOnce(&mut Value)) -> TestResult {
+    let mut value: Value = serde_json::from_slice(&fs::read(path)?)?;
+    change(&mut value);
+    fs::write(path, serde_json::to_vec(&value)?)?;
+    Ok(())
+}
+
+fn refresh_admission_identity(root: &Path, name: &str) -> TestResult {
+    let identity = artifact_identity(root, name)?;
+    let manifest_path = root.join("artifact-manifest.json");
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path)?)?;
+    let item = manifest["files"]
+        .as_array_mut()
+        .ok_or("Missing fixture file inventory")?
+        .iter_mut()
+        .find(|item| item["path"] == name)
+        .ok_or("Missing fixture identity")?;
+    *item = identity;
+    fs::write(manifest_path, serde_json::to_vec(&manifest)?)?;
+    Ok(())
+}
+
+fn assert_admission_rejected(output: &Output) -> TestResult {
+    assert!(
+        !output.status.success(),
+        "unexpected success: {}",
+        text(&output.stdout)?
+    );
+    assert!(
+        output.stdout.is_empty(),
+        "classification emitted before validation"
+    );
+    assert!(!output.stderr.is_empty());
+    Ok(())
+}
+
+#[test]
+fn admission_preserves_real_pass_and_each_metric_regression() -> TestResult {
+    for metric in [None, Some(0), Some(1), Some(2)] {
+        let temporary = admission_bundle(metric)?;
+        let output = admission(
+            temporary.path(),
+            if metric.is_some() { 3 } else { 0 },
+            u8::from(metric.is_some()),
+            &[],
+        )?;
+        assert_status(&output, 0)?;
+        assert!(output.stderr.is_empty());
+        let classified: Value = serde_json::from_slice(&output.stdout)?;
+        assert_eq!(
+            classified["status"],
+            if metric.is_some() {
+                "regression"
+            } else {
+                "passed"
+            }
+        );
+        assert_eq!(classified["base_sha"], "a".repeat(40));
+        assert_eq!(classified["candidate_sha"], "b".repeat(40));
+        assert_eq!(classified["head_sha"], "d".repeat(40));
+        assert_eq!(classified["run_id"], "12345");
+        let failures = classified["failures"]
+            .as_array()
+            .ok_or("Missing failure evidence")?;
+        assert_eq!(failures.len(), usize::from(metric.is_some()));
+        if let Some(metric) = metric {
+            assert!(
+                failures[0]
+                    .as_str()
+                    .is_some_and(|failure| failure.contains(METRICS[metric]))
+            );
+            mutate_json(
+                &temporary.path().join("artifact-manifest.json"),
+                |manifest| {
+                    manifest["statuses"]["candidate"]["benchmark_exit_code"] = json!(0);
+                },
+            )?;
+            assert_status(&admission(temporary.path(), 0, 1, &[])?, 0)?;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn admission_rejects_mismatched_source_head_run_and_verdict_provenance() -> TestResult {
+    for field in ["base_sha", "candidate_sha", "run_id", "head_sha"] {
+        let temporary = admission_bundle(None)?;
+        mutate_json(
+            &temporary.path().join("artifact-manifest.json"),
+            |manifest| {
+                if field == "head_sha" {
+                    manifest["gate_identity"][field] = json!("e".repeat(40));
+                } else {
+                    manifest[field] = json!(if field == "run_id" {
+                        "99999".into()
+                    } else {
+                        "e".repeat(40)
+                    });
+                }
+            },
+        )?;
+        assert_admission_rejected(&admission(temporary.path(), 0, 0, &[])?)?;
+    }
+    let temporary = admission_bundle(None)?;
+    mutate_json(&temporary.path().join("callgrind-policy.json"), |verdict| {
+        verdict["provenance"]["run_id"] = json!("99999");
+    })?;
+    refresh_admission_identity(temporary.path(), "callgrind-policy.json")?;
+    assert_admission_rejected(&admission(temporary.path(), 0, 0, &[])?)?;
+    Ok(())
+}
+
+#[test]
+fn admission_rejects_inconsistent_exits_and_collector_errors() -> TestResult {
+    for (regression, benchmark, policy) in [
+        (false, 3, 0),
+        (false, 0, 1),
+        (false, 101, 0),
+        (true, 3, 0),
+        (true, 3, 2),
+        (true, 101, 1),
+    ] {
+        let temporary = admission_bundle(regression.then_some(0))?;
+        assert_admission_rejected(&admission(temporary.path(), benchmark, policy, &[])?)?;
+    }
+    for mutation in [
+        "exits",
+        "candidate-status",
+        "baseline",
+        "missing-status",
+        "collector",
+    ] {
+        let temporary = admission_bundle(Some(0))?;
+        mutate_json(
+            &temporary.path().join("artifact-manifest.json"),
+            |manifest| match mutation {
+                "exits" => manifest["statuses"]["candidate"]["benchmark_exit_code"] = json!(0),
+                "candidate-status" => {
+                    manifest["statuses"]["candidate"]["status"] = json!("success")
+                }
+                "baseline" => manifest["statuses"]["baseline"]["status"] = json!("failure"),
+                "missing-status" => manifest["statuses"] = Value::Null,
+                _ => manifest["statuses"]["collector"] = json!({"status":"failure"}),
+            },
+        )?;
+        assert_admission_rejected(&admission(temporary.path(), 3, 1, &[])?)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn admission_rejects_missing_malformed_tampered_and_forged_evidence() -> TestResult {
+    for name in [
+        "artifact-manifest.json",
+        "callgrind-policy.json",
+        "candidate/candidate-000/summary.json",
+    ] {
+        for missing in [true, false] {
+            let temporary = admission_bundle(None)?;
+            if missing {
+                fs::remove_file(temporary.path().join(name))?;
+            } else {
+                fs::write(temporary.path().join(name), b"{broken")?;
+            }
+            assert_admission_rejected(&admission(temporary.path(), 0, 0, &[])?)?;
+        }
+    }
+    let temporary = admission_bundle(Some(0))?;
+    mutate_json(&temporary.path().join("callgrind-policy.json"), |verdict| {
+        verdict["workloads"][0]["metrics"]["Ir"]["candidate"] = json!(100);
+    })?;
+    refresh_admission_identity(temporary.path(), "callgrind-policy.json")?;
+    assert_admission_rejected(&admission(temporary.path(), 3, 1, &[])?)?;
+    for mutation in ["identity", "duplicate", "escape", "missing-input", "size"] {
+        let temporary = admission_bundle(None)?;
+        mutate_json(
+            &temporary.path().join("artifact-manifest.json"),
+            |manifest| match mutation {
+                "identity" => manifest["files"][0]["sha256"] = json!("0".repeat(64)),
+                "duplicate" => manifest["files"][1] = manifest["files"][0].clone(),
+                "escape" => manifest["files"][0]["path"] = json!("../baseline-manifest.json"),
+                "missing-input" => {
+                    manifest["files"][0]["path"] =
+                        json!("baseline-summaries/baseline-000/summary.json")
+                }
+                _ => manifest["files"][0]["size"] = json!(0),
+            },
+        )?;
+        assert_admission_rejected(&admission(temporary.path(), 0, 0, &[])?)?;
+    }
+    Ok(())
+}
+
+fn admission_environment(input: &Path, owner_id: u64) -> TestResult<Output> {
+    Ok(Command::new(env!("CARGO_BIN_EXE_bend2-perf"))
+        .args(["admission", "environment", "--input"])
+        .arg(input)
+        .arg(format!("--owner-id={owner_id}"))
+        .output()?)
+}
+
+#[test]
+fn admission_environment_requires_sole_owner_user_review_without_admin_bypass() -> TestResult {
+    let temporary = TempDir::new()?;
+    let input = temporary.path().join("environment.json");
+    let valid = json!({
+        "name":"performance-exception", "can_admins_bypass":false,
+        "protection_rules":[{"type":"required_reviewers", "prevent_self_review":false,
+            "reviewers":[{"type":"User", "reviewer":{"id":668727}}]}]
+    });
+    fs::write(&input, serde_json::to_vec(&valid)?)?;
+    assert_status(&admission_environment(&input, 668727)?, 0)?;
+    assert_admission_rejected(&admission_environment(&input, 0)?)?;
+    assert_admission_rejected(&admission_environment(&input, 1)?)?;
+    for mutation in [
+        "name",
+        "unprotected",
+        "missing-rules",
+        "wrong-id",
+        "team",
+        "additional-reviewer",
+        "duplicate-rule",
+        "bypass",
+        "missing-bypass",
+    ] {
+        let mut environment = valid.clone();
+        match mutation {
+            "name" => environment["name"] = json!("other"),
+            "unprotected" => environment["protection_rules"] = json!([]),
+            "missing-rules" => environment["protection_rules"] = Value::Null,
+            "wrong-id" => {
+                environment["protection_rules"][0]["reviewers"][0]["reviewer"]["id"] = json!(1)
+            }
+            "team" => environment["protection_rules"][0]["reviewers"][0]["type"] = json!("Team"),
+            "additional-reviewer" => {
+                environment["protection_rules"][0]["reviewers"] = json!([
+                    {"type":"User","reviewer":{"id":668727}}, {"type":"User","reviewer":{"id":1}}
+                ])
+            }
+            "duplicate-rule" => {
+                environment["protection_rules"] =
+                    json!([valid["protection_rules"][0], valid["protection_rules"][0]])
+            }
+            "bypass" => environment["can_admins_bypass"] = json!(true),
+            _ => environment["can_admins_bypass"] = Value::Null,
+        }
+        fs::write(&input, serde_json::to_vec(&environment)?)?;
+        assert_admission_rejected(&admission_environment(&input, 668727)?)?;
+    }
+    fs::write(&input, b"{broken")?;
+    assert_admission_rejected(&admission_environment(&input, 668727)?)?;
+    fs::remove_file(&input)?;
+    assert_admission_rejected(&admission_environment(&input, 668727)?)?;
+    Ok(())
+}
+
+#[test]
+fn admission_rejects_coherent_outcome_forgery_even_with_refreshed_hashes() -> TestResult {
+    for regression in [false, true] {
+        let temporary = admission_bundle(regression.then_some(0))?;
+        let forged_pass = regression;
+        mutate_json(&temporary.path().join("callgrind-policy.json"), |verdict| {
+            verdict["workloads"][0]["metrics"]["Ir"]["passed"] = json!(forged_pass);
+            verdict["workloads"][0]["passed"] = json!(forged_pass);
+            verdict["workloads"][0]["failed_metrics"] = if forged_pass {
+                json!([])
+            } else {
+                json!(["Ir"])
+            };
+            verdict["passed"] = json!(forged_pass);
+            verdict["passed_count"] = json!(usize::from(forged_pass));
+            verdict["status"] = json!(if forged_pass {
+                "complete"
+            } else {
+                "regression"
+            });
+        })?;
+        refresh_admission_identity(temporary.path(), "callgrind-policy.json")?;
+        mutate_json(
+            &temporary.path().join("artifact-manifest.json"),
+            |manifest| {
+                manifest["statuses"]["candidate"] = json!({
+                    "status":if forged_pass { "success" } else { "failure" },
+                    "benchmark_exit_code":if forged_pass { 0 } else { 3 },
+                    "policy_exit_code":u8::from(!forged_pass)
+                });
+            },
+        )?;
+        assert_admission_rejected(&admission(
+            temporary.path(),
+            if forged_pass { 0 } else { 3 },
+            u8::from(!forged_pass),
+            &[],
+        )?)?;
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn admission_rejects_hash_matching_symlinks_outside_the_bundle() -> TestResult {
+    let temporary = admission_bundle(None)?;
+    let outside = TempDir::new()?;
+    let name = "candidate/candidate-000/summary.json";
+    let path = temporary.path().join(name);
+    let outside_path = outside.path().join("summary.json");
+    fs::write(&outside_path, fs::read(&path)?)?;
+    fs::remove_file(&path)?;
+    std::os::unix::fs::symlink(&outside_path, path)?;
+    assert_admission_rejected(&admission(temporary.path(), 0, 0, &[])?)?;
+    Ok(())
+}

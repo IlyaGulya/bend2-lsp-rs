@@ -1,3 +1,4 @@
+mod admission;
 mod calibration;
 mod common;
 mod dashboard;
@@ -41,7 +42,7 @@ fn run() -> ToolResult<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some((command, args)) = args.split_first() else {
         return Err(
-            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|calibration|reports|native> [arguments]"
+            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|admission|calibration|reports|native> [arguments]"
                 .into(),
         );
     };
@@ -54,6 +55,7 @@ fn run() -> ToolResult<()> {
         "collect-scenario" => scenario::run(args),
         "workflow" => workflow::run(args),
         "policy" => policy::run(args),
+        "admission" => admission::run(args),
         "calibration" => calibration::run(args),
         "reports" => reports::run(args),
         "native" => native::run(args),
@@ -68,8 +70,8 @@ fn run() -> ToolResult<()> {
                  profile discovery-10000 --native\n\
                                                 Collect the native OS diagnostic trace\n\
                  open <run-id|report-directory> Download or open a validated unified report\n\n\
-                 Internal CI commands: collect-profile, collect-scenario, native, dashboard, workflow, reports, policy, calibration.\n\
-                 All measurements require hosted CI. Doctor and report validation are safe locally."
+                 Internal CI commands: collect-profile, collect-scenario, native, dashboard, workflow, reports, policy, admission, calibration.\n\
+                 All measurements require hosted CI. Doctor, report validation, and admission validation are safe locally."
             );
             Ok(())
         }
