@@ -381,6 +381,8 @@ Windows ETL decoding uses the repository's streaming `bend2-etl-reader`, built
 with Microsoft TraceEvent 3.2.8, .NET SDK 10.0.401 and runtime 10.0.12.
 The SDK archive is SHA512-pinned; NuGet dependencies use a checksum-bound lock.
 Doctor validates the executable, target, SDK and all six build-input hashes.
+The hosted bootstrap disables persistent build servers so the temporary SDK's
+DLLs are released before cleanup; cleanup failures still fail the job.
 The reader processes the entire ETL to EOF and emits only header/lifecycle,
 CPU sample and target-PID heap allocation records for the existing validator.
 It does not serialize the whole recording through `tracerpt`, stop after the

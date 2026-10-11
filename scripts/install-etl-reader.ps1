@@ -36,9 +36,10 @@ try {
     if ($LASTEXITCODE -ne 0 -or $version -ne "10.0.401") { throw "Pinned SDK version mismatch" }
     Push-Location $project
     try {
-        & $dotnet restore --locked-mode
+        # Persistent compiler/MSBuild servers would retain this temporary SDK's DLLs.
+        & $dotnet restore --locked-mode --disable-build-servers
         if ($LASTEXITCODE -ne 0) { throw "Locked native decoder package restore failed" }
-        & $dotnet publish --no-restore --configuration Release --runtime $rid --output $destination
+        & $dotnet publish --no-restore --disable-build-servers --configuration Release --runtime $rid --output $destination
         if ($LASTEXITCODE -ne 0) { throw "Native decoder publish failed" }
     } finally { Pop-Location }
     $executable = Join-Path $destination "bend2-etl-reader.exe"
