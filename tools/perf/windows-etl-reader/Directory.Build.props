@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../../../target/windows-etl-reader/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../../target/windows-etl-reader/obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

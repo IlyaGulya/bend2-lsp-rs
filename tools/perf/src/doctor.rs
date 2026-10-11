@@ -11,6 +11,8 @@ use std::{
 pub(crate) const SAMPLY_VERSION: &str = "0.13.1";
 pub(crate) const SAMPLY_SOURCE: &str =
     "https://github.com/mstange/samply/releases/tag/samply-v0.13.1";
+pub(crate) const ETL_READER_VERSION: &str =
+    "TraceEvent 3.2.8 / .NET SDK 10.0.401 / runtime 10.0.12";
 
 pub(crate) fn samply_source() -> &'static str {
     if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
@@ -44,6 +46,69 @@ fn validate_samply_provenance(provenance: &Value, executable_sha256: &str) -> To
     ] {
         if provenance[field] != expected {
             return Err(format!("Patched ARM64 samply provenance mismatch: {field}").into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_etl_reader_provenance(provenance: &Value, executable_sha256: &str) -> ToolResult<()> {
+    use sha2::{Digest, Sha256};
+    const SOURCES: [(&str, &[u8]); 6] = [
+        (
+            "Program.cs",
+            include_bytes!("../windows-etl-reader/Program.cs"),
+        ),
+        (
+            "Bend2EtlReader.csproj",
+            include_bytes!("../windows-etl-reader/Bend2EtlReader.csproj"),
+        ),
+        (
+            "Directory.Build.props",
+            include_bytes!("../windows-etl-reader/Directory.Build.props"),
+        ),
+        (
+            "global.json",
+            include_bytes!("../windows-etl-reader/global.json"),
+        ),
+        (
+            "NuGet.config",
+            include_bytes!("../windows-etl-reader/NuGet.config"),
+        ),
+        (
+            "packages.lock.json",
+            include_bytes!("../windows-etl-reader/packages.lock.json"),
+        ),
+    ];
+    let (target, sdk_hash) = if cfg!(target_arch = "aarch64") {
+        (
+            "win-arm64",
+            "8272eaab6f06ad658b1976e19d88beed287a601f968b71d5c26b75d10587cf087665c599d2e136a911002f955c97f59aa8692581bbf6b8e7af5f82604c810256",
+        )
+    } else {
+        (
+            "win-x64",
+            "24b670ad3d923bfcf47df6c3b034152398b42f6dbc388e10d783aee1cfb5e5817d399fc0ae2a12cfa822a55e61d34830ccb15c50ef6efee437ab874bb7c79430",
+        )
+    };
+    if provenance["format_version"] != 1 {
+        return Err("Unsupported native ETL reader provenance".into());
+    }
+    for (field, expected) in [
+        ("sdk_version", "10.0.401"),
+        ("runtime_version", "10.0.12"),
+        ("traceevent_version", "3.2.8"),
+        ("sdk_archive_sha512", sdk_hash),
+        ("target", target),
+        ("executable_sha256", executable_sha256),
+    ] {
+        if provenance[field].as_str() != Some(expected) {
+            return Err(format!("Native ETL reader provenance mismatch: {field}").into());
+        }
+    }
+    for (name, bytes) in SOURCES {
+        let expected = format!("{:x}", Sha256::digest(bytes));
+        if provenance["sources"][name].as_str() != Some(expected.as_str()) {
+            return Err(format!("Native ETL reader source mismatch: {name}").into());
         }
     }
     Ok(())
@@ -99,12 +164,19 @@ pub(crate) fn tool_identity(program: &str, version: &str) -> ToolResult<Value> {
     let sha256 = common::sha256_file(&path)?;
     let mut identity =
         json!({"program": program, "path": path, "sha256": sha256, "version": version});
-    if program == "samply" && cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+    if program == "bend2-etl-reader"
+        || (program == "samply" && cfg!(all(target_os = "windows", target_arch = "aarch64")))
+    {
         let mut provenance_path = path.as_os_str().to_os_string();
         provenance_path.push(".bend-perf-source.json");
         let provenance: Value = serde_json::from_reader(fs::File::open(provenance_path)?)?;
-        validate_samply_provenance(&provenance, &sha256)?;
-        identity["source"] = json!(samply_source());
+        if program == "samply" {
+            validate_samply_provenance(&provenance, &sha256)?;
+            identity["source"] = json!(samply_source());
+        } else {
+            validate_etl_reader_provenance(&provenance, &sha256)?;
+            identity["source"] = json!("Microsoft TraceEvent: full-EOF target-relevant ETL export");
+        }
         identity["source_provenance"] = provenance;
     }
     Ok(identity)
@@ -295,6 +367,9 @@ fn windows_checks(checks: &mut Vec<Value>, backend: &str, native_kind: &str) {
         }
     });
     checks.push(check("wpr", profiles, "Use the native Windows Performance Recorder (included in Windows) with CPU/Heap profiles; install Windows ADK Performance Toolkit for analysis."));
+    let reader = tool_identity("bend2-etl-reader", ETL_READER_VERSION)
+        .and_then(|identity| serde_json::to_string(&identity).map_err(Into::into));
+    checks.push(check("etl-reader", reader, "Run the pinned hosted profiling bootstrap; the reader requires the exact checksum-bound source/package/runtime provenance. No installer is run by doctor."));
     if backend == "cpu" {
         checks.push(check("xperf", output("xperf", &["-help"]), "Install Windows ADK Performance Toolkit xperf; samply's Windows ETW backend requires it."));
         let idle = output("xperf", &["-loggers"]).and_then(|text| {

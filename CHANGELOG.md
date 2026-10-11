@@ -73,6 +73,13 @@
 - Repair the pinned Windows ARM64 sampler's SampleProf/StackWalk join, preserving
   CPU deltas and separate kernel/user stacks. Bind its modified-source patch and
   installed binary identity in retained provenance.
+- Preserve LF patch bytes on Windows checkouts so the pinned ARM64 sampler
+  bootstrap verifies the same SHA256 as the committed source.
+- Replace whole-recording `tracerpt` XML export with a pinned Microsoft TraceEvent
+  streaming decoder on Windows x64/ARM64. Keep full-EOF processing, real loss
+  counters, target-process allocation/sample validation, raw ETL, and the
+  existing timeout. Bind SDK, runtime, package lock, source and executable
+  identity in native tool provenance.
 - Retain the authoritative Callgrind policy verdict and actual workflow job/step
   outcomes so numerical regressions remain distinct from collection failures.
   Historical missing verdicts never imply a passing gate.
