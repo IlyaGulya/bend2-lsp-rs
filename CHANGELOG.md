@@ -80,6 +80,8 @@
   counters, target-process allocation/sample validation, raw ETL, and the
   existing timeout. Bind SDK, runtime, package lock, source and executable
   identity in native tool provenance.
+- Disable persistent .NET build servers during the hosted ETL reader bootstrap
+  so compiler processes cannot keep temporary SDK DLLs locked during cleanup.
 - Retain the authoritative Callgrind policy verdict and actual workflow job/step
   outcomes so numerical regressions remain distinct from collection failures.
   Historical missing verdicts never imply a passing gate.
