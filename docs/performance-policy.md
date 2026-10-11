@@ -379,6 +379,33 @@ candidate-only observations, not fabricated baseline comparisons. Artifacts bind
 source revisions, binary/harness/dataset digests, commands, toolchain, and runner
 identity. Missing/malformed evidence and semantic failures fail CI.
 
+The quality workflow also runs a correctness-only repeated lifecycle stress:
+
+```sh
+cargo run --locked --package bend2-perf -- lifecycle-stress \
+  --binary target/debug/bend2-lsp --output target/workspace-stress/report.json
+```
+
+One real LSP process runs three cycles over the same deterministic 10,000-file
+workspace: open, unsaved dependency edit, watched deletion/recreation, close,
+root removal, rapid superseding root changes, and readdition. Exact symbol and
+reference sets, current hover signatures, and definition locations are checked
+at each applicable transition. All requests keep the existing transport timeout.
+Atomic JSON checkpoints retain completed observations and the last response on
+failure; CI uploads this evidence for 14 days. RSS checkpoints are report-only,
+with no memory or latency admission threshold. This correctness command may run
+locally; hosted performance-measurement restrictions remain unchanged.
+
+The separate `workspace_lifecycle` integration test repeats three 10,000-file
+import/open-root cycles in one `WorkspaceDb`. Weak handles verify retirement of
+observed `DocumentSnapshot` payloads, preservation of independently open/shared
+documents, fresh disk reloads, and stable file identities. This is snapshot
+liveness proof, not proof that every allocation is freed or allocator pages are
+returned. The protocol stress covers discovered-folder removal/readdition;
+the direct DB test uses public import/open-root APIs instead of exposing private
+discovery state. Runner checkout metadata and the supplied binary digest are
+recorded separately, without claiming a digest alone attests build provenance.
+
 macOS symbol copies materialize Cargo's dSYM aliases. A bundle retains its
 single original DWARF member, including Cargo's crate-name/hash form; component
 hashes and link-free structure remain required

@@ -69,6 +69,11 @@
 - Prepare static imported-source diagnostic fixtures before initializing the
   server, so background discovery cannot cache an unnotified partially written
   fixture. Preserve exact ambiguity/range assertions and fail-if-flaky policy.
+- Exercise three repeated 10,000-file workspace lifecycles in the quality
+  workflow, checking exact LSP results across unsaved edits, watched deletion
+  and recreation, close, and superseded root removal/readdition. Retain failure
+  evidence and report-only RSS checkpoints; separately verify indexed snapshot
+  retirement with weak handles without treating RSS as allocation-liveness proof.
 - Deliver sampler stop signals to the owned recorder on macOS/Windows and wait
   for Instruments notification registration before recording. Use the baseline
   ARM64 register mask for software-clock DWARF captures.

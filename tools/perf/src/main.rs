@@ -5,6 +5,7 @@ mod dashboard;
 mod doctor;
 mod hosted;
 mod latency;
+mod lifecycle_stress;
 mod native;
 mod platform_memory;
 mod policy;
@@ -42,7 +43,7 @@ fn run() -> ToolResult<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some((command, args)) = args.split_first() else {
         return Err(
-            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|admission|calibration|reports|native> [arguments]"
+            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|admission|calibration|reports|native|lifecycle-stress> [arguments]"
                 .into(),
         );
     };
@@ -53,6 +54,7 @@ fn run() -> ToolResult<()> {
         "dashboard" => dashboard::run(args),
         "collect-profile" => profiling::run(args),
         "collect-scenario" => scenario::run(args),
+        "lifecycle-stress" => lifecycle_stress::run(args),
         "workflow" => workflow::run(args),
         "policy" => policy::run(args),
         "admission" => admission::run(args),
@@ -71,7 +73,9 @@ fn run() -> ToolResult<()> {
                                                 Collect the native OS diagnostic trace\n\
                  open <run-id|report-directory> Download or open a validated unified report\n\n\
                  Internal CI commands: collect-profile, collect-scenario, native, dashboard, workflow, reports, policy, admission, calibration.\n\
-                 All measurements require hosted CI. Doctor, report validation, and admission validation are safe locally."
+                 lifecycle-stress --binary PATH --output PATH\n\
+                                                Run local 10000-file repeated LSP correctness stress\n\
+                 All measurements require hosted CI. Doctor, report/admission validation, and lifecycle correctness stress are safe locally."
             );
             Ok(())
         }
