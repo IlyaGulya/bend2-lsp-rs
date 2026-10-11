@@ -809,7 +809,7 @@ fn admission_rejects_inconsistent_exits_and_collector_errors() -> TestResult {
             |manifest| match mutation {
                 "exits" => manifest["statuses"]["candidate"]["benchmark_exit_code"] = json!(0),
                 "candidate-status" => {
-                    manifest["statuses"]["candidate"]["status"] = json!("success")
+                    manifest["statuses"]["candidate"]["status"] = json!("success");
                 }
                 "baseline" => manifest["statuses"]["baseline"]["status"] = json!("failure"),
                 "missing-status" => manifest["statuses"] = Value::Null,
@@ -854,7 +854,7 @@ fn admission_rejects_missing_malformed_tampered_and_forged_evidence() -> TestRes
                 "escape" => manifest["files"][0]["path"] = json!("../baseline-manifest.json"),
                 "missing-input" => {
                     manifest["files"][0]["path"] =
-                        json!("baseline-summaries/baseline-000/summary.json")
+                        json!("baseline-summaries/baseline-000/summary.json");
                 }
                 _ => manifest["files"][0]["size"] = json!(0),
             },
@@ -879,10 +879,10 @@ fn admission_environment_requires_sole_owner_user_review_without_admin_bypass() 
     let valid = json!({
         "name":"performance-exception", "can_admins_bypass":false,
         "protection_rules":[{"type":"required_reviewers", "prevent_self_review":false,
-            "reviewers":[{"type":"User", "reviewer":{"id":668727}}]}]
+            "reviewers":[{"type":"User", "reviewer":{"id":668_727}}]}]
     });
     fs::write(&input, serde_json::to_vec(&valid)?)?;
-    assert_status(&admission_environment(&input, 668727)?, 0)?;
+    assert_status(&admission_environment(&input, 668_727)?, 0)?;
     assert_admission_rejected(&admission_environment(&input, 0)?)?;
     assert_admission_rejected(&admission_environment(&input, 1)?)?;
     for mutation in [
@@ -902,28 +902,28 @@ fn admission_environment_requires_sole_owner_user_review_without_admin_bypass() 
             "unprotected" => environment["protection_rules"] = json!([]),
             "missing-rules" => environment["protection_rules"] = Value::Null,
             "wrong-id" => {
-                environment["protection_rules"][0]["reviewers"][0]["reviewer"]["id"] = json!(1)
+                environment["protection_rules"][0]["reviewers"][0]["reviewer"]["id"] = json!(1);
             }
             "team" => environment["protection_rules"][0]["reviewers"][0]["type"] = json!("Team"),
             "additional-reviewer" => {
                 environment["protection_rules"][0]["reviewers"] = json!([
-                    {"type":"User","reviewer":{"id":668727}}, {"type":"User","reviewer":{"id":1}}
-                ])
+                    {"type":"User","reviewer":{"id":668_727}}, {"type":"User","reviewer":{"id":1}}
+                ]);
             }
             "duplicate-rule" => {
                 environment["protection_rules"] =
-                    json!([valid["protection_rules"][0], valid["protection_rules"][0]])
+                    json!([valid["protection_rules"][0], valid["protection_rules"][0]]);
             }
             "bypass" => environment["can_admins_bypass"] = json!(true),
             _ => environment["can_admins_bypass"] = Value::Null,
         }
         fs::write(&input, serde_json::to_vec(&environment)?)?;
-        assert_admission_rejected(&admission_environment(&input, 668727)?)?;
+        assert_admission_rejected(&admission_environment(&input, 668_727)?)?;
     }
     fs::write(&input, b"{broken")?;
-    assert_admission_rejected(&admission_environment(&input, 668727)?)?;
+    assert_admission_rejected(&admission_environment(&input, 668_727)?)?;
     fs::remove_file(&input)?;
-    assert_admission_rejected(&admission_environment(&input, 668727)?)?;
+    assert_admission_rejected(&admission_environment(&input, 668_727)?)?;
     Ok(())
 }
 
