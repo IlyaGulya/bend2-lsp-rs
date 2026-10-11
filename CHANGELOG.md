@@ -58,6 +58,9 @@
   backend verification for performance-infrastructure changes.
 - Preserve report command-log hashes during rendering and keep CI job summaries
   within GitHub's upload limit; full reports and raw evidence remain in artifacts.
+- Prepare static imported-source diagnostic fixtures before initializing the
+  server, so background discovery cannot cache an unnotified partially written
+  fixture. Preserve exact ambiguity/range assertions and fail-if-flaky policy.
 - Deliver sampler stop signals to the owned recorder on macOS/Windows and wait
   for Instruments notification registration before recording. Use the baseline
   ARM64 register mask for software-clock DWARF captures.

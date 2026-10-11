@@ -18,8 +18,19 @@ mod compiler {
     use tempfile::{TempDir, tempdir};
     use url::Url;
 
-    fn fixture(body: &str, help: &str, version: &str) -> (TempDir, LspClient) {
+    fn fixture(
+        body: &str,
+        help: &str,
+        version: &str,
+        sources: &[(&str, &str)],
+    ) -> (TempDir, LspClient) {
         let directory = tempdir().must_be("temporary compiler workspace");
+        // Static inputs must be complete before background discovery starts.
+        // Writing them after initialize can publish a transient empty snapshot
+        // without the watcher notification that a real editor would send.
+        for (name, source) in sources {
+            fs::write(directory.path().join(name), source).must_be("write initial compiler source");
+        }
         let executable = directory.path().join("bend");
         let script = format!(
             "#!/bin/sh\nfor arg in \"$@\"; do\ncase \"$arg\" in\nversion) printf 'version\\n' >> \"$0.probes\"; printf '%s\\n' '{version}'; exit 0;;\n--help) printf 'help\\n' >> \"$0.probes\"; printf '%s\\n' '{help}'; exit 0;;\nbase) exit 0;;\nesac\ndone\n{body}\n",
@@ -34,11 +45,12 @@ mod compiler {
         (directory, client)
     }
 
-    fn compatible(body: &str) -> (TempDir, LspClient) {
+    fn compatible(body: &str, sources: &[(&str, &str)]) -> (TempDir, LspClient) {
         fixture(
             body,
             "usage: bend <file.bend> --check-only; bend base",
             "bend 2.0.99",
+            sources,
         )
     }
 
@@ -76,7 +88,7 @@ mod compiler {
         let body = "cat >&2 <<'ERROR'\nSOME PROOFS FAIL\nError:\n- expected : a defined name\n- observed : missing_first\nContext:\n- value : U32\nLocation: first\n3 | def first(value: U32) -> U32:\n4>|   missing_first\n  |   ^^^^^^^^^^^^^\n5 | \nERROR\nexit 1";
         // /bin/cat is explicit because this isolated fixture's PATH has only Bend.
         let body = body.replacen("cat", "/bin/cat", 1);
-        let (directory, mut client) = compatible(&body);
+        let (directory, mut client) = compatible(&body, &[]);
         let document = uri(&directory.path().join("main.bend"));
         open(
             &mut client,
@@ -99,9 +111,8 @@ mod compiler {
     #[test]
     fn all_real_blocks_on_both_streams_are_mapped_without_context_errors() {
         let body = "/bin/cat >&2 <<'ERROR'\nError:\n- message  : root failure\nLocation: main\n2>| def main: U32\n  |     ^^^^\n3 |   0\nERROR\n/bin/cat <<'ERROR'\nError:\n- message  : imported failure\nContext:\n- note : U32\nLocation: Dep.value\n1>| def value: U32\n  |     ^^^^^\n2 |   1\nERROR\nexit 1";
-        let (directory, mut client) = compatible(body);
+        let (directory, mut client) = compatible(body, &[("dep.bend", "def value: U32\n  1\n")]);
         let dependency = directory.path().join("dep.bend");
-        fs::write(&dependency, "def value: U32\n  1\n").must_be("write imported source");
         let root = uri(&directory.path().join("main.bend"));
         open(
             &mut client,
@@ -127,9 +138,9 @@ mod compiler {
     #[test]
     fn neighboring_lines_disambiguate_identical_marked_import_lines() {
         let body = "printf 'Error:\nimported error\nLocation: Dep.value\n2>| def value: U32\n3 |   2\n' >&2\nexit 1";
-        let (directory, mut client) = compatible(body);
+        let (directory, mut client) =
+            compatible(body, &[("dep.bend", "# dependency\ndef value: U32\n  2\n")]);
         let dependency = directory.path().join("dep.bend");
-        fs::write(&dependency, "# dependency\ndef value: U32\n  2\n").must_be("write import");
         let root = uri(&directory.path().join("main.bend"));
         open(
             &mut client,
@@ -149,12 +160,8 @@ mod compiler {
     #[test]
     fn ambiguous_excerpt_is_not_assigned_to_an_imported_file() {
         let body = "printf 'Error:\nambiguous error\nLocation:\n2>| def value: U32\n' >&2\nexit 1";
-        let (directory, mut client) = compatible(body);
-        fs::write(
-            directory.path().join("dep.bend"),
-            "# dependency\ndef value: U32\n  1\n",
-        )
-        .must_be("write import");
+        let (directory, mut client) =
+            compatible(body, &[("dep.bend", "# dependency\ndef value: U32\n  1\n")]);
         let root = uri(&directory.path().join("main.bend"));
         open(
             &mut client,
@@ -173,7 +180,7 @@ mod compiler {
     #[test]
     fn caret_coordinates_preserve_utf16_in_unsaved_source() {
         let body = "printf 'Error:\nundefined name\nLocation:\n2>|   \"😀\" + missing\n |          ^^^^^^^\n' >&2\nexit 1";
-        let (directory, mut client) = compatible(body);
+        let (directory, mut client) = compatible(body, &[]);
         let root = uri(&directory.path().join("main.bend"));
         fs::write(directory.path().join("main.bend"), "def main: U32\n  0\n")
             .must_be("write stale disk source");
@@ -188,7 +195,7 @@ mod compiler {
 
     #[test]
     fn newer_version_with_real_cli_contract_is_accepted_and_probes_cached() {
-        let (directory, mut client) = compatible("exit 0");
+        let (directory, mut client) = compatible("exit 0", &[]);
         let root = uri(&directory.path().join("main.bend"));
         open(&mut client, &root, "def main: U32\n  0\n");
         assert!(diagnostics(&mut client, &root, Some(1)).is_empty());
@@ -209,6 +216,7 @@ mod compiler {
             "exit 0",
             "usage: bend <file.bend> [args]; bend base",
             "bend 2.0.16",
+            &[],
         );
         let root = uri(&directory.path().join("main.bend"));
         open(&mut client, &root, "def main: U32\n  0\n");
@@ -236,6 +244,7 @@ mod compiler {
             "printf 'Error:\noriginal textual failure\nLocation:\n1>| def main: U32\n' >&2\nexit 1",
             "",
             "",
+            &[],
         );
         let root = uri(&directory.path().join("main.bend"));
         open(&mut client, &root, "def main: U32\n  0\n");
@@ -248,8 +257,10 @@ mod compiler {
 
     #[test]
     fn compiler_exception_without_error_block_is_not_silently_discarded() {
-        let (directory, mut client) =
-            compatible("printf 'RangeError: unexpected compiler failure\\n' >&2\nexit 1");
+        let (directory, mut client) = compatible(
+            "printf 'RangeError: unexpected compiler failure\\n' >&2\nexit 1",
+            &[],
+        );
         let root = uri(&directory.path().join("main.bend"));
         open(&mut client, &root, "def main: U32\n  0\n");
         let items = diagnostics(&mut client, &root, Some(1));
@@ -268,7 +279,7 @@ mod compiler {
     #[test]
     fn invalid_caret_boundaries_fall_back_to_the_validated_source_line() {
         let body = "printf 'Error:\nundefined name\nLocation:\n2>|   \"😀\" + missing\n |     ^\n' >&2\nexit 1";
-        let (directory, mut client) = compatible(body);
+        let (directory, mut client) = compatible(body, &[]);
         let root = uri(&directory.path().join("main.bend"));
         open(&mut client, &root, "def main: U32\n  \"😀\" + missing\n");
         let items = diagnostics(&mut client, &root, Some(1));
@@ -315,6 +326,7 @@ mod compiler {
             "exit 0",
             "usage: bend <file.bend> [args]; bend base",
             "bend 2.0.16",
+            &[],
         );
         let root = uri(&directory.path().join("main.bend"));
         open(&mut client, &root, "def main: U32\n  0\n");
