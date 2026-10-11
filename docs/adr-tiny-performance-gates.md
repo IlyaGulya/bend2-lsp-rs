@@ -6,9 +6,10 @@ Status: accepted independent maintainer decision, merged in [PR #25](https://git
 
 Keep automated measurements honest and unchanged: the 2% Ir gate, cache-event
 allowances, baseline workflow, benchmark semantics and retry policy remain.
-A failed compare is still a failed compare. Do not retry to green, hide events,
-change fixtures, subtract diagnostic costs from official totals, or describe an
-unexplained result as noise.
+A failed numerical comparison is still a failed numerical comparison, even
+when its collection is valid and an exact-run exception is separately admitted.
+Do not retry to green, hide events, change fixtures, subtract diagnostic costs
+from official totals, or describe an unexplained result as noise.
 
 Use three distinct outcomes:
 
@@ -41,10 +42,59 @@ not proof that a specific failure is random variation. Link raw ordinary-CI
 results; no additional research program is required for a few dozen instructions.
 
 The maintainer must explicitly approve the **specific observed trade-off**.
-Record that approval publicly before merging a red compare. Required-check
-protection may need a maintainer-authorized bounded merge exception: preserve
-the failed check and evidence; do not rewrite CI or silently bypass protection.
-Approval applies only to the identified candidate/run, not later unrelated code.
+Record that approval publicly before merging a regressed candidate. Approval
+applies only to the identified candidate/run, not later unrelated code. Preserve
+the original failed producer outcome, verdict, and raw evidence; historical red
+checks remain red. Do not silently bypass branch protection.
+
+## Protected exact-run CI admission
+
+Ordinary CI separates honest measurement from permission to merge.
+`Callgrind measurement` succeeds only when the retained source/run-bound verdict,
+confined hashed inputs, metric outcomes and actual producer exit codes validate.
+A valid ordinary-policy regression is classified as `regression`, not `passed`;
+collector, inventory, malformed-input, and source-identity failures stay red.
+The existing policy validator is reused, with no second comparison, new policy
+math, blanket exception, threshold adjustment, or retry.
+
+For regression only, measurement reads and validates the public GitHub
+`performance-exception` environment definition before scheduling review.
+The required-reviewer rule must contain exactly one `User` with the repository
+owner's numeric ID; administrator bypass is disabled. Owner self-review is
+allowed because the owner may be the workflow actor, but manual approval is
+never inferred. Missing/wrong protection or a failed environment API request
+is an admission error, not a reviewable regression.
+
+Measurement then reads the workflow run's public approval history and records
+the number of approved entries matching the owner ID and exact validated
+environment ID. The environment-protected `review-exception` job requests
+explicit approval of the workflow run and commit, after review of the report
+above. It has no token permissions, secrets, checkout, artifact download, or
+PR-code execution. Before logging acceptance it independently reads that same
+run's history and requires a strictly larger matching approval count.
+
+This fresh-entry proof closes the gap between environment prevalidation and
+job scheduling: removing protection or auto-creating an unprotected environment
+cannot admit a regression merely because the review job ran. History supplies
+no approval timestamp/run-attempt field; the pre-review count prevents
+reusing earlier approvals on reruns without relying on response order.
+Review and final admission also require fresh measurement from the current
+workflow attempt: partial reruns cannot reuse a previous attempt's snapshot
+or successful review. Rerun all jobs to establish fresh admission evidence.
+Wrong reviewer/environment, missing fresh approval, malformed history, and API
+errors fail review. Job success is never inferred to mean approval without
+this proof. No `pull_request_target` or privileged execution of PR code/artifacts
+is introduced.
+
+The separate, token-free `performance admission` check passes only when valid
+measurement is `passed` without review, or is `regression` with successful
+protected review. A regression is pending until reviewed; rejection,
+cancellation, missing results, and collection errors cannot turn green.
+Branch protection must require admission, not confuse collection success with
+permission. Quality and native performance collection remain independent.
+See the [workflow policy](performance-policy.md#ordinary-measurement-and-exact-run-admission).
+The accepted cache exception for PR #42 is not approval of PR #43 or any future
+run; each regressed candidate needs its own decision.
 
 ## Non-negotiable blockers
 

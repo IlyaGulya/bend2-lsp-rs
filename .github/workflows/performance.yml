@@ -8,6 +8,16 @@ permissions: {}
 
 jobs:
   compare:
+    name: Callgrind measurement
+    outputs:
+      status: ${{ steps.classify.outputs.status }}
+      base_sha: ${{ steps.classify.outputs.base_sha }}
+      candidate_sha: ${{ steps.classify.outputs.candidate_sha }}
+      head_sha: ${{ steps.classify.outputs.head_sha }}
+      run_id: ${{ steps.classify.outputs.run_id }}
+      environment_id: ${{ steps.classify.outputs.environment_id }}
+      prior_approval_count: ${{ steps.classify.outputs.prior_approval_count }}
+      run_attempt: ${{ steps.classify.outputs.run_attempt }}
     permissions:
       contents: read
     runs-on: ubuntu-24.04
@@ -86,6 +96,9 @@ jobs:
             --write-baseline-manifest="$BASELINE_MANIFEST"
       - name: Compare pull request with main
         id: candidate
+        # Preserve the producer's failure outcome and exit codes; only the
+        # post-inventory validator may distinguish regression from an error.
+        continue-on-error: true
         env:
           CANDIDATE_SHA: ${{ github.sha }}
           BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
@@ -98,6 +111,7 @@ jobs:
             --callgrind-limits='ir=2%' \
             --output-format=json \
             --save-summary=pretty-json || benchmark_status=$?
+          printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
           # Iai exits 3 for a regression. Still report the independent cache gates.
           if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
             exit "$benchmark_status"
@@ -108,8 +122,7 @@ jobs:
             --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main \
             --artifact-manifest="$PERF_ROOT/artifact-manifest.json" \
             --verdict="$PERF_ROOT/callgrind-policy.json" || policy_status=$?
-          printf 'benchmark_exit_code=%s\npolicy_exit_code=%s\n' \
-            "$benchmark_status" "$policy_status" >> "$GITHUB_OUTPUT"
+          printf 'policy_exit_code=%s\n' "$policy_status" >> "$GITHUB_OUTPUT"
           if [[ "$policy_status" != 0 ]]; then
             exit "$policy_status"
           fi
@@ -119,6 +132,79 @@ jobs:
         env:
           STEPS_JSON: ${{ toJSON(steps) }}
         run: '"$RUNNER_TEMP/bend2-perf" workflow finalize'
+      - name: Validate source-bound measurement and required-owner review protection
+        id: classify
+        env:
+          BENCHMARK_EXIT_CODE: ${{ steps.candidate.outputs.benchmark_exit_code }}
+          POLICY_EXIT_CODE: ${{ steps.candidate.outputs.policy_exit_code }}
+          OWNER_ID: ${{ github.event.repository.owner.id }}
+        run: |
+          "$RUNNER_TEMP/bend2-perf" admission measurement \
+            --root "$PERF_ROOT" \
+            --base-sha "$BASE_SHA" --candidate-sha "$CANDIDATE_SHA" \
+            --head-sha "$WORKFLOW_HEAD_SHA" --run-id "$GITHUB_RUN_ID" \
+            --benchmark-exit-code "$BENCHMARK_EXIT_CODE" \
+            --policy-exit-code "$POLICY_EXIT_CODE" \
+            > "$PERF_ROOT/admission-measurement.json"
+          status="$(jq -er '.status' "$PERF_ROOT/admission-measurement.json")"
+          {
+            printf '### Callgrind measurement: %s\n\n' "$status"
+            printf 'Valid collection is not admission of a regression.\n\n'
+            printf -- "- Base: \`%s\`\n- Merge candidate: \`%s\`\n- PR head: \`%s\`\n" \
+              "$BASE_SHA" "$CANDIDATE_SHA" "$WORKFLOW_HEAD_SHA"
+            printf -- "- Run: \`%s\`, attempt: \`%s\`\n- Benchmark exit: \`%s\`; policy exit: \`%s\`\n\n" \
+              "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$BENCHMARK_EXIT_CODE" "$POLICY_EXIT_CODE"
+            jq -r '.failures[] | "- " + .' "$PERF_ROOT/admission-measurement.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "$status" in
+            passed)
+              printf '\nOrdinary policy passed; no exception review is needed.\n' >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            regression)
+              printf '\nOrdinary policy failed. Admission requires explicit owner review of this run and commit; no prior approval applies.\n' >> "$GITHUB_STEP_SUMMARY"
+              # Public read only: no token or secret is exposed to PR code.
+              curl --fail --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/environments/performance-exception" \
+                --output "$PERF_ROOT/performance-exception-environment.json"
+              "$RUNNER_TEMP/bend2-perf" admission environment \
+                --owner-id "$OWNER_ID" --input "$PERF_ROOT/performance-exception-environment.json"
+              environment_id="$(jq -er '.id | select(type == "number" and . > 0 and floor == .)' \
+                "$PERF_ROOT/performance-exception-environment.json")"
+              [[ "$OWNER_ID" =~ ^[1-9][0-9]*$ && "$environment_id" =~ ^[1-9][0-9]*$ ]]
+              curl --fail --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
+                --output "$PERF_ROOT/performance-exception-prior-approvals.json"
+              prior_approval_count="$(jq -er --argjson owner "$OWNER_ID" --argjson environment "$environment_id" '
+                def valid_id: type == "number" and . > 0 and floor == .;
+                if type != "array" then error("Approval history must be an array")
+                elif all(.[];
+                  type == "object" and (.state == "approved" or .state == "rejected" or .state == "pending") and
+                  (.user | type == "object") and (.user.id | valid_id) and
+                  (.environments | type == "array") and
+                  all(.environments[]; type == "object" and (.id | valid_id) and (.name | type == "string")))
+                then [.[] | select(.state == "approved" and .user.id == $owner and
+                  any(.environments[]; .id == $environment and .name == "performance-exception"))] | length
+                else error("Malformed approval history")
+                end' "$PERF_ROOT/performance-exception-prior-approvals.json")"
+              [[ "$prior_approval_count" =~ ^(0|[1-9][0-9]*)$ ]]
+              ;;
+            *)
+              printf 'Invalid measurement classification: %s\n' "$status" >&2
+              exit 1
+              ;;
+          esac
+          # Publish nothing before evidence and any required protection validate.
+          jq -r 'to_entries[] | select(.key == "status" or .key == "base_sha" or .key == "candidate_sha" or .key == "head_sha" or .key == "run_id") | "\(.key)=\(.value)"' \
+            "$PERF_ROOT/admission-measurement.json" >> "$GITHUB_OUTPUT"
+          printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          if [[ "$status" == regression ]]; then
+            printf 'environment_id=%s\nprior_approval_count=%s\n' \
+              "$environment_id" "$prior_approval_count" >> "$GITHUB_OUTPUT"
+          fi
       - name: Preserve raw baseline and candidate Callgrind evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -130,8 +216,104 @@ jobs:
             target/iai/bend2-lsp/analysis/callgrind-policy.json
             target/iai/bend2-lsp/analysis/artifact-manifest.json
             target/iai/bend2-lsp/analysis/tool-build.log
+            target/iai/bend2-lsp/analysis/admission-measurement.json
+            target/iai/bend2-lsp/analysis/performance-exception-environment.json
+            target/iai/bend2-lsp/analysis/performance-exception-prior-approvals.json
           if-no-files-found: error
           retention-days: 14
+
+  review-exception:
+    name: Review exact-run performance exception
+    needs: compare
+    if: ${{ needs.compare.result == 'success' && needs.compare.outputs.status == 'regression' }}
+    permissions: {}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: performance-exception
+      url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      # GitHub binds environment approval to this workflow run and commit.
+      # No checkout, artifact download, PR code, token, or secret is needed.
+      - name: Require fresh explicit owner approval before accepting the source and run
+        env:
+          BASE_SHA: ${{ needs.compare.outputs.base_sha }}
+          CANDIDATE_SHA: ${{ needs.compare.outputs.candidate_sha }}
+          HEAD_SHA: ${{ needs.compare.outputs.head_sha }}
+          REVIEWED_RUN_ID: ${{ needs.compare.outputs.run_id }}
+          REVIEWED_RUN_ATTEMPT: ${{ needs.compare.outputs.run_attempt }}
+          OWNER_ID: ${{ github.event.repository.owner.id }}
+          ENVIRONMENT_ID: ${{ needs.compare.outputs.environment_id }}
+          PRIOR_APPROVAL_COUNT: ${{ needs.compare.outputs.prior_approval_count }}
+        run: |
+          [[ "$OWNER_ID" =~ ^[1-9][0-9]*$ && "$ENVIRONMENT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$PRIOR_APPROVAL_COUNT" =~ ^(0|[1-9][0-9]*)$ ]]
+          [[ "$REVIEWED_RUN_ID" == "$GITHUB_RUN_ID" ]]
+          [[ "$REVIEWED_RUN_ATTEMPT" == "$GITHUB_RUN_ATTEMPT" ]]
+          # Environment rules may change after prevalidation. Job success alone
+          # is not approval: require a new matching entry in this run's history.
+          curl --fail --silent --show-error \
+            --header 'Accept: application/vnd.github+json' \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
+            --output "$RUNNER_TEMP/performance-exception-approvals.json"
+          approval_count="$(jq -er --argjson owner "$OWNER_ID" --argjson environment "$ENVIRONMENT_ID" '
+            def valid_id: type == "number" and . > 0 and floor == .;
+            if type != "array" then error("Approval history must be an array")
+            elif all(.[];
+              type == "object" and (.state == "approved" or .state == "rejected" or .state == "pending") and
+              (.user | type == "object") and (.user.id | valid_id) and
+              (.environments | type == "array") and
+              all(.environments[]; type == "object" and (.id | valid_id) and (.name | type == "string")))
+            then [.[] | select(.state == "approved" and .user.id == $owner and
+              any(.environments[]; .id == $environment and .name == "performance-exception"))] | length
+            else error("Malformed approval history")
+            end' "$RUNNER_TEMP/performance-exception-approvals.json")"
+          [[ "$approval_count" =~ ^(0|[1-9][0-9]*)$ ]]
+          if ! jq -en --argjson current "$approval_count" --argjson previous "$PRIOR_APPROVAL_COUNT" \
+            '$current > $previous' > /dev/null; then
+            printf 'No fresh approval from the required owner for the exact environment and run; admission denied.\n' >&2
+            exit 1
+          fi
+          printf 'Owner accepted the measured exception for base=%s candidate=%s head=%s run=%s attempt=%s.\n' \
+            "$BASE_SHA" "$CANDIDATE_SHA" "$HEAD_SHA" "$REVIEWED_RUN_ID" "$REVIEWED_RUN_ATTEMPT"
+
+  admission:
+    name: performance admission
+    needs: [compare, review-exception]
+    if: always()
+    permissions: {}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require valid ordinary policy or explicit exact-run approval
+        env:
+          MEASUREMENT_RESULT: ${{ needs.compare.result }}
+          MEASUREMENT_STATUS: ${{ needs.compare.outputs.status }}
+          MEASUREMENT_RUN_ATTEMPT: ${{ needs.compare.outputs.run_attempt }}
+          REVIEW_RESULT: ${{ needs.review-exception.result }}
+        run: |
+          if [[ "$MEASUREMENT_RESULT" != success ]]; then
+            printf 'Measurement failed, was cancelled, or is missing; admission denied.\n' >&2
+            exit 1
+          fi
+          if [[ "$MEASUREMENT_RUN_ATTEMPT" != "$GITHUB_RUN_ATTEMPT" ]]; then
+            printf 'Measurement belongs to an earlier attempt; rerun all jobs for fresh admission evidence.\n' >&2
+            exit 1
+          fi
+          case "$MEASUREMENT_STATUS:$REVIEW_RESULT" in
+            passed:skipped)
+              printf 'Ordinary performance policy passed; admitted without an exception.\n'
+              ;;
+            regression:success)
+              printf 'Valid regression explicitly accepted through protected exact-run owner review.\n'
+              ;;
+            *)
+              printf 'Performance admission denied: classification=%s review=%s.\n' \
+                "$MEASUREMENT_STATUS" "$REVIEW_RESULT" >&2
+              exit 1
+              ;;
+          esac
 
   latency:
     permissions:

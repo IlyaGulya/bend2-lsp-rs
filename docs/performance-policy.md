@@ -44,9 +44,11 @@ assertions catch prolonged blocking, not small latency regressions. The separate
 paired latency reports below measure the actual LSP process, but not editor
 rendering or real Bend compiler execution; real Bend CLI timings are measured
 separately. Callgrind continues to measure analysis functions, not the full process.
-The compare job preserves its raw baseline/candidate profiles, summaries, and
-baseline manifest for 14 days, including failed comparisons. This artifact
-retention runs after the unchanged gate and does not turn a failure into success.
+The Callgrind measurement job preserves its raw baseline/candidate profiles,
+summaries, baseline manifest, producer exit codes, and unchanged verdict for
+14 days, including failed collection and numerical regressions. Collection
+success and performance admission are separate checks; artifact retention and
+human acceptance never rewrite the producer's outcome or historical red runs.
 
 The bench uses the fixed Bend fixture in `benches/fixtures/analyzer_input.bend`
 for analysis queries and generated workspace/folding fixtures for graph
@@ -60,6 +62,83 @@ The query uses existing binding identities and delimiter contexts to inspect onl
 the indexed local type-token span; it does not reparse function headers or allocate
 annotation tables during snapshot construction. Existing snapshot and binding
 layouts, benchmark metrics, and regression limits remain unchanged.
+
+## Ordinary measurement and exact-run admission
+
+The [`performance` workflow](../.github/workflows/performance.yml) has separate
+**Callgrind measurement** and **performance admission** checks. Measurement
+success means that the ordinary comparison was collected and validated, not
+that every policy limit passed. Admission means the candidate is permitted by
+ordinary policy or by an explicit owner-reviewed exception for that exact run.
+The baseline source, benchmark fixtures, metrics, 2% instruction limit,
+cache-event allowances, and no-retry policy are unchanged.
+
+The original `compare` job identity and `Compare pull request with main` step
+are retained in the source-bound verdict and artifact manifest. The candidate
+step keeps its real outcome, benchmark exit code, and policy exit code even
+when a numerical regression is allowed to proceed to validation. After
+`workflow finalize` inventories and hashes the retained inputs, `bend2-perf
+admission measurement` validates the existing verdict through the authoritative
+policy validator, without running a second comparison or implementing new
+limits. It verifies the base SHA, merge-candidate SHA, PR head SHA, and workflow
+run ID, confined hash-bound inputs, and producer exits (benchmark 0/3 and policy
+0/1) against the metrics and recorded outcomes.
+
+Only a complete, consistent result is classified as `passed` or `regression`;
+both are valid measurements. Missing, malformed, source-mismatched or
+inconsistent evidence, unexpected producer exits, collector errors, and
+inventory failures remain red and cannot request an exception. The job summary
+shows the exact source/run/attempt identities, actual producer exits, and each
+failed workload's authoritative metric counts. Raw profiles, summaries, verdict,
+manifest, and admission classification remain downloadable.
+
+A valid `passed` result needs no exception. For `regression`, measurement first
+reads the public GitHub REST definition of the `performance-exception`
+environment without a token and validates it with `bend2-perf admission
+environment`: its name must match, required reviewers must be exactly one
+`User` whose numeric ID is the repository owner's, and administrator bypass
+must be disabled. A missing environment, rejected/timed-out REST request,
+unprotected environment, extra/wrong reviewer, or invalid definition fails
+measurement; it is not a numerical-regression classification eligible for review.
+Owner self-review is allowed because the owner is often the workflow actor,
+but a separate explicit environment approval is still required.
+
+Before scheduling review, measurement also reads this workflow run's public
+approval history and records the count of `approved` entries matching both the
+owner's numeric user ID and the exact validated environment ID. Malformed
+history or a failed API request fails measurement. This pre-review count and
+environment ID are published only with the fully validated classification.
+
+Only then is the protected `review-exception` job scheduled. GitHub binds its
+manual approval to the workflow run and commit. The job has no token
+permissions, secrets, checkout, artifact download, or PR-code execution.
+It reads the same run's public approval history and requires the matching
+approved count to have increased before logging accepted source/run metadata.
+Approval history has no attempt/timestamp binding, so counting fresh entries
+rather than trusting any existing entry rejects stale approvals on reruns.
+Both review and final admission require the saved measurement attempt to match
+the current workflow attempt. Partial reruns reusing earlier measurement or
+review results fail closed; rerun all jobs to collect fresh admission evidence.
+Entry order is irrelevant. A removed reviewer rule, auto-created unprotected
+environment, bypassed review, different environment/reviewer, missing fresh
+approval, or malformed/API-failed history cannot be mistaken for acceptance:
+protected-job success alone is not proof of owner approval.
+The owner reviews the bounded acceptance report required by the
+[ADR](adr-tiny-performance-gates.md) before approving. Until that approval,
+regression admission remains pending, not green.
+
+The token-free `performance admission` job always evaluates the dependencies:
+it passes only for successful validated measurement plus `passed` with no
+review, or `regression` with successful protected review. Rejection,
+cancellation, missing results, and all other combinations fail admission.
+Native latency and quality checks remain independent requirements. Branch
+protection must require `performance admission` rather than interpret a green
+measurement check as policy permission; environment protections must stay
+configured as above.
+
+No approval is universal or inferred from an earlier acceptance. In particular,
+the accepted ordinary cache exception for PR #42 does not authorize PR #43 or
+any later candidate/run. Existing historical failed compares remain failed.
 
 ## Report-only CI calibration
 
@@ -476,8 +555,11 @@ provenance, and input identities. Reports require this verified verdict and
 actual command exit codes to distinguish numerical regression from collection
 failure. A failed GitHub workflow is attributed to regression only when retained
 job/step conclusions establish that its only failed step is that source-bound
-comparison. Historical bundles without authoritative verdicts or attribution
-evidence remain conservatively incomplete/failed; no pass is inferred.
+comparison. In the split admission workflow, a valid measurement can succeed
+while that producer step retains its failed outcome and regression verdict;
+admission is a distinct decision, not evidence that the metric passed.
+Historical bundles without authoritative verdicts or attribution evidence
+remain conservatively incomplete/failed; no pass is inferred.
 Retained per-metric outcomes must also agree with the same authoritative
 `within_limit` function used by the producer. Hash-bound numeric inputs and
 internally consistent flags alone cannot establish a passing or regressed gate;
