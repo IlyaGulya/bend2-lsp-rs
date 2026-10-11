@@ -360,9 +360,10 @@ These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
 limitations above describe this checkout; see the changelog for unreleased work.
 
-1. **Compiler integration — blocked on upstream APIs:** structured diagnostics,
-   semantic fixes, expression types and inferred-type hints require a real Bend
-   compiler contract. Do not introduce a divergent independent type checker.
+1. **Portable compiler integration:** extend structured diagnostics beyond the
+   verified Apple Silicon compiler builds described below. Semantic fixes,
+   expression types and inferred-type hints still need a real Bend compiler
+   contract; do not introduce a divergent independent type checker.
 
 New semantic data must be prepared during cold snapshot/index construction.
 Warm features must reuse immutable snapshots and workspace indexes rather than
@@ -388,12 +389,24 @@ Startup/configuration probes check `version` and `--help`; known missing CLI
 operations produce a clear compatibility warning. Unknown version output is not
 a numeric-version rejection. Installing or replacing an executable allows a new probe.
 
-Compiler diagnostics are parsed from human-readable output, not a structured
-compiler API. Every genuine error block emitted by a check is retained and
-deduplicated across stdout and stderr. Bend 2.0.34 can stop after the first
-independent error; the server cannot invent errors the compiler did not emit.
+On Apple Silicon macOS, verified native Bend 2.0.32–2.0.36 executables support
+multiple independent compiler errors in one check, including errors in imports.
+The adapter runs the installed compiler's own parser and checker; it does not
+introduce a separate type checker or require a separately installed JavaScript
+runtime. Executable bundle and embedded runtime identities must match the verified
+registry before recovery is enabled.
+
+Structured diagnostics retain their original source and UTF-16 range. A damaged
+declaration blocks dependent checks without hiding independent errors. When an
+error cannot safely be assigned to a declaration, its file is conservatively
+treated as incomplete. Incomplete checks and backend failures are reported
+explicitly, never as a successful check.
+
+Other platforms and compiler versions retain the textual CLI integration. Every
+genuine error block emitted by a check is retained and deduplicated across stdout
+and stderr, but that compiler may stop after the first independent error.
 Locations use validated source excerpts and UTF-16 caret spans. Ambiguous matches
-fall back to the start of the root document rather than pointing at a wrong import.
+fall back to the root rather than pointing at a wrong import.
 
 Checks use the latest unsaved buffers and reachable relative imports in a
 temporary tree. Changes are debounced by 250 ms; superseded checks are cancelled.
@@ -458,6 +471,38 @@ docker compose exec rust ./scripts/quality
 Keep the named Cargo and target volumes. Use `docker compose stop rust` /
 `docker compose start rust` for routine pause/resume; rebuild only when the
 container definition changes.
+
+### Native Zed acceptance on macOS
+
+The separately patched Zed checkout contains the opt-in runner at
+`crates/zed/src/visual_test_runner/bend2_acceptance.rs`. This is a local
+extension of Zed's existing offscreen visual-test infrastructure, not a test
+included in unmodified upstream Zed or this repository's default quality gate.
+Run from that patched checkout with absolute executable paths:
+
+```sh
+BEND_NO_TELEMETRY=1 \
+BEND2_LSP_TEST_BINARY=/absolute/path/to/bend2-lsp \
+BEND2_COMPILER_TEST_PATH=/absolute/path/to/bend \
+VISUAL_TEST_OUTPUT_DIR=/tmp/bend2-zed-acceptance \
+cargo run --locked -p zed --bin zed_visual_test_runner --features visual-tests
+```
+
+The runner launches the actual LSP child and compiler, opens real editor buffers,
+and applies unsaved edits through GPUI input rather than macOS keyboard
+automation. With a verified native compiler, it checks two independent type
+errors becoming one and then zero, a damaged imported declaration retaining
+independent root errors with incomplete-check coverage, and an unsaved dependency
+signature change introducing and clearing an error in an unchanged root.
+Assertions check compiler ownership, semantic error fields, exact ranges,
+versioned publications, and unchanged disk bytes. Metal-rendered screenshots
+record the editor surface. Existing completion, rename, and organize-import
+scenarios remain enabled.
+
+Startup waits for project-local binary settings to become effective. Teardown
+keeps registered buffers alive while editor views close, then drains and reaps
+the owned LSP child before releasing versioned documents. The runner supplies
+language metadata and an explicit binary; it does not test extension WASM loading.
 
 ### Hosted performance workflow
 

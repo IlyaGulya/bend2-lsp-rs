@@ -4,6 +4,14 @@
 
 ### Features
 
+- Report multiple independent compiler errors, including imported-source errors,
+  with verified native Bend 2.0.32–2.0.36 on Apple Silicon macOS. Use the installed
+  compiler's parser/checker and embedded runtime, with exact identity validation.
+  Other platforms and versions retain textual CLI diagnostics.
+- Preserve independent errors when a declaration or imported source is damaged;
+  explicitly report incomplete checks and backend failures. Bind structured
+  locations to immutable staged source digests and UTF-16 ranges, preserve unsaved
+  dependency overlays, and retain staging until compiler children are reaped.
 - Discover unopened regular `.bend` files under workspace roots in the background
   using existing immutable snapshots and workspace indexes. Include them in
   workspace symbols, references/rename, auto-import completion, and quick fixes.

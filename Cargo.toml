@@ -56,7 +56,9 @@ tower = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "io-util", "sync", "signal"] }
 url = "2"
 tempfile = "3"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 tracing = { version = "0.1.44", features = ["attributes"] }
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["registry"] }

@@ -333,6 +333,7 @@ impl Backend {
             compiler_diagnostics(
                 source_graph,
                 config,
+                compatibility.backend(),
                 self.compiler.semaphore.clone(),
                 self.compiler.results.clone(),
                 self.compiler.reapers.clone(),
