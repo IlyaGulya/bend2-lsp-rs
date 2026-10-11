@@ -1,0 +1,101 @@
+name: performance-attribution
+run-name: attribution main-to-42 and 42-to-43
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  compare:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pair: main-to-42
+            baseline: c44ca45fa0c91a4e9a3d46eb415799e3425cb6e5
+            candidate: 1f07cabc14051f532bf042361aa59e465ea5a4a8
+          - pair: 42-to-43
+            baseline: 1f07cabc14051f532bf042361aa59e465ea5a4a8
+            candidate: d811f249f95bb57a4a1f1fd0a4452ec6e9e1166a
+    env:
+      BASE_SHA: ${{ matrix.baseline }}
+      CANDIDATE_SHA: ${{ matrix.candidate }}
+      PAIR: ${{ matrix.pair }}
+      RUSTC_WRAPPER: ''
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install unchanged pinned tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes valgrind binutils
+          rustup toolchain install 1.98.1 --profile minimal
+          printf 'CARGO_INSTALL_ROOT=%s/attribution-tools\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf '%s/attribution-tools/bin\n' "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          ./scripts/install-tools.sh performance
+      - name: Prepare immutable source pair and policy tool
+        run: |
+          mkdir -p evidence
+          printf 'baseline=%s\ncandidate=%s\npair=%s\n' "$BASE_SHA" "$CANDIDATE_SHA" "$PAIR" > evidence/source-pair.txt
+          git cat-file -e "$BASE_SHA^{commit}"
+          git cat-file -e "$CANDIDATE_SHA^{commit}"
+          git diff "$BASE_SHA" "$CANDIDATE_SHA" -- src benches Cargo.toml Cargo.lock > evidence/source.diff
+          cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/policy-target"
+          cp "$RUNNER_TEMP/policy-target/release/bend2-perf" "$RUNNER_TEMP/policy"
+          valgrind --version > evidence/valgrind-version.txt
+          rustc +1.98.1 -vV > evidence/rust-version.txt
+      - name: Measure exact baseline and preserve machine code
+        run: |
+          git checkout --detach "$BASE_SHA"
+          cargo bench --locked --bench analysis -- --save-baseline=attribution \
+            --callgrind-args='--cache-sim=yes' --output-format=json --save-summary=pretty-json \
+            2>&1 | tee evidence/baseline.log
+          "$RUNNER_TEMP/policy" policy target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            --write-baseline-manifest=evidence/baseline.json
+          cargo bench --locked --bench analysis --no-run --message-format=json > evidence/baseline-build.jsonl
+          binary=$(jq -r 'select(.reason == "compiler-artifact" and .target.name == "analysis" and .executable != null) | .executable' evidence/baseline-build.jsonl)
+          test -f "$binary"
+          cp "$binary" evidence/baseline-benchmark
+          sha256sum evidence/baseline-benchmark > evidence/baseline-benchmark.sha256
+          objdump -d -C evidence/baseline-benchmark > evidence/baseline.asm
+      - name: Compare exact candidate without changing gates
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          benchmark_status=0
+          cargo bench --locked --bench analysis -- --baseline=attribution \
+            --callgrind-args='--cache-sim=yes' --callgrind-limits='ir=2%' \
+            --output-format=json --save-summary=pretty-json \
+            > evidence/candidate.log 2>&1 || benchmark_status=$?
+          cat evidence/candidate.log
+          cargo bench --locked --bench analysis --no-run --message-format=json > evidence/candidate-build.jsonl
+          binary=$(jq -r 'select(.reason == "compiler-artifact" and .target.name == "analysis" and .executable != null) | .executable' evidence/candidate-build.jsonl)
+          test -f "$binary"
+          cp "$binary" evidence/candidate-benchmark
+          sha256sum evidence/candidate-benchmark > evidence/candidate-benchmark.sha256
+          objdump -d -C evidence/candidate-benchmark > evidence/candidate.asm
+          policy_status=0
+          "$RUNNER_TEMP/policy" policy target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            --baseline-manifest=evidence/baseline.json --baseline-name=attribution \
+            > evidence/policy.log 2>&1 || policy_status=$?
+          cat evidence/policy.log
+          printf 'benchmark_exit_code=%s\npolicy_exit_code=%s\n' "$benchmark_status" "$policy_status" > evidence/outcomes.txt
+          if [[ "$policy_status" != 0 ]]; then exit "$policy_status"; fi
+          exit "$benchmark_status"
+      - name: Preserve all evidence including failed comparisons
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: attribution-${{ matrix.pair }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            target/iai/bend2-lsp/analysis/analysis_hot_paths/
+          if-no-files-found: error
+          retention-days: 14
