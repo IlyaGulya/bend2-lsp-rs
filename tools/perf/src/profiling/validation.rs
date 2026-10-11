@@ -971,7 +971,7 @@ impl EtwSummary {
             return Err("ETL contains no decoded target-PID sampled CPU / heap allocation events; session metadata is not a successful profile".into());
         }
         Ok(
-            json!({"target_pid": target, "cpu_sample_records": self.samples, "allocation_records": self.allocations, "total_allocated_bytes": if heap {Some(self.bytes)} else {None}, "measurement": "Decoded ETW provider/opcode records, not RSS or clean latency", "decoder": "Windows tracerpt XML; Windows SDK wmicore.mof provider/opcode identities"}),
+            json!({"target_pid": target, "cpu_sample_records": self.samples, "allocation_records": self.allocations, "total_allocated_bytes": if heap {Some(self.bytes)} else {None}, "measurement": "Decoded ETW provider/opcode records, not RSS or clean latency", "decoder": "ETW XML; kernel event-class provider/opcode identities"}),
         )
     }
 }

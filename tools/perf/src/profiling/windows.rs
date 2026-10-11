@@ -1,9 +1,8 @@
 use crate::ToolResult;
 use serde_json::Value;
 
-// tracerpt rejects Rust's canonical verbatim paths even when WPR saved the ETL.
-// Keep filesystem identity canonical; adapt only the legacy decoder arguments.
-pub(super) fn tracerpt_path(path: &std::path::Path) -> ToolResult<String> {
+// Keep filesystem identity canonical; use ordinary Win32 paths for tracing tools.
+pub(super) fn decoder_path(path: &std::path::Path) -> ToolResult<String> {
     let value = path.to_str().ok_or("Non-Unicode ETL decoder path")?;
     if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
         return Ok(format!(r"\\{unc}"));

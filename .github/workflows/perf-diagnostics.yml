@@ -4,6 +4,7 @@ run-name: perf-diagnostics / ${{ inputs.request_id || format('pr-{0}-{1}', githu
 on:
   pull_request:
     paths:
+      - .gitattributes
       - .github/workflows/perf-diagnostics.yml
       - .github/workflows/perf-full.yml
       - .github/perf/**
@@ -13,6 +14,8 @@ on:
       - Cargo.lock
       - scripts/install-tools.sh
       - scripts/patches/samply-windows-arm64.patch
+      - scripts/install-etl-reader.ps1
+      - tools/perf/windows-etl-reader/**
   workflow_dispatch:
     inputs:
       request_id:

@@ -377,6 +377,15 @@ trace data fail collection rather than falling back to metadata-only success.
 WPR's successful save exit status is not sufficient when its stop output reports
 dropped events: the trace is retained, but collection fails as incomplete.
 The ETL decoder also rejects header loss counters and lost-event notifications.
+Windows ETL decoding uses the repository's streaming `bend2-etl-reader`, built
+with Microsoft TraceEvent 3.2.8, .NET SDK 10.0.401 and runtime 10.0.12.
+The SDK archive is SHA512-pinned; NuGet dependencies use a checksum-bound lock.
+Doctor validates the executable, target, SDK and all six build-input hashes.
+The reader processes the entire ETL to EOF and emits only header/lifecycle,
+CPU sample and target-PID heap allocation records for the existing validator.
+It does not serialize the whole recording through `tracerpt`, stop after the
+first target record, or invent zero loss counters. Raw ETL and symbols remain
+in the artifact; the existing 300-second decoder deadline remains unchanged.
 Windows sampled CPU attribution uses the kernel event-class GUID and the sampled
 thread's lifecycle ownership, not the event reporter's PID. Raw lifecycle
 payloads require the documented version, pointer width, and complete payload.

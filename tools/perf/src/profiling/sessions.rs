@@ -249,8 +249,8 @@ impl Session {
 
     fn prepare_wpr_profile(&mut self) -> ToolResult<()> {
         let name = if self.kind == "heap" { "Heap" } else { "CPU" };
-        let source = windows::tracerpt_path(&self.output.join("native-source.wprp"))?;
-        let profile = windows::tracerpt_path(&self.output.join("native-recording.wprp"))?;
+        let source = windows::decoder_path(&self.output.join("native-source.wprp"))?;
+        let profile = windows::decoder_path(&self.output.join("native-recording.wprp"))?;
         self.command(
             "wpr",
             &[
@@ -289,7 +289,7 @@ impl Session {
 
     fn start_wpr_profile(&mut self) -> ToolResult<()> {
         let name = if self.kind == "heap" { "Heap" } else { "CPU" };
-        let profile = windows::tracerpt_path(&self.output.join("native-recording.wprp"))?;
+        let profile = windows::decoder_path(&self.output.join("native-recording.wprp"))?;
         self.wpr_active = true;
         self.wpr(&["-start", &format!("{profile}!{name}"), "-filemode"])?;
         Ok(())
@@ -976,17 +976,15 @@ foreach ($helper in $helpers) {
             self.trace.clone()
         };
         let args = [
-            windows::tracerpt_path(&trace)?,
-            "-of".to_owned(),
-            "XML".to_owned(),
-            "-o".to_owned(),
-            windows::tracerpt_path(&path)?,
-            "-y".to_owned(),
+            windows::decoder_path(&trace)?,
+            windows::decoder_path(&path)?,
+            self.pid.ok_or("Missing ETW target PID")?.to_string(),
+            self.kind.clone(),
         ];
-        self.command("tracerpt", &args)?;
+        self.command("bend2-etl-reader", &args)?;
         self.tools.push(doctor::tool_identity(
-            "tracerpt",
-            "Windows OS ETL decoder; executable identity",
+            "bend2-etl-reader",
+            doctor::ETL_READER_VERSION,
         )?);
         let summary = validation::etl_summary(
             &path,

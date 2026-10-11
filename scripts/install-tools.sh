@@ -100,6 +100,7 @@ if [[ "${1:-}" == "profiling" ]]; then
           Remove-Item -Recurse -Force $temporary
         }
       '
+      powershell.exe -NoProfile -NonInteractive -File scripts/install-etl-reader.ps1
       ;;
     Linux) ;;
     *)
