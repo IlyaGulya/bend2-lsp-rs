@@ -175,7 +175,7 @@ impl Session {
 
     #[cfg(target_os = "macos")]
     fn sample_stall(&mut self, pid: u32, name: &str) {
-        // Temporary hosted failure evidence; never a successful profile or retry.
+        // Preserve the timed-out target's live stack before owned cleanup.
         let path = self.output.join(format!("{name}.sample.txt"));
         let args = [
             pid.to_string(),
@@ -191,7 +191,7 @@ impl Session {
             Duration::from_secs(10),
         );
         self.control_messages.push(json!({
-            "transport":"temporary-hosted-stall-sample",
+            "transport":"macos-target-stall-sample",
             "target_pid":pid,
             "name":name,
             "completed_elapsed_ns":self.started.elapsed().as_nanos(),
@@ -892,12 +892,20 @@ foreach ($helper in $helpers) {
     fn stop_wpr(&mut self) -> ToolResult<()> {
         if self.wpr_active {
             let path = self.trace.to_string_lossy().into_owned();
+            // Runtime counters distinguish event rejection from lost log buffers
+            // without retaining a second multi-gigabyte copy of the native trace.
+            let counters =
+                self.wpr_mode(&["-status", "collectors", "-details"], CommandMode::Cleanup);
+            let loggers =
+                self.command_env_mode("xperf", &["-loggers".to_owned()], &[], CommandMode::Cleanup);
             let result = self.wpr_mode(
                 &["-stop", &path, "Bend2 LSP isolated semantic scenario"],
                 CommandMode::Cleanup,
             )?;
             self.wpr_active = false;
             windows::validate_wpr_stop(&result)?;
+            counters?;
+            loggers?;
         }
         Ok(())
     }
@@ -1283,7 +1291,7 @@ impl ScenarioSession for Session {
         self.phases
             .push(json!({"name": name, "elapsed_ns": self.started.elapsed().as_nanos()}));
         #[cfg(target_os = "macos")]
-        if self.backend == "xctrace"
+        if matches!(self.backend.as_str(), "xctrace" | "dhat")
             && self.kind == "heap"
             && name == "request_timeout.before_abort"
             && let Some(pid) = self.pid

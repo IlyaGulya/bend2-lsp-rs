@@ -166,8 +166,8 @@ mod tests {
 
     #[test]
     fn retained_wpr_loss_reports_remain_fatal() {
-        // Hosted x64 run 38082284299: WPR exited successfully and saved ETLs,
-        // but both stop reports explicitly declared incomplete recordings.
+        // Hosted x64 run 38082284299 and ARM64 run 38155518804: WPR
+        // exited successfully and saved ETLs but declared incomplete recordings.
         for count in [50_716, 84_437_624] {
             let report = format!(
                 "\r\nThe trace has been successfully saved.\r\n\r\nThis trace has dropped {count} events. Please record this trace again.\r\n"

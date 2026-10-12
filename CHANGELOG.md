@@ -79,6 +79,10 @@
   configuring bounded buffers and lossless stack caches. Require zero lost events.
 - Keep failed attached LSP targets alive until collector cleanup runs, and
   classify already-buffered late responses as request timeouts.
+- Preserve live macOS target stacks after DHAT and native heap request timeouts,
+  without retries or longer request deadlines. Retain WPR's pre-stop collector
+  counters to distinguish rejected events from lost log buffers; stop the owned
+  recorder before reporting counter-command failures.
 - Configure WPR stack caches only on collector definitions; reference-level
   cache overrides rejected by the native WPR parser are no longer synthesized.
 - Repair the pinned Windows ARM64 sampler's SampleProf/StackWalk join, preserving

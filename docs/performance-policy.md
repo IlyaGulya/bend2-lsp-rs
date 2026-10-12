@@ -479,6 +479,13 @@ complete target-process evidence. Source/configured profiles and collector logs
 remain in the artifact ([WPR collector definitions](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/collector-definitions),
 [stack caching](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/stackcaching)).
 
+Before stopping WPR, capture its owned collector status and `xperf -loggers`
+output. These runtime counters distinguish rejected events from lost log buffers
+and show the actual pool sizes; configured counts alone cannot attribute loss.
+The stop and decoder loss checks remain fatal. Counter-command failures are
+reported only after the owned recorder has been stopped, so evidence collection
+cannot strand an active WPR session.
+
 Decoder command arguments use ordinary Win32 drive/UNC paths; canonical paths
 remain the artifact identity.
 Windows heap tracing is prepared before process creation and restores the prior
@@ -524,6 +531,12 @@ An attached scenario owner finalizes its collector before terminating a failed
 LSP target; ordinary transport clients retain immediate failure cleanup.
 Responses received after their request deadline remain timeout failures even
 when already buffered, so they follow the same failure-diagnostic path.
+
+For timed-out macOS DHAT and native heap requests, preserve a one-second
+`sample` capture of the still-live target before cleanup, with a ten-second
+command bound. Sampling does not retry the request, increase its thirty-second
+deadline, or turn a failed profile into a successful measurement. A missing
+historical stack is not evidence of either profiler overhead or a server defect.
 
 Each target's `artifact-manifest.json` records expected collectors, source and
 tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.
