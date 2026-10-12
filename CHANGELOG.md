@@ -160,6 +160,31 @@
   native Rust for runtime fixtures, every test gate, and strict flaky-test
   rejection; test archives remain internal and are never published.
 
+## [0.6.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.5.0...v0.6.0) (2026-10-12)
+
+
+### Features
+
+* unified hosted portable performance measurements and profiling ([447db8e](https://github.com/IlyaGulya/bend2-lsp-rs/commit/447db8e8829daf943987bef44186fff90415c269))
+* unify hosted portable performance measurements and profiling ([a2a8404](https://github.com/IlyaGulya/bend2-lsp-rs/commit/a2a8404bb6702eb5b8b77254bc793d7aa6438fae))
+
+
+### Bug Fixes
+
+* bind DHAT timeout diagnostics to the actual heap profile kind ([0d10bd7](https://github.com/IlyaGulya/bend2-lsp-rs/commit/0d10bd7d24f8d80d4b5e083664108d1e919924de))
+* finalize owned native recorders and preserve report evidence ([775a0f6](https://github.com/IlyaGulya/bend2-lsp-rs/commit/775a0f645db5e0d641ba58f13b166d84b1649fdd))
+* keep temporary ETL SDK free of build-server leases ([91c8d76](https://github.com/IlyaGulya/bend2-lsp-rs/commit/91c8d76c163bc5a3b5231151d66d3691465d7d66))
+* launch native macOS heap capture before runtime startup ([b62e4ef](https://github.com/IlyaGulya/bend2-lsp-rs/commit/b62e4efb499e6bb6c16e56885dce549d53b55c45))
+* prepare native tracing services and retain allocator capture scope ([2698113](https://github.com/IlyaGulya/bend2-lsp-rs/commit/26981131227cccc3d5e1766a69691fc0587d9fa9))
+* preserve native sampler CPU events and canonical gate verdicts ([28e659a](https://github.com/IlyaGulya/bend2-lsp-rs/commit/28e659a6b89bd1afdb969af230dfe854b795d901))
+* preserve native trace evidence and collector ownership ([0eb0fd2](https://github.com/IlyaGulya/bend2-lsp-rs/commit/0eb0fd26e11a5ec827a7feb13d18e7bc38c28e65))
+* reject contradictory gate evidence and bound report payloads ([6831d0a](https://github.com/IlyaGulya/bend2-lsp-rs/commit/6831d0af6f89ade0e3ba70a2282702a346dfcd3d))
+* release orphan workspace snapshots and filter watcher admission ([#39](https://github.com/IlyaGulya/bend2-lsp-rs/issues/39)) ([c6b4307](https://github.com/IlyaGulya/bend2-lsp-rs/commit/c6b4307eb0981b44a85ea781562869c2e4294f75))
+* reserve bounded capacity for both rejecting Windows heap loggers ([f5dcf87](https://github.com/IlyaGulya/bend2-lsp-rs/commit/f5dcf8747c82a72e19b3e1063453c882cb19d502))
+* retain raw discovery evidence without duplicating report payload ([2275927](https://github.com/IlyaGulya/bend2-lsp-rs/commit/2275927aef91fe1814deb4d11d17890e2227e90b))
+* stream Windows ETL decoding with pinned TraceEvent ([77105cb](https://github.com/IlyaGulya/bend2-lsp-rs/commit/77105cbc9338653bbcb9b584631038ed47372fa6))
+* verify actual native profiler protocols and exports ([28c16b0](https://github.com/IlyaGulya/bend2-lsp-rs/commit/28c16b032f39fac9db433a544d73ff1a13e0bd81))
+
 ## [0.5.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.4.0...v0.5.0) (2026-10-08)
 
 ### Better import completion
