@@ -472,10 +472,12 @@ thread's lifecycle ownership, not the event reporter's PID. Raw lifecycle
 payloads require the documented version, pointer width, and complete payload.
 Installed native CPU/Heap profiles are exported before configuration; provider,
 keyword, stack, and file-mode semantics are preserved. Collectors use 1 MiB
-buffers (256 system, 64 ordinary event, 512 heap event) and lossless stack caches
-(16 MiB ordinary, 64 MiB heap). These are explicit tuning choices, not Microsoft
-recommendations; hosted capture must still demonstrate zero event loss and
-complete target-process evidence. Source/configured profiles and collector logs
+buffers: 256 system; CPU profiles use 64 ordinary-event buffers, while Heap
+profiles use 256 ordinary-event and 1024 heap-event buffers. Lossless stack caches
+remain 16 MiB per system/ordinary collector and 64 MiB for the heap collector.
+These are explicit tuning choices, not Microsoft recommendations; hosted capture
+must still demonstrate zero event loss and complete target-process evidence.
+Source/configured profiles and collector logs
 remain in the artifact ([WPR collector definitions](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/collector-definitions),
 [stack caching](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/stackcaching)).
 
@@ -495,6 +497,23 @@ completed 36,676,901 allocation records with byte-identical WPR configuration,
 the requested effective buffer pools, and zero pre-stop and final loss. This is
 successful capture evidence, not a causal repair of the original loss. No pool,
 provider, stack or deadline change is justified by those successful counters.
+
+The next preserved ARM64 failure in
+[run 38213507627](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38213507627)
+identifies both rejecting collectors before stop: 22,855,441 Event and 31,065,836
+Heap events, totaling 53,921,277. System loss and every log-buffer loss counter
+are zero; stop adds no lost events. All original fixed pools were honored.
+Late free buffers cannot establish whether earlier event-rate peaks exhausted
+the pools. Only the Heap profile's two rejecting pools are increased above;
+system and CPU pools, providers, stacks, caches, workload and deadlines stay
+unchanged. Preallocated buffers rise from 832 to 1536 MiB, with the same 96 MiB
+of stack caches, on the standard 16 GB Windows runner. This is a bounded repair
+candidate, following
+[ETW buffer-tuning guidance](https://learn.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-event_trace_properties),
+not proof of the exact transient cause or of sufficient peak capacity. Acceptance
+requires a new exact-source capture with honored pools, zero owned and final
+loss, complete payload, and clean target shutdown. A failed capture does not
+authorize an unchanged rerun or an automatic second size increase.
 
 Decoder command arguments use ordinary Win32 drive/UNC paths; canonical paths
 remain the artifact identity.

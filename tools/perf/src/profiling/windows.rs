@@ -51,12 +51,15 @@ $selected = @($profile.SelectNodes('/WindowsPerformanceRecorder/Profiles/Profile
 if ($selected.Count -eq 0) { throw 'Native WPR export omitted the requested file-mode profile' }
 $collectors = @($profile.SelectNodes('//SystemCollector | //EventCollector | //HeapEventCollector | //SystemCollectorId | //EventCollectorId | //HeapEventCollectorId'))
 if ($collectors.Count -eq 0) { throw 'Native WPR export omitted its collectors' }
-if ($env:BEND_PERF_WPR_PROFILE_NAME -eq 'Heap' -and !$profile.SelectSingleNode('//HeapEventCollector')) { throw 'Native Heap export omitted its heap collector' }
+$heapProfile = $env:BEND_PERF_WPR_PROFILE_NAME -eq 'Heap'
+$heapBuffers = if ($heapProfile) { 1024 } else { 512 }
+$eventBuffers = if ($heapProfile) { 256 } else { 64 }
+if ($heapProfile -and !$profile.SelectSingleNode('//HeapEventCollector')) { throw 'Native Heap export omitted its heap collector' }
 foreach ($collector in $collectors) {
   $count = switch ($collector.LocalName) {
-    { $_ -in @('HeapEventCollector','HeapEventCollectorId') } { 512; break }
+    { $_ -in @('HeapEventCollector','HeapEventCollectorId') } { $heapBuffers; break }
     { $_ -in @('SystemCollector','SystemCollectorId') } { 256; break }
-    default { 64 }
+    default { $eventBuffers }
   }
   $size = $collector.SelectSingleNode('BufferSize')
   if (!$size) { $size=$profile.CreateElement('BufferSize'); [void]$collector.PrependChild($size) }
@@ -222,9 +225,9 @@ $after.Load($env:BEND_PERF_WPR_PROFILE)
 foreach ($collector in $after.SelectNodes('//SystemCollector | //EventCollector | //HeapEventCollector | //SystemCollectorId | //EventCollectorId | //HeapEventCollectorId')) {
   if ($collector.BufferSize.Value -ne '1024') { throw 'Collector size not configured' }
   $expected = switch ($collector.LocalName) {
-    { $_ -in @('HeapEventCollector','HeapEventCollectorId') } { '512'; break }
+    { $_ -in @('HeapEventCollector','HeapEventCollectorId') } { if ($env:BEND_PERF_WPR_PROFILE_NAME -eq 'Heap') { '1024' } else { '512' }; break }
     { $_ -in @('SystemCollector','SystemCollectorId') } { '256'; break }
-    default { '64' }
+    default { if ($env:BEND_PERF_WPR_PROFILE_NAME -eq 'Heap') { '256' } else { '64' } }
   }
   if ($collector.Buffers.Value -ne $expected -or $collector.Buffers.HasAttribute('PercentageOfTotalMemory')) { throw 'Collector buffer count is not bounded' }
   if ($collector.LocalName -in @('SystemCollectorId','EventCollectorId','HeapEventCollectorId')) {
@@ -244,6 +247,7 @@ if ($before.DocumentElement.OuterXml -cne $after.DocumentElement.OuterXml) { thr
                 .args(["-NoProfile", "-NonInteractive", "-Command", CHECK])
                 .env("BEND_PERF_WPR_SOURCE", &source)
                 .env("BEND_PERF_WPR_PROFILE", &profile)
+                .env("BEND_PERF_WPR_PROFILE_NAME", name)
                 .output()?;
             assert!(preserved.status.success(), "{preserved:?}");
             let details = std::process::Command::new("wpr")

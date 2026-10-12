@@ -77,6 +77,10 @@
 - Decode Windows sampled CPU events through thread lifecycle ownership, accept
   native CRLF readiness lines, and preserve native WPR profile semantics while
   configuring bounded buffers and lossless stack caches. Require zero lost events.
+- Increase only Windows native Heap-profile pools after retained workload-phase
+  rejection in both owned loggers: 256 event and 1024 heap buffers of 1 MiB.
+  CPU/system pools, full native providers/stacks, caches and deadlines stay
+  unchanged; a fresh zero-loss capture is required before acceptance.
 - Keep failed attached LSP targets alive until collector cleanup runs, and
   classify already-buffered late responses as request timeouts.
 - Preserve live macOS target stacks after DHAT and native heap request timeouts,
