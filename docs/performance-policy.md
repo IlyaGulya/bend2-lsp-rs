@@ -35,6 +35,22 @@ construction is outside measurement; result conversion, wire encoding and owned
 input/intermediate teardown are included. This covers the previously unmeasured
 response serialization path, not discovery, the full LSP process or editor latency.
 The fixed URI root and workload remain identical across baseline and candidate.
+
+`vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
+at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
+Apache-2.0 and MIT licenses and upstream revision metadata are retained.
+Cargo's workspace patch selects this source for the server and response benchmark.
+Generic successful results are serialized once into an owned JSON string;
+the complete response encoder writes its bytes directly beside the encoded ID.
+It does not construct or serialize an intermediate `serde_json::Value` tree.
+Incoming messages retain the upstream serde-based decoding and response-first
+dispatch. The fork does not enable `serde_json`'s `raw_value` feature.
+The codec frames the complete encoded bytes with their actual `Content-Length`.
+Workspace tests and feature checks include the fork; the quality gate also
+checks its production library without panic-helper exemptions and runs its
+documentation examples. Neither this design nor the isolated benchmark proves
+editor latency or changes profiling deadlines, workloads or admission limits.
+
 Integration tests compare exact semantic-token and identifier-range outputs with
 legacy goldens at all three source sizes; medium and large goldens come from the
 pre-index implementation in commit `bc8cd4f`. Completion is covered by behavioral

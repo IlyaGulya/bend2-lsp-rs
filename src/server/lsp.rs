@@ -88,13 +88,15 @@ impl LanguageServer for Backend {
             registration.type_hierarchy = supports_type_hierarchy_registration;
             registration.watch = supports_watch_registration;
         }
-        Ok(InitializeResult {
+        let mut result = InitializeResult {
             capabilities: server_capabilities(),
-            server_info: Some(ServerInfo {
-                name: "bend2-lsp".into(),
-                version: Some(env!("CARGO_PKG_VERSION").into()),
-            }),
-        })
+            ..InitializeResult::default()
+        };
+        result.server_info = Some(ServerInfo {
+            name: "bend2-lsp".into(),
+            version: Some(env!("CARGO_PKG_VERSION").into()),
+        });
+        Ok(result)
     }
     #[tracing::instrument(name = "lsp.notification", skip_all, fields(method = "initialized"))]
     async fn initialized(&self, _: InitializedParams) {

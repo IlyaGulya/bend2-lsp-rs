@@ -812,7 +812,7 @@ fn workspace_symbol_response_warm(
     let response = Ok::<_, Error>(Some(symbols))
         .into_response(Some(17.into()))
         .must_be("workspace symbol response");
-    std::hint::black_box(serde_json::to_vec(&response).must_be("JSON-RPC wire response"))
+    std::hint::black_box(response.to_json_bytes().must_be("JSON-RPC wire response"))
 }
 
 library_benchmark_group!(

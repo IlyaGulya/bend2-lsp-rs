@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = [".", "tools/perf"]
+members = [".", "tools/perf", "vendor/tower-lsp"]
 default-members = ["."]
 
 [workspace.package]
@@ -77,6 +77,9 @@ harness = false
 
 [lints]
 workspace = true
+
+[patch.crates-io]
+tower-lsp = { path = "vendor/tower-lsp" }
 
 [profile.release]
 opt-level = 3

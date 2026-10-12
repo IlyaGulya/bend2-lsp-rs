@@ -6,7 +6,7 @@ import sys
 
 
 SUPPRESSIONS = {"allow", "expect"}
-SOURCE_DIRS = ("src", "tests", "benches", "examples", "tools")
+SOURCE_DIRS = ("src", "tests", "benches", "examples", "tools", "vendor")
 OPEN_DELIMITERS = {"(": ")", "[": "]", "{": "}"}
 
 
