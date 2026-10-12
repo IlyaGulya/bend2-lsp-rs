@@ -626,14 +626,18 @@ fn workspace_symbols_warm(
     fixture: LoadedWorkspace,
     query: &str,
 ) -> Vec<(usize, String, analysis::SymbolKind, analysis::TextRange)> {
+    let query = analysis::WorkspaceSymbolQuery::new(std::hint::black_box(query));
     let documents = fixture.database.indexed_documents();
     let mut symbols = Vec::new();
     for (document_index, document) in documents.iter().enumerate() {
-        symbols.extend(
-            analysis::workspace_symbols(document, std::hint::black_box(query))
-                .into_iter()
-                .map(|symbol| (document_index, symbol.name, symbol.kind, symbol.range)),
-        );
+        symbols.extend(query.symbols(document).map(|symbol| {
+            (
+                document_index,
+                symbol.name.to_owned(),
+                symbol.kind,
+                symbol.range,
+            )
+        }));
     }
     std::hint::black_box(symbols)
 }

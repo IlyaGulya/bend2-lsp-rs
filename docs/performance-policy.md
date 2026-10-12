@@ -22,6 +22,11 @@ including database snapshots and temporary source trees. Their totals therefore
 include teardown and are not query-only instruction counts. The workspace-symbol
 cases retain owned names, kinds, ranges and document identities in one response;
 they cover analysis materialization, not protocol serialization or editor latency.
+Symbol queries normalize once across indexed documents and project borrowed
+names into the final owned response. Empty queries skip name case folding;
+the LSP handler reserves indexed declaration capacity for its final response.
+The direct-analysis benchmark retains its original response ownership and
+workload, so it does not measure the handler's URI cloning or reservation.
 Integration tests compare exact semantic-token and identifier-range outputs with
 legacy goldens at all three source sizes; medium and large goldens come from the
 pre-index implementation in commit `bc8cd4f`. Completion is covered by behavioral

@@ -30,6 +30,10 @@
   snapshots after checks finish.
 - Preserve closed consumer references when a filesystem move merges an already
   loaded destination snapshot into an existing file identity.
+- Build workspace-symbol results directly from immutable indexed declarations.
+  Empty queries avoid per-name lowercase allocations and intermediate per-file
+  result arrays; filtered queries normalize once across the workspace while
+  preserving Unicode case matching.
 
 ### CI
 
