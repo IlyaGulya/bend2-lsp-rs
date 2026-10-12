@@ -1555,8 +1555,9 @@ mod tests {
                 0
             );
         }
-        for suffix in ["</trace-query-result>\n", "</node></trace-query-result>\n"] {
+        for suffix in ["</trace-query-result>", "</node></trace-query-result>"] {
             let xml = LAUNCHED_HEAP
+                .trim_end()
                 .strip_suffix(suffix)
                 .ok_or("Missing fixture suffix")?;
             let file = xml_file(xml)?;
@@ -1566,6 +1567,7 @@ mod tests {
         assert!(instrument_rows(file.path(), 56111, true, Some(&entities[0])).is_err());
         for toc in [
             LAUNCHED_HEAP_TOC
+                .trim_end()
                 .strip_suffix("</trace-toc>")
                 .ok_or("Missing TOC fixture suffix")?
                 .to_owned(),

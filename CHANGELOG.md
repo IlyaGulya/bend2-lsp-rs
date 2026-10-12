@@ -88,6 +88,7 @@
   Preserve target exit status independently of Instruments, reject substituted
   endpoints, and validate the exact launched process and allocation payload.
   Ordinary server, CPU, timing and DHAT builds remain unchanged.
+  Keep malformed-trace rejection independent of checkout line endings.
 - Configure WPR stack caches only on collector definitions; reference-level
   cache overrides rejected by the native WPR parser are no longer synthesized.
 - Repair the pinned Windows ARM64 sampler's SampleProf/StackWalk join, preserving
