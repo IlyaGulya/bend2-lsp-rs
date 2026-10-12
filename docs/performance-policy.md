@@ -27,6 +27,14 @@ names into the final owned response. Empty queries skip name case folding;
 the LSP handler reserves indexed declaration capacity for its final response.
 The direct-analysis benchmark retains its original response ownership and
 workload, so it does not measure the handler's URI cloning or reservation.
+The separate `workspace_symbol_response_warm.ten_thousand_symbols` case consumes
+an owned, preconstructed 10,000-symbol protocol result with the discovery
+workload's function names and ranges. It calls the pinned framework's actual
+`IntoResponse` conversion and encodes the complete JSON-RPC response. Fixture
+construction is outside measurement; result conversion, wire encoding and owned
+input/intermediate teardown are included. This covers the previously unmeasured
+response serialization path, not discovery, the full LSP process or editor latency.
+The fixed URI root and workload remain identical across baseline and candidate.
 Integration tests compare exact semantic-token and identifier-range outputs with
 legacy goldens at all three source sizes; medium and large goldens come from the
 pre-index implementation in commit `bc8cd4f`. Completion is covered by behavioral
@@ -52,7 +60,8 @@ edits/opens and print p50/p95/max response latency. Their `p95 < 1 second`
 assertions catch prolonged blocking, not small latency regressions. The separate
 paired latency reports below measure the actual LSP process, but not editor
 rendering or real Bend compiler execution; real Bend CLI timings are measured
-separately. Callgrind continues to measure analysis functions, not the full process.
+separately. Callgrind measures analysis functions and the isolated protocol-response
+conversion above, not the full process.
 The Callgrind measurement job preserves its raw baseline/candidate profiles,
 summaries, baseline manifest, producer exit codes, and unchanged verdict for
 14 days, including failed collection and numerical regressions. Collection
