@@ -586,6 +586,14 @@ command bound. Sampling does not retry the request, increase its thirty-second
 deadline, or turn a failed profile into a successful measurement. A missing
 historical stack is not evidence of either profiler overhead or a server defect.
 
+Resolve the actual profile kind from the selected backend: `--heap` means heap,
+`--cpu` means CPU, and `--native-kind` applies only to native tracing. The session,
+manifest and backend preflight use the same kind. The preserved Intel DHAT
+timeout in run 38225001754 had no live sample because the session incorrectly
+used the native-kind default `cpu` despite its heap manifest. Correcting dispatch
+restores the timeout diagnostic; it does not explain the thirty-second cold
+workspace-symbol timeout or authorize a retry of the failed source.
+
 Each target's `artifact-manifest.json` records expected collectors, source and
 tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.
 Downloads are validated with confined relative paths. Interrupted/failed runs

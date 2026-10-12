@@ -180,7 +180,7 @@ fn artifacts(output: &Path) -> ToolResult<Vec<Value>> {
     }).collect()
 }
 
-fn profile_backend(args: &Arguments) -> ToolResult<(&'static str, &'static str)> {
+fn profile_backend(args: &Arguments) -> ToolResult<(&'static str, &'static str, &str)> {
     let mode = if args.cpu {
         "cpu"
     } else if args.heap {
@@ -202,7 +202,12 @@ fn profile_backend(args: &Arguments) -> ToolResult<(&'static str, &'static str)>
             _ => return Err("Unsupported native profiler OS".into()),
         }
     };
-    Ok((mode, backend))
+    let kind = if args.native {
+        args.native_kind.as_str()
+    } else {
+        mode
+    };
+    Ok((mode, backend, kind))
 }
 
 pub(crate) fn run(args: &[String]) -> ToolResult<()> {
@@ -226,9 +231,9 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
     if fs::read_dir(&output)?.next().is_some() {
         return Err("Profile output must be empty; choose a fresh output directory".into());
     }
-    let (mode, backend) = profile_backend(&args)?;
+    let (mode, backend, kind) = profile_backend(&args)?;
     let mut manifest = json!({
-        "format_version": 1, "status": "running", "backend": backend, "profile_kind": if args.heap {"heap"} else {&args.native_kind},
+        "format_version": 1, "status": "running", "backend": backend, "profile_kind": kind,
         "scenario": scenario.name(), "source_sha": args.candidate_revision, "target": target,
         "binary": null, "profiler": {"version": null, "commands": [], "viewer_command": []},
         "phases": [], "artifacts": [], "errors": [], "scenario_result": null, "heap_summary": null,
@@ -236,7 +241,7 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         "measurement": "Separate diagnostic process; profiler overhead is not clean latency evidence"
     });
     common::write_json(&manifest_path, &manifest)?;
-    let mut session = Session::new(backend, &args.native_kind, &output);
+    let mut session = Session::new(backend, kind, &output);
     let outcome = (|| -> ToolResult<()> {
         scenario::install_cancellation_handler()?;
         scenario::check_cancelled()?;
@@ -246,7 +251,7 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         }
         let binary = args.binary.canonicalize()?;
         manifest["binary"] = binary_identity(&binary, &output)?;
-        manifest["doctor"] = doctor::require_backend(mode, &args.native_kind, Some(&binary))?;
+        manifest["doctor"] = doctor::require_backend(mode, kind, Some(&binary))?;
         session.prepare(&binary)?;
         common::write_json(&manifest_path, &manifest)?;
         let result = scenario::execute(&binary, scenario, &output.join("scenario"), &mut session)?;

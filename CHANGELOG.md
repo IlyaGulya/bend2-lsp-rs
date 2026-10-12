@@ -87,6 +87,9 @@
   without retries or longer request deadlines. Retain WPR's pre-stop collector
   counters to distinguish rejected events from lost log buffers; stop the owned
   recorder before reporting counter-command failures.
+- Resolve heap profiling sessions from `--heap`, not the native CPU default, so
+  macOS DHAT request timeouts retain the promised live target stack. Use the same
+  profile kind in preflight and retained provenance without changing deadlines.
 - Launch macOS native allocation captures before server runtime startup, using
   a separate default-off profiling binary and real FIFO protocol endpoints.
   Preserve target exit status independently of Instruments, reject substituted
