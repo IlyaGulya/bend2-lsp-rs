@@ -34,9 +34,9 @@ for path in sorted(Path(".github/workflows").iterdir()):
                 sys.exit(f"{path}: only the documented trusted-trigger audit exceptions are allowed")
 PY
 # actionlint 1.7.12 predates GitHub's July 2026 self-repository syntax.
-# Exempt only its obsolete grammar error for this exact reusable workflow;
-# zizmor still checks the original reference and every other syntax error fails.
-actionlint -ignore '^reusable workflow call "\$/\.github/workflows/release-binaries\.yml" at "uses" is not following the format '
+# Exempt only its obsolete grammar error for these exact reusable workflows;
+# zizmor still checks the original references and every other syntax error fails.
+actionlint -ignore '^reusable workflow call "\$/\.github/workflows/(release-binaries|perf-diagnostics)\.yml" at "uses" is not following the format '
 unset GHALINT_CONFIG
 ghalint run
 ghalint run-action

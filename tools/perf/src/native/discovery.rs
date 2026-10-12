@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{
     ToolResult, common, latency,
+    platform_memory::{self, MemoryObserver},
     transport::{LspProcess, file_uri},
 };
 use clap::Parser;
@@ -66,7 +67,7 @@ fn elapsed(start: Instant) -> u64 {
     u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX)
 }
 
-fn dataset(count: usize) -> (BTreeMap<String, String>, Value) {
+pub(crate) fn dataset(count: usize) -> (BTreeMap<String, String>, Value) {
     let mut files = BTreeMap::from([
         (
             "common.bend".to_owned(),
@@ -91,7 +92,7 @@ fn location(uri: &str, line: usize, start: usize, end: usize) -> Value {
     json!({"uri": uri, "range": {"start": {"line": line, "character": start}, "end": {"line": line, "character": end}}})
 }
 
-fn expected_results(
+pub(crate) fn expected_results(
     workspace: &Path,
     files: &BTreeMap<String, String>,
 ) -> ToolResult<(Vec<Value>, Vec<Value>)> {
@@ -120,7 +121,7 @@ fn expected_results(
     Ok((symbols, references))
 }
 
-fn require_local_completion(result: &Value) -> ToolResult<Value> {
+pub(crate) fn require_local_completion(result: &Value) -> ToolResult<Value> {
     let items = result
         .get("items")
         .unwrap_or(result)
@@ -151,7 +152,7 @@ fn require_local_completion(result: &Value) -> ToolResult<Value> {
     )
 }
 
-fn require_subset(
+pub(crate) fn require_subset(
     result: &Value,
     expected: &[Value],
     label: &str,
@@ -196,38 +197,30 @@ fn require_subset(
     Ok(json!({"observed": keys.len(), "expected": expected_keys.len(), "complete": ready}))
 }
 
-fn read_memory(pid: u32) -> Result<Value, String> {
-    if !cfg!(target_os = "linux") {
-        return Err("RSS collection unavailable on this platform; no values inferred".to_owned());
-    }
-    let text =
-        fs::read_to_string(format!("/proc/{pid}/status")).map_err(|error| error.to_string())?;
-    let mut result = json!({"rss_bytes": null, "kernel_high_watermark_bytes": null});
-    for line in text.lines() {
-        let Some((key, value)) = line.split_once(':') else {
-            continue;
-        };
-        let field = match key {
-            "VmRSS" => "rss_bytes",
-            "VmHWM" => "kernel_high_watermark_bytes",
-            _ => continue,
-        };
-        let mut parts = value.split_whitespace();
-        let number = parts
-            .next()
-            .ok_or("Missing procfs memory value")?
-            .parse::<u64>()
-            .map_err(|error| error.to_string())?;
-        if parts.next() != Some("kB") || parts.next().is_some() {
-            return Err("Unexpected procfs memory unit".to_owned());
+fn sample_memory(
+    observer: &mut Result<MemoryObserver, String>,
+    errors: &mut BTreeSet<String>,
+) -> Value {
+    let outcome = match observer {
+        Ok(observer) => observer.sample().map_err(|error| error.to_string()),
+        Err(error) => Err(error.clone()),
+    };
+    match outcome {
+        Ok(value) => value,
+        Err(error) => {
+            let value = json!({
+                "rss_bytes": null, "kernel_high_watermark_bytes": null,
+                "native_metrics": {}, "error": error,
+                "metric_definitions": platform_memory::metadata()["metrics"]
+            });
+            errors.insert(error);
+            value
         }
-        result[field] = json!(number.checked_mul(1024).ok_or("Procfs memory overflow")?);
     }
-    Ok(result)
 }
 
 struct ResidentMemory {
-    pid: u32,
+    observer: Result<MemoryObserver, String>,
     started: Instant,
     stop: Option<mpsc::Sender<()>>,
     thread: Option<thread::JoinHandle<(Vec<Value>, BTreeSet<String>)>>,
@@ -237,29 +230,16 @@ struct ResidentMemory {
 impl ResidentMemory {
     fn new(pid: u32) -> Self {
         let started = Instant::now();
-        if !cfg!(target_os = "linux") {
-            return Self {
-                pid,
-                started,
-                stop: None,
-                thread: None,
-                errors: BTreeSet::from([
-                    "RSS collection unavailable on this platform; no values inferred".to_owned(),
-                ]),
-            };
-        }
+        let observer = MemoryObserver::new(pid).map_err(|error| error.to_string());
         let (stop, receiver) = mpsc::channel();
         let thread = thread::spawn(move || {
             let mut samples = Vec::new();
             let mut errors = BTreeSet::new();
+            // Construct inside the sampling thread: Windows process-handle guards
+            // need not cross threads, and each observer still targets only this PID.
+            let mut observer = MemoryObserver::new(pid).map_err(|error| error.to_string());
             loop {
-                let mut value = match read_memory(pid) {
-                    Ok(value) => value,
-                    Err(error) => {
-                        errors.insert(error.clone());
-                        json!({"rss_bytes": null, "kernel_high_watermark_bytes": null, "error": error})
-                    }
-                };
+                let mut value = sample_memory(&mut observer, &mut errors);
                 value["elapsed_ns"] = json!(elapsed(started));
                 samples.push(value);
                 if !matches!(
@@ -272,7 +252,7 @@ impl ResidentMemory {
             (samples, errors)
         });
         Self {
-            pid,
+            observer,
             started,
             stop: Some(stop),
             thread: Some(thread),
@@ -281,13 +261,7 @@ impl ResidentMemory {
     }
 
     fn checkpoint(&mut self) -> Value {
-        let mut value = match read_memory(self.pid) {
-            Ok(value) => value,
-            Err(error) => {
-                self.errors.insert(error.clone());
-                json!({"rss_bytes": null, "kernel_high_watermark_bytes": null, "error": error})
-            }
-        };
+        let mut value = sample_memory(&mut self.observer, &mut self.errors);
         value["elapsed_ns"] = json!(elapsed(self.started));
         value
     }
@@ -315,8 +289,24 @@ impl ResidentMemory {
                 .filter_map(|sample| sample["rss_bytes"].as_u64())
                 .max()
         );
-        result["rss_samples"] = json!(samples);
+        let mut native_peaks = BTreeMap::<&str, u64>::new();
+        for sample in &samples {
+            if let Some(metrics) = sample["native_metrics"].as_object() {
+                for (name, value) in metrics {
+                    if let Some(bytes) = value.as_u64() {
+                        native_peaks
+                            .entry(name)
+                            .and_modify(|peak| *peak = (*peak).max(bytes))
+                            .or_insert(bytes);
+                    }
+                }
+            }
+        }
+        result["sampled_peak_native_metrics_bytes"] = json!(native_peaks);
+        drop(native_peaks);
+        result["rss_samples"] = Value::Array(samples);
         result["memory_errors"] = json!(self.errors);
+        result["process_memory"] = platform_memory::metadata();
         result["memory_lifecycle"] = memory_lifecycle(result);
     }
 }
@@ -915,7 +905,8 @@ pub(super) fn run(arguments: &[String]) -> ToolResult<()> {
         "cold_timing": "readiness includes dispatch, semantic validation and polling; independent untitled local completion is opened and closed before exact disk symbols/references",
         "baseline_readiness": "first public cold observation only; missing discovery is neither polled to timeout nor treated as complete",
         "compiler": "unavailable; isolated PATH/HOME; BEND_LIB/trace/metrics removed; analysis/protocol only",
-        "memory": "Linux procfs VmRSS/VmHWM only; unsupported platforms null with explicit errors; sampled every 20ms from observer start before initialize through root removal; cold sampled peak ends at cold references and is a lower bound, not allocations; VmHWM is process-lifetime high watermark, not a phase delta; retained RSS is after cold readiness; removal RSS follows warm edits and closing open documents, with immediate and fixed 100ms observations; no promise of OS page reclamation",
+        "memory": "Single-PID process resident memory sampled every 20ms plus collection time from observer start before initialize through root removal; Linux VmRSS/VmHWM, macOS proc_pid_rusage resident size and separate footprint/wired metrics, Windows working set and separate private commit/pool metrics; cold sampled peak ends at cold references and is a lower bound, not allocations; exposed kernel resident high watermark is process-lifetime, not a phase delta; retained resident memory is after cold readiness; removal follows warm edits and closing open documents, with immediate and fixed 100ms observations; no promise of OS page reclamation",
+        "process_memory": platform_memory::metadata(),
         "dataset_counts": DATASET_COUNTS,
         "initial_completion": {"uri": COMPLETION_URI, "source": COMPLETION_SOURCE,
             "position": {"line": 1, "character": 4},
@@ -1061,8 +1052,11 @@ fn report(data: &Value) -> ToolResult<(Value, String)> {
          complete disk symbols and references after the independent untitled completion probe. Baseline absence is recorded, \
          not failed. Incomplete baseline references/symbols are different work, not comparable \
          latencies. Warm p50/p95 are medians of nearest-rank per-round percentiles, not pooled. \
-         Cold times and RSS are medians of completed rounds. Linux /proc RSS samples every 20ms \
-         are a lower bound, not allocation peaks; other platforms report null with explicit errors. \
+         Cold times and resident memory are medians of completed rounds. Single-PID resident samples every 20ms \
+         plus collection time are lower bounds, not allocation peaks. Linux uses VmRSS/VmHWM; macOS \
+         uses ri_resident_size (footprint and wired memory are separate); Windows uses WorkingSetSize \
+         and PeakWorkingSetSize (private commit is not RSS). macOS resident high watermark is unavailable; \
+         collection failures have null values and explicit errors. Native metric definitions are in provenance and raw samples. \
          Cold peak covers observer start before initialize through cold reference validation, not warm edits. \
          Retained RSS is observed at cold readiness; root removal follows closing warm buffers. \
          Immediate and 100ms post-removal RSS do not imply allocators returned pages to the OS. \
@@ -1123,7 +1117,7 @@ fn report(data: &Value) -> ToolResult<(Value, String)> {
                     {
                         writeln!(
                             markdown,
-                            "- {variant} round {} RSS observation limitations: `{}`",
+                            "- {variant} round {} process-memory observation limitations: `{}`",
                             round["round"],
                             serde_json::to_string(errors)?
                         )?;
@@ -1185,6 +1179,8 @@ fn dataset_summary(section: &Value) -> ToolResult<Value> {
                 "round": round["round"], "status": round["status"], "error": round["error"],
                 "lifecycle": round["memory_lifecycle"], "checkpoints": round["memory_checkpoints"],
                 "samples": round["rss_samples"], "errors": round["memory_errors"],
+                "process_memory": round["process_memory"],
+                "sampled_peak_native_metrics_bytes": round["sampled_peak_native_metrics_bytes"],
                 "root_removal": round["semantics"]["root_removal"],
                 "root_removal_polls": round["root_removal_polls"]
             })).collect::<Vec<_>>()
@@ -1203,6 +1199,17 @@ fn dataset_summary(section: &Value) -> ToolResult<Value> {
             }
             value["memory_medians_bytes"]["sampled_peak_rss"] =
                 observations(&rounds, |round| &round["sampled_peak_rss_bytes"]);
+            let native_peak_names: BTreeSet<_> = rounds
+                .iter()
+                .filter_map(|round| round["sampled_peak_native_metrics_bytes"].as_object())
+                .flat_map(|metrics| metrics.keys())
+                .collect();
+            for name in native_peak_names {
+                value["memory_medians_bytes"][format!("sampled_peak_native.{name}")] =
+                    observations(&rounds, |round| {
+                        &round["sampled_peak_native_metrics_bytes"][name]
+                    });
+            }
             for name in [
                 "cold_sampled_peak_rss_bytes",
                 "cold_kernel_high_watermark_bytes",
@@ -1222,6 +1229,19 @@ fn dataset_summary(section: &Value) -> ToolResult<Value> {
                 for field in ["rss_bytes", "kernel_high_watermark_bytes"] {
                     value["memory_medians_bytes"][format!("{name}.{field}")] =
                         observations(&rounds, |round| &round["memory_checkpoints"][name][field]);
+                }
+                let native_names: BTreeSet<_> = rounds
+                    .iter()
+                    .filter_map(|round| {
+                        round["memory_checkpoints"][name]["native_metrics"].as_object()
+                    })
+                    .flat_map(|metrics| metrics.keys())
+                    .collect();
+                for field in native_names {
+                    value["memory_medians_bytes"][format!("{name}.native.{field}")] =
+                        observations(&rounds, |round| {
+                            &round["memory_checkpoints"][name]["native_metrics"][field]
+                        });
                 }
             }
         }
@@ -1300,7 +1320,7 @@ fn write_warm_table(markdown: &mut String, summary: &Value, section: &Value) -> 
 }
 
 fn write_memory_table(markdown: &mut String, summary: &Value) -> ToolResult<()> {
-    markdown.push_str("\n| Resident memory | Baseline median (MiB) | Candidate median (MiB) |\n| --- | ---: | ---: |\n");
+    markdown.push_str("\n| Process memory (resident and separately named native metrics) | Baseline median (MiB) | Candidate median (MiB) |\n| --- | ---: | ---: |\n");
     let mut names = BTreeSet::new();
     for variant in ["baseline", "candidate"] {
         if let Some(fields) = summary[variant]["memory_medians_bytes"].as_object() {
@@ -1451,6 +1471,49 @@ mod tests {
                 ["candidate", "baseline"],
                 ["baseline", "candidate"]
             ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn reports_native_commit_separately_from_resident_memory() -> ToolResult<()> {
+        let workloads: BTreeMap<_, _> = WORKLOADS
+            .into_iter()
+            .map(|name| (name, json!([1, 2, 3])))
+            .collect();
+        let round = |resident, commit| {
+            json!({
+                "status": "complete", "workloads_ns": workloads, "timings_ns": {},
+                "sampled_peak_rss_bytes": resident,
+                "sampled_peak_native_metrics_bytes": {"windows_private_commit_bytes": commit},
+                "memory_checkpoints": {"cold_discovery_observed": {
+                    "rss_bytes": resident, "kernel_high_watermark_bytes": null,
+                    "native_metrics": {"windows_private_commit_bytes": commit}
+                }}
+            })
+        };
+        let mut failed = round(999, 999);
+        failed["status"] = json!("failed");
+        let section = json!({"variants": {
+            "baseline": [round(10, 100), round(30, 300), failed], "candidate": []
+        }});
+        let summary = dataset_summary(&section)?;
+        let memory = &summary["baseline"]["memory_medians_bytes"];
+        assert_eq!(memory["cold_discovery_observed.rss_bytes"], 20.0);
+        assert_eq!(
+            memory["cold_discovery_observed.native.windows_private_commit_bytes"],
+            200.0
+        );
+        assert_eq!(
+            memory["sampled_peak_native.windows_private_commit_bytes"],
+            200.0
+        );
+        assert!(memory["cold_discovery_observed.kernel_high_watermark_bytes"].is_null());
+        assert_eq!(
+            summary["baseline"]["memory_observations"]
+                .as_array()
+                .map(Vec::len),
+            Some(3)
         );
         Ok(())
     }

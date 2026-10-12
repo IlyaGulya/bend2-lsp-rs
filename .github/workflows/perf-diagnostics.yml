@@ -1,0 +1,290 @@
+name: perf-diagnostics
+run-name: perf-diagnostics / ${{ inputs.request_id || format('pr-{0}-{1}', github.run_id, github.run_attempt) }}
+
+on:
+  pull_request:
+    paths:
+      - .gitattributes
+      - .github/workflows/perf-diagnostics.yml
+      - .github/workflows/perf-full.yml
+      - .github/perf/**
+      - tools/perf/src/**/*.rs
+      - tools/perf/tests/**
+      - tools/perf/Cargo.toml
+      - Cargo.lock
+      - scripts/install-tools.sh
+      - scripts/patches/samply-windows-arm64.patch
+      - scripts/install-etl-reader.ps1
+      - tools/perf/windows-etl-reader/**
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Unique lowercase request ID; never reuse an ID
+        type: string
+        required: true
+      mode:
+        description: Hosted collection mode
+        type: choice
+        options: [compare, cpu, heap, native, full]
+        required: true
+      native_kind:
+        description: Native diagnostic trace kind (Linux heap uses DHAT mode instead)
+        type: choice
+        options: [cpu, heap]
+        default: cpu
+        required: true
+      base_sha:
+        description: Exact lowercase 40-character published baseline SHA
+        type: string
+        required: true
+      candidate_sha:
+        description: Exact lowercase 40-character published candidate SHA
+        type: string
+        required: true
+      scenario:
+        description: Semantic scenario (full collects every scenario)
+        type: choice
+        options: [discovery-10, discovery-1000, discovery-10000, latency]
+        default: discovery-10000
+        required: true
+      target:
+        description: Native target; all never silently skips a platform
+        type: choice
+        options: [all, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin, x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+        default: all
+        required: true
+  workflow_call:
+    inputs:
+      request_id:
+        type: string
+        required: true
+      mode:
+        type: string
+        required: true
+      native_kind:
+        type: string
+        default: cpu
+      base_sha:
+        type: string
+        required: true
+      candidate_sha:
+        type: string
+        required: true
+      scenario:
+        type: string
+        default: discovery-10000
+      target:
+        type: string
+        default: all
+
+permissions: {}
+
+jobs:
+  validate:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.source.outputs.matrix }}
+      request_id: ${{ steps.source.outputs.request_id }}
+      mode: ${{ steps.source.outputs.mode }}
+      base_sha: ${{ steps.source.outputs.base_sha }}
+      candidate_sha: ${{ steps.source.outputs.candidate_sha }}
+      scenario: ${{ steps.source.outputs.scenario }}
+      selected_target: ${{ steps.source.outputs.selected_target }}
+      native_kind: ${{ steps.source.outputs.native_kind }}
+    env:
+      REQUEST_ID: ${{ inputs.request_id || format('pr-{0}-{1}', github.run_id, github.run_attempt) }}
+      MODE: ${{ inputs.mode || 'verification' }}
+      BASE_SHA: ${{ inputs.base_sha || github.event.pull_request.base.sha }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
+      SCENARIO: ${{ inputs.scenario || 'discovery-10000' }}
+      SELECTED_TARGET: ${{ inputs.target || 'all' }}
+      NATIVE_KIND: ${{ inputs.native_kind || 'cpu' }}
+      WORKFLOW_SHA: ${{ github.workflow_sha }}
+      PULL_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build pinned Rust tooling before validating request source
+        id: tools
+        run: |
+          mkdir -p target/perf-request
+          rustup toolchain install 1.98.1 --profile minimal
+          rustup override set 1.98.1
+          cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/request-tools" \
+            2>&1 | tee target/perf-request/tool-build.log
+          printf 'PERF_TOOL=%s/request-tools/release/bend2-perf\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Validate unique request and exact repository source bounds
+        id: source
+        run: '"$PERF_TOOL" workflow validate'
+      - name: Preserve source validation including rejection
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-request-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/perf-request/
+          if-no-files-found: error
+          retention-days: 30
+
+  collect:
+    permissions:
+      contents: read
+    needs: validate
+    name: diagnostic evidence (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.validate.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      REQUEST_ID: ${{ needs.validate.outputs.request_id }}
+      MODE: ${{ needs.validate.outputs.mode }}
+      BASE_SHA: ${{ needs.validate.outputs.base_sha }}
+      CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+      SCENARIO: ${{ needs.validate.outputs.scenario }}
+      SELECTED_TARGET: ${{ needs.validate.outputs.selected_target }}
+      NATIVE_KIND: ${{ needs.validate.outputs.native_kind }}
+      WORKFLOW_SHA: ${{ github.workflow_sha }}
+      PERF_TARGET: ${{ matrix.target }}
+      PERF_RUNNER: ${{ matrix.runner }}
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      PERF_ROOT: ${{ github.workspace }}/target/native-perf/${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Identify download-only Cargo cache paths
+        id: ci-cache
+        run: bash scripts/ci-cache.sh
+      - name: Restore Cargo downloads, never measured objects
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ steps.ci-cache.outputs.cargo-cache-paths }}
+          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh', 'scripts/patches/samply-windows-arm64.patch') }}
+          restore-keys: |
+            cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
+      - name: Build pinned native tooling from immutable workflow source
+        id: tools
+        run: bash .github/perf/run.sh tools
+      - name: Record expected evidence before checking the native runner
+        id: prepare
+        env:
+          ACTUAL_ARCH: ${{ runner.arch }}
+        run: bash .github/perf/run.sh prepare
+      - name: Exercise portable tooling contracts on the actual native target
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && env.MODE == 'verification' }}
+        run: |
+          code=0
+          cargo test --locked --release --package bend2-perf --all-targets \
+            --target-dir "$RUNNER_TEMP/perf-tools" \
+            > "$PERF_ROOT/logs/tool-contracts.log" 2>&1 || code=$?
+          cat "$PERF_ROOT/logs/tool-contracts.log"
+          "$PERF_TOOL" workflow status tool-contracts "$code"
+          exit "$code"
+      - name: Install pinned profiling tools and Windows tracing toolkit
+        id: cpu-tools
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && contains(fromJSON('["cpu","native","full","verification"]'), env.MODE) }}
+        run: bash scripts/install-tools.sh profiling
+      - name: Explicitly authorize Linux profiler permissions and install perf
+        id: linux-tools
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && runner.os == 'Linux' && contains(fromJSON('["cpu","native","full","verification"]'), env.MODE) }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes linux-tools-common linux-tools-generic
+          # Use the installed kernel-independent userspace binary, not Ubuntu's
+          # shim that requires a matching hosted Azure kernel package.
+          perf_binary="$(find -L /usr/lib/linux-tools -type f -name perf -print -quit)"
+          test -n "$perf_binary"
+          "$perf_binary" --version
+          dirname "$perf_binary" >> "$GITHUB_PATH"
+          sudo sysctl -w kernel.perf_event_paranoid=-1
+          sudo sysctl -w kernel.kptr_restrict=0
+          sudo sysctl -w kernel.yama.ptrace_scope=0
+      - name: Explicitly authorize headless macOS sampler and verify Xcode tracing
+        id: macos-tools
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && runner.os == 'macOS' && contains(fromJSON('["cpu","native","full","verification"]'), env.MODE) }}
+        run: |
+          xcodebuild -version
+          xcrun xctrace version
+          xcrun xctrace list templates
+          sudo DevToolsSecurity -enable
+          # Locally signed samply otherwise asks for GUI task-port authorization.
+          # Elevate only its capture process, explicitly and without a prompt.
+          sudo -n -- "$(command -v samply)" --version
+          printf '%s\n' 'BEND_PERF_MACOS_SAMPLY_ELEVATED=true' >> "$GITHUB_ENV"
+      - name: Verify explicitly privileged Windows tracing prerequisites
+        id: windows-tools
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && runner.os == 'Windows' && contains(fromJSON('["cpu","native","full","verification"]'), env.MODE) }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+          if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+            throw 'Hosted ETW/WPR profiling requires an explicitly administrator runner'
+          }
+          $toolkit = "${env:ProgramFiles(x86)}\Windows Kits\10\Windows Performance Toolkit"
+          $env:Path = "$toolkit;$env:Path"
+          $toolkit | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Get-Command xperf.exe -ErrorAction Stop
+          Get-Command wpr.exe -ErrorAction Stop
+          wpr.exe -profiles
+          if ($LASTEXITCODE -ne 0) { throw 'WPR profiles unavailable' }
+      - name: Build independent clean timing binaries
+        id: timing
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && contains(fromJSON('["compare","full"]'), env.MODE) }}
+        run: bash .github/perf/run.sh timing
+      - name: Collect clean latency comparison
+        id: latency
+        if: ${{ !cancelled() && steps.timing.outcome == 'success' }}
+        run: bash .github/perf/run.sh latency
+      - name: Collect discovery and actual process-memory timelines separately
+        id: discovery
+        if: ${{ !cancelled() && steps.timing.outcome == 'success' }}
+        run: bash .github/perf/run.sh discovery
+      - name: Build separate symbolized CPU and native executables
+        id: symbols
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && contains(fromJSON('["cpu","native","full","verification"]'), env.MODE) }}
+        run: bash .github/perf/run.sh symbols
+      - name: Build separate DHAT executables and all legacy examples in full mode
+        id: heap
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && contains(fromJSON('["heap","full","verification"]'), env.MODE) }}
+        run: bash .github/perf/run.sh heap
+      - name: Collect requested profiles, retaining every backend failure
+        id: profiles
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && env.MODE != 'compare' }}
+        run: bash .github/perf/run.sh profiles
+      - name: Retain all thirteen existing LSP, line-index and folding DHAT workloads
+        id: memory
+        if: ${{ !cancelled() && env.MODE == 'full' && steps.heap.outcome == 'success' }}
+        run: bash .github/perf/run.sh memory
+      - name: Generate unified report even after failed collection
+        id: report
+        if: always()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: bash .github/perf/run.sh report
+      - name: Inventory all raw results, symbols, reports and failures
+        id: inventory
+        if: always()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: bash .github/perf/run.sh finalize
+      - name: Preserve complete raw evidence regardless of report success
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-${{ needs.validate.outputs.request_id }}-${{ matrix.target }}
+          path: ${{ env.PERF_ROOT }}/
+          if-no-files-found: error
+          retention-days: 30

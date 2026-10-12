@@ -21,7 +21,7 @@ pub(crate) const WORKLOADS: [&str; 7] = [
     "hover_during_large_edit",
     "hover_during_large_open",
 ];
-const FIXTURE_REPETITIONS: usize = 4;
+pub(crate) const FIXTURE_REPETITIONS: usize = 4;
 pub(crate) const ADT_SOURCE: &str =
     "type LatencyTerm is Data:\n  TermVar{index: Nat}\n  TermRef{name: String}\n";
 pub(crate) const SMALL_SOURCE: &str = concat!(
@@ -75,7 +75,7 @@ pub(crate) fn require_definition(result: &Value, uri: &str) -> ToolResult<()> {
     Ok(())
 }
 
-fn require_completion(result: &Value) -> ToolResult<()> {
+pub(crate) fn require_completion(result: &Value) -> ToolResult<()> {
     let items = result.get("items").unwrap_or(result);
     if !items
         .as_array()
@@ -243,7 +243,7 @@ fn workloads(
     Ok(measured)
 }
 
-fn causal_open(
+pub(crate) fn causal_open(
     client: &mut LspProcess,
     workspace: &Path,
     body: &str,
@@ -270,7 +270,7 @@ fn causal_open(
     Ok(values)
 }
 
-fn causal_edit(
+pub(crate) fn causal_edit(
     client: &mut LspProcess,
     workspace: &Path,
     body: &str,
@@ -310,7 +310,7 @@ fn causal_edit(
     Ok(values)
 }
 
-fn busy_edit(
+pub(crate) fn busy_edit(
     client: &mut LspProcess,
     workspace: &Path,
     small_uri: &str,
@@ -359,7 +359,7 @@ fn busy_edit(
     Ok(burst)
 }
 
-fn busy_open(
+pub(crate) fn busy_open(
     client: &mut LspProcess,
     workspace: &Path,
     small_uri: &str,

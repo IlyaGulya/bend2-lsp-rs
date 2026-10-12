@@ -4,16 +4,72 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     ffi::OsString,
-    fs,
+    fs::{self, File},
     io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
-    sync::mpsc::{self, Receiver, SyncSender},
+    process::{Child, Command, ExitStatus, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, SyncSender},
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+#[cfg(target_os = "macos")]
+#[path = "transport/macos.rs"]
+pub(crate) mod macos;
+
+enum ProcessOwner {
+    Direct(Child),
+    #[cfg(target_os = "macos")]
+    Recorded(macos::RecordedTarget),
+}
+
+impl ProcessOwner {
+    fn id(&self) -> u32 {
+        match self {
+            Self::Direct(child) => child.id(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.id(),
+        }
+    }
+
+    fn try_wait(&mut self) -> io::Result<Option<ExitStatus>> {
+        match self {
+            Self::Direct(child) => child.try_wait(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.try_wait(),
+        }
+    }
+
+    fn kill(&mut self) -> io::Result<()> {
+        match self {
+            Self::Direct(child) => child.kill(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.kill(),
+        }
+    }
+
+    fn wait(&mut self) -> io::Result<ExitStatus> {
+        match self {
+            Self::Direct(child) => child.wait(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.wait(),
+        }
+    }
+}
+
+impl Drop for ProcessOwner {
+    fn drop(&mut self) {
+        if !matches!(self.try_wait(), Ok(Some(_))) {
+            let _ = self.kill();
+        }
+        let _ = self.wait();
+    }
+}
 const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
 
 type Received = Result<Option<(Vec<u8>, Instant)>, String>;
@@ -56,11 +112,12 @@ pub(crate) struct ShutdownEvidence {
 }
 
 pub(crate) struct LspProcess {
-    child: Child,
+    child: ProcessOwner,
     workspace: PathBuf,
     settings: Value,
     compiler_path: String,
-    stderr: tempfile::NamedTempFile,
+    stderr: File,
+    _stderr_path: Option<tempfile::TempPath>,
     messages: Option<Receiver<Received>>,
     writes: Option<SyncSender<WriteJob>>,
     reader: Option<JoinHandle<()>>,
@@ -71,6 +128,8 @@ pub(crate) struct LspProcess {
     next_id: u64,
     timeout: Duration,
     shutdown: ShutdownEvidence,
+    cancellation: Option<&'static AtomicBool>,
+    abort_on_failure: bool,
 }
 
 fn failure(message: impl std::fmt::Display) -> io::Error {
@@ -201,16 +260,6 @@ impl LspProcess {
         child_env: &[(OsString, OsString)],
     ) -> ToolResult<Self> {
         let workspace = workspace.canonicalize()?;
-        let compiler = workspace.join("unavailable-compiler").join("bend");
-        let compiler_path = compiler
-            .to_str()
-            .ok_or_else(|| failure("compiler path is not UTF-8"))?
-            .to_owned();
-        let settings = json!({"bend2-lsp":{"compilerPath":compiler_path,"compilerArguments":[]}});
-        let empty_path = workspace.join("empty-path");
-        let home = workspace.join("empty-home");
-        fs::create_dir_all(&empty_path)?;
-        fs::create_dir_all(&home)?;
         let stderr = tempfile::NamedTempFile::new_in(&workspace)?;
         let mut command = Command::new(binary);
         command
@@ -227,30 +276,74 @@ impl LspProcess {
                 command.env_remove(key);
             }
         }
-        command
-            .env("PATH", empty_path)
-            .env("HOME", &home)
-            .env("USERPROFILE", home);
+        command.envs(Self::isolated_environment(&workspace)?);
         command.envs(child_env.iter().cloned());
-        let mut child = command.spawn()?;
-        let Some(stdin) = child.stdin.take() else {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(failure("LSP stdin unavailable").into());
-        };
-        let Some(stdout) = child.stdout.take() else {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(failure("LSP stdout unavailable").into());
-        };
-        let (reader, messages) = match spawn_reader(stdout) {
-            Ok(reader) => reader,
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(error.into());
+        let mut child = ProcessOwner::Direct(command.spawn()?);
+        let (stdin, stdout) = match &mut child {
+            ProcessOwner::Direct(direct) => (
+                direct
+                    .stdin
+                    .take()
+                    .ok_or_else(|| failure("LSP stdin unavailable"))?,
+                direct
+                    .stdout
+                    .take()
+                    .ok_or_else(|| failure("LSP stdout unavailable"))?,
+            ),
+            #[cfg(target_os = "macos")]
+            ProcessOwner::Recorded(_) => {
+                return Err(failure("Direct spawn returned a recorded target").into());
             }
         };
+        let (stderr, path) = stderr.into_parts();
+        Self::from_pipes(child, stdin, stdout, stderr, Some(path), workspace)
+    }
+
+    pub(crate) fn isolated_environment(workspace: &Path) -> ToolResult<Vec<(OsString, OsString)>> {
+        let empty_path = workspace.join("empty-path");
+        let home = workspace.join("empty-home");
+        fs::create_dir_all(&empty_path)?;
+        fs::create_dir_all(&home)?;
+        Ok(vec![
+            (OsString::from("PATH"), empty_path.into_os_string()),
+            (OsString::from("HOME"), home.clone().into_os_string()),
+            (OsString::from("USERPROFILE"), home.into_os_string()),
+        ])
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn spawn_recorded(
+        target: macos::RecordedTarget,
+        stdin: File,
+        stdout: File,
+        stderr: File,
+        workspace: &Path,
+    ) -> ToolResult<Self> {
+        Self::from_pipes(
+            ProcessOwner::Recorded(target),
+            stdin,
+            stdout,
+            stderr,
+            None,
+            workspace.canonicalize()?,
+        )
+    }
+
+    fn from_pipes(
+        mut child: ProcessOwner,
+        stdin: impl Write + Send + 'static,
+        stdout: impl Read + Send + 'static,
+        stderr: File,
+        stderr_path: Option<tempfile::TempPath>,
+        workspace: PathBuf,
+    ) -> ToolResult<Self> {
+        let compiler = workspace.join("unavailable-compiler").join("bend");
+        let compiler_path = compiler
+            .to_str()
+            .ok_or_else(|| failure("compiler path is not UTF-8"))?
+            .to_owned();
+        let settings = json!({"bend2-lsp":{"compilerPath":compiler_path,"compilerArguments":[]}});
+        let (reader, messages) = spawn_reader(stdout)?;
         let (writer, commands) = match spawn_writer(stdin) {
             Ok(writer) => writer,
             Err(error) => {
@@ -267,6 +360,7 @@ impl LspProcess {
             settings,
             compiler_path,
             stderr,
+            _stderr_path: stderr_path,
             messages: Some(messages),
             writes: Some(commands),
             reader: Some(reader),
@@ -277,11 +371,66 @@ impl LspProcess {
             next_id: 1,
             timeout: REQUEST_TIMEOUT,
             shutdown: ShutdownEvidence::default(),
+            cancellation: None,
+            abort_on_failure: true,
         })
     }
 
     pub(crate) fn pid(&self) -> u32 {
         self.child.id()
+    }
+
+    pub(crate) fn set_cancellation_flag(&mut self, cancellation: &'static AtomicBool) {
+        self.cancellation = Some(cancellation);
+    }
+
+    /// The scenario owner stops attach collectors before terminating their
+    /// target. It must call `abort` on failure; Drop remains the final backstop.
+    pub(crate) fn defer_abort_to_owner(&mut self) {
+        self.abort_on_failure = false;
+    }
+
+    fn abort_failed_operation(&mut self) {
+        if self.abort_on_failure {
+            self.abort();
+        }
+    }
+
+    pub(crate) fn check_cancelled(&self) -> ToolResult<()> {
+        if self
+            .cancellation
+            .is_some_and(|flag| flag.load(Ordering::Relaxed))
+        {
+            return Err(failure("Performance scenario cancelled").into());
+        }
+        Ok(())
+    }
+
+    fn receive_cancellable<T>(&self, receiver: &Receiver<T>, deadline: Instant) -> ToolResult<T> {
+        loop {
+            self.check_cancelled()?;
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            // Existing collectors keep their single blocking wait. Only the
+            // shared profile runner opts in to cooperative signal handling.
+            let interval = if self.cancellation.is_some() {
+                remaining.min(Duration::from_millis(100))
+            } else {
+                remaining
+            };
+            match receiver.recv_timeout(interval) {
+                Ok(value) => return Ok(value),
+                Err(mpsc::RecvTimeoutError::Timeout) if Instant::now() < deadline => {}
+                Err(error) => {
+                    let kind = match error {
+                        mpsc::RecvTimeoutError::Timeout => io::ErrorKind::TimedOut,
+                        mpsc::RecvTimeoutError::Disconnected => io::ErrorKind::Other,
+                    };
+                    return Err(
+                        io::Error::new(kind, format!("LSP channel wait failed: {error}")).into(),
+                    );
+                }
+            }
+        }
     }
     pub(crate) fn settings(&self) -> &Value {
         &self.settings
@@ -291,18 +440,22 @@ impl LspProcess {
     }
 
     fn write_frame(&mut self, data: Vec<u8>, deadline: Instant) -> ToolResult<()> {
+        if let Err(error) = self.check_cancelled() {
+            self.abort_failed_operation();
+            return Err(error);
+        }
         let (completed, completion) = mpsc::channel();
         self.writes
             .as_ref()
             .ok_or_else(|| failure("LSP stdin is closed"))?
             .try_send((data, completed))
             .map_err(|error| failure(format!("LSP writer unavailable: {error}")))?;
-        match completion.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        match self.receive_cancellable(&completion, deadline) {
             Ok(Ok(())) => Ok(()),
             Ok(Err(error)) => Err(failure(format!("LSP write failed: {error}")).into()),
-            Err(_) => {
-                self.abort();
-                Err(failure("timed out writing an LSP frame").into())
+            Err(error) => {
+                self.abort_failed_operation();
+                Err(error)
             }
         }
     }
@@ -357,6 +510,10 @@ impl LspProcess {
     }
 
     pub(crate) fn response(&mut self, pending: PendingRequest) -> ToolResult<(Value, u64)> {
+        if let Err(error) = self.check_cancelled() {
+            self.abort_failed_operation();
+            return Err(error);
+        }
         while !self.responses.contains_key(&pending.id) {
             self.receive(pending.deadline)?;
         }
@@ -366,8 +523,12 @@ impl LspProcess {
             .ok_or_else(|| failure("missing buffered response"))?;
         self.pending.remove(&pending.id);
         if received > pending.deadline {
-            self.abort();
-            return Err(failure("LSP response arrived after request deadline").into());
+            self.abort_failed_operation();
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "LSP response arrived after request deadline",
+            )
+            .into());
         }
         let elapsed = u64::try_from(
             received
@@ -500,13 +661,7 @@ impl LspProcess {
             .messages
             .as_ref()
             .ok_or_else(|| failure("LSP stdout is closed"))?;
-        let result = receiver
-            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .map_err(|error| {
-                failure(format!(
-                    "timed out or disconnected waiting for LSP output: {error}"
-                ))
-            })?;
+        let result = self.receive_cancellable(receiver, deadline)?;
         result.map_err(|error| failure(format!("LSP transport failed: {error}")).into())
     }
 
@@ -517,7 +672,7 @@ impl LspProcess {
             Err(error) => Err(error),
         };
         if result.is_err() {
-            self.abort();
+            self.abort_failed_operation();
         }
         result
     }
@@ -595,7 +750,7 @@ impl LspProcess {
         };
         let outcome = self.shutdown_and_exit(finalization_timeout);
         if outcome.is_err() {
-            self.abort();
+            self.abort_failed_operation();
         }
         outcome
     }
@@ -621,6 +776,7 @@ impl LspProcess {
 
     fn drain_until_exit(&mut self, deadline: Instant) -> ToolResult<()> {
         loop {
+            self.check_cancelled()?;
             if let Some(status) = self.child.try_wait()? {
                 self.shutdown.child_exit_code = status.code();
                 self.shutdown.child_exit_success = Some(status.success());
@@ -673,7 +829,7 @@ impl LspProcess {
     }
 
     pub(crate) fn stderr_tail(&mut self) -> ToolResult<String> {
-        let stderr = self.stderr.as_file_mut();
+        let stderr = &mut self.stderr;
         let length = stderr.seek(SeekFrom::End(0))?;
         stderr.seek(SeekFrom::Start(length.saturating_sub(8192)))?;
         let mut bytes = vec![0; usize::try_from(length.min(8192))?];
@@ -681,7 +837,7 @@ impl LspProcess {
         Ok(String::from_utf8_lossy(&bytes).trim().to_owned())
     }
 
-    fn abort(&mut self) {
+    pub(crate) fn abort(&mut self) {
         if self.child.try_wait().ok().flatten().is_none() {
             self.shutdown.forced_termination = true;
             let _ = self.child.kill();

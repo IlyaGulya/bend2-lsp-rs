@@ -44,9 +44,11 @@ assertions catch prolonged blocking, not small latency regressions. The separate
 paired latency reports below measure the actual LSP process, but not editor
 rendering or real Bend compiler execution; real Bend CLI timings are measured
 separately. Callgrind continues to measure analysis functions, not the full process.
-The compare job preserves its raw baseline/candidate profiles, summaries, and
-baseline manifest for 14 days, including failed comparisons. This artifact
-retention runs after the unchanged gate and does not turn a failure into success.
+The Callgrind measurement job preserves its raw baseline/candidate profiles,
+summaries, baseline manifest, producer exit codes, and unchanged verdict for
+14 days, including failed collection and numerical regressions. Collection
+success and performance admission are separate checks; artifact retention and
+human acceptance never rewrite the producer's outcome or historical red runs.
 
 The bench uses the fixed Bend fixture in `benches/fixtures/analyzer_input.bend`
 for analysis queries and generated workspace/folding fixtures for graph
@@ -60,6 +62,83 @@ The query uses existing binding identities and delimiter contexts to inspect onl
 the indexed local type-token span; it does not reparse function headers or allocate
 annotation tables during snapshot construction. Existing snapshot and binding
 layouts, benchmark metrics, and regression limits remain unchanged.
+
+## Ordinary measurement and exact-run admission
+
+The [`performance` workflow](../.github/workflows/performance.yml) has separate
+**Callgrind measurement** and **performance admission** checks. Measurement
+success means that the ordinary comparison was collected and validated, not
+that every policy limit passed. Admission means the candidate is permitted by
+ordinary policy or by an explicit owner-reviewed exception for that exact run.
+The baseline source, benchmark fixtures, metrics, 2% instruction limit,
+cache-event allowances, and no-retry policy are unchanged.
+
+The original `compare` job identity and `Compare pull request with main` step
+are retained in the source-bound verdict and artifact manifest. The candidate
+step keeps its real outcome, benchmark exit code, and policy exit code even
+when a numerical regression is allowed to proceed to validation. After
+`workflow finalize` inventories and hashes the retained inputs, `bend2-perf
+admission measurement` validates the existing verdict through the authoritative
+policy validator, without running a second comparison or implementing new
+limits. It verifies the base SHA, merge-candidate SHA, PR head SHA, and workflow
+run ID, confined hash-bound inputs, and producer exits (benchmark 0/3 and policy
+0/1) against the metrics and recorded outcomes.
+
+Only a complete, consistent result is classified as `passed` or `regression`;
+both are valid measurements. Missing, malformed, source-mismatched or
+inconsistent evidence, unexpected producer exits, collector errors, and
+inventory failures remain red and cannot request an exception. The job summary
+shows the exact source/run/attempt identities, actual producer exits, and each
+failed workload's authoritative metric counts. Raw profiles, summaries, verdict,
+manifest, and admission classification remain downloadable.
+
+A valid `passed` result needs no exception. For `regression`, measurement first
+reads the public GitHub REST definition of the `performance-exception`
+environment without a token and validates it with `bend2-perf admission
+environment`: its name must match, required reviewers must be exactly one
+`User` whose numeric ID is the repository owner's, and administrator bypass
+must be disabled. A missing environment, rejected/timed-out REST request,
+unprotected environment, extra/wrong reviewer, or invalid definition fails
+measurement; it is not a numerical-regression classification eligible for review.
+Owner self-review is allowed because the owner is often the workflow actor,
+but a separate explicit environment approval is still required.
+
+Before scheduling review, measurement also reads this workflow run's public
+approval history and records the count of `approved` entries matching both the
+owner's numeric user ID and the exact validated environment ID. Malformed
+history or a failed API request fails measurement. This pre-review count and
+environment ID are published only with the fully validated classification.
+
+Only then is the protected `review-exception` job scheduled. GitHub binds its
+manual approval to the workflow run and commit. The job has no token
+permissions, secrets, checkout, artifact download, or PR-code execution.
+It reads the same run's public approval history and requires the matching
+approved count to have increased before logging accepted source/run metadata.
+Approval history has no attempt/timestamp binding, so counting fresh entries
+rather than trusting any existing entry rejects stale approvals on reruns.
+Both review and final admission require the saved measurement attempt to match
+the current workflow attempt. Partial reruns reusing earlier measurement or
+review results fail closed; rerun all jobs to collect fresh admission evidence.
+Entry order is irrelevant. A removed reviewer rule, auto-created unprotected
+environment, bypassed review, different environment/reviewer, missing fresh
+approval, or malformed/API-failed history cannot be mistaken for acceptance:
+protected-job success alone is not proof of owner approval.
+The owner reviews the bounded acceptance report required by the
+[ADR](adr-tiny-performance-gates.md) before approving. Until that approval,
+regression admission remains pending, not green.
+
+The token-free `performance admission` job always evaluates the dependencies:
+it passes only for successful validated measurement plus `passed` with no
+review, or `regression` with successful protected review. Rejection,
+cancellation, missing results, and all other combinations fail admission.
+Native latency and quality checks remain independent requirements. Branch
+protection must require `performance admission` rather than interpret a green
+measurement check as policy permission; environment protections must stay
+configured as above.
+
+No approval is universal or inferred from an earlier acceptance. In particular,
+the accepted ordinary cache exception for PR #42 does not authorize PR #43 or
+any later candidate/run. Existing historical failed compares remain failed.
 
 ## Report-only CI calibration
 
@@ -271,13 +350,26 @@ JSON checkpoints use buffered writes to a temporary sibling followed by atomic
 replacement. Interrupted serialization preserves the preceding valid checkpoint;
 an incomplete collection still cannot become a successful comparison.
 
-Linux RSS observations retain timestamped samples every 20 ms, cold sampled
-peaks, retained state, and observations immediately and 100 ms after workspace
-root removal. Candidate workspace symbols must become empty after removal.
-Sampled peaks are lower bounds; kernel high-water marks cover the process
-lifetime. RSS may remain high after snapshots are freed because the allocator
-retains pages. macOS/Windows RSS is unavailable, explicitly null with an
-observation error, and is not inferred from DHAT allocation totals.
+Process resident-memory observations retain timestamped samples every 20 ms,
+cold sampled peaks, retained state, and observations immediately and 100 ms
+after workspace root removal. Candidate workspace symbols must become empty
+after removal. Sampled peaks are lower bounds; exposed kernel high-water marks
+cover the process lifetime. Resident memory may remain high after snapshots are
+freed because the allocator retains pages.
+
+- Linux reads `VmRSS` and `VmHWM` from the target PID's `/proc/<pid>/status`,
+  with separate anonymous/file/shared resident and swap observations.
+- macOS uses safe `libproc` wrappers for `proc_pid_rusage`: resident size is
+  separate from physical footprint and wired memory. Its resident high-water
+  mark is explicitly unavailable, not replaced with a footprint peak.
+- Windows uses safe `winsafe` wrappers: working set and peak working set are
+  separate from private commit and paged/nonpaged pool usage. Private commit is
+  not RSS or pagefile occupancy.
+
+Native field definitions and byte units travel with the report metadata.
+Missing required resident samples/checkpoints make the report incomplete;
+optional unavailable metrics stay null. No values are inferred from DHAT totals,
+and no numerical comparisons are made across native targets.
 
 Allocation profiles use separately built optimized, symbolized `dhat-heap`
 executables for the real LSP lifecycle and the existing line-index/folding
@@ -309,6 +401,246 @@ The canonical Linux/x86_64 Callgrind gate and the calibration workflow remain
 unchanged. Callgrind is unavailable on the supported macOS/Windows runners;
 native timing/allocation reports do not replace its instruction/cache metrics.
 Workflow/enforcement changes require the `policy-approved` pull-request label.
+
+
+### Unified hosted CLI and reports
+
+The workspace Cargo alias runs the unpublished Rust tool:
+
+```sh
+cargo perf doctor
+cargo perf compare --base main --candidate HEAD
+cargo perf profile discovery-10000 --cpu
+cargo perf profile discovery-10000 --heap
+cargo perf profile discovery-10000 --native --native-kind cpu
+cargo perf open <run-id-or-downloaded-directory>
+```
+
+`doctor` inspects prerequisites without elevation, installation, authentication
+changes, or measurements. Its default checks local Rust/Cargo, `gh`, repository
+identity and existing authentication. Optional `--backend cpu|heap|native`
+inspects that local diagnostic tool; those tools are not required locally to
+dispatch hosted collection.
+
+`compare`/`profile` resolve exact pushed source SHAs. `HEAD` means the committed
+head, not uncommitted edits. The workflow definition defaults to the repository's
+default branch; `--workflow-ref` can select a published branch or tag after the
+workflow is registered on the default branch. A unique request ID selects the
+exact run; the tool never downloads an arbitrary latest run. `--target` defaults
+to all six triples or selects one explicitly. Existing output directories are
+never overwritten.
+
+The diagnostic workflow supports `compare`, `cpu`, `heap`, `native`, and `full`.
+Ordinary PRs retain clean native latency/discovery/process-memory collection and
+the unchanged canonical Linux x86-64 Callgrind job. Infrastructure-source changes
+add six-target backend verification and native tooling contract tests.
+The weekly/manual full workflow additionally retains every original thirteen
+DHAT workload and profiles all four shared scenarios: `discovery-10`,
+`discovery-1000`, `discovery-10000`, and `latency`. CPU, allocation, and native
+traces use separate processes, never the clean latency process.
+
+CPU profiling pins samply 0.13.1 to source revision
+`da75c28f367454c621e690eeb4e44ec2ebb29a78`. Windows ARM64 additionally applies
+`scripts/patches/samply-windows-arm64.patch` (SHA256
+`37bc36692372474829e099ce5faad0ca765184c76c01b31544fae5bd7365de51`) to join
+matching SampleProf records with their kernel/user StackWalk halves without
+discarding CPU deltas. Other platforms use the unmodified pinned source.
+The installed ARM64 sampler sidecar binds the upstream revision, patch digest,
+target, and executable SHA256; doctor and capture validate that identity and
+retain the modified-source provenance.
+Native diagnostics use Linux perf, macOS Xcode Instruments, or Windows WPR with the pinned Microsoft
+Windows Performance Toolkit. Native heap tracing is supported on macOS/Windows;
+Linux native heap requests reject explicitly and point to `--heap` DHAT.
+Missing permissions, symbols, target samples/allocation records, or complete
+trace data fail collection rather than falling back to metadata-only success.
+WPR's successful save exit status is not sufficient when its stop output reports
+dropped events: the trace is retained, but collection fails as incomplete.
+The ETL decoder also rejects header loss counters and lost-event notifications.
+Windows ETL decoding uses the repository's streaming `bend2-etl-reader`, built
+with Microsoft TraceEvent 3.2.8, .NET SDK 10.0.401 and runtime 10.0.12.
+The SDK archive is SHA512-pinned; NuGet dependencies use a checksum-bound lock.
+Doctor validates the executable, target, SDK and all six build-input hashes.
+The hosted bootstrap disables persistent build servers so the temporary SDK's
+DLLs are released before cleanup; cleanup failures still fail the job.
+The reader processes the entire ETL to EOF and emits only header/lifecycle,
+CPU sample and target-PID heap allocation records for the existing validator.
+It does not serialize the whole recording through `tracerpt`, stop after the
+first target record, or invent zero loss counters. Raw ETL and symbols remain
+in the artifact; the existing 300-second decoder deadline remains unchanged.
+Windows sampled CPU attribution uses the kernel event-class GUID and the sampled
+thread's lifecycle ownership, not the event reporter's PID. Raw lifecycle
+payloads require the documented version, pointer width, and complete payload.
+Installed native CPU/Heap profiles are exported before configuration; provider,
+keyword, stack, and file-mode semantics are preserved. Collectors use 1 MiB
+buffers: 256 system; CPU profiles use 64 ordinary-event buffers, while Heap
+profiles use 256 ordinary-event and 1024 heap-event buffers. Lossless stack caches
+remain 16 MiB per system/ordinary collector and 64 MiB for the heap collector.
+These are explicit tuning choices, not Microsoft recommendations; hosted capture
+must still demonstrate zero event loss and complete target-process evidence.
+Source/configured profiles and collector logs
+remain in the artifact ([WPR collector definitions](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/collector-definitions),
+[stack caching](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/stackcaching)).
+
+Before stopping WPR, capture its owned collector status and `xperf -loggers`
+output. These runtime counters distinguish rejected events from lost log buffers
+and show the actual pool sizes; configured counts alone cannot attribute loss.
+The stop and decoder loss checks remain fatal. Counter-command failures are
+reported only after the owned recorder has been stopped, so evidence collection
+cannot strand an active WPR session.
+
+The ARM64 WPR failure in
+[run 38155518804](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38155518804)
+reported 6,412,765 lost events and zero lost buffers; its startup counters do not
+identify the rejecting logger. The separately sourced
+[run 38204311856](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38204311856)
+completed 36,676,901 allocation records with byte-identical WPR configuration,
+the requested effective buffer pools, and zero pre-stop and final loss. This is
+successful capture evidence, not a causal repair of the original loss. No pool,
+provider, stack or deadline change is justified by those successful counters.
+
+The next preserved ARM64 failure in
+[run 38213507627](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38213507627)
+identifies both rejecting collectors before stop: 22,855,441 Event and 31,065,836
+Heap events, totaling 53,921,277. System loss and every log-buffer loss counter
+are zero; stop adds no lost events. All original fixed pools were honored.
+Late free buffers cannot establish whether earlier event-rate peaks exhausted
+the pools. Only the Heap profile's two rejecting pools are increased above;
+system and CPU pools, providers, stacks, caches, workload and deadlines stay
+unchanged. Preallocated buffers rise from 832 to 1536 MiB, with the same 96 MiB
+of stack caches, on the standard 16 GB Windows runner. This is a bounded repair
+candidate, following
+[ETW buffer-tuning guidance](https://learn.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-event_trace_properties),
+not proof of the exact transient cause or of sufficient peak capacity. Acceptance
+requires a new exact-source capture with honored pools, zero owned and final
+loss, complete payload, and clean target shutdown. A failed capture does not
+authorize an unchanged rerun or an automatic second size increase.
+
+Decoder command arguments use ordinary Win32 drive/UNC paths; canonical paths
+remain the artifact identity.
+Windows heap tracing is prepared before process creation and restores the prior
+IFEO state on normal failure or cooperative cancellation. Hard process kills
+cannot promise in-process cleanup.
+
+The macOS diagnostic workflow explicitly authorizes headless `samply` capture
+through `sudo -n`; only the sampler and its owned cleanup commands are elevated.
+`BEND_PERF_MACOS_SAMPLY_ELEVATED=true` is honored only in hosted CI without a
+controlling terminal. Missing authorization fails rather than opening a dialog
+or silently retrying with privileges. `doctor` and local trace viewing do not
+elevate. Locally signed debugger-entitled tools otherwise require an administrator
+authorization dialog ([Apple debugger entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.debugger)).
+Sampler finalization targets the uniquely identified executable inside the
+owned macOS process group, not a possible sudo monitor. Windows uses a
+collector-console CTRL_BREAK event so inherited CTRL_C-ignore does not lose
+the stop request ([console control events](https://learn.microsoft.com/en-us/windows/console/generateconsolectrlevent)).
+Instruments waits for a notification-registration barrier before starting its
+recorder, then requires the actual tracing-started notification and a live
+recorder. Linux ARM64 software-clock DWARF capture requests the complete
+baseline register set, excluding hardware-only SVE VG.
+
+Before creating the cold LSP, native Instruments preparation starts a one-second
+Time Profiler run on `/usr/bin/true` to initialize Apple's tracing and
+authorization services, under the existing 300-second preparation-command bound.
+Its trace and command logs are preparation evidence, not scenario samples.
+The actual LSP capture still requires its own tracing-started notification
+within 60 seconds.
+
+Native Allocations captures set `MallocNanoZone=0` only in their LSP child and
+retain that override in `profiler.target_environment`. Apple's
+[libmalloc source](https://github.com/apple-oss-distributions/libmalloc/blob/libmalloc-715.140.5/src/nanov2_malloc.c)
+shows that its in-process nano-zone enumerator allocates from the helper zone;
+the retained Intel attach stall contains this path alongside the target's tiny
+allocator. Disabling nano removes that allocating enumeration path without
+changing production binaries or weakening allocation-record validation.
+This is a source-supported tracing compatibility configuration, not an
+Apple-documented public API. Small allocations use the scalable allocator
+instead, so these native heap numbers do not describe the default allocator.
+Clean process-memory/latency and DHAT runs do not receive this override.
+
+macOS Allocations launches the retained, symbolized server directly under
+Instruments rather than injecting into a server already discovering its workspace.
+Only that separately built binary enables the default-off `native-trace-stdio`
+feature. Its first startup action opens precreated FIFO endpoints in the owned
+`BEND2_LSP_NATIVE_STDIO_DIR`; it does not spawn or exec a wrapper. Standard output
+opens before standard input, and both remain blocked until the owner observes the
+registered tracing-started notification. Protocol traffic uses those FIFOs;
+diagnostics use a separate regular file. The directory and endpoint checks reject
+symlinks, wrong kinds and replaced inodes. Ordinary server, timing, CPU and DHAT
+builds do not enable this feature.
+
+The owner registers a kernel process-exit observer before pairing the pipes.
+Clean shutdown, nonzero exit and signal termination are attributed to the actual
+server PID independently of the recorder's exit status; the recorder owns target
+reaping. No held writer fabricates stdout EOF. Successful launched heap captures
+finalize the recorder after protocol shutdown and require an exact launched target
+and real Allocations payload. Raw traces, full recorded stacks, retained symbols
+and the existing request, readiness and finalization deadlines remain unchanged.
+
+An attached scenario owner finalizes its collector before terminating a failed
+LSP target; ordinary transport clients retain immediate failure cleanup.
+Responses received after their request deadline remain timeout failures even
+when already buffered, so they follow the same failure-diagnostic path.
+
+For timed-out macOS DHAT and native heap requests, preserve a one-second
+`sample` capture of the still-live target before cleanup, with a ten-second
+command bound. Sampling does not retry the request, increase its thirty-second
+deadline, or turn a failed profile into a successful measurement. A missing
+historical stack is not evidence of either profiler overhead or a server defect.
+
+Resolve the actual profile kind from the selected backend: `--heap` means heap,
+`--cpu` means CPU, and `--native-kind` applies only to native tracing. The session,
+manifest and backend preflight use the same kind. The preserved Intel DHAT
+timeout in run 38225001754 had no live sample because the session incorrectly
+used the native-kind default `cpu` despite its heap manifest. Correcting dispatch
+restores the timeout diagnostic; it does not explain the thirty-second cold
+workspace-symbol timeout or authorize a retry of the failed source.
+
+Each target's `artifact-manifest.json` records expected collectors, source and
+tooling SHAs, target/request identity, statuses, file sizes and SHA256 hashes.
+Downloads are validated with confined relative paths. Interrupted/failed runs
+keep their raw data and explicit failure state. The report writes `index.html`,
+`unified-report.json`, and `summary.md`; an incomplete/failed/regressed report
+still produces diagnostic files before returning nonzero. CI uses
+`dashboard <root> --target-only` for a single uploaded bundle; that mode explicitly
+does not claim complete aggregate matrix coverage.
+The unified JSON retains summary measurements and links to validated raw
+discovery evidence rather than embedding a second copy of its full payload.
+Raw files, checksums, pairing checks, and completeness validation are unchanged.
+CI records the report command before inventory checksums are finalized, so
+rendering does not invalidate the command log. Job summaries point to the
+uploaded full report instead of embedding it beyond GitHub's 1 MiB limit.
+HTML/Markdown show generated discovery inputs through the full verified JSON
+artifact catalog rather than creating thousands of source-file links in the
+page. Every source path/hash and original file remains retained. Repeated
+identical scope warnings appear once visually; per-round evidence is unchanged.
+HTML renders each round's resident samples as its timeline instead of embedding
+the same arrays again in JSON details. Warm detail panels contain request
+distributions and initial completion, not another copy of memory observations.
+Full samples, manifest inventories and expected paths remain in the verified
+JSON catalog and original reports; no collection or validation input is removed.
+
+The canonical Callgrind evaluator retains `callgrind-policy.json` from the same
+authoritative comparison, including workload metrics, failed gates, source/run
+provenance, and input identities. Reports require this verified verdict and
+actual command exit codes to distinguish numerical regression from collection
+failure. A failed GitHub workflow is attributed to regression only when retained
+job/step conclusions establish that its only failed step is that source-bound
+comparison. In the split admission workflow, a valid measurement can succeed
+while that producer step retains its failed outcome and regression verdict;
+admission is a distinct decision, not evidence that the metric passed.
+Historical bundles without authoritative verdicts or attribution evidence
+remain conservatively incomplete/failed; no pass is inferred.
+Retained per-metric outcomes must also agree with the same authoritative
+`within_limit` function used by the producer. Hash-bound numeric inputs and
+internally consistent flags alone cannot establish a passing or regressed gate;
+an outcome contradicting the unchanged limits is rejected as invalid evidence.
+
+`cargo perf open <downloaded-directory> --cpu --scenario <scenario> --target <triple>`
+opens a validated CPU trace through `samply load`, with its packaged binary/debug
+symbol directories. This local command is viewing, not measurement; it requires
+the pinned viewer installed and does not install it automatically. Native
+`.trace`/`.etl`/`perf.data` artifacts keep their original viewers and formats.
+Canonical Callgrind verdicts remain separate from collection success; a
+diagnostic comparison without Callgrind evidence says so, not that the gate passed.
 
 ## Crate, runner, and build setup
 

@@ -210,8 +210,10 @@ fn write_failure_contracts() -> ToolResult<()> {
     let (_workspace, mut client) = fixture_process("blocked")?;
     fixture_status(&client, "not-reading")?;
     client.timeout = Duration::from_millis(100);
-    let error = client.notify("large", json!({"text":"x".repeat(8 * 1024 * 1024)})).err().ok_or("blocked writer unexpectedly completed")?;
-    assert!(error.to_string().contains("timed out writing"));
+    let started = Instant::now();
+    assert!(client.notify("large", json!({"text":"x".repeat(8 * 1024 * 1024)})).is_err());
+    assert!(started.elapsed() >= client.timeout);
+    assert!(started.elapsed() < Duration::from_secs(5));
     assert!(client.child.try_wait()?.is_some());
     assert!(client.reader.is_none() && client.writer.is_none());
     assert!(client.writes.is_none());
@@ -239,6 +241,20 @@ fn lifecycle_contracts() -> ToolResult<()> {
     fixture_status(&client, "not-reading")?;
     client.timeout = Duration::from_millis(100);
     assert!(client.request("probe", Value::Null, None).is_err());
+    assert!(client.child.try_wait()?.is_some());
+    assert!(client.reader.is_none() && client.writer.is_none());
+    Ok(())
+}
+
+fn cancellation_contract() -> ToolResult<()> {
+    static CANCEL_REQUEST: AtomicBool = AtomicBool::new(false);
+    let (_workspace, mut client) = fixture_process("blocked")?;
+    fixture_status(&client, "not-reading")?;
+    client.set_cancellation_flag(&CANCEL_REQUEST);
+    CANCEL_REQUEST.store(true, Ordering::Relaxed);
+    let started = Instant::now();
+    assert!(client.request("probe", Value::Null, None).is_err());
+    assert!(started.elapsed() < Duration::from_secs(5));
     assert!(client.child.try_wait()?.is_some());
     assert!(client.reader.is_none() && client.writer.is_none());
     Ok(())
@@ -321,11 +337,139 @@ fn finalization_contracts() -> ToolResult<()> {
     Ok(())
 }
 
+fn owner_cleanup_contracts() -> ToolResult<()> {
+    for operation in ["request", "write", "cancellation", "finalization"] {
+        static CANCEL_OWNED_REQUEST: AtomicBool = AtomicBool::new(false);
+        let fixture = if operation == "finalization" { "finalization-blocked" } else { "blocked" };
+        let (_workspace, mut client) = fixture_process(fixture)?;
+        fixture_status(&client, if operation == "finalization" { "ready-to-shutdown" } else { "not-reading" })?;
+        client.defer_abort_to_owner();
+        client.timeout = Duration::from_millis(100);
+        let started = Instant::now();
+        let outcome = match operation {
+            "write" => client.notify("large", json!({"text":"x".repeat(8 * 1024 * 1024)})),
+            "cancellation" => {
+                client.set_cancellation_flag(&CANCEL_OWNED_REQUEST);
+                CANCEL_OWNED_REQUEST.store(true, Ordering::Relaxed);
+                client.request("probe", Value::Null, None).map(|_| ())
+            }
+            "finalization" => client.finish_profiled(Duration::from_millis(100)),
+            _ => client.request("probe", Value::Null, None).map(|_| ()),
+        };
+        let error = outcome.err().ok_or_else(|| format!("owned operation unexpectedly succeeded: {operation}"))?;
+        if operation == "request" || operation == "write" {
+            assert_eq!(error.downcast_ref::<io::Error>().map(io::Error::kind), Some(io::ErrorKind::TimedOut));
+        }
+        assert!(started.elapsed() < Duration::from_secs(5), "owned operation did not return within its bound: {operation}");
+        // An attach collector's owner must get the first chance to finalize
+        // against its live target, rather than a process already reaped here.
+        assert!(client.child.try_wait()?.is_none(), "target died before its collector could stop: {operation}");
+        assert!(!client.shutdown_evidence().forced_termination);
+        client.abort();
+        assert!(client.child.try_wait()?.is_some(), "owner did not reap target: {operation}");
+        assert!(client.reader.is_none() && client.writer.is_none());
+        assert!(client.messages.is_none() && client.writes.is_none());
+    }
+    Ok(())
+}
+
+fn late_response_contract() -> ToolResult<()> {
+    for owned in [false, true] {
+        let (_workspace, mut client) = fixture_process("out-of-order")?;
+        if owned { client.defer_abort_to_owner(); }
+        let first = client.prepare_request("first", Value::Null)?;
+        let second = client.prepare_request("second", Value::Null)?;
+        let first = client.send_request(first, None)?;
+        let second = client.send_request(second, None)?;
+        assert_eq!(client.response(second)?.0, "second");
+        client.receive(Instant::now() + Duration::from_secs(10))?;
+        // A real response is buffered; require rejection at the exact expired
+        // request boundary rather than depending on scheduler timing.
+        let expired = PendingRequest { deadline: first.started, ..first };
+        let error = client.response(expired).err().ok_or("late response accepted")?;
+        assert_eq!(error.downcast_ref::<io::Error>().map(io::Error::kind), Some(io::ErrorKind::TimedOut));
+        if owned {
+            assert!(client.child.try_wait()?.is_none());
+            assert!(!client.shutdown_evidence().forced_termination);
+            client.abort();
+        }
+        assert!(client.child.try_wait()?.is_some());
+        assert!(client.reader.is_none() && client.writer.is_none());
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn recorded_target_contracts() -> ToolResult<()> {
+    use nix::{sys::stat::Mode, unistd::mkfifo};
+    use std::os::unix::process::ExitStatusExt as _;
+    for scenario in ["finalization", "nonzero", "blocked"] {
+        let workspace = tempfile::tempdir()?;
+        let executable = workspace.path().join("owned-native-fixture");
+        fs::copy(std::env::current_exe()?, &executable)?;
+        for name in ["stdin.fifo", "stdout.fifo"] {
+            mkfifo(&workspace.path().join(name), Mode::S_IRUSR | Mode::S_IWUSR)?;
+        }
+        let stderr_path = workspace.path().join("stderr.log");
+        fs::write(&stderr_path, b"")?;
+        let mut reaper = ProcessOwner::Direct(Command::new(&executable)
+            .env("BEND_PERF_TRANSPORT_FIXTURE", scenario)
+            .env("BEND2_LSP_NATIVE_STDIO_DIR", workspace.path())
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut target = loop {
+            if let Some(target) = macos::RecordedTarget::discover(&executable)? { break target; }
+            if reaper.try_wait()?.is_some() { return Err("native fixture exited before watcher registration".into()); }
+            if Instant::now() >= deadline { return Err("native fixture target discovery timed out".into()); }
+            thread::sleep(Duration::from_millis(5));
+        };
+        assert_eq!(target.id(), reaper.id());
+        let (stdin, stdout) = macos::open_pipes(workspace.path(), &mut target, deadline, || Ok(()))?;
+        let mut client = LspProcess::spawn_recorded(target, stdin, stdout, File::open(&stderr_path)?, workspace.path())?;
+        client.timeout = Duration::from_secs(10);
+        match scenario {
+            "finalization" => {
+                fixture_status(&client, "ready-to-shutdown")?;
+                client.finish_profiled(Duration::from_secs(10))?;
+                assert_eq!(client.shutdown_evidence().child_exit_code, Some(0));
+                assert_eq!(client.shutdown_evidence().child_exit_success, Some(true));
+                assert!(client.shutdown_evidence().stdout_eof);
+                assert!(!client.shutdown_evidence().forced_termination);
+                assert!(client.stderr_tail()?.ends_with("finalization-complete"));
+                assert!(reaper.wait()?.success());
+            }
+            "nonzero" => {
+                assert!(client.finish().is_err());
+                assert_eq!(client.shutdown_evidence().child_exit_code, Some(1));
+                assert_eq!(client.shutdown_evidence().child_exit_success, Some(false));
+                assert_eq!(reaper.wait()?.code(), Some(1));
+            }
+            "blocked" => {
+                fixture_status(&client, "not-reading")?;
+                client.abort();
+                assert!(client.shutdown_evidence().forced_termination);
+                assert_eq!(client.shutdown_evidence().child_exit_code, None);
+                assert_eq!(client.shutdown_evidence().child_exit_success, Some(false));
+                assert_eq!(reaper.wait()?.signal(), Some(9));
+                assert!(client.reader.is_none() && client.writer.is_none());
+            }
+            _ => return Err("unhandled native fixture scenario".into()),
+        }
+        macos::remove_pipes(workspace.path())?;
+    }
+    Ok(())
+}
+
 pub(crate) fn contract_regressions() -> ToolResult<()> {
     large_and_pipeline_contracts()?;
     write_failure_contracts()?;
     lifecycle_contracts()?;
+    cancellation_contract()?;
     finalization_contracts()?;
+    owner_cleanup_contracts()?;
+    late_response_contract()?;
+    #[cfg(target_os = "macos")]
+    recorded_target_contracts()?;
     protocol_failure_contracts()?;
     let (_workspace, mut client) = fixture_process("stderr")?;
     assert_eq!(client.request("probe", Value::Null, None)?.0, true);

@@ -1,0 +1,50 @@
+name: perf-full
+run-name: perf-full / ${{ github.run_id }}-${{ github.run_attempt }}
+
+on:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  source:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      base_sha: ${{ steps.revisions.outputs.base_sha }}
+      candidate_sha: ${{ steps.revisions.outputs.candidate_sha }}
+      request_id: ${{ steps.revisions.outputs.request_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind periodic profiles to exact published source revisions
+        id: revisions
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          {
+            printf 'candidate_sha=%s\n' "$EXPECTED_SHA"
+            printf 'base_sha=%s\n' "$(git rev-parse HEAD^)"
+            printf 'request_id=full-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+          } >> "$GITHUB_OUTPUT"
+
+  full:
+    permissions:
+      contents: read
+    needs: source
+    uses: $/.github/workflows/perf-diagnostics.yml
+    with:
+      request_id: ${{ needs.source.outputs.request_id }}
+      mode: full
+      base_sha: ${{ needs.source.outputs.base_sha }}
+      candidate_sha: ${{ needs.source.outputs.candidate_sha }}
+      scenario: discovery-10000
+      target: all
