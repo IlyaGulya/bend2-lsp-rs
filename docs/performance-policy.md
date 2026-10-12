@@ -486,6 +486,16 @@ The stop and decoder loss checks remain fatal. Counter-command failures are
 reported only after the owned recorder has been stopped, so evidence collection
 cannot strand an active WPR session.
 
+The ARM64 WPR failure in
+[run 38155518804](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38155518804)
+reported 6,412,765 lost events and zero lost buffers; its startup counters do not
+identify the rejecting logger. The separately sourced
+[run 38204311856](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38204311856)
+completed 36,676,901 allocation records with byte-identical WPR configuration,
+the requested effective buffer pools, and zero pre-stop and final loss. This is
+successful capture evidence, not a causal repair of the original loss. No pool,
+provider, stack or deadline change is justified by those successful counters.
+
 Decoder command arguments use ordinary Win32 drive/UNC paths; canonical paths
 remain the artifact identity.
 Windows heap tracing is prepared before process creation and restores the prior
@@ -526,6 +536,25 @@ This is a source-supported tracing compatibility configuration, not an
 Apple-documented public API. Small allocations use the scalable allocator
 instead, so these native heap numbers do not describe the default allocator.
 Clean process-memory/latency and DHAT runs do not receive this override.
+
+macOS Allocations launches the retained, symbolized server directly under
+Instruments rather than injecting into a server already discovering its workspace.
+Only that separately built binary enables the default-off `native-trace-stdio`
+feature. Its first startup action opens precreated FIFO endpoints in the owned
+`BEND2_LSP_NATIVE_STDIO_DIR`; it does not spawn or exec a wrapper. Standard output
+opens before standard input, and both remain blocked until the owner observes the
+registered tracing-started notification. Protocol traffic uses those FIFOs;
+diagnostics use a separate regular file. The directory and endpoint checks reject
+symlinks, wrong kinds and replaced inodes. Ordinary server, timing, CPU and DHAT
+builds do not enable this feature.
+
+The owner registers a kernel process-exit observer before pairing the pipes.
+Clean shutdown, nonzero exit and signal termination are attributed to the actual
+server PID independently of the recorder's exit status; the recorder owns target
+reaping. No held writer fabricates stdout EOF. Successful launched heap captures
+finalize the recorder after protocol shutdown and require an exact launched target
+and real Allocations payload. Raw traces, full recorded stacks, retained symbols
+and the existing request, readiness and finalization deadlines remain unchanged.
 
 An attached scenario owner finalizes its collector before terminating a failed
 LSP target; ordinary transport clients retain immediate failure cleanup.

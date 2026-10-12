@@ -120,6 +120,7 @@ dependencies = [
  "dhat",
  "iai-callgrind",
  "ignore",
+ "nix",
  "serde_json",
  "tempfile",
  "tokio",

@@ -100,6 +100,10 @@ impl FromStr for Scenario {
 /// `started` runs before initialize. Attach collectors can stop while their
 /// target is alive; in-process heap collectors finalize after target shutdown.
 pub(crate) trait ScenarioSession {
+    fn spawn_target(&mut self, binary: &Path, workspace: &Path) -> ToolResult<LspProcess> {
+        LspProcess::spawn(binary, workspace, &self.child_environment())
+    }
+
     fn started(&mut self, pid: u32) -> ToolResult<()>;
     fn phase(&mut self, name: &str) -> ToolResult<()>;
     fn finished(&mut self) -> ToolResult<()>;
@@ -669,11 +673,7 @@ pub(crate) fn execute(
     let outcome = (|| -> ToolResult<()> {
         record_phase(&mut result, started, "process_spawn.before")?;
         check_cancelled()?;
-        owner.client = Some(LspProcess::spawn(
-            &binary,
-            &workspace,
-            &owner.session.child_environment(),
-        )?);
+        owner.client = Some(owner.session.spawn_target(&binary, &workspace)?);
         record_phase(&mut result, started, "process_spawn.after")?;
         let client = owner.client.as_mut().ok_or("Missing spawned LSP")?;
         client.defer_abort_to_owner();

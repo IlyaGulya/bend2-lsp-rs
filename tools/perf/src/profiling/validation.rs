@@ -72,6 +72,21 @@ struct DetailScope {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum InstrumentTargetMode {
+    Attached,
+    Launched,
+}
+
+impl InstrumentTargetMode {
+    fn process_type(self) -> &'static str {
+        match self {
+            Self::Attached => "attached",
+            Self::Launched => "launched",
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum TocElement {
     Root,
     Run,
@@ -184,8 +199,9 @@ fn select_allocation_detail<R>(
 fn finish_instrument_entities(
     entities: &mut [Entity],
     target_found: bool,
-    attached_target: (usize, usize, Option<u32>),
+    selected_target: (usize, usize, Option<u32>),
     pid: u32,
+    mode: InstrumentTargetMode,
 ) -> ToolResult<()> {
     if !target_found {
         return Err("Instruments TOC does not identify the actual target PID".into());
@@ -196,11 +212,18 @@ fn finish_instrument_entities(
                 .into(),
         );
     }
+    if mode == InstrumentTargetMode::Launched && entities.len() != 1 {
+        return Err("Launched Allocations requires exactly one allocation detail track".into());
+    }
     for entity in entities.iter() {
-        if entity.detail_scope.is_some() && attached_target != (1, 1, Some(pid)) {
-            return Err(
-                "Allocation detail requires exactly one attached target with the actual PID".into(),
-            );
+        if (entity.detail_scope.is_some() || mode == InstrumentTargetMode::Launched)
+            && selected_target != (1, 1, Some(pid))
+        {
+            return Err(format!(
+                "Allocation detail requires exactly one {} target with the actual PID",
+                mode.process_type()
+            )
+            .into());
         }
     }
     entities.sort_by_key(|entity| match entity.label.as_str() {
@@ -215,7 +238,7 @@ fn finish_instrument_entities(
 struct TocTarget {
     found: bool,
     processes: usize,
-    attached_pid: Option<u32>,
+    selected_pid: Option<u32>,
 }
 
 impl TocTarget {
@@ -226,6 +249,7 @@ impl TocTarget {
         pid_text: &str,
         selected_run: bool,
         parents: &[TocElement],
+        mode: InstrumentTargetMode,
     ) -> ToolResult<()> {
         if selected_run
             && parents
@@ -237,8 +261,8 @@ impl TocTarget {
                 ]
         {
             self.processes += 1;
-            if attribute(reader, element, b"type")?.as_deref() == Some("attached") {
-                self.attached_pid =
+            if attribute(reader, element, b"type")?.as_deref() == Some(mode.process_type()) {
+                self.selected_pid =
                     attribute(reader, element, b"pid")?.and_then(|pid| pid.parse::<u32>().ok());
             }
         }
@@ -247,7 +271,15 @@ impl TocTarget {
     }
 }
 
-pub(super) fn instrument_entities(toc: &str, pid: u32, heap: bool) -> ToolResult<Vec<Entity>> {
+pub(super) fn instrument_entities(
+    toc: &str,
+    pid: u32,
+    heap: bool,
+    mode: InstrumentTargetMode,
+) -> ToolResult<Vec<Entity>> {
+    if mode == InstrumentTargetMode::Launched && !heap {
+        return Err("Launched target validation is only supported for Allocations".into());
+    }
     let mut reader = Reader::from_str(toc);
     let mut entities = Vec::new();
     let mut target = TocTarget::default();
@@ -277,9 +309,16 @@ pub(super) fn instrument_entities(toc: &str, pid: u32, heap: bool) -> ToolResult
                 }
                 match name.as_ref() {
                     b"process" => {
-                        target.observe(&reader, element, &pid_text, selected_run, &parents)?;
+                        target.observe(
+                            &reader,
+                            element,
+                            &pid_text,
+                            selected_run,
+                            &parents,
+                            mode,
+                        )?;
                     }
-                    b"table" => {
+                    b"table" if mode == InstrumentTargetMode::Attached => {
                         select_instrument_table(&reader, element, heap, &mut entities)?;
                     }
                     b"track" => {
@@ -333,8 +372,9 @@ pub(super) fn instrument_entities(toc: &str, pid: u32, heap: bool) -> ToolResult
     finish_instrument_entities(
         &mut entities,
         target.found,
-        (target_count, target.processes, target.attached_pid),
+        (target_count, target.processes, target.selected_pid),
         pid,
+        mode,
     )?;
     Ok(entities)
 }
@@ -525,8 +565,8 @@ impl InstrumentRows {
             let identifier = attribute(reader, element, b"identifier")?
                 .and_then(|value| number(&value))
                 .is_some_and(|value| value > 0);
-            let timestamp =
-                attribute(reader, element, b"timestamp")?.is_some_and(|value| !value.is_empty());
+            let timestamp = attribute(reader, element, b"timestamp")?
+                .is_some_and(|value| !value.trim().is_empty());
             if identifier && timestamp {
                 parsed.allocation.address = attribute(reader, element, b"address")?
                     .and_then(|value| number(&value))
@@ -1319,11 +1359,11 @@ mod tests {
     #[test]
     fn instruments_discovers_real_allocation_detail_and_checks_pid() -> ToolResult<()> {
         let toc = "<trace-toc><run number='1'><info><target><process type='attached' name='bend2-lsp' pid='42'/></target></info><tracks><track name='Allocations'><details><detail name='Allocations List' kind='table'/></details></track></tracks></run></trace-toc>";
-        let entities = instrument_entities(toc, 42, true)?;
+        let entities = instrument_entities(toc, 42, true, InstrumentTargetMode::Attached)?;
         assert_eq!(entities.len(), 1);
         assert_eq!(entities[0].label, "Allocations List");
-        assert!(instrument_entities(toc, 43, true).is_err());
-        assert!(instrument_entities(toc, 42, false).is_err());
+        assert!(instrument_entities(toc, 43, true, InstrumentTargetMode::Attached).is_err());
+        assert!(instrument_entities(toc, 42, false, InstrumentTargetMode::Attached).is_err());
         Ok(())
     }
 
@@ -1356,6 +1396,187 @@ mod tests {
 <node xpath='//trace-toc[1]/run[1]/tracks[1]/track[1]/details[1]/detail[2]'><row address="0x600002b00ff0" category="Malloc 80 Bytes" live="true" responsible-caller="&lt;Call stack limit reached&gt;" size="80" identifier="2164" responsible-library="" timestamp="00:00.000.000" index="0"/>
 <row address="0x600002b01090" category="Malloc 80 Bytes" live="true" responsible-caller="&lt;Call stack limit reached&gt;" size="80" identifier="2166" responsible-library="" timestamp="00:00.000.000" index="1"/>
 </node></trace-query-result>"#;
+
+    // Instruments 27.0, genuine no-exec native launch, PID 56111:
+    // /tmp/mac-launch-proof.GNLLIc/fdack-safe-success-final/{toc,allocations}.xml.
+    // The TOC is unchanged. Allocation rows 987..=989 and their transitive
+    // reference-defining rows are retained verbatim, with every stack frame,
+    // field and reference; no fabricated event or reduced stack is substituted.
+    const LAUNCHED_HEAP_TOC: &str = include_str!("fixtures/launched-allocations-toc.xml");
+    const LAUNCHED_HEAP: &str = include_str!("fixtures/launched-allocations.xml");
+
+    #[test]
+    fn instruments_launched_allocations_bind_real_target_and_payload() -> ToolResult<()> {
+        let entities = instrument_entities(
+            LAUNCHED_HEAP_TOC,
+            56111,
+            true,
+            InstrumentTargetMode::Launched,
+        )?;
+        assert_eq!(entities.len(), 1);
+        assert_eq!(entities[0].label, "Allocations List");
+        let file = xml_file(LAUNCHED_HEAP)?;
+        assert_eq!(
+            instrument_rows(file.path(), 56111, true, Some(&entities[0]))?,
+            9
+        );
+        assert_eq!(
+            instrument_rows(file.path(), 99, true, Some(&entities[0]))?,
+            0
+        );
+        assert_eq!(instrument_rows(file.path(), 56111, true, None)?, 0);
+        assert!(
+            instrument_entities(LAUNCHED_HEAP_TOC, 99, true, InstrumentTargetMode::Launched,)
+                .is_err()
+        );
+        assert!(
+            instrument_entities(
+                LAUNCHED_HEAP_TOC,
+                56111,
+                true,
+                InstrumentTargetMode::Attached,
+            )
+            .is_err()
+        );
+        assert!(
+            instrument_entities(HOSTED_HEAP_TOC, 22113, true, InstrumentTargetMode::Launched,)
+                .is_err()
+        );
+        assert!(
+            instrument_entities(
+                LAUNCHED_HEAP_TOC,
+                56111,
+                false,
+                InstrumentTargetMode::Launched,
+            )
+            .is_err()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn instruments_launched_allocations_reject_extra_or_metadata_targets() {
+        for toc in [
+            // The processes metadata still names the expected PID.
+            LAUNCHED_HEAP_TOC.replace(
+                "name=\"filehandles\" pid=\"56111\" termination-reason",
+                "name=\"filehandles\" pid=\"99\" termination-reason",
+            ),
+            LAUNCHED_HEAP_TOC.replace("type=\"launched\"", "type=\"allprocesses\""),
+            LAUNCHED_HEAP_TOC.replace("type=\"launched\"", ""),
+            LAUNCHED_HEAP_TOC.replace(
+                "</target>",
+                "<process type=\"launched\" pid=\"99\"/></target>",
+            ),
+            LAUNCHED_HEAP_TOC.replace(
+                "</target>",
+                "<process type=\"launched\" pid=\"56111\"/></target>",
+            ),
+            LAUNCHED_HEAP_TOC.replace(
+                "</target>",
+                "<process type=\"attached\" pid=\"99\"/></target>",
+            ),
+            LAUNCHED_HEAP_TOC.replace(
+                "</target>",
+                "</target><target><process type=\"launched\" pid=\"56111\"/></target>",
+            ),
+            LAUNCHED_HEAP_TOC.replace("<target>", "<metadata>")
+                .replace("</target>", "</metadata>"),
+            LAUNCHED_HEAP_TOC.replace("run number=\"1\"", "run number=\"2\""),
+            LAUNCHED_HEAP_TOC.replace("track name=\"Allocations\"", "track name=\"VM Tracker\""),
+            LAUNCHED_HEAP_TOC.replace(
+                "</tracks>",
+                "<track name=\"Allocations\"><details><detail name=\"Allocations List\" kind=\"table\"/></details></track></tracks>",
+            ),
+            LAUNCHED_HEAP_TOC.replace(
+                "</details>",
+                "<detail name=\"Allocations List\" kind=\"table\"/></details>",
+            ),
+        ] {
+            assert!(instrument_entities(
+                &toc, 56111, true, InstrumentTargetMode::Launched,
+            ).is_err());
+        }
+    }
+
+    #[test]
+    fn instruments_launched_allocations_reject_wrong_process_track() -> ToolResult<()> {
+        let shifted_toc = LAUNCHED_HEAP_TOC.replace(
+            "<track name=\"Allocations\">",
+            "<track name=\"Other\"><details/></track><track name=\"Allocations\">",
+        );
+        let shifted =
+            instrument_entities(&shifted_toc, 56111, true, InstrumentTargetMode::Launched)?;
+        let file = xml_file(LAUNCHED_HEAP)?;
+        assert_eq!(
+            instrument_rows(file.path(), 56111, true, Some(&shifted[0]))?,
+            0
+        );
+        let entities = instrument_entities(
+            LAUNCHED_HEAP_TOC,
+            56111,
+            true,
+            InstrumentTargetMode::Launched,
+        )?;
+        for xml in [
+            LAUNCHED_HEAP.replace("track[1]", "track[2]"),
+            LAUNCHED_HEAP.replace("detail[2]", "detail[1]"),
+            LAUNCHED_HEAP.replace("run[1]", "run[2]"),
+            LAUNCHED_HEAP.replace("<row ", "<row pid=\"99\" "),
+        ] {
+            let file = xml_file(&xml)?;
+            assert_eq!(
+                instrument_rows(file.path(), 56111, true, Some(&entities[0]))?,
+                0
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn instruments_launched_allocations_require_meaningful_fields_and_complete_xml()
+    -> ToolResult<()> {
+        let entities = instrument_entities(
+            LAUNCHED_HEAP_TOC,
+            56111,
+            true,
+            InstrumentTargetMode::Launched,
+        )?;
+        for xml in [
+            LAUNCHED_HEAP.replace("size=\"", "not-size=\""),
+            LAUNCHED_HEAP.replace("address=\"0x", "address=\"invalid"),
+            LAUNCHED_HEAP.replace("identifier=\"", "not-identifier=\""),
+            LAUNCHED_HEAP.replace("identifier=\"", "identifier=\"invalid"),
+            LAUNCHED_HEAP.replace("timestamp=\"", "not-timestamp=\""),
+        ] {
+            let file = xml_file(&xml)?;
+            assert_eq!(
+                instrument_rows(file.path(), 56111, true, Some(&entities[0]))?,
+                0
+            );
+        }
+        for suffix in ["</trace-query-result>\n", "</node></trace-query-result>\n"] {
+            let xml = LAUNCHED_HEAP
+                .strip_suffix(suffix)
+                .ok_or("Missing fixture suffix")?;
+            let file = xml_file(xml)?;
+            assert!(instrument_rows(file.path(), 56111, true, Some(&entities[0])).is_err());
+        }
+        let file = xml_file(&(LAUNCHED_HEAP.to_owned() + LAUNCHED_HEAP))?;
+        assert!(instrument_rows(file.path(), 56111, true, Some(&entities[0])).is_err());
+        for toc in [
+            LAUNCHED_HEAP_TOC
+                .strip_suffix("</trace-toc>")
+                .ok_or("Missing TOC fixture suffix")?
+                .to_owned(),
+            LAUNCHED_HEAP_TOC.to_owned() + LAUNCHED_HEAP_TOC,
+        ] {
+            assert!(
+                instrument_entities(&toc, 56111, true, InstrumentTargetMode::Launched,).is_err()
+            );
+        }
+        Ok(())
+    }
 
     #[test]
     fn instruments_hosted_time_samples_resolve_kperf_payloads() -> ToolResult<()> {
@@ -1392,7 +1613,8 @@ mod tests {
 
     #[test]
     fn instruments_hosted_allocation_attributes_require_exact_target_scope() -> ToolResult<()> {
-        let entities = instrument_entities(HOSTED_HEAP_TOC, 22113, true)?;
+        let entities =
+            instrument_entities(HOSTED_HEAP_TOC, 22113, true, InstrumentTargetMode::Attached)?;
         let entity = &entities[0];
         let file = xml_file(HOSTED_HEAP)?;
         assert_eq!(instrument_rows(file.path(), 22113, true, Some(entity))?, 2);
@@ -1439,13 +1661,16 @@ mod tests {
                 .replace("<target>", "<metadata>")
                 .replace("</target>", "</metadata>"),
         ] {
-            assert!(instrument_entities(&toc, 22113, true).is_err());
+            assert!(
+                instrument_entities(&toc, 22113, true, InstrumentTargetMode::Attached).is_err()
+            );
         }
     }
 
     #[test]
     fn instruments_allocation_detail_attributes_are_not_metadata_evidence() -> ToolResult<()> {
-        let entities = instrument_entities(HOSTED_HEAP_TOC, 22113, true)?;
+        let entities =
+            instrument_entities(HOSTED_HEAP_TOC, 22113, true, InstrumentTargetMode::Attached)?;
         let entity = &entities[0];
         for xml in [
             HOSTED_HEAP.replace("size=\"80\"", "size=\"0\""),
@@ -1457,6 +1682,7 @@ mod tests {
                 .replace("identifier=\"2164\"", "")
                 .replace("identifier=\"2166\"", ""),
             HOSTED_HEAP.replace("timestamp=\"00:00.000.000\"", ""),
+            HOSTED_HEAP.replace("timestamp=\"00:00.000.000\"", "timestamp=\"   \""),
             HOSTED_HEAP.replace("<row ", "<row pid=\"99\" "),
             HOSTED_HEAP
                 .replace("<row ", "<metadata><row ")
@@ -1482,7 +1708,10 @@ mod tests {
     #[test]
     fn instruments_target_in_toc_cannot_validate_other_process_samples() -> ToolResult<()> {
         let toc = "<trace-toc><run number='1'><info><target><process pid='42'/></target></info><data><table schema='time-profile'/></data></run></trace-toc>";
-        assert_eq!(instrument_entities(toc, 42, false)?.len(), 1);
+        assert_eq!(
+            instrument_entities(toc, 42, false, InstrumentTargetMode::Attached)?.len(),
+            1
+        );
         let file = xml_file(&instruments_export(&instrument_sample(99)))?;
         assert_eq!(instrument_rows(file.path(), 42, false, None)?, 0);
         Ok(())
@@ -1518,7 +1747,7 @@ mod tests {
     #[test]
     fn instruments_toc_requires_complete_root_and_elements() {
         let valid = "<trace-toc><run number='1'><process pid='42'/><data><table schema='time-profile'/></data></run></trace-toc>";
-        assert!(instrument_entities(valid, 42, false).is_ok());
+        assert!(instrument_entities(valid, 42, false, InstrumentTargetMode::Attached).is_ok());
         for suffix in [
             "</trace-toc>",
             "</run></trace-toc>",
@@ -1528,7 +1757,8 @@ mod tests {
                 instrument_entities(
                     valid.strip_suffix(suffix).expect("fixture suffix"),
                     42,
-                    false
+                    false,
+                    InstrumentTargetMode::Attached,
                 )
                 .is_err()
             );
@@ -1636,7 +1866,7 @@ mod tests {
 
     #[test]
     fn native_xml_rejects_absent_or_multiple_document_roots() -> ToolResult<()> {
-        assert!(instrument_entities("", 42, false).is_err());
+        assert!(instrument_entities("", 42, false, InstrumentTargetMode::Attached).is_err());
         let sample = instruments_export(&instrument_sample(42));
         let file = xml_file(&(sample.clone() + &sample))?;
         assert!(instrument_rows(file.path(), 42, false, None).is_err());

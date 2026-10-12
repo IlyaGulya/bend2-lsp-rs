@@ -399,6 +399,67 @@ fn late_response_contract() -> ToolResult<()> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn recorded_target_contracts() -> ToolResult<()> {
+    use nix::{sys::stat::Mode, unistd::mkfifo};
+    use std::os::unix::process::ExitStatusExt as _;
+    for scenario in ["finalization", "nonzero", "blocked"] {
+        let workspace = tempfile::tempdir()?;
+        let executable = workspace.path().join("owned-native-fixture");
+        fs::copy(std::env::current_exe()?, &executable)?;
+        for name in ["stdin.fifo", "stdout.fifo"] {
+            mkfifo(&workspace.path().join(name), Mode::S_IRUSR | Mode::S_IWUSR)?;
+        }
+        let stderr_path = workspace.path().join("stderr.log");
+        fs::write(&stderr_path, b"")?;
+        let mut reaper = ProcessOwner::Direct(Command::new(&executable)
+            .env("BEND_PERF_TRANSPORT_FIXTURE", scenario)
+            .env("BEND2_LSP_NATIVE_STDIO_DIR", workspace.path())
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut target = loop {
+            if let Some(target) = macos::RecordedTarget::discover(&executable)? { break target; }
+            if reaper.try_wait()?.is_some() { return Err("native fixture exited before watcher registration".into()); }
+            if Instant::now() >= deadline { return Err("native fixture target discovery timed out".into()); }
+            thread::sleep(Duration::from_millis(5));
+        };
+        assert_eq!(target.id(), reaper.id());
+        let (stdin, stdout) = macos::open_pipes(workspace.path(), &mut target, deadline, || Ok(()))?;
+        let mut client = LspProcess::spawn_recorded(target, stdin, stdout, File::open(&stderr_path)?, workspace.path())?;
+        client.timeout = Duration::from_secs(10);
+        match scenario {
+            "finalization" => {
+                fixture_status(&client, "ready-to-shutdown")?;
+                client.finish_profiled(Duration::from_secs(10))?;
+                assert_eq!(client.shutdown_evidence().child_exit_code, Some(0));
+                assert_eq!(client.shutdown_evidence().child_exit_success, Some(true));
+                assert!(client.shutdown_evidence().stdout_eof);
+                assert!(!client.shutdown_evidence().forced_termination);
+                assert!(client.stderr_tail()?.ends_with("finalization-complete"));
+                assert!(reaper.wait()?.success());
+            }
+            "nonzero" => {
+                assert!(client.finish().is_err());
+                assert_eq!(client.shutdown_evidence().child_exit_code, Some(1));
+                assert_eq!(client.shutdown_evidence().child_exit_success, Some(false));
+                assert_eq!(reaper.wait()?.code(), Some(1));
+            }
+            "blocked" => {
+                fixture_status(&client, "not-reading")?;
+                client.abort();
+                assert!(client.shutdown_evidence().forced_termination);
+                assert_eq!(client.shutdown_evidence().child_exit_code, None);
+                assert_eq!(client.shutdown_evidence().child_exit_success, Some(false));
+                assert_eq!(reaper.wait()?.signal(), Some(9));
+                assert!(client.reader.is_none() && client.writer.is_none());
+            }
+            _ => return Err("unhandled native fixture scenario".into()),
+        }
+        macos::remove_pipes(workspace.path())?;
+    }
+    Ok(())
+}
+
 pub(crate) fn contract_regressions() -> ToolResult<()> {
     large_and_pipeline_contracts()?;
     write_failure_contracts()?;
@@ -407,6 +468,8 @@ pub(crate) fn contract_regressions() -> ToolResult<()> {
     finalization_contracts()?;
     owner_cleanup_contracts()?;
     late_response_contract()?;
+    #[cfg(target_os = "macos")]
+    recorded_target_contracts()?;
     protocol_failure_contracts()?;
     let (_workspace, mut client) = fixture_process("stderr")?;
     assert_eq!(client.request("probe", Value::Null, None)?.0, true);

@@ -24,6 +24,7 @@ nix = { version = "0.31", features = ["fs"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libproc = "=0.14.11"
+nix = { version = "=0.31.3", features = ["event", "fs", "process", "signal"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winsafe = { version = "=0.0.29", default-features = false, features = ["psapi"] }

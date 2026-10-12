@@ -205,6 +205,18 @@ impl Session {
         crate::scenario::check_cancelled()?;
         self.record(program, args);
         let mut command = Command::new(program);
+        #[cfg(target_os = "macos")]
+        if self.backend == "xctrace" && self.kind == "heap" {
+            for (key, _) in std::env::vars_os() {
+                if key
+                    .to_string_lossy()
+                    .to_ascii_uppercase()
+                    .starts_with("BEND")
+                {
+                    command.env_remove(key);
+                }
+            }
+        }
         command
             .args(args)
             .stdin(Stdio::null())
@@ -646,11 +658,7 @@ impl Session {
             .and_then(|tool| tool["path"].as_str())
             .ok_or("Missing prepared xctrace executable identity")?
             .to_owned();
-        let template = if self.kind == "heap" {
-            "Allocations"
-        } else {
-            "Time Profiler"
-        };
+        let template = "Time Profiler";
         self.spawn(
             &program,
             &[
@@ -668,6 +676,10 @@ impl Session {
                 self.trace.to_string_lossy().into_owned(),
             ],
         )?;
+        self.wait_xctrace_started(&notification, deadline)
+    }
+
+    fn wait_xctrace_started(&mut self, notification: &str, deadline: Instant) -> ToolResult<()> {
         let mut stdout = File::open(self.output.join("profiler-notifier.stdout.log"))?;
         let mut evidence = String::new();
         loop {
@@ -693,7 +705,7 @@ impl Session {
                 .try_wait()?
             {
                 stdout.read_to_string(&mut evidence)?;
-                if !status.success() || !notification_received(&evidence, &notification) {
+                if !status.success() || !notification_received(&evidence, notification) {
                     return Err(format!(
                         "xctrace notification observer failed ({status}); stdout: {evidence}; stderr: {}",
                         fs::read_to_string(self.output.join("profiler.stderr.log"))?
@@ -714,6 +726,135 @@ impl Session {
                     fs::read_to_string(self.output.join("profiler.stderr.log"))?
                 )
                 .into());
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn launch_xctrace_target(
+        &mut self,
+        binary: &Path,
+        workspace: &Path,
+    ) -> ToolResult<crate::transport::LspProcess> {
+        use crate::transport::{LspProcess, macos::open_pipes};
+        use nix::{sys::stat::Mode, unistd::mkfifo};
+        use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+
+        let deadline = Instant::now() + Duration::from_secs(60);
+        let directory = self.output.join("native-stdio");
+        fs::create_dir(&directory)?;
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
+        for name in ["stdin.fifo", "stdout.fifo"] {
+            mkfifo(&directory.join(name), Mode::S_IRUSR | Mode::S_IWUSR)?;
+        }
+        let stderr = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(directory.join("stderr.log"))?;
+        let executable = self
+            .output
+            .join("symbols")
+            .join(binary.file_name().ok_or("Missing native target filename")?)
+            .canonicalize()?;
+        if crate::common::sha256_file(binary)? != crate::common::sha256_file(&executable)? {
+            return Err("Retained native executable differs from candidate binary".into());
+        }
+        let notification = format!(
+            "org.bend2.perf.launched.{}.{}",
+            self.instance,
+            self.started.elapsed().as_nanos()
+        );
+        self.start_xctrace_notifier(&notification, deadline)?;
+        let program = self
+            .tools
+            .first()
+            .and_then(|tool| tool["path"].as_str())
+            .ok_or("Missing prepared xctrace executable identity")?
+            .to_owned();
+        let mut args = vec![
+            "record".to_owned(),
+            "--template".to_owned(),
+            "Allocations".to_owned(),
+            "--time-limit".to_owned(),
+            "600s".to_owned(),
+            "--no-prompt".to_owned(),
+            "--notify-tracing-started".to_owned(),
+            notification.clone(),
+            "--output".to_owned(),
+            self.trace.to_string_lossy().into_owned(),
+            "--target-stdout".to_owned(),
+            self.output
+                .join("launch-target.log")
+                .to_string_lossy()
+                .into_owned(),
+        ];
+        let mut environment = LspProcess::isolated_environment(workspace)?;
+        environment.extend(self.child_environment());
+        environment.push((
+            OsString::from("BEND2_LSP_NATIVE_STDIO_DIR"),
+            directory.as_os_str().to_owned(),
+        ));
+        for (key, value) in environment {
+            args.push("--env".to_owned());
+            args.push(format!(
+                "{}={}",
+                key.to_str()
+                    .ok_or("Non-Unicode native target environment key")?,
+                value
+                    .to_str()
+                    .ok_or("Non-Unicode native target environment value")?
+            ));
+        }
+        args.extend([
+            "--launch".to_owned(),
+            "--".to_owned(),
+            executable.to_string_lossy().into_owned(),
+        ]);
+        self.spawn(&program, &args)?;
+        let mut target = self.discover_xctrace_target(&executable, deadline)?;
+        self.pid = Some(target.id());
+        self.wait_xctrace_started(&notification, deadline)?;
+        let (stdin, stdout) = open_pipes(&directory, &mut target, deadline, || {
+            crate::scenario::check_cancelled().map_err(std::io::Error::other)
+        })?;
+        self.control_messages.push(json!({
+            "transport": "native-no-exec-stdio", "target_pid": target.id(),
+            "executable": executable, "target_exit_observer": "kqueue NOTE_EXIT|NOTE_EXITSTATUS",
+            "target_reap_owner": "xctrace", "stdio_directory": directory,
+        }));
+        LspProcess::spawn_recorded(target, stdin, stdout, stderr, workspace)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn discover_xctrace_target(
+        &mut self,
+        executable: &Path,
+        deadline: Instant,
+    ) -> ToolResult<crate::transport::macos::RecordedTarget> {
+        loop {
+            crate::scenario::check_cancelled()?;
+            if let Some(target) = crate::transport::macos::RecordedTarget::discover(executable)? {
+                return Ok(target);
+            }
+            if let Some(status) = self
+                .child
+                .as_mut()
+                .ok_or("Missing native launch recorder")?
+                .try_wait()?
+            {
+                return Err(format!(
+                    "Native recorder exited before exact target discovery ({status}); stderr: {}",
+                    fs::read_to_string(self.output.join("profiler.stderr.log"))?
+                )
+                .into());
+            }
+            if Instant::now() >= deadline {
+                return Err(
+                    "Native target discovery exceeded 60s capture readiness deadline".into(),
+                );
             }
             thread::sleep(Duration::from_millis(20));
         }
@@ -931,8 +1072,11 @@ foreach ($helper in $helpers) {
             "source": if self.backend == "samply" { doctor::samply_source() } else { "OS/Xcode/kernel tool identity pinned by version and binary SHA256" },
             "viewer_command": viewer, "viewer_url": if self.backend == "dhat" {Some("https://nnethercote.github.io/dh_view/dh_view.html")} else {None},
             "target_environment": if self.backend == "xctrace" && self.kind == "heap" {
-                json!({"MallocNanoZone": "0"})
+                json!({"MallocNanoZone": "0", "BEND2_LSP_NATIVE_STDIO_DIR": self.output.join("native-stdio")})
             } else {json!({})},
+            "target_launch": if self.backend == "xctrace" && self.kind == "heap" {
+                json!({"mode":"no-exec instrumented target", "cargo_feature":"native-trace-stdio", "exit_observation":"kqueue NOTE_EXIT|NOTE_EXITSTATUS", "reap_owner":"xctrace"})
+            } else {Value::Null},
             "phase_markers": if self.backend == "wpr" {"ETW wpr -marker and manifest timestamps"} else {"manifest timestamps; no fabricated in-trace marker support"}})
     }
 
@@ -1023,6 +1167,11 @@ foreach ($helper in $helpers) {
             &toc,
             self.pid.ok_or("Missing Instruments target PID")?,
             heap,
+            if heap {
+                validation::InstrumentTargetMode::Launched
+            } else {
+                validation::InstrumentTargetMode::Attached
+            },
         )?;
         let entity = entities
             .into_iter()
@@ -1173,6 +1322,18 @@ pub(super) fn has_samples(data: &Value, pid: u32) -> bool {
 }
 
 impl ScenarioSession for Session {
+    fn spawn_target(
+        &mut self,
+        binary: &Path,
+        workspace: &Path,
+    ) -> ToolResult<crate::transport::LspProcess> {
+        #[cfg(target_os = "macos")]
+        if self.backend == "xctrace" && self.kind == "heap" {
+            return self.launch_xctrace_target(binary, workspace);
+        }
+        crate::transport::LspProcess::spawn(binary, workspace, &self.child_environment())
+    }
+
     fn child_environment(&self) -> Vec<(OsString, OsString)> {
         if self.backend == "dhat" {
             vec![(
@@ -1189,13 +1350,16 @@ impl ScenarioSession for Session {
         }
     }
     fn finish_before_shutdown(&self) -> bool {
-        self.backend != "dhat"
+        self.backend != "dhat" && !(self.backend == "xctrace" && self.kind == "heap")
     }
     fn finalization_timeout(&self) -> Duration {
         Duration::from_secs(300)
     }
     fn started(&mut self, pid: u32) -> ToolResult<()> {
         crate::scenario::check_cancelled()?;
+        if self.backend == "xctrace" && self.kind == "heap" && self.pid != Some(pid) {
+            return Err("Native heap target must be created by its launch owner".into());
+        }
         self.pid = Some(pid);
         match self.backend.as_str() {
             "dhat" => {}
@@ -1271,6 +1435,7 @@ impl ScenarioSession for Session {
                 #[cfg(not(target_os = "linux"))]
                 Self::start_perf(pid)?;
             }
+            "xctrace" if self.kind == "heap" => {}
             "xctrace" => self.start_xctrace(pid)?,
             "wpr" => {
                 if !self.wpr_active {
@@ -1353,6 +1518,11 @@ impl ScenarioSession for Session {
             {
                 errors.push(error.to_string());
             }
+        }
+        #[cfg(target_os = "macos")]
+        if let Err(error) = crate::transport::macos::remove_pipes(&self.output.join("native-stdio"))
+        {
+            errors.push(error.to_string());
         }
         if errors.is_empty() {
             Ok(())

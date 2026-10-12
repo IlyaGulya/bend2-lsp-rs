@@ -1,8 +1,14 @@
+#[cfg(all(target_os = "macos", feature = "native-trace-stdio"))]
+mod native_trace_stdio;
+
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 fn main() -> std::io::Result<()> {
+    #[cfg(all(target_os = "macos", feature = "native-trace-stdio"))]
+    native_trace_stdio::initialize()?;
+
     #[cfg(feature = "dhat-heap")]
     let _profiler = std::env::var_os("BEND2_LSP_DHAT_FILE").map(|path| {
         let mut builder = dhat::Profiler::builder().trim_backtraces(Some(usize::MAX));

@@ -83,6 +83,11 @@
   without retries or longer request deadlines. Retain WPR's pre-stop collector
   counters to distinguish rejected events from lost log buffers; stop the owned
   recorder before reporting counter-command failures.
+- Launch macOS native allocation captures before server runtime startup, using
+  a separate default-off profiling binary and real FIFO protocol endpoints.
+  Preserve target exit status independently of Instruments, reject substituted
+  endpoints, and validate the exact launched process and allocation payload.
+  Ordinary server, CPU, timing and DHAT builds remain unchanged.
 - Configure WPR stack caches only on collector definitions; reference-level
   cache overrides rejected by the native WPR parser are no longer synthesized.
 - Repair the pinned Windows ARM64 sampler's SampleProf/StackWalk join, preserving

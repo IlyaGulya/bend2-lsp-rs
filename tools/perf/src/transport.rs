@@ -4,10 +4,10 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     ffi::OsString,
-    fs,
+    fs::{self, File},
     io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, SyncSender},
@@ -17,6 +17,59 @@ use std::{
 };
 
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+#[cfg(target_os = "macos")]
+#[path = "transport/macos.rs"]
+pub(crate) mod macos;
+
+enum ProcessOwner {
+    Direct(Child),
+    #[cfg(target_os = "macos")]
+    Recorded(macos::RecordedTarget),
+}
+
+impl ProcessOwner {
+    fn id(&self) -> u32 {
+        match self {
+            Self::Direct(child) => child.id(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.id(),
+        }
+    }
+
+    fn try_wait(&mut self) -> io::Result<Option<ExitStatus>> {
+        match self {
+            Self::Direct(child) => child.try_wait(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.try_wait(),
+        }
+    }
+
+    fn kill(&mut self) -> io::Result<()> {
+        match self {
+            Self::Direct(child) => child.kill(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.kill(),
+        }
+    }
+
+    fn wait(&mut self) -> io::Result<ExitStatus> {
+        match self {
+            Self::Direct(child) => child.wait(),
+            #[cfg(target_os = "macos")]
+            Self::Recorded(target) => target.wait(),
+        }
+    }
+}
+
+impl Drop for ProcessOwner {
+    fn drop(&mut self) {
+        if !matches!(self.try_wait(), Ok(Some(_))) {
+            let _ = self.kill();
+        }
+        let _ = self.wait();
+    }
+}
 const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
 
 type Received = Result<Option<(Vec<u8>, Instant)>, String>;
@@ -59,11 +112,12 @@ pub(crate) struct ShutdownEvidence {
 }
 
 pub(crate) struct LspProcess {
-    child: Child,
+    child: ProcessOwner,
     workspace: PathBuf,
     settings: Value,
     compiler_path: String,
-    stderr: tempfile::NamedTempFile,
+    stderr: File,
+    _stderr_path: Option<tempfile::TempPath>,
     messages: Option<Receiver<Received>>,
     writes: Option<SyncSender<WriteJob>>,
     reader: Option<JoinHandle<()>>,
@@ -206,16 +260,6 @@ impl LspProcess {
         child_env: &[(OsString, OsString)],
     ) -> ToolResult<Self> {
         let workspace = workspace.canonicalize()?;
-        let compiler = workspace.join("unavailable-compiler").join("bend");
-        let compiler_path = compiler
-            .to_str()
-            .ok_or_else(|| failure("compiler path is not UTF-8"))?
-            .to_owned();
-        let settings = json!({"bend2-lsp":{"compilerPath":compiler_path,"compilerArguments":[]}});
-        let empty_path = workspace.join("empty-path");
-        let home = workspace.join("empty-home");
-        fs::create_dir_all(&empty_path)?;
-        fs::create_dir_all(&home)?;
         let stderr = tempfile::NamedTempFile::new_in(&workspace)?;
         let mut command = Command::new(binary);
         command
@@ -232,30 +276,74 @@ impl LspProcess {
                 command.env_remove(key);
             }
         }
-        command
-            .env("PATH", empty_path)
-            .env("HOME", &home)
-            .env("USERPROFILE", home);
+        command.envs(Self::isolated_environment(&workspace)?);
         command.envs(child_env.iter().cloned());
-        let mut child = command.spawn()?;
-        let Some(stdin) = child.stdin.take() else {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(failure("LSP stdin unavailable").into());
-        };
-        let Some(stdout) = child.stdout.take() else {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(failure("LSP stdout unavailable").into());
-        };
-        let (reader, messages) = match spawn_reader(stdout) {
-            Ok(reader) => reader,
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(error.into());
+        let mut child = ProcessOwner::Direct(command.spawn()?);
+        let (stdin, stdout) = match &mut child {
+            ProcessOwner::Direct(direct) => (
+                direct
+                    .stdin
+                    .take()
+                    .ok_or_else(|| failure("LSP stdin unavailable"))?,
+                direct
+                    .stdout
+                    .take()
+                    .ok_or_else(|| failure("LSP stdout unavailable"))?,
+            ),
+            #[cfg(target_os = "macos")]
+            ProcessOwner::Recorded(_) => {
+                return Err(failure("Direct spawn returned a recorded target").into());
             }
         };
+        let (stderr, path) = stderr.into_parts();
+        Self::from_pipes(child, stdin, stdout, stderr, Some(path), workspace)
+    }
+
+    pub(crate) fn isolated_environment(workspace: &Path) -> ToolResult<Vec<(OsString, OsString)>> {
+        let empty_path = workspace.join("empty-path");
+        let home = workspace.join("empty-home");
+        fs::create_dir_all(&empty_path)?;
+        fs::create_dir_all(&home)?;
+        Ok(vec![
+            (OsString::from("PATH"), empty_path.into_os_string()),
+            (OsString::from("HOME"), home.clone().into_os_string()),
+            (OsString::from("USERPROFILE"), home.into_os_string()),
+        ])
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn spawn_recorded(
+        target: macos::RecordedTarget,
+        stdin: File,
+        stdout: File,
+        stderr: File,
+        workspace: &Path,
+    ) -> ToolResult<Self> {
+        Self::from_pipes(
+            ProcessOwner::Recorded(target),
+            stdin,
+            stdout,
+            stderr,
+            None,
+            workspace.canonicalize()?,
+        )
+    }
+
+    fn from_pipes(
+        mut child: ProcessOwner,
+        stdin: impl Write + Send + 'static,
+        stdout: impl Read + Send + 'static,
+        stderr: File,
+        stderr_path: Option<tempfile::TempPath>,
+        workspace: PathBuf,
+    ) -> ToolResult<Self> {
+        let compiler = workspace.join("unavailable-compiler").join("bend");
+        let compiler_path = compiler
+            .to_str()
+            .ok_or_else(|| failure("compiler path is not UTF-8"))?
+            .to_owned();
+        let settings = json!({"bend2-lsp":{"compilerPath":compiler_path,"compilerArguments":[]}});
+        let (reader, messages) = spawn_reader(stdout)?;
         let (writer, commands) = match spawn_writer(stdin) {
             Ok(writer) => writer,
             Err(error) => {
@@ -272,6 +360,7 @@ impl LspProcess {
             settings,
             compiler_path,
             stderr,
+            _stderr_path: stderr_path,
             messages: Some(messages),
             writes: Some(commands),
             reader: Some(reader),
@@ -740,7 +829,7 @@ impl LspProcess {
     }
 
     pub(crate) fn stderr_tail(&mut self) -> ToolResult<String> {
-        let stderr = self.stderr.as_file_mut();
+        let stderr = &mut self.stderr;
         let length = stderr.seek(SeekFrom::End(0))?;
         stderr.seek(SeekFrom::Start(length.saturating_sub(8192)))?;
         let mut bytes = vec![0; usize::try_from(length.min(8192))?];

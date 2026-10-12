@@ -97,6 +97,15 @@ case "${1:?Expected workflow stage}" in
       --manifest-path "$RUNNER_TEMP/perf-candidate/Cargo.toml" --target-dir "$RUNNER_TEMP/profile-candidate"
     cp "$RUNNER_TEMP/profile-candidate/release/bend2-lsp$EXE_SUFFIX" "$PROFILE_BIN_DIR/"
     symbols "$RUNNER_TEMP/profile-candidate/release" "$PROFILE_BIN_DIR"
+    if [[ "$RUNNER_OS" == macOS ]] && \
+      [[ "$MODE" == full || "$MODE" == verification || ( "$MODE" == native && "${NATIVE_KIND:-cpu}" == heap ) ]]; then
+      mkdir -p "$PROFILE_BIN_DIR/native-heap"
+      run env CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_STRIP=none \
+        cargo build --locked --release --bin bend2-lsp --features native-trace-stdio \
+        --manifest-path "$RUNNER_TEMP/perf-candidate/Cargo.toml" --target-dir "$RUNNER_TEMP/native-heap-candidate"
+      cp "$RUNNER_TEMP/native-heap-candidate/release/bend2-lsp" "$PROFILE_BIN_DIR/native-heap/"
+      symbols "$RUNNER_TEMP/native-heap-candidate/release" "$PROFILE_BIN_DIR/native-heap"
+    fi
     ;;
   heap)
     mkdir -p "$MEMORY_BIN_DIR"
@@ -114,10 +123,11 @@ case "${1:?Expected workflow stage}" in
       done
       symbols "$RUNNER_TEMP/heap-candidate/release/examples" "$MEMORY_BIN_DIR"
       pushd "$RUNNER_TEMP/perf-candidate"
+      provenance_dirs=(--binary-dir "$TIMING_BIN_DIR" --binary-dir "$MEMORY_BIN_DIR" --binary-dir "$PROFILE_BIN_DIR")
+      if [[ "$RUNNER_OS" == macOS ]]; then provenance_dirs+=(--binary-dir "$PROFILE_BIN_DIR/native-heap"); fi
       run "$PERF_TOOL" native memory provenance --baseline-revision "$BASE_SHA" \
         --candidate-revision "$CANDIDATE_SHA" --commands-file "$PERF_ROOT/commands.txt" \
-        --binary-dir "$TIMING_BIN_DIR" --binary-dir "$MEMORY_BIN_DIR" \
-        --binary-dir "$PROFILE_BIN_DIR" --output "$PERF_ROOT/provenance.json"
+        "${provenance_dirs[@]}" --output "$PERF_ROOT/provenance.json"
       popd
     fi
     ;;
@@ -132,8 +142,12 @@ case "${1:?Expected workflow stage}" in
       for backend in "${backends[@]}"; do
         binary="$PROFILE_BIN_DIR/bend2-lsp$EXE_SUFFIX"
         if [[ "$backend" == heap ]]; then binary="$MEMORY_BIN_DIR/bend2-lsp$EXE_SUFFIX"; fi
+        if [[ "$RUNNER_OS" == macOS && "$backend" == native && "$MODE" == native && "${NATIVE_KIND:-cpu}" == heap ]]; then
+          binary="$PROFILE_BIN_DIR/native-heap/bend2-lsp"
+        fi
         profile "$scenario" "$backend" "$binary"
         if [[ "$backend" == native && "$RUNNER_OS" != Linux && "$MODE" != native ]]; then
+          if [[ "$RUNNER_OS" == macOS ]]; then binary="$PROFILE_BIN_DIR/native-heap/bend2-lsp"; fi
           profile "$scenario" native-heap "$binary"
         fi
       done
