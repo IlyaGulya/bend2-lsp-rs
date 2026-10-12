@@ -12,12 +12,21 @@ warm indexed constructor-definition queries; ASCII/Unicode position
 conversion; folding on 100-, 1,000-, and 10,000-line inputs; and a generated 100-file
 workspace with 601 declarations and 4,758 call sites. Workspace measurements
 include initial graph loading, cross-file references, one dependency revision,
-and a 16-revision burst. Warm snapshots and loaded workspace fixtures are
+a 16-revision burst, and workspace-symbol response materialization for empty and
+mixed-case queries. Warm snapshots and loaded workspace fixtures are
 constructed in Iai benchmark argument setup, outside the measured query; cold
 snapshot benchmarks include construction.
-The owned `LoadedWorkspace` argument to `workspace_references` is destroyed
-inside the measured function, including its database snapshots and temporary
-source tree. Its total is therefore not a query-only instruction count.
+The owned `LoadedWorkspace` arguments to `workspace_references` and
+`workspace_symbols_warm` are destroyed inside their measured functions,
+including database snapshots and temporary source trees. Their totals therefore
+include teardown and are not query-only instruction counts. The workspace-symbol
+cases retain owned names, kinds, ranges and document identities in one response;
+they cover analysis materialization, not protocol serialization or editor latency.
+Symbol queries normalize once across indexed documents and project borrowed
+names into the final owned response. Empty queries skip name case folding;
+the LSP handler reserves indexed declaration capacity for its final response.
+The direct-analysis benchmark retains its original response ownership and
+workload, so it does not measure the handler's URI cloning or reservation.
 Integration tests compare exact semantic-token and identifier-range outputs with
 legacy goldens at all three source sizes; medium and large goldens come from the
 pre-index implementation in commit `bc8cd4f`. Completion is covered by behavioral
@@ -378,6 +387,33 @@ RSS observations; unavailable RSS fields are null, not zero. Profiles are
 candidate-only observations, not fabricated baseline comparisons. Artifacts bind
 source revisions, binary/harness/dataset digests, commands, toolchain, and runner
 identity. Missing/malformed evidence and semantic failures fail CI.
+
+The quality workflow also runs a correctness-only repeated lifecycle stress:
+
+```sh
+cargo run --locked --package bend2-perf -- lifecycle-stress \
+  --binary target/debug/bend2-lsp --output target/workspace-stress/report.json
+```
+
+One real LSP process runs three cycles over the same deterministic 10,000-file
+workspace: open, unsaved dependency edit, watched deletion/recreation, close,
+root removal, rapid superseding root changes, and readdition. Exact symbol and
+reference sets, current hover signatures, and definition locations are checked
+at each applicable transition. All requests keep the existing transport timeout.
+Atomic JSON checkpoints retain completed observations and the last response on
+failure; CI uploads this evidence for 14 days. RSS checkpoints are report-only,
+with no memory or latency admission threshold. This correctness command may run
+locally; hosted performance-measurement restrictions remain unchanged.
+
+The separate `workspace_lifecycle` integration test repeats three 10,000-file
+import/open-root cycles in one `WorkspaceDb`. Weak handles verify retirement of
+observed `DocumentSnapshot` payloads, preservation of independently open/shared
+documents, fresh disk reloads, and stable file identities. This is snapshot
+liveness proof, not proof that every allocation is freed or allocator pages are
+returned. The protocol stress covers discovered-folder removal/readdition;
+the direct DB test uses public import/open-root APIs instead of exposing private
+discovery state. Runner checkout metadata and the supplied binary digest are
+recorded separately, without claiming a digest alone attests build provenance.
 
 macOS symbol copies materialize Cargo's dSYM aliases. A bundle retains its
 single original DWARF member, including Cargo's crate-name/hash form; component

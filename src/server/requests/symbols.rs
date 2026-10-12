@@ -35,18 +35,27 @@ impl Backend {
                 .iter()
                 .any(|import| import.path_text(&document.text) == "Base")
         });
-        let mut symbols = Vec::new();
+        let query = analysis::WorkspaceSymbolQuery::new(&params.query);
+        let capacity = if query.is_empty() {
+            documents
+                .iter()
+                .filter(|document| Self::supported(document))
+                .map(|document| document.syntax.symbols().len())
+                .sum()
+        } else {
+            0
+        };
+        let mut symbols = Vec::with_capacity(capacity);
         for doc in documents {
             if Self::supported(&doc) {
-                symbols.extend(adapters::workspace_symbols(&doc, &doc.uri, &params.query));
+                symbols.extend(adapters::workspace_symbols(&doc, &doc.uri, &query));
             }
         }
         if includes_base && let Some(module) = self.compiler.base_module.read().clone() {
-            symbols.extend(adapters::workspace_symbols(
-                &module,
-                &module.uri,
-                &params.query,
-            ));
+            if query.is_empty() {
+                symbols.reserve(module.syntax.symbols().len());
+            }
+            symbols.extend(adapters::workspace_symbols(&module, &module.uri, &query));
         }
         Ok(Some(symbols))
     }

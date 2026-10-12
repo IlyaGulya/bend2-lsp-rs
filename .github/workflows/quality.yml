@@ -69,6 +69,17 @@ jobs:
           sccache --show-stats --stats-format=json
       - name: Run quality gates
         run: ./scripts/quality
+      - name: Stress repeated 10000-file workspace lifecycles
+        id: workspace-stress
+        run: cargo run --locked --package bend2-perf -- lifecycle-stress --binary target/debug/bend2-lsp --output target/workspace-stress/report.json
+      - name: Preserve workspace lifecycle stress evidence
+        if: always() && steps.workspace-stress.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: workspace-lifecycle-stress-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/workspace-stress/
+          if-no-files-found: error
+          retention-days: 14
       - name: Install checksum-pinned Neovim
         run: python3 scripts/bootstrap_neovim.py --destination target/neovim
       - name: Run real Neovim native LSP E2E

@@ -30,9 +30,16 @@
   snapshots after checks finish.
 - Preserve closed consumer references when a filesystem move merges an already
   loaded destination snapshot into an existing file identity.
+- Build workspace-symbol results directly from immutable indexed declarations.
+  Empty queries avoid per-name lowercase allocations and intermediate per-file
+  result arrays; filtered queries normalize once across the workspace while
+  preserving Unicode case matching.
 
 ### CI
 
+- Add workspace-symbol Callgrind cases for empty and mixed-case queries over the
+  existing indexed 100-file workspace. Preserve owned response names, kinds,
+  ranges and file identities; retain the existing metrics and regression gates.
 - Separate validated ordinary Callgrind measurement from `performance admission`.
   Preserve raw producer exits, source-bound verdicts, profiles, and historical
   red results. Require a protected, exact-run owner review for valid regressions;
@@ -69,6 +76,11 @@
 - Prepare static imported-source diagnostic fixtures before initializing the
   server, so background discovery cannot cache an unnotified partially written
   fixture. Preserve exact ambiguity/range assertions and fail-if-flaky policy.
+- Exercise three repeated 10,000-file workspace lifecycles in the quality
+  workflow, checking exact LSP results across unsaved edits, watched deletion
+  and recreation, close, and superseded root removal/readdition. Retain failure
+  evidence and report-only RSS checkpoints; separately verify indexed snapshot
+  retirement with weak handles without treating RSS as allocation-liveness proof.
 - Deliver sampler stop signals to the owned recorder on macOS/Windows and wait
   for Instruments notification registration before recording. Use the baseline
   ARM64 register mask for software-clock DWARF captures.
