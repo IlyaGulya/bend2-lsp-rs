@@ -620,6 +620,25 @@ fn workspace_references(fixture: LoadedWorkspace) -> Vec<(usize, analysis::TextR
 }
 
 #[library_benchmark]
+#[bench::empty(LoadedWorkspace::default(), "")]
+#[bench::case_insensitive(LoadedWorkspace::default(), "CoMmOn_WoRkEr_")]
+fn workspace_symbols_warm(
+    fixture: LoadedWorkspace,
+    query: &str,
+) -> Vec<(usize, String, analysis::SymbolKind, analysis::TextRange)> {
+    let documents = fixture.database.indexed_documents();
+    let mut symbols = Vec::new();
+    for (document_index, document) in documents.iter().enumerate() {
+        symbols.extend(
+            analysis::workspace_symbols(document, std::hint::black_box(query))
+                .into_iter()
+                .map(|symbol| (document_index, symbol.name, symbol.kind, symbol.range)),
+        );
+    }
+    std::hint::black_box(symbols)
+}
+
+#[library_benchmark]
 #[bench::sixteen_revisions(LoadedWorkspace::default())]
 fn workspace_burst_revision_invalidation(
     mut fixture: LoadedWorkspace,
@@ -756,7 +775,7 @@ library_benchmark_group!(
         workspace_references, workspace_burst_revision_invalidation, workspace_orphan_graph_release,
         constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm,
         cold_completion_context_build, pattern_completion_context_warm,
-        import_completion_candidates_warm
+        import_completion_candidates_warm, workspace_symbols_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

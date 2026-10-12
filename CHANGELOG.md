@@ -33,6 +33,9 @@
 
 ### CI
 
+- Add workspace-symbol Callgrind cases for empty and mixed-case queries over the
+  existing indexed 100-file workspace. Preserve owned response names, kinds,
+  ranges and file identities; retain the existing metrics and regression gates.
 - Separate validated ordinary Callgrind measurement from `performance admission`.
   Preserve raw producer exits, source-bound verdicts, profiles, and historical
   red results. Require a protected, exact-run owner review for valid regressions;

@@ -12,12 +12,16 @@ warm indexed constructor-definition queries; ASCII/Unicode position
 conversion; folding on 100-, 1,000-, and 10,000-line inputs; and a generated 100-file
 workspace with 601 declarations and 4,758 call sites. Workspace measurements
 include initial graph loading, cross-file references, one dependency revision,
-and a 16-revision burst. Warm snapshots and loaded workspace fixtures are
+a 16-revision burst, and workspace-symbol response materialization for empty and
+mixed-case queries. Warm snapshots and loaded workspace fixtures are
 constructed in Iai benchmark argument setup, outside the measured query; cold
 snapshot benchmarks include construction.
-The owned `LoadedWorkspace` argument to `workspace_references` is destroyed
-inside the measured function, including its database snapshots and temporary
-source tree. Its total is therefore not a query-only instruction count.
+The owned `LoadedWorkspace` arguments to `workspace_references` and
+`workspace_symbols_warm` are destroyed inside their measured functions,
+including database snapshots and temporary source trees. Their totals therefore
+include teardown and are not query-only instruction counts. The workspace-symbol
+cases retain owned names, kinds, ranges and document identities in one response;
+they cover analysis materialization, not protocol serialization or editor latency.
 Integration tests compare exact semantic-token and identifier-range outputs with
 legacy goldens at all three source sizes; medium and large goldens come from the
 pre-index implementation in commit `bc8cd4f`. Completion is covered by behavioral
