@@ -52,6 +52,10 @@
 
 ### CI
 
+- Use platform-native absolute paths in compiler-backend protocol fixtures,
+  including Windows drive roots. Preserve rejection of dot, parent, and
+  repeated-separator aliases. Run the six-platform native release and installer
+  checks for backend fixture and release manifest changes before merging.
 - Add workspace-symbol Callgrind cases for empty and mixed-case queries over the
   existing indexed 100-file workspace. Preserve owned response names, kinds,
   ranges and file identities; retain the existing metrics and regression gates.
