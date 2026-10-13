@@ -96,6 +96,11 @@ compiler and adjacent resources. Windows has no official upstream distribution:
 its native Bun executable and exact upstream source archive are independently
 pinned, and the build changes only the compiled resource-locator predicate.
 The parser, checker, and kernel remain upstream code; `--target` is not used.
+The LSP recovery module adapts loader directory resolution, relative file paths,
+library-prefix comparisons, and namespace conversion to native filesystem paths.
+Bend import namespaces remain slash-separated. These are exact-count embedded
+source patches under the same all-or-nothing drift contract, not a replacement
+parser or checker.
 Native CI preserves the actual embedded source and full runtime identity before
 ordinary CLI initialization. Real `version` and `base --types` checks must pass
 before a source-built compiler becomes an installation. Failed initialization

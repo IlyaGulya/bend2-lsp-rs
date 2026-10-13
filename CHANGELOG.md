@@ -8,6 +8,8 @@
   Preserve independent errors, original-cause links, and precise source ranges.
 - Keep enhanced compiler checks working when project and temporary paths contain
   spaces or non-ASCII characters.
+- Resolve local imports during enhanced Windows checks, including transitive
+  imports, and keep related errors linked to the original declarations.
 
 ### Under the hood
 
@@ -15,6 +17,9 @@
   E2E matrices. Pin official Unix archives and build the Windows compiler from
   exact upstream source with a pinned native Bun runtime and a resource-locator
   adjustment only. Retain macOS ARM64 Bend 2.0.36 compatibility coverage.
+- Use native filesystem paths when loading compiler sources; keep Bend import
+  namespaces slash-separated. Validate these loader adaptations against exact
+  embedded-source anchors before applying any recovery patches.
 
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 

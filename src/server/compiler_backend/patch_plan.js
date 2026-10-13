@@ -23,6 +23,14 @@ export function recoveryPatches({ version, resources, helpers }) {
       'const sp = { file: { str: text, ns, al, recovery_path: real, original: recovery_sources.get(real), recovery_import_alias: m?.[2] }, beg, end: beg };'),
     once('loader.source', '  const text = fs.readFileSync(real, "utf8");',
       '  const text = recovery_source(real);\n  recovery_files.add(real);'),
+    // Filesystem paths use the native OS; Bend namespace paths remain POSIX.
+    // Windows realpath returns backslashes, which the upstream "/" slice loses.
+    once('loader.directory', '  const dir = real.slice(0, real.lastIndexOf("/") + 1);',
+      '  const dir = path.join(path.dirname(real), path.sep);'),
+    once('loader.relative-file', 'path.posix.resolve(dir, rel)', 'path.resolve(dir, rel)'),
+    once('loader.library-prefix', 'fs.realpathSync(BEND_LIB) + "/"', 'fs.realpathSync(BEND_LIB) + path.sep'),
+    once('loader.namespace', 'path.posix.relative(top, got)',
+      '(path.sep === "/" ? path.posix.relative(top, got) : path.relative(top, got).replaceAll(path.sep, "/"))'),
     once('loader.parser-call', '`), ns, al);', '`), ns, al, real, recovery_sources.get(real));'),
     once('parser.signature', 'function parse_book(book, dir, src, ns, al) {',
       'function parse_book(book, dir, src, ns, al, recovery_path, original, parse_start = 0, parse_end = src.length) {'),
