@@ -1144,10 +1144,8 @@ impl WorkspaceDb {
                 {
                     self.by_path.remove(&old_path);
                 }
-                if entry.path.as_deref().map(Path::as_os_str) != Some(path.as_os_str()) {
-                    entry.path = Some(path.clone());
-                    self.by_path.insert(path, id);
-                }
+                entry.path = Some(path.clone());
+                self.by_path.insert(path, id);
             } else if let Some(old_path) = entry.path.take()
                 && self.by_path.get(&old_path) == Some(&id)
             {
@@ -1233,15 +1231,12 @@ impl WorkspaceDb {
     }
 }
 pub(super) fn normalize_path(path: &Path) -> PathBuf {
-    let joined;
     let absolute = if path.is_absolute() {
-        path
+        path.to_path_buf()
     } else {
-        joined = std::env::current_dir().unwrap_or_default().join(path);
-        &joined
+        std::env::current_dir().unwrap_or_default().join(path)
     };
-    // An implicit Windows root can add one separator to the encoded input.
-    let mut normalized = PathBuf::with_capacity(absolute.as_os_str().len() + 1);
+    let mut normalized = PathBuf::new();
     for component in absolute.components() {
         match component {
             Component::CurDir => {}
