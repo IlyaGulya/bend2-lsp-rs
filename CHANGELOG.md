@@ -52,6 +52,9 @@
 
 ### CI
 
+- Retain one bounded live stack sample of an owned macOS Instruments recorder
+  still finalizing after 280 seconds. Keep the 300-second finalization deadline
+  and failed-capture verdict; this adds diagnostic evidence, not a timeout fix.
 - Use platform-native absolute paths in compiler-backend protocol fixtures,
   including Windows drive roots. Preserve rejection of dot, parent, and
   repeated-separator aliases. Run the six-platform native release and installer
