@@ -286,8 +286,8 @@ pub struct SignatureHelp {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WorkspaceSymbol {
-    pub name: String,
+pub struct WorkspaceSymbol<'a> {
+    pub name: &'a str,
     pub kind: SymbolKind,
     pub range: TextRange,
 }
@@ -800,25 +800,43 @@ pub fn identifier_ranges(snapshot: &DocumentSnapshot, name: &str) -> Vec<TextRan
         .collect()
 }
 
-#[must_use]
-pub fn workspace_symbols(snapshot: &DocumentSnapshot, query: &str) -> Vec<WorkspaceSymbol> {
-    let source = &snapshot.text;
-    let syntax = &snapshot.syntax;
-    let query = query.to_lowercase();
-    syntax
-        .symbols()
-        .iter()
-        .filter_map(|symbol| {
+/// Normalize a case-insensitive symbol query once for all indexed documents.
+pub struct WorkspaceSymbolQuery {
+    normalized: String,
+}
+
+impl WorkspaceSymbolQuery {
+    #[must_use]
+    pub fn new(query: &str) -> Self {
+        Self {
+            normalized: query.to_lowercase(),
+        }
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.normalized.is_empty()
+    }
+
+    pub fn symbols<'a>(
+        &'a self,
+        snapshot: &'a DocumentSnapshot,
+    ) -> impl Iterator<Item = WorkspaceSymbol<'a>> + 'a {
+        let source = &snapshot.text;
+        let syntax = &snapshot.syntax;
+        let is_empty = self.is_empty();
+        syntax.symbols().iter().filter_map(move |symbol| {
             let name = syntax.name_text(source, symbol.name);
-            name.to_lowercase()
-                .contains(&query)
-                .then(|| WorkspaceSymbol {
-                    name: name.to_owned(),
-                    kind: symbol.kind,
-                    range: symbol.name_range,
-                })
+            if !is_empty && !name.to_lowercase().contains(&self.normalized) {
+                return None;
+            }
+            Some(WorkspaceSymbol {
+                name,
+                kind: symbol.kind,
+                range: symbol.name_range,
+            })
         })
-        .collect()
+    }
 }
 
 #[must_use]

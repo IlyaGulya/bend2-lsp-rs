@@ -7,7 +7,7 @@ use std::{
         Arc, LazyLock, RwLock, Weak,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    time::{Instant, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use tokio::{
@@ -17,9 +17,16 @@ use tokio::{
 };
 use tower_lsp::lsp_types::Diagnostic;
 
-use super::features::diag;
+use super::{
+    compiler_backend::{BackendSource, CompilerIdentity, should_probe_native},
+    compiler_backend_driver::NativeRun,
+    features::diag,
+};
+
 use crate::analysis::{self, DocumentSnapshot};
 use crate::workspace::{FileId, ImportEdge, SourceGraph, is_hub_import_path};
+const NATIVE_CHECK_TIMEOUT: Duration = Duration::from_secs(120);
+const NATIVE_STREAM_LIMIT: usize = 8 * 1024 * 1024;
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub(super) struct CompilerConfig {
     pub(super) path: String,
@@ -90,9 +97,15 @@ impl Drop for CompilerLease {
     }
 }
 
+struct CompilerResources {
+    _permit: Option<OwnedSemaphorePermit>,
+    _staging: Option<tempfile::TempDir>,
+    _native_assets: Option<tempfile::TempDir>,
+}
+
 struct CompilerChild {
     child: Child,
-    _resources: Option<(OwnedSemaphorePermit, tempfile::TempDir)>,
+    _resources: Option<CompilerResources>,
     lease: CompilerLease,
 }
 
@@ -101,13 +114,16 @@ struct CompilerChildGuard {
 }
 
 impl CompilerChildGuard {
-    async fn wait_with_output(mut self) -> io::Result<(std::process::Output, Self)> {
+    async fn wait_with_output(
+        mut self,
+        output_limit: Option<usize>,
+    ) -> io::Result<(std::process::Output, Self)> {
         let child = self
             .child
             .as_mut()
             .ok_or_else(|| io::Error::other("compiler child has already been released"))?;
         let output = tokio::select! {
-            output = collect_compiler_output(&mut child.child) => output?,
+            output = collect_compiler_output(&mut child.child, output_limit) => output?,
             () = child.lease.0.stopped() => {
                 return Err(io::Error::new(
                     io::ErrorKind::Interrupted,
@@ -142,6 +158,7 @@ type SourceSnapshot = (PathBuf, Arc<DocumentSnapshot>);
 struct StagedImportGraph {
     entry: PathBuf,
     sources: Vec<SourceSnapshot>,
+    native: Option<NativeRun>,
     staged_files: usize,
     staged_bytes: usize,
 }
@@ -322,16 +339,45 @@ impl CompilerConfig {
 }
 
 #[derive(Clone)]
+pub(super) enum CompilerBackend {
+    Legacy,
+    Structured(Arc<CompilerIdentity>),
+    Unavailable(Arc<str>),
+}
+
+#[derive(Clone)]
 pub(super) enum CompilerCompatibility {
-    Available { version: String },
-    Unknown { message: String },
-    Unavailable { message: String },
-    Incompatible { message: String },
+    Available {
+        version: String,
+        backend: CompilerBackend,
+    },
+    Unknown {
+        message: String,
+    },
+    Unavailable {
+        message: String,
+    },
+    Incompatible {
+        message: String,
+    },
 }
 
 impl CompilerCompatibility {
+    pub(super) fn backend(&self) -> CompilerBackend {
+        match self {
+            Self::Available { backend, .. } => backend.clone(),
+            Self::Unknown { .. } | Self::Unavailable { .. } | Self::Incompatible { .. } => {
+                CompilerBackend::Legacy
+            }
+        }
+    }
+
     pub(super) fn warning(&self) -> Option<&str> {
         match self {
+            Self::Available {
+                backend: CompilerBackend::Unavailable(message),
+                ..
+            } => Some(message),
             Self::Available { .. } => None,
             Self::Unknown { message }
             | Self::Unavailable { message }
@@ -364,7 +410,7 @@ pub(super) async fn compiler_compatibility(
             };
         }
     };
-    let help = match compiler_probe(config, "--help", reapers).await {
+    let help = match compiler_probe(config, "--help", reapers.clone()).await {
         Ok(output) => output,
         Err(error) => {
             return CompilerCompatibility::Unavailable {
@@ -396,7 +442,8 @@ pub(super) async fn compiler_compatibility(
         };
     }
     if bend_help && let Some(version) = version {
-        CompilerCompatibility::Available { version }
+        let backend = native_compiler_backend(config, &version, reapers).await;
+        CompilerCompatibility::Available { version, backend }
     } else {
         CompilerCompatibility::Unknown {
             message: format!(
@@ -405,6 +452,59 @@ pub(super) async fn compiler_compatibility(
             ),
         }
     }
+}
+
+async fn native_compiler_backend(
+    config: &CompilerConfig,
+    version: &str,
+    reapers: Arc<CompilerReapers>,
+) -> CompilerBackend {
+    if !should_probe_native(version) {
+        return CompilerBackend::Legacy;
+    }
+    match probe_native_compiler(config, reapers).await {
+        Ok(Some(identity)) => CompilerBackend::Structured(Arc::new(identity)),
+        Ok(None) => CompilerBackend::Legacy,
+        Err(error) => CompilerBackend::Unavailable(
+            format!("Unable to initialize verified native Bend diagnostics: {error}").into(),
+        ),
+    }
+}
+
+async fn probe_native_compiler(
+    config: &CompilerConfig,
+    reapers: Arc<CompilerReapers>,
+) -> io::Result<Option<CompilerIdentity>> {
+    let mut native = tokio::task::spawn_blocking(NativeRun::compatibility)
+        .await
+        .map_err(io::Error::other)??;
+    let mut command = Command::new(&config.path);
+    command.args(&config.arguments).arg("version");
+    native.configure(&mut command);
+    let resources = Some(CompilerResources {
+        _permit: None,
+        _staging: None,
+        _native_assets: Some(native.take_assets()?),
+    });
+    let (output, child) = tokio::time::timeout(
+        NATIVE_CHECK_TIMEOUT,
+        run_compiler_command_limited(&mut command, resources, reapers, Some(NATIVE_STREAM_LIMIT)),
+    )
+    .await
+    .map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::TimedOut,
+            "native compatibility probe timed out",
+        )
+    })??;
+    let exit_code = output.status.code();
+    drop(output);
+    tokio::task::spawn_blocking(move || {
+        let _child = child;
+        native.compatibility_result(exit_code)
+    })
+    .await
+    .map_err(io::Error::other)?
 }
 
 async fn compiler_probe(
@@ -454,6 +554,7 @@ fn output_text(output: &std::process::Output) -> String {
 pub(super) async fn compiler_diagnostics(
     source_graph: SourceGraph,
     config: CompilerConfig,
+    backend: CompilerBackend,
     semaphore: Arc<Semaphore>,
     cache: Arc<RwLock<HashMap<PathBuf, CachedCompilerResult>>>,
     reapers: Arc<CompilerReapers>,
@@ -465,6 +566,7 @@ pub(super) async fn compiler_diagnostics(
         let diagnostics = compiler_diagnostics_inner(
             source_graph,
             config,
+            backend,
             semaphore,
             cache,
             reapers,
@@ -477,15 +579,162 @@ pub(super) async fn compiler_diagnostics(
         }
         diagnostics
     } else {
-        compiler_diagnostics_inner(source_graph, config, semaphore, cache, reapers, None).await
+        compiler_diagnostics_inner(
+            source_graph,
+            config,
+            backend,
+            semaphore,
+            cache,
+            reapers,
+            None,
+        )
+        .await
     };
     span.record("diagnostic_count", diagnostics.len());
     span.record("outcome", "complete");
     diagnostics
 }
+struct CompilerCheckContext<'a> {
+    config: &'a CompilerConfig,
+    root: &'a Path,
+    snapshot: &'a DocumentSnapshot,
+    identity: Option<Arc<CompilerIdentity>>,
+}
+
+impl<'a> CompilerCheckContext<'a> {
+    fn new(
+        config: &'a CompilerConfig,
+        graph: &'a SourceGraph,
+        backend: CompilerBackend,
+    ) -> Result<Self, Vec<(PathBuf, Diagnostic)>> {
+        let root = graph.root_node().ok_or_else(Vec::new)?;
+        let snapshot = root.snapshot.as_deref().ok_or_else(Vec::new)?;
+        let identity = match backend {
+            CompilerBackend::Legacy => None,
+            CompilerBackend::Structured(identity) => Some(identity),
+            CompilerBackend::Unavailable(message) => {
+                return Err(vec![(
+                    root.path.clone(),
+                    diag(snapshot, 0, 0, message.as_ref(), "compiler-backend-failure"),
+                )]);
+            }
+        };
+        Ok(Self {
+            config,
+            root: &root.path,
+            snapshot,
+            identity,
+        })
+    }
+
+    fn cached(
+        &self,
+        graph: &SourceGraph,
+        stamp: Option<CompilerStamp>,
+        cache: &RwLock<HashMap<PathBuf, CachedCompilerResult>>,
+    ) -> Option<Vec<(PathBuf, Diagnostic)>> {
+        let results = super::state::read_lock(cache);
+        let result = results.get(self.root)?;
+        result
+            .snapshot
+            .matches(self.config, stamp, graph)
+            .then(|| result.diagnostics.clone())
+    }
+
+    async fn run(
+        &self,
+        staged: StagedImportGraph,
+        permit: OwnedSemaphorePermit,
+        staging: tempfile::TempDir,
+        reapers: Arc<CompilerReapers>,
+        metrics: Option<&mut CompilerCheckMetrics>,
+    ) -> (Vec<(PathBuf, Diagnostic)>, bool) {
+        let StagedImportGraph {
+            entry,
+            sources,
+            mut native,
+            ..
+        } = staged;
+        let (output, child) = match run_compiler(
+            self.config,
+            entry,
+            native.as_mut(),
+            permit,
+            staging,
+            reapers,
+            metrics,
+        )
+        .await
+        {
+            Ok(output) => output,
+            Err(error) => {
+                let (message, code) = if self.identity.is_some() {
+                    (
+                        format!("Verified native Bend checking failed: {error}"),
+                        "compiler-backend-failure",
+                    )
+                } else {
+                    (
+                        compiler_unavailable_message(self.config, &error),
+                        "compiler-unavailable",
+                    )
+                };
+                return (
+                    vec![(
+                        self.root.to_path_buf(),
+                        diag(self.snapshot, 0, 0, message, code),
+                    )],
+                    false,
+                );
+            }
+        };
+        if let (Some(native), Some(identity)) = (native, &self.identity) {
+            native_output_diagnostics(
+                native,
+                identity.clone(),
+                output,
+                child,
+                self.root,
+                self.snapshot,
+            )
+            .await
+        } else {
+            (
+                compiler_output_diagnostics(self.root, self.snapshot, &sources, &output),
+                true,
+            )
+        }
+    }
+}
+
+fn cache_compiler_result(
+    root: PathBuf,
+    config: CompilerConfig,
+    stamp: Option<CompilerStamp>,
+    graph: &SourceGraph,
+    cache: &RwLock<HashMap<PathBuf, CachedCompilerResult>>,
+    diagnostics: &[(PathBuf, Diagnostic)],
+) {
+    let mut results = super::state::write_lock(cache);
+    if !results.contains_key(&root)
+        && results.len() >= 32
+        && let Some(evicted) = results.keys().next().cloned()
+    {
+        results.remove(&evicted);
+    }
+    results.insert(
+        root,
+        CachedCompilerResult {
+            snapshot: CompilerSnapshot::capture(config, stamp, graph),
+            diagnostics: diagnostics.to_vec(),
+        },
+    );
+}
+
 async fn compiler_diagnostics_inner(
     source_graph: SourceGraph,
     config: CompilerConfig,
+    backend: CompilerBackend,
     semaphore: Arc<Semaphore>,
     cache: Arc<RwLock<HashMap<PathBuf, CachedCompilerResult>>>,
     reapers: Arc<CompilerReapers>,
@@ -493,17 +742,15 @@ async fn compiler_diagnostics_inner(
 ) -> Vec<(PathBuf, Diagnostic)> {
     let span = tracing::Span::current();
     let source_graph = Arc::new(source_graph);
-    let Some(root_node) = source_graph.root_node() else {
-        return Vec::new();
+    let context = match CompilerCheckContext::new(&config, &source_graph, backend) {
+        Ok(context) => context,
+        Err(diagnostics) => return diagnostics,
     };
-    let Some(root_snapshot) = root_node.snapshot.clone() else {
-        return Vec::new();
-    };
-    let root = root_node.path.clone();
     if let Some(metrics) = metrics.as_deref_mut() {
-        metrics.root = root
+        metrics.root = context
+            .root
             .file_name()
-            .unwrap_or(root.as_os_str())
+            .unwrap_or(context.root.as_os_str())
             .to_string_lossy()
             .into_owned();
     }
@@ -531,60 +778,115 @@ async fn compiler_diagnostics_inner(
         metrics.cache_hit = Some(false);
     }
     span.record("cache_hit", false);
-    if cacheable {
-        let results = super::state::read_lock(&cache);
-        if let Some(result) = results.get(&root)
-            && result
-                .snapshot
-                .matches(&config, compiler_stamp, &source_graph)
-        {
-            if let Some(metrics) = metrics.as_deref_mut() {
-                metrics.cache_hit = Some(true);
-            }
-            span.record("cache_hit", true);
-            return result.diagnostics.clone();
+    if cacheable && let Some(diagnostics) = context.cached(&source_graph, compiler_stamp, &cache) {
+        if let Some(metrics) = metrics.as_deref_mut() {
+            metrics.cache_hit = Some(true);
         }
+        span.record("cache_hit", true);
+        return diagnostics;
     }
-    let Some((permit, staging, staged)) =
-        stage_compiler_graph(source_graph.clone(), permit, metrics.as_deref_mut()).await
+    let Some((permit, staging, staged)) = stage_compiler_graph(
+        source_graph.clone(),
+        permit,
+        context.identity.is_some(),
+        metrics.as_deref_mut(),
+    )
+    .await
     else {
-        return Vec::new();
+        return vec![(
+            context.root.to_path_buf(),
+            diag(
+                context.snapshot,
+                0,
+                0,
+                "Unable to stage immutable source snapshots for the Bend compiler.",
+                "compiler-backend-failure",
+            ),
+        )];
     };
-    let StagedImportGraph { entry, sources, .. } = staged;
-    let (output, _child) =
-        match run_compiler(&config, entry, permit, staging, reapers, metrics).await {
-            Ok(output) => output,
-            Err(error) => {
-                let message = compiler_unavailable_message(&config, &error);
-                return vec![(
-                    root,
-                    diag(&root_snapshot, 0, 0, message, "compiler-unavailable"),
-                )];
-            }
-        };
-    let diagnostics = compiler_output_diagnostics(&root, &root_snapshot, &sources, &output);
-    if cacheable {
-        let mut results = super::state::write_lock(&cache);
-        if !results.contains_key(&root)
-            && results.len() >= 32
-            && let Some(evicted) = results.keys().next().cloned()
-        {
-            results.remove(&evicted);
-        }
-        results.insert(
-            root,
-            CachedCompilerResult {
-                snapshot: CompilerSnapshot::capture(config, compiler_stamp, &source_graph),
-                diagnostics: diagnostics.clone(),
-            },
+    let (diagnostics, cache_result) = context.run(staged, permit, staging, reapers, metrics).await;
+    if cacheable && cache_result {
+        cache_compiler_result(
+            context.root.to_path_buf(),
+            config,
+            compiler_stamp,
+            &source_graph,
+            &cache,
+            &diagnostics,
         );
     }
     diagnostics
 }
 
+async fn native_output_diagnostics(
+    native: NativeRun,
+    identity: Arc<CompilerIdentity>,
+    output: std::process::Output,
+    child: CompilerChildGuard,
+    root: &Path,
+    snapshot: &DocumentSnapshot,
+) -> (Vec<(PathBuf, Diagnostic)>, bool) {
+    let exit_code = output.status.code();
+    drop(output);
+    let decoded = tokio::task::spawn_blocking(move || {
+        let _child = child;
+        native.check_result(&identity, exit_code)
+    })
+    .await;
+    match decoded {
+        Ok(Ok(mut outcome)) => {
+            let cache_result = outcome.backend_failure.is_none();
+            if let Some(message) = outcome.backend_failure {
+                outcome.diagnostics.push((
+                    root.to_path_buf(),
+                    diag(snapshot, 0, 0, message, "compiler-backend-failure"),
+                ));
+            } else if outcome.incomplete {
+                let message = format!(
+                    "Bend could not completely check this document: {} declaration(s) could not be checked; source loading complete: {}. Independent errors are still reported.",
+                    outcome.coverage.blocked.len(),
+                    outcome.coverage.loading_complete,
+                );
+                outcome.diagnostics.push((
+                    root.to_path_buf(),
+                    diag(snapshot, 0, 0, message, "compiler-check-incomplete"),
+                ));
+            }
+            (outcome.diagnostics, cache_result)
+        }
+        Ok(Err(error)) => (
+            vec![(
+                root.to_path_buf(),
+                diag(
+                    snapshot,
+                    0,
+                    0,
+                    format!("Invalid native Bend check result: {error}"),
+                    "compiler-backend-failure",
+                ),
+            )],
+            false,
+        ),
+        Err(error) => (
+            vec![(
+                root.to_path_buf(),
+                diag(
+                    snapshot,
+                    0,
+                    0,
+                    format!("Unable to read native Bend check result: {error}"),
+                    "compiler-backend-failure",
+                ),
+            )],
+            false,
+        ),
+    }
+}
+
 async fn stage_compiler_graph(
     source_graph: Arc<SourceGraph>,
     permit: OwnedSemaphorePermit,
+    native: bool,
     mut metrics: Option<&mut CompilerCheckMetrics>,
 ) -> Option<(OwnedSemaphorePermit, tempfile::TempDir, StagedImportGraph)> {
     let staging_started = metrics.is_some().then(Instant::now);
@@ -598,7 +900,7 @@ async fn stage_compiler_graph(
     let staged = tokio::task::spawn_blocking(move || {
         worker_span.in_scope(|| {
             let staging = tempfile::tempdir().ok()?;
-            let staged = stage_source_graph(&source_graph, staging.path())?;
+            let staged = stage_source_graph(&source_graph, staging.path(), native)?;
             Some((permit, staging, staged))
         })
     })
@@ -628,21 +930,47 @@ async fn stage_compiler_graph(
 async fn run_compiler(
     config: &CompilerConfig,
     entry: PathBuf,
+    mut native: Option<&mut NativeRun>,
     permit: OwnedSemaphorePermit,
     staging: tempfile::TempDir,
     reapers: Arc<CompilerReapers>,
     metrics: Option<&mut CompilerCheckMetrics>,
 ) -> io::Result<(std::process::Output, CompilerChildGuard)> {
     let child_started = metrics.is_some().then(Instant::now);
-    let output = run_compiler_command(
-        Command::new(&config.path)
-            .args(&config.arguments)
-            .arg(entry)
-            .arg("--check-only"),
-        Some((permit, staging)),
+    let is_native = native.is_some();
+    let mut command = Command::new(&config.path);
+    command
+        .args(&config.arguments)
+        .arg(entry)
+        .arg("--check-only");
+    if let Some(native) = native.as_ref() {
+        native.configure(&mut command);
+    }
+    let resources = Some(CompilerResources {
+        _permit: Some(permit),
+        _staging: Some(staging),
+        _native_assets: match native.as_mut() {
+            Some(native) => Some(native.take_assets()?),
+            None => None,
+        },
+    });
+    let future = run_compiler_command_limited(
+        &mut command,
+        resources,
         reapers,
-    )
-    .await;
+        is_native.then_some(NATIVE_STREAM_LIMIT),
+    );
+    let output = if is_native {
+        match tokio::time::timeout(NATIVE_CHECK_TIMEOUT, future).await {
+            Ok(output) => output,
+            Err(_) => Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "native Bend checking exceeded the 120 second deadline; child is being killed and reaped",
+            )),
+        }
+    } else {
+        future.await
+    };
     let span = tracing::Span::current();
     if let (Some(metrics), Some(started)) = (metrics, child_started) {
         metrics.child_ns = started.elapsed().as_nanos();
@@ -681,8 +1009,17 @@ pub(super) async fn compiler_base(
 
 async fn run_compiler_command(
     command: &mut Command,
-    resources: Option<(OwnedSemaphorePermit, tempfile::TempDir)>,
+    resources: Option<CompilerResources>,
     reapers: Arc<CompilerReapers>,
+) -> io::Result<(std::process::Output, CompilerChildGuard)> {
+    run_compiler_command_limited(command, resources, reapers, None).await
+}
+
+async fn run_compiler_command_limited(
+    command: &mut Command,
+    resources: Option<CompilerResources>,
+    reapers: Arc<CompilerReapers>,
+    output_limit: Option<usize>,
 ) -> io::Result<(std::process::Output, CompilerChildGuard)> {
     let lease = reapers.track()?;
     let child = command
@@ -697,17 +1034,20 @@ async fn run_compiler_command(
             lease,
         }),
     }
-    .wait_with_output()
+    .wait_with_output(output_limit)
     .await
 }
 
-async fn collect_compiler_output(child: &mut Child) -> io::Result<std::process::Output> {
+async fn collect_compiler_output(
+    child: &mut Child,
+    output_limit: Option<usize>,
+) -> io::Result<std::process::Output> {
     let mut stdout_pipe = child.stdout.take();
     let mut stderr_pipe = child.stderr.take();
     let (status, stdout, stderr) = tokio::try_join!(
         child.wait(),
-        read_compiler_pipe(&mut stdout_pipe),
-        read_compiler_pipe(&mut stderr_pipe),
+        read_compiler_pipe(&mut stdout_pipe, output_limit),
+        read_compiler_pipe(&mut stderr_pipe, output_limit),
     )?;
     Ok(std::process::Output {
         status,
@@ -716,10 +1056,24 @@ async fn collect_compiler_output(child: &mut Child) -> io::Result<std::process::
     })
 }
 
-async fn read_compiler_pipe<R: AsyncRead + Unpin>(pipe: &mut Option<R>) -> io::Result<Vec<u8>> {
+async fn read_compiler_pipe<R: AsyncRead + Unpin>(
+    pipe: &mut Option<R>,
+    output_limit: Option<usize>,
+) -> io::Result<Vec<u8>> {
     let mut output = Vec::new();
     if let Some(pipe) = pipe {
-        pipe.read_to_end(&mut output).await?;
+        if let Some(limit) = output_limit {
+            let limit = u64::try_from(limit).map_err(io::Error::other)?;
+            (&mut *pipe).take(limit).read_to_end(&mut output).await?;
+            let mut extra = [0];
+            if pipe.read(&mut extra).await? != 0 {
+                return Err(io::Error::other(
+                    "native compiler output exceeds the 8 MiB stream limit",
+                ));
+            }
+        } else {
+            pipe.read_to_end(&mut output).await?;
+        }
     }
     Ok(output)
 }
@@ -998,9 +1352,23 @@ fn stage_path(root: &Path, staging: &Path) -> PathBuf {
     }
     result
 }
-fn stage_source_graph(graph: &SourceGraph, staging: &Path) -> Option<StagedImportGraph> {
+fn stage_source_graph(
+    graph: &SourceGraph,
+    staging: &Path,
+    native: bool,
+) -> Option<StagedImportGraph> {
     let root = graph.root_node()?;
-    let mut sources = Vec::with_capacity(graph.nodes.len());
+    let mut sources = if native {
+        Vec::new()
+    } else {
+        Vec::with_capacity(graph.nodes.len())
+    };
+    let mut native_sources = if native {
+        Vec::with_capacity(graph.nodes.len())
+    } else {
+        Vec::new()
+    };
+    let mut staged_files = 0;
     let mut staged_bytes = 0usize;
     for node in &graph.nodes {
         let Some(snapshot) = &node.snapshot else {
@@ -1010,19 +1378,32 @@ fn stage_source_graph(graph: &SourceGraph, staging: &Path) -> Option<StagedImpor
         std::fs::create_dir_all(staged.parent()?).ok()?;
         std::fs::write(&staged, &snapshot.text).ok()?;
         staged_bytes = staged_bytes.saturating_add(snapshot.text.len());
-        sources.push((node.path.clone(), snapshot.clone()));
+        staged_files += 1;
+        if native {
+            native_sources
+                .push(BackendSource::new(node.path.clone(), staged, snapshot.clone()).ok()?);
+        } else {
+            sources.push((node.path.clone(), snapshot.clone()));
+        }
     }
+    let entry = stage_path(&root.path, staging);
+    let native = if native {
+        Some(NativeRun::check(entry.clone(), native_sources).ok()?)
+    } else {
+        None
+    };
     Some(StagedImportGraph {
-        entry: stage_path(&root.path, staging),
-        staged_files: sources.len(),
-        staged_bytes,
+        entry,
         sources,
+        native,
+        staged_files,
+        staged_bytes,
     })
 }
 
 #[cfg(all(test, unix))]
 mod snapshot_lifetime_tests {
-    use super::{CompilerConfig, CompilerReapers, compiler_diagnostics};
+    use super::{CompilerBackend, CompilerConfig, CompilerReapers, compiler_diagnostics};
     use crate::{
         analysis::Revision,
         workspace::{Document, WorkspaceDb},
@@ -1060,6 +1441,7 @@ mod snapshot_lifetime_tests {
                 path: "/usr/bin/true".into(),
                 arguments: Vec::new(),
             },
+            CompilerBackend::Legacy,
             Arc::new(Semaphore::new(1)),
             cache.clone(),
             reapers.clone(),

@@ -1314,7 +1314,7 @@ mod protocol {
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
-        let source = "def add(x: U32) -> U32:\n  x\ntype Shape is Data:\n  Circle{}\n";
+        let source = "def add(x: U32) -> U32:\n  x\ndef kelvin(x: U32) -> U32:\n  x\ntype Shape is Data:\n  Circle{}\n";
         fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let uri = Url::from_file_path(&main_path)
@@ -1348,6 +1348,25 @@ mod protocol {
                 .is_some_and(|items| items.iter().any(|item| item["name"] == "add")),
             "workspace symbols must find matching top-level declarations: {response}"
         );
+        let queries: [(&str, &[&str]); 6] = [
+            ("", &["Shape", "add", "kelvin"]),
+            ("ADD", &["add"]),
+            ("\u{212A}ELVIN", &["kelvin"]),
+            ("sh", &["Shape"]),
+            ("absent", &[]),
+            (" ", &[]),
+        ];
+        for (query, expected) in queries {
+            let response = client.request("workspace/symbol", json!({"query":query}));
+            let mut names = response["result"]
+                .as_array()
+                .must_be("workspace symbol result")
+                .iter()
+                .map(|symbol| symbol["name"].as_str().must_be("symbol name"))
+                .collect::<Vec<_>>();
+            names.sort_unstable();
+            assert_eq!(names, expected, "workspace symbol query {query:?}");
+        }
         client.finish();
     }
     #[test]

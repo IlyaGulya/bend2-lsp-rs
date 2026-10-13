@@ -620,6 +620,29 @@ fn workspace_references(fixture: LoadedWorkspace) -> Vec<(usize, analysis::TextR
 }
 
 #[library_benchmark]
+#[bench::empty(LoadedWorkspace::default(), "")]
+#[bench::case_insensitive(LoadedWorkspace::default(), "CoMmOn_WoRkEr_")]
+fn workspace_symbols_warm(
+    fixture: LoadedWorkspace,
+    query: &str,
+) -> Vec<(usize, String, analysis::SymbolKind, analysis::TextRange)> {
+    let query = analysis::WorkspaceSymbolQuery::new(std::hint::black_box(query));
+    let documents = fixture.database.indexed_documents();
+    let mut symbols = Vec::new();
+    for (document_index, document) in documents.iter().enumerate() {
+        symbols.extend(query.symbols(document).map(|symbol| {
+            (
+                document_index,
+                symbol.name.to_owned(),
+                symbol.kind,
+                symbol.range,
+            )
+        }));
+    }
+    std::hint::black_box(symbols)
+}
+
+#[library_benchmark]
 #[bench::sixteen_revisions(LoadedWorkspace::default())]
 fn workspace_burst_revision_invalidation(
     mut fixture: LoadedWorkspace,
@@ -744,6 +767,54 @@ fn pattern_completion_context_warm(
     )
 }
 
+fn workspace_symbol_response_case() -> Vec<tower_lsp::lsp_types::SymbolInformation> {
+    use tower_lsp::lsp_types::{Location, Position, Range, SymbolInformation, SymbolKind};
+
+    (0..10_000)
+        .map(|index| {
+            let (name, line) = match index {
+                0 => ("identity".to_owned(), 0),
+                1 => ("main".to_owned(), 1),
+                index => (format!("consumer_{:04}", index - 2), 1),
+            };
+            let filename = match name.as_str() {
+                "identity" => "common",
+                "main" => "entry",
+                name => name,
+            };
+            let uri = url::Url::parse(&format!(
+                "file:///tmp/bend2-workspace-symbol-response/{filename}.bend"
+            ))
+            .must_be("symbol URI");
+            let end = 4 + u32::try_from(name.len()).must_be("symbol name length");
+            SymbolInformation {
+                name,
+                kind: SymbolKind::FUNCTION,
+                tags: None,
+                deprecated: None,
+                location: Location {
+                    uri,
+                    range: Range::new(Position::new(line, 4), Position::new(line, end)),
+                },
+                container_name: None,
+            }
+        })
+        .collect()
+}
+
+#[library_benchmark]
+#[bench::ten_thousand_symbols(workspace_symbol_response_case())]
+fn workspace_symbol_response_warm(
+    symbols: Vec<tower_lsp::lsp_types::SymbolInformation>,
+) -> Vec<u8> {
+    use tower_lsp::jsonrpc::{Error, IntoResponse};
+
+    let response = Ok::<_, Error>(Some(symbols))
+        .into_response(Some(17.into()))
+        .must_be("workspace symbol response");
+    std::hint::black_box(response.to_json_bytes().must_be("JSON-RPC wire response"))
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -756,7 +827,7 @@ library_benchmark_group!(
         workspace_references, workspace_burst_revision_invalidation, workspace_orphan_graph_release,
         constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm,
         cold_completion_context_build, pattern_completion_context_warm,
-        import_completion_candidates_warm
+        import_completion_candidates_warm, workspace_symbols_warm, workspace_symbol_response_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

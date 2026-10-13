@@ -34,9 +34,11 @@ cargo clippy --workspace --all-targets --all-features --locked -- \
 printf '== clippy (production binary; panic helpers denied) ==\n'
 cargo clippy --package bend2-lsp --bin bend2-lsp --all-features --locked -- -D warnings
 cargo clippy --package bend2-perf --bin bend2-perf --all-features --locked -- -D warnings
+cargo clippy --package tower-lsp --lib --all-features --locked -- -D warnings
 
 printf '== tests ==\n'
 cargo nextest run --workspace --exclude bend2-perf --all-features --locked --profile ci
+cargo test --package tower-lsp --all-features --locked --doc
 
 printf '== feature combinations ==\n'
 cargo hack check --workspace --feature-powerset --locked

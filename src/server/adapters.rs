@@ -333,15 +333,15 @@ pub(super) fn signature_help(help: analysis::SignatureHelp) -> SignatureHelp {
     }
 }
 
-pub(super) fn workspace_symbols(
-    snapshot: &DocumentSnapshot,
-    uri: &Url,
-    query: &str,
-) -> Vec<SymbolInformation> {
-    analysis::workspace_symbols(snapshot, query)
-        .into_iter()
-        .map(|symbol| SymbolInformation {
-            name: symbol.name,
+pub(super) fn workspace_symbols<'a>(
+    snapshot: &'a DocumentSnapshot,
+    uri: &'a Url,
+    query: &'a analysis::WorkspaceSymbolQuery,
+) -> impl Iterator<Item = SymbolInformation> + 'a {
+    query
+        .symbols(snapshot)
+        .map(move |symbol| SymbolInformation {
+            name: symbol.name.to_owned(),
             kind: symbol_kind(symbol.kind),
             tags: None,
             deprecated: None,
@@ -351,7 +351,6 @@ pub(super) fn workspace_symbols(
             },
             container_name: None,
         })
-        .collect()
 }
 
 fn symbol_kind(kind: SymbolKind) -> tower_lsp::lsp_types::SymbolKind {

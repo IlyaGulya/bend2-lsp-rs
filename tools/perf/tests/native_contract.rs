@@ -140,3 +140,32 @@ fn discovery_cli_rejects_invalid_numbers_and_revision_before_ci_guard() -> Resul
     assert!(!String::from_utf8(output.stderr)?.contains("hosted CI"));
     Ok(())
 }
+
+#[test]
+fn lifecycle_stress_keeps_local_setup_failure_evidence() -> Result<(), Box<dyn Error>> {
+    let directory = tempfile::tempdir()?;
+    let output = Command::new(env!("CARGO_BIN_EXE_bend2-perf"))
+        .args([
+            "lifecycle-stress",
+            "--binary",
+            "missing-lsp",
+            "--output",
+            "evidence/report.json",
+        ])
+        .current_dir(directory.path())
+        .env_remove("GITHUB_ACTIONS")
+        .output()?;
+    assert!(!output.status.success());
+    let report: serde_json::Value = serde_json::from_reader(std::fs::File::open(
+        directory.path().join("evidence/report.json"),
+    )?)?;
+    assert_eq!(report["status"], "failed");
+    assert!(
+        report["error"]
+            .as_str()
+            .is_some_and(|error| !error.is_empty())
+    );
+    assert_eq!(report["binary"]["requested_path"], "missing-lsp");
+    assert!(report.get("pid").is_none());
+    Ok(())
+}
