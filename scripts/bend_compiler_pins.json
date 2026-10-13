@@ -31,8 +31,8 @@
     "sha256": "bdc3057a068b13c9c8677f505cbc049956dc432b84eaabf01abfc803c9360488",
     "windows_locator": {
       "anchor": "export const BEND_DIR = import.meta.url.startsWith(\"file:///$bunfs/\")",
-      "replacement": "export const BEND_DIR = import.meta.url.startsWith(\"file:///$bunfs/\") || import.meta.url.startsWith(\"file:///B:/~BUN/\")",
-      "patched_file": [138283, "7590ebbf12fd9f418a2afe411f3891bd4e85d060e3b454e05986bcca18f12b1d"]
+      "replacement": "export const BEND_DIR = /^(?:\\/\\$bunfs\\/|B:[\\\\/]~BUN[\\\\/])/.test(process.argv[1] ?? \"\")",
+      "patched_file": [138251, "7d331cfd87b2857cbb1720476350f56ee69e9974eb77b8cffa153a4bf0a9775a"]
     },
     "files": {
       "bend2/main.ts": [38563, "38f77e7f1c2b0239cd8ed4a6baad90439c1d2610b2014573590ec7cf6ad04497"],

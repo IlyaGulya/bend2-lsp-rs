@@ -66,6 +66,15 @@
         "bun": "1.4.0",
         "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
       }
+    },
+    "e2f56f58043e58acf2d58a8d7f10019352f4ba9117d7b67b54f370a2bb217f6b": {
+      "version": "2.0.37",
+      "family": "colon-map",
+      "targets": ["linux-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
     }
   }
 }

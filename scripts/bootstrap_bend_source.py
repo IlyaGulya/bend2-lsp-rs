@@ -46,9 +46,9 @@ def install_bun(destination: Path, target: str) -> Path:
 
 
 def adjust_windows_locator(checkout: Path) -> None:
-    # Bun 1.4.0 uses file:///B:/~BUN/ for compiled Windows modules, not
-    # Unix's file:///$bunfs/. Extend only the compiled resource predicate;
-    # upstream parser/checker/kernel code remains byte-for-byte unchanged.
+    # Identify compiled modules by Bun's native virtual entry (argv[1]).
+    # URL spelling differs across platforms; keep adjacent physical executable
+    # resources and the original source branch, without touching the kernel.
     source = checkout / "bend2/bend.ts"
     content = source.read_bytes()
     original_size, original_digest = PINS["source"]["files"]["bend2/bend.ts"]
@@ -70,6 +70,9 @@ def build_windows(destination: Path, target: str) -> Path:
         raise ValueError("Windows compiler source bootstrap must run on a native Windows runner")
     if destination.exists() or destination.is_symlink():
         raise ValueError(f"installation destination must not exist: {destination}")
+    evidence = destination.with_name(destination.name + "-evidence")
+    if evidence.exists() or evidence.is_symlink():
+        raise ValueError(f"compiler evidence destination must not exist: {evidence}")
     commit = PINS["source_commit"]
     pin = PINS["source"]
     source = download(
@@ -112,19 +115,9 @@ def build_windows(destination: Path, target: str) -> Path:
         ], cwd=checkout, env=environment, check=True, timeout=300)
         if output.is_symlink() or not output.is_file():
             raise ValueError("Bun did not produce a regular Bend executable")
-        # Fail closed before exposing the installation. This proves upstream
-        # entry/resource lookup as well as the source build's declared version.
-        version = subprocess.check_output([str(output), "version"], cwd=root, env=environment, text=True, timeout=30).strip()
-        if version != f"bend {PINS['version']}":
-            raise ValueError(f"unexpected source-built Bend version: {version}")
-        subprocess.run([str(output), "base", "--types"], cwd=root, env=environment, check=True, stdout=subprocess.DEVNULL, timeout=30)
+        # Capture native source/runtime/process identity before ordinary CLI
+        # initialization, so a real resource failure still has reviewable evidence.
         observed = probe_compiler_identity(output, root, environment)
-        if (
-            observed["host"] != expected_host
-            or observed["bun"] != PINS["bun"]["version"]
-            or observed["revision"] != PINS["bun"]["revision"]
-        ):
-            raise ValueError(f"unexpected embedded native compiler runtime: {observed}")
         with output.open("rb") as executable:
             executable_digest = hashlib.file_digest(executable, "sha256").hexdigest()
         identity = {
@@ -145,10 +138,47 @@ def build_windows(destination: Path, target: str) -> Path:
             "embedded_bun_version": observed["bun"],
             "embedded_bun_revision": observed["revision"],
             "embedded_host": observed["host"],
+            "embedded_process": {
+                key: observed[key] for key in ("exec_path", "argv0", "argv", "bun_main")
+            },
+            "validation": {"status": "pending"},
+            "cli_checks": {},
         }
-        (distribution / "compiler-build-identity.json").write_text(
-            json.dumps(identity, indent=2) + "\n", encoding="utf-8",
-        )
+        identity_file = distribution / "compiler-build-identity.json"
+        identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
+        try:
+            if (
+                observed["host"] != expected_host
+                or observed["bun"] != PINS["bun"]["version"]
+                or observed["revision"] != PINS["bun"]["revision"]
+                or Path(observed["exec_path"]).resolve() != output.resolve()
+            ):
+                raise ValueError(f"unexpected embedded native compiler runtime: {observed}")
+            # Both real CLI probes remain mandatory before installation. Never
+            # use the preload to fake a successful version or resource check.
+            for name, arguments in (("version", ["version"]), ("base", ["base", "--types"])):
+                completed = subprocess.run(
+                    [str(output), *arguments], cwd=root, env=environment,
+                    capture_output=True, text=True, timeout=30,
+                )
+                identity["cli_checks"][name] = {
+                    "returncode": completed.returncode,
+                    "stdout": completed.stdout,
+                    "stderr": completed.stderr,
+                }
+                identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
+                completed.check_returncode()
+                if name == "version" and completed.stdout.strip() != f"bend {PINS['version']}":
+                    raise ValueError(f"unexpected source-built Bend version: {completed.stdout}")
+        except BaseException as error:
+            identity["validation"] = {"status": "failed", "error": str(error)}
+            identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
+            # This is evidence, not an installation. The failed compiler is
+            # never exposed through BEND2_COMPILER_TEST_PATH.
+            distribution.rename(evidence)
+            raise
+        identity["validation"] = {"status": "passed"}
+        identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
         distribution.rename(destination)
     executable = destination / "bin/bend.exe"
     print(f"Built genuine Bend {PINS['version']} source {commit} with native {target} Bun {revision}: {executable}")

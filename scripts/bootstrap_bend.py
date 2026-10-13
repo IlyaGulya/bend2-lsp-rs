@@ -160,6 +160,8 @@ def probe_compiler_identity(output: Path, staging: Path, environment: dict) -> d
         "  fingerprint: createHash('sha256').update(source).digest('hex'),\n"
         "  bun: Bun.version, revision: Bun.revision,\n"
         "  host: process.platform + ':' + process.arch, entry,\n"
+        "  exec_path: process.execPath, argv0: process.argv0,\n"
+        "  argv: process.argv, bun_main: Bun.main,\n"
         "}), { flag: 'wx' });\n"
         "process.exit(0);\n",
         encoding="utf-8",
@@ -229,6 +231,9 @@ def install(destination: Path, target: str, version: str) -> Path:
             "embedded_bun_version": observed["bun"],
             "embedded_bun_revision": observed["revision"],
             "embedded_host": observed["host"],
+            "embedded_process": {
+                key: observed[key] for key in ("exec_path", "argv0", "argv", "bun_main")
+            },
         }
         (destination / "compiler-build-identity.json").write_text(
             json.dumps(identity, indent=2) + "\n", encoding="utf-8",
@@ -248,8 +253,21 @@ def main() -> None:
     parser.add_argument("--target", choices=TARGETS)
     parser.add_argument("--version", choices=(PINS["version"], PINS["legacy"]["version"]), default=PINS["version"])
     parser.add_argument("--github-env", type=Path)
+    parser.add_argument("--github-output", type=Path)
     arguments = parser.parse_args()
-    executable = install(arguments.destination.absolute(), arguments.target or native_target(), arguments.version)
+    destination = arguments.destination.absolute()
+    try:
+        executable = install(destination, arguments.target or native_target(), arguments.version)
+    finally:
+        # A failed source build can retain evidence, but never becomes an
+        # installation or contributes BEND2_COMPILER_TEST_PATH to later tests.
+        evidence = destination.with_name(destination.name + "-evidence")
+        for candidate in (destination, evidence):
+            if (candidate / "compiler-build-identity.json").is_file():
+                if arguments.github_output:
+                    with arguments.github_output.open("a", encoding="utf-8", newline="\n") as output:
+                        output.write(f"compiler-evidence-present=true\ncompiler-evidence-path={candidate}\n")
+                break
     if arguments.github_env:
         with arguments.github_env.open("a", encoding="utf-8") as environment:
             environment.write(f"BEND2_COMPILER_TEST_PATH={executable}\nBEND_NO_TELEMETRY=1\n")

@@ -163,19 +163,21 @@ jobs:
           rustup override set "1.98.1-$NATIVE_TARGET"
           "$PYTHON" -c 'import os, subprocess; host = next(line.removeprefix("host: ") for line in subprocess.check_output(["rustc", "-vV"], text=True).splitlines() if line.startswith("host: ")); assert host == os.environ["NATIVE_TARGET"], host'
       - name: Provision checksum-pinned genuine Bend 2.0.37
+        id: compiler-provision
         env:
           GH_TOKEN: ${{ github.token }}
-        run: '"$PYTHON" scripts/bootstrap_bend.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"'
+        run: '"$PYTHON" scripts/bootstrap_bend.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"'
       - name: Preserve actual native compiler source and runtime identity
+        if: always() && steps.compiler-provision.outputs.compiler-evidence-present == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: genuine-bend-2.0.37-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/bend-2.0.37/compiler-build-identity.json
-            ${{ runner.temp }}/bend-2.0.37/compiler-embedded-source.js
-            ${{ runner.os == 'Windows' && format('{0}/bend-2.0.37/bin', runner.temp) || '' }}
-            ${{ runner.os == 'Windows' && format('{0}/bend-2.0.37/bend2', runner.temp) || '' }}
-            ${{ runner.os == 'Windows' && format('{0}/bend-2.0.37/guide', runner.temp) || '' }}
+            ${{ steps.compiler-provision.outputs.compiler-evidence-path }}/compiler-build-identity.json
+            ${{ steps.compiler-provision.outputs.compiler-evidence-path }}/compiler-embedded-source.js
+            ${{ runner.os == 'Windows' && format('{0}/bin', steps.compiler-provision.outputs.compiler-evidence-path) || '' }}
+            ${{ runner.os == 'Windows' && format('{0}/bend2', steps.compiler-provision.outputs.compiler-evidence-path) || '' }}
+            ${{ runner.os == 'Windows' && format('{0}/guide', steps.compiler-provision.outputs.compiler-evidence-path) || '' }}
           if-no-files-found: error
           retention-days: 7
       - name: Run mandatory real-compiler stdio E2Es
