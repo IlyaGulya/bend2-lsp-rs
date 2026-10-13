@@ -1,0 +1,53 @@
+{
+  "release_api": "https://api.github.com/repos/bendlang/bend/releases/tags/v2.0.37",
+  "version": "2.0.37",
+  "source_commit": "4ff8545f19b09b7d2b8ca2303668100eac8efd66",
+  "resources": {
+    "bend2/base.bend": [75624, "3238272964daa05438a8a99311008802fd495963ac78dbbf51f6d5e6bdcee77c"],
+    "bend2/bendtt.lean": [172753, "83cdd36e66dcd2cabcc3d10556c9c874f8d823956feab88f8bb5a81473d51be3"]
+  },
+  "archives": {
+    "aarch64-apple-darwin": {"asset": 636642166, "size": 25794417, "sha256": "846d25ccf0c12d5d1e5e648c0b3ba4c8397fdb852812ac00ef8135998f8e194b", "executable": [63885392, "0b5d350546132665742dfa36785752ac170601c6228858d77323b9a4f6761af9"]},
+    "x86_64-apple-darwin": {"asset": 636642164, "size": 28798813, "sha256": "93eea3f54b7b91f28ea15a1b9f2d825afa58c1fcd417c11024a62f8c3506b813", "executable": [71033600, "eb296abd280b84cb2b2c2c226297d5be3390e3c4db85835602be137aa0365df0"]},
+    "aarch64-unknown-linux-gnu": {"asset": 636642165, "size": 36871008, "sha256": "b65d452e5c68a4c486e353220d4298ba5d76f535db47109a7d76ffdf72efafb1", "executable": [82823160, "f47e9b96ac87bd1af94bbec993ec1d3bbded7dbdf9f5873d59dde2b73a5c77ca"]},
+    "x86_64-unknown-linux-gnu": {"asset": 636642167, "size": 36929318, "sha256": "84c32465a39bc9ac315eade23f470cb8db03153dc860f89564fcfec153c3e445", "executable": [82867400, "1467b81f7f6524e2549dbb8a6e7b5777cbd9fedd8c59c911f9ada87ac4e88383"]}
+  },
+  "legacy": {
+    "version": "2.0.36",
+    "source_commit": "ae1101ca7d15364f9274fa6b1367d175884a7da7",
+    "runtime": {"version": "1.3.14", "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"},
+    "target": "aarch64-apple-darwin",
+    "asset": 617610925,
+    "size": 23802450,
+    "sha256": "2876687ceb0aba836abc98b3f62c8fc9fb612d124ae2af6814d5ec937760878d",
+    "files": {
+      "bin/bend": [63423712, "4d7280f366661d9b63b418eb70ca54ea1a867a23b196cc4b5f1f75e049cb80d1"],
+      "bend2/base.bend": [75064, "99ac43f2b2bb3e3f39acdcedcecbbd3cb44749ce13969c827d6973fa66f7facf"],
+      "bend2/bendtt.lean": [171316, "c40d2b219c77c64de1fd6c32224cc53fa928436d8ab7df5bf5a7e585d556cc32"]
+    }
+  },
+  "source": {
+    "size": 59480748,
+    "sha256": "bdc3057a068b13c9c8677f505cbc049956dc432b84eaabf01abfc803c9360488",
+    "windows_locator": {
+      "anchor": "export const BEND_DIR = import.meta.url.startsWith(\"file:///$bunfs/\")",
+      "replacement": "export const BEND_DIR = import.meta.url.startsWith(\"file:///$bunfs/\") || import.meta.url.startsWith(\"file:///B:/~BUN/\")",
+      "patched_file": [138283, "7590ebbf12fd9f418a2afe411f3891bd4e85d060e3b454e05986bcca18f12b1d"]
+    },
+    "files": {
+      "bend2/main.ts": [38563, "38f77e7f1c2b0239cd8ed4a6baad90439c1d2610b2014573590ec7cf6ad04497"],
+      "bend2/bend.ts": [138233, "6c1df3eb304fe085070aa4797928f70243b80d4635389e3d5d8a49fdfbb3051e"],
+      "bend2/comp.ts": [183710, "56d5727049bc3ef528ef84d3b4712a41a0a8ce0a06437b29d881e71107638c70"],
+      "bend2/safe.ts": [65885, "8d7f64b073b43b6872283efad43ddf718163c147fc6512816efff6835e2650e7"]
+    }
+  },
+  "bun": {
+    "release_api": "https://api.github.com/repos/oven-sh/bun/releases/tags/bun-v1.4.0",
+    "version": "1.4.0",
+    "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676",
+    "archives": {
+      "aarch64-pc-windows-msvc": {"asset": 521568363, "name": "bun-windows-aarch64", "size": 36434879, "sha256": "f473bfe2df73ee770548c93dd5d380aea7120c218ec2aa1afdd0bbba7bf18c47", "executable": [78576216, "00cf2c040f04281cf9324282a84338c2dfe6597007bf73b7ee888d512297d71f"]},
+      "x86_64-pc-windows-msvc": {"asset": 521568682, "name": "bun-windows-x64-baseline", "size": 40060227, "sha256": "b929c54a9badb104a16dedd23aab6152c86793ae653d4e6b13983ffd0c882a66", "executable": [88825944, "627d2e4775c24bdedee2cd7ccc18dcadae061e5345274ab6e3c4c797927bfb8f"]}
+    }
+  }
+}

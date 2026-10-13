@@ -67,6 +67,10 @@ jobs:
         run: |
           ./scripts/install-tools.sh
           sccache --show-stats --stats-format=json
+      - name: Provision checksum-pinned genuine Bend 2.0.37
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/bootstrap_bend.py --target x86_64-unknown-linux-gnu --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"
       - name: Run quality gates
         run: ./scripts/quality
       - name: Stress repeated 10000-file workspace lifecycles
@@ -107,10 +111,80 @@ jobs:
   native-compiler-e2e:
     permissions:
       contents: read
-    runs-on: macos-15
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: X64
+            target: x86_64-unknown-linux-gnu
+            python: python3
+          - runner: ubuntu-24.04-arm
+            arch: ARM64
+            target: aarch64-unknown-linux-gnu
+            python: python3
+          - runner: macos-15-intel
+            arch: X64
+            target: x86_64-apple-darwin
+            python: python3
+          - runner: macos-15
+            arch: ARM64
+            target: aarch64-apple-darwin
+            python: python3
+          - runner: windows-2022
+            arch: X64
+            target: x86_64-pc-windows-msvc
+            python: python
+          - runner: windows-11-arm
+            arch: ARM64
+            target: aarch64-pc-windows-msvc
+            python: python
+    defaults:
+      run:
+        shell: bash
     env:
       BEND_NO_TELEMETRY: '1'
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      NATIVE_TARGET: ${{ matrix.target }}
+      PYTHON: ${{ matrix.python }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify native runner
+        env:
+          ACTUAL_ARCH: ${{ runner.arch }}
+        run: test "$ACTUAL_ARCH" = "$EXPECTED_ARCH"
+      - name: Install pinned native Rust toolchain
+        run: |
+          rustup toolchain install "1.98.1-$NATIVE_TARGET" --profile minimal
+          rustup override set "1.98.1-$NATIVE_TARGET"
+          "$PYTHON" -c 'import os, subprocess; host = next(line.removeprefix("host: ") for line in subprocess.check_output(["rustc", "-vV"], text=True).splitlines() if line.startswith("host: ")); assert host == os.environ["NATIVE_TARGET"], host'
+      - name: Provision checksum-pinned genuine Bend 2.0.37
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: '"$PYTHON" scripts/bootstrap_bend.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"'
+      - name: Preserve actual native compiler source and runtime identity
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: genuine-bend-2.0.37-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/bend-2.0.37/compiler-build-identity.json
+            ${{ runner.temp }}/bend-2.0.37/compiler-embedded-source.js
+            ${{ runner.os == 'Windows' && format('{0}/bend-2.0.37/bin', runner.temp) || '' }}
+            ${{ runner.os == 'Windows' && format('{0}/bend-2.0.37/bend2', runner.temp) || '' }}
+            ${{ runner.os == 'Windows' && format('{0}/bend-2.0.37/guide', runner.temp) || '' }}
+          if-no-files-found: error
+          retention-days: 7
+      - name: Run mandatory real-compiler stdio E2Es
+        run: cargo test --locked --test native_compiler_diagnostics --test native_law_ranges --test compiler_multi_error
+  legacy-native-compiler-e2e:
+    permissions:
+      contents: read
+    runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -124,11 +198,9 @@ jobs:
           test "$ACTUAL_ARCH" = "ARM64"
       - name: Install pinned native Rust toolchain
         run: rustup toolchain install 1.98.1 --profile minimal
-      - name: Install checksum-pinned genuine Bend
+      - name: Provision checksum-pinned legacy Bend 2.0.36
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 scripts/bootstrap_bend.py --destination "$RUNNER_TEMP/bend-2.0.36"
-          printf 'BEND2_COMPILER_TEST_PATH=%s/bend-2.0.36/bin/bend\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - name: Run mandatory real-compiler stdio E2E
+        run: python3 scripts/bootstrap_bend.py --version 2.0.36 --target aarch64-apple-darwin --destination "$RUNNER_TEMP/bend-2.0.36" --github-env "$GITHUB_ENV"
+      - name: Preserve genuine 2.0.36 stdio and LAW coverage
         run: cargo test --locked --test native_compiler_diagnostics --test native_law_ranges

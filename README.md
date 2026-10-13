@@ -389,12 +389,13 @@ Startup/configuration probes check `version` and `--help`; known missing CLI
 operations produce a clear compatibility warning. Unknown version output is not
 a numeric-version rejection. Installing or replacing an executable allows a new probe.
 
-On Apple Silicon macOS, verified native Bend 2.0.32–2.0.36 executables support
-multiple independent compiler errors in one check, including errors in imports.
-The adapter runs the installed compiler's own parser and checker; it does not
-introduce a separate type checker or require a separately installed JavaScript
-runtime. Executable bundle and embedded runtime identities must match the verified
-registry before recovery is enabled.
+Verified Bend 2.0.37 executables support multiple independent compiler errors in
+one check, including imported-source errors, on Apple Silicon macOS and Linux
+ARM64. Earlier verified Bend 2.0.32–2.0.36 builds retain Apple Silicon macOS
+support. The adapter runs the installed compiler's own parser and checker; it
+does not introduce a separate type checker or require a separately installed
+JavaScript runtime. Executable bundle, target, and embedded runtime identities
+must match the verified registry before recovery is enabled.
 
 Structured diagnostics retain their original source and UTF-16 range. Errors in
 dependencies also appear on the affected import path, with links to the original
@@ -403,7 +404,7 @@ visible. Blocked definitions are not separate errors and do not produce a
 first-line incomplete-check counter. Backend failures, including an incomplete
 check with no located cause, remain explicit failures rather than clean results.
 
-Other platforms and compiler versions retain the textual CLI integration. Every
+Unverified platforms and compiler versions retain the textual CLI integration. Every
 genuine error block emitted by a check is retained and deduplicated across stdout
 and stderr, but that compiler may stop after the first independent error.
 Locations use validated source excerpts and UTF-16 caret spans. Ambiguous matches
@@ -454,28 +455,32 @@ Installing the helpers requires Rust/Cargo and Go. The gate covers formatting,
 rustc, Clippy, tests, feature combinations, dependency policy, and GitHub Actions
 security checks (`actionlint`, `ghalint`, `zizmor`).
 
-On Apple Silicon macOS, provision the genuine checksum-pinned Bend compiler
-before running the full gate:
+The full gate automatically provisions genuine checksum-pinned Bend 2.0.37 when
+`BEND2_COMPILER_TEST_PATH` is unset. To provision it explicitly on macOS/Linux:
 
 ```sh
-python3 scripts/bootstrap_bend.py --destination /tmp/bend-native-e2e-2.0.36
+python3 scripts/bootstrap_bend.py --destination /tmp/bend-native-e2e-2.0.37
 export BEND_NO_TELEMETRY=1
-export BEND2_COMPILER_TEST_PATH=/tmp/bend-native-e2e-2.0.36/bin/bend
+export BEND2_COMPILER_TEST_PATH=/tmp/bend-native-e2e-2.0.37/bin/bend
 ./scripts/quality
 ```
 
-The destination must not already exist. The mandatory macOS ARM64 quality job
-and native release suite provision this same compiler. Focused stdio E2Es use the
-actual server and compiler, not a compiler fixture:
+The destination must not already exist. All six native quality, release, and
+installed-executable matrices require the genuine compiler tests. Unix hosts use
+pinned official distributions; Windows builds exact upstream source with a
+pinned native Bun runtime and a resource-locator adjustment, not an official
+Windows compiler release. The server still does not bundle Bend.
+
+Focused stdio E2Es use the actual server and compiler, not a compiler fixture:
 
 ```sh
-cargo test --locked --test native_compiler_diagnostics --test native_law_ranges
+cargo test --locked --test native_compiler_diagnostics --test native_law_ranges --test compiler_multi_error
 ```
 
 They check direct and transitive import locations, links to original errors,
 independent source errors, unsaved corrections, exact declaration spans, and
-compiler-owned versus user-owned `Base`. Other platforms retain their existing
-CLI integration and release E2Es; this pin does not enable native recovery there.
+compiler-owned versus user-owned `Base`, and spaces/non-ASCII workspace and
+temporary paths. A separate macOS ARM64 job retains Bend 2.0.36 coverage.
 
 Real Neovim E2E coverage runs the native server through Neovim's built-in LSP
 client with default and explicit configurations:

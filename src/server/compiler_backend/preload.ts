@@ -46,7 +46,7 @@ function fail(error: unknown): never {
 }
 try {
   if (!absolutePath(stagingPath) || !absolutePath(resultPath) || !absolutePath(requestPath) ||
-      !process.argv[1]?.startsWith('/$bunfs/')) {
+      !/^(?:\/\$bunfs\/|B:[\\/]~BUN[\\/])/.test(process.argv[1] ?? '')) {
     throw new Error('Expected parent-owned absolute staging paths and a compiled Bun entry');
   }
   staging = realpathSync(stagingPath);
@@ -81,8 +81,8 @@ try {
   const source = readFileSync(process.argv[1], 'utf8');
   const fingerprint = createHash('sha256').update(source).digest('hex');
   const registry: unknown = JSON.parse(readFileSync(join(staging, 'registry.json'), 'utf8'));
-  if (!exactFields(registry, ['schema', 'platform', 'arch', 'families', 'compilers']) ||
-      registry.schema !== 1 || registry.platform !== 'darwin' || registry.arch !== 'arm64' ||
+  if (!exactFields(registry, ['schema', 'families', 'compilers']) ||
+      registry.schema !== 2 ||
       registry.families === null || typeof registry.families !== 'object' || Array.isArray(registry.families) ||
       registry.compilers === null || typeof registry.compilers !== 'object' || Array.isArray(registry.compilers)) {
     throw new Error('Invalid compiler registry schema');
@@ -90,20 +90,22 @@ try {
   const compilers = registry.compilers as Record<string, unknown>; // Object shape proven above.
   const families = registry.families as Record<string, unknown>; // Object shape proven above.
   const compiler = compilers[fingerprint];
-  if (!exactFields(compiler, ['version', 'family']) && !exactFields(compiler, ['version', 'family', 'runtime'])) {
+  if (!exactFields(compiler, ['version', 'family', 'targets']) &&
+      !exactFields(compiler, ['version', 'family', 'targets', 'runtime'])) {
     throw new Error(`Unsupported embedded compiler fingerprint ${fingerprint}`);
   }
   if (typeof compiler.version !== 'string' || typeof compiler.family !== 'string' ||
-      !Object.hasOwn(families, compiler.family)) {
+      !Object.hasOwn(families, compiler.family) || !Array.isArray(compiler.targets) ||
+      compiler.targets.length === 0 || compiler.targets.some(target => typeof target !== 'string')) {
     throw new Error('Invalid compiler family/schema in registry');
   }
   const runtime = compiler.runtime ?? families[compiler.family];
   if (!exactFields(runtime, ['bun', 'revision']) || typeof runtime.bun !== 'string' || typeof runtime.revision !== 'string') {
     throw new Error('Invalid native runtime registry schema');
   }
-  if (process.platform !== registry.platform || process.arch !== registry.arch ||
+  if (!compiler.targets.includes(process.platform + '-' + process.arch) ||
       Bun.version !== runtime.bun || Bun.revision !== runtime.revision) {
-    throw new Error(`Unsupported native runtime: expected ${registry.platform}/${registry.arch} Bun ${runtime.bun} ${runtime.revision}; found ${process.platform}/${process.arch} Bun ${Bun.version} ${Bun.revision}`);
+    throw new Error(`Unsupported native runtime: expected ${compiler.targets.join(', ')} Bun ${runtime.bun} ${runtime.revision}; found ${process.platform}/${process.arch} Bun ${Bun.version} ${Bun.revision}`);
   }
   identity = { version: compiler.version, fingerprint, runtime: { bun: Bun.version, revision: Bun.revision } };
   const resources = join(dirname(realpathSync(process.execPath)), '..', 'bend2');
@@ -125,12 +127,9 @@ try {
     process.exit(0);
   }
   const modulePath = join(staging, 'recovery-entry.mjs');
-  writeFileSync(modulePath, '// Parent-owned native recovery entry\n', { flag: 'wx' });
-  Bun.plugin({ name: 'bend-native-recovery', setup(build) {
-    build.onLoad({ filter: /recovery-entry\.mjs$/ }, args => {
-      if (args.path === modulePath) return { loader: 'js', contents: patched };
-    });
-  }});
+  // The frozen patch removes Bun's bundled-ASCII directive so generated
+  // request IDs and resource paths retain their original UTF-8 spelling.
+  writeFileSync(modulePath, patched, { flag: 'wx' });
   // The module specifier and patched entry are generated in owned staging;
   // static imports cannot load this not-yet-published runtime module.
   await import(modulePath);
