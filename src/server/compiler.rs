@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::{self, Write as _},
     path::{Component, Path, PathBuf},
     process::Stdio,
@@ -15,7 +15,7 @@ use tokio::{
     process::{Child, Command},
     sync::{Notify, OwnedSemaphorePermit, Semaphore},
 };
-use tower_lsp::lsp_types::Diagnostic;
+use tower_lsp::lsp_types::{Diagnostic, DiagnosticRelatedInformation, Location, Url};
 
 use super::{
     compiler_backend::{BackendSource, CompilerIdentity, should_probe_native},
@@ -596,6 +596,7 @@ pub(super) async fn compiler_diagnostics(
 }
 struct CompilerCheckContext<'a> {
     config: &'a CompilerConfig,
+    graph: &'a SourceGraph,
     root: &'a Path,
     snapshot: &'a DocumentSnapshot,
     identity: Option<Arc<CompilerIdentity>>,
@@ -621,6 +622,7 @@ impl<'a> CompilerCheckContext<'a> {
         };
         Ok(Self {
             config,
+            graph,
             root: &root.path,
             snapshot,
             identity,
@@ -696,6 +698,7 @@ impl<'a> CompilerCheckContext<'a> {
                 child,
                 self.root,
                 self.snapshot,
+                self.graph,
             )
             .await
         } else {
@@ -825,6 +828,7 @@ async fn native_output_diagnostics(
     child: CompilerChildGuard,
     root: &Path,
     snapshot: &DocumentSnapshot,
+    graph: &SourceGraph,
 ) -> (Vec<(PathBuf, Diagnostic)>, bool) {
     let exit_code = output.status.code();
     drop(output);
@@ -835,21 +839,19 @@ async fn native_output_diagnostics(
     .await;
     match decoded {
         Ok(Ok(mut outcome)) => {
-            let cache_result = outcome.backend_failure.is_none();
+            append_import_diagnostics(&mut outcome.diagnostics, graph);
+            let mut cache_result = outcome.backend_failure.is_none();
             if let Some(message) = outcome.backend_failure {
                 outcome.diagnostics.push((
                     root.to_path_buf(),
                     diag(snapshot, 0, 0, message, "compiler-backend-failure"),
                 ));
-            } else if outcome.incomplete {
-                let message = format!(
-                    "Bend could not completely check this document: {} declaration(s) could not be checked; source loading complete: {}. Independent errors are still reported.",
-                    outcome.coverage.blocked.len(),
-                    outcome.coverage.loading_complete,
-                );
+            } else if outcome.incomplete && outcome.diagnostics.is_empty() {
+                cache_result = false;
+                let message = "Native Bend could not finish checking this document and did not report a source location for the cause.";
                 outcome.diagnostics.push((
                     root.to_path_buf(),
-                    diag(snapshot, 0, 0, message, "compiler-check-incomplete"),
+                    diag(snapshot, 0, 0, message, "compiler-backend-failure"),
                 ));
             }
             (outcome.diagnostics, cache_result)
@@ -881,6 +883,63 @@ async fn native_output_diagnostics(
             false,
         ),
     }
+}
+fn append_import_diagnostics(diagnostics: &mut Vec<(PathBuf, Diagnostic)>, graph: &SourceGraph) {
+    if diagnostics.is_empty() {
+        return;
+    }
+    let nodes: HashMap<_, _> = graph.nodes.iter().map(|node| (node.id, node)).collect();
+    let mut causes: HashMap<&Path, Vec<&Diagnostic>> = HashMap::new();
+    for (path, diagnostic) in diagnostics.iter() {
+        causes.entry(path).or_default().push(diagnostic);
+    }
+    let mut imports = Vec::new();
+    let mut visited = HashSet::with_capacity(graph.nodes.len());
+    let mut pending = Vec::with_capacity(graph.nodes.len());
+    for node in &graph.nodes {
+        let Some(snapshot) = node.snapshot.as_deref() else {
+            continue;
+        };
+        for edge in &node.imports {
+            visited.clear();
+            pending.clear();
+            pending.push(edge.target);
+            let mut related = Vec::new();
+            while let Some(target) = pending.pop() {
+                if target == node.id || !visited.insert(target) {
+                    continue;
+                }
+                let Some(dependency) = nodes.get(&target) else {
+                    continue;
+                };
+                if let Some(errors) = causes.get(dependency.path.as_path())
+                    && let Ok(uri) = Url::from_file_path(&dependency.path)
+                {
+                    related.extend(errors.iter().map(|error| DiagnosticRelatedInformation {
+                        location: Location {
+                            uri: uri.clone(),
+                            range: error.range,
+                        },
+                        message: error.message.clone(),
+                    }));
+                }
+                pending.extend(dependency.imports.iter().map(|import| import.target));
+            }
+            if related.is_empty() {
+                continue;
+            }
+            let mut diagnostic = diag(
+                snapshot,
+                edge.path.start,
+                edge.path.end,
+                "This import contains errors. Fix the linked declarations before dependent definitions can be checked.",
+                "compiler-import-error",
+            );
+            diagnostic.related_information = Some(related);
+            imports.push((node.path.clone(), diagnostic));
+        }
+    }
+    diagnostics.extend(imports);
 }
 
 async fn stage_compiler_graph(

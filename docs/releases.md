@@ -88,6 +88,16 @@ including its custom portable subprocess fixture. It is not shipped or included
 in installer test archives; all server test coverage and flaky-test policy remain
 unchanged.
 
+The macOS ARM64 native suite additionally runs `native_compiler_diagnostics` and
+`native_law_ranges` against the staged release executable and the genuine Bend
+2.0.36 distribution provisioned by `scripts/bootstrap_bend.py`. The fixed upstream
+asset ID and SHA-256 bind the executable and its adjacent library resources.
+These stdio E2Es cover causal import locations, original-error links, independent
+errors, unsaved corrections, declaration spans, and compiler-owned `Base`.
+Quality CI runs the same genuine-compiler tests in a separate macOS ARM64 job.
+Native recovery is not enabled on the other five targets; their existing full
+suite, portable direct-executable E2E, and installed-executable E2E remain required.
+
 The full release suite is compiled once per native target. Nextest archives
 those same test binaries with the identical workspace, feature, lockfile, and
 release flags; the mandatory direct-executable E2E runs from that archive, not

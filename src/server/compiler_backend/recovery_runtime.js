@@ -363,7 +363,8 @@ class Recovery_Blocked extends Error {
 }
 function recovery_record(book, p, k) {
   (book.recovery_declarations ??= []).push({
-    definition: k, file: p.recovery_path, begin: p.recovery_begin, end: p.pos
+    definition: k, file: p.recovery_path, begin: p.recovery_begin,
+    end: p.pos === p.recovery_trivia_end ? p.recovery_trivia_begin : p.pos
   });
   const tld = book.tlds[k];
   if (book.recovery_preflight) (book.recovery_shapes ??= new Map).set(k, recovery_shape(tld));

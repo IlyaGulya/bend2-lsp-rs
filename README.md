@@ -396,11 +396,12 @@ introduce a separate type checker or require a separately installed JavaScript
 runtime. Executable bundle and embedded runtime identities must match the verified
 registry before recovery is enabled.
 
-Structured diagnostics retain their original source and UTF-16 range. A damaged
-declaration blocks dependent checks without hiding independent errors. When an
-error cannot safely be assigned to a declaration, its file is conservatively
-treated as incomplete. Incomplete checks and backend failures are reported
-explicitly, never as a successful check.
+Structured diagnostics retain their original source and UTF-16 range. Errors in
+dependencies also appear on the affected import path, with links to the original
+errors, including through transitive imports. Independent source errors remain
+visible. Blocked definitions are not separate errors and do not produce a
+first-line incomplete-check counter. Backend failures, including an incomplete
+check with no located cause, remain explicit failures rather than clean results.
 
 Other platforms and compiler versions retain the textual CLI integration. Every
 genuine error block emitted by a check is retained and deduplicated across stdout
@@ -412,6 +413,11 @@ Checks use the latest unsaved buffers and reachable relative imports in a
 temporary tree. Changes are debounced by 250 ms; superseded checks are cancelled.
 If the compiler is unavailable, compiler checks cannot work, but source-based
 editor features do not require the compiler. `Base` navigation does require it.
+
+Compiler-owned `Base` source opened through navigation is not checked as an
+ordinary user module. This exemption follows the source's ownership, not its
+filename: a project-local `Base.bend` or `base.bend` is still checked. Importing a
+local copy alongside `import Base` can produce genuine duplicate declarations.
 
 ### Troubleshooting
 
@@ -447,6 +453,29 @@ Before submitting a change, install the pinned helper tools and run the full gat
 Installing the helpers requires Rust/Cargo and Go. The gate covers formatting,
 rustc, Clippy, tests, feature combinations, dependency policy, and GitHub Actions
 security checks (`actionlint`, `ghalint`, `zizmor`).
+
+On Apple Silicon macOS, provision the genuine checksum-pinned Bend compiler
+before running the full gate:
+
+```sh
+python3 scripts/bootstrap_bend.py --destination /tmp/bend-native-e2e-2.0.36
+export BEND_NO_TELEMETRY=1
+export BEND2_COMPILER_TEST_PATH=/tmp/bend-native-e2e-2.0.36/bin/bend
+./scripts/quality
+```
+
+The destination must not already exist. The mandatory macOS ARM64 quality job
+and native release suite provision this same compiler. Focused stdio E2Es use the
+actual server and compiler, not a compiler fixture:
+
+```sh
+cargo test --locked --test native_compiler_diagnostics --test native_law_ranges
+```
+
+They check direct and transitive import locations, links to original errors,
+independent source errors, unsaved corrections, exact declaration spans, and
+compiler-owned versus user-owned `Base`. Other platforms retain their existing
+CLI integration and release E2Es; this pin does not enable native recovery there.
 
 Real Neovim E2E coverage runs the native server through Neovim's built-in LSP
 client with default and explicit configurations:
@@ -490,10 +519,10 @@ cargo run --locked -p zed --bin zed_visual_test_runner --features visual-tests
 
 The runner launches the actual LSP child and compiler, opens real editor buffers,
 and applies unsaved edits through GPUI input rather than macOS keyboard
-automation. With a verified native compiler, it checks two independent type
-errors becoming one and then zero, a damaged imported declaration retaining
-independent root errors with incomplete-check coverage, and an unsaved dependency
-signature change introducing and clearing an error in an unchanged root.
+automation. The previously recorded native acceptance covered independent errors,
+damaged imports, and unsaved dependency changes using the earlier incomplete-check
+banner contract. The mandatory stdio E2Es above cover the current import-local
+diagnostic contract; this separately maintained visual runner is not a CI gate.
 Assertions check compiler ownership, semantic error fields, exact ranges,
 versioned publications, and unchanged disk bytes. Metal-rendered screenshots
 record the editor surface. Existing completion, rename, and organize-import
