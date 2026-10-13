@@ -75,6 +75,24 @@
         "bun": "1.4.0",
         "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
       }
+    },
+    "71bf75af0785f33900381edea09d28fdaf59028506053cc14d93ec2b74917eb3": {
+      "version": "2.0.37",
+      "family": "colon-map",
+      "targets": ["win32-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "a98abb7919d01a295add738a745ad6c0d780ac6d07771dd79dc89ccac955f02b": {
+      "version": "2.0.37",
+      "family": "colon-map",
+      "targets": ["win32-arm64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
     }
   }
 }
