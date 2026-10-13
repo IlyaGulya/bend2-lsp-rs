@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.6.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.5.0...v0.6.0) (2026-10-13)
 
 ### Features
 
@@ -187,16 +187,16 @@
   native Rust for runtime fixtures, every test gate, and strict flaky-test
   rejection; test archives remain internal and are never published.
 
-## [0.6.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.5.0...v0.6.0) (2026-10-12)
+### Commit references
 
 
-### Features
+**Features**
 
 * unified hosted portable performance measurements and profiling ([447db8e](https://github.com/IlyaGulya/bend2-lsp-rs/commit/447db8e8829daf943987bef44186fff90415c269))
 * unify hosted portable performance measurements and profiling ([a2a8404](https://github.com/IlyaGulya/bend2-lsp-rs/commit/a2a8404bb6702eb5b8b77254bc793d7aa6438fae))
 
 
-### Bug Fixes
+**Bug fixes**
 
 * bind DHAT timeout diagnostics to the actual heap profile kind ([0d10bd7](https://github.com/IlyaGulya/bend2-lsp-rs/commit/0d10bd7d24f8d80d4b5e083664108d1e919924de))
 * finalize owned native recorders and preserve report evidence ([775a0f6](https://github.com/IlyaGulya/bend2-lsp-rs/commit/775a0f645db5e0d641ba58f13b166d84b1649fdd))
