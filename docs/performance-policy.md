@@ -605,6 +605,14 @@ Its trace and command logs are preparation evidence, not scenario samples.
 The actual LSP capture still requires its own tracing-started notification
 within 60 seconds.
 
+If an owned Instruments recorder is still finalizing 280 seconds after its stop
+request, collect one one-second `/usr/bin/sample` stack snapshot with the existing
+10-second sampling-command bound. Keep the original 300-second finalization
+deadline; sampler failure does not reset it or admit an incomplete trace.
+The stack and command outcomes are retained in the profile artifacts before
+owned cleanup. This is failure diagnosis, not clean latency evidence or a fix
+for the recorder's internal stall.
+
 Native Allocations captures set `MallocNanoZone=0` only in their LSP child and
 retain that override in `profiler.target_environment`. Apple's
 [libmalloc source](https://github.com/apple-oss-distributions/libmalloc/blob/libmalloc-715.140.5/src/nanov2_malloc.c)

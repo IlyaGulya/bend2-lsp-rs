@@ -901,6 +901,8 @@ impl Session {
             }
         }
         let deadline = Instant::now() + Duration::from_secs(300);
+        #[cfg(target_os = "macos")]
+        let mut sampled_finalization = false;
         loop {
             if let Err(error) = mode.check() {
                 self.force_reap()?;
@@ -923,6 +925,16 @@ impl Session {
             if Instant::now() >= deadline {
                 self.force_reap()?;
                 return Err("Profiler did not finalize within 300s; killed and reaped".into());
+            }
+            #[cfg(target_os = "macos")]
+            if self.backend == "xctrace"
+                && !sampled_finalization
+                && Instant::now() + Duration::from_secs(20) >= deadline
+            {
+                // Sample the owned recorder while it is still alive, within
+                // the unchanged finalization deadline, not after killing it.
+                sampled_finalization = true;
+                self.sample_stall(pid, "recorder-finalization-stall");
             }
             thread::sleep(Duration::from_millis(25));
         }
