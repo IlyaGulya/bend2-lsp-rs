@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.4.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.4.0) (2026-10-13)
+
+
+### Features
+
+* add generated cross-platform release installers ([#8](https://github.com/IlyaGulya/bend2-lsp-rs/issues/8)) ([be1cab9](https://github.com/IlyaGulya/bend2-lsp-rs/commit/be1cab9cfbdaa3393195ee8a09184160577373dd))
+* automate tested native nightly and versioned releases ([804ea24](https://github.com/IlyaGulya/bend2-lsp-rs/commit/804ea24b9b653c884942123f8497fb558ce5546c))
+* complete constructors at case pattern heads ([#30](https://github.com/IlyaGulya/bend2-lsp-rs/issues/30)) ([324fc58](https://github.com/IlyaGulya/bend2-lsp-rs/commit/324fc58ef3b055edd56bff8b79c7ca168b2c388f))
+* complete visible local bindings ([#23](https://github.com/IlyaGulya/bend2-lsp-rs/issues/23)) ([f2f9535](https://github.com/IlyaGulya/bend2-lsp-rs/commit/f2f95350a21ff162d97d0290aa43475c45ac52fc))
+* fix Zed editing flows and compact indexed storage ([#35](https://github.com/IlyaGulya/bend2-lsp-rs/issues/35)) ([48f98ac](https://github.com/IlyaGulya/bend2-lsp-rs/commit/48f98ac7e10b2113ba5b346ab370ff6edbd62d47))
+* report independent errors with verified native Bend compilers ([6886c2b](https://github.com/IlyaGulya/bend2-lsp-rs/commit/6886c2b7f0fbdfe5c3b1521872887e9fdd780a9e))
+* report independent errors with verified native Bend compilers ([f3961ee](https://github.com/IlyaGulya/bend2-lsp-rs/commit/f3961ee35ad322f8a981a588741f9580aa432d8e))
+* unified hosted portable performance measurements and profiling ([447db8e](https://github.com/IlyaGulya/bend2-lsp-rs/commit/447db8e8829daf943987bef44186fff90415c269))
+* unify hosted portable performance measurements and profiling ([a2a8404](https://github.com/IlyaGulya/bend2-lsp-rs/commit/a2a8404bb6702eb5b8b77254bc793d7aa6438fae))
+
+
+### Bug Fixes
+
+* accept upstream v-prefixed pinned tool versions ([38b3637](https://github.com/IlyaGulya/bend2-lsp-rs/commit/38b36372de4937d3de40cddd70a24bf8048963cc))
+* bind DHAT timeout diagnostics to the actual heap profile kind ([0d10bd7](https://github.com/IlyaGulya/bend2-lsp-rs/commit/0d10bd7d24f8d80d4b5e083664108d1e919924de))
+* finalize owned native recorders and preserve report evidence ([775a0f6](https://github.com/IlyaGulya/bend2-lsp-rs/commit/775a0f645db5e0d641ba58f13b166d84b1649fdd))
+* harden GitHub Actions and publish direct release binaries ([d9a535a](https://github.com/IlyaGulya/bend2-lsp-rs/commit/d9a535a02154838ad3f11aca658beb01c974cb45))
+* keep temporary ETL SDK free of build-server leases ([91c8d76](https://github.com/IlyaGulya/bend2-lsp-rs/commit/91c8d76c163bc5a3b5231151d66d3691465d7d66))
+* launch native macOS heap capture before runtime startup ([b62e4ef](https://github.com/IlyaGulya/bend2-lsp-rs/commit/b62e4efb499e6bb6c16e56885dce549d53b55c45))
+* omit release versions from asset filenames ([#6](https://github.com/IlyaGulya/bend2-lsp-rs/issues/6)) ([20910ec](https://github.com/IlyaGulya/bend2-lsp-rs/commit/20910ecb625ef9f14caaf50d9ce26aae7622a12b))
+* portable compiler backend release-test paths ([d2d99ed](https://github.com/IlyaGulya/bend2-lsp-rs/commit/d2d99ed483652e4ce9a7202270bc4fc1a7ce3c3e))
+* prepare native tracing services and retain allocator capture scope ([2698113](https://github.com/IlyaGulya/bend2-lsp-rs/commit/26981131227cccc3d5e1766a69691fc0587d9fa9))
+* preserve compiler-owned Base document provenance ([#11](https://github.com/IlyaGulya/bend2-lsp-rs/issues/11)) ([ab60a28](https://github.com/IlyaGulya/bend2-lsp-rs/commit/ab60a289e775231738a20bab4fff0c89dafe1489))
+* preserve lexical bindings, workspace revisions and compiler lifecycle ([#4](https://github.com/IlyaGulya/bend2-lsp-rs/issues/4)) ([e08cace](https://github.com/IlyaGulya/bend2-lsp-rs/commit/e08cace9088ff37ec0789bf9694b1a474093f368))
+* preserve native release verification across macOS and Windows ([1f224ba](https://github.com/IlyaGulya/bend2-lsp-rs/commit/1f224ba6828b63fae17136f688ff9488bfb7f251))
+* preserve native sampler CPU events and canonical gate verdicts ([28e659a](https://github.com/IlyaGulya/bend2-lsp-rs/commit/28e659a6b89bd1afdb969af230dfe854b795d901))
+* preserve native trace evidence and collector ownership ([0eb0fd2](https://github.com/IlyaGulya/bend2-lsp-rs/commit/0eb0fd26e11a5ec827a7feb13d18e7bc38c28e65))
+* reject contradictory gate evidence and bound report payloads ([6831d0a](https://github.com/IlyaGulya/bend2-lsp-rs/commit/6831d0af6f89ade0e3ba70a2282702a346dfcd3d))
+* release orphan workspace snapshots and filter watcher admission ([#39](https://github.com/IlyaGulya/bend2-lsp-rs/issues/39)) ([c6b4307](https://github.com/IlyaGulya/bend2-lsp-rs/commit/c6b4307eb0981b44a85ea781562869c2e4294f75))
+* replace policy label gate with PR review and update Node actions ([c2e5fbc](https://github.com/IlyaGulya/bend2-lsp-rs/commit/c2e5fbc582821811f576c37e2c3f999b6f34aebe))
+* reserve bounded capacity for both rejecting Windows heap loggers ([f5dcf87](https://github.com/IlyaGulya/bend2-lsp-rs/commit/f5dcf8747c82a72e19b3e1063453c882cb19d502))
+* resolve imported constructor definitions and track LSP latency ([57d9f76](https://github.com/IlyaGulya/bend2-lsp-rs/commit/57d9f76fe8ae47d84f098e67358e178027a2a69f))
+* retain bounded Instruments finalization stall samples ([f0b3d88](https://github.com/IlyaGulya/bend2-lsp-rs/commit/f0b3d882fbffc39857ccc2794d2c0270d8112230))
+* retain raw discovery evidence without duplicating report payload ([2275927](https://github.com/IlyaGulya/bend2-lsp-rs/commit/2275927aef91fe1814deb4d11d17890e2227e90b))
+* stream Windows ETL decoding with pinned TraceEvent ([77105cb](https://github.com/IlyaGulya/bend2-lsp-rs/commit/77105cbc9338653bbcb9b584631038ed47372fa6))
+* use native absolute paths in compiler backend release tests ([01c6df9](https://github.com/IlyaGulya/bend2-lsp-rs/commit/01c6df98876c21a81749f896690571d228520e66))
+* verify actual native profiler protocols and exports ([28c16b0](https://github.com/IlyaGulya/bend2-lsp-rs/commit/28c16b032f39fac9db433a544d73ff1a13e0bd81))
+
+
+### Performance Improvements
+
+* cover workspace symbol response materialization ([e6f9680](https://github.com/IlyaGulya/bend2-lsp-rs/commit/e6f9680d2a6161c5c900c3544965a518c767c9c7))
+* encode typed JSON-RPC responses without an intermediate value tree ([6208e0f](https://github.com/IlyaGulya/bend2-lsp-rs/commit/6208e0fbc7a44da98e5e8099784b8c2e6516041d))
+* iterate indexed reference slices directly ([a11ef5d](https://github.com/IlyaGulya/bend2-lsp-rs/commit/a11ef5dc633db0451fb48805b57feb215661fbc0))
+* materialize indexed workspace symbols without intermediate allocations ([94b5cb3](https://github.com/IlyaGulya/bend2-lsp-rs/commit/94b5cb364d64a5056bf283c3840409155fa8f911))
+* reduce workspace-symbol allocations and stress lifecycle transitions ([aedaa42](https://github.com/IlyaGulya/bend2-lsp-rs/commit/aedaa424ff5037b2fbd95c7154f4b78070fc1a99))
+
+
+### Miscellaneous Chores
+
+* prepare editor improvements release ([#33](https://github.com/IlyaGulya/bend2-lsp-rs/issues/33)) ([1eb722b](https://github.com/IlyaGulya/bend2-lsp-rs/commit/1eb722be9d7d76b3b814c046d6d0b8605e7d4b4c))
+
 ## [0.6.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.5.0...v0.6.0) (2026-10-13)
 
 ### Features

@@ -2,7 +2,7 @@
 # Only the Tokio runtime used by this server is retained; all upstream in-crate tests remain.
 [package]
 name = "tower-lsp"
-version = "0.20.0"
+version = "0.4.0"
 authors = ["Eyal Kalderon <ebkalderon@gmail.com>"]
 edition = "2021"
 rust-version.workspace = true
