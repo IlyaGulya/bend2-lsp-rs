@@ -14,6 +14,9 @@ on:
       - tools/perf/**
       - scripts/install-tools.sh
       - dist-workspace.toml
+      - src/server/compiler_backend.rs
+      - Cargo.toml
+      - Cargo.lock
 
 permissions: {}
 

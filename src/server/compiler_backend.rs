@@ -669,7 +669,7 @@ fn validate_identity(identity: &CompilerIdentity) -> io::Result<()> {
 mod tests {
     use super::{
         BackendSource, CheckOutcome, CompilerIdentity, REGISTRY, decode_check,
-        decode_compatibility, invalid,
+        decode_compatibility, invalid, validate_path,
     };
     use crate::analysis::{DocumentSnapshot, Revision};
     use serde_json::{Value, json};
@@ -695,10 +695,18 @@ mod tests {
         })
     }
 
+    fn fixture_path(path: &str) -> PathBuf {
+        if cfg!(windows) {
+            PathBuf::from(format!("C:{}", path.replace('/', "\\")))
+        } else {
+            PathBuf::from(path)
+        }
+    }
+
     fn source(text: &str) -> io::Result<BackendSource> {
         BackendSource::new(
-            PathBuf::from("/workspace/main.bend"),
-            PathBuf::from("/staging/main.bend"),
+            fixture_path("/workspace/main.bend"),
+            fixture_path("/staging/main.bend"),
             Arc::new(DocumentSnapshot::new(Revision(4), text.to_owned())),
         )
     }
@@ -769,7 +777,7 @@ mod tests {
             ("/compiler/runtime/revision", json!("runtime-drift")),
             ("/compiler/version", json!("2.0.35")),
             ("/sources/0/sha256", json!("f".repeat(64))),
-            ("/sources/0/path", json!("/another/main.bend")),
+            ("/sources/0/path", json!(fixture_path("/another/main.bend"))),
         ] {
             let mut forged = original.clone();
             *forged
@@ -874,7 +882,7 @@ mod tests {
         let identity = identity()?;
         let mut value = response(&source, &identity);
         let mut unknown = value["diagnostics"][0].clone();
-        unknown["file"] = json!("/native/library.bend");
+        unknown["file"] = json!(fixture_path("/native/library.bend"));
         unknown["definition"] = Value::Null;
         value["diagnostics"]
             .as_array_mut()
@@ -956,13 +964,16 @@ mod tests {
             "/staging//main.bend",
             "/staging/../staging/main.bend",
         ] {
+            let path = fixture_path(path);
+            assert!(path.is_absolute());
+            assert!(validate_path(&path).is_err());
             let mut aliased = original.clone();
             aliased["sources"][0]["path"] = json!(path);
             assert!(decode(&aliased, &root, &identity).is_err());
         }
         let ambiguous = BackendSource::new(
             root.original_path().to_owned(),
-            PathBuf::from("/staging/second.bend"),
+            fixture_path("/staging/second.bend"),
             root.snapshot().clone(),
         )?;
         let sources = [root, ambiguous];
@@ -985,8 +996,8 @@ mod tests {
     -> Result<(), Box<dyn Error>> {
         let root = source("😀 value\n")?;
         let dependency = BackendSource::new(
-            PathBuf::from("/workspace/dep.bend"),
-            PathBuf::from("/staging/dep.bend"),
+            fixture_path("/workspace/dep.bend"),
+            fixture_path("/staging/dep.bend"),
             Arc::new(DocumentSnapshot::new(
                 Revision(1),
                 "def dep = 0\n".to_owned(),
