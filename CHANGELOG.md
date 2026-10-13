@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- Show native compiler dependency errors on the affected import path, with links
+  to the original declarations, including through transitive imports. Keep
+  independent source errors visible instead of showing a document-wide count of
+  blocked declarations. Checks without a located cause remain explicit failures.
+- Stop declaration error underlines at the last syntax token, excluding following
+  comments and blank lines, using the native parser's existing trivia provenance.
+- Run mandatory macOS ARM64 stdio E2Es with the genuine checksum-pinned Bend
+  2.0.36 distribution in quality CI and the native release suite. Cover source and
+  import ranges, original-cause links, unsaved diagnostic cleanup, and the
+  ownership-based distinction between compiler `Base` and ordinary user modules.
+
 ## [0.6.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.5.0...v0.6.0) (2026-10-13)
 
 ### Features

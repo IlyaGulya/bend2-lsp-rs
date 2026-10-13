@@ -104,3 +104,29 @@ jobs:
         with:
           path: ${{ runner.temp }}/ci-quality-tools
           key: ${{ steps.tool-cache.outputs.cache-primary-key }}
+  native-compiler-e2e:
+    permissions:
+      contents: read
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      BEND_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify native macOS ARM64 runner
+        env:
+          ACTUAL_OS: ${{ runner.os }}
+          ACTUAL_ARCH: ${{ runner.arch }}
+        run: |
+          test "$ACTUAL_OS" = "macOS"
+          test "$ACTUAL_ARCH" = "ARM64"
+      - name: Install pinned native Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Install checksum-pinned genuine Bend
+        run: |
+          python3 scripts/bootstrap_bend.py --destination "$RUNNER_TEMP/bend-2.0.36"
+          printf 'BEND2_COMPILER_TEST_PATH=%s/bend-2.0.36/bin/bend\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Run mandatory real-compiler stdio E2E
+        run: cargo test --locked --test native_compiler_diagnostics --test native_law_ranges

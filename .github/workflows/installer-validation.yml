@@ -7,6 +7,7 @@ on:
       - .github/workflows/release-binaries.yml
       - scripts/ci-cache.sh
       - scripts/bootstrap_nextest.py
+      - scripts/bootstrap_bend.py
       - scripts/release.py
       - scripts/test_release.py
       - scripts/dist_installers.py
@@ -15,6 +16,10 @@ on:
       - scripts/install-tools.sh
       - dist-workspace.toml
       - src/server/compiler_backend.rs
+      - src/server/compiler.rs
+      - tests/native_compiler_diagnostics.rs
+      - tests/native_law_ranges.rs
+      - tests/support/**
       - Cargo.toml
       - Cargo.lock
 

@@ -253,7 +253,6 @@ pub(super) struct Coverage {
 #[derive(Debug)]
 pub(super) struct CheckOutcome {
     pub(super) diagnostics: Vec<(PathBuf, Diagnostic)>,
-    pub(super) coverage: Coverage,
     pub(super) incomplete: bool,
     pub(super) backend_failure: Option<String>,
 }
@@ -391,7 +390,6 @@ pub(super) fn decode_check(
             .any(|definition| !diagnosed.contains(definition));
     Ok(CheckOutcome {
         diagnostics,
-        coverage: envelope.coverage,
         incomplete,
         backend_failure,
     })
@@ -760,7 +758,6 @@ mod tests {
         );
         assert!(!outcome.incomplete);
         assert!(outcome.backend_failure.is_none());
-        assert_eq!(outcome.coverage.checked, ["independent"]);
         Ok(())
     }
 

@@ -114,6 +114,12 @@ jobs:
         run: cargo build --locked --release --bin bend2-lsp
       - name: Stage direct release executable for E2E
         run: '"$PYTHON" scripts/release.py package'
+      - name: Install checksum-pinned genuine Bend for native compiler E2E
+        if: matrix.target == 'aarch64-apple-darwin'
+        run: |
+          "$PYTHON" scripts/bootstrap_bend.py --destination "$RUNNER_TEMP/bend-2.0.36"
+          printf 'BEND2_COMPILER_TEST_PATH=%s/bend-2.0.36/bin/bend\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'BEND_NO_TELEMETRY=1\n' >> "$GITHUB_ENV"
       - name: Run full native release test suite
         run: cargo nextest run --workspace --exclude bend2-perf --all-features --locked --release --profile ci
       - name: Run native Rust performance tooling correctness contracts

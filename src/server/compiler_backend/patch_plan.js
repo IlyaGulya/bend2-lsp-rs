@@ -5,6 +5,7 @@ export function recoveryPatches({ version, resources, helpers }) {
   const loop = '  for (let i = 0;i < book.order.length; i++) {\n    const k = book.order[i];\n    const tld = tlds[k];';
   const adtEnd = '      continue;\n    }\n    if (i >= done) {';
   const defEnd = '    if (fin) {\n      book.tlds[k] = tld;\n    }\n  }\n}';
+  const trivia = 'function parse_skip(p) {\n  const s = p.str;\n  while (p.pos < s.length) {\n    const n = s.charCodeAt(p.pos);\n    if (n === 32 || n === 10 || n === 13 || n === 9) {\n      p.pos += 1;\n      continue;\n    }\n    if (n === 35) {\n      while (p.pos < s.length && s.charCodeAt(p.pos) !== 10) {\n        p.pos += 1;\n      }\n      continue;\n    }\n    return;\n  }\n}';
   return [
     once('identity.version', 'var VERSION = ' + JSON.stringify(version) + ';'),
     once('schema.book', 'return { tlds: Object.create(null), ctrs: Object.create(null), order: [], hols: 0, tmps: Object.create(null) };'),
@@ -46,7 +47,12 @@ export function recoveryPatches({ version, resources, helpers }) {
     once('parser.shape-template', '      const x = hd?.$ === "Def" ? hd.x : 0;'),
     once('parser.shape-fill', '  return tld?.$ !== "ADT" || xs.length + tld.g !== tld.n ? xs : Array.from({ length: tld.g }, () => Qua(Lone(), s)).concat(xs);'),
     once('parser.shape-law', '  const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i ? tld : undefined;'),
-    once('parser.shape-trivia', 'function parse_skip(p) {\n  const s = p.str;\n  while (p.pos < s.length) {\n    const n = s.charCodeAt(p.pos);\n    if (n === 32 || n === 10 || n === 13 || n === 9) {\n      p.pos += 1;\n      continue;\n    }\n    if (n === 35) {\n      while (p.pos < s.length && s.charCodeAt(p.pos) !== 10) {\n        p.pos += 1;\n      }\n      continue;\n    }\n    return;\n  }\n}'),
+    // Observe native trivia, preserving its beginning across zero-consumption
+    // lookahead calls. Consuming a fresh token moves pos away from the saved end.
+    once('parser.shape-trivia', trivia,
+      trivia.replace('  const s = p.str;',
+        '  if (p.recovery_trivia_end !== p.pos) p.recovery_trivia_begin = p.pos;\n  const s = p.str;')
+        .replace('    return;\n  }\n}', '    break;\n  }\n  p.recovery_trivia_end = p.pos;\n}')),
     once('validator.signature', 'function book_valid(book, done = 0) {',
       'function book_valid(book, done = 0, recovery_skip = new Set, recovery_accept = null) {\n  if (book.recovery_preflight) throw new Error("Parser-only recovery projection cannot be validated");'),
     once('validator.loop', loop, '  recovery_guard(book, recovery_skip);\n' + loop +
