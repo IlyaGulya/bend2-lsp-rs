@@ -360,10 +360,9 @@ These are proposed priorities, not implemented capabilities or release
 commitments. There are no scheduled delivery dates; the support table and
 limitations above describe this checkout; see the changelog for unreleased work.
 
-1. **Portable compiler integration:** extend structured diagnostics beyond the
-   verified Apple Silicon compiler builds described below. Semantic fixes,
-   expression types and inferred-type hints still need a real Bend compiler
-   contract; do not introduce a divergent independent type checker.
+1. **Compiler-backed language features:** semantic fixes, expression types and
+   inferred-type hints still need a real Bend compiler contract; do not introduce
+   a divergent independent type checker.
 
 New semantic data must be prepared during cold snapshot/index construction.
 Warm features must reuse immutable snapshots and workspace indexes rather than
@@ -389,13 +388,19 @@ Startup/configuration probes check `version` and `--help`; known missing CLI
 operations produce a clear compatibility warning. Unknown version output is not
 a numeric-version rejection. Installing or replacing an executable allows a new probe.
 
-Verified Bend 2.0.37 executables support multiple independent compiler errors in
-one check, including imported-source errors, on Apple Silicon macOS and Linux
-ARM64. Earlier verified Bend 2.0.32–2.0.36 builds retain Apple Silicon macOS
-support. The adapter runs the installed compiler's own parser and checker; it
-does not introduce a separate type checker or require a separately installed
-JavaScript runtime. Executable bundle, target, and embedded runtime identities
-must match the verified registry before recovery is enabled.
+Enhanced checks report multiple independent compiler errors in one check,
+including imported-source errors, with the exact registered Bend 2.0.37 builds
+for macOS, Linux, and Windows on ARM64 and x86_64. Earlier verified Bend
+2.0.32–2.0.36 builds retain Apple Silicon macOS support. The adapter runs the
+installed compiler's own parser and checker; it does not introduce a separate
+type checker or require a separately installed JavaScript runtime. Executable
+bundle, target, and embedded runtime identities must match the verified registry
+before recovery is enabled.
+
+Windows has no official upstream Bend binary. Enhanced Windows checks require
+the checksum-pinned native upstream source build reproduced by
+`scripts/bootstrap_bend.py`; see [compiler provisioning](docs/releases.md#native-platforms-and-gates).
+Bend is not bundled with the LSP.
 
 Structured diagnostics retain their original source and UTF-16 range. Errors in
 dependencies also appear on the affected import path, with links to the original
