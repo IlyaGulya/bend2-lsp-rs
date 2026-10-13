@@ -33,7 +33,7 @@ case_sensitive_file_extension_comparisons = "allow"
 
 [package]
 name = "bend2-lsp"
-version = "0.6.0"
+version = "0.6.1"
 edition.workspace = true
 description = "Rust language server for Bend 2"
 license = "Apache-2.0"
