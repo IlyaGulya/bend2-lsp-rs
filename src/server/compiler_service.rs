@@ -78,7 +78,7 @@ impl CompilerService {
             return cached.result.clone();
         }
         let result = compiler_compatibility(config, self.reapers.clone()).await;
-        if let CompilerCompatibility::Available { version } = &result {
+        if let CompilerCompatibility::Available { version, .. } = &result {
             tracing::info!(compiler = %config.path, %version, "Bend compiler CLI is compatible");
         }
         if result.failure().is_none() && self.base_module.read().is_none() {

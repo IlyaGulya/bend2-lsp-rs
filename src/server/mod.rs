@@ -1,6 +1,8 @@
 mod adapters;
 mod capabilities;
 mod compiler;
+mod compiler_backend;
+mod compiler_backend_driver;
 mod compiler_service;
 mod diagnostics;
 mod discovery;

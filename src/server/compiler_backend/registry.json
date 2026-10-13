@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "platform": "darwin",
+  "arch": "arm64",
+  "families": {
+    "dot-object": {
+      "bun": "1.3.14",
+      "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+    },
+    "colon-map": {
+      "bun": "1.3.14",
+      "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+    }
+  },
+  "compilers": {
+    "00b7c49530de4031074e8f2d58737cdb42f625c6fc8fc0343449806664e01c47": {
+      "version": "2.0.32",
+      "family": "dot-object"
+    },
+    "f87330466015bebb7b756cb268bf58aae018c93bbfdbd1242a9f9e7d086b0a16": {
+      "version": "2.0.33",
+      "family": "dot-object"
+    },
+    "eea8ce771f72f59e162e1611d6cdfae94a7d57cd3b207fa90c6da3455c06aa1d": {
+      "version": "2.0.34",
+      "family": "dot-object"
+    },
+    "ab254399fe75582488a376e9e757f6a30e50e6a1d2e34603150f14efeca330f8": {
+      "version": "2.0.35",
+      "family": "colon-map",
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "54a2e294720e53a12c6fe710fd758b6f65d68479eedc7d3ba3096f23440cfac9": {
+      "version": "2.0.36",
+      "family": "colon-map"
+    }
+  }
+}
