@@ -8,6 +8,7 @@ use lsp_client::LspClient;
 use serde_json::{Value, json};
 use std::{
     env, fs,
+    path::PathBuf,
     process::{Command, Stdio},
     time::Duration,
 };
@@ -16,8 +17,10 @@ use tempfile::tempdir;
 use url::Url;
 
 fn assert_unfilled_law_range(source: &str, expected_range: &Value) {
-    let compiler = env::var_os("BEND2_COMPILER_TEST_PATH")
-        .must_be("set BEND2_COMPILER_TEST_PATH to the genuine pinned Bend compiler");
+    let compiler = PathBuf::from(
+        env::var_os("BEND2_COMPILER_TEST_PATH")
+            .must_be("set BEND2_COMPILER_TEST_PATH to the genuine pinned Bend compiler"),
+    );
     let version = Command::new(&compiler)
         .arg("version")
         .output()
@@ -40,7 +43,7 @@ fn assert_unfilled_law_range(source: &str, expected_range: &Value) {
         || Command::new(env!("CARGO_BIN_EXE_bend2-lsp")),
         Command::new,
     );
-    command.stderr(Stdio::null());
+    command.stderr(Stdio::null()).env("PATH", directory.path());
     let mut client = LspClient::spawn(command);
     client.initialize(directory.path());
     client.notify(

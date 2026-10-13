@@ -8,7 +8,7 @@ use lsp_client::LspClient;
 use serde_json::{Value, json};
 use std::{
     env, fs,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Duration,
 };
@@ -22,9 +22,11 @@ fn uri(path: &Path) -> String {
         .to_string()
 }
 
-fn compiler() -> std::ffi::OsString {
-    let path = env::var_os("BEND2_COMPILER_TEST_PATH")
-        .must_be("set BEND2_COMPILER_TEST_PATH to the genuine pinned Bend compiler");
+fn compiler() -> PathBuf {
+    let path = PathBuf::from(
+        env::var_os("BEND2_COMPILER_TEST_PATH")
+            .must_be("set BEND2_COMPILER_TEST_PATH to the genuine pinned Bend compiler"),
+    );
     let version = Command::new(&path)
         .arg("version")
         .output()
@@ -71,7 +73,7 @@ fn conflicting_base_import_reports_the_cause_at_the_import_instead_of_a_banner()
         "import Base\nimport ./base.bend as Duplicate\n\ndef main(x: U32) -> U32:\n  Color.Red\n";
     fs::write(&root, source).must_be("write native root before discovery");
     let mut command = server_command();
-    command.stderr(Stdio::null());
+    command.stderr(Stdio::null()).env("PATH", directory.path());
     let mut client = LspClient::spawn(command);
     client.initialize(directory.path());
     client.notify(
@@ -156,7 +158,7 @@ fn compiler_owned_base_stays_exempt_but_user_base_is_checked() {
     let source = "import Base\n\ndef main(x: U32) -> U32:\n  x\n";
     fs::write(&root, source).must_be("write Base consumer before discovery");
     let mut command = server_command();
-    command.stderr(Stdio::null());
+    command.stderr(Stdio::null()).env("PATH", directory.path());
     let mut client = LspClient::spawn(command);
     client.initialize(directory.path());
     client.notify(
@@ -234,7 +236,7 @@ fn transitive_import_links_original_cause_and_keeps_independent_source_error() {
     let source = "import Base\nimport ./middle.bend as Middle\n\ndef independent() -> Type:\n  Missing.Type\n";
     fs::write(&root, source).must_be("write native root before discovery");
     let mut command = server_command();
-    command.stderr(Stdio::null());
+    command.stderr(Stdio::null()).env("PATH", directory.path());
     let mut client = LspClient::spawn(command);
     client.initialize(directory.path());
     client.notify(
