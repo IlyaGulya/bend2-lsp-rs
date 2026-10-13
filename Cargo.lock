@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "bend2-lsp"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "dhat",
  "iai-callgrind",
@@ -136,7 +136,7 @@ dependencies = [
 
 [[package]]
 name = "bend2-perf"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "clap",
  "ctrlc",

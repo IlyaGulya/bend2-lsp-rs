@@ -92,6 +92,8 @@ The macOS ARM64 native suite additionally runs `native_compiler_diagnostics` and
 `native_law_ranges` against the staged release executable and the genuine Bend
 2.0.36 distribution provisioned by `scripts/bootstrap_bend.py`. The fixed upstream
 asset ID and SHA-256 bind the executable and its adjacent library resources.
+The download step uses its job's read-only GitHub token to avoid shared-runner
+anonymous API rate limits. Authorization is not forwarded to asset-host redirects.
 These stdio E2Es cover causal import locations, original-error links, independent
 errors, unsaved corrections, declaration spans, and compiler-owned `Base`.
 Quality CI runs the same genuine-compiler tests in a separate macOS ARM64 job.

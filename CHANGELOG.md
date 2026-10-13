@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 
 ### Bug Fixes
 
@@ -14,6 +14,7 @@
   2.0.36 distribution in quality CI and the native release suite. Cover source and
   import ranges, original-cause links, unsaved diagnostic cleanup, and the
   ownership-based distinction between compiler `Base` and ordinary user modules.
+
 
 ## [0.6.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.5.0...v0.6.0) (2026-10-13)
 
