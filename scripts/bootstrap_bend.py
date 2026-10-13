@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import io
+import os
 from pathlib import Path, PurePosixPath
 import platform
 import shutil
@@ -36,6 +37,9 @@ def install(destination: Path) -> None:
     if destination.exists() or destination.is_symlink():
         raise ValueError(f"installation destination must not exist: {destination}")
     request = urllib.request.Request(URL, headers={"Accept": "application/octet-stream"})
+    if token := os.environ.get("GH_TOKEN"):
+        # Authenticate only the fixed API request, never its asset-host redirect.
+        request.add_unredirected_header("Authorization", f"Bearer {token}")
     with urllib.request.urlopen(request, timeout=60) as response:
         data = response.read(ARCHIVE_SIZE + 1)
     if len(data) != ARCHIVE_SIZE or hashlib.sha256(data).hexdigest() != SHA256:
