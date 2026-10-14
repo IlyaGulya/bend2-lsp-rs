@@ -375,6 +375,26 @@ not a claim about editor latency or a production cache. Any later approved
 conditioning must be symmetric, retain the actual workloads and metrics, and
 construct a fresh baseline; old warm-cache counts are not comparable.
 
+The unchanged-ELF external-debugger experiments
+[38548398249](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38548398249)
+and [38548836317](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38548836317)
+are invalid controls, not passing comparisons. Both validate the retained
+original executable SHA-256 identities without recompilation. Resetting
+instrumentation at either the first guard instruction or its caller's direct
+call instruction produces `Ir = 0`, so it does not preserve collection of the
+guarded workload. The caller-boundary experiment completes all 40 declared
+measurements and retains their debugger logs, disassembly and raw counters.
+Supervised KEEP reproduces the original stable cache failures for completion,
+inlay hints and semantic tokens, but COLD cannot be interpreted. Scoped
+completion also varies in instruction counts, and fuzzy imports vary in
+cache counts; these controls do not satisfy exact invariance either.
+
+This rejects the proposed external instrumentation-reset mechanism for these
+executables. It supplies no justification for changing active conditioning.
+The candidate remains blocked by the original strict admission failures.
+A new mechanism would need independently verified collection-state and
+full-guard invariance before any cache-history causal claim or baseline cutover.
+
 
 ## Functional-fix performance acceptance (PR #4)
 
