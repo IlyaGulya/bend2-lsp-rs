@@ -1,5 +1,3 @@
-#[path = "../src/server/reference_locations.rs"]
-mod reference_locations;
 mod support;
 
 use std::{fmt::Write as _, fs, path::PathBuf, sync::LazyLock};
@@ -817,37 +815,6 @@ fn workspace_symbol_response_warm(
     std::hint::black_box(response.to_json_bytes().must_be("JSON-RPC wire response"))
 }
 
-fn reference_location_case(count: usize) -> Vec<tower_lsp::lsp_types::Location> {
-    use tower_lsp::lsp_types::{Location, Position, Range};
-
-    (0..count)
-        .map(|index| {
-            let shuffled = index * 7919 % count;
-            let uri = url::Url::parse(&format!(
-                "file:///workspace/reference-order/module_{:05}.bend",
-                shuffled / 4
-            ))
-            .must_be("reference ordering fixture URI");
-            let line = u32::try_from(shuffled % 4).must_be("fixture line");
-            Location {
-                uri,
-                range: Range::new(Position::new(line, 2), Position::new(line, 10)),
-            }
-        })
-        .collect()
-}
-
-#[library_benchmark]
-#[bench::small(reference_location_case(64))]
-#[bench::medium(reference_location_case(1024))]
-#[bench::large(reference_location_case(10000))]
-fn reference_location_order_warm(
-    mut locations: Vec<tower_lsp::lsp_types::Location>,
-) -> Vec<tower_lsp::lsp_types::Location> {
-    reference_locations::sort_and_deduplicate(std::hint::black_box(&mut locations));
-    std::hint::black_box(locations)
-}
-
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -860,8 +827,7 @@ library_benchmark_group!(
         workspace_references, workspace_burst_revision_invalidation, workspace_orphan_graph_release,
         constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm,
         cold_completion_context_build, pattern_completion_context_warm,
-        import_completion_candidates_warm, workspace_symbols_warm, workspace_symbol_response_warm,
-        reference_location_order_warm
+        import_completion_candidates_warm, workspace_symbols_warm, workspace_symbol_response_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

@@ -91,8 +91,24 @@ jobs:
             --callgrind-args='--cache-sim=yes' \
             --output-format=json \
             --save-summary=pretty-json
+          cargo metadata --locked --no-deps --format-version 1 > "$PERF_ROOT/baseline-targets.json"
+          reference_baseline="$(jq -er '
+            any(.packages[] | select(.name == "bend2-lsp") | .targets[];
+              .name == "reference_locations" and (.kind | index("bench")) != null)
+            | if . then "true" else "false" end
+          ' "$PERF_ROOT/baseline-targets.json")"
+          printf 'reference_baseline=%s\n' "$reference_baseline" >> "$GITHUB_OUTPUT"
+          if [[ "$reference_baseline" == true ]]; then
+            cargo bench --locked --bench reference_locations -- \
+              --save-baseline=main \
+              --callgrind-args='--cache-sim=yes' \
+              --output-format=json \
+              --save-summary=pretty-json
+            mkdir -p "$PERF_ROOT/reference_locations"
+            cp -R target/iai/bend2-lsp/reference_locations/. "$PERF_ROOT/reference_locations/"
+          fi
           "$RUNNER_TEMP/bend2-perf" policy \
-            target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            "$PERF_ROOT" \
             --write-baseline-manifest="$BASELINE_MANIFEST"
       - name: Compare pull request with main
         id: candidate
@@ -102,6 +118,7 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ github.sha }}
           BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
+          REFERENCE_BASELINE: ${{ steps.baseline.outputs.reference_baseline }}
         run: |
           git checkout "$CANDIDATE_SHA"
           benchmark_status=0
@@ -111,14 +128,34 @@ jobs:
             --callgrind-limits='ir=2%' \
             --output-format=json \
             --save-summary=pretty-json || benchmark_status=$?
-          printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
           # Iai exits 3 for a regression. Still report the independent cache gates.
+          if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
+            printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
+            exit "$benchmark_status"
+          fi
+          reference_mode=(--save-baseline=candidate)
+          if [[ "$REFERENCE_BASELINE" == true ]]; then
+            reference_mode=(--baseline=main)
+          fi
+          reference_status=0
+          cargo bench --locked --bench reference_locations -- \
+            "${reference_mode[@]}" \
+            --callgrind-args='--cache-sim=yes' \
+            --callgrind-limits='ir=2%' \
+            --output-format=json \
+            --save-summary=pretty-json || reference_status=$?
+          if [[ "$reference_status" != 0 ]]; then
+            benchmark_status="$reference_status"
+          fi
+          printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
           if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
             exit "$benchmark_status"
           fi
+          mkdir -p "$PERF_ROOT/reference_locations"
+          cp -R target/iai/bend2-lsp/reference_locations/. "$PERF_ROOT/reference_locations/"
           policy_status=0
           "$RUNNER_TEMP/bend2-perf" policy \
-            target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            "$PERF_ROOT" \
             --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main \
             --artifact-manifest="$PERF_ROOT/artifact-manifest.json" \
             --verdict="$PERF_ROOT/callgrind-policy.json" || policy_status=$?

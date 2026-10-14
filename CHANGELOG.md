@@ -22,6 +22,8 @@
   embedded-source anchors before applying any recovery patches.
 - Avoid repeated temporary URI string allocations when ordering cross-file
   references. Preserve stable result ordering and full-range deduplication.
+- Measure reference ordering in an isolated benchmark binary and include its
+  collected workloads in the same strict, source-bound Callgrind admission.
 
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 

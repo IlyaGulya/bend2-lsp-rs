@@ -46,6 +46,12 @@ full LSP process are not. Unchanged-algorithm measurements were collected before
 the borrowed-URI correction. Those archived measurements support an experimental
 before/after comparison; new cases remain unpaired in admission until a main
 baseline contains them. Existing paired cases retain the unchanged strict policy.
+The ordering cases run in their own `reference_locations` benchmark binary;
+the `analysis` binary retains its existing workloads. CI collects both targets
+into one source-bound admission inventory and applies the same policy to every
+paired case. A main revision without the new target contributes only its existing
+baseline IDs; once main contains the target, its ordering cases are paired too.
+Candidate collection always requires the ordering target.
 
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
