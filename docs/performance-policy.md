@@ -52,6 +52,9 @@ into one source-bound admission inventory and applies the same policy to every
 paired case. A main revision without the new target contributes only its existing
 baseline IDs; once main contains the target, its ordering cases are paired too.
 Candidate collection always requires the ordering target.
+Both candidate targets select the named `main` baseline, including initially
+unpaired ordering cases. The uploaded evidence retains the entire combined
+inventory, including target-discovery metadata and isolated raw profiles.
 
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original

@@ -97,7 +97,6 @@ jobs:
               .name == "reference_locations" and (.kind | index("bench")) != null)
             | if . then "true" else "false" end
           ' "$PERF_ROOT/baseline-targets.json")"
-          printf 'reference_baseline=%s\n' "$reference_baseline" >> "$GITHUB_OUTPUT"
           if [[ "$reference_baseline" == true ]]; then
             cargo bench --locked --bench reference_locations -- \
               --save-baseline=main \
@@ -118,7 +117,6 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ github.sha }}
           BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
-          REFERENCE_BASELINE: ${{ steps.baseline.outputs.reference_baseline }}
         run: |
           git checkout "$CANDIDATE_SHA"
           benchmark_status=0
@@ -133,13 +131,9 @@ jobs:
             printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
             exit "$benchmark_status"
           fi
-          reference_mode=(--save-baseline=candidate)
-          if [[ "$REFERENCE_BASELINE" == true ]]; then
-            reference_mode=(--baseline=main)
-          fi
           reference_status=0
           cargo bench --locked --bench reference_locations -- \
-            "${reference_mode[@]}" \
+            --baseline=main \
             --callgrind-args='--cache-sim=yes' \
             --callgrind-limits='ir=2%' \
             --output-format=json \
@@ -247,15 +241,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: callgrind-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            target/iai/bend2-lsp/analysis/analysis_hot_paths/
-            target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
-            target/iai/bend2-lsp/analysis/callgrind-policy.json
-            target/iai/bend2-lsp/analysis/artifact-manifest.json
-            target/iai/bend2-lsp/analysis/tool-build.log
-            target/iai/bend2-lsp/analysis/admission-measurement.json
-            target/iai/bend2-lsp/analysis/performance-exception-environment.json
-            target/iai/bend2-lsp/analysis/performance-exception-prior-approvals.json
+          path: target/iai/bend2-lsp/analysis/
           if-no-files-found: error
           retention-days: 14
 
