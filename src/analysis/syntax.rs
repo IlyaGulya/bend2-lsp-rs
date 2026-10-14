@@ -1132,7 +1132,11 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         }
         calls.push(call);
     }
-    let parameter_hints = build_parameter_hints(&calls, &arguments, symbols, inlay_hint_count);
+    let parameter_hints = if inlay_hint_count == 0 {
+        Vec::new()
+    } else {
+        build_parameter_hints(&calls, &arguments, symbols, inlay_hint_count)
+    };
     let id_count = symbols.len() + bindings.len();
     let (from_indices, from_spans) =
         compact_groups(&calls, id_count, |call| call.caller.map(|id| id.0));
@@ -1412,17 +1416,17 @@ fn compact_groups<T>(
     }
     let mut spans = Vec::with_capacity(group_count);
     let mut total = 0;
-    for count in counts {
-        let end = total + count;
+    for count in &mut counts {
+        let end = total + *count;
         spans.push(TextRange::new(total, end));
+        *count = total;
         total = end;
     }
     let mut indices = vec![0; total];
-    let mut next: Vec<_> = spans.iter().map(|span| span.start).collect();
     for (index, item) in items.iter().enumerate() {
         if let Some(group) = key(item).filter(|group| *group < group_count) {
-            indices[next[group]] = index;
-            next[group] += 1;
+            indices[counts[group]] = index;
+            counts[group] += 1;
         }
     }
     (indices, spans)

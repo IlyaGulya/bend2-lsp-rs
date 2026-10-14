@@ -175,6 +175,18 @@ Movement grows with nesting and enclosing-call arity. The unchanged cold-small
 corpus covers mixed-arity interleavings; medium/large cover deep unary calls.
 Cold and warm numeric gates still decide whether this tradeoff is acceptable.
 
+The [source-ordered hint comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38611258640)
+used candidate head `e477708`. All 51 paired instruction counts were positive;
+49 workloads passed. Cold-medium I1 misses were 801 versus 770; sixteen-revision
+workspace invalidation had 12,540 versus 12,101 I1 misses. These two failures
+still reject admission. All completion, warm hint and import workloads passed.
+
+The next cold-construction change reuses the grouping count buffer for write
+cursors instead of allocating and copying a second cursor vector. It also skips
+hint construction when the exact eligible-argument count is zero. Neither
+changes the persisted index representation or warm-query semantics; fresh
+paired measurements must establish their cache effect.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

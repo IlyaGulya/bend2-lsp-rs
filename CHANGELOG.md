@@ -28,6 +28,8 @@
   during cold indexing instead of regrouping and sorting hints in warm queries.
   Build ordered hints directly from calls, inserting nested argument interleavings
   instead of running a second generic sort.
+  Reuse grouping counts as write cursors and skip hint construction when indexing
+  proves there are no eligible arguments.
   Keep scoped completion name deduplication compact and reuse indexed import identities.
 - Avoid rereading declaration-name slices during autocomplete and pre-size
   workspace document and dependent-traversal buffers from existing index bounds.

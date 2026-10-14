@@ -771,3 +771,29 @@ fn parameter_hints_preserve_labels_across_nested_multi_argument_interleavings() 
                 .map(|(position, label)| (*position, (*label).to_owned())))
     );
 }
+
+#[test]
+fn parameter_hints_distinguish_unresolved_and_zero_arity_calls_from_newly_resolved_calls() {
+    let source = concat!(
+        "import ./other.bend as library\n",
+        "def nop() -> U32:\n  0\n",
+        "def main() -> U32:\n  nop()\n  absent(1)\n  library.echo(2)\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    assert!(
+        bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, source.len())).is_empty()
+    );
+    let revised = format!(
+        "{}\ndef resolved(argument: U32) -> U32:\n  argument\n",
+        source.replace("absent(1)", "resolved(1)")
+    );
+    let argument = revised.find("resolved(1)").must_be("newly resolved call") + 9;
+    let snapshot = DocumentSnapshot::new(Revision(2), revised);
+    let hints = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, snapshot.text.len()));
+    assert!(
+        hints
+            .iter()
+            .map(|hint| (hint.position, hint.label(&snapshot.text)))
+            .eq([(argument, "argument: ".to_owned())])
+    );
+}
