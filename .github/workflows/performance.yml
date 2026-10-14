@@ -39,10 +39,26 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install Valgrind
+      - name: Configure isolated profiler installation
+        run: printf 'VALGRIND_INSTALL_ROOT=%s/ci-valgrind\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Restore source-bound Valgrind 3.27.1
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.VALGRIND_INSTALL_ROOT }}
+          key: valgrind-v1-${{ runner.os }}-${{ runner.arch }}-3.27.1-4522e345fe31bc10478f21ab261cf7b3e509d80fe98fd0c7c9778ac9a9f90e1d8fa6e54a37c2e23114c01c95131035103fc1e78661710d7f45f5d564a31c1015-${{ hashFiles('scripts/install-tools.sh', 'scripts/install-valgrind.sh') }}
+      - name: Install and validate pinned Valgrind
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes valgrind
+          ./scripts/install-tools.sh valgrind
+          test -x "$VALGRIND_INSTALL_ROOT/bin/callgrind_annotate"
+          version="$("$VALGRIND_INSTALL_ROOT/bin/valgrind" --version)"
+          [[ "$version" == valgrind-3.27.1 ]]
+          printf '%s/bin\n' "$VALGRIND_INSTALL_ROOT" >> "$GITHUB_PATH"
+          mkdir -p "$PERF_ROOT"
+          printf '%s\n' "$version" | tee "$PERF_ROOT/valgrind-version.txt"
+          cp "$VALGRIND_INSTALL_ROOT/provenance.json" "$PERF_ROOT/valgrind-provenance.json"
+          cat "$PERF_ROOT/valgrind-provenance.json"
+          printf 'Pinned profiler: %s; source and installed-byte hashes are preserved in valgrind-provenance.json.\n\n' \
+            "$version" >> "$GITHUB_STEP_SUMMARY"
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
       - name: Identify Rust dependency paths without object caching

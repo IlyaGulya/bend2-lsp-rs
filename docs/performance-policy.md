@@ -76,6 +76,24 @@ Zero cache-miss counters and zero-baseline arithmetic remain valid; this does
 not change any numeric allowance. Run 38555552166 exposed an empty analysis
 collection and must not be cited as a passing performance comparison.
 
+The Linux CI Callgrind collectors pin upstream Valgrind 3.27.1 through
+`./scripts/install-tools.sh valgrind`, with `VALGRIND_INSTALL_ROOT` set to an
+absolute, dedicated directory outside the checkout. The official source archive
+checksum and installed executable hashes bind the native-tool cache to its
+provenance.
+Collectors validate the actual version and retain this provenance beside raw
+evidence. The absolute installation survives the baseline source checkout;
+baseline and candidate are freshly collected with the same pinned profiler.
+
+The maintainer approved this profiler cutover after the
+[same-executable control](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38563507337)
+showed that the old Ubuntu Valgrind 3.22.0 failed to register the revised
+analysis executable, while upstream 3.27.1 restored its original guard and
+production-function collection. This control is not a performance comparison.
+Historical counts from the old profiler do not supply the new admission
+baseline. The cutover changes no workload, guard boundary, cache geometry,
+comparison metric, numeric allowance or exception requirement.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

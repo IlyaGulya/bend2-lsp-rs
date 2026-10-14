@@ -3,6 +3,11 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# Native Callgrind is source-pinned independently of the Cargo runner.
+if [[ "${1:-}" == "valgrind" ]]; then
+  exec bash scripts/install-valgrind.sh
+fi
+
 # Release-only generator; ordinary quality-tool installation remains unchanged.
 if [[ "${1:-}" == "dist" ]]; then
   # The upstream 0.33.0 release is not published on crates.io. The global job

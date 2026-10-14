@@ -29,6 +29,9 @@
   completion name deduplication compact and reuse indexed import identities.
 - Reject empty instruction collection against a nonzero benchmark baseline
   instead of treating missing measurements as a performance improvement.
+- Pin the Linux Callgrind profiler to checksum-verified Valgrind 3.27.1 so
+  supported Rust executable layouts retain genuine function-level collection.
+  Collect baseline and candidate with the same tool and unchanged strict limits.
 
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 
