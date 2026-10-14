@@ -275,9 +275,15 @@ struct CallBuild<'a> {
     names: &'a mut NameTable,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+struct ParameterHint {
+    position: usize,
+    binding: usize,
+}
+
 struct CallIndex {
     calls: Vec<CallSite>,
-    inlay_hint_count: usize,
+    parameter_hints: Vec<ParameterHint>,
     arguments: Vec<TextRange>,
     separators: Vec<usize>,
     by_open: Vec<IndexSlot>,
@@ -400,7 +406,7 @@ fn keyword_name_flags(source: &str, names: &NameTable) -> Vec<bool> {
 pub struct SyntaxIndex {
     tokens: Box<[Token]>,
     semantic_token_count: usize,
-    parameter_hints: Box<[InlayHint]>,
+    parameter_hints: Box<[ParameterHint]>,
     names: NameTable,
     keyword_names: Box<[bool]>,
     imports: Box<[IndexedImport]>,
@@ -517,7 +523,7 @@ impl SyntaxIndex {
         let mut index = Self {
             tokens: tokens.into_boxed_slice(),
             semantic_token_count,
-            parameter_hints: Box::default(),
+            parameter_hints: calls.parameter_hints.into_boxed_slice(),
             names,
             imports: parse_imports(source, &lines).into_boxed_slice(),
             keyword_names: keyword_names.into_boxed_slice(),
@@ -546,37 +552,8 @@ impl SyntaxIndex {
             token_symbols: token_symbols.into_boxed_slice(),
             completion: completion::CompletionIndex::default(),
         };
-        index.finish_query_indexes(source, calls.inlay_hint_count);
+        index.completion = completion::CompletionIndex::build(source, &index);
         index
-    }
-
-    fn finish_query_indexes(&mut self, source: &str, hint_capacity: usize) {
-        self.completion = completion::CompletionIndex::build(source, self);
-        self.parameter_hints = self.index_parameter_hints(hint_capacity);
-    }
-
-    fn index_parameter_hints(&self, capacity: usize) -> Box<[InlayHint]> {
-        let mut hints = Vec::with_capacity(capacity);
-        for declaration in self
-            .symbols()
-            .iter()
-            .filter(|symbol| symbol.kind == SymbolKind::Function)
-        {
-            let parameters = self.parameters(declaration);
-            if parameters.is_empty() {
-                continue;
-            }
-            for call in self.calls_to(declaration.id) {
-                for (argument, parameter) in self.call_arguments(call).iter().zip(parameters) {
-                    hints.push(InlayHint {
-                        position: argument.start,
-                        parameter_name: parameter.name_range,
-                    });
-                }
-            }
-        }
-        hints.sort_by_key(|hint| hint.position);
-        hints.into_boxed_slice()
     }
 
     fn index_symbol_names(symbols: &[IndexedSymbol]) -> Box<[IndexSlot]> {
@@ -604,8 +581,16 @@ impl SyntaxIndex {
         self.semantic_token_count
     }
 
-    pub(crate) fn parameter_hints(&self) -> &[InlayHint] {
-        &self.parameter_hints
+    pub(crate) fn parameter_hints(&self, range: TextRange) -> impl Iterator<Item = InlayHint> {
+        let start = self
+            .parameter_hints
+            .partition_point(|hint| hint.position < range.start);
+        let hints = &self.parameter_hints[start..];
+        let end = hints.partition_point(|hint| hint.position <= range.end);
+        hints[..end].iter().map(|hint| InlayHint {
+            position: hint.position,
+            parameter_name: self.bindings[hint.binding].name_range,
+        })
     }
 
     #[must_use]
@@ -1147,6 +1132,7 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         }
         calls.push(call);
     }
+    let parameter_hints = build_parameter_hints(&calls, &arguments, symbols, inlay_hint_count);
     let id_count = symbols.len() + bindings.len();
     let (from_indices, from_spans) =
         compact_groups(&calls, id_count, |call| call.caller.map(|id| id.0));
@@ -1154,7 +1140,7 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         compact_groups(&calls, id_count, |call| call.callee.map(|id| id.0));
     CallIndex {
         calls,
-        inlay_hint_count,
+        parameter_hints,
         arguments,
         separators,
         by_open,
@@ -1164,6 +1150,35 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         to_indices,
         to_spans,
     }
+}
+
+fn build_parameter_hints(
+    calls: &[CallSite],
+    arguments: &[TextRange],
+    symbols: &[IndexedSymbol],
+    capacity: usize,
+) -> Vec<ParameterHint> {
+    let mut hints = Vec::with_capacity(capacity);
+    for call in calls {
+        let Some(symbol) = call
+            .callee
+            .and_then(|id| symbols.get(id.0))
+            .filter(|symbol| symbol.kind == SymbolKind::Function)
+        else {
+            continue;
+        };
+        for (argument, binding) in arguments[call.argument_indices.start..call.argument_indices.end]
+            .iter()
+            .zip(symbol.parameter_span.start..symbol.parameter_span.end)
+        {
+            hints.push(ParameterHint {
+                position: argument.start,
+                binding,
+            });
+        }
+    }
+    hints.sort_by_key(|hint| hint.position);
+    hints
 }
 
 fn parse_call(

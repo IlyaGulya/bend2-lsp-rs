@@ -299,11 +299,7 @@ pub fn imports(snapshot: &DocumentSnapshot) -> &[Import] {
 
 #[must_use]
 pub fn inlay_hints(snapshot: &DocumentSnapshot, range: TextRange) -> Vec<InlayHint> {
-    let hints = snapshot.syntax.parameter_hints();
-    let start = hints.partition_point(|hint| hint.position < range.start);
-    let hints = &hints[start..];
-    let end = hints.partition_point(|hint| hint.position <= range.end);
-    hints[..end].to_vec()
+    snapshot.syntax.parameter_hints(range).collect()
 }
 
 #[must_use]
@@ -571,8 +567,10 @@ fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, 
 
 #[must_use]
 pub fn completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
-    let mut items = module_completion_items(snapshot, prefix);
-    append_keyword_completions(&mut items, prefix);
+    let ascii_prefix = prefix.is_ascii();
+    let mut items = Vec::new();
+    append_module_completions(&mut items, snapshot, prefix, ascii_prefix);
+    append_keyword_completions(&mut items, prefix, ascii_prefix);
     items
 }
 
@@ -619,12 +617,11 @@ pub fn scoped_completion_items(
             ));
         }
     }
-    append_keyword_completions(&mut items, prefix);
+    append_keyword_completions(&mut items, prefix, ascii_prefix);
     items
 }
 
-fn append_keyword_completions(items: &mut Vec<Completion>, prefix: &str) {
-    let ascii_prefix = prefix.is_ascii();
+fn append_keyword_completions(items: &mut Vec<Completion>, prefix: &str, ascii_prefix: bool) {
     for keyword in [
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",
@@ -698,10 +695,19 @@ pub fn typed_constructor_completion_items(
 
 #[must_use]
 pub fn module_completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
+    let mut items = Vec::new();
+    append_module_completions(&mut items, snapshot, prefix, prefix.is_ascii());
+    items
+}
+
+fn append_module_completions(
+    items: &mut Vec<Completion>,
+    snapshot: &DocumentSnapshot,
+    prefix: &str,
+    ascii_prefix: bool,
+) {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let ascii_prefix = prefix.is_ascii();
-    let mut items = Vec::new();
     for symbol in syntax.symbols() {
         let name = syntax.name_text(source, symbol.name);
         if completion_matches(name, prefix, ascii_prefix) {
@@ -712,7 +718,6 @@ pub fn module_completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec
             ));
         }
     }
-    items
 }
 
 #[must_use]

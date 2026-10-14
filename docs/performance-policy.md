@@ -144,6 +144,16 @@ unscoped completion. The remaining failures were large completion I1 misses
 (53 to 57) and small inlay-hint last-level instruction misses (77 to 82).
 Both still fail the unchanged policy despite lower instruction counts.
 
+The [materialized hint-cache comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38603459702)
+used candidate head `a0179f0` with 51 positive instruction pairs. Only 45 workloads
+passed. All warm inlay-hint sizes passed; small hints changed from 19,181 to 744
+instructions and from 77 to six last-level instruction misses. This is not an
+admission win: cold snapshot last-level misses increased from 835 to 920 (small),
+689 to 735 (medium), and 681 to 728 (large). Those three cold cases also failed
+their I1 limits. Large/medium completion and burst invalidation failed I1 limits.
+The full-record cache and repeated declaration traversal therefore require
+replacement or removal rather than a cold-construction regression exception.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

@@ -24,9 +24,9 @@
   references. Preserve stable result ordering and full-range deduplication.
 - Measure reference ordering in an isolated benchmark binary and include its
   collected workloads in the same strict, source-bound Callgrind admission.
-- Prepare semantic-token result counts and ordered parameter-hint locations during
-  cold indexing instead of regrouping and sorting hints in warm queries. Keep
-  scoped completion name deduplication compact and reuse indexed import identities.
+- Prepare semantic-token counts and compact, ordered argument/parameter links
+  during cold indexing instead of regrouping and sorting hints in warm queries.
+  Keep scoped completion name deduplication compact and reuse indexed import identities.
 - Avoid rereading declaration-name slices during autocomplete and pre-size
   workspace document and dependent-traversal buffers from existing index bounds.
   Preserve local shadowing, snapshot freshness and cyclic/transitive traversal.
@@ -37,6 +37,7 @@
 - Keep unscoped autocomplete on the declaration-only query path, without building
   or sorting an empty local-binding set. Project module completions directly into
   their result vector and share the existing keyword projection.
+  Classify the query's ASCII prefix once across declaration and keyword suggestions.
 - Reject empty instruction collection against a nonzero benchmark baseline
   instead of treating missing measurements as a performance improvement.
 - Pin the Linux Callgrind profiler to checksum-verified Valgrind 3.27.1 so
