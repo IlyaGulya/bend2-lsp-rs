@@ -299,35 +299,11 @@ pub fn imports(snapshot: &DocumentSnapshot) -> &[Import] {
 
 #[must_use]
 pub fn inlay_hints(snapshot: &DocumentSnapshot, range: TextRange) -> Vec<InlayHint> {
-    let syntax = &snapshot.syntax;
-    let mut hints = if range.start == 0 && range.end >= snapshot.text.len() {
-        Vec::with_capacity(syntax.inlay_hint_count())
-    } else {
-        Vec::new()
-    };
-    for declaration in syntax
-        .symbols()
-        .iter()
-        .filter(|symbol| symbol.kind == SymbolKind::Function)
-    {
-        let parameters = syntax.parameters(declaration);
-        if parameters.is_empty() {
-            continue;
-        }
-        for call in syntax.calls_to(declaration.id) {
-            for (argument, parameter) in syntax.call_arguments(call).iter().zip(parameters) {
-                if argument.start < range.start || argument.start > range.end {
-                    continue;
-                }
-                hints.push(InlayHint {
-                    position: argument.start,
-                    parameter_name: parameter.name_range,
-                });
-            }
-        }
-    }
-    hints.sort_by_key(|hint| hint.position);
-    hints
+    let hints = snapshot.syntax.parameter_hints();
+    let start = hints.partition_point(|hint| hint.position < range.start);
+    let hints = &hints[start..];
+    let end = hints.partition_point(|hint| hint.position <= range.end);
+    hints[..end].to_vec()
 }
 
 #[must_use]

@@ -686,3 +686,43 @@ fn reference_lookup_preserves_first_declaration_shadowing_and_unresolved_names()
     }
     assert!(bend2_lsp::analysis::identifier_ranges(&snapshot, "absent").is_empty());
 }
+
+#[test]
+fn parameter_hints_preserve_nested_order_range_boundaries_and_argument_arity() {
+    let source = concat!(
+        "def add(left: U32, right: U32) -> U32:\n  left\n",
+        "def ident(value: U32) -> U32:\n  value\n",
+        "def zero() -> U32:\n  0\n",
+        "def main() -> U32:\n  add(ident(1), 2)\n  ident(3, 4)\n  unknown(5)\n  zero()\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let nested = source.find("add(ident(1), 2)").must_be("nested call");
+    let extra = source.find("ident(3, 4)").must_be("extra argument call");
+    let expected = [
+        (nested + 4, "left: "),
+        (nested + 10, "value: "),
+        (nested + 14, "right: "),
+        (extra + 6, "value: "),
+    ];
+    let hints = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, source.len()));
+    assert!(
+        hints
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq(expected.map(|(position, label)| (position, label.to_owned())))
+    );
+    let boundary =
+        bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(nested + 10, nested + 10));
+    assert!(
+        boundary
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq([(nested + 10, "value: ".to_owned())])
+    );
+    for range in [
+        TextRange::new(nested + 11, nested + 13),
+        TextRange::new(nested + 14, nested + 4),
+    ] {
+        assert!(bend2_lsp::analysis::inlay_hints(&snapshot, range).is_empty());
+    }
+}

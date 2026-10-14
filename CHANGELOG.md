@@ -24,9 +24,9 @@
   references. Preserve stable result ordering and full-range deduplication.
 - Measure reference ordering in an isolated benchmark binary and include its
   collected workloads in the same strict, source-bound Callgrind admission.
-- Prepare semantic-token and whole-document parameter-hint result counts during
-  cold indexing instead of repeating count passes in warm queries. Keep scoped
-  completion name deduplication compact and reuse indexed import identities.
+- Prepare semantic-token result counts and ordered parameter-hint locations during
+  cold indexing instead of regrouping and sorting hints in warm queries. Keep
+  scoped completion name deduplication compact and reuse indexed import identities.
 - Avoid rereading declaration-name slices during autocomplete and pre-size
   workspace document and dependent-traversal buffers from existing index bounds.
   Preserve local shadowing, snapshot freshness and cyclic/transitive traversal.

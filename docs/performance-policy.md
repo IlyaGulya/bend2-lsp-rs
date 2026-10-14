@@ -137,6 +137,13 @@ unscoped completion: all three sizes failed instructions, I1 and last-level limi
 Fuzzy import completion also failed its last-level limit. The collector must be
 improved or the sharing cutover removed before this source can be admitted.
 
+The [direct module-projection comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38599671190)
+used candidate head `24b25ad`. All 51 paired instruction counts remained positive;
+49 workloads passed. Every import-completion case passed, as did small/medium
+unscoped completion. The remaining failures were large completion I1 misses
+(53 to 57) and small inlay-hint last-level instruction misses (77 to 82).
+Both still fail the unchanged policy despite lower instruction counts.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.
