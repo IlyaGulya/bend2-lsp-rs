@@ -130,6 +130,13 @@ construction, burst invalidation and both workspace-symbol queries also passed.
 The remaining failures were the three unscoped completion sizes and exact/fuzzy
 import completion. The whole comparison still required rejection.
 
+The [declaration-only collector comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38595160251)
+used candidate head `5cc1fb6`. All 51 instruction pairs remained positive; 47
+workloads passed. Sharing the iterator-based module collector did not improve
+unscoped completion: all three sizes failed instructions, I1 and last-level limits.
+Fuzzy import completion also failed its last-level limit. The collector must be
+improved or the sharing cutover removed before this source can be admitted.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

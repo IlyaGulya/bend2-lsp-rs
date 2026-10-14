@@ -725,20 +725,18 @@ pub fn module_completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let ascii_prefix = prefix.is_ascii();
-    syntax
-        .symbols()
-        .iter()
-        .filter_map(|symbol| {
-            let name = syntax.name_text(source, symbol.name);
-            completion_matches(name, prefix, ascii_prefix).then(|| {
-                completion(
-                    name.to_owned(),
-                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                    symbol.kind,
-                )
-            })
-        })
-        .collect()
+    let mut items = Vec::new();
+    for symbol in syntax.symbols() {
+        let name = syntax.name_text(source, symbol.name);
+        if completion_matches(name, prefix, ascii_prefix) {
+            items.push(completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                symbol.kind,
+            ));
+        }
+    }
+    items
 }
 
 #[must_use]
