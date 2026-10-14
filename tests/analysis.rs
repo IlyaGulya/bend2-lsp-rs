@@ -797,3 +797,36 @@ fn parameter_hints_distinguish_unresolved_and_zero_arity_calls_from_newly_resolv
             .eq([(argument, "argument: ".to_owned())])
     );
 }
+
+#[test]
+fn module_completion_preserves_ascii_case_underscores_repeated_letters_and_unicode() {
+    let source = concat!(
+        "def Foo_Bar() -> U32:\n  0\n",
+        "def foo__foo() -> U32:\n  0\n",
+        "def Ff() -> U32:\n  0\n",
+        "def foo() -> U32:\n  0\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let cases: &[(&str, &[&str])] = &[
+        ("F_F", &["foo__foo"]),
+        ("FF", &["foo__foo", "Ff"]),
+        ("πF", &[]),
+        ("FOO", &["Foo_Bar", "foo__foo", "foo"]),
+        ("_F", &["foo__foo"]),
+        ("fff", &[]),
+    ];
+    for &(query, expected) in cases {
+        let mut labels = bend2_lsp::analysis::module_completion_items(&snapshot, query)
+            .into_iter()
+            .map(|completion| completion.label)
+            .collect::<Vec<_>>();
+        labels.sort_unstable();
+        let mut expected = expected.to_vec();
+        expected.sort_unstable();
+        assert_eq!(labels, expected, "query {query:?}");
+    }
+    assert_eq!(
+        bend2_lsp::analysis::completion_match("πfoo", "πF"),
+        Some((2, 0, 5))
+    );
+}

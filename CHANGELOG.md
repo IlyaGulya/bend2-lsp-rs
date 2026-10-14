@@ -34,10 +34,13 @@
 - Avoid rereading declaration-name slices during autocomplete and pre-size
   workspace document and dependent-traversal buffers from existing index bounds.
   Preserve local shadowing, snapshot freshness and cyclic/transitive traversal.
+  Avoid a visited set and traversal-stack allocation for terminal reverse
+  dependencies, preserving deduplication and cycles for transitive frontiers.
 - Look up declaration names through existing one-word dense index slots instead
   of hashing indexed name IDs. Preserve first-declaration precedence, qualified
   names and local shadowing. Read reference target IDs without loading declaration
-  metadata, and fold ASCII subsequence query bytes once without changing matching.
+  metadata. Prepare both ASCII case alternatives per query byte instead of
+  repeatedly folding candidate-label bytes.
 - Keep unscoped autocomplete on the declaration-only query path, without building
   or sorting an empty local-binding set. Project module completions directly into
   their result vector and share the existing keyword projection.

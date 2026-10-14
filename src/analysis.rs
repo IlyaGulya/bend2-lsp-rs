@@ -529,8 +529,9 @@ fn completion_matches(label: &str, query: &str, ascii: bool) -> bool {
 fn ascii_subsequence_matches(label: &str, query: &str) -> bool {
     let mut characters = label.bytes();
     for wanted in query.bytes() {
-        let wanted = wanted.to_ascii_lowercase();
-        if !characters.any(|character| character.to_ascii_lowercase() == wanted) {
+        let lower = wanted.to_ascii_lowercase();
+        let upper = wanted.to_ascii_uppercase();
+        if !characters.any(|character| character == lower || character == upper) {
             return false;
         }
     }

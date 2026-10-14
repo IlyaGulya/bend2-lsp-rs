@@ -1106,11 +1106,34 @@ impl WorkspaceDb {
         if capacity == 0 {
             return Vec::new();
         }
-        let mut pending = Vec::with_capacity(capacity);
-        pending.push(changed);
+        let mut pending = Vec::new();
+        let mut documents = Vec::with_capacity(capacity.max(4).min(dependent_bound));
+        // Reverse edges are unique. Terminal frontiers need no visited set
+        // or allocated traversal stack.
+        for dependent in &self.entries[changed.0].reverse_imports {
+            if *dependent == changed || !self.reachable.contains(dependent) {
+                continue;
+            }
+            let entry = &self.entries[dependent.0];
+            if let Some(document) = entry.document() {
+                documents.push(document);
+            }
+            if !entry.reverse_imports.is_empty() {
+                pending.push(*dependent);
+            }
+        }
+        if pending.is_empty() {
+            return documents;
+        }
         let mut visited = HashSet::with_capacity(capacity + 1);
         visited.insert(changed);
-        let mut documents = Vec::with_capacity(capacity.max(4).min(dependent_bound));
+        visited.extend(
+            self.entries[changed.0]
+                .reverse_imports
+                .iter()
+                .copied()
+                .filter(|id| self.reachable.contains(id)),
+        );
         while let Some(id) = pending.pop() {
             for dependent in &self.entries[id.0].reverse_imports {
                 if !self.reachable.contains(dependent) || !visited.insert(*dependent) {
@@ -1120,7 +1143,9 @@ impl WorkspaceDb {
                 if let Some(document) = entry.document() {
                     documents.push(document);
                 }
-                pending.push(*dependent);
+                if !entry.reverse_imports.is_empty() {
+                    pending.push(*dependent);
+                }
             }
         }
         documents

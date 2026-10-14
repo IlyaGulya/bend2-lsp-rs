@@ -187,6 +187,22 @@ hint construction when the exact eligible-argument count is zero. Neither
 changes the persisted index representation or warm-query semantics; fresh
 paired measurements must establish their cache effect.
 
+The [reused grouping-cursor comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38614088568)
+used candidate head `1d3347e`. All 51 paired instruction counts were positive;
+49 workloads passed. Cold-medium I1 misses decreased from 770 to 757, and
+sixteen-revision invalidation I1 misses decreased from 12,130 to 11,516.
+Admission still fails: large completion I1 misses were 57 versus 53, and
+incremental invalidation instructions were 686,510 versus 656,992.
+
+The next query changes seed unique direct reverse dependencies before allocating
+cycle-tracking state, and queue only nonterminal entries. ASCII subsequence
+matching prepares both case alternatives once per query byte instead of folding
+each candidate-label byte. Consumer contracts cover terminal-to-transitive graph
+updates, diamond deduplication, cycles, repeated letters, underscores and Unicode
+fallback. A throwaway API smoke also checks every two-byte ASCII query against
+the independent Unicode scorer and dependency graphs across forty revisions.
+Only a fresh source-bound numeric comparison can establish admission.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.
