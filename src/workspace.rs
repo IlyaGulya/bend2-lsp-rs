@@ -451,8 +451,11 @@ impl WorkspaceDb {
             let entry = &self.entries[source.0];
             let snapshot = entry.snapshot()?;
             for edge in &entry.imports {
+                if edge.target != target {
+                    continue;
+                }
                 let path = snapshot.text.get(edge.path.start..edge.path.end)?;
-                if edge.target == target && is_hub_import_path(path) {
+                if is_hub_import_path(path) {
                     return Some(path.into());
                 }
             }
@@ -493,10 +496,10 @@ impl WorkspaceDb {
         source: &Url,
         mut matching: impl FnMut(&DocumentSnapshot) -> Option<T>,
     ) -> Vec<(Document, String, T)> {
-        let Some(source_path) = self
-            .file_id_by_uri(source)
-            .and_then(|id| self.entries[id.0].path.as_deref())
-        else {
+        let Some(source_id) = self.file_id_by_uri(source) else {
+            return Vec::new();
+        };
+        let Some(source_path) = self.entries[source_id.0].path.as_deref() else {
             return Vec::new();
         };
         let mut candidates = Vec::new();
@@ -504,7 +507,7 @@ impl WorkspaceDb {
             let Some(snapshot) = entry.snapshot() else {
                 return;
             };
-            if entry.uri == *source
+            if id == source_id
                 || self
                     .compiler_documents
                     .as_ref()
@@ -527,9 +530,12 @@ impl WorkspaceDb {
             else {
                 return;
             };
-            if let Some(document) = entry.document() {
-                candidates.push((document, relative, items));
-            }
+            let document = Document::with_snapshot(
+                entry.uri.clone(),
+                entry.language_id.clone(),
+                snapshot.clone(),
+            );
+            candidates.push((document, relative, items));
         });
         candidates.sort_unstable_by(|left, right| left.1.cmp(&right.1));
         candidates

@@ -300,7 +300,26 @@ pub fn imports(snapshot: &DocumentSnapshot) -> &[Import] {
 #[must_use]
 pub fn inlay_hints(snapshot: &DocumentSnapshot, range: TextRange) -> Vec<InlayHint> {
     let syntax = &snapshot.syntax;
-    let mut hints = Vec::new();
+    let hint_count = syntax
+        .symbols()
+        .iter()
+        .filter(|symbol| symbol.kind == SymbolKind::Function)
+        .map(|declaration| {
+            let parameter_count = syntax.parameters(declaration).len();
+            if parameter_count == 0 {
+                return 0;
+            }
+            syntax
+                .calls_to(declaration.id)
+                .map(|call| {
+                    let span =
+                        inlay_argument_span(syntax.call_arguments(call), parameter_count, range);
+                    span.end - span.start
+                })
+                .sum::<usize>()
+        })
+        .sum();
+    let mut hints = Vec::with_capacity(hint_count);
     for declaration in syntax
         .symbols()
         .iter()
@@ -311,22 +330,34 @@ pub fn inlay_hints(snapshot: &DocumentSnapshot, range: TextRange) -> Vec<InlayHi
             continue;
         }
         for call in syntax.calls_to(declaration.id) {
-            for (index, argument) in syntax.call_arguments(call).iter().enumerate() {
-                let Some(parameter) = parameters.get(index) else {
-                    break;
-                };
-                if argument.start < range.start || argument.start > range.end {
-                    continue;
-                }
-                hints.push(InlayHint {
-                    position: argument.start,
-                    parameter_name: parameter.name_range,
-                });
-            }
+            let arguments = syntax.call_arguments(call);
+            let span = inlay_argument_span(arguments, parameters.len(), range);
+            hints.extend(
+                arguments[span.start..span.end]
+                    .iter()
+                    .zip(&parameters[span.start..span.end])
+                    .map(|(argument, parameter)| InlayHint {
+                        position: argument.start,
+                        parameter_name: parameter.name_range,
+                    }),
+            );
         }
     }
     hints.sort_by_key(|hint| hint.position);
     hints
+}
+
+fn inlay_argument_span(
+    arguments: &[TextRange],
+    parameter_count: usize,
+    range: TextRange,
+) -> TextRange {
+    // Indexed arguments are in source order; only arguments with parameters
+    // can produce hints. The requested end is inclusive, including empty ranges.
+    let arguments = &arguments[..arguments.len().min(parameter_count)];
+    let start = arguments.partition_point(|argument| argument.start < range.start);
+    let end = start + arguments[start..].partition_point(|argument| argument.start <= range.end);
+    TextRange::new(start, end)
 }
 
 #[must_use]
@@ -431,7 +462,12 @@ pub fn selection_range(snapshot: &DocumentSnapshot, mut offset: usize) -> Select
 pub fn semantic_tokens(snapshot: &DocumentSnapshot) -> Vec<SemanticToken> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let mut result = Vec::new();
+    let token_count = syntax
+        .tokens()
+        .iter()
+        .filter(|token| !matches!(token.kind, TokenKind::Punctuation | TokenKind::Delimiter))
+        .count();
+    let mut result = Vec::with_capacity(token_count);
     for (index, token) in syntax.tokens().iter().enumerate() {
         let token_type = match token.kind {
             TokenKind::Comment => Some(17),
@@ -620,43 +656,49 @@ fn completion_items_with_scope(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let ascii_prefix = prefix.is_ascii();
-    let mut items = Vec::new();
-    let local_names = offset.map(|offset| {
-        let mut local_names = std::collections::HashSet::new();
-        for binding in syntax.bindings_at(offset) {
-            let name = syntax.name_text(source, binding.name);
-            if completion_matches(name, prefix, ascii_prefix) && local_names.insert(binding.name) {
-                items.push(Completion {
-                    label: name.to_owned(),
-                    detail: "Local binding".into(),
-                    kind: CompletionKind::Variable,
-                });
-            }
-        }
-        items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
-        local_names
+    let mut local_names: Vec<NameId> = offset.map_or_else(Vec::new, |offset| {
+        syntax
+            .bindings_at(offset)
+            .filter_map(|binding| {
+                completion_matches(syntax.name_text(source, binding.name), prefix, ascii_prefix)
+                    .then_some(binding.name)
+            })
+            .collect()
     });
-    for symbol in syntax.symbols() {
-        let name = syntax.name_text(source, symbol.name);
-        if completion_matches(name, prefix, ascii_prefix)
-            && local_names
-                .as_ref()
-                .is_none_or(|names| !names.contains(&symbol.name))
-        {
-            items.push(completion(
-                name.to_owned(),
-                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                symbol.kind,
-            ));
-        }
-    }
-    for keyword in [
+    local_names.sort_unstable_by_key(|name| name.0);
+    local_names.dedup();
+    let declarations = syntax.symbols().iter().filter(|symbol| {
+        local_names
+            .binary_search_by_key(&symbol.name.0, |name| name.0)
+            .is_err()
+            && completion_matches(syntax.name_text(source, symbol.name), prefix, ascii_prefix)
+    });
+    let keywords = [
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",
-    ] {
-        if completion_matches(keyword, prefix, ascii_prefix)
-            && !items.iter().any(|item| item.label == keyword)
-        {
+    ]
+    .into_iter()
+    .filter(|keyword| completion_matches(keyword, prefix, ascii_prefix));
+    // Reserve only matching candidates, not every declaration in the snapshot.
+    let mut items = Vec::with_capacity(
+        local_names.len() + declarations.clone().count() + keywords.clone().count(),
+    );
+    items.extend(local_names.iter().map(|name| Completion {
+        label: syntax.name_text(source, *name).to_owned(),
+        detail: "Local binding".into(),
+        kind: CompletionKind::Variable,
+    }));
+    items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
+    for symbol in declarations {
+        let name = syntax.name_text(source, symbol.name);
+        items.push(completion(
+            name.to_owned(),
+            source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+            symbol.kind,
+        ));
+    }
+    for keyword in keywords {
+        if !items.iter().any(|item| item.label == keyword) {
             items.push(Completion {
                 label: keyword.into(),
                 detail: "Bend keyword".into(),
