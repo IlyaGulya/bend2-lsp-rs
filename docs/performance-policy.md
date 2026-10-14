@@ -268,6 +268,81 @@ and five independent pairs per job through the existing `--expected-*-jobs` and
 `--expected-pairs` report options. Local fixture-based report/contract tests do
 not collect measurements.
 
+### Reference-ordering cache-entry-state investigation
+
+The strict comparison in hosted run
+[38531644121](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38531644121)
+rejected reference-ordering candidate `eecebba7` against base `8010fe88`.
+All instruction limits passed; five existing cache-event limits failed. This
+is a failed admission, not an approved exception.
+
+The independent-build calibration in
+[38527210212](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38527210212)
+provides 35 discovery A/A comparisons and 35 layout-only comparisons per case:
+
+| Workload | Failed event | Base → candidate | A/A delta range | Layout-only delta range |
+| --- | --- | --- | --- | --- |
+| `completion_warm[large]` | `I1mr` | 53 → 58 | 0 | -2 |
+| `inlay_hints_warm[large]` | `I1mr` | 45 → 51 | 0 | -2 |
+| `scoped_completion_warm[small]` | `I1mr` | 100 → 104 | 0 | +4 |
+| `semantic_tokens_warm[large]` | `I1mr` | 21 → 25 | 0 | +1 |
+| `import_completion_candidates_warm[fuzzy]` | `ILmr` | 97 → 102 | -3…+3 | +1…+7 |
+
+These controls do not support dismissing the four stable instruction-cache
+deltas as identical-source measurement noise. They demonstrate sensitivity to
+layout changes, but do not establish the cause of this candidate's failures.
+Calibration also replaces the inlay body with a non-inlined query helper;
+that row is not an exact production-body control. The control construction is
+in [`calibration/collector.rs`](../tools/perf/src/calibration/collector.rs);
+the unchanged numerical limits remain in [`policy.rs`](../tools/perf/src/policy.rs).
+
+The completed exact-merge calibration
+[38531644033](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38531644033)
+at `dd161321` confirms those A/A ranges in its discovery set and zero deltas
+for the same four instruction-cache events in all 15 validation comparisons.
+Its fuzzy-import validation range is -2…+2. No active gates changed.
+
+Iai-Callgrind 0.16.1 evaluates benchmark setup and arguments before its guarded
+inner function. Its Callgrind runner toggles event collection at that function,
+not instrumentation. Therefore setup can warm the simulated cache even though
+its events are not attributed to the workload
+([pinned macro source](https://docs.rs/crate/iai-callgrind-macros/0.6.1/source/src/lib_bench.rs),
+[pinned runner source](https://docs.rs/crate/iai-callgrind-runner/0.16.1/source/src/runner/tool/config.rs)).
+The official
+[Callgrind manual, sections 6.2.2 and 6.5](https://valgrind.org/docs/manual/cl-manual.html#cl-manual.clientrequests)
+distinguishes collection from instrumentation: stopping and restarting
+instrumentation resets the simulated cache, whereas zeroing counters or
+toggling collection does not.
+
+The declared report-only experiment in
+[`performance-cache-control.py`](../scripts/performance-cache-control.py)
+uses the exact base and candidate source commits on the hosted Linux/x86_64
+profiler. It first measures each unchanged original harness. It then adds an
+unmeasured setup hook to the five affected workloads without changing their
+guarded bodies. Each source's controlled executable runs in the fixed order
+`keep-a`, `cold`, `keep-b`; its binary hash is checked before and after every
+measurement. `cold` stops and restarts instrumentation after preparing input.
+The two `keep` runs form a same-executable control. All existing workload
+identities, raw events, source/binary hashes and per-frame annotations are
+retained. Doubled inlay work and the existing 512 KiB allocation control must
+still exceed the unchanged 2% instruction limit on all three inlay sizes.
+
+This is diagnostic evidence only. The helper and optional profiler feature can
+themselves change layout, so disappearance of the original failure in `keep`
+would make that case inconclusive. A collapse of a reproducible `keep` delta
+after reset supports an entry-cache-history contribution; a remaining delta
+requires investigation of in-body conflicts or code generation. Neither
+outcome automatically admits the candidate. There is no padding search,
+threshold adjustment, cache-geometry change, or random retry-to-green.
+The experiment has not yet completed; conditioning is not applied to the
+active gate.
+
+Cache reset introduces the manual's documented artificial cold misses. It is
+not a claim about editor latency or a production cache. Any later approved
+conditioning must be symmetric, retain the actual workloads and metrics, and
+construct a fresh baseline; old warm-cache counts are not comparable.
+
+
 ## Functional-fix performance acceptance (PR #4)
 
 The maintainer authorized adequate, expected regressions for the correctness
