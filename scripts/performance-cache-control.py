@@ -149,8 +149,9 @@ def collect(binary, source, output, label, mode):
                    if not key.startswith("IAI_CALLGRIND_") and key != "CARGO_TARGET_DIR"}
     environment["BEND2_CACHE_CONTROL"] = mode
     before = sha(binary)
+    baseline_name = hashlib.sha256(label.encode("ascii")).hexdigest()
     run([str(binary), "--output-format=json", "--save-summary=pretty-json",
-         f"--save-baseline={label}", f"--home={home}",
+         f"--save-baseline={baseline_name}", f"--home={home}",
          "--callgrind-args=--cache-sim=yes"], source,
         output / "logs" / f"{label}.log", environment)
     if sha(binary) != before:
