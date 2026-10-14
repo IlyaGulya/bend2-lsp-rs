@@ -423,11 +423,24 @@ first starts at `0x131be0`, has file size `0x5420`, and ends at the second's
 address `0x137000`. The retained valid baseline has a gap between its writable
 segments. Upstream Valgrind 3.22.0's `check_elf_and_get_rw_loads` handles the
 merged-segment case only for `ET_EXEC`; the current 3.27.1 implementation uses
-the caller's `from_nsegments` flag instead. This is a candidate explanation,
-not yet a causal result. The next report-only control changes only the profiler
-on the same original ELF, guard, fixture and declared cache geometry.
+the caller's `from_nsegments` flag instead. This mapping condition fits the
+observed failure, but the individual upstream patch has not been isolated.
+
+The completed same-ELF profiler control
+[38563507337](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38563507337)
+changes only the profiler, preserving the guard, fixture and declared cache
+geometry. Stock 3.22.0 collects zero instructions. Checksum-pinned upstream
+3.27.1 collects 393,161 instructions and resolves the original guard and
+production functions. The executable SHA-256 remains
+`639cb5e76f2e59e091b59436209dc033bb0b9b1a1430f82413178485107c7e06`.
+This proves the old profiler cannot collect this executable and the current
+one restores collection. It is not a baseline/candidate performance comparison
+and does not admit the allocation revision or prove its cache improvements.
+
 No profiler upgrade, cache reset, numerical allowance or admission-baseline
-change has been applied to the production workflow.
+change has been applied to the production workflow. A profiler cutover requires
+maintainer approval and a fresh baseline and candidate collected with the same
+pinned tool, original workloads, metrics, cache geometry and strict limits.
 
 
 
