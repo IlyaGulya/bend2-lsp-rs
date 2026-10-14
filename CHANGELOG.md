@@ -34,6 +34,8 @@
   of hashing indexed name IDs. Preserve first-declaration precedence, qualified
   names and local shadowing. Read reference target IDs without loading declaration
   metadata, and fold ASCII subsequence query bytes once without changing matching.
+- Keep unscoped autocomplete on the declaration-only query path, without building
+  or sorting an empty local-binding set. Share the existing keyword projection.
 - Reject empty instruction collection against a nonzero benchmark baseline
   instead of treating missing measurements as a performance improvement.
 - Pin the Linux Callgrind profiler to checksum-verified Valgrind 3.27.1 so

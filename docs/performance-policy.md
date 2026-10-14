@@ -122,6 +122,14 @@ Both large and medium reference-range I1 counts failed, as did burst-invalidatio
 and empty workspace-symbol last-level counts. Lower instructions do not override
 the independent miss limits; this comparison was not admitted.
 
+The [dense declaration-name comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38591157726)
+used candidate head `0fa3819`. All 51 paired workloads collected positive
+instructions; 46 passed. Large/medium reference queries passed at 605 instructions
+versus 782 and eight last-level instruction misses versus ten. Cold large snapshot
+construction, burst invalidation and both workspace-symbol queries also passed.
+The remaining failures were the three unscoped completion sizes and exact/fuzzy
+import completion. The whole comparison still required rejection.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

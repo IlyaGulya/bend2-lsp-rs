@@ -595,7 +595,9 @@ fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, 
 
 #[must_use]
 pub fn completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
-    completion_items_with_scope(snapshot, prefix, None)
+    let mut items = module_completion_items(snapshot, prefix);
+    append_keyword_completions(&mut items, prefix);
+    items
 }
 
 /// Complete visible local bindings and declarations at a snapshot-local cursor.
@@ -605,26 +607,16 @@ pub fn scoped_completion_items(
     offset: usize,
     prefix: &str,
 ) -> Vec<Completion> {
-    completion_items_with_scope(snapshot, prefix, Some(offset))
-}
-
-fn completion_items_with_scope(
-    snapshot: &DocumentSnapshot,
-    prefix: &str,
-    offset: Option<usize>,
-) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let ascii_prefix = prefix.is_ascii();
-    let mut local_names: Vec<NameId> = offset.map_or_else(Vec::new, |offset| {
-        syntax
-            .bindings_at(offset)
-            .filter_map(|binding| {
-                completion_matches(syntax.name_text(source, binding.name), prefix, ascii_prefix)
-                    .then_some(binding.name)
-            })
-            .collect()
-    });
+    let mut local_names: Vec<NameId> = syntax
+        .bindings_at(offset)
+        .filter_map(|binding| {
+            completion_matches(syntax.name_text(source, binding.name), prefix, ascii_prefix)
+                .then_some(binding.name)
+        })
+        .collect();
     local_names.sort_unstable_by_key(|name| name.0);
     local_names.dedup();
     let mut items = Vec::new();
@@ -651,6 +643,12 @@ fn completion_items_with_scope(
             ));
         }
     }
+    append_keyword_completions(&mut items, prefix);
+    items
+}
+
+fn append_keyword_completions(items: &mut Vec<Completion>, prefix: &str) {
+    let ascii_prefix = prefix.is_ascii();
     for keyword in [
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",
@@ -665,7 +663,6 @@ fn completion_items_with_scope(
             });
         }
     }
-    items
 }
 
 /// Complete indexed ADT constructors, optionally within a qualified namespace.
