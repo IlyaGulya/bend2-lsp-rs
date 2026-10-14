@@ -395,6 +395,41 @@ The candidate remains blocked by the original strict admission failures.
 A new mechanism would need independently verified collection-state and
 full-guard invariance before any cache-history causal claim or baseline cutover.
 
+### Invalid guard collection after the query-allocation revision
+
+Candidate `5520c03` does not have a valid performance pass. Run
+[38555552166](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38555552166)
+records zero candidate instructions for all 51 analysis workloads against
+nonzero baselines. The three separate reference-ordering workloads collect
+real counters. The corrected shared comparison rejects this input; hosted run
+[38559325117](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38559325117)
+fails with `candidate instruction collection is empty for a nonzero baseline
+workload`, rather than admitting an apparent improvement.
+
+The original-ELF controls
+[38559261576](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38559261576)
+and [38560049867](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38560049867)
+retain the unchanged candidate executable. The ordinary guard glob, exact
+demangled guard, exact raw symbol and disabled inline-info controls all record
+zero instructions. Collecting the complete process records 30,603,989
+instructions, but attributes executable code to unknown objects and addresses.
+The symbol trace never registers the candidate executable. `nm` and disassembly
+independently show the guard symbol and the caller's direct call to it.
+This is an object/symbol-loading failure, not proof of faster queries and not
+evidence that the production workload was skipped.
+
+The invalid PIE executable has contiguous writable `PT_LOAD` segments: the
+first starts at `0x131be0`, has file size `0x5420`, and ends at the second's
+address `0x137000`. The retained valid baseline has a gap between its writable
+segments. Upstream Valgrind 3.22.0's `check_elf_and_get_rw_loads` handles the
+merged-segment case only for `ET_EXEC`; the current 3.27.1 implementation uses
+the caller's `from_nsegments` flag instead. This is a candidate explanation,
+not yet a causal result. The next report-only control changes only the profiler
+on the same original ELF, guard, fixture and declared cache geometry.
+No profiler upgrade, cache reset, numerical allowance or admission-baseline
+change has been applied to the production workflow.
+
+
 
 ## Functional-fix performance acceptance (PR #4)
 
