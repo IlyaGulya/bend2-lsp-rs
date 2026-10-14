@@ -20,6 +20,8 @@
 - Use native filesystem paths when loading compiler sources; keep Bend import
   namespaces slash-separated. Validate these loader adaptations against exact
   embedded-source anchors before applying any recovery patches.
+- Avoid repeated temporary URI string allocations when ordering cross-file
+  references. Preserve stable result ordering and full-range deduplication.
 
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 

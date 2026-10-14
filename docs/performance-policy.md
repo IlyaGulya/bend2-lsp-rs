@@ -42,8 +42,10 @@ the same private `reference_locations` source module; no server internals are
 exported for measurement. URI/range construction and deterministic input
 shuffling occur in argument setup. Ordering, deduplication and owned-input
 teardown are measured; workspace lookup, discovery, wire serialization and the
-full LSP process are not. New cases first establish unchanged-algorithm coverage
-before a separate correction is compared with the registered baseline.
+full LSP process are not. Unchanged-algorithm measurements were collected before
+the borrowed-URI correction. Those archived measurements support an experimental
+before/after comparison; new cases remain unpaired in admission until a main
+baseline contains them. Existing paired cases retain the unchanged strict policy.
 
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
