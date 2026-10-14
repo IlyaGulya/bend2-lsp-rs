@@ -36,6 +36,15 @@ input/intermediate teardown are included. This covers the previously unmeasured
 response serialization path, not discovery, the full LSP process or editor latency.
 The fixed URI root and workload remain identical across baseline and candidate.
 
+The `reference_location_order_warm` cases cover stable ordering and deduplication
+of 64, 1,024, and 10,000 owned reference locations. The server and benchmark share
+the same private `reference_locations` source module; no server internals are
+exported for measurement. URI/range construction and deterministic input
+shuffling occur in argument setup. Ordering, deduplication and owned-input
+teardown are measured; workspace lookup, discovery, wire serialization and the
+full LSP process are not. New cases first establish unchanged-algorithm coverage
+before a separate correction is compared with the registered baseline.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

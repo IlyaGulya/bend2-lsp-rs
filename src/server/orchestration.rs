@@ -726,14 +726,7 @@ impl Backend {
                 });
             }
         }
-        locations.sort_by_key(|location| {
-            (
-                location.uri.to_string(),
-                location.range.start.line,
-                location.range.start.character,
-            )
-        });
-        locations.dedup_by(|left, right| left.uri == right.uri && left.range == right.range);
+        super::reference_locations::sort_and_deduplicate(&mut locations);
         span.record("result_count", locations.len());
         locations
     }
