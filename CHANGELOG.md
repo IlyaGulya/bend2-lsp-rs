@@ -27,6 +27,8 @@
 - Prepare semantic-token and whole-document parameter-hint result counts during
   cold indexing instead of repeating count passes in warm queries. Keep scoped
   completion name deduplication compact and reuse indexed import identities.
+- Reject empty instruction collection against a nonzero benchmark baseline
+  instead of treating missing measurements as a performance improvement.
 
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 

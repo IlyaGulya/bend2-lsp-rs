@@ -69,6 +69,13 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
+A paired candidate with zero collected instructions against a nonzero baseline
+is a collection failure, not a performance improvement. The authoritative
+summary reader rejects it before producing or validating an admission verdict.
+Zero cache-miss counters and zero-baseline arithmetic remain valid; this does
+not change any numeric allowance. Run 38555552166 exposed an empty analysis
+collection and must not be cited as a passing performance comparison.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

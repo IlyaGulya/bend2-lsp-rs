@@ -129,6 +129,16 @@ fn compare(root: &Path, manifest: &Path) -> TestResult<Output> {
 }
 
 #[test]
+fn missing_instruction_collection_cannot_pass_as_an_improvement() -> TestResult {
+    let temporary = TempDir::new()?;
+    let manifest = baseline(temporary.path(), 1)?;
+    let root = temporary.path().join("candidate");
+    write_summary(&root, "empty", &summary(0, [0, 0, 0], [100, 2, 2]))?;
+    assert_status(&compare(&root, &manifest)?, 2)?;
+    Ok(())
+}
+
+#[test]
 fn baseline_and_candidate_workload_counts_are_authoritative() -> TestResult {
     for (baseline_count, candidate_count, new_count, last_new) in [
         (25, 25, 0, None),
