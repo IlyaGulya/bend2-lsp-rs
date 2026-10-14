@@ -36,6 +36,173 @@ input/intermediate teardown are included. This covers the previously unmeasured
 response serialization path, not discovery, the full LSP process or editor latency.
 The fixed URI root and workload remain identical across baseline and candidate.
 
+The `reference_location_order_warm` cases cover stable ordering and deduplication
+of 64, 1,024, and 10,000 owned reference locations. The server and benchmark share
+the same private `reference_locations` source module; no server internals are
+exported for measurement. URI/range construction and deterministic input
+shuffling occur in argument setup. Ordering, deduplication and owned-input
+teardown are measured; workspace lookup, discovery, wire serialization and the
+full LSP process are not. Unchanged-algorithm measurements were collected before
+the borrowed-URI correction. Those archived measurements support an experimental
+before/after comparison; new cases remain unpaired in admission until a main
+baseline contains them. Existing paired cases retain the unchanged strict policy.
+The ordering cases run in their own `reference_locations` benchmark binary;
+the `analysis` binary retains its existing workloads. CI collects both targets
+into one source-bound admission inventory and applies the same policy to every
+paired case. A main revision without the new target contributes only its existing
+baseline IDs; once main contains the target, its ordering cases are paired too.
+Candidate collection always requires the ordering target.
+Both candidate targets select the named `main` baseline, including initially
+unpaired ordering cases. The uploaded evidence retains the entire combined
+inventory, including target-discovery metadata and isolated raw profiles.
+
+Indexed query result capacity must not introduce a second warm semantic pass.
+The scanner counts semantic-token-producing token kinds as it emits tokens.
+Call construction counts arguments eligible for local function parameter hints.
+These two scalar counts let semantic-token and whole-document hint queries
+reserve their result capacity without recounting indexed tokens or calls.
+Bounded hint ranges retain local filtering and do not reserve whole-document
+hint capacity. Cold snapshot construction remains separately gated.
+Scoped completion deduplicates matching indexed `NameId` values in a sorted
+temporary vector; it preserves alphabetical local results, declaration order,
+shadowing and keyword suppression. Import candidates compare `FileId` values
+and reuse the already selected effective snapshot. All existing workload
+bodies, result ownership, cache geometry and numeric limits remain unchanged.
+
+A paired candidate with zero collected instructions against a nonzero baseline
+is a collection failure, not a performance improvement. The authoritative
+summary reader rejects it before producing or validating an admission verdict.
+Zero cache-miss counters and zero-baseline arithmetic remain valid; this does
+not change any numeric allowance. Run 38555552166 exposed an empty analysis
+collection and must not be cited as a passing performance comparison.
+
+The Linux CI Callgrind collectors pin upstream Valgrind 3.27.1 through
+`./scripts/install-tools.sh valgrind`, with `VALGRIND_INSTALL_ROOT` set to an
+absolute, dedicated directory outside the checkout. The official source archive
+checksum and installed executable hashes bind the native-tool cache to its
+provenance.
+Collectors validate the actual version and retain this provenance beside raw
+evidence. The absolute installation survives the baseline source checkout;
+baseline and candidate are freshly collected with the same pinned profiler.
+
+The maintainer approved this profiler cutover after the
+[same-executable control](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38563507337)
+showed that the old Ubuntu Valgrind 3.22.0 failed to register the revised
+analysis executable, while upstream 3.27.1 restored its original guard and
+production-function collection. This control is not a performance comparison.
+Historical counts from the old profiler do not supply the new admission
+baseline. The cutover changes no workload, guard boundary, cache geometry,
+comparison metric, numeric allowance or exception requirement.
+
+The first fresh symmetric
+[comparison after the cutover](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38567984469)
+used main `8010fe8`, candidate head `156fb77` and exact merge `7cacbd3`.
+All 51 paired workloads and all three new reference-ordering workloads collected
+positive instructions. Both roles retained the declared 32 KiB, eight-way I1/D1
+and 8 MiB, 16-way last-level geometry with 64-byte lines.
+The numeric verdict was still a regression: 45 of 51 paired workloads passed.
+The remaining failures were all three `completion_warm` sizes,
+`workspace_symbols_warm` empty/case-insensitive queries and
+`workspace_burst_revision_invalidation`. A successful collection job does not
+turn that verdict into a passing performance comparison or an approved exception.
+
+The next [comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38576255963)
+used candidate head `bcf37db` and exact merge `10e77bc` against the same main.
+All 51 paired workloads collected positive instructions; 48 passed the unchanged
+numeric policy. All six failures from the preceding comparison passed.
+The remaining regressions were I1 misses in `identifier_ranges_warm.large`
+and last-level misses in the exact and fuzzy `import_completion_candidates_warm`
+queries. This remains a rejected performance comparison, not an exception.
+
+The [scalar-ID and ASCII-matcher comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38587146675)
+used candidate head `8e3b4b0` and exact merge `6a96628`. It passed 45 of 51 paired
+workloads, not 48. Exact/fuzzy import completion instructions fell to 161,800
+and 164,942 from 198,552 and 201,818, but last-level misses still failed.
+Both large and medium reference-range I1 counts failed, as did burst-invalidation
+and empty workspace-symbol last-level counts. Lower instructions do not override
+the independent miss limits; this comparison was not admitted.
+
+The [dense declaration-name comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38591157726)
+used candidate head `0fa3819`. All 51 paired workloads collected positive
+instructions; 46 passed. Large/medium reference queries passed at 605 instructions
+versus 782 and eight last-level instruction misses versus ten. Cold large snapshot
+construction, burst invalidation and both workspace-symbol queries also passed.
+The remaining failures were the three unscoped completion sizes and exact/fuzzy
+import completion. The whole comparison still required rejection.
+
+The [declaration-only collector comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38595160251)
+used candidate head `5cc1fb6`. All 51 instruction pairs remained positive; 47
+workloads passed. Sharing the iterator-based module collector did not improve
+unscoped completion: all three sizes failed instructions, I1 and last-level limits.
+Fuzzy import completion also failed its last-level limit. The collector must be
+improved or the sharing cutover removed before this source can be admitted.
+
+The [direct module-projection comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38599671190)
+used candidate head `24b25ad`. All 51 paired instruction counts remained positive;
+49 workloads passed. Every import-completion case passed, as did small/medium
+unscoped completion. The remaining failures were large completion I1 misses
+(53 to 57) and small inlay-hint last-level instruction misses (77 to 82).
+Both still fail the unchanged policy despite lower instruction counts.
+
+The [materialized hint-cache comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38603459702)
+used candidate head `a0179f0` with 51 positive instruction pairs. Only 45 workloads
+passed. All warm inlay-hint sizes passed; small hints changed from 19,181 to 744
+instructions and from 77 to six last-level instruction misses. This is not an
+admission win: cold snapshot last-level misses increased from 835 to 920 (small),
+689 to 735 (medium), and 681 to 728 (large). Those three cold cases also failed
+their I1 limits. Large/medium completion and burst invalidation failed I1 limits.
+The full-record cache and repeated declaration traversal therefore require
+replacement or removal rather than a cold-construction regression exception.
+
+The [compact argument/parameter-link comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38607977777)
+used candidate head `fb83755`. All 51 paired instruction counts were positive;
+46 workloads passed. Warm inlay instructions were 58,543 versus 502,449 (large),
+20,186 versus 155,249 (medium), and 1,812 versus 19,181 (small), with every warm
+inlay cache metric passing. Cold snapshot construction still failed I1/IL limits
+in all three sizes. Small completion failed instructions (19,744 to 20,308),
+and the workspace-symbol response failed I1 (135 to 142) despite identical
+instruction counts. Lower warm cost does not authorize those regressions.
+
+Raw self-cost attribution in that cold-small profile accounts for 52 new
+last-level instruction misses in hint-specific stable-sort functions. The parsed
+self-cost totals match the complete retained profile summary. This identifies
+executed cold code, not a passing successor measurement.
+
+The source-ordered call stream permits sequential hint appends. Nested arguments
+can interleave with the pending argument suffix of enclosing calls; ordered
+insertion moves that suffix without a second generic sort or scratch buffer.
+Movement grows with nesting and enclosing-call arity. The unchanged cold-small
+corpus covers mixed-arity interleavings; medium/large cover deep unary calls.
+Cold and warm numeric gates still decide whether this tradeoff is acceptable.
+
+The [source-ordered hint comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38611258640)
+used candidate head `e477708`. All 51 paired instruction counts were positive;
+49 workloads passed. Cold-medium I1 misses were 801 versus 770; sixteen-revision
+workspace invalidation had 12,540 versus 12,101 I1 misses. These two failures
+still reject admission. All completion, warm hint and import workloads passed.
+
+The next cold-construction change reuses the grouping count buffer for write
+cursors instead of allocating and copying a second cursor vector. It also skips
+hint construction when the exact eligible-argument count is zero. Neither
+changes the persisted index representation or warm-query semantics; fresh
+paired measurements must establish their cache effect.
+
+The [reused grouping-cursor comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38614088568)
+used candidate head `1d3347e`. All 51 paired instruction counts were positive;
+49 workloads passed. Cold-medium I1 misses decreased from 770 to 757, and
+sixteen-revision invalidation I1 misses decreased from 12,130 to 11,516.
+Admission still fails: large completion I1 misses were 57 versus 53, and
+incremental invalidation instructions were 686,510 versus 656,992.
+
+The next query changes seed unique direct reverse dependencies before allocating
+cycle-tracking state, and queue only nonterminal entries. ASCII subsequence
+matching prepares both case alternatives once per query byte instead of folding
+each candidate-label byte. Consumer contracts cover terminal-to-transitive graph
+updates, diamond deduplication, cycles, repeated letters, underscores and Unicode
+fallback. A throwaway API smoke also checks every two-byte ASCII query against
+the independent Unicode scorer and dependency graphs across forty revisions.
+Only a fresh source-bound numeric comparison can establish admission.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

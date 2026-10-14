@@ -623,3 +623,210 @@ fn dense_index_lookups_distinguish_zero_ids_missing_entries_and_nested_calls() {
     );
     assert_eq!(syntax.call_for_token(unknown_token), None);
 }
+
+#[test]
+fn module_completion_preserves_subsequence_order_case_and_repeated_characters() {
+    let snapshot = DocumentSnapshot::new(
+        Revision(1),
+        concat!(
+            "def aba() -> U32:\n  0\n",
+            "def aab() -> U32:\n  0\n",
+            "def AAA() -> U32:\n  0\n",
+            "def zaa() -> U32:\n  0\n",
+        )
+        .into(),
+    );
+    let cases: &[(&str, &[&str])] = &[
+        ("aa", &["aba", "aab", "AAA", "zaa"]),
+        ("aBa", &["aba"]),
+        ("aaaa", &[]),
+        ("λA", &[]),
+        ("", &["aba", "aab", "AAA", "zaa"]),
+    ];
+    for &(query, expected) in cases {
+        let items = bend2_lsp::analysis::module_completion_items(&snapshot, query);
+        assert!(
+            items
+                .iter()
+                .map(|item| item.label.as_str())
+                .eq(expected.iter().copied()),
+            "query {query}: {items:?}"
+        );
+    }
+}
+
+#[test]
+fn reference_lookup_preserves_first_declaration_shadowing_and_unresolved_names() {
+    let source = concat!(
+        "def target() -> U32:\n  missing(missing)\n",
+        "def target() -> U32:\n  2\n",
+        "def local(target: U32) -> U32:\n  target\n",
+        "def caller() -> U32:\n  target()\n",
+        "def late() -> U32:\n  unresolved(unresolved)\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let declaration = source.find("target").must_be("first declaration");
+    let call = source.find("  target()").must_be("global call") + 2;
+    assert_eq!(
+        bend2_lsp::analysis::identifier_ranges(&snapshot, "target"),
+        [
+            TextRange::new(declaration, declaration + 6),
+            TextRange::new(call, call + 6),
+        ]
+    );
+    for name in ["missing", "unresolved"] {
+        let expected = source
+            .match_indices(name)
+            .map(|(start, text)| TextRange::new(start, start + text.len()));
+        assert!(
+            bend2_lsp::analysis::identifier_ranges(&snapshot, name)
+                .into_iter()
+                .eq(expected)
+        );
+    }
+    assert!(bend2_lsp::analysis::identifier_ranges(&snapshot, "absent").is_empty());
+}
+
+#[test]
+fn parameter_hints_preserve_nested_order_range_boundaries_and_argument_arity() {
+    let source = concat!(
+        "def add(left: U32, right: U32) -> U32:\n  left\n",
+        "def ident(value: U32) -> U32:\n  value\n",
+        "def zero() -> U32:\n  0\n",
+        "def main() -> U32:\n  add(ident(1), 2)\n  ident(3, 4)\n  unknown(5)\n  zero()\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let nested = source.find("add(ident(1), 2)").must_be("nested call");
+    let extra = source.find("ident(3, 4)").must_be("extra argument call");
+    let expected = [
+        (nested + 4, "left: "),
+        (nested + 10, "value: "),
+        (nested + 14, "right: "),
+        (extra + 6, "value: "),
+    ];
+    let hints = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, source.len()));
+    assert!(
+        hints
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq(expected.map(|(position, label)| (position, label.to_owned())))
+    );
+    let boundary =
+        bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(nested + 10, nested + 10));
+    assert!(
+        boundary
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq([(nested + 10, "value: ".to_owned())])
+    );
+    for range in [
+        TextRange::new(nested + 11, nested + 13),
+        TextRange::new(nested + 14, nested + 4),
+    ] {
+        assert!(bend2_lsp::analysis::inlay_hints(&snapshot, range).is_empty());
+    }
+}
+
+#[test]
+fn parameter_hints_preserve_labels_across_nested_multi_argument_interleavings() {
+    let source = concat!(
+        "def fan(first: U32, second: U32, third: U32) -> U32:\n  first\n",
+        "def ident(value: U32) -> U32:\n  value\n",
+        "def main() -> U32:\n  fan(ident(1), fan(ident(2), ident(3), ident(4)), ident(5))\n",
+    );
+    let calls = [1, 2, 3, 4, 5].map(|value| {
+        source
+            .find(&format!("ident({value})"))
+            .must_be("nested identity call")
+    });
+    let inner = source.find("fan(ident(2)").must_be("nested fan call");
+    let expected = [
+        (calls[0], "first: "),
+        (calls[0] + 6, "value: "),
+        (inner, "second: "),
+        (calls[1], "first: "),
+        (calls[1] + 6, "value: "),
+        (calls[2], "second: "),
+        (calls[2] + 6, "value: "),
+        (calls[3], "third: "),
+        (calls[3] + 6, "value: "),
+        (calls[4], "third: "),
+        (calls[4] + 6, "value: "),
+    ];
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let hints = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, source.len()));
+    assert!(
+        hints
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq(expected.map(|(position, label)| (position, label.to_owned())))
+    );
+    let nested = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(inner, calls[3] + 6));
+    assert!(
+        nested
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq(expected[2..9]
+                .iter()
+                .map(|(position, label)| (*position, (*label).to_owned())))
+    );
+}
+
+#[test]
+fn parameter_hints_distinguish_unresolved_and_zero_arity_calls_from_newly_resolved_calls() {
+    let source = concat!(
+        "import ./other.bend as library\n",
+        "def nop() -> U32:\n  0\n",
+        "def main() -> U32:\n  nop()\n  absent(1)\n  library.echo(2)\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    assert!(
+        bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, source.len())).is_empty()
+    );
+    let revised = format!(
+        "{}\ndef resolved(argument: U32) -> U32:\n  argument\n",
+        source.replace("absent(1)", "resolved(1)")
+    );
+    let argument = revised.find("resolved(1)").must_be("newly resolved call") + 9;
+    let snapshot = DocumentSnapshot::new(Revision(2), revised);
+    let hints = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, snapshot.text.len()));
+    assert!(
+        hints
+            .iter()
+            .map(|hint| (hint.position, hint.label(&snapshot.text)))
+            .eq([(argument, "argument: ".to_owned())])
+    );
+}
+
+#[test]
+fn module_completion_preserves_ascii_case_underscores_repeated_letters_and_unicode() {
+    let source = concat!(
+        "def Foo_Bar() -> U32:\n  0\n",
+        "def foo__foo() -> U32:\n  0\n",
+        "def Ff() -> U32:\n  0\n",
+        "def foo() -> U32:\n  0\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let cases: &[(&str, &[&str])] = &[
+        ("F_F", &["foo__foo"]),
+        ("FF", &["foo__foo", "Ff"]),
+        ("πF", &[]),
+        ("FOO", &["Foo_Bar", "foo__foo", "foo"]),
+        ("_F", &["foo__foo"]),
+        ("fff", &[]),
+    ];
+    for &(query, expected) in cases {
+        let mut labels = bend2_lsp::analysis::module_completion_items(&snapshot, query)
+            .into_iter()
+            .map(|completion| completion.label)
+            .collect::<Vec<_>>();
+        labels.sort_unstable();
+        let mut expected = expected.to_vec();
+        expected.sort_unstable();
+        assert_eq!(labels, expected, "query {query:?}");
+    }
+    assert_eq!(
+        bend2_lsp::analysis::completion_match("πfoo", "πF"),
+        Some((2, 0, 5))
+    );
+}

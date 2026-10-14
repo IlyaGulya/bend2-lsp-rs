@@ -314,6 +314,49 @@ fn closing_unsaved_dependency_overlay_reloads_fresh_disk_for_open_importer() {
     assert_eq!(dependents[0].uri, uri(&root));
 }
 
+#[test]
+fn dependents_preserve_terminal_frontiers_diamonds_and_cycles_across_updates() {
+    let temp = tempdir().must_be("temporary dependency graph");
+    let common = temp.path().join("common.bend");
+    let left = temp.path().join("left.bend");
+    let right = temp.path().join("right.bend");
+    let outer = temp.path().join("outer.bend");
+    fs::write(&common, DISK).must_be("write shared dependency");
+    let mut db = WorkspaceDb::default();
+    let source = "import ./common.bend as Common\ndef value: U32\n  Common.value\n";
+    open(&mut db, &left, source);
+    open(&mut db, &right, source);
+    let common_id = db.file_id_by_path(&common).must_be("shared file identity");
+    let dependent_uris = |db: &WorkspaceDb| {
+        let mut uris = db
+            .dependents(common_id)
+            .into_iter()
+            .map(|document| document.uri)
+            .collect::<Vec<_>>();
+        uris.sort_unstable();
+        uris
+    };
+    let mut expected = vec![uri(&left), uri(&right)];
+    expected.sort_unstable();
+    assert_eq!(dependent_uris(&db), expected);
+
+    open(
+        &mut db,
+        &outer,
+        "import ./left.bend as Left\nimport ./right.bend as Right\ndef value: U32\n  Left.value\n",
+    );
+    expected.push(uri(&outer));
+    expected.sort_unstable();
+    assert_eq!(dependent_uris(&db), expected);
+
+    open(
+        &mut db,
+        &common,
+        "import ./common.bend as Self\nimport ./left.bend as Left\ndef value: U32\n  1\n",
+    );
+    assert_eq!(dependent_uris(&db), expected);
+}
+
 const STRESS_FILES: usize = 10_000;
 const STRESS_SHARED_ROOT: usize = STRESS_FILES - 2;
 const STRESS_OVERLAY: usize = STRESS_FILES - 1;

@@ -451,8 +451,11 @@ impl WorkspaceDb {
             let entry = &self.entries[source.0];
             let snapshot = entry.snapshot()?;
             for edge in &entry.imports {
+                if edge.target != target {
+                    continue;
+                }
                 let path = snapshot.text.get(edge.path.start..edge.path.end)?;
-                if edge.target == target && is_hub_import_path(path) {
+                if is_hub_import_path(path) {
                     return Some(path.into());
                 }
             }
@@ -493,10 +496,10 @@ impl WorkspaceDb {
         source: &Url,
         mut matching: impl FnMut(&DocumentSnapshot) -> Option<T>,
     ) -> Vec<(Document, String, T)> {
-        let Some(source_path) = self
-            .file_id_by_uri(source)
-            .and_then(|id| self.entries[id.0].path.as_deref())
-        else {
+        let Some(source_id) = self.file_id_by_uri(source) else {
+            return Vec::new();
+        };
+        let Some(source_path) = self.entries[source_id.0].path.as_deref() else {
             return Vec::new();
         };
         let mut candidates = Vec::new();
@@ -504,7 +507,7 @@ impl WorkspaceDb {
             let Some(snapshot) = entry.snapshot() else {
                 return;
             };
-            if entry.uri == *source
+            if id == source_id
                 || self
                     .compiler_documents
                     .as_ref()
@@ -527,9 +530,12 @@ impl WorkspaceDb {
             else {
                 return;
             };
-            if let Some(document) = entry.document() {
-                candidates.push((document, relative, items));
-            }
+            let document = Document::with_snapshot(
+                entry.uri.clone(),
+                entry.language_id.clone(),
+                snapshot.clone(),
+            );
+            candidates.push((document, relative, items));
         });
         candidates.sort_unstable_by(|left, right| left.1.cmp(&right.1));
         candidates
@@ -1025,7 +1031,7 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn indexed_documents(&self) -> Vec<Document> {
-        let mut documents = Vec::new();
+        let mut documents = Vec::with_capacity(self.reachable.len());
         self.visit_indexed_entries(|_, entry| {
             if let Some(document) = entry.document() {
                 documents.push(document);
@@ -1092,9 +1098,42 @@ impl WorkspaceDb {
         if !self.reachable.contains(&changed) {
             return Vec::new();
         }
-        let mut pending = vec![changed];
-        let mut visited = HashSet::from([changed]);
-        let mut documents = Vec::new();
+        let dependent_bound = self.reachable.len() - 1;
+        let capacity = self.entries[changed.0]
+            .reverse_imports
+            .len()
+            .min(dependent_bound);
+        if capacity == 0 {
+            return Vec::new();
+        }
+        let mut pending = Vec::new();
+        let mut documents = Vec::with_capacity(capacity.max(4).min(dependent_bound));
+        // Reverse edges are unique. Terminal frontiers need no visited set
+        // or allocated traversal stack.
+        for dependent in &self.entries[changed.0].reverse_imports {
+            if *dependent == changed || !self.reachable.contains(dependent) {
+                continue;
+            }
+            let entry = &self.entries[dependent.0];
+            if let Some(document) = entry.document() {
+                documents.push(document);
+            }
+            if !entry.reverse_imports.is_empty() {
+                pending.push(*dependent);
+            }
+        }
+        if pending.is_empty() {
+            return documents;
+        }
+        let mut visited = HashSet::with_capacity(capacity + 1);
+        visited.insert(changed);
+        visited.extend(
+            self.entries[changed.0]
+                .reverse_imports
+                .iter()
+                .copied()
+                .filter(|id| self.reachable.contains(id)),
+        );
         while let Some(id) = pending.pop() {
             for dependent in &self.entries[id.0].reverse_imports {
                 if !self.reachable.contains(dependent) || !visited.insert(*dependent) {
@@ -1104,7 +1143,9 @@ impl WorkspaceDb {
                 if let Some(document) = entry.document() {
                     documents.push(document);
                 }
-                pending.push(*dependent);
+                if !entry.reverse_imports.is_empty() {
+                    pending.push(*dependent);
+                }
             }
         }
         documents

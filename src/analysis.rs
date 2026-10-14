@@ -299,34 +299,7 @@ pub fn imports(snapshot: &DocumentSnapshot) -> &[Import] {
 
 #[must_use]
 pub fn inlay_hints(snapshot: &DocumentSnapshot, range: TextRange) -> Vec<InlayHint> {
-    let syntax = &snapshot.syntax;
-    let mut hints = Vec::new();
-    for declaration in syntax
-        .symbols()
-        .iter()
-        .filter(|symbol| symbol.kind == SymbolKind::Function)
-    {
-        let parameters = syntax.parameters(declaration);
-        if parameters.is_empty() {
-            continue;
-        }
-        for call in syntax.calls_to(declaration.id) {
-            for (index, argument) in syntax.call_arguments(call).iter().enumerate() {
-                let Some(parameter) = parameters.get(index) else {
-                    break;
-                };
-                if argument.start < range.start || argument.start > range.end {
-                    continue;
-                }
-                hints.push(InlayHint {
-                    position: argument.start,
-                    parameter_name: parameter.name_range,
-                });
-            }
-        }
-    }
-    hints.sort_by_key(|hint| hint.position);
-    hints
+    snapshot.syntax.parameter_hints(range).collect()
 }
 
 #[must_use]
@@ -431,7 +404,7 @@ pub fn selection_range(snapshot: &DocumentSnapshot, mut offset: usize) -> Select
 pub fn semantic_tokens(snapshot: &DocumentSnapshot) -> Vec<SemanticToken> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(syntax.semantic_token_count());
     for (index, token) in syntax.tokens().iter().enumerate() {
         let token_type = match token.kind {
             TokenKind::Comment => Some(17),
@@ -554,19 +527,15 @@ fn completion_matches(label: &str, query: &str, ascii: bool) -> bool {
 }
 
 fn ascii_subsequence_matches(label: &str, query: &str) -> bool {
-    let mut wanted = query.bytes();
-    let Some(mut next) = wanted.next() else {
-        return true;
-    };
-    for character in label.bytes() {
-        if character.eq_ignore_ascii_case(&next) {
-            let Some(remaining) = wanted.next() else {
-                return true;
-            };
-            next = remaining;
+    let mut characters = label.bytes();
+    for wanted in query.bytes() {
+        let lower = wanted.to_ascii_lowercase();
+        let upper = wanted.to_ascii_uppercase();
+        if !characters.any(|character| character == lower || character == upper) {
+            return false;
         }
     }
-    false
+    true
 }
 
 fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, usize)> {
@@ -599,7 +568,10 @@ fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, 
 
 #[must_use]
 pub fn completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
-    completion_items_with_scope(snapshot, prefix, None)
+    let ascii_prefix = prefix.is_ascii();
+    let mut items = collect_module_completions(snapshot, prefix, ascii_prefix);
+    append_keyword_completions(&mut items, prefix, ascii_prefix);
+    items
 }
 
 /// Complete visible local bindings and declarations at a snapshot-local cursor.
@@ -609,39 +581,34 @@ pub fn scoped_completion_items(
     offset: usize,
     prefix: &str,
 ) -> Vec<Completion> {
-    completion_items_with_scope(snapshot, prefix, Some(offset))
-}
-
-fn completion_items_with_scope(
-    snapshot: &DocumentSnapshot,
-    prefix: &str,
-    offset: Option<usize>,
-) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let ascii_prefix = prefix.is_ascii();
+    let mut local_names: Vec<NameId> = syntax
+        .bindings_at(offset)
+        .filter_map(|binding| {
+            completion_matches(syntax.name_text(source, binding.name), prefix, ascii_prefix)
+                .then_some(binding.name)
+        })
+        .collect();
+    local_names.sort_unstable_by_key(|name| name.0);
+    local_names.dedup();
     let mut items = Vec::new();
-    let local_names = offset.map(|offset| {
-        let mut local_names = std::collections::HashSet::new();
-        for binding in syntax.bindings_at(offset) {
-            let name = syntax.name_text(source, binding.name);
-            if completion_matches(name, prefix, ascii_prefix) && local_names.insert(binding.name) {
-                items.push(Completion {
-                    label: name.to_owned(),
-                    detail: "Local binding".into(),
-                    kind: CompletionKind::Variable,
-                });
-            }
-        }
+    if !local_names.is_empty() {
+        items.extend(local_names.iter().map(|name| Completion {
+            label: syntax.name_text(source, *name).to_owned(),
+            detail: "Local binding".into(),
+            kind: CompletionKind::Variable,
+        }));
         items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
-        local_names
-    });
+    }
     for symbol in syntax.symbols() {
         let name = syntax.name_text(source, symbol.name);
         if completion_matches(name, prefix, ascii_prefix)
-            && local_names
-                .as_ref()
-                .is_none_or(|names| !names.contains(&symbol.name))
+            && (local_names.is_empty()
+                || local_names
+                    .binary_search_by_key(&symbol.name.0, |name| name.0)
+                    .is_err())
         {
             items.push(completion(
                 name.to_owned(),
@@ -650,6 +617,11 @@ fn completion_items_with_scope(
             ));
         }
     }
+    append_keyword_completions(&mut items, prefix, ascii_prefix);
+    items
+}
+
+fn append_keyword_completions(items: &mut Vec<Completion>, prefix: &str, ascii_prefix: bool) {
     for keyword in [
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",
@@ -664,7 +636,6 @@ fn completion_items_with_scope(
             });
         }
     }
-    items
 }
 
 /// Complete indexed ADT constructors, optionally within a qualified namespace.
@@ -724,23 +695,28 @@ pub fn typed_constructor_completion_items(
 
 #[must_use]
 pub fn module_completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
+    collect_module_completions(snapshot, prefix, prefix.is_ascii())
+}
+
+fn collect_module_completions(
+    snapshot: &DocumentSnapshot,
+    prefix: &str,
+    ascii_prefix: bool,
+) -> Vec<Completion> {
+    let mut items = Vec::new();
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let ascii_prefix = prefix.is_ascii();
-    syntax
-        .symbols()
-        .iter()
-        .filter_map(|symbol| {
-            let name = syntax.name_text(source, symbol.name);
-            completion_matches(name, prefix, ascii_prefix).then(|| {
-                completion(
-                    name.to_owned(),
-                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                    symbol.kind,
-                )
-            })
-        })
-        .collect()
+    for symbol in syntax.symbols() {
+        let name = syntax.name_text(source, symbol.name);
+        if completion_matches(name, prefix, ascii_prefix) {
+            items.push(completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                symbol.kind,
+            ));
+        }
+    }
+    items
 }
 
 #[must_use]
@@ -788,9 +764,9 @@ pub fn identifier_ranges(snapshot: &DocumentSnapshot, name: &str) -> Vec<TextRan
     let Some(name) = syntax.name_id(&snapshot.text, name) else {
         return Vec::new();
     };
-    if let Some(symbol) = syntax.symbol_by_name(name) {
+    if let Some(symbol) = syntax.symbol_id_by_name(name) {
         return syntax
-            .references(symbol.id)
+            .references(symbol)
             .map(|reference| reference.range)
             .collect();
     }

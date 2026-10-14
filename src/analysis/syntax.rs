@@ -3,7 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use super::{LineIndex, SymbolKind, TextRange};
+use super::{InlayHint, LineIndex, SymbolKind, TextRange};
 
 #[path = "syntax/completion.rs"]
 mod completion;
@@ -275,8 +275,15 @@ struct CallBuild<'a> {
     names: &'a mut NameTable,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+struct ParameterHint {
+    position: usize,
+    binding: usize,
+}
+
 struct CallIndex {
     calls: Vec<CallSite>,
+    parameter_hints: Vec<ParameterHint>,
     arguments: Vec<TextRange>,
     separators: Vec<usize>,
     by_open: Vec<IndexSlot>,
@@ -398,6 +405,8 @@ fn keyword_name_flags(source: &str, names: &NameTable) -> Vec<bool> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct SyntaxIndex {
     tokens: Box<[Token]>,
+    semantic_token_count: usize,
+    parameter_hints: Box<[ParameterHint]>,
     names: NameTable,
     keyword_names: Box<[bool]>,
     imports: Box<[IndexedImport]>,
@@ -422,7 +431,7 @@ pub struct SyntaxIndex {
     auxiliary: AuxiliaryIndex,
     delimiter_pairs: Box<[DelimiterPair]>,
     delimiter_context: Box<[IndexSlot]>,
-    symbol_by_name: HashMap<NameId, SymbolId>,
+    symbol_by_name: Box<[IndexSlot]>,
     token_symbols: Box<[IndexSlot]>,
     completion: completion::CompletionIndex,
 }
@@ -448,6 +457,7 @@ impl SyntaxIndex {
         let lines = build_lines(source, line_index);
         let ScanOutput {
             tokens,
+            semantic_token_count,
             identifier_count,
             mut names,
             diagnostics,
@@ -460,10 +470,7 @@ impl SyntaxIndex {
         for (index, symbol) in symbols.iter_mut().enumerate() {
             symbol.id = SymbolId(index);
         }
-        let mut symbol_by_name = HashMap::with_capacity(symbols.len());
-        for symbol in &symbols {
-            symbol_by_name.entry(symbol.name).or_insert(symbol.id);
-        }
+        let symbol_by_name = Self::index_symbol_names(&symbols);
         let constructor_index = if symbols
             .iter()
             .any(|symbol| symbol.kind == SymbolKind::Struct)
@@ -515,6 +522,8 @@ impl SyntaxIndex {
         });
         let mut index = Self {
             tokens: tokens.into_boxed_slice(),
+            semantic_token_count,
+            parameter_hints: calls.parameter_hints.into_boxed_slice(),
             names,
             imports: parse_imports(source, &lines).into_boxed_slice(),
             keyword_names: keyword_names.into_boxed_slice(),
@@ -547,9 +556,41 @@ impl SyntaxIndex {
         index
     }
 
+    fn index_symbol_names(symbols: &[IndexedSymbol]) -> Box<[IndexSlot]> {
+        let name_count = symbols
+            .iter()
+            .map(|symbol| symbol.name.0)
+            .max()
+            .map_or(0, |name| name + 1);
+        let mut names = vec![IndexSlot::EMPTY; name_count];
+        for symbol in symbols {
+            let slot = &mut names[symbol.name.0];
+            if slot.value().is_none() {
+                *slot = IndexSlot::some(symbol.id.0);
+            }
+        }
+        names.into_boxed_slice()
+    }
+
     #[must_use]
     pub fn tokens(&self) -> &[Token] {
         &self.tokens
+    }
+
+    pub(crate) const fn semantic_token_count(&self) -> usize {
+        self.semantic_token_count
+    }
+
+    pub(crate) fn parameter_hints(&self, range: TextRange) -> impl Iterator<Item = InlayHint> {
+        let start = self
+            .parameter_hints
+            .partition_point(|hint| hint.position < range.start);
+        let hints = &self.parameter_hints[start..];
+        let end = hints.partition_point(|hint| hint.position <= range.end);
+        hints[..end].iter().map(|hint| InlayHint {
+            position: hint.position,
+            parameter_name: self.bindings[hint.binding].name_range,
+        })
     }
 
     #[must_use]
@@ -713,8 +754,17 @@ impl SyntaxIndex {
     }
 
     #[must_use]
+    pub(crate) fn symbol_id_by_name(&self, name: NameId) -> Option<SymbolId> {
+        self.symbol_by_name
+            .get(name.0)
+            .copied()
+            .and_then(IndexSlot::value)
+            .map(SymbolId)
+    }
+
+    #[must_use]
     pub fn symbol_by_name(&self, name: NameId) -> Option<&IndexedSymbol> {
-        self.symbol_by_name.get(&name).map(|id| &self.symbols[id.0])
+        self.symbol_id_by_name(name).map(|id| &self.symbols[id.0])
     }
 
     #[must_use]
@@ -950,6 +1000,7 @@ fn hash_name(name: &str) -> u64 {
 
 struct ScanOutput {
     tokens: Vec<Token>,
+    semantic_token_count: usize,
     identifier_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
@@ -965,7 +1016,7 @@ fn resolve_symbols(
     names: &NameTable,
     symbols: &[IndexedSymbol],
     bindings: &[IndexedBinding],
-    symbol_by_name: &HashMap<NameId, SymbolId>,
+    symbol_by_name: &[IndexSlot],
 ) -> Vec<IndexSlot> {
     let mut token_symbols = vec![IndexSlot::EMPTY; tokens.len()];
     for symbol in symbols {
@@ -1011,7 +1062,13 @@ fn resolve_symbols(
                     })
                     .min_by_key(|(scope_size, _)| *scope_size)
                     .map(|(_, id)| id)
-                    .or_else(|| symbol_by_name.get(&name).copied())
+                    .or_else(|| {
+                        symbol_by_name
+                            .get(name.0)
+                            .copied()
+                            .and_then(IndexSlot::value)
+                            .map(SymbolId)
+                    })
             })
         };
         token_symbols[index] = IndexSlot::from_option(symbol.map(|id| id.0));
@@ -1042,6 +1099,7 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         names,
     };
     let mut calls = Vec::new();
+    let mut inlay_hint_count = 0;
     let mut arguments = Vec::new();
     let mut separators = Vec::new();
     let mut by_open = vec![IndexSlot::EMPTY; tokens.len()];
@@ -1064,8 +1122,21 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         if let Some(qualifier_token) = call.qualifier_token {
             by_name_token[qualifier_token.0] = IndexSlot::some(call_index);
         }
+        if let Some(symbol) = call
+            .callee
+            .and_then(|id| symbols.get(id.0))
+            .filter(|symbol| symbol.kind == SymbolKind::Function)
+        {
+            inlay_hint_count += (call.argument_indices.end - call.argument_indices.start)
+                .min(symbol.parameter_span.end - symbol.parameter_span.start);
+        }
         calls.push(call);
     }
+    let parameter_hints = if inlay_hint_count == 0 {
+        Vec::new()
+    } else {
+        build_parameter_hints(&calls, &arguments, symbols, inlay_hint_count)
+    };
     let id_count = symbols.len() + bindings.len();
     let (from_indices, from_spans) =
         compact_groups(&calls, id_count, |call| call.caller.map(|id| id.0));
@@ -1073,6 +1144,7 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         compact_groups(&calls, id_count, |call| call.callee.map(|id| id.0));
     CallIndex {
         calls,
+        parameter_hints,
         arguments,
         separators,
         by_open,
@@ -1082,6 +1154,45 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         to_indices,
         to_spans,
     }
+}
+
+fn build_parameter_hints(
+    calls: &[CallSite],
+    arguments: &[TextRange],
+    symbols: &[IndexedSymbol],
+    capacity: usize,
+) -> Vec<ParameterHint> {
+    let mut hints: Vec<ParameterHint> = Vec::with_capacity(capacity);
+    for call in calls {
+        let Some(symbol) = call
+            .callee
+            .and_then(|id| symbols.get(id.0))
+            .filter(|symbol| symbol.kind == SymbolKind::Function)
+        else {
+            continue;
+        };
+        for (argument, binding) in arguments[call.argument_indices.start..call.argument_indices.end]
+            .iter()
+            .zip(symbol.parameter_span.start..symbol.parameter_span.end)
+        {
+            let hint = ParameterHint {
+                position: argument.start,
+                binding,
+            };
+            // Calls arrive in source order; nested calls can interleave only
+            // with the pending argument suffix of their enclosing calls.
+            if hints
+                .last()
+                .is_none_or(|previous| previous.position <= hint.position)
+            {
+                hints.push(hint);
+            } else {
+                let index = hints.partition_point(|previous| previous.position <= hint.position);
+                hints.insert(index, hint);
+            }
+        }
+    }
+    hints
 }
 
 fn parse_call(
@@ -1305,17 +1416,17 @@ fn compact_groups<T>(
     }
     let mut spans = Vec::with_capacity(group_count);
     let mut total = 0;
-    for count in counts {
-        let end = total + count;
+    for count in &mut counts {
+        let end = total + *count;
         spans.push(TextRange::new(total, end));
+        *count = total;
         total = end;
     }
     let mut indices = vec![0; total];
-    let mut next: Vec<_> = spans.iter().map(|span| span.start).collect();
     for (index, item) in items.iter().enumerate() {
         if let Some(group) = key(item).filter(|group| *group < group_count) {
-            indices[next[group]] = index;
-            next[group] += 1;
+            indices[counts[group]] = index;
+            counts[group] += 1;
         }
     }
     (indices, spans)
@@ -1371,7 +1482,7 @@ fn qualified_symbol_for_token(
     tokens: &[Token],
     index: usize,
     names: &NameTable,
-    symbol_by_name: &HashMap<NameId, SymbolId>,
+    symbol_by_name: &[IndexSlot],
 ) -> Option<SymbolId> {
     let mut start = index;
     while start >= 2
@@ -1398,5 +1509,9 @@ fn qualified_symbol_for_token(
     }
     let range = TextRange::new(tokens[start].range.start, tokens[end - 1].range.end);
     let name = names.find(source, &source[range.start..range.end])?;
-    symbol_by_name.get(&name).copied()
+    symbol_by_name
+        .get(name.0)
+        .copied()
+        .and_then(IndexSlot::value)
+        .map(SymbolId)
 }

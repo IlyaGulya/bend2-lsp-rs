@@ -9,6 +9,7 @@ pub(super) struct Scanner<'a> {
     offset: usize,
     tokens: Vec<Token>,
     identifier_count: usize,
+    semantic_token_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
     delimiters: Vec<(char, TokenId)>,
@@ -31,6 +32,7 @@ impl<'a> Scanner<'a> {
             offset: 0,
             tokens: Vec::new(),
             identifier_count: 0,
+            semantic_token_count: 0,
             names: NameTable::new(),
             diagnostics: Vec::new(),
             delimiters: Vec::new(),
@@ -84,6 +86,7 @@ impl<'a> Scanner<'a> {
         ScanOutput {
             tokens: self.tokens,
             identifier_count: self.identifier_count,
+            semantic_token_count: self.semantic_token_count,
             names: self.names,
             diagnostics: self.diagnostics,
             delimiter_pairs: self.delimiter_pairs,
@@ -282,6 +285,10 @@ impl<'a> Scanner<'a> {
         flags: TokenFlags,
         name: Option<NameId>,
     ) {
+        self.semantic_token_count += usize::from(!matches!(
+            kind,
+            TokenKind::Punctuation | TokenKind::Delimiter
+        ));
         self.tokens.push(Token {
             range: TextRange::new(start, end),
             kind,

@@ -20,6 +20,36 @@
 - Use native filesystem paths when loading compiler sources; keep Bend import
   namespaces slash-separated. Validate these loader adaptations against exact
   embedded-source anchors before applying any recovery patches.
+- Avoid repeated temporary URI string allocations when ordering cross-file
+  references. Preserve stable result ordering and full-range deduplication.
+- Measure reference ordering in an isolated benchmark binary and include its
+  collected workloads in the same strict, source-bound Callgrind admission.
+- Prepare semantic-token counts and compact, ordered argument/parameter links
+  during cold indexing instead of regrouping and sorting hints in warm queries.
+  Build ordered hints directly from calls, inserting nested argument interleavings
+  instead of running a second generic sort.
+  Reuse grouping counts as write cursors and skip hint construction when indexing
+  proves there are no eligible arguments.
+  Keep scoped completion name deduplication compact and reuse indexed import identities.
+- Avoid rereading declaration-name slices during autocomplete and pre-size
+  workspace document and dependent-traversal buffers from existing index bounds.
+  Preserve local shadowing, snapshot freshness and cyclic/transitive traversal.
+  Avoid a visited set and traversal-stack allocation for terminal reverse
+  dependencies, preserving deduplication and cycles for transitive frontiers.
+- Look up declaration names through existing one-word dense index slots instead
+  of hashing indexed name IDs. Preserve first-declaration precedence, qualified
+  names and local shadowing. Read reference target IDs without loading declaration
+  metadata. Prepare both ASCII case alternatives per query byte instead of
+  repeatedly folding candidate-label bytes.
+- Keep unscoped autocomplete on the declaration-only query path, without building
+  or sorting an empty local-binding set. Project module completions directly into
+  their result vector and share the existing keyword projection.
+  Classify the query's ASCII prefix once across declaration and keyword suggestions.
+- Reject empty instruction collection against a nonzero benchmark baseline
+  instead of treating missing measurements as a performance improvement.
+- Pin the Linux Callgrind profiler to checksum-verified Valgrind 3.27.1 so
+  supported Rust executable layouts retain genuine function-level collection.
+  Collect baseline and candidate with the same tool and unchanged strict limits.
 
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 

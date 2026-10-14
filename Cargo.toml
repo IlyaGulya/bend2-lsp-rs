@@ -74,6 +74,10 @@ iai-callgrind = "=0.16.1"
 name = "analysis"
 harness = false
 
+[[bench]]
+name = "reference_locations"
+harness = false
+
 
 
 [lints]

@@ -39,10 +39,26 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install Valgrind
+      - name: Configure isolated profiler installation
+        run: printf 'VALGRIND_INSTALL_ROOT=%s/ci-valgrind\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Restore source-bound Valgrind 3.27.1
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.VALGRIND_INSTALL_ROOT }}
+          key: valgrind-v1-${{ runner.os }}-${{ runner.arch }}-3.27.1-4522e345fe31bc10478f21ab261cf7b3e509d80fe98fd0c7c9778ac9a9f90e1d8fa6e54a37c2e23114c01c95131035103fc1e78661710d7f45f5d564a31c1015-${{ hashFiles('scripts/install-tools.sh', 'scripts/install-valgrind.sh') }}
+      - name: Install and validate pinned Valgrind
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes valgrind
+          ./scripts/install-tools.sh valgrind
+          test -x "$VALGRIND_INSTALL_ROOT/bin/callgrind_annotate"
+          version="$("$VALGRIND_INSTALL_ROOT/bin/valgrind" --version)"
+          [[ "$version" == valgrind-3.27.1 ]]
+          printf '%s/bin\n' "$VALGRIND_INSTALL_ROOT" >> "$GITHUB_PATH"
+          mkdir -p "$PERF_ROOT"
+          printf '%s\n' "$version" | tee "$PERF_ROOT/valgrind-version.txt"
+          cp "$VALGRIND_INSTALL_ROOT/provenance.json" "$PERF_ROOT/valgrind-provenance.json"
+          cat "$PERF_ROOT/valgrind-provenance.json"
+          printf 'Pinned profiler: %s; source and installed-byte hashes are preserved in valgrind-provenance.json.\n\n' \
+            "$version" >> "$GITHUB_STEP_SUMMARY"
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
       - name: Identify Rust dependency paths without object caching
@@ -91,8 +107,23 @@ jobs:
             --callgrind-args='--cache-sim=yes' \
             --output-format=json \
             --save-summary=pretty-json
+          cargo metadata --locked --no-deps --format-version 1 > "$PERF_ROOT/baseline-targets.json"
+          reference_baseline="$(jq -er '
+            any(.packages[] | select(.name == "bend2-lsp") | .targets[];
+              .name == "reference_locations" and (.kind | index("bench")) != null)
+            | if . then "true" else "false" end
+          ' "$PERF_ROOT/baseline-targets.json")"
+          if [[ "$reference_baseline" == true ]]; then
+            cargo bench --locked --bench reference_locations -- \
+              --save-baseline=main \
+              --callgrind-args='--cache-sim=yes' \
+              --output-format=json \
+              --save-summary=pretty-json
+            mkdir -p "$PERF_ROOT/reference_locations"
+            cp -R target/iai/bend2-lsp/reference_locations/. "$PERF_ROOT/reference_locations/"
+          fi
           "$RUNNER_TEMP/bend2-perf" policy \
-            target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            "$PERF_ROOT" \
             --write-baseline-manifest="$BASELINE_MANIFEST"
       - name: Compare pull request with main
         id: candidate
@@ -111,14 +142,30 @@ jobs:
             --callgrind-limits='ir=2%' \
             --output-format=json \
             --save-summary=pretty-json || benchmark_status=$?
-          printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
           # Iai exits 3 for a regression. Still report the independent cache gates.
+          if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
+            printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
+            exit "$benchmark_status"
+          fi
+          reference_status=0
+          cargo bench --locked --bench reference_locations -- \
+            --baseline=main \
+            --callgrind-args='--cache-sim=yes' \
+            --callgrind-limits='ir=2%' \
+            --output-format=json \
+            --save-summary=pretty-json || reference_status=$?
+          if [[ "$reference_status" != 0 ]]; then
+            benchmark_status="$reference_status"
+          fi
+          printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
           if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
             exit "$benchmark_status"
           fi
+          mkdir -p "$PERF_ROOT/reference_locations"
+          cp -R target/iai/bend2-lsp/reference_locations/. "$PERF_ROOT/reference_locations/"
           policy_status=0
           "$RUNNER_TEMP/bend2-perf" policy \
-            target/iai/bend2-lsp/analysis/analysis_hot_paths \
+            "$PERF_ROOT" \
             --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main \
             --artifact-manifest="$PERF_ROOT/artifact-manifest.json" \
             --verdict="$PERF_ROOT/callgrind-policy.json" || policy_status=$?
@@ -210,15 +257,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: callgrind-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            target/iai/bend2-lsp/analysis/analysis_hot_paths/
-            target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
-            target/iai/bend2-lsp/analysis/callgrind-policy.json
-            target/iai/bend2-lsp/analysis/artifact-manifest.json
-            target/iai/bend2-lsp/analysis/tool-build.log
-            target/iai/bend2-lsp/analysis/admission-measurement.json
-            target/iai/bend2-lsp/analysis/performance-exception-environment.json
-            target/iai/bend2-lsp/analysis/performance-exception-prior-approvals.json
+          path: target/iai/bend2-lsp/analysis/
           if-no-files-found: error
           retention-days: 14
 

@@ -251,6 +251,11 @@ fn paired_counts(metrics: &Value) -> ToolResult<Option<Pairs>> {
             integer_count(&counts[1]).ok_or_else(invalid)?,
         );
     }
+    if pairs[0].0 == 0 && pairs[0].1 != 0 {
+        return Err(
+            "candidate instruction collection is empty for a nonzero baseline workload".into(),
+        );
+    }
     Ok(Some(pairs))
 }
 
