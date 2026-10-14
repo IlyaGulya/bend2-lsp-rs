@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
 
@@ -29,7 +30,11 @@ def metrics(path):
     lines = path.read_text().splitlines()
     events = next(line.split()[1:] for line in lines if line.startswith("events:"))
     counts = next(line.split()[1:] for line in lines if line.startswith("summary:"))
-    return dict(zip(events, map(int, counts), strict=True))
+    values = list(map(int, counts))
+    if len(values) > len(events):
+        raise RuntimeError("Unexpected Callgrind event count")
+    # Callgrind omits trailing zero counters, including summary: 0.
+    return dict(zip(events, values + [0] * (len(events) - len(values)), strict=True))
 
 
 def main():
@@ -48,6 +53,8 @@ def main():
         binary.chmod(0o700)
         nm = subprocess.check_output(["nm", "--defined-only", str(binary)], text=True)
         (args.output / f"{source}-symbols.txt").write_text(nm)
+        disassembly = subprocess.check_output(["objdump", "-d", str(binary)], text=True)
+        (args.output / f"{source}-disassembly.txt").write_text(disassembly)
         for case, function in CASES.items():
             profiles = list((args.input / "raw" / f"{source}-original" / "analysis" / "analysis_hot_paths" / case).glob("*.out.*"))
             if len(profiles) != 1:
@@ -60,6 +67,10 @@ def main():
                 raise RuntimeError(f"Ambiguous first-instruction guard: {case}: {symbols}")
             symbol = symbols[0]
             subprocess.run(["objdump", "-d", f"--disassemble={symbol}", str(binary)], stdout=(args.output / f"{source}-{case}-guard.txt").open("w"), check=True)
+            address = next(int(line.split()[0], 16) for line in nm.splitlines() if line.split()[-1] == symbol)
+            callers = [int(match.group(1), 16) for match in re.finditer(r"^\s*([0-9a-f]+):.*\bcall\b.*<" + re.escape(symbol) + r">\s*$", disassembly, re.MULTILINE)]
+            if not callers:
+                raise RuntimeError(f"No direct caller boundary for {case}")
             for phase in ("normal", "keep-a", "cold", "keep-b"):
                 folder = args.output / source / case / phase
                 folder.mkdir(parents=True)
@@ -75,7 +86,9 @@ def main():
                     child = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, env=environment)
                     try:
                         if phase != "normal":
-                            commands = ["set pagination off", "set confirm off", "set language c", f"target remote | vgdb --wait=60 --pid={child.pid}", f"break *'{symbol}'", "continue", "printf \"BEND2_GUARD_PC=%p\\n\", $pc", "x/i $pc"]
+                            commands = ["set pagination off", "set confirm off", "set language c", f"target remote | vgdb --wait=60 --pid={child.pid}"]
+                            commands += [f"break *((char *)&'{symbol}' + {caller - address})" for caller in callers]
+                            commands += ["continue", "printf \"BEND2_GUARD_PC=%p\\n\", $pc", "x/i $pc"]
                             if phase == "cold":
                                 commands += ["monitor instrumentation off", "monitor instrumentation on"]
                             commands += ["delete breakpoints", "continue"]
