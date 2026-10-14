@@ -34,6 +34,7 @@ for label, options in [
     ("exact_demangled", ["--toggle-collect=analysis::completion_warm::__iai_callgrind_wrapper_mod::completion_warm"]),
     ("no_inline", ["--read-inline-info=no", "--toggle-collect=*::__iai_callgrind_wrapper_mod::*"]),
     ("all_calls", ["--collect-atstart=yes"]),
+    ("symbol_trace", ["--trace-symtab=yes", "--toggle-collect=*::__iai_callgrind_wrapper_mod::*"]),
 ]:
     profile = output / f"{label}.out"
     command = ["setarch", "x86_64", "-R", "valgrind", "--tool=callgrind", "--cache-sim=yes", "--I1=32768,8,64", "--D1=32768,8,64", "--LL=8388608,16,64", *options, f"--callgrind-out-file={profile}", str(retained), "--iai-run", "analysis_hot_paths", "4", "2", "analysis::analysis_hot_paths::completion_warm"]
