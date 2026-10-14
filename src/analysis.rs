@@ -568,8 +568,7 @@ fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, 
 #[must_use]
 pub fn completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
     let ascii_prefix = prefix.is_ascii();
-    let mut items = Vec::new();
-    append_module_completions(&mut items, snapshot, prefix, ascii_prefix);
+    let mut items = collect_module_completions(snapshot, prefix, ascii_prefix);
     append_keyword_completions(&mut items, prefix, ascii_prefix);
     items
 }
@@ -695,17 +694,15 @@ pub fn typed_constructor_completion_items(
 
 #[must_use]
 pub fn module_completion_items(snapshot: &DocumentSnapshot, prefix: &str) -> Vec<Completion> {
-    let mut items = Vec::new();
-    append_module_completions(&mut items, snapshot, prefix, prefix.is_ascii());
-    items
+    collect_module_completions(snapshot, prefix, prefix.is_ascii())
 }
 
-fn append_module_completions(
-    items: &mut Vec<Completion>,
+fn collect_module_completions(
     snapshot: &DocumentSnapshot,
     prefix: &str,
     ascii_prefix: bool,
-) {
+) -> Vec<Completion> {
+    let mut items = Vec::new();
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     for symbol in syntax.symbols() {
@@ -718,6 +715,7 @@ fn append_module_completions(
             ));
         }
     }
+    items
 }
 
 #[must_use]

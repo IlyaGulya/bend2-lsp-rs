@@ -726,3 +726,48 @@ fn parameter_hints_preserve_nested_order_range_boundaries_and_argument_arity() {
         assert!(bend2_lsp::analysis::inlay_hints(&snapshot, range).is_empty());
     }
 }
+
+#[test]
+fn parameter_hints_preserve_labels_across_nested_multi_argument_interleavings() {
+    let source = concat!(
+        "def fan(first: U32, second: U32, third: U32) -> U32:\n  first\n",
+        "def ident(value: U32) -> U32:\n  value\n",
+        "def main() -> U32:\n  fan(ident(1), fan(ident(2), ident(3), ident(4)), ident(5))\n",
+    );
+    let calls = [1, 2, 3, 4, 5].map(|value| {
+        source
+            .find(&format!("ident({value})"))
+            .must_be("nested identity call")
+    });
+    let inner = source.find("fan(ident(2)").must_be("nested fan call");
+    let expected = [
+        (calls[0], "first: "),
+        (calls[0] + 6, "value: "),
+        (inner, "second: "),
+        (calls[1], "first: "),
+        (calls[1] + 6, "value: "),
+        (calls[2], "second: "),
+        (calls[2] + 6, "value: "),
+        (calls[3], "third: "),
+        (calls[3] + 6, "value: "),
+        (calls[4], "third: "),
+        (calls[4] + 6, "value: "),
+    ];
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let hints = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(0, source.len()));
+    assert!(
+        hints
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq(expected.map(|(position, label)| (position, label.to_owned())))
+    );
+    let nested = bend2_lsp::analysis::inlay_hints(&snapshot, TextRange::new(inner, calls[3] + 6));
+    assert!(
+        nested
+            .iter()
+            .map(|hint| (hint.position, hint.label(source)))
+            .eq(expected[2..9]
+                .iter()
+                .map(|(position, label)| (*position, (*label).to_owned())))
+    );
+}

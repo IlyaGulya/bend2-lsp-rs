@@ -1158,7 +1158,7 @@ fn build_parameter_hints(
     symbols: &[IndexedSymbol],
     capacity: usize,
 ) -> Vec<ParameterHint> {
-    let mut hints = Vec::with_capacity(capacity);
+    let mut hints: Vec<ParameterHint> = Vec::with_capacity(capacity);
     for call in calls {
         let Some(symbol) = call
             .callee
@@ -1171,13 +1171,23 @@ fn build_parameter_hints(
             .iter()
             .zip(symbol.parameter_span.start..symbol.parameter_span.end)
         {
-            hints.push(ParameterHint {
+            let hint = ParameterHint {
                 position: argument.start,
                 binding,
-            });
+            };
+            // Calls arrive in source order; nested calls can interleave only
+            // with the pending argument suffix of their enclosing calls.
+            if hints
+                .last()
+                .is_none_or(|previous| previous.position <= hint.position)
+            {
+                hints.push(hint);
+            } else {
+                let index = hints.partition_point(|previous| previous.position <= hint.position);
+                hints.insert(index, hint);
+            }
         }
     }
-    hints.sort_by_key(|hint| hint.position);
     hints
 }
 

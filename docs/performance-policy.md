@@ -154,6 +154,27 @@ their I1 limits. Large/medium completion and burst invalidation failed I1 limits
 The full-record cache and repeated declaration traversal therefore require
 replacement or removal rather than a cold-construction regression exception.
 
+The [compact argument/parameter-link comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38607977777)
+used candidate head `fb83755`. All 51 paired instruction counts were positive;
+46 workloads passed. Warm inlay instructions were 58,543 versus 502,449 (large),
+20,186 versus 155,249 (medium), and 1,812 versus 19,181 (small), with every warm
+inlay cache metric passing. Cold snapshot construction still failed I1/IL limits
+in all three sizes. Small completion failed instructions (19,744 to 20,308),
+and the workspace-symbol response failed I1 (135 to 142) despite identical
+instruction counts. Lower warm cost does not authorize those regressions.
+
+Raw self-cost attribution in that cold-small profile accounts for 52 new
+last-level instruction misses in hint-specific stable-sort functions. The parsed
+self-cost totals match the complete retained profile summary. This identifies
+executed cold code, not a passing successor measurement.
+
+The source-ordered call stream permits sequential hint appends. Nested arguments
+can interleave with the pending argument suffix of enclosing calls; ordered
+insertion moves that suffix without a second generic sort or scratch buffer.
+Movement grows with nesting and enclosing-call arity. The unchanged cold-small
+corpus covers mixed-arity interleavings; medium/large cover deep unary calls.
+Cold and warm numeric gates still decide whether this tradeoff is acceptable.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.
