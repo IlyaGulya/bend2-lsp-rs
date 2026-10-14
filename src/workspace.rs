@@ -1031,7 +1031,7 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn indexed_documents(&self) -> Vec<Document> {
-        let mut documents = Vec::new();
+        let mut documents = Vec::with_capacity(self.reachable.len());
         self.visit_indexed_entries(|_, entry| {
             if let Some(document) = entry.document() {
                 documents.push(document);
@@ -1098,9 +1098,19 @@ impl WorkspaceDb {
         if !self.reachable.contains(&changed) {
             return Vec::new();
         }
-        let mut pending = vec![changed];
-        let mut visited = HashSet::from([changed]);
-        let mut documents = Vec::new();
+        let dependent_bound = self.reachable.len() - 1;
+        let capacity = self.entries[changed.0]
+            .reverse_imports
+            .len()
+            .min(dependent_bound);
+        if capacity == 0 {
+            return Vec::new();
+        }
+        let mut pending = Vec::with_capacity(capacity);
+        pending.push(changed);
+        let mut visited = HashSet::with_capacity(capacity + 1);
+        visited.insert(changed);
+        let mut documents = Vec::with_capacity(capacity.max(4).min(dependent_bound));
         while let Some(id) = pending.pop() {
             for dependent in &self.entries[id.0].reverse_imports {
                 if !self.reachable.contains(dependent) || !visited.insert(*dependent) {

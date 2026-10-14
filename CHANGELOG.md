@@ -27,6 +27,9 @@
 - Prepare semantic-token and whole-document parameter-hint result counts during
   cold indexing instead of repeating count passes in warm queries. Keep scoped
   completion name deduplication compact and reuse indexed import identities.
+- Avoid rereading declaration-name slices during autocomplete and pre-size
+  workspace document and dependent-traversal buffers from existing index bounds.
+  Preserve local shadowing, snapshot freshness and cyclic/transitive traversal.
 - Reject empty instruction collection against a nonzero benchmark baseline
   instead of treating missing measurements as a performance improvement.
 - Pin the Linux Callgrind profiler to checksum-verified Valgrind 3.27.1 so

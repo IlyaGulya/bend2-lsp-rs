@@ -94,6 +94,18 @@ Historical counts from the old profiler do not supply the new admission
 baseline. The cutover changes no workload, guard boundary, cache geometry,
 comparison metric, numeric allowance or exception requirement.
 
+The first fresh symmetric
+[comparison after the cutover](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38567984469)
+used main `8010fe8`, candidate head `156fb77` and exact merge `7cacbd3`.
+All 51 paired workloads and all three new reference-ordering workloads collected
+positive instructions. Both roles retained the declared 32 KiB, eight-way I1/D1
+and 8 MiB, 16-way last-level geometry with 64-byte lines.
+The numeric verdict was still a regression: 45 of 51 paired workloads passed.
+The remaining failures were all three `completion_warm` sizes,
+`workspace_symbols_warm` empty/case-insensitive queries and
+`workspace_burst_revision_invalidation`. A successful collection job does not
+turn that verdict into a passing performance comparison or an approved exception.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

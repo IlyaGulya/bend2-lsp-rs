@@ -632,36 +632,37 @@ fn completion_items_with_scope(
     });
     local_names.sort_unstable_by_key(|name| name.0);
     local_names.dedup();
-    let declarations = syntax.symbols().iter().filter(|symbol| {
-        (local_names.is_empty()
-            || local_names
-                .binary_search_by_key(&symbol.name.0, |name| name.0)
-                .is_err())
-            && completion_matches(syntax.name_text(source, symbol.name), prefix, ascii_prefix)
-    });
-    let keywords = [
+    let mut items = Vec::new();
+    if !local_names.is_empty() {
+        items.extend(local_names.iter().map(|name| Completion {
+            label: syntax.name_text(source, *name).to_owned(),
+            detail: "Local binding".into(),
+            kind: CompletionKind::Variable,
+        }));
+        items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
+    }
+    for symbol in syntax.symbols() {
+        let name = syntax.name_text(source, symbol.name);
+        if completion_matches(name, prefix, ascii_prefix)
+            && (local_names.is_empty()
+                || local_names
+                    .binary_search_by_key(&symbol.name.0, |name| name.0)
+                    .is_err())
+        {
+            items.push(completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                symbol.kind,
+            ));
+        }
+    }
+    for keyword in [
         "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
         "as",
-    ]
-    .into_iter()
-    .filter(|keyword| completion_matches(keyword, prefix, ascii_prefix));
-    let mut items = Vec::new();
-    items.extend(local_names.iter().map(|name| Completion {
-        label: syntax.name_text(source, *name).to_owned(),
-        detail: "Local binding".into(),
-        kind: CompletionKind::Variable,
-    }));
-    items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
-    for symbol in declarations {
-        let name = syntax.name_text(source, symbol.name);
-        items.push(completion(
-            name.to_owned(),
-            source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-            symbol.kind,
-        ));
-    }
-    for keyword in keywords {
-        if !items.iter().any(|item| item.label == keyword) {
+    ] {
+        if completion_matches(keyword, prefix, ascii_prefix)
+            && !items.iter().any(|item| item.label == keyword)
+        {
             items.push(Completion {
                 label: keyword.into(),
                 detail: "Bend keyword".into(),
