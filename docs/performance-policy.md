@@ -346,6 +346,30 @@ causal conclusion, performance acceptance or conditioning change follows from
 it. The corrected collector uses separate source-qualified targets and requires
 both original root artifacts to be newly compiled. Active gates are unchanged.
 
+The independently built control
+[38544003045](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38544003045)
+reproduces the four stable original instruction-cache failures. Base and
+candidate original executable hashes differ; both root artifacts were compiled,
+and the harness and lockfile hashes match. All 51 identities and all six
+positive instruction-sensitivity cases are retained.
+
+For `inlay_hints_warm[large]`, the controlled binaries preserve `Ir = 502449`
+in both modes and show:
+
+| Entry-cache mode | Base `I1mr` | Candidate `I1mr` |
+| --- | --- | --- |
+| Existing setup history | 49 | 53 |
+| Reset after input preparation | 166 | 167 |
+
+This supports an entry-cache-history contribution for that controlled case.
+It does not prove all original failures have that cause. The setup-helper
+recompilation removes or reverses the original failures in the other three
+stable cases before reset, making them inconclusive. The full `cold` report
+also still fails unchanged limits for the uninstrumented workspace-reference
+and workspace-symbol cases. No conditioning has been applied to admission.
+The remaining discriminating control must retain original executable bytes and
+the complete guarded instruction boundary, rather than change layout again.
+
 Cache reset introduces the manual's documented artificial cold misses. It is
 not a claim about editor latency or a production cache. Any later approved
 conditioning must be symmetric, retain the actual workloads and metrics, and
