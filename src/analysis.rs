@@ -300,26 +300,11 @@ pub fn imports(snapshot: &DocumentSnapshot) -> &[Import] {
 #[must_use]
 pub fn inlay_hints(snapshot: &DocumentSnapshot, range: TextRange) -> Vec<InlayHint> {
     let syntax = &snapshot.syntax;
-    let hint_count = syntax
-        .symbols()
-        .iter()
-        .filter(|symbol| symbol.kind == SymbolKind::Function)
-        .map(|declaration| {
-            let parameter_count = syntax.parameters(declaration).len();
-            if parameter_count == 0 {
-                return 0;
-            }
-            syntax
-                .calls_to(declaration.id)
-                .map(|call| {
-                    let span =
-                        inlay_argument_span(syntax.call_arguments(call), parameter_count, range);
-                    span.end - span.start
-                })
-                .sum::<usize>()
-        })
-        .sum();
-    let mut hints = Vec::with_capacity(hint_count);
+    let mut hints = if range.start == 0 && range.end >= snapshot.text.len() {
+        Vec::with_capacity(syntax.inlay_hint_count())
+    } else {
+        Vec::new()
+    };
     for declaration in syntax
         .symbols()
         .iter()
@@ -330,34 +315,19 @@ pub fn inlay_hints(snapshot: &DocumentSnapshot, range: TextRange) -> Vec<InlayHi
             continue;
         }
         for call in syntax.calls_to(declaration.id) {
-            let arguments = syntax.call_arguments(call);
-            let span = inlay_argument_span(arguments, parameters.len(), range);
-            hints.extend(
-                arguments[span.start..span.end]
-                    .iter()
-                    .zip(&parameters[span.start..span.end])
-                    .map(|(argument, parameter)| InlayHint {
-                        position: argument.start,
-                        parameter_name: parameter.name_range,
-                    }),
-            );
+            for (argument, parameter) in syntax.call_arguments(call).iter().zip(parameters) {
+                if argument.start < range.start || argument.start > range.end {
+                    continue;
+                }
+                hints.push(InlayHint {
+                    position: argument.start,
+                    parameter_name: parameter.name_range,
+                });
+            }
         }
     }
     hints.sort_by_key(|hint| hint.position);
     hints
-}
-
-fn inlay_argument_span(
-    arguments: &[TextRange],
-    parameter_count: usize,
-    range: TextRange,
-) -> TextRange {
-    // Indexed arguments are in source order; only arguments with parameters
-    // can produce hints. The requested end is inclusive, including empty ranges.
-    let arguments = &arguments[..arguments.len().min(parameter_count)];
-    let start = arguments.partition_point(|argument| argument.start < range.start);
-    let end = start + arguments[start..].partition_point(|argument| argument.start <= range.end);
-    TextRange::new(start, end)
 }
 
 #[must_use]
@@ -462,12 +432,7 @@ pub fn selection_range(snapshot: &DocumentSnapshot, mut offset: usize) -> Select
 pub fn semantic_tokens(snapshot: &DocumentSnapshot) -> Vec<SemanticToken> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let token_count = syntax
-        .tokens()
-        .iter()
-        .filter(|token| !matches!(token.kind, TokenKind::Punctuation | TokenKind::Delimiter))
-        .count();
-    let mut result = Vec::with_capacity(token_count);
+    let mut result = Vec::with_capacity(syntax.semantic_token_count());
     for (index, token) in syntax.tokens().iter().enumerate() {
         let token_type = match token.kind {
             TokenKind::Comment => Some(17),
@@ -668,9 +633,10 @@ fn completion_items_with_scope(
     local_names.sort_unstable_by_key(|name| name.0);
     local_names.dedup();
     let declarations = syntax.symbols().iter().filter(|symbol| {
-        local_names
-            .binary_search_by_key(&symbol.name.0, |name| name.0)
-            .is_err()
+        (local_names.is_empty()
+            || local_names
+                .binary_search_by_key(&symbol.name.0, |name| name.0)
+                .is_err())
             && completion_matches(syntax.name_text(source, symbol.name), prefix, ascii_prefix)
     });
     let keywords = [
@@ -679,10 +645,7 @@ fn completion_items_with_scope(
     ]
     .into_iter()
     .filter(|keyword| completion_matches(keyword, prefix, ascii_prefix));
-    // Reserve only matching candidates, not every declaration in the snapshot.
-    let mut items = Vec::with_capacity(
-        local_names.len() + declarations.clone().count() + keywords.clone().count(),
-    );
+    let mut items = Vec::new();
     items.extend(local_names.iter().map(|name| Completion {
         label: syntax.name_text(source, *name).to_owned(),
         detail: "Local binding".into(),

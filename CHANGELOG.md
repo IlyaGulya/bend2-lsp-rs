@@ -24,6 +24,9 @@
   references. Preserve stable result ordering and full-range deduplication.
 - Measure reference ordering in an isolated benchmark binary and include its
   collected workloads in the same strict, source-bound Callgrind admission.
+- Prepare semantic-token and whole-document parameter-hint result counts during
+  cold indexing instead of repeating count passes in warm queries. Keep scoped
+  completion name deduplication compact and reuse indexed import identities.
 
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 

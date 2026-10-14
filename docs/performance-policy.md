@@ -56,6 +56,19 @@ Both candidate targets select the named `main` baseline, including initially
 unpaired ordering cases. The uploaded evidence retains the entire combined
 inventory, including target-discovery metadata and isolated raw profiles.
 
+Indexed query result capacity must not introduce a second warm semantic pass.
+The scanner counts semantic-token-producing token kinds as it emits tokens.
+Call construction counts arguments eligible for local function parameter hints.
+These two scalar counts let semantic-token and whole-document hint queries
+reserve their result capacity without recounting indexed tokens or calls.
+Bounded hint ranges retain local filtering and do not reserve whole-document
+hint capacity. Cold snapshot construction remains separately gated.
+Scoped completion deduplicates matching indexed `NameId` values in a sorted
+temporary vector; it preserves alphabetical local results, declaration order,
+shadowing and keyword suppression. Import candidates compare `FileId` values
+and reuse the already selected effective snapshot. All existing workload
+bodies, result ownership, cache geometry and numeric limits remain unchanged.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

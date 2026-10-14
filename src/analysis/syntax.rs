@@ -277,6 +277,7 @@ struct CallBuild<'a> {
 
 struct CallIndex {
     calls: Vec<CallSite>,
+    inlay_hint_count: usize,
     arguments: Vec<TextRange>,
     separators: Vec<usize>,
     by_open: Vec<IndexSlot>,
@@ -398,6 +399,8 @@ fn keyword_name_flags(source: &str, names: &NameTable) -> Vec<bool> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct SyntaxIndex {
     tokens: Box<[Token]>,
+    semantic_token_count: usize,
+    inlay_hint_count: usize,
     names: NameTable,
     keyword_names: Box<[bool]>,
     imports: Box<[IndexedImport]>,
@@ -448,6 +451,7 @@ impl SyntaxIndex {
         let lines = build_lines(source, line_index);
         let ScanOutput {
             tokens,
+            semantic_token_count,
             identifier_count,
             mut names,
             diagnostics,
@@ -460,10 +464,7 @@ impl SyntaxIndex {
         for (index, symbol) in symbols.iter_mut().enumerate() {
             symbol.id = SymbolId(index);
         }
-        let mut symbol_by_name = HashMap::with_capacity(symbols.len());
-        for symbol in &symbols {
-            symbol_by_name.entry(symbol.name).or_insert(symbol.id);
-        }
+        let symbol_by_name = Self::index_symbol_names(&symbols);
         let constructor_index = if symbols
             .iter()
             .any(|symbol| symbol.kind == SymbolKind::Struct)
@@ -515,6 +516,8 @@ impl SyntaxIndex {
         });
         let mut index = Self {
             tokens: tokens.into_boxed_slice(),
+            semantic_token_count,
+            inlay_hint_count: calls.inlay_hint_count,
             names,
             imports: parse_imports(source, &lines).into_boxed_slice(),
             keyword_names: keyword_names.into_boxed_slice(),
@@ -547,9 +550,25 @@ impl SyntaxIndex {
         index
     }
 
+    fn index_symbol_names(symbols: &[IndexedSymbol]) -> HashMap<NameId, SymbolId> {
+        let mut names = HashMap::with_capacity(symbols.len());
+        for symbol in symbols {
+            names.entry(symbol.name).or_insert(symbol.id);
+        }
+        names
+    }
+
     #[must_use]
     pub fn tokens(&self) -> &[Token] {
         &self.tokens
+    }
+
+    pub(crate) const fn semantic_token_count(&self) -> usize {
+        self.semantic_token_count
+    }
+
+    pub(crate) const fn inlay_hint_count(&self) -> usize {
+        self.inlay_hint_count
     }
 
     #[must_use]
@@ -950,6 +969,7 @@ fn hash_name(name: &str) -> u64 {
 
 struct ScanOutput {
     tokens: Vec<Token>,
+    semantic_token_count: usize,
     identifier_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
@@ -1042,6 +1062,7 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         names,
     };
     let mut calls = Vec::new();
+    let mut inlay_hint_count = 0;
     let mut arguments = Vec::new();
     let mut separators = Vec::new();
     let mut by_open = vec![IndexSlot::EMPTY; tokens.len()];
@@ -1064,6 +1085,14 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         if let Some(qualifier_token) = call.qualifier_token {
             by_name_token[qualifier_token.0] = IndexSlot::some(call_index);
         }
+        if let Some(symbol) = call
+            .callee
+            .and_then(|id| symbols.get(id.0))
+            .filter(|symbol| symbol.kind == SymbolKind::Function)
+        {
+            inlay_hint_count += (call.argument_indices.end - call.argument_indices.start)
+                .min(symbol.parameter_span.end - symbol.parameter_span.start);
+        }
         calls.push(call);
     }
     let id_count = symbols.len() + bindings.len();
@@ -1073,6 +1102,7 @@ fn build_calls(input: CallInputs<'_>) -> CallIndex {
         compact_groups(&calls, id_count, |call| call.callee.map(|id| id.0));
     CallIndex {
         calls,
+        inlay_hint_count,
         arguments,
         separators,
         by_open,
