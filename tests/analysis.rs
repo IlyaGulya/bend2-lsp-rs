@@ -623,3 +623,34 @@ fn dense_index_lookups_distinguish_zero_ids_missing_entries_and_nested_calls() {
     );
     assert_eq!(syntax.call_for_token(unknown_token), None);
 }
+
+#[test]
+fn module_completion_preserves_subsequence_order_case_and_repeated_characters() {
+    let snapshot = DocumentSnapshot::new(
+        Revision(1),
+        concat!(
+            "def aba() -> U32:\n  0\n",
+            "def aab() -> U32:\n  0\n",
+            "def AAA() -> U32:\n  0\n",
+            "def zaa() -> U32:\n  0\n",
+        )
+        .into(),
+    );
+    let cases: &[(&str, &[&str])] = &[
+        ("aa", &["aba", "aab", "AAA", "zaa"]),
+        ("aBa", &["aba"]),
+        ("aaaa", &[]),
+        ("λA", &[]),
+        ("", &["aba", "aab", "AAA", "zaa"]),
+    ];
+    for &(query, expected) in cases {
+        let items = bend2_lsp::analysis::module_completion_items(&snapshot, query);
+        assert!(
+            items
+                .iter()
+                .map(|item| item.label.as_str())
+                .eq(expected.iter().copied()),
+            "query {query}: {items:?}"
+        );
+    }
+}

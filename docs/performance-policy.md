@@ -106,6 +106,14 @@ The remaining failures were all three `completion_warm` sizes,
 `workspace_burst_revision_invalidation`. A successful collection job does not
 turn that verdict into a passing performance comparison or an approved exception.
 
+The next [comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38576255963)
+used candidate head `bcf37db` and exact merge `10e77bc` against the same main.
+All 51 paired workloads collected positive instructions; 48 passed the unchanged
+numeric policy. All six failures from the preceding comparison passed.
+The remaining regressions were I1 misses in `identifier_ranges_warm.large`
+and last-level misses in the exact and fuzzy `import_completion_candidates_warm`
+queries. This remains a rejected performance comparison, not an exception.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

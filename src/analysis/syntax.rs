@@ -732,8 +732,13 @@ impl SyntaxIndex {
     }
 
     #[must_use]
+    pub(crate) fn symbol_id_by_name(&self, name: NameId) -> Option<SymbolId> {
+        self.symbol_by_name.get(&name).copied()
+    }
+
+    #[must_use]
     pub fn symbol_by_name(&self, name: NameId) -> Option<&IndexedSymbol> {
-        self.symbol_by_name.get(&name).map(|id| &self.symbols[id.0])
+        self.symbol_id_by_name(name).map(|id| &self.symbols[id.0])
     }
 
     #[must_use]

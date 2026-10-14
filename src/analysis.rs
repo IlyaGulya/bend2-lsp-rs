@@ -555,19 +555,14 @@ fn completion_matches(label: &str, query: &str, ascii: bool) -> bool {
 }
 
 fn ascii_subsequence_matches(label: &str, query: &str) -> bool {
-    let mut wanted = query.bytes();
-    let Some(mut next) = wanted.next() else {
-        return true;
-    };
-    for character in label.bytes() {
-        if character.eq_ignore_ascii_case(&next) {
-            let Some(remaining) = wanted.next() else {
-                return true;
-            };
-            next = remaining;
+    let mut characters = label.bytes();
+    for wanted in query.bytes() {
+        let wanted = wanted.to_ascii_lowercase();
+        if !characters.any(|character| character.to_ascii_lowercase() == wanted) {
+            return false;
         }
     }
-    false
+    true
 }
 
 fn subsequence_completion_match(label: &str, query: &str) -> Option<(u8, usize, usize)> {
@@ -794,9 +789,9 @@ pub fn identifier_ranges(snapshot: &DocumentSnapshot, name: &str) -> Vec<TextRan
     let Some(name) = syntax.name_id(&snapshot.text, name) else {
         return Vec::new();
     };
-    if let Some(symbol) = syntax.symbol_by_name(name) {
+    if let Some(symbol) = syntax.symbol_id_by_name(name) {
         return syntax
-            .references(symbol.id)
+            .references(symbol)
             .map(|reference| reference.range)
             .collect();
     }
