@@ -10,25 +10,30 @@ use std::{
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Position, Range};
 
 const FORMAT_VERSION: u32 = 1;
+const REGISTRY_SCHEMA: u32 = 2;
 
 static REGISTRY: LazyLock<Result<Registry, serde_json::Error>> =
     LazyLock::new(|| serde_json::from_str(include_str!("compiler_backend/registry.json")));
 
 pub(super) fn should_probe_native(version_line: &str) -> bool {
-    if !cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-        return false;
-    }
+    let target = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => "darwin-arm64",
+        ("macos", "x86_64") => "darwin-x64",
+        ("linux", "aarch64") => "linux-arm64",
+        ("linux", "x86_64") => "linux-x64",
+        ("windows", "aarch64") => "win32-arm64",
+        ("windows", "x86_64") => "win32-x64",
+        _ => return false,
+    };
     let Some(version) = version_line.strip_prefix("bend ") else {
         return false;
     };
     REGISTRY.as_ref().is_ok_and(|registry| {
-        registry.schema == FORMAT_VERSION
-            && registry.platform == "darwin"
-            && registry.arch == "arm64"
-            && registry
-                .compilers
-                .values()
-                .any(|compiler| compiler.version == version)
+        registry.schema == REGISTRY_SCHEMA
+            && registry.compilers.values().any(|compiler| {
+                compiler.version == version
+                    && compiler.targets.iter().any(|supported| supported == target)
+            })
     })
 }
 
@@ -623,8 +628,6 @@ fn invalid(message: impl std::fmt::Display) -> io::Error {
 #[serde(deny_unknown_fields)]
 struct Registry {
     schema: u32,
-    platform: String,
-    arch: String,
     families: HashMap<String, RuntimeIdentity>,
     compilers: HashMap<String, RegisteredCompiler>,
 }
@@ -634,15 +637,13 @@ struct Registry {
 struct RegisteredCompiler {
     version: String,
     family: String,
+    targets: Vec<String>,
     runtime: Option<RuntimeIdentity>,
 }
 
 fn validate_identity(identity: &CompilerIdentity) -> io::Result<()> {
     let registry = REGISTRY.as_ref().map_err(invalid)?;
-    if registry.schema != FORMAT_VERSION
-        || registry.platform != "darwin"
-        || registry.arch != "arm64"
-    {
+    if registry.schema != REGISTRY_SCHEMA {
         return Err(invalid("compiler identity registry is incompatible"));
     }
     let compiler = registry

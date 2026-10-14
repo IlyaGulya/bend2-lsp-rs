@@ -1,5 +1,3 @@
-#![cfg(all(target_os = "macos", target_arch = "aarch64"))]
-
 #[path = "support/lsp_client.rs"]
 pub mod lsp_client;
 mod support;
@@ -32,11 +30,14 @@ fn compiler() -> PathBuf {
         .output()
         .must_be("probe real compiler");
     assert!(version.status.success());
-    assert_eq!(
-        String::from_utf8(version.stdout)
-            .must_be("compiler version UTF-8")
-            .trim(),
-        "bend 2.0.36"
+    assert!(
+        matches!(
+            String::from_utf8(version.stdout)
+                .must_be("compiler version UTF-8")
+                .trim(),
+            "bend 2.0.36" | "bend 2.0.37"
+        ),
+        "use a genuine compiler from the E2E provisioning pins"
     );
     path
 }

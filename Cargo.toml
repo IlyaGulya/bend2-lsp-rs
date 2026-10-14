@@ -49,6 +49,7 @@ dhat-heap = ["dep:dhat"]
 native-trace-stdio = ["dep:nix"]
 
 [dependencies]
+base64 = "0.22.1"
 dhat = { version = "0.3.3", optional = true }
 ignore = "0.4.33"
 tower-lsp = "0.20"

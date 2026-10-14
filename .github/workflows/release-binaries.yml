@@ -114,14 +114,10 @@ jobs:
         run: cargo build --locked --release --bin bend2-lsp
       - name: Stage direct release executable for E2E
         run: '"$PYTHON" scripts/release.py package'
-      - name: Install checksum-pinned genuine Bend for native compiler E2E
-        if: matrix.target == 'aarch64-apple-darwin'
+      - name: Provision checksum-pinned genuine Bend 2.0.37 for native compiler E2Es
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          "$PYTHON" scripts/bootstrap_bend.py --destination "$RUNNER_TEMP/bend-2.0.36"
-          printf 'BEND2_COMPILER_TEST_PATH=%s/bend-2.0.36/bin/bend\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'BEND_NO_TELEMETRY=1\n' >> "$GITHUB_ENV"
+        run: '"$PYTHON" scripts/bootstrap_bend.py --target "$RELEASE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"'
       - name: Run full native release test suite
         run: cargo nextest run --workspace --exclude bend2-perf --all-features --locked --release --profile ci
       - name: Run native Rust performance tooling correctness contracts
@@ -130,8 +126,8 @@ jobs:
         run: cargo nextest archive --workspace --exclude bend2-perf --all-features --locked --release --archive-file target/release-tests.tar.zst
       - name: Run native release documentation tests
         run: cargo test --doc --locked --release
-      - name: Mandatory native E2E against direct release executable
-        run: cargo nextest run --archive-file target/release-tests.tar.zst --workspace-remap "$GITHUB_WORKSPACE" -E 'binary(release_e2e)' --profile ci
+      - name: Mandatory native E2Es against direct release executable
+        run: cargo nextest run --archive-file target/release-tests.tar.zst --workspace-remap "$GITHUB_WORKSPACE" -E 'binary(release_e2e) | binary(native_compiler_diagnostics) | binary(native_law_ranges) | binary(compiler_multi_error)' --profile ci
       - name: Upload tested executable, checksum, and internal release metadata
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -248,5 +244,9 @@ jobs:
           echo "$RUNNER_TEMP/nextest" >> "$GITHUB_PATH"
       - name: Report pinned native test runner
         run: cargo nextest --version
+      - name: Provision checksum-pinned genuine Bend 2.0.37 for installed-executable E2Es
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: '"$PYTHON" scripts/bootstrap_bend.py --target "$RELEASE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"'
       - name: Reject altered archive, install verified archive and exercise installed LSP
         run: '"$PYTHON" scripts/installer_e2e.py'

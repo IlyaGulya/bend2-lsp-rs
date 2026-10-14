@@ -6,19 +6,31 @@ export function recoveryPatches({ version, resources, helpers }) {
   const adtEnd = '      continue;\n    }\n    if (i >= done) {';
   const defEnd = '    if (fin) {\n      book.tlds[k] = tld;\n    }\n  }\n}';
   const trivia = 'function parse_skip(p) {\n  const s = p.str;\n  while (p.pos < s.length) {\n    const n = s.charCodeAt(p.pos);\n    if (n === 32 || n === 10 || n === 13 || n === 9) {\n      p.pos += 1;\n      continue;\n    }\n    if (n === 35) {\n      while (p.pos < s.length && s.charCodeAt(p.pos) !== 10) {\n        p.pos += 1;\n      }\n      continue;\n    }\n    return;\n  }\n}';
+  const nameFetch = '  const res = await fetch(BEND_HUB + "/name/" + nv' +
+    (version === '2.0.37' ? ', { signal: AbortSignal.timeout(30000) }' : '') + ').catch(() => null);';
   return [
+    once('runtime.utf8-source', '#!/usr/bin/env bun\n// @bun\n',
+      '#!/usr/bin/env bun\n// Generated UTF-8 recovery module.\n'),
     once('identity.version', 'var VERSION = ' + JSON.stringify(version) + ';'),
     once('schema.book', 'return { tlds: Object.create(null), ctrs: Object.create(null), order: [], hols: 0, tmps: Object.create(null) };'),
     once('resources.directory', /^var BEND_DIR = .*;$/gm, 'var BEND_DIR = ' + JSON.stringify(resources) + ';'),
     once('offline.package', 'async function hub_get(book, sub, hash, spn) {',
       'async function hub_get(book, sub, hash, spn) { throw new Error("Native recovery requires packages already present locally");'),
-    once('offline.name', '  const res = await fetch(BEND_HUB + "/name/" + nv).catch(() => null);',
-      '  throw new Error("Native recovery requires package names already cached locally");\n  const res = await fetch(BEND_HUB + "/name/" + nv).catch(() => null);'),
+    once('offline.name', nameFetch,
+      '  throw new Error("Native recovery requires package names already cached locally");\n' + nameFetch),
     once('imports.offsets', '    body[i] = "";', '    body[i] = " ".repeat(lines[i].length);'),
     once('imports.provenance', 'const sp = { file: { str: text, ns, al }, beg, end: beg };',
       'const sp = { file: { str: text, ns, al, recovery_path: real, original: recovery_sources.get(real), recovery_import_alias: m?.[2] }, beg, end: beg };'),
     once('loader.source', '  const text = fs.readFileSync(real, "utf8");',
       '  const text = recovery_source(real);\n  recovery_files.add(real);'),
+    // Filesystem paths use the native OS; Bend namespace paths remain POSIX.
+    // Windows realpath returns backslashes, which the upstream "/" slice loses.
+    once('loader.directory', '  const dir = real.slice(0, real.lastIndexOf("/") + 1);',
+      '  const dir = path.join(path.dirname(real), path.sep);'),
+    once('loader.relative-file', 'path.posix.resolve(dir, rel)', 'path.resolve(dir, rel)'),
+    once('loader.library-prefix', 'fs.realpathSync(BEND_LIB) + "/"', 'fs.realpathSync(BEND_LIB) + path.sep'),
+    once('loader.namespace', 'path.posix.relative(top, got)',
+      '(path.sep === "/" ? path.posix.relative(top, got) : path.relative(top, got).replaceAll(path.sep, "/"))'),
     once('loader.parser-call', '`), ns, al);', '`), ns, al, real, recovery_sources.get(real));'),
     once('parser.signature', 'function parse_book(book, dir, src, ns, al) {',
       'function parse_book(book, dir, src, ns, al, recovery_path, original, parse_start = 0, parse_end = src.length) {'),

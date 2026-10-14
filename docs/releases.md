@@ -75,12 +75,12 @@ Windows, keeping byte-offset golden comparisons identical across platforms.
 Native Rust host verification uses Python rather than Bash-version-specific
 command-substitution parsing.
 
-The dedicated portable E2E test exercises the real stdio LSP process using a
-controlled compiler fixture. It does not download or certify an upstream Bend
-compiler on each platform. Existing Unix integration tests remain Unix-only;
-the portable release E2E is mandatory everywhere, including both Windows
-architectures. Full release-profile tests additionally run natively on all six
-runners. Nextest uses quality's serialized CI profile: retries collect failure
+The portable `release_e2e` exercises the real stdio LSP process with a controlled
+compiler fixture. It is separate from the mandatory genuine-compiler diagnostics
+suite described below; the controlled fixture does not certify upstream Bend.
+Existing Unix integration tests remain Unix-only. Full release-profile tests run
+natively on all six runners, including both Windows architectures.
+Nextest uses quality's serialized CI profile: retries collect failure
 evidence, but `flaky-result = "fail"` rejects a flaky test even if its retry passes.
 Doctests still run separately.
 The unpublished performance tooling has its own native Cargo-test contract gate,
@@ -88,17 +88,30 @@ including its custom portable subprocess fixture. It is not shipped or included
 in installer test archives; all server test coverage and flaky-test policy remain
 unchanged.
 
-The macOS ARM64 native suite additionally runs `native_compiler_diagnostics` and
-`native_law_ranges` against the staged release executable and the genuine Bend
-2.0.36 distribution provisioned by `scripts/bootstrap_bend.py`. The fixed upstream
-asset ID and SHA-256 bind the executable and its adjacent library resources.
-The download step uses its job's read-only GitHub token to avoid shared-runner
-anonymous API rate limits. Authorization is not forwarded to asset-host redirects.
-These stdio E2Es cover causal import locations, original-error links, independent
-errors, unsaved corrections, declaration spans, and compiler-owned `Base`.
-Quality CI runs the same genuine-compiler tests in a separate macOS ARM64 job.
-Native recovery is not enabled on the other five targets; their existing full
-suite, portable direct-executable E2E, and installed-executable E2E remain required.
+Every native target additionally runs `native_compiler_diagnostics`,
+`native_law_ranges`, and `compiler_multi_error` against its staged release
+executable and genuine Bend 2.0.37 provisioned by `scripts/bootstrap_bend.py`.
+Unix targets use fixed official asset IDs, sizes, and SHA-256 checksums for the
+compiler and adjacent resources. Windows has no official upstream distribution:
+its native Bun executable and exact upstream source archive are independently
+pinned, and the build changes only the compiled resource-locator predicate.
+The parser, checker, and kernel remain upstream code; `--target` is not used.
+The LSP recovery module adapts loader directory resolution, relative file paths,
+library-prefix comparisons, and namespace conversion to native filesystem paths.
+Bend import namespaces remain slash-separated. These are exact-count embedded
+source patches under the same all-or-nothing drift contract, not a replacement
+parser or checker.
+Native CI preserves the actual embedded source and full runtime identity before
+ordinary CLI initialization. Real `version` and `base --types` checks must pass
+before a source-built compiler becomes an installation. Failed initialization
+evidence is retained separately and never exported as a test compiler.
+Download authorization is scoped to fixed first-party API requests, is not
+forwarded to asset-host redirects, and is not inherited by compiler subprocesses.
+These stdio E2Es cover independent errors at exact literal ranges, space/non-ASCII
+project and temporary paths, causal imports, original-error links, unsaved
+corrections, declaration spans, and compiler-owned `Base`. Quality CI requires
+the same three suites on all six native hosts; a separate macOS ARM64 job retains
+genuine Bend 2.0.36 compatibility coverage. Bend is not bundled with the LSP.
 
 The full release suite is compiled once per native target. Nextest archives
 those same test binaries with the identical workspace, feature, lockfile, and
@@ -111,7 +124,9 @@ only its exact target's artifact into `native-tests`, requires
 
 ```sh
 cargo nextest run --archive-file "$RELEASE_TEST_ARCHIVE" \
-  --workspace-remap "$GITHUB_WORKSPACE" -E 'binary(release_e2e)' --profile ci
+  --workspace-remap "$GITHUB_WORKSPACE" \
+  -E 'binary(release_e2e) | binary(native_compiler_diagnostics) | binary(native_law_ranges) | binary(compiler_multi_error)' \
+  --profile ci
 ```
 
 The checkout is verified against the release source SHA, and both producers and

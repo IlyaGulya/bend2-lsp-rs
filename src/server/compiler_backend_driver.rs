@@ -1,6 +1,7 @@
 use super::compiler_backend::{
     BackendSource, CheckOutcome, CompilerIdentity, Request, decode_check, decode_compatibility,
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use std::{
     fs::{self, File},
     io::{self, Read as _},
@@ -8,6 +9,7 @@ use std::{
     process::Stdio,
 };
 use tokio::process::Command;
+use url::Url;
 
 const RESULT_LIMIT: u64 = 8 * 1024 * 1024;
 const ASSETS: [(&str, &str); 4] = [
@@ -32,6 +34,7 @@ pub(super) struct NativeRun {
     request: PathBuf,
     result: PathBuf,
     request_id: String,
+    preload_options: String,
     root: Option<PathBuf>,
     sources: Vec<BackendSource>,
 }
@@ -56,16 +59,26 @@ impl NativeRun {
     }
 
     fn stage(root: Option<PathBuf>, sources: Vec<BackendSource>) -> io::Result<Self> {
-        // The verified Bun ABI ignores quoted BUN_OPTIONS preload paths. Keep
-        // assets in an owned, whitespace-free directory; do not change cwd or
-        // constrain source/workspace paths through environment argument parsing.
-        let guard = tempfile::Builder::new()
-            .prefix("bend2-native-")
-            .tempdir_in("/private/tmp")?;
+        // Inline preload imports a percent-encoded file URL. Bun's environment
+        // parser ignores quoted paths; keep cwd and compiler lookup unchanged.
+        let guard = tempfile::Builder::new().prefix("bend2-native-").tempdir()?;
         let assets = guard.path().to_path_buf();
         for (name, contents) in ASSETS {
             fs::write(assets.join(name), contents)?;
         }
+        let preload = Url::from_file_path(assets.join("preload.ts"))
+            .map_err(|()| io::Error::other("native preload has no absolute file URL"))?;
+        // File URLs contain no raw quotes, backslashes, or control characters.
+        let mut bootstrap = String::with_capacity(preload.as_str().len() + 17);
+        bootstrap.push_str("await import(\"");
+        bootstrap.push_str(preload.as_str());
+        bootstrap.push_str("\");");
+        let prefix = "--preload data:text/javascript;base64,";
+        let encoded_length = base64::encoded_len(bootstrap.len(), true)
+            .ok_or_else(|| io::Error::other("native preload URL is too long"))?;
+        let mut preload_options = String::with_capacity(prefix.len() + encoded_length);
+        preload_options.push_str(prefix);
+        STANDARD.encode_string(bootstrap, &mut preload_options);
         let request_id = assets
             .to_str()
             .ok_or_else(|| io::Error::other("native staging path is not UTF-8"))?
@@ -74,6 +87,7 @@ impl NativeRun {
             request: assets.join("request.json"),
             result: assets.join("result.json"),
             assets,
+            preload_options,
             assets_guard: Some(guard),
             request_id,
             root,
@@ -98,10 +112,9 @@ impl NativeRun {
         ] {
             command.env_remove(key);
         }
-        let preload = self.assets.join("preload.ts");
         command
             .stdin(Stdio::null())
-            .env("BUN_OPTIONS", format!("--preload {}", preload.display()))
+            .env("BUN_OPTIONS", &self.preload_options)
             .env("BEND_RECOVERY_REQUEST", &self.request)
             .env("BEND_RECOVERY_STAGING", &self.assets)
             .env("BEND_RECOVERY_RESULT", &self.result);

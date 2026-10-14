@@ -10,6 +10,19 @@ check_tool_version cargo-nextest 0.9.131 "$(cargo-nextest nextest --version)"
 check_tool_version cargo-deny 0.20.2 "$(cargo deny --version)"
 check_tool_version cargo-hack 0.6.45 "$(cargo hack --version)"
 
+
+# Genuine compiler suites fail closed when unprovisioned. Provision for local
+# quality runs as well as CI; CI performs its authenticated download separately.
+if [[ -z "${BEND2_COMPILER_TEST_PATH:-}" ]]; then
+    BEND_BOOTSTRAP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/bend2-quality-compiler.XXXXXX")"
+    trap 'rm -rf "$BEND_BOOTSTRAP_ROOT"' EXIT
+    python3 scripts/bootstrap_bend.py --destination "$BEND_BOOTSTRAP_ROOT/bend" --github-env "$BEND_BOOTSTRAP_ROOT/environment"
+    while IFS='=' read -r name value; do
+        export "$name=$value"
+    done < "$BEND_BOOTSTRAP_ROOT/environment"
+fi
+test -f "$BEND2_COMPILER_TEST_PATH"
+export BEND_NO_TELEMETRY=1
 printf '== policy ==\n'
 python3 scripts/check-policy.py
 python3 -m unittest discover -s scripts -p test_check_policy.py
