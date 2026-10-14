@@ -114,6 +114,14 @@ The remaining regressions were I1 misses in `identifier_ranges_warm.large`
 and last-level misses in the exact and fuzzy `import_completion_candidates_warm`
 queries. This remains a rejected performance comparison, not an exception.
 
+The [scalar-ID and ASCII-matcher comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38587146675)
+used candidate head `8e3b4b0` and exact merge `6a96628`. It passed 45 of 51 paired
+workloads, not 48. Exact/fuzzy import completion instructions fell to 161,800
+and 164,942 from 198,552 and 201,818, but last-level misses still failed.
+Both large and medium reference-range I1 counts failed, as did burst-invalidation
+and empty workspace-symbol last-level counts. Lower instructions do not override
+the independent miss limits; this comparison was not admitted.
+
 `vendor/tower-lsp` is a maintained, Tokio-only fork of `tower-lsp` 0.20.0
 at upstream commit `7b580128faa39b907db8f40bc53924181887acde`. The original
 Apache-2.0 and MIT licenses and upstream revision metadata are retained.

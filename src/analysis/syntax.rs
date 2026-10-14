@@ -425,7 +425,7 @@ pub struct SyntaxIndex {
     auxiliary: AuxiliaryIndex,
     delimiter_pairs: Box<[DelimiterPair]>,
     delimiter_context: Box<[IndexSlot]>,
-    symbol_by_name: HashMap<NameId, SymbolId>,
+    symbol_by_name: Box<[IndexSlot]>,
     token_symbols: Box<[IndexSlot]>,
     completion: completion::CompletionIndex,
 }
@@ -550,12 +550,20 @@ impl SyntaxIndex {
         index
     }
 
-    fn index_symbol_names(symbols: &[IndexedSymbol]) -> HashMap<NameId, SymbolId> {
-        let mut names = HashMap::with_capacity(symbols.len());
+    fn index_symbol_names(symbols: &[IndexedSymbol]) -> Box<[IndexSlot]> {
+        let name_count = symbols
+            .iter()
+            .map(|symbol| symbol.name.0)
+            .max()
+            .map_or(0, |name| name + 1);
+        let mut names = vec![IndexSlot::EMPTY; name_count];
         for symbol in symbols {
-            names.entry(symbol.name).or_insert(symbol.id);
+            let slot = &mut names[symbol.name.0];
+            if slot.value().is_none() {
+                *slot = IndexSlot::some(symbol.id.0);
+            }
         }
-        names
+        names.into_boxed_slice()
     }
 
     #[must_use]
@@ -733,7 +741,11 @@ impl SyntaxIndex {
 
     #[must_use]
     pub(crate) fn symbol_id_by_name(&self, name: NameId) -> Option<SymbolId> {
-        self.symbol_by_name.get(&name).copied()
+        self.symbol_by_name
+            .get(name.0)
+            .copied()
+            .and_then(IndexSlot::value)
+            .map(SymbolId)
     }
 
     #[must_use]
@@ -990,7 +1002,7 @@ fn resolve_symbols(
     names: &NameTable,
     symbols: &[IndexedSymbol],
     bindings: &[IndexedBinding],
-    symbol_by_name: &HashMap<NameId, SymbolId>,
+    symbol_by_name: &[IndexSlot],
 ) -> Vec<IndexSlot> {
     let mut token_symbols = vec![IndexSlot::EMPTY; tokens.len()];
     for symbol in symbols {
@@ -1036,7 +1048,13 @@ fn resolve_symbols(
                     })
                     .min_by_key(|(scope_size, _)| *scope_size)
                     .map(|(_, id)| id)
-                    .or_else(|| symbol_by_name.get(&name).copied())
+                    .or_else(|| {
+                        symbol_by_name
+                            .get(name.0)
+                            .copied()
+                            .and_then(IndexSlot::value)
+                            .map(SymbolId)
+                    })
             })
         };
         token_symbols[index] = IndexSlot::from_option(symbol.map(|id| id.0));
@@ -1406,7 +1424,7 @@ fn qualified_symbol_for_token(
     tokens: &[Token],
     index: usize,
     names: &NameTable,
-    symbol_by_name: &HashMap<NameId, SymbolId>,
+    symbol_by_name: &[IndexSlot],
 ) -> Option<SymbolId> {
     let mut start = index;
     while start >= 2
@@ -1433,5 +1451,9 @@ fn qualified_symbol_for_token(
     }
     let range = TextRange::new(tokens[start].range.start, tokens[end - 1].range.end);
     let name = names.find(source, &source[range.start..range.end])?;
-    symbol_by_name.get(&name).copied()
+    symbol_by_name
+        .get(name.0)
+        .copied()
+        .and_then(IndexSlot::value)
+        .map(SymbolId)
 }

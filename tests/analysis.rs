@@ -654,3 +654,35 @@ fn module_completion_preserves_subsequence_order_case_and_repeated_characters() 
         );
     }
 }
+
+#[test]
+fn reference_lookup_preserves_first_declaration_shadowing_and_unresolved_names() {
+    let source = concat!(
+        "def target() -> U32:\n  missing(missing)\n",
+        "def target() -> U32:\n  2\n",
+        "def local(target: U32) -> U32:\n  target\n",
+        "def caller() -> U32:\n  target()\n",
+        "def late() -> U32:\n  unresolved(unresolved)\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let declaration = source.find("target").must_be("first declaration");
+    let call = source.find("  target()").must_be("global call") + 2;
+    assert_eq!(
+        bend2_lsp::analysis::identifier_ranges(&snapshot, "target"),
+        [
+            TextRange::new(declaration, declaration + 6),
+            TextRange::new(call, call + 6),
+        ]
+    );
+    for name in ["missing", "unresolved"] {
+        let expected = source
+            .match_indices(name)
+            .map(|(start, text)| TextRange::new(start, start + text.len()));
+        assert!(
+            bend2_lsp::analysis::identifier_ranges(&snapshot, name)
+                .into_iter()
+                .eq(expected)
+        );
+    }
+    assert!(bend2_lsp::analysis::identifier_ranges(&snapshot, "absent").is_empty());
+}
