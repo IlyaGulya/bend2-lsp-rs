@@ -101,6 +101,14 @@ def conditioned_harness(source):
                 attributes = attributes.replace(
                     expression, f"cache_history_control({expression})")
         source = source[:start] + attributes + source[end:]
+    entry = "main!(library_benchmark_groups = analysis_hot_paths);"
+    if source.count(entry) != 1:
+        raise ValueError("benchmark entry point changed")
+    source = source.replace(entry, '''main!(
+    config = iai_callgrind::LibraryBenchmarkConfig::default()
+        .pass_through_env("BEND2_CACHE_CONTROL");
+    library_benchmark_groups = analysis_hot_paths
+);''')
     return source + HELPER
 
 
