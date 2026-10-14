@@ -136,15 +136,25 @@ def build(source, target, output, label, controlled=False):
         command += ["--features", "iai-callgrind/client_requests"]
     run(command, source, log, environment)
     executables = []
+    root_artifacts = {}
     for line in log.read_text().splitlines():
         if not line.startswith("{"):
             continue
         item = json.loads(line)
+        if item.get("reason") == "compiler-artifact":
+            if Path(item["manifest_path"]).resolve() == source / "Cargo.toml":
+                root_artifacts[item["target"]["name"]] = item
         if item.get("reason") == "compiler-artifact" and item.get("executable"):
             if item["target"]["name"] == "analysis" and "bench" in item["target"]["kind"]:
                 executables.append(Path(item["executable"]))
     if len(executables) != 1:
         raise ValueError(f"expected one benchmark executable: {executables}")
+    if label.endswith("-original"):
+        for name in ("bend2_lsp", "analysis"):
+            if root_artifacts.get(name, {}).get("fresh") is not False:
+                raise ValueError(f"original source was not independently compiled: {label}.{name}")
+    if not executables[0].resolve().is_relative_to(target.resolve()):
+        raise ValueError("benchmark executable escaped its source-qualified target")
     binary = output / "binaries" / label / "analysis"
     binary.parent.mkdir(parents=True)
     shutil.copy2(executables[0], binary)
@@ -219,13 +229,14 @@ def main():
     for label, revision in (("base", args.base), ("candidate", args.candidate)):
         source = work / label
         checkout(args.repository, revision, source)
+        target = work / "targets" / label
         harness = source / "benches" / "analysis.rs"
         original = harness.read_text()
         identities[label] = {"revision": revision, "original_harness_sha256": sha(harness),
                              "lockfile_sha256": sha(source / "Cargo.lock")}
         shutil.copy2(harness, output / "harnesses" / f"{label}-original.rs")
         (output / "identities.json").write_text(json.dumps(identities, indent=2) + "\n")
-        binary = build(source, work / "target", output, f"{label}-original")
+        binary = build(source, target, output, f"{label}-original")
         records[f"{label}-original"] = collect(binary, source, output, f"{label}-original", "keep")
         (output / "records.json").write_text(json.dumps(records, indent=2) + "\n")
         controlled = conditioned_harness(original)
@@ -233,7 +244,7 @@ def main():
         identities[label]["controlled_harness_sha256"] = sha(harness)
         shutil.copy2(harness, output / "harnesses" / f"{label}-controlled.rs")
         (output / "identities.json").write_text(json.dumps(identities, indent=2) + "\n")
-        binary = build(source, work / "target", output, f"{label}-controlled", controlled=True)
+        binary = build(source, target, output, f"{label}-controlled", controlled=True)
         # Fixed order, same executable. No re-run of a failed sample.
         for phase, mode in (("keep-a", "keep"), ("cold", "cold"), ("keep-b", "keep")):
             sample = f"{label}-{phase}"
@@ -243,7 +254,7 @@ def main():
             for variant in ("extra_work", "extra_alloc"):
                 harness.write_text(positive_harness(controlled, variant))
                 shutil.copy2(harness, output / "harnesses" / f"{variant}.rs")
-                binary = build(source, work / "target", output, variant, controlled=True)
+                binary = build(source, target, output, variant, controlled=True)
                 records[variant] = collect(binary, source, output, variant, "cold")
         (output / "records.json").write_text(json.dumps(records, indent=2) + "\n")
     identities_set = [set(record["metrics"]) for record in records.values()]

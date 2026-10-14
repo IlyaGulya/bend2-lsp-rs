@@ -334,8 +334,17 @@ after reset supports an entry-cache-history contribution; a remaining delta
 requires investigation of in-body conflicts or code generation. Neither
 outcome automatically admits the candidate. There is no padding search,
 threshold adjustment, cache-geometry change, or random retry-to-green.
-The experiment has not yet completed; conditioning is not applied to the
-active gate.
+
+The first completed control,
+[38541026679](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38541026679),
+is **invalid**, despite successful execution and positive sensitivity. It
+incorrectly shared one Cargo target across archived source revisions. Cargo
+reported both the candidate library and original benchmark as `fresh: true`;
+the original base and candidate executable hashes were identical. It therefore
+did not measure the declared candidate. Its raw evidence is retained, but no
+causal conclusion, performance acceptance or conditioning change follows from
+it. The corrected collector uses separate source-qualified targets and requires
+both original root artifacts to be newly compiled. Active gates are unchanged.
 
 Cache reset introduces the manual's documented artificial cold misses. It is
 not a claim about editor latency or a production cache. Any later approved
