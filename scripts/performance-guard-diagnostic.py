@@ -28,9 +28,15 @@ for demangled, filename in [(False, "symbols.txt"), (True, "symbols-demangled.tx
 names = [line.split()[-1] for line in (output / "symbols.txt").read_text().splitlines() if line.split()[-1].startswith("_RNvNtNt") and line.split()[-1].endswith("27___iai_callgrind_wrapper_mod15completion_warm")]
 if len(names) != 1:
     raise RuntimeError(f"Unexpected original completion guard: {names}")
-for label, pattern in [("default", "*::__iai_callgrind_wrapper_mod::*"), ("exact_raw", names[0])]:
+for label, options in [
+    ("default", ["--toggle-collect=*::__iai_callgrind_wrapper_mod::*"]),
+    ("exact_raw", [f"--toggle-collect={names[0]}"]),
+    ("exact_demangled", ["--toggle-collect=analysis::completion_warm::__iai_callgrind_wrapper_mod::completion_warm"]),
+    ("no_inline", ["--read-inline-info=no", "--toggle-collect=*::__iai_callgrind_wrapper_mod::*"]),
+    ("all_calls", ["--collect-atstart=yes"]),
+]:
     profile = output / f"{label}.out"
-    command = ["setarch", "x86_64", "-R", "valgrind", "--tool=callgrind", "--cache-sim=yes", "--I1=32768,8,64", "--D1=32768,8,64", "--LL=8388608,16,64", f"--toggle-collect={pattern}", f"--callgrind-out-file={profile}", str(retained), "--iai-run", "analysis_hot_paths", "4", "2", "analysis::analysis_hot_paths::completion_warm"]
+    command = ["setarch", "x86_64", "-R", "valgrind", "--tool=callgrind", "--cache-sim=yes", "--I1=32768,8,64", "--D1=32768,8,64", "--LL=8388608,16,64", *options, f"--callgrind-out-file={profile}", str(retained), "--iai-run", "analysis_hot_paths", "4", "2", "analysis::analysis_hot_paths::completion_warm"]
     (output / f"{label}-command.json").write_text(json.dumps(command, indent=2))
     with (output / f"{label}.log").open("w") as log:
         subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, env={"PATH": os.environ["PATH"]}, check=True, timeout=180)
