@@ -119,8 +119,15 @@ package-manager discovery, or download dependencies itself. Prepare the external
 tool and its caches outside the LSP if you require offline operation.
 
 Install the tool yourself in each trusted project. The inspected standalone
-release is `bend-lint@0.1.0`, requiring Bun 1.4.3; clang 14 or newer is optional
-(upstream otherwise builds rules as JavaScript):
+release is `bend-lint@0.1.0`, requiring Bun 1.4.3. Clang is optional: upstream
+otherwise builds rules as JavaScript. Its native backend accepts clang 14 or
+newer, but **Windows ARM64 requires a compatible version**, not just that minimum.
+
+For native rule builds on Windows ARM64, use the verified
+[Clang 18.1.8 ARM64 installer](https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/LLVM-18.1.8-woa64.exe).
+Before installing or running bend-lint, set `CC` to the installed `clang.exe`'s
+absolute path. Your editor must inherit that environment when starting the LSP.
+The native CI details below explain the LLVM 19–22 incompatibilities.
 
 ```sh
 # These are explicit installation commands for you, never commands run by the LSP.
