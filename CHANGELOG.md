@@ -61,6 +61,15 @@
   supported Rust executable layouts retain genuine function-level collection.
   Collect baseline and candidate with the same tool and unchanged strict limits.
 
+## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* avoid temporary URI allocations when ordering references ([#56](https://github.com/IlyaGulya/bend2-lsp-rs/issues/56)) ([217a2e1](https://github.com/IlyaGulya/bend2-lsp-rs/commit/217a2e1c6d7830a1e394173a51ba689fadbbafb6))
+* gate performance admission on qualified repeated evidence ([bcafb4b](https://github.com/IlyaGulya/bend2-lsp-rs/commit/bcafb4b295a41f108760b1011c6b774fbedcf2a5))
+* portable Bend 2.0.37 enhanced diagnostics and genuine compiler E2Es ([#53](https://github.com/IlyaGulya/bend2-lsp-rs/issues/53)) ([8010fe8](https://github.com/IlyaGulya/bend2-lsp-rs/commit/8010fe882ad6509664e3db8333d40bbf598f1f27))
+
 ## [0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.0...v0.6.1) (2026-10-13)
 
 ### Bug Fixes
