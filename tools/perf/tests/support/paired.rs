@@ -88,8 +88,9 @@ pub fn write_fixture(root: &Path, baseline_ir: u64, candidate_ir: impl Fn(u64) -
             list.push_str(&format!("\n0 tests, {} benchmarks\n", ids.len()));
             let list_path = format!("builds/{variant}/{benchmark}.list.stdout");
             write(&root, &list_path, list.as_bytes())?;
+            // A backslash is a literal Linux filename character, not a Windows separator.
             benchmarks.insert(benchmark.to_owned(), json!({
-                "executable": format!("/isolated/{variant}/{benchmark}"),
+                "executable": format!("/isolated\\build/{variant}/{benchmark}"),
                 "binary_sha256": digest(format!("{variant}:{benchmark}:binary").as_bytes()),
                 "workloads": ids, "workload_list": list_path
             }));
@@ -123,7 +124,7 @@ pub fn write_fixture(root: &Path, baseline_ir: u64, candidate_ir: impl Fn(u64) -
                         "function_name": id["function_name"], "id": id["id"], "kind": "LibraryBenchmark",
                         "benchmark_exe": variants[variant]["benchmarks"][benchmark]["executable"],
                         "baselines": [baseline, baseline],
-                        "profiles": [{"tool": "Callgrind", "out_paths": [format!("/home/runner/paired-evidence/{profile}")],
+                        "profiles": [{"tool": "Callgrind", "out_paths": [format!("/home/runner\\work/paired-evidence/{profile}")],
                             "summaries": {"parts": [{"metrics_summary": {"Callgrind": metrics}}]}}]
                     });
                     text.push_str(&serde_json::to_string(&summary)?);
