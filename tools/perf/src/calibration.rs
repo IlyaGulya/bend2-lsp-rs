@@ -68,6 +68,7 @@ struct CollectArgs {
 enum ReportMethod {
     #[default]
     Historical,
+    #[value(name = "paired-median-105-v1")]
     PairedMedian105V1,
 }
 
