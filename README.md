@@ -135,18 +135,22 @@ editor. Source-based features are **not** a full compiler type checker.
 | Workspace folders | Multiple roots and workspace-folder changes |
 | Watched files | Rechecks affected documents when the client sends file-change notifications; dynamic watcher registration when supported |
 
-For qualified names such as `Ast.TermVar`, placing the cursor on `Ast` opens
-the imported module; placing it on `TermVar` jumps to the constructor declaration.
-The same navigation works in type annotations, match patterns, and expressions.
+For a qualified use such as `Ast.TermVar`, when `Ast` is an import alias,
+placing the cursor on `Ast` opens the imported module; placing it on `TermVar`
+jumps to the constructor declaration. This works in annotations, patterns, and
+expressions. A written qualified declaration is selected by its complete name,
+including its prefix. A dotted prefix without an import alias is part of the
+symbol name, not a module navigation target.
 
-Declaration queries respect lexical shadowing: a local parameter never resolves
-to a same-named global declaration or imported module. Hover and type navigation
-use that parameter's own indexed annotation when available. Renaming a module
-alias changes its declaration and unshadowed qualified uses; conflicts are rejected.
+Local bindings shadow the same **complete Bend name**: a parameter named `target`
+shadows a global `target`, but a parameter named `D` does not shadow `D.target`.
+Hover and type navigation use a binding's own indexed annotation when available.
+Renaming an import alias changes that alias and its actual qualified uses;
+conflicts and capture are rejected.
 
 Completion includes parameters and case-pattern bindings only in their indexed
-scope. Local bindings shadow same-named declarations, prelude names and import
-aliases; a shadowed alias does not offer the imported module's members.
+scope. Local bindings shadow declarations with the same complete name; an
+unqualified binding does not turn a distinct dotted name into object access.
 
 Import completion searches indexed file names and import paths, including fuzzy
 input such as `apd` for `./nested/append.bend`. File-name exact and prefix matches
@@ -198,6 +202,17 @@ and punctuation characters removed, an uppercase first ASCII letter, and
 `Module` prefixed for empty or digit-leading stems. Name conflicts add `2`, `3`,
 and so on (`Tools2`); repeated imports reuse their existing alias. Unicode
 filenames remain unchanged in the path.
+
+Call hierarchy distinguishes direct calls from higher-order local values and
+includes `!` calls and the implementation bodies linked to laws. References and
+rename use independently resolved loaded entry contexts; conflicting edits are
+rejected instead of returning a partial rename.
+
+For semantic extraction, the experimental [`bend2/semanticDocument` request](docs/semantic-api.md)
+returns documentation, written signature/body ranges, and resolved occurrences
+with their enclosing declarations. The selected entry matters when imports
+supply names or implementations to another file. This API does not promise type
+inference or a complete runtime call graph.
 
 Local imports are indexed for cross-file features. `Base` comes from `bend base`.
 Hub package navigation uses packages already present in the local Bend library

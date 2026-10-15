@@ -31,9 +31,11 @@ impl Backend {
         let _workspace_read = self.workspace_read_with_prelude(None).await;
         let documents = self.indexed_documents();
         let includes_base = documents.iter().any(|document| {
-            analysis::imports(document)
-                .iter()
-                .any(|import| import.path_text(&document.text) == "Base")
+            analysis::imports(document).iter().any(|import| {
+                import.valid_syntax
+                    && import.alias.is_none()
+                    && import.path_text(&document.text) == "Base"
+            })
         });
         let query = analysis::WorkspaceSymbolQuery::new(&params.query);
         let capacity = if query.is_empty() {

@@ -268,16 +268,28 @@ mod tests {
         )
         .ok_or_else(|| std::io::Error::other("update root imports"))?;
         database.load_reachable(&[root]);
-        database.rename_paths(&[
-            PathRename {
-                old: old_dependency,
-                new: new_dependency.clone(),
-            },
-            PathRename {
-                old: old_consumer,
-                new: new_consumer.clone(),
-            },
-        ]);
+        database.rename_paths(
+            &[
+                PathRename {
+                    old: old_dependency,
+                    new: new_dependency.clone(),
+                },
+                PathRename {
+                    old: old_consumer,
+                    new: new_consumer.clone(),
+                },
+            ],
+            &std::collections::HashMap::from([
+                (
+                    new_dependency.clone(),
+                    crate::workspace::canonical_source_path(&new_dependency),
+                ),
+                (
+                    new_consumer.clone(),
+                    crate::workspace::canonical_source_path(&new_consumer),
+                ),
+            ]),
+        );
         let consumer_uri = file_uri(&new_consumer)?;
         assert_eq!(
             database.file_id_by_uri(&consumer_uri),
@@ -321,13 +333,23 @@ mod tests {
         ));
         assert!(
             database
-                .sync_disk_snapshot_prepared(&unknown_path, Some(late_snapshot.clone()), Vec::new())
+                .sync_disk_snapshot_prepared(
+                    &unknown_path,
+                    &crate::workspace::canonical_source_path(&unknown_path),
+                    Some(late_snapshot.clone()),
+                    Vec::new()
+                )
                 .is_none()
         );
         assert!(database.file_id_by_path(&unknown_path).is_none());
         assert!(
             database
-                .sync_disk_snapshot_prepared(&dep_path, Some(late_snapshot.clone()), Vec::new())
+                .sync_disk_snapshot_prepared(
+                    &dep_path,
+                    &crate::workspace::canonical_source_path(&dep_path),
+                    Some(late_snapshot.clone()),
+                    Vec::new()
+                )
                 .is_none()
         );
         assert_eq!(database.disk_generation(dep_id), initial_generation);
@@ -358,7 +380,12 @@ mod tests {
         assert_ne!(database.disk_generation(dep_id), loaded_generation);
         assert!(
             database
-                .sync_disk_snapshot_prepared(&dep_path, Some(late_snapshot), Vec::new())
+                .sync_disk_snapshot_prepared(
+                    &dep_path,
+                    &crate::workspace::canonical_source_path(&dep_path),
+                    Some(late_snapshot),
+                    Vec::new()
+                )
                 .is_none()
         );
         database.load_reachable(&[root]);
@@ -386,12 +413,15 @@ mod tests {
             generated_source.into(),
         ));
         let generated_payload = Arc::downgrade(&snapshot);
+        let imports = crate::workspace::resolve_import_targets(&generated_path, &snapshot);
         let mut database = WorkspaceDb::default();
         database.register_compiler_document(
             generated_uri.clone(),
             generated_path.clone(),
+            crate::workspace::canonical_source_path(&generated_path),
             snapshot,
-            directory,
+            imports,
+            Arc::new(directory),
         );
         let id = database.set_open_document(
             Document::new(

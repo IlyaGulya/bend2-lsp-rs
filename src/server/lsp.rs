@@ -1,14 +1,14 @@
+mod semantic;
+
 use super::capabilities::server_capabilities;
 use super::compiler::CompilerConfig;
 #[cfg(test)]
 use super::diagnostics::{
     diagnostics_revision_is_current, publish_if_current, replace_imported_diagnostics_if_current,
 };
-#[cfg(test)]
 use super::orchestration::run_staging;
 #[cfg(test)]
 use super::revision::{DocumentRevisionSync, wait_for_captured_revision};
-use crate::analysis;
 #[cfg(test)]
 use crate::analysis::Revision;
 use crate::workspace::normalize_path;
@@ -87,6 +87,13 @@ impl LanguageServer for Backend {
             let mut registration = self.registration.write();
             registration.type_hierarchy = supports_type_hierarchy_registration;
             registration.watch = supports_watch_registration;
+            registration.versioned_edits = params
+                .capabilities
+                .workspace
+                .as_ref()
+                .and_then(|workspace| workspace.workspace_edit.as_ref())
+                .and_then(|edit| edit.document_changes)
+                .unwrap_or(false);
         }
         let mut result = InitializeResult {
             capabilities: server_capabilities(),
@@ -188,10 +195,20 @@ impl LanguageServer for Backend {
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
         let _operation = self.workspace.document_operation().await;
         let (config, warnings) = CompilerConfig::from_settings(&params.settings);
+        let Some(library_path) = run_staging(
+            self.workspace.staging.clone(),
+            crate::workspace::canonical_library_path,
+        )
+        .await
+        else {
+            return;
+        };
         {
             let _load = self.compiler.base_module_load.lock().await;
             let _workspace_update = self.workspace.updates.write().await;
-            self.workspace.commit(None, None, |_database| {
+            self.workspace.commit(None, None, |database| {
+                database.invalidate_semantic_base();
+                database.set_semantic_library_path(library_path);
                 *self.compiler.config.write() = config;
                 *self.compiler.base_module.write() = None;
                 *self.compiler.base_module_attempted.write() = false;
@@ -207,13 +224,7 @@ impl LanguageServer for Backend {
             self.client.log_message(MessageType::WARNING, warning).await;
         }
         let documents = self.workspace_documents();
-        if documents.iter().any(|document| {
-            analysis::imports(document)
-                .iter()
-                .any(|import| import.path_text(&document.text) == "Base")
-        }) {
-            self.load_prelude_module().await;
-        }
+        self.prepare_semantic_views().await;
         for document in documents {
             let revision = document.revision.0;
             self.schedule_diagnostics(document.uri, revision).await;
@@ -232,15 +243,12 @@ impl LanguageServer for Backend {
         let uri = item.uri;
         let version = item.version;
         let path = self.document_path(&uri);
-        let Some(needs_prelude) = self
+        let Some(()) = self
             .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
             .await
         else {
             return;
         };
-        if needs_prelude {
-            self.load_prelude_module().await;
-        }
         let dependents = self.dependent_documents(&uri).await;
         self.schedule_diagnostics(uri, version).await;
         for document in dependents {
@@ -255,13 +263,6 @@ impl LanguageServer for Backend {
         let version = params.text_document.version;
         if !self.change_workspace_document(params).await {
             return;
-        }
-        if self.document(&uri).is_some_and(|document| {
-            analysis::imports(&document)
-                .iter()
-                .any(|import| import.path_text(&document.text) == "Base")
-        }) {
-            self.load_prelude_module().await;
         }
         let dependents = self.dependent_documents(&uri).await;
         self.schedule_diagnostics(uri, version).await;
