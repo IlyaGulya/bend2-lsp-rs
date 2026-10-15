@@ -20,16 +20,15 @@ use url::Url;
 const TIMEOUT: Duration = Duration::from_secs(10);
 const QUIET: Duration = Duration::from_millis(350);
 const SOURCE: &str = "def main(+x: U32) -> U32:\n  x\n";
-const COMPILER_ERROR: &str =
-    "Error:\nselected compiler rejection\nLocation: main\n1>| def main(+x: U32) -> U32:\n  |     ^^^^\n2 |   x\n";
+const COMPILER_ERROR: &str = "Error:\nselected compiler rejection\nLocation: main\n1>| def main(+x: U32) -> U32:\n  |     ^^^^\n2 |   x\n";
 
 fn executable() -> &'static Path {
     static FIXTURE: OnceLock<(TempDir, PathBuf)> = OnceLock::new();
     &FIXTURE
         .get_or_init(|| {
             let directory = tempdir().must_be("portable analyzer fixture directory");
-            let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/fixtures/bend_lint_process.rs");
+            let source =
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/bend_lint_process.rs");
             let executable = directory
                 .path()
                 .join(format!("bend lint fixture{}", env::consts::EXE_SUFFIX));
@@ -51,7 +50,9 @@ fn executable() -> &'static Path {
 }
 
 fn uri(path: &Path) -> String {
-    Url::from_file_path(path).must_be("document URI").to_string()
+    Url::from_file_path(path)
+        .must_be("document URI")
+        .to_string()
 }
 
 fn range(line: u32, start: u32, end: u32) -> Value {
@@ -92,8 +93,11 @@ impl Session {
         for (name, text) in dependencies {
             fs::write(project.join(name), text).must_be("write saved dependency");
         }
-        fs::write(control.join("response.json"), "{\"ok\":true,\"findings\":[],\"suppressed\":[]}")
-            .must_be("initialize process output");
+        fs::write(
+            control.join("response.json"),
+            "{\"ok\":true,\"findings\":[],\"suppressed\":[]}",
+        )
+        .must_be("initialize process output");
         fs::write(control.join("exit-code"), "0").must_be("initialize exit code");
         let mut command = env::var_os("BEND2_LSP_TEST_BINARY").map_or_else(
             || Command::new(env!("CARGO_BIN_EXE_bend2-lsp")),
@@ -136,17 +140,26 @@ impl Session {
     }
 
     fn open(&mut self, source: &str) {
-        self.client.notify("textDocument/didOpen", json!({"textDocument":{
-            "uri":self.document,"languageId":"bend","version":1,"text":source}}));
+        self.client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+            "uri":self.document,"languageId":"bend","version":1,"text":source}}),
+        );
     }
 
     fn change(&mut self, version: i32, source: &str) {
-        self.client.notify("textDocument/didChange", json!({"textDocument":{
-            "uri":self.document,"version":version},"contentChanges":[{"text":source}]}));
+        self.client.notify(
+            "textDocument/didChange",
+            json!({"textDocument":{
+            "uri":self.document,"version":version},"contentChanges":[{"text":source}]}),
+        );
     }
 
     fn save(&mut self) {
-        self.client.notify("textDocument/didSave", json!({"textDocument":{"uri":self.document}}));
+        self.client.notify(
+            "textDocument/didSave",
+            json!({"textDocument":{"uri":self.document}}),
+        );
     }
 
     fn response(&self, findings: Vec<Value>, suppressed: Vec<Value>, ok: bool) {
@@ -162,7 +175,11 @@ impl Session {
 
     fn standard_response(&self) {
         self.response(
-            vec![finding(&self.root, "language/unneeded_plus", range(0, 9, 10))],
+            vec![finding(
+                &self.root,
+                "language/unneeded_plus",
+                range(0, 9, 10),
+            )],
             vec![],
             true,
         );
@@ -184,9 +201,13 @@ impl Session {
                 message["method"] == "textDocument/publishDiagnostics"
                     && message["params"]["uri"] == self.document
                     && message["params"]["version"] == version
-                    && message["params"]["diagnostics"].as_array().is_some_and(|items| {
-                        items.iter().any(|item| item["message"] == "selected compiler rejection")
-                    })
+                    && message["params"]["diagnostics"]
+                        .as_array()
+                        .is_some_and(|items| {
+                            items
+                                .iter()
+                                .any(|item| item["message"] == "selected compiler rejection")
+                        })
             })
             .must_be("selected compiler error remains observable")
     }
@@ -220,23 +241,40 @@ impl Session {
     fn failure(&mut self) -> Value {
         self.client
             .receive_matching(TIMEOUT, |message| {
-                matches!(message["method"].as_str(), Some("window/logMessage" | "window/showMessage"))
-                    && message["params"]["message"].as_str().is_some_and(|text| {
-                        let text = text.to_ascii_lowercase();
-                        text.contains("bend-lint")
-                            && ["fail", "error", "timeout", "timed out", "invalid", "missing", "not found"]
-                                .iter().any(|word| text.contains(word))
-                    })
+                matches!(
+                    message["method"].as_str(),
+                    Some("window/logMessage" | "window/showMessage")
+                ) && message["params"]["message"].as_str().is_some_and(|text| {
+                    let text = text.to_ascii_lowercase();
+                    text.contains("bend-lint")
+                        && [
+                            "fail",
+                            "error",
+                            "timeout",
+                            "timed out",
+                            "invalid",
+                            "missing",
+                            "not found",
+                        ]
+                        .iter()
+                        .any(|word| text.contains(word))
+                })
             })
             .must_be("analyzer failure is visible without a fake source diagnostic")
     }
 
     fn actions(&mut self, diagnostics: Value, trigger: u8) -> Vec<Value> {
-        self.client.request("textDocument/codeAction", json!({
-            "textDocument":{"uri":self.document},"range":range(0, 0, 24),
-            "context":{"diagnostics":diagnostics,"triggerKind":trigger,
-                "only":["quickfix.bend-lint.dangerous"]}
-        }))["result"].as_array().cloned().unwrap_or_default()
+        self.client.request(
+            "textDocument/codeAction",
+            json!({
+                "textDocument":{"uri":self.document},"range":range(0, 0, 24),
+                "context":{"diagnostics":diagnostics,"triggerKind":trigger,
+                    "only":["quickfix.bend-lint.dangerous"]}
+            }),
+        )["result"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
     }
 
     fn finish(self) {
@@ -248,9 +286,9 @@ impl Session {
 
 fn has_lint(message: &Value) -> bool {
     message["method"] == "textDocument/publishDiagnostics"
-        && message["params"]["diagnostics"].as_array().is_some_and(|items| {
-            items.iter().any(|item| item["source"] == "bend-lint")
-        })
+        && message["params"]["diagnostics"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item["source"] == "bend-lint"))
 }
 
 fn socket_closed(address: &str) {
@@ -260,7 +298,10 @@ fn socket_closed(address: &str) {
         if TcpStream::connect_timeout(&address, Duration::from_millis(50)).is_err() {
             return;
         }
-        assert!(Instant::now() < deadline, "analyzer child remains alive at {address}");
+        assert!(
+            Instant::now() < deadline,
+            "analyzer child remains alive at {address}"
+        );
         thread::sleep(Duration::from_millis(10));
     }
 }
@@ -272,7 +313,10 @@ fn lint_is_off_by_default_even_with_project_rules_and_save() {
     session.open(SOURCE);
     session.save();
     session.no_lint();
-    assert!(!session.control.join("calls").exists(), "no unsolicited executable invocation");
+    assert!(
+        !session.control.join("calls").exists(),
+        "no unsolicited executable invocation"
+    );
     session.finish();
 }
 
@@ -294,12 +338,20 @@ fn enabled_save_uses_json_in_nearest_project_without_fixing_disk() {
     session.configure(true, false, 10_000);
     session.open(SOURCE);
     session.no_lint();
-    assert!(!session.control.join("calls").exists(), "opening is not saving");
+    assert!(
+        !session.control.join("calls").exists(),
+        "opening is not saving"
+    );
     session.save();
     let packet = session.lint();
     assert_eq!(packet["params"]["version"], 1);
-    let items = packet["params"]["diagnostics"].as_array().must_be("diagnostics");
-    let lint = items.iter().find(|item| item["source"] == "bend-lint").must_be("lint item");
+    let items = packet["params"]["diagnostics"]
+        .as_array()
+        .must_be("diagnostics");
+    let lint = items
+        .iter()
+        .find(|item| item["source"] == "bend-lint")
+        .must_be("lint item");
     assert_eq!(lint["code"], "language/unneeded_plus");
     assert_eq!(lint["severity"], 2);
     assert_eq!(lint["range"], range(0, 9, 10));
@@ -308,8 +360,14 @@ fn enabled_save_uses_json_in_nearest_project_without_fixing_disk() {
     assert!(arguments.lines().any(|arg| arg == "--json"));
     assert!(!arguments.contains("--fix"));
     let cwd = PathBuf::from(session.wait_file("cwd"));
-    assert_eq!(fs::canonicalize(cwd).must_be("invocation cwd"), fs::canonicalize(session.project()).must_be("project"));
-    assert_eq!(fs::read_to_string(&session.root).must_be("saved source"), SOURCE);
+    assert_eq!(
+        fs::canonicalize(cwd).must_be("invocation cwd"),
+        fs::canonicalize(session.project()).must_be("project")
+    );
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("saved source"),
+        SOURCE
+    );
     session.finish();
 }
 
@@ -325,6 +383,11 @@ fn changes_and_unsaved_save_notifications_never_analyze_old_disk_text() {
     session.no_lint();
     assert!(!session.control.join("calls").exists());
     fs::write(&session.root, edited).must_be("editor saves current text");
+    session.response(
+        vec![finding(&session.root, "language/unneeded_plus", range(1, 9, 10))],
+        vec![],
+        true,
+    );
     session.save();
     assert_eq!(session.lint()["params"]["version"], 2);
     session.finish();
@@ -333,15 +396,22 @@ fn changes_and_unsaved_save_notifications_never_analyze_old_disk_text() {
 #[test]
 fn compiler_and_lint_publish_as_one_union_and_disabling_only_clears_lint() {
     let mut session = Session::new(SOURCE, &[]);
-    fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR).must_be("compiler error fixture");
+    fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR)
+        .must_be("compiler error fixture");
     session.standard_response();
     session.configure(true, false, 10_000);
     session.open(SOURCE);
     session.compiler(1);
     session.save();
     let packet = session.lint();
-    assert!(packet["params"]["diagnostics"].as_array().must_be("merged diagnostics")
-        .iter().any(|item| item["message"] == "selected compiler rejection" && item["source"] != "bend-lint"));
+    assert!(
+        packet["params"]["diagnostics"]
+            .as_array()
+            .must_be("merged diagnostics")
+            .iter()
+            .any(|item| item["message"] == "selected compiler rejection"
+                && item["source"] != "bend-lint")
+    );
     session.configure(false, false, 10_000);
     let cleared = session.compiler(1);
     assert!(!has_lint(&cleared));
@@ -359,7 +429,10 @@ fn delayed_lint_is_discarded_after_edit_and_requests_stay_responsive() {
     session.save();
     let address = session.wait_file("address");
     session.change(2, "def main(x: U32) -> U32:\n  x\n");
-    let response = session.client.request("textDocument/documentSymbol", json!({"textDocument":{"uri":session.document}}));
+    let response = session.client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument":{"uri":session.document}}),
+    );
     assert!(response["result"].is_array());
     session.release();
     socket_closed(&address);
@@ -374,8 +447,11 @@ fn unsaved_imported_dependency_prevents_saved_root_analysis() {
     session.configure(true, false, 10_000);
     session.open(source);
     let dependency = uri(&session.project().join("dep.bend"));
-    session.client.notify("textDocument/didOpen", json!({"textDocument":{
-        "uri":dependency,"languageId":"bend","version":1,"text":"def value: U32\n  2\n"}}));
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+        "uri":dependency,"languageId":"bend","version":1,"text":"def value: U32\n  2\n"}}),
+    );
     session.save();
     session.no_lint();
     assert!(!session.control.join("calls").exists());
@@ -387,17 +463,27 @@ fn dependency_edit_invalidates_inflight_root_findings() {
     let source = "import dep.bend as Dep\ndef main: U32\n  Dep.value\n";
     let dependency_source = "def value: U32\n  1\n";
     let mut session = Session::new(source, &[("dep.bend", dependency_source)]);
-    session.response(vec![finding(&session.root, "layout/imports", range(0, 0, 6))], vec![], true);
+    session.response(
+        vec![finding(&session.root, "layout/imports", range(0, 0, 6))],
+        vec![],
+        true,
+    );
     session.block();
     session.configure(true, false, 10_000);
     session.open(source);
     let dependency = uri(&session.project().join("dep.bend"));
-    session.client.notify("textDocument/didOpen", json!({"textDocument":{
-        "uri":dependency,"languageId":"bend","version":1,"text":dependency_source}}));
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+        "uri":dependency,"languageId":"bend","version":1,"text":dependency_source}}),
+    );
     session.save();
     let address = session.wait_file("address");
-    session.client.notify("textDocument/didChange", json!({"textDocument":{"uri":dependency,"version":2},
-        "contentChanges":[{"text":"def value: U32\n  2\n"}]}));
+    session.client.notify(
+        "textDocument/didChange",
+        json!({"textDocument":{"uri":dependency,"version":2},
+        "contentChanges":[{"text":"def value: U32\n  2\n"}]}),
+    );
     session.release();
     socket_closed(&address);
     session.no_lint();
@@ -408,7 +494,11 @@ fn dependency_edit_invalidates_inflight_root_findings() {
 fn watched_dependency_change_invalidates_inflight_root_findings() {
     let source = "import dep.bend as Dep\ndef main: U32\n  Dep.value\n";
     let mut session = Session::new(source, &[("dep.bend", "def value: U32\n  1\n")]);
-    session.response(vec![finding(&session.root, "layout/imports", range(0, 0, 6))], vec![], true);
+    session.response(
+        vec![finding(&session.root, "layout/imports", range(0, 0, 6))],
+        vec![],
+        true,
+    );
     session.block();
     session.configure(true, false, 10_000);
     session.open(source);
@@ -416,7 +506,10 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
     let address = session.wait_file("address");
     let dependency = session.project().join("dep.bend");
     fs::write(&dependency, "def value: U32\n  2\n").must_be("external dependency edit");
-    session.client.notify("workspace/didChangeWatchedFiles", json!({"changes":[{"uri":uri(&dependency),"type":2}]}));
+    session.client.notify(
+        "workspace/didChangeWatchedFiles",
+        json!({"changes":[{"uri":uri(&dependency),"type":2}]}),
+    );
     session.release();
     socket_closed(&address);
     session.no_lint();
@@ -427,14 +520,21 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
 fn suppressed_findings_stay_hidden_and_utf16_positions_are_not_reencoded() {
     let source = "# 😀x\ndef main(+x: U32) -> U32:\n  x\n";
     let mut session = Session::new(source, &[]);
-    session.response(vec![finding(&session.root, "visible", range(0, 4, 5))],
-        vec![finding(&session.root, "suppressed", range(0, 4, 5))], true);
+    session.response(
+        vec![finding(&session.root, "visible", range(0, 4, 5))],
+        vec![finding(&session.root, "suppressed", range(0, 4, 5))],
+        true,
+    );
     session.configure(true, false, 10_000);
     session.open(source);
     session.save();
     let packet = session.lint();
-    let items: Vec<_> = packet["params"]["diagnostics"].as_array().must_be("diagnostics")
-        .iter().filter(|item| item["source"] == "bend-lint").collect();
+    let items: Vec<_> = packet["params"]["diagnostics"]
+        .as_array()
+        .must_be("diagnostics")
+        .iter()
+        .filter(|item| item["source"] == "bend-lint")
+        .collect();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["code"], "visible");
     assert_eq!(items[0]["range"], range(0, 4, 5));
@@ -451,17 +551,26 @@ fn lint_error_exit_one_is_a_valid_report_not_a_provider_failure() {
     session.open(SOURCE);
     session.save();
     let packet = session.lint();
-    assert!(packet["params"]["diagnostics"].as_array().must_be("diagnostics")
-        .iter().any(|item| item["source"] == "bend-lint" && item["severity"] == 1));
+    assert!(
+        packet["params"]["diagnostics"]
+            .as_array()
+            .must_be("diagnostics")
+            .iter()
+            .any(|item| item["source"] == "bend-lint" && item["severity"] == 1)
+    );
     session.finish();
 }
 
 #[test]
 fn malformed_output_and_process_failure_preserve_selected_compiler_errors() {
-    for (output, status) in [("not json", "0"), ("{}", "2"),
-        ("{\"ok\":true,\"findings\":[],\"suppressed\":[]}", "1")] {
+    for (output, status) in [
+        ("not json", "0"),
+        ("{}", "2"),
+        ("{\"ok\":true,\"findings\":[],\"suppressed\":[]}", "1"),
+    ] {
         let mut session = Session::new(SOURCE, &[]);
-        fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR).must_be("compiler error");
+        fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR)
+            .must_be("compiler error");
         fs::write(session.control.join("response.json"), output).must_be("invalid response");
         fs::write(session.control.join("exit-code"), status).must_be("failing exit");
         session.configure(true, false, 10_000);
@@ -522,7 +631,10 @@ fn close_and_reopen_cannot_accept_previous_save_completion() {
     session.open(SOURCE);
     session.save();
     let address = session.wait_file("address");
-    session.client.notify("textDocument/didClose", json!({"textDocument":{"uri":session.document}}));
+    session.client.notify(
+        "textDocument/didClose",
+        json!({"textDocument":{"uri":session.document}}),
+    );
     session.open(SOURCE);
     session.release();
     socket_closed(&address);
@@ -557,19 +669,37 @@ fn dangerous_fixes_require_optin_explicit_request_and_versioned_user_edit() {
     session.save();
     let packet = session.lint();
     let diagnostics = packet["params"]["diagnostics"].clone();
-    assert!(session.actions(diagnostics.clone(), 2).is_empty(), "automatic requests must not offer dangerous fixes");
+    assert!(
+        session.actions(diagnostics.clone(), 2).is_empty(),
+        "automatic requests must not offer dangerous fixes"
+    );
     let actions = session.actions(diagnostics, 1);
     assert_eq!(actions.len(), 1);
     let action = &actions[0];
-    assert!(action["title"].as_str().must_be("action title").to_ascii_lowercase().contains("dangerous"));
+    assert!(
+        action["title"]
+            .as_str()
+            .must_be("action title")
+            .to_ascii_lowercase()
+            .contains("dangerous")
+    );
     assert_eq!(action["kind"], "quickfix.bend-lint.dangerous");
     assert_ne!(action["isPreferred"], true);
-    assert!(action["command"].is_null(), "never execute automatic fix commands");
-    assert_eq!(action["edit"]["documentChanges"], json!([{
-        "textDocument":{"uri":session.document,"version":1},
-        "edits":[{"range":range(0, 9, 10),"newText":""}]
-    }]));
-    assert_eq!(fs::read_to_string(&session.root).must_be("unchanged disk"), SOURCE);
+    assert!(
+        action["command"].is_null(),
+        "never execute automatic fix commands"
+    );
+    assert_eq!(
+        action["edit"]["documentChanges"],
+        json!([{
+            "textDocument":{"uri":session.document,"version":1},
+            "edits":[{"range":range(0, 9, 10),"newText":""}]
+        }])
+    );
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("unchanged disk"),
+        SOURCE
+    );
     session.finish();
 }
 
@@ -599,7 +729,8 @@ fn previously_reported_fix_is_refused_after_unsaved_edit_or_external_disk_change
         session.save();
         let diagnostics = session.lint()["params"]["diagnostics"].clone();
         if external {
-            fs::write(&session.root, "# external\n").must_be("external disk edit without notification");
+            fs::write(&session.root, "# external\n")
+                .must_be("external disk edit without notification");
         } else {
             session.change(2, "# unsaved\n");
         }
@@ -610,7 +741,12 @@ fn previously_reported_fix_is_refused_after_unsaved_edit_or_external_disk_change
 
 #[test]
 fn conflicting_or_unverifiable_multifile_fix_is_not_offered() {
-    for invalid in ["overlap", "closed-target", "missing-target", "surrogate-boundary"] {
+    for invalid in [
+        "overlap",
+        "closed-target",
+        "missing-target",
+        "surrogate-boundary",
+    ] {
         let mut session = Session::new(SOURCE, &[("dep.bend", "# 😀x\n")]);
         let mut item = finding(&session.root, "language/unneeded_plus", range(0, 9, 10));
         let mut edits = vec![json!({"path":session.root,"range":range(0, 9, 10),"text":""})];
@@ -633,7 +769,10 @@ fn conflicting_or_unverifiable_multifile_fix_is_not_offered() {
         session.open(SOURCE);
         session.save();
         let diagnostics = session.lint()["params"]["diagnostics"].clone();
-        assert!(session.actions(diagnostics, 1).is_empty(), "reject {invalid} as a whole, not a partial edit");
+        assert!(
+            session.actions(diagnostics, 1).is_empty(),
+            "reject {invalid} as a whole, not a partial edit"
+        );
         session.finish();
     }
 }
@@ -651,7 +790,10 @@ fn later_compiler_completion_keeps_already_published_lint_findings() {
     session.lint();
     fs::write(session.control.join("compiler-release"), "").must_be("finish compiler");
     let packet = session.compiler(1);
-    assert!(has_lint(&packet), "a late compiler must not overwrite the lint slot");
+    assert!(
+        has_lint(&packet),
+        "a late compiler must not overwrite the lint slot"
+    );
     session.finish();
 }
 
@@ -673,27 +815,45 @@ fn imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_er
     );
     session.configure(true, false, 10_000);
     session.open(source);
-    let baseline = session.client.receive_matching(TIMEOUT, |message| {
-        message["method"] == "textDocument/publishDiagnostics"
-            && message["params"]["uri"] == dependency_uri
-            && message["params"]["diagnostics"].as_array().is_some_and(|items| {
-                items.iter().any(|item| item["message"] == "selected imported rejection")
-            })
-    }).must_be("selected imported diagnostic before lint");
+    let baseline = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == dependency_uri
+                && message["params"]["diagnostics"]
+                    .as_array()
+                    .is_some_and(|items| {
+                        items
+                            .iter()
+                            .any(|item| item["message"] == "selected imported rejection")
+                    })
+        })
+        .must_be("selected imported diagnostic before lint");
     session.save();
     session.lint();
-    let merged = session.client.receive_matching(TIMEOUT, |message| {
-        message["params"]["uri"] == dependency_uri && has_lint(message)
-    }).must_be("imported compiler and lint union");
-    let selected: Vec<_> = merged["params"]["diagnostics"].as_array().must_be("imported union")
-        .iter().filter(|item| item["source"] != "bend-lint").cloned().collect();
+    let merged = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["params"]["uri"] == dependency_uri && has_lint(message)
+        })
+        .must_be("imported compiler and lint union");
+    let selected: Vec<_> = merged["params"]["diagnostics"]
+        .as_array()
+        .must_be("imported union")
+        .iter()
+        .filter(|item| item["source"] != "bend-lint")
+        .cloned()
+        .collect();
     assert_eq!(json!(selected), baseline["params"]["diagnostics"]);
     session.configure(false, false, 10_000);
-    let cleared = session.client.receive_matching(TIMEOUT, |message| {
-        message["method"] == "textDocument/publishDiagnostics"
-            && message["params"]["uri"] == dependency_uri
-            && message["params"]["diagnostics"] == baseline["params"]["diagnostics"]
-    }).must_be("disable clears only imported lint findings");
+    let cleared = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == dependency_uri
+                && message["params"]["diagnostics"] == baseline["params"]["diagnostics"]
+        })
+        .must_be("disable clears only imported lint findings");
     assert!(!has_lint(&cleared));
     session.finish();
 }
@@ -707,15 +867,22 @@ fn editing_saved_document_clears_published_lint_until_next_real_save() {
     session.save();
     session.lint();
     session.change(2, "def main(x: U32) -> U32:\n  x\n");
-    let cleared = session.client.receive_matching(TIMEOUT, |message| {
-        message["method"] == "textDocument/publishDiagnostics"
-            && message["params"]["uri"] == session.document
-            && message["params"]["version"] == 2
-            && !has_lint(message)
-    }).must_be("unsaved edit immediately removes disk diagnostics");
+    let cleared = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && message["params"]["version"] == 2
+                && !has_lint(message)
+        })
+        .must_be("unsaved edit immediately removes disk diagnostics");
     assert!(!has_lint(&cleared));
     session.no_lint();
-    assert_eq!(session.wait_file("calls").lines().count(), 1, "no lint on change");
+    assert_eq!(
+        session.wait_file("calls").lines().count(),
+        1,
+        "no lint on change"
+    );
     session.finish();
 }
 
@@ -731,9 +898,12 @@ fn config_file_change_invalidates_pending_project_results() {
     let config = session.project().join("bend-lint.json");
     fs::write(&config, "{\"rules\":{\"language/unneeded_plus\":\"off\"}}")
         .must_be("change project rules");
-    session.client.notify("workspace/didChangeWatchedFiles", json!({
-        "changes":[{"uri":uri(&config),"type":2}]
-    }));
+    session.client.notify(
+        "workspace/didChangeWatchedFiles",
+        json!({
+            "changes":[{"uri":uri(&config),"type":2}]
+        }),
+    );
     session.release();
     socket_closed(&address);
     session.no_lint();
@@ -772,10 +942,13 @@ fn missing_analyzer_is_visible_without_erasing_compiler_diagnostics() {
     let mut session = Session::new(SOURCE, &[]);
     fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR).must_be("compiler error");
     let missing = session.directory.path().join("missing analyzer");
-    session.client.notify("workspace/didChangeConfiguration", json!({"settings":{
-        "bend2-lsp":{"compilerPath":executable()},
-        "bend":{"lint":{"enabled":true,"path":missing,"timeoutMs":10_000}}
-    }}));
+    session.client.notify(
+        "workspace/didChangeConfiguration",
+        json!({"settings":{
+            "bend2-lsp":{"compilerPath":executable()},
+            "bend":{"lint":{"enabled":true,"path":missing,"timeoutMs":10_000}}
+        }}),
+    );
     session.open(SOURCE);
     session.compiler(1);
     session.save();
@@ -789,10 +962,13 @@ fn missing_analyzer_is_visible_without_erasing_compiler_diagnostics() {
 #[test]
 fn relative_analyzer_path_is_never_resolved_from_project_or_path() {
     let mut session = Session::new(SOURCE, &[]);
-    session.client.notify("workspace/didChangeConfiguration", json!({"settings":{
-        "bend2-lsp":{"compilerPath":executable()},
-        "bend":{"lint":{"enabled":true,"path":"bend-lint","timeoutMs":10_000}}
-    }}));
+    session.client.notify(
+        "workspace/didChangeConfiguration",
+        json!({"settings":{
+            "bend2-lsp":{"compilerPath":executable()},
+            "bend":{"lint":{"enabled":true,"path":"bend-lint","timeoutMs":10_000}}
+        }}),
+    );
     session.open(SOURCE);
     session.save();
     session.no_lint();
@@ -813,29 +989,53 @@ fn valid_multifile_dangerous_action_versions_every_open_saved_target() {
     ]}]);
     session.response(vec![item], vec![], true);
     session.configure(true, true, 10_000);
-    session.client.notify("textDocument/didOpen", json!({"textDocument":{
-        "uri":dependency_uri,"languageId":"bend","version":7,"text":dependency_source
-    }}));
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":dependency_uri,"languageId":"bend","version":7,"text":dependency_source
+        }}),
+    );
     session.open(SOURCE);
     session.save();
     let diagnostics = session.lint()["params"]["diagnostics"].clone();
     let actions = session.actions(diagnostics.clone(), 1);
     assert_eq!(actions.len(), 1);
-    let edits = actions[0]["edit"]["documentChanges"].as_array().must_be("multifile changes");
+    let edits = actions[0]["edit"]["documentChanges"]
+        .as_array()
+        .must_be("multifile changes");
     assert_eq!(edits.len(), 2);
-    let root_edit = edits.iter().find(|edit| edit["textDocument"]["uri"] == session.document)
+    let root_edit = edits
+        .iter()
+        .find(|edit| edit["textDocument"]["uri"] == session.document)
         .must_be("root edit");
     assert_eq!(root_edit["textDocument"]["version"], 1);
-    assert_eq!(root_edit["edits"], json!([{"range":range(0, 9, 10),"newText":""}]));
-    let dep_edit = edits.iter().find(|edit| edit["textDocument"]["uri"] == dependency_uri)
+    assert_eq!(
+        root_edit["edits"],
+        json!([{"range":range(0, 9, 10),"newText":""}])
+    );
+    let dep_edit = edits
+        .iter()
+        .find(|edit| edit["textDocument"]["uri"] == dependency_uri)
         .must_be("dependency edit");
     assert_eq!(dep_edit["textDocument"]["version"], 7);
-    assert_eq!(dep_edit["edits"], json!([{"range":range(1, 2, 3),"newText":"2"}]));
-    session.client.notify("textDocument/didChange", json!({"textDocument":{
-        "uri":dependency_uri,"version":8},"contentChanges":[{"text":"# unsaved\n"}]
-    }));
-    assert!(session.actions(diagnostics, 1).is_empty(), "a dirty target invalidates the entire edit");
-    assert_eq!(fs::read_to_string(&dependency).must_be("unchanged dependency"), dependency_source);
+    assert_eq!(
+        dep_edit["edits"],
+        json!([{"range":range(1, 2, 3),"newText":"2"}])
+    );
+    session.client.notify(
+        "textDocument/didChange",
+        json!({"textDocument":{
+            "uri":dependency_uri,"version":8},"contentChanges":[{"text":"# unsaved\n"}]
+        }),
+    );
+    assert!(
+        session.actions(diagnostics, 1).is_empty(),
+        "a dirty target invalidates the entire edit"
+    );
+    assert_eq!(
+        fs::read_to_string(&dependency).must_be("unchanged dependency"),
+        dependency_source
+    );
     session.finish();
 }
 
@@ -858,11 +1058,14 @@ fn lint_rule_cannot_impersonate_an_automatic_parser_fix() {
         }),
     );
     assert!(
-        response["result"].as_array().is_none_or(|actions| {
-            actions.iter().all(|action| action["title"] != "Insert ')'")
-        }),
+        response["result"]
+            .as_array()
+            .is_none_or(|actions| { actions.iter().all(|action| action["title"] != "Insert ')'") }),
         "external lint findings must never synthesize preferred parser edits"
     );
-    assert_eq!(fs::read_to_string(&session.root).must_be("unchanged source"), SOURCE);
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("unchanged source"),
+        SOURCE
+    );
     session.finish();
 }

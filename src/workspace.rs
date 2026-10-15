@@ -370,6 +370,10 @@ impl WorkspaceDb {
         self.entries.get(id.0)?.snapshot()
     }
 
+    pub(crate) fn open_snapshot(&self, id: FileId) -> Option<&Arc<DocumentSnapshot>> {
+        self.entries.get(id.0)?.open_snapshot.as_ref()
+    }
+
     #[must_use]
     pub fn import_target(
         &self,

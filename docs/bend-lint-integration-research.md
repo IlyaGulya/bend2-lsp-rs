@@ -107,9 +107,20 @@ tarball integrity
 Package generation/source inspection alone is not runtime verification; execute
 the genuine e2e and retain its result before claiming integration success.
 
-The smoke invokes the genuine CLI, then compares its actual finding with the
-stdio LSP result for the same saved file. Its rule and sample come from upstream
-[`language/unneeded_plus.test.ts`](https://github.com/MattCozendey/bend-lint/blob/02ef84b38b8c06cbd607e270c4930e633e9dab0f/bend-lint-rules/language/unneeded_plus.test.ts),
-using BendHub package `bend-lint-rules@0.1.0.0`. It does not replay a fixture as a
-substitute for the analyzer. The deterministic protocol suite separately exercises
-process races, failures, containment, saved buffers, UTF-16 and dangerous edits.
+The smoke invokes the genuine CLI, then compares its actual findings and dangerous
+replacement with the stdio LSP result for the same saved file. It enables published
+`language/unneeded_plus` and `layout/format` rules together. The sample preserves
+independent binder-code/message/UTF-16 assertions from
+[`language/unneeded_plus.test.ts`](https://github.com/MattCozendey/bend-lint/blob/02ef84b38b8c06cbd607e270c4930e633e9dab0f/bend-lint-rules/language/unneeded_plus.test.ts)
+and introduces the four-space indentation exercised in
+[`layout/format.test.ts`](https://github.com/MattCozendey/bend-lint/blob/02ef84b38b8c06cbd607e270c4930e633e9dab0f/bend-lint-rules/layout/format.test.ts).
+The latter rule's
+[`judged` implementation](https://github.com/MattCozendey/bend-lint/blob/02ef84b38b8c06cbd607e270c4930e633e9dab0f/bend-lint-rules/layout/format.bend#L2367-L2376)
+reports a real full-file replacement. The test explicitly opts in, rejects
+automatic action requests, compares the versioned explicit action with the actual
+CLI edit, checks disk remains untouched, then simulates user application and
+independently expects canonical two-space indentation. This does not replace the
+server's normal formatter. Both rules use BendHub `bend-lint-rules@0.1.0.0`;
+no fixture replays an analyzer result. The deterministic protocol suite separately
+exercises process races, failures, containment, saved buffers, UTF-16 and stale or
+conflicting edits.
