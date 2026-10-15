@@ -1,8 +1,17 @@
-name: performance-control-smoke
+name: performance-calibration
 
-# Experiment-branch-only raw-evidence smoke, never numerical admission.
-# The separate prospective workflow still requires fixed 3/3/105 controls.
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/performance-calibration.yml
+      - scripts/ci-cache.sh
+      - scripts/install-tools.sh
+      - scripts/install-valgrind.sh
+      - rust-toolchain.toml
+      - tools/perf/**
+      - Cargo.toml
+      - Cargo.lock
   workflow_dispatch:
 
 permissions: {}
@@ -12,14 +21,30 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
           - job: discovery-01
             role: discovery
+          - job: discovery-02
+            role: discovery
+          - job: discovery-03
+            role: discovery
+          - job: discovery-04
+            role: discovery
+          - job: discovery-05
+            role: discovery
+          - job: discovery-06
+            role: discovery
+          - job: discovery-07
+            role: discovery
           - job: validation-01
+            role: validation
+          - job: validation-02
+            role: validation
+          - job: validation-03
             role: validation
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -74,7 +99,10 @@ jobs:
         run: ./scripts/install-tools.sh performance
       - name: Build isolated Rust calibration tooling
         run: cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Exercise both genuine benchmark executables and retain every workload
+      - name: Check Rust calibration contracts
+        run: |
+          cargo test --locked --release -p bend2-perf --bin bend2-perf calibration:: --target-dir "$RUNNER_TEMP/perf-tools-target"
+      - name: Collect balanced independent-build measurements
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
           CALIBRATION_ROLE: ${{ matrix.role }}
@@ -82,14 +110,14 @@ jobs:
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
             --source "$GITHUB_WORKSPACE" \
             --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
-            --output-dir "target/performance-repeatability/$CALIBRATION_JOB" \
-            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 1
+            --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
+            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 5
       - name: Preserve installed profiler provenance
         if: always() && steps.valgrind.outcome == 'success'
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
         run: |
-          output="target/performance-repeatability/$CALIBRATION_JOB"
+          output="target/performance-calibration/$CALIBRATION_JOB"
           mkdir -p "$output"
           "$VALGRIND_INSTALL_ROOT/bin/valgrind" --version > "$output/valgrind-version.txt"
           cp "$VALGRIND_INSTALL_ROOT/provenance.json" "$output/valgrind-provenance.json"
@@ -97,8 +125,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: performance-repeatability-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
-          path: target/performance-repeatability/${{ matrix.job }}/
+          name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
+          path: target/performance-calibration/${{ matrix.job }}/
           if-no-files-found: error
           retention-days: 14
       - name: Save trusted Cargo downloads
@@ -136,35 +164,29 @@ jobs:
         run: |
           rustup toolchain install 1.98.1 --profile minimal
           cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Prepare report input even when collection fails
-        if: always()
-        run: mkdir -p target/performance-repeatability-input
       - name: Download independent runner datasets
-        if: always()
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: performance-repeatability-${{ github.run_id }}-${{ github.run_attempt }}-*
-          path: target/performance-repeatability-input
-      - name: Validate all 54 workloads and both executable bindings without admission
+          pattern: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: target/performance-calibration-input
+      - name: Validate A/A repeatability and positive-control sensitivity
+        run: |
+          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
+            --expected-discovery-jobs 7 --expected-validation-jobs 3 --expected-pairs 5 \
+            --require-control-validation \
+            --json-output target/performance-calibration-report/report.json \
+            --markdown-output target/performance-calibration-report/report.md
+      - name: Publish observed calibration summary
         if: always()
         run: |
-          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-repeatability-input \
-            --method historical \
-            --expected-discovery-jobs 1 --expected-validation-jobs 1 --expected-pairs 1 \
-            --expected-workloads 54 --require-all-benchmarks \
-            --json-output target/performance-repeatability-report/report.json \
-            --markdown-output target/performance-repeatability-report/report.md
-      - name: Publish non-admitting collector smoke summary
-        if: always()
-        run: |
-          if [[ -f target/performance-repeatability-report/report.md ]]; then
-            cat target/performance-repeatability-report/report.md >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f target/performance-calibration-report/report.md ]]; then
+            cat target/performance-calibration-report/report.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Preserve report without changing active gates
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: performance-repeatability-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: target/performance-repeatability-report/
+          name: performance-calibration-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/performance-calibration-report/
           if-no-files-found: error
           retention-days: 14

@@ -464,6 +464,21 @@ divisible by five. There is no adaptive stopping, retry-for-luck, best-sample
 selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
 and validation both use the predeclared method; neither trains an allowance.
 
+Every independently built variant now contains both benchmark executables:
+`analysis` (51 workloads) and `reference_locations` (three workloads). Each
+logical sample runs them in that order, in two distinct fresh processes with
+separate output directories. The fixed experiment therefore contains 1,050
+benchmark-process executions per job, without changing the 105 paired samples
+used for each workload/event comparison.
+
+Evidence format v2 binds each benchmark's actual `--list` identities, executable
+hash and raw stdout/stderr to its frozen variant source. Both original harness
+hashes are retained; the reference-location harness is not modified. Workload
+sets must be complete, disjoint and consistent across variants. Reports expose
+the benchmark scope and reparse both raw outputs before accepting merged counts.
+Historical v1 evidence remains explicitly analysis-only and cannot be mixed
+with v2 evidence or used to establish complete 54-workload control coverage.
+
 For each job, variant, workload and event separately, the reporter sorts the
 105 exact signed paired residuals:
 
@@ -498,7 +513,9 @@ reliability, whole-editor latency, or the probability of a future raw failure.
 There are no tail-confidence or zero-tail-failure claims, even when every
 observed A/A comparison passes.
 
-Control validation requires complete 3/3/105 coverage and all of the following:
+Control validation requires complete 3/3/105 coverage of all 54 workloads across
+both executables, enforced with `--expected-workloads 54 --require-all-benchmarks`,
+and all of the following:
 
 - Every source-identical `b` versus `a` workload/event comparison passes in
   every discovery and validation job independently.
@@ -518,15 +535,19 @@ control-validation command exits unsuccessfully.
 
 The workflow uses native Ubuntu 24.04, Rust 1.98.1, Iai-Callgrind runner 0.16.1,
 and checksum/provenance-bound Valgrind 3.27.1, matching the raw collector.
-Each collection job has a fixed 180-minute timeout. Actions are SHA-pinned;
-checkouts do not persist credentials; permissions are read-only; only trusted
-manual main runs save tool/download caches, never benchmark object caches.
+Each collection job has a fixed 360-minute timeout; collection itself is limited
+to 330 minutes, leaving time for failure evidence and uploads. This allows the
+full predeclared sample count rather than reducing it to fit a shorter deadline.
+Actions are SHA-pinned; checkouts do not persist credentials; permissions are
+read-only; only trusted manual main runs save tool/download caches, never
+benchmark object caches.
 There is no PR trigger, privileged PR-code execution, environment approval,
 release, nightly schedule or automatic admission. The always-run report job
 downloads only this run and attempt's six collection artifacts and checks full
 coverage even after collection or download failure. All collected raw results,
 failure diagnostics, profiler provenance and reports are retained for 14 days.
-The existing raw calibration workflow is unchanged.
+The raw calibration workflow retains its existing 7/3/5 schedule and raw
+single-pair method; it uses the same complete-scope v2 collector.
 
 After integrating and checking the tooling, a maintainer can dispatch the
 fixed prospective experiment on the reviewed source revision:
@@ -541,6 +562,7 @@ For retained artifacts, the equivalent report command is:
 bend2-perf calibration report INPUT \
   --method paired-median-105-v1 --require-control-validation \
   --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
+  --expected-workloads 54 --require-all-benchmarks \
   --json-output report.json --markdown-output report.md
 ```
 
@@ -550,6 +572,19 @@ and reports `active_gates_changed: false`. Neither old 7/3/5 data nor the
 rejected fixed-five prototype validates this 3/3/105 method. Its prospective
 control outcome must be observed, not inferred from local fixtures or these
 instructions, and must not be used to tune the method to the held-out results.
+
+The earlier [analysis-only experiment](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38692087771)
+is insufficient evidence: only two of six fixed 105-pair jobs completed; four
+hit their 180-minute job deadline, and their raw-artifact uploads also failed.
+Its retained report rejects the missing coverage. Completed jobs are not reused
+as part of a new experiment or promoted to complete-scope validation.
+
+A [non-admitting infrastructure smoke](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38716125552)
+exercised both genuine executables, all five variants and all 54 workloads on
+two independent jobs with one pair each. Collection, raw-evidence validation
+and scope enforcement passed. Its control verdict remains failed: coverage is
+insufficient and raw single-pair A/A exceedances remain visible. A green smoke
+workflow is not repeatability validation or candidate admission.
 
 
 ## Functional-fix performance acceptance (PR #4)

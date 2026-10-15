@@ -82,6 +82,7 @@ jobs:
       - name: Build isolated Rust calibration tooling
         run: cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
       - name: Collect exactly 105 balanced independent-build pairs
+        timeout-minutes: 330
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
           CALIBRATION_ROLE: ${{ matrix.role }}

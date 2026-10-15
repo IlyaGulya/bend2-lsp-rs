@@ -20,6 +20,10 @@
   and three validation jobs, exact conditional median uncertainty, source-identical
   controls and held-out injected regressions. Fail closed on uncertainty and retain
   raw failures; leave ordinary admission, numeric limits and baselines unchanged.
+- Bind calibration evidence to both benchmark executables and all 54 gated
+  workloads, including reference ordering. Validate each executable's workload
+  manifest and raw output separately; reject incomplete or mixed evidence.
+  Keep the prospective experiment report-only, with unchanged numeric limits.
 - Require genuine compiler diagnostics in all six native and installed-executable
   E2E matrices. Pin official Unix archives and build the Windows compiler from
   exact upstream source with a pinned native Bun runtime and a resource-locator
