@@ -554,6 +554,10 @@ pub(super) fn build_report(jobs: &[Value]) -> ToolResult<Value> {
         .iter()
         .filter(|row| row["role"] == "validation" && row["variant"] == "b")
         .collect();
+    let repeatability_failures: Vec<_> = rows
+        .iter()
+        .filter(|row| row["variant"] == "b" && row["current_passed"] == false)
+        .collect();
     let signals: Vec<_> = rows
         .iter()
         .filter(|row| {
@@ -620,6 +624,13 @@ pub(super) fn build_report(jobs: &[Value]) -> ToolResult<Value> {
         "percentiles": "Nearest-rank empirical p50/p95; not estimates of independent tail reliability.",
         "jobs": provenance, "hosts": hosts, "cache_allowances": allowances, "comparisons": rows, "summaries": summaries,
         "held_out_aa": {"samples": validation_aa.len(), "current_false_positives": validation_aa.iter().filter(|row| row["current_passed"] == false).count(), "proposed_false_positives": validation_aa.iter().filter(|row| row["proposed_passed"] == false).count(), "by_metric": by_metric},
+        "control_validation": {
+            "passed": sufficient && repeatability_failures.is_empty() && failures.is_empty(),
+            "coverage_sufficient": sufficient,
+            "repeatability_passed": repeatability_failures.is_empty(),
+            "sensitivity_passed": failures.is_empty(),
+            "repeatability_failures": repeatability_failures
+        },
         "sensitivity": {"passed": failures.is_empty(), "policy": "unchanged Ir 2%", "signals": signals, "validation_failures": failures}
     }))
 }
@@ -676,7 +687,15 @@ fn percentage(value: &Value) -> String {
 
 pub(super) fn render_markdown(report: &Value) -> ToolResult<String> {
     let mut output = format!(
-        "# Performance calibration (proposal-only)\n\nActive blocking gates are unchanged. This report does not approve a calibrated policy.\n\n## Coverage and dependence\n\n{}\n\nObserved jobs: {}; pairs: {}.\n\n{}\n\n{}\n\n## Discovery-only proposal\n\n{}\n\n{}\n\n| Workload | Event | Discovery positive A/A floor (events) |\n| --- | --- | ---: |\n",
+        "# Performance calibration (proposal-only)\n\nActive comparison limits are unchanged. This report does not approve a calibrated policy.\n\n## Control validation: {}\n\nFull predeclared coverage: {}. Source-identical A/A within active limits: {}. Positive controls detected: {}.\n\nA failed control check makes these measurements unsuitable for accepting a performance comparison. It does not authorize wider limits or a regression exception.\n\n## Coverage and dependence\n\n{}\n\nObserved jobs: {}; pairs: {}.\n\n{}\n\n{}\n\n## Discovery-only proposal\n\n{}\n\n{}\n\n| Workload | Event | Discovery positive A/A floor (events) |\n| --- | --- | ---: |\n",
+        if report["control_validation"]["passed"] == true {
+            "PASS"
+        } else {
+            "FAIL"
+        },
+        report["control_validation"]["coverage_sufficient"],
+        report["control_validation"]["repeatability_passed"],
+        report["control_validation"]["sensitivity_passed"],
         text(&report["coverage"], "limitation")?,
         report["coverage"]["observed_jobs"],
         report["coverage"]["observed_pairs"],
@@ -697,7 +716,7 @@ pub(super) fn render_markdown(report: &Value) -> ToolResult<String> {
             row["discovery_positive_delta_floor"]
         )?;
     }
-    output.push_str("\n## Held-out A/A false positives\n\nCache A/A noise is reported, never suppressed, and does not fail collection or this report.\n\n| Event | Comparisons | Current false positives | Proposed false positives |\n| --- | ---: | ---: | ---: |\n");
+    output.push_str("\n## Held-out A/A false positives\n\nAll A/A exceedances are retained. With --require-control-validation, an exceedance fails control validation after reports are written; collection evidence is not discarded.\n\n| Event | Comparisons | Current false positives | Proposed false positives |\n| --- | ---: | ---: | ---: |\n");
     for metric in METRICS {
         let values = &report["held_out_aa"]["by_metric"][metric];
         writeln!(
@@ -782,5 +801,9 @@ pub(super) fn run(args: &ReportArgs) -> ToolResult<()> {
     require(
         report["sensitivity"]["passed"] == true,
         "Calibration sensitivity failed: validation work/alloc controls did not exceed unchanged 2% Ir policy.",
+    )?;
+    require(
+        !args.require_control_validation || report["control_validation"]["passed"] == true,
+        "Calibration control validation failed: require full coverage, source-identical A/A within active limits, and detected positive controls. Retained reports include the failures.",
     )
 }

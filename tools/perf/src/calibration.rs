@@ -76,6 +76,9 @@ struct ReportArgs {
     expected_validation_jobs: Option<u64>,
     #[arg(long, value_parser = positive_integer)]
     expected_pairs: Option<u64>,
+    /// Reject incomplete coverage, source-identical A/A failures, or missed positive controls.
+    #[arg(long)]
+    require_control_validation: bool,
 }
 
 fn positive_integer(value: &str) -> Result<u64, String> {

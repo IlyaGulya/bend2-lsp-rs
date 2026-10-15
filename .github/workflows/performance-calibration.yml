@@ -169,10 +169,11 @@ jobs:
         with:
           pattern: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-*
           path: target/performance-calibration-input
-      - name: Report discovery allowances and untouched holdout sensitivity
+      - name: Validate A/A repeatability and positive-control sensitivity
         run: |
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
             --expected-discovery-jobs 7 --expected-validation-jobs 3 --expected-pairs 5 \
+            --require-control-validation \
             --json-output target/performance-calibration-report/report.json \
             --markdown-output target/performance-calibration-report/report.md
       - name: Publish observed calibration summary

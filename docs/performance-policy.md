@@ -378,6 +378,35 @@ limits remain 2%; both positive controls must exceed them on all three validatio
 inlay workloads. A/A exceedances remain visible rather than being retried away.
 Proposals are never automatically installed.
 
+The CI report now also requires `--require-control-validation`. Its independent
+control verdict requires complete seven-job discovery / three-job validation /
+five-pair coverage, no source-identical A/A exceedance of the active limits in
+either role, and detection of every held-out work/allocation control. Reports
+are written before this check exits unsuccessfully; all raw evidence and
+individual failures remain available. A failed control check is neither an
+accepted regression nor permission to widen a limit. Without this option the
+CLI can still generate a diagnostic report from partial retained datasets, but
+the report displays the failed control verdict prominently.
+
+The version-only 0.6.2 candidate exposed why this check is necessary.
+[Calibration run 38682489026](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38682489026)
+used exact merge source `0993cea112e7ea2726d26ad23992fcca6b64259e`.
+Its held-out unchanged-source comparisons exceeded the instruction limit
+13 times and the cache limits twice in 2,295 event comparisons. Positive controls
+were still detected. Five processes of one unchanged executable in validation-03
+measured 590–620 instructions for the small identifier query and
+5,459,801–5,673,275 for burst invalidation. Its SHA-256 was
+`b8c22daf2fbea711353b2a76a6bbc02b7ca1f5e90cc4010890b4ebf6cd7eb531`.
+These are calibration-harness observations, not permission to reclassify the
+ordinary candidate comparison or claim a production slowdown.
+
+A report-only fixed-five median prototype still exceeded active limits for
+unchanged-source controls: two discovery incremental-invalidation cases and
+one held-out small identifier query. It was not adopted. Pooled samples remove
+those particular exceedances, but that finite, dependent sample is not evidence
+for changing the admission estimator. The production benchmark, limits,
+baseline collection, and no-retry policy remain unchanged.
+
 Reported p50/p95 are empirical nearest-rank values, not tail-confidence claims.
 Comparisons share an A baseline within each series; series share builds within
 each job. The calibration-only harness and diagnostic layout changes can affect

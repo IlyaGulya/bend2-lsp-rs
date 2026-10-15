@@ -753,3 +753,99 @@ fn environment_rejects_host_metadata_and_allows_comparable_cache_geometry() -> T
     assert_eq!(METRICS, ["Ir", "I1mr", "ILmr"]);
     Ok(())
 }
+
+#[test]
+fn strict_controls_reject_unchanged_source_regression_and_accept_limit_boundary() -> ToolResult<()>
+{
+    let fixture = Fixture::new()?;
+    let mut jobs: Vec<_> = [("discovery", 7), ("validation", 3)]
+        .into_iter()
+        .flat_map(|(role, count)| {
+            (0..count).map(move |index| dataset(&format!("{role}-{index}"), role, 5))
+        })
+        .collect();
+    let holdout = &mut jobs[7];
+    let sample = holdout["samples"]
+        .as_array_mut()
+        .ok_or("samples missing")?
+        .iter_mut()
+        .find(|sample| sample["variant"] == "b" && sample["pair"] == 1)
+        .ok_or("holdout comparison missing")?;
+    sample["workloads"][0]["counts"]["Ir"] = json!(103);
+    fixture.load_jobs(&jobs)?;
+    assert_error(
+        fixture.cli(&["--require-control-validation"]),
+        "Calibration control validation failed",
+    )?;
+    let output = fixture.directory.path().join("report.json");
+    let report: Value = serde_json::from_slice(&fs::read(&output)?)?;
+    assert_eq!(report["control_validation"]["passed"], false);
+    assert_eq!(report["control_validation"]["sensitivity_passed"], true);
+    let failures: Vec<_> = report["control_validation"]["repeatability_failures"]
+        .as_array()
+        .ok_or("repeatability failures missing")?
+        .iter()
+        .map(|row| {
+            json!({
+                "job": row["job_id"], "pair": row["pair"],
+                "function": row["function_name"], "id": row["id"],
+                "metric": row["metric"], "baseline": row["baseline"],
+                "candidate": row["candidate"]
+            })
+        })
+        .collect();
+    assert_eq!(
+        failures,
+        vec![json!({
+            "job": "validation-0", "pair": 1,
+            "function": "inlay_hints_warm", "id": "small",
+            "metric": "Ir", "baseline": 100, "candidate": 103
+        })]
+    );
+    let sample = jobs[7]["samples"]
+        .as_array_mut()
+        .ok_or("samples missing")?
+        .iter_mut()
+        .find(|sample| sample["variant"] == "b" && sample["pair"] == 1)
+        .ok_or("holdout comparison missing")?;
+    sample["workloads"][0]["counts"]["Ir"] = json!(102);
+    fixture.load_jobs(&jobs)?;
+    fixture.cli(&["--require-control-validation"])?;
+    let report: Value = serde_json::from_slice(&fs::read(output)?)?;
+    assert_eq!(report["control_validation"]["passed"], true);
+    Ok(())
+}
+
+#[test]
+fn strict_controls_do_not_certify_partial_coverage_or_missed_regressions() -> ToolResult<()> {
+    let fixture = Fixture::new()?;
+    fixture.load()?;
+    assert_error(
+        fixture.cli(&["--require-control-validation"]),
+        "Calibration control validation failed",
+    )?;
+    let output = fixture.directory.path().join("report.json");
+    let report: Value = serde_json::from_slice(&fs::read(&output)?)?;
+    assert_eq!(report["control_validation"]["coverage_sufficient"], false);
+    assert_eq!(report["control_validation"]["repeatability_passed"], true);
+    assert_eq!(report["control_validation"]["passed"], false);
+
+    let mut jobs: Vec<_> = [("discovery", 7), ("validation", 3)]
+        .into_iter()
+        .flat_map(|(role, count)| {
+            (0..count).map(move |index| dataset(&format!("{role}-{index}"), role, 5))
+        })
+        .collect();
+    counts(&mut jobs[7], "extra_alloc", "Ir", 102, Some(1))?;
+    fixture.load_jobs(&jobs)?;
+    assert_error(
+        fixture.cli(&["--require-control-validation"]),
+        "Calibration sensitivity failed",
+    )?;
+    let report: Value = serde_json::from_slice(&fs::read(output)?)?;
+    assert_eq!(report["control_validation"]["coverage_sufficient"], true);
+    assert_eq!(report["control_validation"]["repeatability_passed"], true);
+    assert_eq!(report["control_validation"]["sensitivity_passed"], false);
+    assert_eq!(report["control_validation"]["passed"], false);
+    Ok(())
+}
