@@ -346,7 +346,7 @@ any later candidate/run. Existing historical failed compares remain failed.
 The separate [`performance-calibration` workflow](../.github/workflows/performance-calibration.yml)
 does not modify the active comparator, thresholds, or baseline workflow. It runs
 on host Ubuntu 24.04, like `performance / compare`, with Rust 1.98.1,
-Iai-Callgrind runner 0.16.1, and the runner's installed Valgrind. Persistent Docker
+Iai-Callgrind runner 0.16.1, and pinned Valgrind 3.27.1. Persistent Docker
 is for local smoke runs; its architecture and Valgrind version are not CI evidence.
 
 Seven discovery jobs and three independently assigned validation jobs each run
@@ -443,6 +443,114 @@ CI-only. It enforces the predeclared seven discovery jobs, three validation jobs
 and five independent pairs per job through the existing `--expected-*-jobs` and
 `--expected-pairs` report options. Local fixture-based report/contract tests do
 not collect measurements.
+
+### Prospective repeated-median control experiment
+
+The separate, manual-only
+[`performance-repeatability` workflow](../.github/workflows/performance-repeatability.yml)
+evaluates the predeclared `paired-median-105-v1` method. It does not replace the
+raw calibration workflow above or the ordinary `performance` admission workflow.
+Fresh, independent prospective controls must pass before any future ordinary
+admission cutover is considered. No passing experiment automatically admits a
+candidate, changes a baseline, or rewrites a historical raw verdict.
+
+The fixed experiment has three discovery jobs (`discovery-01` through
+`discovery-03`) and three independently assigned validation jobs
+(`validation-01` through `validation-03`), each collecting exactly 105 pairs.
+Every pair measures the existing five variants (`a`, `b`, `layout`, `extra_work`,
+`extra_alloc`) in the collector's balanced five-position order, with a fresh
+process and isolated output for every measurement. The odd sample count is
+divisible by five. There is no adaptive stopping, retry-for-luck, best-sample
+selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
+and validation both use the predeclared method; neither trains an allowance.
+
+For each job, variant, workload and event separately, the reporter sorts the
+105 exact signed paired residuals:
+
+```text
+(candidate - baseline - active_allowance(event, baseline)) / max(baseline, 1)
+```
+
+The active allowance is unchanged: `floor(2 * baseline / 100)` for `Ir`,
+and `max(ceil(3 * baseline / 100), 3)` for cache events. This changes the
+estimator, not the numeric limits, benchmark workload, measured metrics,
+guard boundaries or cache geometry. Exact integer/rational arithmetic retains
+valid zero counters and full-width counts; floating-point display values never
+decide the result.
+
+Exact distribution-free binomial order-statistic bounds provide separate
+one-sided 95% lower and upper confidence bounds for the population median.
+Reports retain the sample count, bound ranks and confidence, exact median and
+bound fractions, and every raw pair comparison. Ties remain in the ordered
+sample: an upper bound equal to zero passes; a lower bound strictly greater
+than zero is a regression; every other outcome is inconclusive. An inconclusive
+result is not a pass.
+
+These are conditional, same-job process-randomization claims, assuming
+independent fresh-process observations for each comparison with fixed builds.
+Variants share the same A baseline within a pair, and pairs share builds;
+comparisons across variants, workloads or events are not independent. Bounds
+are not simultaneous across metrics. Per-event lower-bound regressions are
+not familywise significance claims. Requiring every upper bound to pass has
+an intersection-union rationale only under the declared sampling assumptions.
+The method estimates typical (median) per-process change, not p95, tail
+reliability, whole-editor latency, or the probability of a future raw failure.
+There are no tail-confidence or zero-tail-failure claims, even when every
+observed A/A comparison passes.
+
+Control validation requires complete 3/3/105 coverage and all of the following:
+
+- Every source-identical `b` versus `a` workload/event comparison passes in
+  every discovery and validation job independently.
+- Both `extra_work` and `extra_alloc` are classified as regressions for `Ir`
+  on all three inlay workloads in every held-out validation job. Merely
+  inconclusive positive controls do not demonstrate sensitivity.
+- Existing raw profile, stdout, source-manifest and binary-identity validation
+  succeeds. Missing, duplicate, stale, malformed or unverified evidence cannot
+  establish control acceptance.
+
+The layout variant remains diagnostic, not an assumed cost-equivalent A/A
+control or training data. No learned cache allowance applies to this method.
+Raw one-pair failures remain visible even when a repeated comparison passes.
+Insufficient coverage, inconclusive A/A, a missed positive control or invalid
+evidence fails closed; JSON and Markdown diagnostics are retained before the
+control-validation command exits unsuccessfully.
+
+The workflow uses native Ubuntu 24.04, Rust 1.98.1, Iai-Callgrind runner 0.16.1,
+and checksum/provenance-bound Valgrind 3.27.1, matching the raw collector.
+Each collection job has a fixed 180-minute timeout. Actions are SHA-pinned;
+checkouts do not persist credentials; permissions are read-only; only trusted
+manual main runs save tool/download caches, never benchmark object caches.
+There is no PR trigger, privileged PR-code execution, environment approval,
+release, nightly schedule or automatic admission. The always-run report job
+downloads only this run and attempt's six collection artifacts and checks full
+coverage even after collection or download failure. All collected raw results,
+failure diagnostics, profiler provenance and reports are retained for 14 days.
+The existing raw calibration workflow is unchanged.
+
+After integrating and checking the tooling, a maintainer can dispatch the
+fixed prospective experiment on the reviewed source revision:
+
+```bash
+gh workflow run performance-repeatability.yml --ref <reviewed-ref>
+```
+
+For retained artifacts, the equivalent report command is:
+
+```bash
+bend2-perf calibration report INPUT \
+  --method paired-median-105-v1 --require-control-validation \
+  --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
+  --json-output report.json --markdown-output report.md
+```
+
+Collection remains hosted-only. The default report method retains the existing
+raw semantics for historical datasets; the new method is explicitly selected
+and reports `active_gates_changed: false`. Neither old 7/3/5 data nor the
+rejected fixed-five prototype validates this 3/3/105 method. Its prospective
+control outcome must be observed, not inferred from local fixtures or these
+instructions, and must not be used to tune the method to the held-out results.
+
 
 ## Functional-fix performance acceptance (PR #4)
 

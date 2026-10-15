@@ -17,8 +17,8 @@
 
 mod collector;
 mod integrity;
-mod report;
 mod repeated;
+mod report;
 #[cfg(test)]
 mod tests;
 

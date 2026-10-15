@@ -16,6 +16,10 @@
 - Fail calibration control validation when unchanged-source measurements exceed
   the active performance limits, coverage is incomplete, or injected regressions
   are missed. Retain reports and raw evidence; do not widen comparison limits.
+- Add a manual-only, fixed 105-pair repeatability experiment with three discovery
+  and three validation jobs, exact conditional median uncertainty, source-identical
+  controls and held-out injected regressions. Fail closed on uncertainty and retain
+  raw failures; leave ordinary admission, numeric limits and baselines unchanged.
 - Require genuine compiler diagnostics in all six native and installed-executable
   E2E matrices. Pin official Unix archives and build the Windows compiler from
   exact upstream source with a pinned native Bun runtime and a resource-locator
