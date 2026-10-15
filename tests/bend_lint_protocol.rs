@@ -838,3 +838,31 @@ fn valid_multifile_dangerous_action_versions_every_open_saved_target() {
     assert_eq!(fs::read_to_string(&dependency).must_be("unchanged dependency"), dependency_source);
     session.finish();
 }
+
+#[test]
+fn lint_rule_cannot_impersonate_an_automatic_parser_fix() {
+    let mut session = Session::new(SOURCE, &[]);
+    let mut item = finding(&session.root, "parsing", range(0, 9, 10));
+    item["message"] = json!("Unclosed '('");
+    session.response(vec![item], vec![], true);
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.save();
+    let diagnostics = session.lint()["params"]["diagnostics"].clone();
+    let response = session.client.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument":{"uri":session.document},
+            "range":range(0, 0, 24),
+            "context":{"diagnostics":diagnostics,"triggerKind":2,"only":["quickfix"]}
+        }),
+    );
+    assert!(
+        response["result"].as_array().is_none_or(|actions| {
+            actions.iter().all(|action| action["title"] != "Insert ')'")
+        }),
+        "external lint findings must never synthesize preferred parser edits"
+    );
+    assert_eq!(fs::read_to_string(&session.root).must_be("unchanged source"), SOURCE);
+    session.finish();
+}

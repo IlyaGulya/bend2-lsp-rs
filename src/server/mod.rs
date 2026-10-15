@@ -9,6 +9,7 @@ mod discovery;
 mod document_text;
 mod features;
 mod formatter;
+mod lint;
 mod lsp;
 mod orchestration;
 mod reference_locations;

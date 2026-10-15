@@ -366,6 +366,10 @@ impl WorkspaceDb {
         self.entries.get(self.by_uri.get(uri)?.0)?.document()
     }
 
+    pub(crate) fn source_snapshot(&self, id: FileId) -> Option<&Arc<DocumentSnapshot>> {
+        self.entries.get(id.0)?.snapshot()
+    }
+
     #[must_use]
     pub fn import_target(
         &self,

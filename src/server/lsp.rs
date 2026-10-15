@@ -22,7 +22,7 @@ use tower_lsp::{
         CodeActionParams, CodeActionResponse, CodeLens, CodeLensParams, CompletionParams,
         CompletionResponse, DidChangeConfigurationParams, DidChangeTextDocumentParams,
         DidChangeWatchedFilesParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
-        DidOpenTextDocumentParams, DocumentFormattingParams, DocumentHighlight,
+        DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentFormattingParams, DocumentHighlight,
         DocumentHighlightParams, DocumentLink, DocumentLinkParams, DocumentOnTypeFormattingParams,
         DocumentRangeFormattingParams, DocumentSymbolParams, DocumentSymbolResponse, FoldingRange,
         FoldingRangeParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
@@ -106,7 +106,11 @@ impl LanguageServer for Backend {
                 id: "bend2-lsp-bend-files".into(),
                 method: "workspace/didChangeWatchedFiles".into(),
                 register_options: Some(serde_json::json!({
-                    "watchers":[{"globPattern":"**/*.bend","kind":7}]
+                    "watchers":[
+                        {"globPattern":"**/*.bend","kind":7},
+                        {"globPattern":"**/bend-lint.json","kind":7},
+                        {"globPattern":"**/bend-lint-rules/**","kind":7}
+                    ]
                 })),
             });
         }
@@ -137,6 +141,8 @@ impl LanguageServer for Backend {
         fields(method = "did_change_workspace_folders")
     )]
     async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
+        self.invalidate_lint().await;
+        self.diagnostics.invalidate_context();
         let _operation = self.workspace.file_operations.write().await;
         self.workspace.cancel_discovery().await;
         let _serial = self.workspace.update_serial.lock().await;
@@ -186,6 +192,8 @@ impl LanguageServer for Backend {
         fields(method = "did_change_configuration")
     )]
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
+        self.configure_lint(&params.settings).await;
+        self.diagnostics.invalidate_context();
         let _operation = self.workspace.document_operation().await;
         let (config, warnings) = CompilerConfig::from_settings(&params.settings);
         {
@@ -227,6 +235,7 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_open", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        self.invalidate_lint().await;
         let _operation = self.workspace.document_operation().await;
         let item = params.text_document;
         let uri = item.uri;
@@ -250,6 +259,7 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        self.invalidate_lint().await;
         let _operation = self.workspace.document_operation().await;
         let uri = params.text_document.uri.clone();
         let version = params.text_document.version;
@@ -270,12 +280,18 @@ impl LanguageServer for Backend {
             self.schedule_diagnostics(document.uri, revision).await;
         }
     }
+    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+        let _read = self.document_read(&params.text_document.uri).await;
+        self.schedule_lint(params.text_document.uri).await;
+    }
+
     #[tracing::instrument(
         name = "workspace.update",
         skip_all,
         fields(method = "did_change_watched_files")
     )]
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
+        self.invalidate_lint().await;
         let _operation = self.workspace.document_operation().await;
         let events = params
             .changes
@@ -292,6 +308,7 @@ impl LanguageServer for Backend {
 
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_close", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
+        self.invalidate_lint().await;
         let _operation = self.workspace.document_operation().await;
         let uri = params.text_document.uri;
         let Some(closed) = self.workspace.begin_close(&uri) else {
@@ -319,10 +336,9 @@ impl LanguageServer for Backend {
             diagnostic_count = 0,
             outcome = tracing::field::Empty,
         );
-        self.client
-            .publish_diagnostics(uri.clone(), Vec::new(), None)
-            .instrument(publish_span.clone())
-            .await;
+        self.diagnostics.documents.write().remove(&uri);
+        self.publish_coordinated_diagnostics(std::collections::HashSet::from([uri.clone()]))
+            .instrument(publish_span.clone()).await;
         publish_span.record("outcome", "published");
         let dependents = self.dependent_documents(&uri).await;
         if !self.workspace.is_closed(closed) {

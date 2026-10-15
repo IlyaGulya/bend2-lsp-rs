@@ -20,6 +20,7 @@ impl Backend {
             self.workspace.wait_for_discovery().await;
         }
         let _workspace_read = self.document_read(&params.text_document.uri).await;
+        let mut actions = self.lint_code_actions(&params).await;
         let uri = params.text_document.uri;
         let Some(doc) = self.document(&uri) else {
             return Ok(None);
@@ -28,7 +29,6 @@ impl Backend {
             return Ok(None);
         }
         let requested_range = params.range;
-        let mut actions = Vec::new();
         if kind_requested(
             params.context.only.as_deref(),
             &CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
@@ -48,6 +48,9 @@ impl Backend {
         }
         self.append_auto_import_actions(&doc, requested_range.start, &mut actions);
         for diagnostic in params.context.diagnostics {
+            if diagnostic.source.as_deref() == Some("bend-lint") {
+                continue;
+            }
             if (diagnostic.range.end.line, diagnostic.range.end.character)
                 < (requested_range.start.line, requested_range.start.character)
                 || (requested_range.end.line, requested_range.end.character)

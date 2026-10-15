@@ -3,13 +3,12 @@ use super::{
 };
 use crate::{
     analysis::Revision,
-    workspace::{Document, SourceGraph, normalize_path},
+    workspace::{Document, FileId, SourceGraph, normalize_path},
 };
 use std::{
     collections::{HashMap, HashSet},
-    future::Future,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, atomic::{AtomicU64, Ordering}},
     time::Duration,
 };
 use tokio::{
@@ -26,6 +25,7 @@ pub(super) struct ImportedDiagnostics {
     version: Option<i32>,
     pub(super) by_uri: HashMap<Url, Vec<Diagnostic>>,
     retired: HashSet<Url>,
+    context: Option<Arc<DiagnosticsContext>>,
 }
 
 #[derive(Default)]
@@ -35,12 +35,33 @@ struct TaskRegistry {
     tasks: HashMap<Url, (u64, JoinHandle<()>)>,
 }
 
+#[derive(Clone)]
+pub(super) struct DocumentDiagnostics {
+    snapshot: Arc<crate::analysis::DocumentSnapshot>,
+    diagnostics: Vec<Diagnostic>,
+    context: Arc<DiagnosticsContext>,
+}
+
+struct DiagnosticsContext {
+    epoch: u64,
+    sources: Vec<SourceIdentity>,
+}
+
+struct SourceIdentity {
+    id: FileId,
+    snapshot: Option<Arc<crate::analysis::DocumentSnapshot>>,
+    disk_generation: Option<u64>,
+}
+
 pub(super) struct DiagnosticsService {
     registry: Mutex<TaskRegistry>,
     fatal: watch::Sender<bool>,
     pub(super) imported: State<HashMap<Url, ImportedDiagnostics>>,
     pub(super) imported_publish: Mutex<()>,
     pub(super) analysis: Arc<Semaphore>,
+    pub(super) documents: State<HashMap<Url, DocumentDiagnostics>>,
+    pub(super) lint: super::lint::LintService,
+    pub(super) context_epoch: AtomicU64,
 }
 
 impl Default for DiagnosticsService {
@@ -51,11 +72,19 @@ impl Default for DiagnosticsService {
             imported: State::new(HashMap::new()),
             imported_publish: Mutex::new(()),
             analysis: Arc::new(Semaphore::new(4)),
+            documents: State::new(HashMap::new()),
+            lint: super::lint::LintService::default(),
+            context_epoch: AtomicU64::new(0),
         }
     }
 }
 
 impl DiagnosticsService {
+    pub(super) fn invalidate_context(&self) {
+        self.context_epoch.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |epoch| epoch.checked_add(1))
+            .unwrap_or_else(|_| panic!("diagnostics context epoch exhausted"));
+    }
+
     pub(super) fn fatal_receiver(&self) -> watch::Receiver<bool> {
         self.fatal.subscribe()
     }
@@ -137,6 +166,7 @@ impl DiagnosticsService {
 pub(super) fn diagnostics_revision_is_current(current: Option<Revision>, result: Revision) -> bool {
     current == Some(result)
 }
+#[cfg(test)]
 pub(super) async fn publish_if_current<T, F, Fut>(
     current_revision: Option<Revision>,
     result_revision: Revision,
@@ -177,6 +207,7 @@ pub(super) fn replace_imported_diagnostics_if_current(
             version: Some(version),
             by_uri,
             retired: HashSet::new(),
+            context: None,
         },
     );
     Some(affected)
@@ -216,9 +247,11 @@ impl Backend {
             .await;
     }
     pub(super) async fn cancel_all_diagnostics(&self) {
+        self.shutdown_lint().await;
         self.compiler.reapers.close();
         self.compiler.semaphore.close();
         self.diagnostics.shutdown().await;
+        self.clear_coordinated_diagnostics().await;
         self.workspace.shutdown_discovery().await;
         self.compiler.reapers.wait().await;
     }
@@ -233,6 +266,8 @@ impl Backend {
             span.record("outcome", "stale_or_unsupported");
             return;
         }
+        let context_epoch = self.diagnostics.context_epoch.load(Ordering::SeqCst);
+        let mut context = None;
         let lexical_document = doc.clone();
         let Ok(permit) = self.diagnostics.analysis.clone().acquire_owned().await else {
             span.record("outcome", "unavailable");
@@ -260,7 +295,11 @@ impl Backend {
                 span.record("outcome", "stale_snapshot");
                 return;
             }
+            let Some(captured_context) = self.capture_diagnostics_context(context_epoch, &source_graph) else {
+                return;
+            };
             let compiler = self.compiler_errors(&doc, &path, source_graph).await;
+            let mut imported = HashMap::<Url, Vec<Diagnostic>>::new();
             if !diagnostics
                 .iter()
                 .any(|item| item.code == Some(NumberOrString::String("holes".into())))
@@ -274,7 +313,6 @@ impl Backend {
                     return;
                 }
                 let root_path = normalize_path(&path);
-                let mut imported = HashMap::<Url, Vec<Diagnostic>>::new();
                 for (source_path, item) in compiler {
                     if normalize_path(&source_path) == root_path {
                         diagnostics.push(item);
@@ -284,36 +322,27 @@ impl Backend {
                         imported.entry(source_uri).or_default().push(item);
                     }
                 }
-                self.replace_import_diagnostics(uri.clone(), version, imported, &doc.snapshot)
-                    .await;
             }
+            self.replace_import_diagnostics(uri.clone(), version, imported, &doc.snapshot, &captured_context)
+                .await;
+            context = Some(captured_context);
         }
-        let current_revision = self
-            .document(&uri)
-            .filter(|current| Arc::ptr_eq(&current.snapshot, &doc.snapshot))
-            .map(|current| current.revision);
+        let context = context.unwrap_or_else(|| Arc::new(DiagnosticsContext {
+            epoch: context_epoch, sources: Vec::new(),
+        }));
+        let _publish = self.diagnostics.imported_publish.lock().await;
+        if !self.diagnostics_context_current(&context)
+            || !self.diagnostics_snapshot_current(&uri, &doc.snapshot)
+        {
+            span.record("outcome", "stale");
+            return;
+        }
         span.record("diagnostic_count", diagnostics.len());
-        let published = publish_if_current(
-            current_revision,
-            Revision(version),
-            diagnostics,
-            |diagnostics| async move {
-                let publish_span = tracing::info_span!(
-                    "diagnostics.publish",
-                    kind = "document",
-                    revision = version,
-                    diagnostic_count = diagnostics.len(),
-                    outcome = tracing::field::Empty,
-                );
-                self.client
-                    .publish_diagnostics(uri, diagnostics, Some(version))
-                    .instrument(publish_span.clone())
-                    .await;
-                publish_span.record("outcome", "published");
-            },
-        )
-        .await;
-        span.record("outcome", if published { "published" } else { "stale" });
+        self.diagnostics.documents.write().insert(uri.clone(), DocumentDiagnostics {
+            snapshot: doc.snapshot.clone(), diagnostics, context,
+        });
+        self.publish_coordinated_locked(HashSet::from([uri])).await;
+        span.record("outcome", "published");
     }
 
     async fn compiler_errors(
@@ -341,13 +370,18 @@ impl Backend {
             .await
         }
     }
-    pub(super) async fn replace_import_diagnostics(
+    async fn replace_import_diagnostics(
         &self,
         root_uri: Url,
         version: i32,
         by_uri: HashMap<Url, Vec<Diagnostic>>,
         snapshot: &Arc<crate::analysis::DocumentSnapshot>,
+        context: &Arc<DiagnosticsContext>,
     ) {
+        let _view = self.workspace.updates.read().await;
+        if !self.diagnostics_context_current(context) {
+            return;
+        }
         let affected = {
             let state = self.workspace.state.read();
             let Some(file) = state.database.file_id_by_uri(&root_uri) else {
@@ -366,10 +400,13 @@ impl Backend {
             }
             let mut snapshots = self.diagnostics.imported.write();
             let Some(affected) =
-                replace_imported_diagnostics_if_current(&mut snapshots, root_uri, version, by_uri)
+                replace_imported_diagnostics_if_current(&mut snapshots, root_uri.clone(), version, by_uri)
             else {
                 return;
             };
+            if let Some(snapshot) = snapshots.get_mut(&root_uri) {
+                snapshot.context = Some(context.clone());
+            }
             affected
         };
         self.publish_import_diagnostics(affected).await;
@@ -414,49 +451,121 @@ impl Backend {
         };
         self.publish_import_diagnostics(affected).await;
     }
-    #[tracing::instrument(name = "diagnostics.publish", skip_all, fields(kind = "imported", target_count = affected.len(), published_count = tracing::field::Empty))]
+
+    fn capture_diagnostics_context(&self, epoch: u64, graph: &SourceGraph) -> Option<Arc<DiagnosticsContext>> {
+        let database = self.workspace.read();
+        if graph.nodes.iter().any(|node| database.file_id_by_path(&node.path) != Some(node.id)) {
+            return None;
+        }
+        Some(Arc::new(DiagnosticsContext {
+            epoch,
+            sources: graph.nodes.iter().map(|node| SourceIdentity {
+                id: node.id,
+                snapshot: node.snapshot.clone(),
+                disk_generation: database.disk_generation(node.id),
+            }).collect(),
+        }))
+    }
+
+    fn diagnostics_context_current(&self, context: &DiagnosticsContext) -> bool {
+        self.diagnostics_context_current_in(context, &self.workspace.state.read())
+    }
+
+    fn diagnostics_context_current_in(
+        &self,
+        context: &DiagnosticsContext,
+        state: &super::workspace_service::WorkspaceState,
+    ) -> bool {
+        if self.diagnostics.context_epoch.load(Ordering::SeqCst) != context.epoch {
+            return false;
+        }
+        context.sources.iter().all(|source| {
+            let same = match (&source.snapshot, state.database.source_snapshot(source.id)) {
+                (Some(expected), Some(actual)) => Arc::ptr_eq(expected, actual),
+                (None, None) => true,
+                _ => false,
+            };
+            same && state.database.disk_generation(source.id) == source.disk_generation
+                && state.revisions.get(&source.id).is_none_or(|sync| {
+                let desired = super::state::revision_result(sync.status()).desired();
+                let expected = source.snapshot.as_ref().map(|snapshot| snapshot.revision)
+                    .filter(|revision| *revision != Revision::UNVERSIONED);
+                desired == expected
+            })
+        })
+    }
+    pub(super) fn diagnostics_snapshot_current(
+        &self,
+        uri: &Url,
+        snapshot: &Arc<crate::analysis::DocumentSnapshot>,
+    ) -> bool {
+        let state = self.workspace.state.read();
+        let Some(file) = state.database.file_id_by_uri(uri) else { return false; };
+        let Some(sync) = state.revisions.get(&file) else { return false; };
+        super::state::revision_result(sync.status()).desired() == Some(snapshot.revision)
+            && state.database.open_document(uri)
+                .is_some_and(|document| Arc::ptr_eq(&document.snapshot, snapshot))
+    }
+
     pub(super) async fn publish_import_diagnostics(&self, affected: HashSet<Url>) {
+        self.publish_coordinated_diagnostics(affected).await;
+    }
+
+    async fn clear_coordinated_diagnostics(&self) {
         let _publish = self.diagnostics.imported_publish.lock().await;
-        let span = tracing::Span::current();
-        let mut published_count = 0;
+        let mut affected: HashSet<_> = self.diagnostics.documents.write()
+            .drain().map(|(uri, _)| uri).collect();
+        for snapshot in std::mem::take(&mut *self.diagnostics.imported.write()).into_values() {
+            affected.extend(snapshot.by_uri.into_keys());
+            affected.extend(snapshot.retired);
+        }
+        self.publish_coordinated_locked(affected).await;
+    }
+
+    pub(super) async fn publish_coordinated_diagnostics(&self, affected: HashSet<Url>) {
+        let _publish = self.diagnostics.imported_publish.lock().await;
+        self.publish_coordinated_locked(affected).await;
+    }
+
+    // Every provider replaces only its own contribution. Publication is one
+    // serialized transaction, so a late compiler packet cannot erase lint and
+    // clearing lint never erases compiler/imported diagnostics.
+    pub(super) async fn publish_coordinated_locked(&self, affected: HashSet<Url>) {
         for uri in affected {
-            if self.document(&uri).is_some() {
-                continue;
-            }
-            let diagnostics = {
-                let snapshots = self.diagnostics.imported.read();
-                let mut combined = Vec::new();
-                for snapshot in snapshots.values() {
-                    if let Some(items) = snapshot.by_uri.get(&uri) {
+            let document = self.document(&uri);
+            let mut combined = Vec::new();
+            if let Some(document) = &document {
+                if let Some(result) = self.diagnostics.documents.read().get(&uri)
+                    && Arc::ptr_eq(&result.snapshot, &document.snapshot)
+                    && self.diagnostics_snapshot_current(&uri, &result.snapshot)
+                    && self.diagnostics_context_current(&result.context)
+                {
+                    combined.extend(result.diagnostics.iter().cloned());
+                }
+            } else {
+                let state = self.workspace.state.read();
+                for snapshot in self.diagnostics.imported.read().values() {
+                    if snapshot.context.as_ref().is_none_or(|context| self.diagnostics_context_current_in(context, &state))
+                        && let Some(items) = snapshot.by_uri.get(&uri) {
                         for item in items {
-                            if !combined.iter().any(|existing: &Diagnostic| {
-                                existing.range == item.range
-                                    && existing.message == item.message
-                                    && existing.code == item.code
-                            }) {
+                            if !combined.contains(item) {
                                 combined.push(item.clone());
                             }
                         }
                     }
                 }
-                combined
-            };
-            if self.document(&uri).is_none() {
-                let publish_span = tracing::info_span!(
-                    "diagnostics.publish",
-                    kind = "imported_target",
-                    diagnostic_count = diagnostics.len(),
-                    outcome = tracing::field::Empty,
-                );
-                self.client
-                    .publish_diagnostics(uri, diagnostics, None)
-                    .instrument(publish_span.clone())
-                    .await;
-                publish_span.record("outcome", "published");
-                published_count += 1;
             }
+            combined.extend(self.lint_diagnostics(&uri));
+            let version = document.as_ref().map(|document| document.revision.0);
+            let kind = if document.is_some() { "document" } else { "imported_target" };
+            let publish_span = tracing::info_span!(
+                "diagnostics.publish", kind, diagnostic_count = combined.len(),
+                revision = version, outcome = tracing::field::Empty,
+            );
+            self.client.publish_diagnostics(uri, combined, version)
+                .instrument(publish_span.clone()).await;
+            publish_span.record("outcome", "published");
         }
-        span.record("published_count", published_count);
     }
 }
 

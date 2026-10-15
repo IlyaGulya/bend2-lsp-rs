@@ -6,7 +6,7 @@ use tower_lsp::lsp_types::{
     SelectionRangeProviderCapability, SemanticTokenType, SemanticTokensFullOptions,
     SemanticTokensLegend, SemanticTokensOptions, SemanticTokensServerCapabilities,
     ServerCapabilities, SignatureHelpOptions, TextDocumentSyncCapability, TextDocumentSyncKind,
-    TextDocumentSyncOptions, TypeDefinitionProviderCapability, WorkDoneProgressOptions,
+    SaveOptions, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, TypeDefinitionProviderCapability, WorkDoneProgressOptions,
     WorkspaceFileOperationsServerCapabilities, WorkspaceFoldersServerCapabilities,
     WorkspaceServerCapabilities,
 };
@@ -16,6 +16,9 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
             TextDocumentSyncOptions {
                 open_close: Some(true),
                 change: Some(TextDocumentSyncKind::INCREMENTAL),
+                save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                    include_text: Some(false),
+                })),
                 ..Default::default()
             },
         )),
@@ -50,6 +53,7 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
         code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
             code_action_kinds: Some(vec![
                 CodeActionKind::QUICKFIX,
+                CodeActionKind::new(super::lint::DANGEROUS_KIND),
                 CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
             ]),
             resolve_provider: Some(false),

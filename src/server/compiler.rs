@@ -47,7 +47,7 @@ impl CompilerReapers {
         self.stopped.notify_waiters();
     }
 
-    fn track(self: &Arc<Self>) -> io::Result<CompilerLease> {
+    pub(super) fn track(self: &Arc<Self>) -> io::Result<CompilerLease> {
         // Count admission before observing close, so the final drain cannot miss
         // a child admitted concurrently with shutdown.
         self.active.fetch_add(1, Ordering::SeqCst);
@@ -62,7 +62,7 @@ impl CompilerReapers {
         }
     }
 
-    async fn stopped(&self) {
+    pub(super) async fn stopped(&self) {
         loop {
             let notified = self.stopped.notified();
             tokio::pin!(notified);
@@ -87,7 +87,7 @@ impl CompilerReapers {
     }
 }
 
-struct CompilerLease(Arc<CompilerReapers>);
+pub(super) struct CompilerLease(Arc<CompilerReapers>);
 
 impl Drop for CompilerLease {
     fn drop(&mut self) {
