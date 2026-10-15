@@ -131,8 +131,10 @@ The upstream installer can create `bend-lint.json` and a formatter rule. Review
 those files before enabling the provider. The server itself never creates lint
 configuration or replaces its existing formatter. The older tool bundled with
 Bend 2.0.37 / PR #1389 uses a different CLI/JSON contract and is not supported.
-See the [source research note](docs/bend-lint-integration-research.md) for the
-exact inspected revision and reproducible source invocation.
+The machine-readable contract was checked against standalone upstream
+[`02ef84b38b8c06cbd607e270c4930e633e9dab0f`](https://github.com/MattCozendey/bend-lint/tree/02ef84b38b8c06cbd607e270c4930e633e9dab0f).
+Use the installed npm package, not a raw development checkout: upstream's
+packaging rewrites its rule API imports to match published BendHub packages.
 
 Send the following through `workspace/didChangeConfiguration`, together with any
 compiler overrides you already use. Use an absolute installed Bun path and an
@@ -193,6 +195,23 @@ safe fix-all. Every touched file must be open, saved, unchanged since analysis,
 and have valid non-overlapping UTF-16 edits. All edits carry document versions;
 your client must honor those versions when applying them. Closed, missing, dirty,
 stale, or unverifiable multi-file targets are refused as a whole.
+
+The native quality matrix requires both the portable lifecycle suite and a
+genuine analyzer E2E on all six OS/CPU targets. The latter checks real
+`language/unneeded_plus` diagnostics and a `layout/format` replacement through
+stdio LSP, refuses automatic actions, and applies the versioned edit only as an
+explicit simulated user action. Its bootstrap pins the npm archive and native
+Bun 1.4.3 archive checksums and records the actual runtime architecture.
+
+The genuine test is opt-in locally because it executes trusted rules and may
+populate upstream's compiler and BendHub caches. After provisioning your tools:
+
+```sh
+BEND2_LINT_TEST_PATH=/absolute/path/to/bun \
+BEND2_LINT_TEST_ARGUMENTS='["/absolute/project/node_modules/bend-lint/src/linter/seam.ts"]' \
+BEND2_COMPILER_TEST_PATH=/absolute/path/to/bend \
+cargo test --locked --test bend_lint_e2e -- --ignored --nocapture
+```
 
 
 ## Supported LSP features

@@ -59,8 +59,11 @@ fn severity(value: &str) -> io::Result<DiagnosticSeverity> {
 }
 
 fn position_offset(snapshot: &DocumentSnapshot, position: Position) -> Option<usize> {
-    let offset = snapshot.line_index.offset(&snapshot.text, position.line, position.character);
-    (snapshot.line_index.position(&snapshot.text, offset) == (position.line, position.character)).then_some(offset)
+    let offset = snapshot
+        .line_index
+        .offset(&snapshot.text, position.line, position.character);
+    (snapshot.line_index.position(&snapshot.text, offset) == (position.line, position.character))
+        .then_some(offset)
 }
 
 pub(super) fn offsets(snapshot: &DocumentSnapshot, range: Range) -> Option<(usize, usize)> {
@@ -70,26 +73,41 @@ pub(super) fn offsets(snapshot: &DocumentSnapshot, range: Range) -> Option<(usiz
 }
 
 fn finding_target(saved: &SavedProject, finding: &Finding) -> io::Result<(PathBuf, Url)> {
-    let (path, snapshot) = saved.source(&finding.path)
+    let (path, snapshot) = saved
+        .source(&finding.path)
         .ok_or_else(|| io::Error::other("bend-lint finding path is not a captured source file"))?;
     if offsets(snapshot, finding.range).is_none() {
-        return Err(io::Error::other("bend-lint finding has an invalid UTF-16 range"));
+        return Err(io::Error::other(
+            "bend-lint finding has an invalid UTF-16 range",
+        ));
     }
     let uri = saved.uris.get(&path).cloned().map_or_else(
-        || Url::from_file_path(&path).map_err(|()| io::Error::other("bend-lint finding path is not a file URI")),
+        || {
+            Url::from_file_path(&path)
+                .map_err(|()| io::Error::other("bend-lint finding path is not a file URI"))
+        },
         Ok,
     )?;
     Ok((path, uri))
 }
 
 pub(super) fn parse(output: &std::process::Output, saved: &SavedProject) -> io::Result<Findings> {
-    let report: Report = serde_json::from_slice(&output.stdout).map_err(|error| io::Error::other(format!("bend-lint malformed JSON: {error}")))?;
-    let valid_exit = matches!((output.status.code(), report.ok), (Some(0), true) | (Some(1), false));
+    let report: Report = serde_json::from_slice(&output.stdout)
+        .map_err(|error| io::Error::other(format!("bend-lint malformed JSON: {error}")))?;
+    let valid_exit = matches!(
+        (output.status.code(), report.ok),
+        (Some(0), true) | (Some(1), false)
+    );
     if !valid_exit {
-        return Err(io::Error::other(format!("bend-lint failed or returned an inconsistent exit status: {}", output.status)));
+        return Err(io::Error::other(format!(
+            "bend-lint failed or returned an inconsistent exit status: {}",
+            output.status
+        )));
     }
     if report.findings.len() > 4096 || report.suppressed.len() > 4096 {
-        return Err(io::Error::other("bend-lint returned more than 4096 findings"));
+        return Err(io::Error::other(
+            "bend-lint returned more than 4096 findings",
+        ));
     }
     let mut by_uri = HashMap::<Url, Vec<Diagnostic>>::new();
     let mut actionable = Vec::new();
@@ -101,7 +119,9 @@ pub(super) fn parse(output: &std::process::Output, saved: &SavedProject) -> io::
             edit_count = edit_count.saturating_add(fix.edits.len());
         }
         if fix_count > 4096 || edit_count > 4096 {
-            return Err(io::Error::other("bend-lint returned more than 4096 fixes or edits"));
+            return Err(io::Error::other(
+                "bend-lint returned more than 4096 fixes or edits",
+            ));
         }
         let (path, uri) = finding_target(saved, &finding)?;
         let diagnostic = Diagnostic {
@@ -110,11 +130,20 @@ pub(super) fn parse(output: &std::process::Output, saved: &SavedProject) -> io::
             code: Some(NumberOrString::String(finding.code)),
             source: Some("bend-lint".into()),
             message: finding.message,
-            data: Some(serde_json::json!({"path":finding.path,"canonicalPath":path,"provider":"bend-lint","compiler":"external bend-lint compiler, not the selected LSP Bend"})),
+            data: Some(
+                serde_json::json!({"path":finding.path,"canonicalPath":path,"provider":"bend-lint","compiler":"external bend-lint compiler, not the selected LSP Bend"}),
+            ),
             ..Diagnostic::default()
         };
-        by_uri.entry(uri.clone()).or_default().push(diagnostic.clone());
-        actionable.push(ActionableFinding { uri, diagnostic, fixes: finding.fixes });
+        by_uri
+            .entry(uri.clone())
+            .or_default()
+            .push(diagnostic.clone());
+        actionable.push(ActionableFinding {
+            uri,
+            diagnostic,
+            fixes: finding.fixes,
+        });
     }
     Ok(Findings { by_uri, actionable })
 }

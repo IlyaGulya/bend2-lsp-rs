@@ -33,6 +33,7 @@ printf '== Rust performance infrastructure contract tests ==\n'
 cargo test --package bend2-perf --all-features --locked
 printf '== release integrity ==\n'
 python3 -m unittest discover -s scripts -p test_release.py
+python3 -m unittest discover -s scripts -p test_bootstrap_bend_lint.py
 
 printf '== format ==\n'
 cargo fmt --all -- --check

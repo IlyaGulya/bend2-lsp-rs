@@ -187,14 +187,15 @@ impl Backend {
         // closes reserved before their database commit, without cloning every
         // open document on each diagnostics publication.
         (self.diagnostics.lint.epoch.load(Ordering::SeqCst) == result.epoch
-            && state.generation == result.workspace_generation
+            && state.generation() == result.workspace_generation
             && *self.diagnostics.lint.config.read() == result.config
             && state.revisions.iter().all(|(id, sync)| {
                 let status = revision_result(sync.status());
                 !status.is_pending()
-                    && state.database.open_snapshot(*id).is_none_or(|snapshot| {
-                        status.desired() == Some(snapshot.revision)
-                    })
+                    && state
+                        .database
+                        .open_snapshot(*id)
+                        .is_none_or(|snapshot| status.desired() == Some(snapshot.revision))
             }))
         .then_some(result)
     }

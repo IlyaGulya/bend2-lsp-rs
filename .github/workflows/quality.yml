@@ -182,6 +182,21 @@ jobs:
           retention-days: 7
       - name: Run mandatory real-compiler stdio E2Es
         run: cargo test --locked --test native_compiler_diagnostics --test native_law_ranges --test compiler_multi_error
+      - name: Run saved-lint process and publication lifecycle E2Es
+        run: cargo test --locked --test bend_lint_protocol
+      - name: Provision checksum-pinned standalone bend-lint and native Bun
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: '"$PYTHON" scripts/bootstrap_bend_lint.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-lint-0.1.0" --github-env "$GITHUB_ENV"'
+      - name: Preserve actual native linter package and runtime identity
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: genuine-bend-lint-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/bend-lint-0.1.0/lint-build-identity.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Run genuine standalone lint diagnostics and explicit dangerous action E2E
+        run: cargo test --locked --test bend_lint_e2e -- --ignored --nocapture
   legacy-native-compiler-e2e:
     permissions:
       contents: read

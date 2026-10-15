@@ -15,8 +15,10 @@
 - Offer separately enabled, explicitly requested **dangerous** lint Code Actions
   with saved-content, UTF-16, overlap, and version checks for every touched file.
   Never run automatic fixes, safe fix-all, or a replacement formatter.
-- Add real-stdio protocol regressions and an opt-in genuine upstream analyzer
-  smoke. The standalone JSON contract is verified against upstream
+- Require real-stdio process/publication regressions and genuine standalone
+  analyzer diagnostics and explicit-action E2Es on all six native CI targets.
+  Pin the npm package and Bun archives and retain runtime identity evidence.
+  The standalone JSON contract targets upstream
   `02ef84b38b8c06cbd607e270c4930e633e9dab0f`, not the older bundled PR #1389 tool.
 
 

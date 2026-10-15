@@ -451,7 +451,8 @@ impl Backend {
                 .await;
             self.remove_import_diagnostics(&uri).await;
             self.diagnostics.documents.write().remove(&uri);
-            self.publish_coordinated_diagnostics(std::collections::HashSet::from([uri])).await;
+            self.publish_coordinated_diagnostics(HashSet::from([uri]))
+                .await;
         }
         let roots: Vec<_> = {
             let database = self.workspace.read();

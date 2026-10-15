@@ -62,13 +62,17 @@ fn range(line: u32, start: u32, end: u32) -> Value {
 // Verified against cli.bend Object.finding/Object.fix/end at upstream
 // 02ef84b38b8c06cbd607e270c4930e633e9dab0f, not an LSP-shaped invented payload.
 fn finding(path: &Path, code: &str, span: Value) -> Value {
-    json!({"code":code,"severity":"warning","message":"remove unneeded plus",
-        "path":path,"range":span,"fixes":[]})
+    let mut finding = json!({"code":code,"severity":"warning","message":"remove unneeded plus",
+        "path":path,"fixes":[]});
+    finding["range"] = span;
+    finding
 }
 
 fn fix(path: &Path, span: Value, replacement: &str) -> Value {
-    json!({"title":"Remove +","applicability":"dangerous",
-        "edits":[{"path":path,"range":span,"text":replacement}]})
+    let mut fix = json!({"title":"Remove +","applicability":"dangerous",
+        "edits":[{"path":path,"text":replacement}]});
+    fix["edits"][0]["range"] = span;
+    fix
 }
 
 struct Session {
@@ -163,10 +167,12 @@ impl Session {
     }
 
     fn response(&self, findings: Vec<Value>, suppressed: Vec<Value>, ok: bool) {
+        let mut response = json!({"ok":ok});
+        response["findings"] = Value::Array(findings);
+        response["suppressed"] = Value::Array(suppressed);
         fs::write(
             self.control.join("response.json"),
-            serde_json::to_vec(&json!({"ok":ok,"findings":findings,"suppressed":suppressed}))
-                .must_be("serialize upstream response"),
+            serde_json::to_vec(&response).must_be("serialize upstream response"),
         )
         .must_be("write analyzer response");
         fs::write(self.control.join("exit-code"), if ok { "0" } else { "1" })
@@ -264,14 +270,12 @@ impl Session {
     }
 
     fn actions(&mut self, diagnostics: Value, trigger: u8) -> Vec<Value> {
-        self.client.request(
-            "textDocument/codeAction",
-            json!({
-                "textDocument":{"uri":self.document},"range":range(0, 0, 24),
-                "context":{"diagnostics":diagnostics,"triggerKind":trigger,
-                    "only":["quickfix.bend-lint.dangerous"]}
-            }),
-        )["result"]
+        let mut params = json!({
+            "textDocument":{"uri":self.document},"range":range(0, 0, 24),
+            "context":{"triggerKind":trigger,"only":["quickfix.bend-lint.dangerous"]}
+        });
+        params["context"]["diagnostics"] = diagnostics;
+        self.client.request("textDocument/codeAction", params)["result"]
             .as_array()
             .cloned()
             .unwrap_or_default()
@@ -384,7 +388,11 @@ fn changes_and_unsaved_save_notifications_never_analyze_old_disk_text() {
     assert!(!session.control.join("calls").exists());
     fs::write(&session.root, edited).must_be("editor saves current text");
     session.response(
-        vec![finding(&session.root, "language/unneeded_plus", range(1, 9, 10))],
+        vec![finding(
+            &session.root,
+            "language/unneeded_plus",
+            range(1, 9, 10),
+        )],
         vec![],
         true,
     );

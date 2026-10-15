@@ -22,17 +22,18 @@ use tower_lsp::{
         CodeActionParams, CodeActionResponse, CodeLens, CodeLensParams, CompletionParams,
         CompletionResponse, DidChangeConfigurationParams, DidChangeTextDocumentParams,
         DidChangeWatchedFilesParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
-        DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentFormattingParams, DocumentHighlight,
-        DocumentHighlightParams, DocumentLink, DocumentLinkParams, DocumentOnTypeFormattingParams,
-        DocumentRangeFormattingParams, DocumentSymbolParams, DocumentSymbolResponse, FoldingRange,
-        FoldingRangeParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
-        InitializeParams, InitializeResult, InitializedParams, InlayHint, InlayHintParams,
-        Location, MessageType, PrepareRenameResponse, ReferenceParams, Registration,
-        RenameFilesParams, RenameParams, SelectionRange, SelectionRangeParams,
-        SemanticTokensParams, SemanticTokensResult, ServerInfo, SignatureHelp, SignatureHelpParams,
-        SymbolInformation, TextDocumentPositionParams, TextEdit, TypeHierarchyItem,
-        TypeHierarchyPrepareParams, TypeHierarchySubtypesParams, TypeHierarchySupertypesParams,
-        WorkspaceEdit, WorkspaceSymbolParams,
+        DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentFormattingParams,
+        DocumentHighlight, DocumentHighlightParams, DocumentLink, DocumentLinkParams,
+        DocumentOnTypeFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
+        DocumentSymbolResponse, FoldingRange, FoldingRangeParams, GotoDefinitionParams,
+        GotoDefinitionResponse, Hover, HoverParams, InitializeParams, InitializeResult,
+        InitializedParams, InlayHint, InlayHintParams, Location, MessageType,
+        PrepareRenameResponse, ReferenceParams, Registration, RenameFilesParams, RenameParams,
+        SelectionRange, SelectionRangeParams, SemanticTokensParams, SemanticTokensResult,
+        ServerInfo, SignatureHelp, SignatureHelpParams, SymbolInformation,
+        TextDocumentPositionParams, TextEdit, TypeHierarchyItem, TypeHierarchyPrepareParams,
+        TypeHierarchySubtypesParams, TypeHierarchySupertypesParams, WorkspaceEdit,
+        WorkspaceSymbolParams,
     },
 };
 use tracing::Instrument;
@@ -338,7 +339,8 @@ impl LanguageServer for Backend {
         );
         self.diagnostics.documents.write().remove(&uri);
         self.publish_coordinated_diagnostics(std::collections::HashSet::from([uri.clone()]))
-            .instrument(publish_span.clone()).await;
+            .instrument(publish_span.clone())
+            .await;
         publish_span.record("outcome", "published");
         let dependents = self.dependent_documents(&uri).await;
         if !self.workspace.is_closed(closed) {

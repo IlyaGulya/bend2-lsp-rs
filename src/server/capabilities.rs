@@ -2,13 +2,13 @@ use tower_lsp::lsp_types::{
     CallHierarchyServerCapability, CodeActionKind, CodeActionOptions, CodeActionProviderCapability,
     CodeLensOptions, CompletionOptions, DocumentLinkOptions, DocumentOnTypeFormattingOptions,
     FileOperationFilter, FileOperationPattern, FileOperationRegistrationOptions,
-    FoldingRangeProviderCapability, HoverProviderCapability, OneOf, RenameOptions,
+    FoldingRangeProviderCapability, HoverProviderCapability, OneOf, RenameOptions, SaveOptions,
     SelectionRangeProviderCapability, SemanticTokenType, SemanticTokensFullOptions,
     SemanticTokensLegend, SemanticTokensOptions, SemanticTokensServerCapabilities,
     ServerCapabilities, SignatureHelpOptions, TextDocumentSyncCapability, TextDocumentSyncKind,
-    SaveOptions, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, TypeDefinitionProviderCapability, WorkDoneProgressOptions,
-    WorkspaceFileOperationsServerCapabilities, WorkspaceFoldersServerCapabilities,
-    WorkspaceServerCapabilities,
+    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, TypeDefinitionProviderCapability,
+    WorkDoneProgressOptions, WorkspaceFileOperationsServerCapabilities,
+    WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 pub(super) fn server_capabilities() -> ServerCapabilities {
     ServerCapabilities {
@@ -50,15 +50,7 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
         }),
         call_hierarchy_provider: Some(CallHierarchyServerCapability::Simple(true)),
         workspace_symbol_provider: Some(OneOf::Left(true)),
-        code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
-            code_action_kinds: Some(vec![
-                CodeActionKind::QUICKFIX,
-                CodeActionKind::new(super::lint::DANGEROUS_KIND),
-                CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
-            ]),
-            resolve_provider: Some(false),
-            ..Default::default()
-        })),
+        code_action_provider: Some(code_action_options()),
         code_lens_provider: Some(CodeLensOptions {
             resolve_provider: Some(false),
         }),
@@ -115,6 +107,18 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
         }),
         ..Default::default()
     }
+}
+
+fn code_action_options() -> CodeActionProviderCapability {
+    CodeActionProviderCapability::Options(CodeActionOptions {
+        code_action_kinds: Some(vec![
+            CodeActionKind::QUICKFIX,
+            CodeActionKind::new(super::lint::DANGEROUS_KIND),
+            CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
+        ]),
+        resolve_provider: Some(false),
+        ..Default::default()
+    })
 }
 
 fn file_rename_options() -> FileOperationRegistrationOptions {
