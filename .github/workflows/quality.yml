@@ -202,6 +202,25 @@ jobs:
         env:
           BEND2_LINT_TEST_FAILURE_DIR: ${{ runner.temp }}/bend-lint-failure
         run: cargo test --locked --test bend_lint_e2e -- --ignored --nocapture
+      - name: Verify genuine Windows ARM native rule program
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        env:
+          PYTHONPATH: scripts
+        run: |
+          "$PYTHON" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from diagnose_windows_lint import pe_identity
+          programs = sorted((Path(os.environ["LOCALAPPDATA"]) / "bend-lint/server/programs").glob("rules.*.exe"))
+          if not programs:
+              raise RuntimeError("genuine lint did not build the native rule program")
+          for program in programs:
+              identity = pe_identity(program)
+              if identity["machine"] != "0xaa64":
+                  raise RuntimeError("genuine lint rule program is not native ARM64")
+              print(json.dumps(identity, sort_keys=True))
+          PY
       - name: Capture the genuine Windows ARM native exception
         if: failure() && steps.genuine-lint.outcome == 'failure' && matrix.target == 'aarch64-pc-windows-msvc'
         timeout-minutes: 12

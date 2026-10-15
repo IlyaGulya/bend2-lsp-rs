@@ -202,8 +202,13 @@ genuine analyzer E2E on all six OS/CPU targets. The latter checks real
 stdio LSP, refuses automatic actions, and applies the versioned edit only as an
 explicit simulated user action. Its bootstrap pins the npm archive and native
 Bun 1.4.3 archive checksums and records the actual runtime architecture.
-Windows ARM CI additionally pins native Clang 20.1.8 through upstream's `CC`
-override rather than disabling its native rule backend.
+Windows ARM CI additionally pins native Clang 18.1.8 through upstream's `CC`
+override and verifies that the genuine analyzer builds an ARM64 rule executable.
+Bend's existing compiler-capability guard uses ordinary C calling conventions
+with this version; the native backend remains enabled and no linter or compiler
+source is patched. LLVM 19–21 have a Windows ARM64
+[`preserve_most` register-preservation defect](https://github.com/llvm/llvm-project/pull/166436);
+LLVM 22.1.8 instead fails the rule program's SEH prologue.
 
 Deterministic regression tests also hold lint publication busy while opening,
 editing, closing, or immediately saving a document. Subsequent requests must not

@@ -31,17 +31,17 @@ NPM_SHA256 = "c70c52aaf13f02939bd3bb61400b59fc030c2c54be772f7640502de644744eea"
 
 
 def install_windows_clang(destination: Path) -> dict:
-    # LLVM22.1.8 on runner image win11-vs2026-arm64/20261004.176 fails
-    # corpus_eval's ARM64 SEH prologue. Exercise the genuine native backend
-    # with the pre-rewrite LLVM20 toolchain, selected through upstream's CC.
+    # LLVM19-21 miscompile preserve_most on Windows ARM64 (llvm/llvm-project#166436);
+    # LLVM22.1.8 fails the native rule program's SEH prologue. LLVM18 uses Bend's
+    # existing plain-C calling-convention capability guard, keeping native rules.
     pin = {
-        "asset": 273131634, "size": 333744580,
-        "sha256": "7c4ac97eb2ae6b960ca5f9caf3ff6124c8d2a18cc07a7840a4d2ea15537bad8e",
+        "asset": 176567333, "size": 345225147,
+        "sha256": "e25bf44d67fe86708490cf08de085fe1d6e1e50f3249c212c9077a06247cdc9e",
     }
     extractor = shutil.which("7z")
     if extractor is None:
         raise ValueError("native LLVM provisioning requires the runner's 7-Zip")
-    installer = destination.parent / "LLVM-20.1.8-woa64.exe"
+    installer = destination.parent / "LLVM-18.1.8-woa64.exe"
     installer.write_bytes(download_asset("llvm/llvm-project", pin))
     try:
         # Extract the pinned NSIS payload without executing an installer,
@@ -59,11 +59,22 @@ def install_windows_clang(destination: Path) -> dict:
     target = subprocess.check_output(
         [str(clang), "-dumpmachine"], env=compiler_environment(), text=True, timeout=30,
     ).strip()
-    if "clang version 20.1.8" not in version or target != "aarch64-pc-windows-msvc":
+    if "clang version 18.1.8" not in version or target != "aarch64-pc-windows-msvc":
         raise ValueError(f"unexpected native clang identity: {version}; target={target}")
+    attributes = subprocess.check_output(
+        [str(clang), "-E", "-P", "-x", "c", "-"],
+        input="__has_attribute(preserve_none) __has_attribute(preserve_most) __has_attribute(musttail)\n",
+        env=compiler_environment(), text=True, timeout=30,
+    ).split()
+    if attributes != ["0", "1", "1"]:
+        raise ValueError(f"unexpected native clang calling-convention capabilities: {attributes}")
     with clang.open("rb") as executable:
         checksum = hashlib.file_digest(executable, "sha256").hexdigest()
-    return {"path": str(clang), "version_output": version, "target": target, "sha256": checksum, "release_asset": pin}
+    return {
+        "path": str(clang), "version_output": version, "target": target,
+        "sha256": checksum, "release_asset": pin,
+        "attributes": dict(zip(("preserve_none", "preserve_most", "musttail"), attributes, strict=True)),
+    }
 
 
 def extract_package(data: bytes, destination: Path) -> None:
@@ -152,7 +163,7 @@ def install(destination: Path, target: str) -> tuple[Path, Path]:
             "upstream_bend_release": metadata["bendRelease"], "upstream_bend_windows": metadata["bendWindows"],
         }
         if target == "aarch64-pc-windows-msvc":
-            evidence["native_clang"] = install_windows_clang(destination / "llvm-20.1.8")
+            evidence["native_clang"] = install_windows_clang(destination / "llvm-18.1.8")
         (destination / "lint-build-identity.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     except BaseException:
         shutil.rmtree(destination)
