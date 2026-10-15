@@ -40,12 +40,13 @@ jobs:
     env:
       PERF_TARGET: ${{ matrix.target }}
       EXPECTED_ARCH: ${{ matrix.arch }}
-      ACTUAL_ARCH: ${{ runner.arch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Verify exact native source and Rust host
+        env:
+          ACTUAL_ARCH: ${{ runner.arch }}
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$ACTUAL_ARCH" = "$EXPECTED_ARCH"
