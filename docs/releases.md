@@ -25,6 +25,15 @@ SHA, not whatever `main` points to when a runner starts.
   candidates. API-based PR maintenance can observe newer `main` commits, but
   that never substitutes their SHA for the quality-tested release candidate.
 
+Review generated Rust release changes before merging. The pinned release-please
+strategy also bumps vendored workspace members: preserve `tower-lsp`'s upstream
+`0.20.0` version in `vendor/tower-lsp/Cargo.toml` and `Cargo.lock`, rather than
+assigning the server's release version to the dependency. Verify the actual
+resolved patch with `cargo tree --locked --offline -i tower-lsp`; it must resolve
+to the local vendor directory. Keep the server and internal performance tool on
+the proposed release version. Move completed `Unreleased` entries under that
+version's changelog heading instead of retaining a second, duplicated section.
+
 The manifest starts at the package's existing `0.1.1`. It is a version baseline,
 not a claim that a historical `v0.1.1` release already exists; the first release PR
 proposes the next version from eligible commits. There are no fabricated historic
