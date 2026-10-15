@@ -12,6 +12,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod repeated;
+
 fn dataset(job_id: &str, role: &str, pairs: u64) -> Value {
     let identities = [
         ("inlay_hints_warm", Some("small")),
