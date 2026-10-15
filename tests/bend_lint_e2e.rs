@@ -41,7 +41,13 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
         "{\"packages\":{\"bend-lint-rules\":\"0.1.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
     )
     .must_be("enable genuine upstream rules");
-    let report = genuine_report(&executable, &arguments, &root);
+    let report = match std::panic::catch_unwind(|| genuine_report(&executable, &arguments, &root)) {
+        Ok(report) => report,
+        Err(failure) => {
+            retain_failed_analyzer(directory, &root, &executable, &arguments);
+            std::panic::resume_unwind(failure);
+        }
+    };
     let expected = finding(
         &report["findings"],
         "bend-lint-rules/language/unneeded_plus",
@@ -79,6 +85,37 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
         reported_edit,
     );
     client.finish();
+}
+
+fn retain_failed_analyzer(
+    directory: tempfile::TempDir,
+    root: &Path,
+    executable: &Path,
+    arguments: &[String],
+) {
+    let Some(output) = env::var_os("BEND2_LINT_TEST_FAILURE_DIR").filter(|value| !value.is_empty())
+    else {
+        return;
+    };
+    let output = PathBuf::from(output);
+    fs::create_dir_all(&output).must_be("create analyzer failure evidence directory");
+    let retained = directory.keep();
+    let project = root.parent().must_be("retained genuine project");
+    for name in ["main.bend", "bend-lint.json"] {
+        fs::copy(project.join(name), output.join(name)).must_be("retain genuine fixture input");
+    }
+    let replay = json!({
+        "executable": executable,
+        "arguments": arguments,
+        "entry": root,
+        "cwd": project,
+        "retained_root": retained,
+    });
+    fs::write(
+        output.join("replay.json"),
+        serde_json::to_vec_pretty(&replay).must_be("serialize exact failed analyzer invocation"),
+    )
+    .must_be("retain exact failed analyzer invocation");
 }
 
 fn configured_analyzer() -> (PathBuf, Vec<String>) {

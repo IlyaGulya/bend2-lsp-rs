@@ -208,6 +208,11 @@ override rather than disabling its native rule backend.
 Deterministic regression tests also hold lint publication busy while opening,
 editing, closing, or immediately saving a document. Subsequent requests must not
 overtake document updates or observe an older snapshot, even with lint disabled.
+Failed genuine CLI runs can retain their exact input and invocation through
+`BEND2_LINT_TEST_FAILURE_DIR`. Windows ARM CI additionally captures native PE
+headers and an exception minidump with a restricted debuggee environment; CI,
+repository, and cache credentials are not passed to the debugger or analyzer.
+Diagnostic collection never turns the original failing E2E into a pass.
 
 The genuine test is opt-in locally because it executes trusted rules and may
 populate upstream's compiler and BendHub caches. After provisioning your tools:

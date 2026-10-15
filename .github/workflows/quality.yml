@@ -198,7 +198,22 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Run genuine standalone lint diagnostics and explicit dangerous action E2E
+        id: genuine-lint
+        env:
+          BEND2_LINT_TEST_FAILURE_DIR: ${{ runner.temp }}/bend-lint-failure
         run: cargo test --locked --test bend_lint_e2e -- --ignored --nocapture
+      - name: Capture the genuine Windows ARM native exception
+        if: failure() && steps.genuine-lint.outcome == 'failure' && matrix.target == 'aarch64-pc-windows-msvc'
+        timeout-minutes: 12
+        run: '"$PYTHON" scripts/diagnose_windows_lint.py --evidence-dir "$RUNNER_TEMP/bend-lint-failure"'
+      - name: Preserve genuine analyzer failure evidence
+        if: failure() && steps.genuine-lint.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: genuine-lint-failure-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/bend-lint-failure/
+          if-no-files-found: error
+          retention-days: 7
   legacy-native-compiler-e2e:
     permissions:
       contents: read
