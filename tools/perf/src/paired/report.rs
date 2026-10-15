@@ -25,6 +25,16 @@ fn hex(value: &Value, length: usize) -> bool {
         && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)))
 }
 
+// Executable/profile names describe the Linux producer, not the replay host.
+fn recorded_absolute(name: &str) -> bool {
+    name.strip_prefix('/').is_some_and(|relative| {
+        !relative.contains('\0')
+            && relative.split('/').all(|component| {
+                !component.is_empty() && component != "." && component != ".."
+            })
+    })
+}
+
 fn relative(name: &str) -> ToolResult<&Path> {
     let path = Path::new(name);
     require(!name.is_empty() && path.components().all(|part| matches!(part, Component::Normal(_)))
@@ -62,9 +72,8 @@ impl Inputs {
     }
 
     fn profile(&mut self, emitted: &str, home: &str) -> ToolResult<()> {
-        let path = Path::new(emitted);
-        require(path.is_absolute() && !path.components().any(|part| matches!(part, Component::ParentDir | Component::CurDir)),
-            "Callgrind profile must retain its original absolute path")?;
+        require(recorded_absolute(emitted),
+            "Callgrind profile must retain its original absolute Linux path")?;
         let marker = format!("/{home}/");
         let (_, suffix) = emitted.rsplit_once(&marker).ok_or("profile escaped its fresh benchmark home")?;
         let name = format!("{home}/{suffix}");
@@ -150,7 +159,7 @@ fn variants(data: &Value, manifest: &Value, inputs: &mut Inputs) -> ToolResult<I
         let mut inventory = BTreeMap::new();
         for (benchmark, metadata) in benchmarks(&variant["benchmarks"])? {
             let executable = text(metadata, "executable")?;
-            require(Path::new(executable).is_absolute() && executables.insert(executable)
+            require(recorded_absolute(executable) && executables.insert(executable)
                 && hex(&metadata["binary_sha256"], 64), "invalid or reused benchmark executable identity")?;
             let expected = ids(&metadata["workloads"])?;
             let actual = parse_workload_list(&inputs.read(text(metadata, "workload_list")?)?, benchmark)?;
