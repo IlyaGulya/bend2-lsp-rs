@@ -108,3 +108,49 @@ fn repeated_cli_writes_failure_reports_for_insufficient_or_unverified_evidence()
     assert!(!report["evidence_error"].as_str().ok_or("error missing")?.is_empty());
     Ok(())
 }
+
+#[test]
+fn repeated_cli_binomial_boundary_requires_62_of_105_and_preserves_ties() -> ToolResult<()> {
+    let fixture = Fixture::new()?;
+    let mut jobs = jobs()?;
+    counts(&mut jobs[0], "b", "Ir", 103, None)?;
+    for pair in 1..=61 {
+        counts(&mut jobs[0], "b", "Ir", 102, Some(pair))?;
+    }
+    fixture.load_jobs(&jobs)?;
+    assert!(fixture.cli(FLAGS).is_err());
+    assert_eq!(aa(&output(&fixture)?, "discovery-01", "Ir")?["classification"], "inconclusive");
+    counts(&mut jobs[0], "b", "Ir", 102, Some(62))?;
+    fixture.load_jobs(&jobs)?;
+    fixture.cli(FLAGS)?;
+    let row = aa(&output(&fixture)?, "discovery-01", "Ir")?;
+    assert_eq!(row["classification"], "passed");
+    assert_eq!(row["upper"]["numerator"], 0);
+    Ok(())
+}
+
+#[test]
+fn repeated_cli_rejects_missing_roles_duplicate_jobs_and_unbalanced_positions() -> ToolResult<()> {
+    for kind in ["missing", "duplicate", "unbalanced"] {
+        let fixture = Fixture::new()?;
+        let mut jobs = jobs()?;
+        match kind {
+            "missing" => jobs.retain(|j| j["role"] == "discovery"),
+            "duplicate" => jobs[1] = jobs[0].clone(),
+            _ => {
+                for sample in jobs[0]["samples"].as_array_mut().ok_or("samples missing")? {
+                    let variant = sample["variant"].as_str().ok_or("variant missing")?;
+                    sample["order"] = json!(VARIANTS.iter().position(|v| *v == variant).ok_or("variant unknown")?);
+                }
+            }
+        }
+        for (index, job) in jobs.iter().enumerate() {
+            write_job(&fixture.input.join(index.to_string()), job)?;
+        }
+        assert!(fixture.cli(FLAGS).is_err());
+        let report = output(&fixture)?;
+        assert_eq!(report["control_validation"]["passed"], false);
+        assert!(!fixture.markdown()?.is_empty());
+    }
+    Ok(())
+}

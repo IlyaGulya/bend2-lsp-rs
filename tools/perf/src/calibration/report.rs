@@ -616,7 +616,7 @@ pub(super) fn build_report(jobs: &[Value]) -> ToolResult<Value> {
     }
     let by_metric: Map<_, _> = METRICS.iter().map(|metric| ((*metric).to_owned(), json!({"samples": validation_aa.iter().filter(|row| row["metric"] == *metric).count(), "current_false_positives": validation_aa.iter().filter(|row| row["metric"] == *metric && row["current_passed"] == false).count(), "proposed_false_positives": validation_aa.iter().filter(|row| row["metric"] == *metric && row["proposed_passed"] == false).count()}))).collect();
     Ok(json!({
-        "format_version": 1, "mode": "proposal-only", "active_gates_changed": false,
+        "format_version": 1, "method": "historical", "mode": "proposal-only", "active_gates_changed": false,
         "coverage": {"planned_jobs": {"discovery": 7, "validation": 3}, "planned_pairs_per_job": 5, "observed_jobs": {"discovery": role_count("discovery"), "validation": role_count("validation")}, "observed_pairs": observed_pairs, "predeclared_coverage_met": sufficient, "limitation": if sufficient { "Predeclared coverage collected; finite dependent samples do not establish tail reliability or policy approval." } else { "Insufficient predeclared coverage. No calibrated policy approval or tail reliability claim." }},
         "dependence": "Each pair reuses the same a baseline for b, layout, extra_work and extra_alloc. Comparisons within a pair are dependent; pairs within a job share builds and environment.",
         "learning": "Cache allowance per workload/event is max(active allowance for the comparison baseline, maximum positive discovery A/A delta). Validation, layout, and positive controls never train it. Ir remains unchanged at 2%.",
@@ -785,6 +785,9 @@ pub(super) fn render_markdown(report: &Value) -> ToolResult<String> {
 }
 
 pub(super) fn run(args: &ReportArgs) -> ToolResult<()> {
+    if args.method == super::ReportMethod::PairedMedian105V1 {
+        return super::repeated::run(args);
+    }
     let jobs = read_datasets(&args.input_root)?;
     check_expected_coverage(
         &jobs,

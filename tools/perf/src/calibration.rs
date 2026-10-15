@@ -18,11 +18,12 @@
 mod collector;
 mod integrity;
 mod report;
+mod repeated;
 #[cfg(test)]
 mod tests;
 
 use crate::ToolResult;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 const VARIANTS: [&str; 5] = ["a", "b", "layout", "extra_work", "extra_alloc"];
@@ -63,9 +64,18 @@ struct CollectArgs {
     pairs: u64,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+enum ReportMethod {
+    #[default]
+    Historical,
+    PairedMedian105V1,
+}
+
 #[derive(Parser)]
 struct ReportArgs {
     input_root: PathBuf,
+    #[arg(long, value_enum, default_value = "historical")]
+    method: ReportMethod,
     #[arg(long)]
     json_output: PathBuf,
     #[arg(long)]
