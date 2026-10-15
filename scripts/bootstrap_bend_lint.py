@@ -30,6 +30,42 @@ NPM_SIZE = 80981
 NPM_SHA256 = "c70c52aaf13f02939bd3bb61400b59fc030c2c54be772f7640502de644744eea"
 
 
+def install_windows_clang(destination: Path) -> dict:
+    # LLVM22.1.8 on runner image win11-vs2026-arm64/20261004.176 fails
+    # corpus_eval's ARM64 SEH prologue. Exercise the genuine native backend
+    # with the pre-rewrite LLVM20 toolchain, selected through upstream's CC.
+    pin = {
+        "asset": 273131634, "size": 333744580,
+        "sha256": "7c4ac97eb2ae6b960ca5f9caf3ff6124c8d2a18cc07a7840a4d2ea15537bad8e",
+    }
+    extractor = shutil.which("7z")
+    if extractor is None:
+        raise ValueError("native LLVM provisioning requires the runner's 7-Zip")
+    installer = destination.parent / "LLVM-20.1.8-woa64.exe"
+    installer.write_bytes(download_asset("llvm/llvm-project", pin))
+    try:
+        # Extract the pinned NSIS payload without executing an installer,
+        # changing system registry entries, or replacing the runner's LLVM.
+        subprocess.run(
+            [extractor, "x", "-y", f"-o{destination}", str(installer)],
+            env=compiler_environment(), check=True, capture_output=True, timeout=180,
+        )
+    finally:
+        installer.unlink()
+    clang = destination / "bin/clang.exe"
+    version = subprocess.check_output(
+        [str(clang), "--version"], env=compiler_environment(), text=True, timeout=30,
+    )
+    target = subprocess.check_output(
+        [str(clang), "-dumpmachine"], env=compiler_environment(), text=True, timeout=30,
+    ).strip()
+    if "clang version 20.1.8" not in version or target != "aarch64-pc-windows-msvc":
+        raise ValueError(f"unexpected native clang identity: {version}; target={target}")
+    with clang.open("rb") as executable:
+        checksum = hashlib.file_digest(executable, "sha256").hexdigest()
+    return {"path": str(clang), "version_output": version, "target": target, "sha256": checksum, "release_asset": pin}
+
+
 def extract_package(data: bytes, destination: Path) -> None:
     if destination.exists() or destination.is_symlink():
         raise ValueError("package destination must not exist")
@@ -115,6 +151,8 @@ def install(destination: Path, target: str) -> tuple[Path, Path]:
             "linter_version": metadata["version"], "npm_url": NPM_URL, "npm_sha256": NPM_SHA256,
             "upstream_bend_release": metadata["bendRelease"], "upstream_bend_windows": metadata["bendWindows"],
         }
+        if target == "aarch64-pc-windows-msvc":
+            evidence["native_clang"] = install_windows_clang(destination / "llvm-20.1.8")
         (destination / "lint-build-identity.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     except BaseException:
         shutil.rmtree(destination)
@@ -137,6 +175,9 @@ def main() -> None:
         with args.github_env.open("a", encoding="utf-8") as environment:
             environment.write(f"BEND2_LINT_TEST_PATH={executable}\n")
             environment.write(f"BEND2_LINT_TEST_ARGUMENTS={json.dumps([str(script)])}\n")
+            identity = json.loads((destination / "lint-build-identity.json").read_text(encoding="utf-8"))
+            if "native_clang" in identity:
+                environment.write(f"CC={identity['native_clang']['path']}\n")
 
 
 if __name__ == "__main__":

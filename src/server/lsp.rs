@@ -142,49 +142,52 @@ impl LanguageServer for Backend {
         fields(method = "did_change_workspace_folders")
     )]
     async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
-        self.invalidate_lint().await;
-        self.diagnostics.invalidate_context();
-        let _operation = self.workspace.file_operations.write().await;
-        self.workspace.cancel_discovery().await;
-        let _serial = self.workspace.update_serial.lock().await;
-        let _update = self.workspace.updates.write().await;
-        {
-            let mut roots = self.workspace.roots.write();
-            for folder in params.event.removed {
-                if let Ok(path) = folder.uri.to_file_path() {
-                    let path = normalize_path(&path);
-                    roots.retain(|root| *root != path);
+        let invalidation = self.invalidate_lint();
+        let operation = async {
+            self.diagnostics.invalidate_context();
+            let _operation = self.workspace.file_operations.write().await;
+            self.workspace.cancel_discovery().await;
+            let _serial = self.workspace.update_serial.lock().await;
+            let _update = self.workspace.updates.write().await;
+            {
+                let mut roots = self.workspace.roots.write();
+                for folder in params.event.removed {
+                    if let Ok(path) = folder.uri.to_file_path() {
+                        let path = normalize_path(&path);
+                        roots.retain(|root| *root != path);
+                    }
                 }
-            }
-            for folder in params.event.added {
-                if let Ok(path) = folder.uri.to_file_path() {
-                    let path = normalize_path(&path);
-                    if !roots.contains(&path) {
-                        roots.push(path);
+                for folder in params.event.added {
+                    if let Ok(path) = folder.uri.to_file_path() {
+                        let path = normalize_path(&path);
+                        if !roots.contains(&path) {
+                            roots.push(path);
+                        }
                     }
                 }
             }
-        }
-        let roots = self.workspace.roots.read().clone();
-        self.workspace.commit(None, None, |database| {
-            database.retain_discovered_roots(&roots);
-            Some(())
-        });
-        drop(_update);
-        drop(_serial);
-        for document in self
-            .workspace_documents()
-            .into_iter()
-            .filter(|document| document.uri.scheme() == "untitled")
-        {
-            let path = self.document_path(&document.uri);
-            self.open_workspace_document(document, path).await;
-        }
-        self.workspace.start_discovery().await;
-        for document in self.workspace_documents() {
-            let revision = document.revision.0;
-            self.schedule_diagnostics(document.uri, revision).await;
-        }
+            let roots = self.workspace.roots.read().clone();
+            self.workspace.commit(None, None, |database| {
+                database.retain_discovered_roots(&roots);
+                Some(())
+            });
+            drop(_update);
+            drop(_serial);
+            for document in self
+                .workspace_documents()
+                .into_iter()
+                .filter(|document| document.uri.scheme() == "untitled")
+            {
+                let path = self.document_path(&document.uri);
+                self.open_workspace_document(document, path).await;
+            }
+            self.workspace.start_discovery().await;
+            for document in self.workspace_documents() {
+                let revision = document.revision.0;
+                self.schedule_diagnostics(document.uri, revision).await;
+            }
+        };
+        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
     }
 
     #[tracing::instrument(
@@ -193,40 +196,43 @@ impl LanguageServer for Backend {
         fields(method = "did_change_configuration")
     )]
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
-        self.configure_lint(&params.settings).await;
-        self.diagnostics.invalidate_context();
-        let _operation = self.workspace.document_operation().await;
-        let (config, warnings) = CompilerConfig::from_settings(&params.settings);
-        {
-            let _load = self.compiler.base_module_load.lock().await;
-            let _workspace_update = self.workspace.updates.write().await;
-            self.workspace.commit(None, None, |_database| {
-                *self.compiler.config.write() = config;
-                *self.compiler.base_module.write() = None;
-                *self.compiler.base_module_attempted.write() = false;
-                Some(())
-            });
-        }
-        self.compiler.invalidate_compatibility().await;
-        let compatibility = self.check_compiler_compatibility().await;
-        if let Some(warning) = compatibility.warning() {
-            self.client.log_message(MessageType::WARNING, warning).await;
-        }
-        for warning in warnings {
-            self.client.log_message(MessageType::WARNING, warning).await;
-        }
-        let documents = self.workspace_documents();
-        if documents.iter().any(|document| {
-            analysis::imports(document)
-                .iter()
-                .any(|import| import.path_text(&document.text) == "Base")
-        }) {
-            self.load_prelude_module().await;
-        }
-        for document in documents {
-            let revision = document.revision.0;
-            self.schedule_diagnostics(document.uri, revision).await;
-        }
+        let invalidation = self.configure_lint(&params.settings);
+        let operation = async {
+            self.diagnostics.invalidate_context();
+            let _operation = self.workspace.document_operation().await;
+            let (config, warnings) = CompilerConfig::from_settings(&params.settings);
+            {
+                let _load = self.compiler.base_module_load.lock().await;
+                let _workspace_update = self.workspace.updates.write().await;
+                self.workspace.commit(None, None, |_database| {
+                    *self.compiler.config.write() = config;
+                    *self.compiler.base_module.write() = None;
+                    *self.compiler.base_module_attempted.write() = false;
+                    Some(())
+                });
+            }
+            self.compiler.invalidate_compatibility().await;
+            let compatibility = self.check_compiler_compatibility().await;
+            if let Some(warning) = compatibility.warning() {
+                self.client.log_message(MessageType::WARNING, warning).await;
+            }
+            for warning in warnings {
+                self.client.log_message(MessageType::WARNING, warning).await;
+            }
+            let documents = self.workspace_documents();
+            if documents.iter().any(|document| {
+                analysis::imports(document)
+                    .iter()
+                    .any(|import| import.path_text(&document.text) == "Base")
+            }) {
+                self.load_prelude_module().await;
+            }
+            for document in documents {
+                let revision = document.revision.0;
+                self.schedule_diagnostics(document.uri, revision).await;
+            }
+        };
+        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
     }
 
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "shutdown"))]
@@ -236,50 +242,56 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_open", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.invalidate_lint().await;
-        let _operation = self.workspace.document_operation().await;
-        let item = params.text_document;
-        let uri = item.uri;
-        let version = item.version;
-        let path = self.document_path(&uri);
-        let Some(needs_prelude) = self
-            .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
-            .await
-        else {
-            return;
+        let invalidation = self.invalidate_lint();
+        let operation = async {
+            let _operation = self.workspace.document_operation().await;
+            let item = params.text_document;
+            let uri = item.uri;
+            let version = item.version;
+            let path = self.document_path(&uri);
+            let Some(needs_prelude) = self
+                .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
+                .await
+            else {
+                return;
+            };
+            if needs_prelude {
+                self.load_prelude_module().await;
+            }
+            let dependents = self.dependent_documents(&uri).await;
+            self.schedule_diagnostics(uri, version).await;
+            for document in dependents {
+                let revision = document.revision.0;
+                self.schedule_diagnostics(document.uri, revision).await;
+            }
         };
-        if needs_prelude {
-            self.load_prelude_module().await;
-        }
-        let dependents = self.dependent_documents(&uri).await;
-        self.schedule_diagnostics(uri, version).await;
-        for document in dependents {
-            let revision = document.revision.0;
-            self.schedule_diagnostics(document.uri, revision).await;
-        }
+        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        self.invalidate_lint().await;
-        let _operation = self.workspace.document_operation().await;
-        let uri = params.text_document.uri.clone();
-        let version = params.text_document.version;
-        if !self.change_workspace_document(params).await {
-            return;
-        }
-        if self.document(&uri).is_some_and(|document| {
-            analysis::imports(&document)
-                .iter()
-                .any(|import| import.path_text(&document.text) == "Base")
-        }) {
-            self.load_prelude_module().await;
-        }
-        let dependents = self.dependent_documents(&uri).await;
-        self.schedule_diagnostics(uri, version).await;
-        for document in dependents {
-            let revision = document.revision.0;
-            self.schedule_diagnostics(document.uri, revision).await;
-        }
+        let invalidation = self.invalidate_lint();
+        let operation = async {
+            let _operation = self.workspace.document_operation().await;
+            let uri = params.text_document.uri.clone();
+            let version = params.text_document.version;
+            if !self.change_workspace_document(params).await {
+                return;
+            }
+            if self.document(&uri).is_some_and(|document| {
+                analysis::imports(&document)
+                    .iter()
+                    .any(|import| import.path_text(&document.text) == "Base")
+            }) {
+                self.load_prelude_module().await;
+            }
+            let dependents = self.dependent_documents(&uri).await;
+            self.schedule_diagnostics(uri, version).await;
+            for document in dependents {
+                let revision = document.revision.0;
+                self.schedule_diagnostics(document.uri, revision).await;
+            }
+        };
+        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
     }
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let _read = self.document_read(&params.text_document.uri).await;
@@ -292,64 +304,70 @@ impl LanguageServer for Backend {
         fields(method = "did_change_watched_files")
     )]
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        self.invalidate_lint().await;
-        let _operation = self.workspace.document_operation().await;
-        let events = params
-            .changes
-            .into_iter()
-            .filter_map(|event| {
-                let path = event.uri.to_file_path().ok()?;
-                Some((event.uri, normalize_path(&path)))
-            })
-            .collect();
-        for (uri, version) in self.sync_watched_files(events).await {
-            self.schedule_diagnostics(uri, version).await;
-        }
+        let invalidation = self.invalidate_lint();
+        let operation = async {
+            let _operation = self.workspace.document_operation().await;
+            let events = params
+                .changes
+                .into_iter()
+                .filter_map(|event| {
+                    let path = event.uri.to_file_path().ok()?;
+                    Some((event.uri, normalize_path(&path)))
+                })
+                .collect();
+            for (uri, version) in self.sync_watched_files(events).await {
+                self.schedule_diagnostics(uri, version).await;
+            }
+        };
+        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
     }
 
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_close", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        self.invalidate_lint().await;
-        let _operation = self.workspace.document_operation().await;
-        let uri = params.text_document.uri;
-        let Some(closed) = self.workspace.begin_close(&uri) else {
-            return;
+        let invalidation = self.invalidate_lint();
+        let operation = async {
+            let _operation = self.workspace.document_operation().await;
+            let uri = params.text_document.uri;
+            let Some(closed) = self.workspace.begin_close(&uri) else {
+                return;
+            };
+            // Queue close before later workspace queries without delaying diagnostic
+            // cleanup behind an unrelated staged disk read.
+            let (_serial, ()) = tokio::join!(self.workspace.update_serial.lock(), async {
+                self.detach_import_diagnostics(&uri, closed).await;
+                self.cancel_diagnostics(&uri, closed).await;
+            });
+            if !self.close_workspace_document(uri.clone(), closed).await {
+                return;
+            }
+            // Keep close cleanup before any reopened document can commit. A stale
+            // epoch must not clear newer diagnostics or imported contributions.
+            let _workspace_view = self.workspace.updates.read().await;
+            if !self.workspace.is_closed(closed) {
+                return;
+            }
+            self.remove_import_diagnostics(&uri).await;
+            let publish_span = tracing::info_span!(
+                "diagnostics.publish",
+                kind = "clear",
+                diagnostic_count = 0,
+                outcome = tracing::field::Empty,
+            );
+            self.diagnostics.documents.write().remove(&uri);
+            self.publish_coordinated_diagnostics(std::collections::HashSet::from([uri.clone()]))
+                .instrument(publish_span.clone())
+                .await;
+            publish_span.record("outcome", "published");
+            let dependents = self.dependent_documents(&uri).await;
+            if !self.workspace.is_closed(closed) {
+                return;
+            }
+            for document in dependents {
+                let revision = document.revision.0;
+                self.schedule_diagnostics(document.uri, revision).await;
+            }
         };
-        // Queue close before later workspace queries without delaying diagnostic
-        // cleanup behind an unrelated staged disk read.
-        let (_serial, ()) = tokio::join!(self.workspace.update_serial.lock(), async {
-            self.detach_import_diagnostics(&uri, closed).await;
-            self.cancel_diagnostics(&uri, closed).await;
-        });
-        if !self.close_workspace_document(uri.clone(), closed).await {
-            return;
-        }
-        // Keep close cleanup before any reopened document can commit. A stale
-        // epoch must not clear newer diagnostics or imported contributions.
-        let _workspace_view = self.workspace.updates.read().await;
-        if !self.workspace.is_closed(closed) {
-            return;
-        }
-        self.remove_import_diagnostics(&uri).await;
-        let publish_span = tracing::info_span!(
-            "diagnostics.publish",
-            kind = "clear",
-            diagnostic_count = 0,
-            outcome = tracing::field::Empty,
-        );
-        self.diagnostics.documents.write().remove(&uri);
-        self.publish_coordinated_diagnostics(std::collections::HashSet::from([uri.clone()]))
-            .instrument(publish_span.clone())
-            .await;
-        publish_span.record("outcome", "published");
-        let dependents = self.dependent_documents(&uri).await;
-        if !self.workspace.is_closed(closed) {
-            return;
-        }
-        for document in dependents {
-            let revision = document.revision.0;
-            self.schedule_diagnostics(document.uri, revision).await;
-        }
+        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
     }
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "range_formatting", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn range_formatting(
@@ -520,8 +538,12 @@ impl LanguageServer for Backend {
         fields(method = "workspace/didRenameFiles")
     )]
     async fn did_rename_files(&self, params: RenameFilesParams) {
-        let _operation = self.workspace.file_operations.write().await;
-        self.handle_did_rename_files(params).await;
+        let invalidation = self.invalidate_lint();
+        let operation = async {
+            let _operation = self.workspace.file_operations.write().await;
+            self.handle_did_rename_files(params).await;
+        };
+        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
     }
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "goto_type_definition", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn goto_type_definition(
@@ -714,6 +736,198 @@ mod diagnostics_publication_tests {
             replace_imported_diagnostics_if_current(&mut snapshots, root, 3, HashMap::new())
                 .ok_or_else(|| std::io::Error::other("newer clean result should clear imports"))?;
         assert_eq!(cleared, HashSet::from([v2_import]));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod notification_ordering_tests {
+    use super::Backend;
+    use crate::server::{
+        compiler::CompilerReapers, diagnostics::DiagnosticsService,
+        workspace_service::WorkspaceService,
+    };
+    use serde_json::{Value, json};
+    use std::{
+        error::Error,
+        future::{Future, poll_fn},
+        io,
+        pin::Pin,
+        sync::Arc,
+        task::Poll,
+        time::Duration,
+    };
+    use tokio::sync::Semaphore;
+    use tower_lsp::{
+        LanguageServer, LspService,
+        lsp_types::{Hover, HoverParams},
+    };
+    use url::Url;
+
+    const OLD: &str = "def identity: U64\n  1\n";
+    const NEW: &str = "def identity: U32\n  1\n";
+
+    fn backend() -> Backend {
+        let workspace = Arc::new(WorkspaceService {
+            staging: Arc::new(Semaphore::new(1)),
+            ..WorkspaceService::default()
+        });
+        let (service, _socket) = LspService::new(|client| {
+            Backend::new(
+                client,
+                workspace,
+                Arc::new(DiagnosticsService::default()),
+                Arc::new(CompilerReapers::default()),
+            )
+        });
+        service.inner().clone()
+    }
+
+    async fn first_poll<F: Future + ?Sized>(mut future: Pin<&mut F>) -> Poll<F::Output> {
+        poll_fn(|context| Poll::Ready(future.as_mut().poll(context))).await
+    }
+
+    fn hover_params(uri: &Url) -> Result<HoverParams, serde_json::Error> {
+        serde_json::from_value(json!({
+            "textDocument":{"uri":uri},"position":{"line":0,"character":5}
+        }))
+    }
+
+    fn assert_new_hover(hover: Option<Hover>) -> Result<(), Box<dyn Error>> {
+        let hover: Value = serde_json::to_value(hover)?;
+        let text = hover["contents"]["value"]
+            .as_str()
+            .ok_or_else(|| io::Error::other("hover must expose the newly notified document"))?;
+        assert!(
+            text.contains("def identity: U32") && !text.contains("U64"),
+            "{hover}"
+        );
+        Ok(())
+    }
+
+    async fn seed(backend: &Backend, uri: &Url) -> Result<(), Box<dyn Error>> {
+        backend
+            .open_workspace_text(uri.clone(), "bend".into(), 1, OLD.into(), None)
+            .await
+            .ok_or_else(|| io::Error::other("seed initial document"))?;
+        Ok(())
+    }
+
+    // Poll each actual public handler exactly once while a real coordinator
+    // publication is blocked. No sleep or retry may hide a missing reservation.
+    #[tokio::test]
+    async fn lint_publication_contention_cannot_overtake_did_change() -> Result<(), Box<dyn Error>>
+    {
+        let backend = backend();
+        let uri = Url::parse("untitled:lint-change.bend")?;
+        seed(&backend, &uri).await?;
+        let staging = backend.workspace.staging.acquire().await?;
+        let publication = backend.diagnostics.imported_publish.lock().await;
+        let mut change = backend.did_change(serde_json::from_value(json!({
+            "textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":NEW}]
+        }))?);
+        assert!(first_poll(change.as_mut()).await.is_pending());
+        let mut hover = backend.hover(hover_params(&uri)?);
+        let first = first_poll(hover.as_mut()).await;
+        assert!(first.is_pending(), "hover overtook didChange: {first:?}");
+        drop(publication);
+        drop(staging);
+        let ((), hover) = tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(change, hover)
+        })
+        .await?;
+        assert_new_hover(hover?)?;
+        backend.cancel_all_diagnostics().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn lint_publication_contention_cannot_overtake_did_open() -> Result<(), Box<dyn Error>> {
+        let backend = backend();
+        let uri = Url::parse("untitled:lint-open.bend")?;
+        let staging = backend.workspace.staging.acquire().await?;
+        let publication = backend.diagnostics.imported_publish.lock().await;
+        let mut open = backend.did_open(serde_json::from_value(json!({
+            "textDocument":{"uri":uri,"languageId":"bend","version":1,"text":NEW}
+        }))?);
+        assert!(first_poll(open.as_mut()).await.is_pending());
+        let mut hover = backend.hover(hover_params(&uri)?);
+        let first = first_poll(hover.as_mut()).await;
+        assert!(first.is_pending(), "hover overtook didOpen: {first:?}");
+        drop(publication);
+        drop(staging);
+        let ((), hover) =
+            tokio::time::timeout(Duration::from_secs(5), async { tokio::join!(open, hover) })
+                .await?;
+        assert_new_hover(hover?)?;
+        backend.cancel_all_diagnostics().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn did_save_waits_for_open_even_when_lint_cleanup_is_contended()
+    -> Result<(), Box<dyn Error>> {
+        let backend = backend();
+        let uri = Url::parse("untitled:lint-open-save.bend")?;
+        let staging = backend.workspace.staging.acquire().await?;
+        let publication = backend.diagnostics.imported_publish.lock().await;
+        let mut open = backend.did_open(serde_json::from_value(json!({
+            "textDocument":{"uri":uri,"languageId":"bend","version":1,"text":NEW}
+        }))?);
+        assert!(first_poll(open.as_mut()).await.is_pending());
+        let mut save = backend.did_save(serde_json::from_value(json!({
+            "textDocument":{"uri":uri}
+        }))?);
+        let first = first_poll(save.as_mut()).await;
+        assert!(
+            first.is_pending(),
+            "didSave skipped an unreserved didOpen: {first:?}"
+        );
+        drop(publication);
+        drop(staging);
+        tokio::time::timeout(Duration::from_secs(5), async { tokio::join!(open, save) }).await?;
+        assert_new_hover(backend.hover(hover_params(&uri)?).await?)?;
+        backend.cancel_all_diagnostics().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn lint_publication_contention_cannot_overtake_did_close() -> Result<(), Box<dyn Error>> {
+        let backend = backend();
+        let uri = Url::parse("untitled:lint-close.bend")?;
+        seed(&backend, &uri).await?;
+        let publication = backend.diagnostics.imported_publish.lock().await;
+        let mut close = backend.did_close(serde_json::from_value(json!({
+            "textDocument":{"uri":uri}
+        }))?);
+        assert!(first_poll(close.as_mut()).await.is_pending());
+        let mut hover = backend.hover(hover_params(&uri)?);
+        let first = first_poll(hover.as_mut()).await;
+        if let Poll::Ready(result) = &first {
+            assert!(
+                result.as_ref().is_ok_and(Option::is_none),
+                "hover retained a document after didClose: {first:?}"
+            );
+        }
+        drop(publication);
+        let result = tokio::time::timeout(Duration::from_secs(5), async {
+            match first {
+                Poll::Ready(result) => {
+                    close.await;
+                    result
+                }
+                Poll::Pending => {
+                    let ((), result) = tokio::join!(close, hover);
+                    result
+                }
+            }
+        })
+        .await??;
+        assert!(
+            result.is_none(),
+            "closed document must not remain hoverable"
+        );
+        backend.cancel_all_diagnostics().await;
         Ok(())
     }
 }

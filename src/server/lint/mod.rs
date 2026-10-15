@@ -17,10 +17,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
-use tokio::{
-    sync::{Mutex, Semaphore},
-    task::JoinHandle,
-};
+use tokio::{sync::Semaphore, task::JoinHandle};
 use tower_lsp::lsp_types::MessageType;
 use url::Url;
 
@@ -101,10 +98,16 @@ pub(super) struct LintResult {
 pub(super) struct LintService {
     config: State<LintConfig>,
     results: State<Option<Arc<LintResult>>>,
-    task: Mutex<Option<JoinHandle<()>>>,
+    task: State<Option<JoinHandle<()>>>,
     epoch: AtomicU64,
     closed: AtomicBool,
     semaphore: Arc<Semaphore>,
+}
+
+pub(super) struct LintInvalidation {
+    previous: Option<JoinHandle<()>>,
+    affected: HashSet<Url>,
+    warning: Option<String>,
 }
 
 impl Default for LintService {
@@ -112,7 +115,7 @@ impl Default for LintService {
         Self {
             config: State::new(LintConfig::default()),
             results: State::new(None),
-            task: Mutex::new(None),
+            task: State::new(None),
             epoch: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             semaphore: Arc::new(Semaphore::new(1)),
@@ -138,45 +141,55 @@ impl LintService {
                 result.findings.by_uri.keys().cloned().collect()
             })
     }
+
+    fn invalidate(&self, config: Option<LintConfig>, warning: Option<String>) -> LintInvalidation {
+        let mut task = self.task.write();
+        if let Some(config) = config {
+            *self.config.write() = config;
+        }
+        self.next_epoch();
+        let previous = task.take();
+        if let Some(previous) = &previous {
+            previous.abort();
+        }
+        LintInvalidation {
+            previous,
+            affected: self.take_results(),
+            warning,
+        }
+    }
 }
 
 impl Backend {
-    pub(super) async fn configure_lint(&self, settings: &serde_json::Value) {
+    pub(super) fn configure_lint(&self, settings: &serde_json::Value) -> LintInvalidation {
         let parsed = LintConfig::from_settings(settings);
         let warning = parsed.as_ref().err().cloned();
-        let affected = {
-            let mut task = self.diagnostics.lint.task.lock().await;
-            *self.diagnostics.lint.config.write() = parsed.unwrap_or_default();
-            self.diagnostics.lint.next_epoch();
-            if let Some(previous) = task.take() {
-                previous.abort();
-                let _ = previous.await;
-            }
-            self.diagnostics.lint.take_results()
-        };
-        self.publish_coordinated_diagnostics(affected).await;
-        if let Some(warning) = warning {
-            self.client.log_message(MessageType::WARNING, warning).await;
-        }
+        self.diagnostics
+            .lint
+            .invalidate(Some(parsed.unwrap_or_default()), warning)
     }
 
-    pub(super) async fn invalidate_lint(&self) {
-        let affected = {
-            let mut task = self.diagnostics.lint.task.lock().await;
-            self.diagnostics.lint.next_epoch();
-            if let Some(previous) = task.take() {
-                previous.abort();
-                let _ = previous.await;
-            }
-            self.diagnostics.lint.take_results()
-        };
-        self.publish_coordinated_diagnostics(affected).await;
+    pub(super) fn invalidate_lint(&self) -> LintInvalidation {
+        self.diagnostics.lint.invalidate(None, None)
+    }
+
+    // Lifecycle callers biased-join their original mutation before this cleanup:
+    // no lint await may precede its revision reservation or operation fence.
+    pub(super) async fn finish_lint_invalidation(&self, invalidation: LintInvalidation) {
+        join_lint_task(invalidation.previous).await;
+        if !invalidation.affected.is_empty() {
+            self.publish_coordinated_diagnostics(invalidation.affected)
+                .await;
+        }
+        if let Some(warning) = invalidation.warning {
+            self.client.log_message(MessageType::WARNING, warning).await;
+        }
     }
 
     pub(super) async fn shutdown_lint(&self) {
         self.diagnostics.lint.closed.store(true, Ordering::SeqCst);
         self.diagnostics.lint.semaphore.close();
-        self.invalidate_lint().await;
+        self.finish_lint_invalidation(self.invalidate_lint()).await;
     }
 
     pub(super) fn current_lint_result(&self) -> Option<Arc<LintResult>> {
@@ -207,31 +220,54 @@ impl Backend {
     }
 
     pub(super) async fn schedule_lint(&self, uri: Url) {
-        let mut task = self.diagnostics.lint.task.lock().await;
-        let config = self.diagnostics.lint.config.read().clone();
-        if !config.enabled || self.diagnostics.lint.closed.load(Ordering::SeqCst) {
-            return;
-        }
-        let epoch = self.diagnostics.lint.next_epoch();
-        if let Some(previous) = task.take() {
-            previous.abort();
-            let _ = previous.await;
-        }
-        let affected = self.diagnostics.lint.take_results();
-        let backend = self.clone();
-        *task = Some(tokio::spawn(async move {
-            let operation = async {
-                if let Err(error) = backend.run_lint(uri, config, epoch).await {
-                    backend
-                        .client
-                        .log_message(MessageType::WARNING, format!("bend-lint failed: {error}"))
-                        .await;
-                }
-            };
-            super::state::supervise(operation, || backend.diagnostics.report_fatal()).await;
-        }));
-        drop(task);
-        self.publish_coordinated_diagnostics(affected).await;
+        let (config, epoch, previous, affected) = {
+            let mut task = self.diagnostics.lint.task.write();
+            let config = self.diagnostics.lint.config.read().clone();
+            if !config.enabled || self.diagnostics.lint.closed.load(Ordering::SeqCst) {
+                return;
+            }
+            let epoch = self.diagnostics.lint.next_epoch();
+            let previous = task.take();
+            if let Some(previous) = &previous {
+                previous.abort();
+            }
+            (
+                config,
+                epoch,
+                previous,
+                self.diagnostics.lint.take_results(),
+            )
+        };
+        let schedule = async {
+            join_lint_task(previous).await;
+            let mut task = self.diagnostics.lint.task.write();
+            // An intervening mutation or consent update supersedes this save
+            // while it waits for the old task to stop.
+            if self.diagnostics.lint.epoch.load(Ordering::SeqCst) != epoch
+                || self.diagnostics.lint.closed.load(Ordering::SeqCst)
+                || *self.diagnostics.lint.config.read() != config
+            {
+                return;
+            }
+            let backend = self.clone();
+            *task = Some(tokio::spawn(async move {
+                let operation = async {
+                    if let Err(error) = backend.run_lint(uri, config, epoch).await {
+                        backend
+                            .client
+                            .log_message(MessageType::WARNING, format!("bend-lint failed: {error}"))
+                            .await;
+                    }
+                };
+                super::state::supervise(operation, || backend.diagnostics.report_fatal()).await;
+            }));
+        };
+        let clear = async {
+            if !affected.is_empty() {
+                self.publish_coordinated_diagnostics(affected).await;
+            }
+        };
+        tokio::join!(biased; schedule, clear);
     }
 
     async fn run_lint(&self, uri: Url, config: LintConfig, epoch: u64) -> std::io::Result<()> {
@@ -312,21 +348,27 @@ impl Backend {
             .await,
         )?;
         let _publish = self.diagnostics.imported_publish.lock().await;
-        if !unchanged
-            || generation != self.workspace.generation()
-            || self.diagnostics.lint.epoch.load(Ordering::SeqCst) != epoch
-            || !self.diagnostics_snapshot_current(&uri, &document.snapshot)
-        {
-            return Ok(());
-        }
-        let affected = findings.by_uri.keys().cloned().collect();
-        *self.diagnostics.lint.results.write() = Some(Arc::new(LintResult {
-            epoch,
-            workspace_generation: generation,
-            config,
-            saved,
-            findings,
-        }));
+        let affected = {
+            // Serialize the final epoch check/result store with synchronous
+            // invalidation; never hold this state guard across publication.
+            let _task = self.diagnostics.lint.task.read();
+            if !unchanged
+                || generation != self.workspace.generation()
+                || self.diagnostics.lint.epoch.load(Ordering::SeqCst) != epoch
+                || !self.diagnostics_snapshot_current(&uri, &document.snapshot)
+            {
+                return Ok(());
+            }
+            let affected = findings.by_uri.keys().cloned().collect();
+            *self.diagnostics.lint.results.write() = Some(Arc::new(LintResult {
+                epoch,
+                workspace_generation: generation,
+                config,
+                saved,
+                findings,
+            }));
+            affected
+        };
         self.publish_coordinated_locked(affected).await;
         Ok(())
     }
@@ -360,4 +402,13 @@ fn installed_identity(config: &LintConfig) -> String {
             format!("Installed bend-lint package metadata (not executable attestation): {metadata}")
         },
     )
+}
+
+async fn join_lint_task(previous: Option<JoinHandle<()>>) {
+    if let Some(previous) = previous
+        && let Err(error) = previous.await
+        && error.is_panic()
+    {
+        std::panic::resume_unwind(error.into_panic());
+    }
 }

@@ -8,11 +8,13 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use support::Must;
 use tempfile::tempdir;
 use url::Url;
+
+const ANALYZER_TIMEOUT_MS: u64 = 120_000;
 
 // This is intentionally opt-in: unlike protocol fixtures it executes real,
 // trusted project rules and may populate upstream's pinned Bend/BendHub cache.
@@ -50,9 +52,10 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
     assert_eq!(format["range"]["start"], json!({"line":3,"character":2}));
     let reported_edit = reported_format_edit(format, &root, canonical);
 
+    let lsp_started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&root);
-    let packet = saved_diagnostics(&mut client, &document, source);
+    let packet = saved_diagnostics(&mut client, &document, source, lsp_started);
     let diagnostics = &packet["params"]["diagnostics"];
     let actual = finding(diagnostics, "bend-lint-rules/language/unneeded_plus");
     assert_eq!(actual["source"], "bend-lint");
@@ -100,6 +103,7 @@ fn configured_analyzer() -> (PathBuf, Vec<String>) {
 }
 
 fn genuine_report(executable: &Path, arguments: &[String], root: &Path) -> Value {
+    let started = Instant::now();
     let cli = Command::new(executable)
         .args(arguments)
         .arg(root)
@@ -108,6 +112,12 @@ fn genuine_report(executable: &Path, arguments: &[String], root: &Path) -> Value
         .current_dir(root.parent().must_be("genuine project"))
         .output()
         .must_be("run genuine bend-lint CLI without fixes");
+    eprintln!(
+        "genuine analyzer CLI completed after {:.3}s with {}; stderr:\n{}",
+        started.elapsed().as_secs_f64(),
+        cli.status,
+        String::from_utf8_lossy(&cli.stderr)
+    );
     assert!(
         cli.status.success(),
         "real analyzer failed: {}",
@@ -167,7 +177,7 @@ fn configured_client(project: &Path, executable: &Path, arguments: &[String]) ->
     client.initialize(project);
     let mut settings = json!({"bend":{"lint":{
         "enabled":true,"path":executable,"arguments":arguments,
-        "dangerousCodeActions":true,"timeoutMs":120_000
+        "dangerousCodeActions":true,"timeoutMs":ANALYZER_TIMEOUT_MS
     }}});
     if let Some(compiler) = env::var_os("BEND2_COMPILER_TEST_PATH") {
         let compiler = PathBuf::from(compiler);
@@ -181,7 +191,12 @@ fn configured_client(project: &Path, executable: &Path, arguments: &[String]) ->
     client
 }
 
-fn saved_diagnostics(client: &mut LspClient, document: &str, source: &str) -> Value {
+fn saved_diagnostics(
+    client: &mut LspClient,
+    document: &str,
+    source: &str,
+    started: Instant,
+) -> Value {
     client.notify(
         "textDocument/didOpen",
         json!({"textDocument":{
@@ -196,17 +211,51 @@ fn saved_diagnostics(client: &mut LspClient, document: &str, source: &str) -> Va
             .is_none(),
         "even genuine rules must wait for save"
     );
+    eprintln!(
+        "[LSP +{:.3}s] didSave; analyzer timeout is {ANALYZER_TIMEOUT_MS}ms",
+        started.elapsed().as_secs_f64()
+    );
     client.notify(
         "textDocument/didSave",
         json!({"textDocument":{"uri":document}}),
     );
-    let packet = client
-        .receive_matching(Duration::from_secs(150), |message| {
-            lint_packet(message, document)
-        })
-        .must_be("real analyzer finding arrives through stdio LSP");
+    let packet = wait_for_saved_diagnostics(client, document, started);
     assert_eq!(packet["params"]["version"], 1);
     packet
+}
+
+fn wait_for_saved_diagnostics(client: &mut LspClient, document: &str, started: Instant) -> Value {
+    let waiting = Instant::now();
+    let deadline = waiting + Duration::from_secs(150);
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            break;
+        }
+        // Include already buffered messages, with their original receive times:
+        // initialization/configuration warnings can explain a missing provider.
+        let Some((message, received)) = client.receive_matching_timed(remaining, |message| {
+            message["method"] == "window/logMessage"
+                || (message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == document)
+        }) else {
+            break;
+        };
+        eprintln!(
+            "[LSP +{:.3}s] {message}",
+            received.duration_since(started).as_secs_f64()
+        );
+        if lint_packet(&message, document) {
+            return message;
+        }
+    }
+    panic!(
+        "real analyzer finding did not arrive through stdio LSP after {:.3}s \
+         (configured analyzer timeout: {ANALYZER_TIMEOUT_MS}ms; LSP exit status: {:?}); \
+         see timestamped window/logMessage and publishDiagnostics messages above",
+        waiting.elapsed().as_secs_f64(),
+        client.try_wait()
+    );
 }
 
 fn explicit_user_fix(

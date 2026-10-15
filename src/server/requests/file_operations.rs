@@ -431,7 +431,6 @@ impl Backend {
     }
 
     pub(in crate::server) async fn handle_did_rename_files(&self, params: RenameFilesParams) {
-        self.invalidate_lint().await;
         let requested = match path_renames(params) {
             Ok(renames) => renames,
             Err(error) => {

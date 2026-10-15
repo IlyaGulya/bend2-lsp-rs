@@ -202,6 +202,12 @@ genuine analyzer E2E on all six OS/CPU targets. The latter checks real
 stdio LSP, refuses automatic actions, and applies the versioned edit only as an
 explicit simulated user action. Its bootstrap pins the npm archive and native
 Bun 1.4.3 archive checksums and records the actual runtime architecture.
+Windows ARM CI additionally pins native Clang 20.1.8 through upstream's `CC`
+override rather than disabling its native rule backend.
+
+Deterministic regression tests also hold lint publication busy while opening,
+editing, closing, or immediately saving a document. Subsequent requests must not
+overtake document updates or observe an older snapshot, even with lint disabled.
 
 The genuine test is opt-in locally because it executes trusted rules and may
 populate upstream's compiler and BendHub caches. After provisioning your tools:
