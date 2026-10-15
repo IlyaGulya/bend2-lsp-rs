@@ -637,3 +637,204 @@ fn conflicting_or_unverifiable_multifile_fix_is_not_offered() {
         session.finish();
     }
 }
+
+#[test]
+fn later_compiler_completion_keeps_already_published_lint_findings() {
+    let mut session = Session::new(SOURCE, &[]);
+    fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR).must_be("compiler error");
+    fs::write(session.control.join("compiler-block"), "").must_be("delay compiler");
+    session.standard_response();
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.wait_file("compiler-address");
+    session.save();
+    session.lint();
+    fs::write(session.control.join("compiler-release"), "").must_be("finish compiler");
+    let packet = session.compiler(1);
+    assert!(has_lint(&packet), "a late compiler must not overwrite the lint slot");
+    session.finish();
+}
+
+#[test]
+fn imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_error() {
+    let source = "import dep.bend as Dep\ndef main: U32\n  Dep.value\n";
+    let mut session = Session::new(source, &[("dep.bend", "def value: U32\n  1\n")]);
+    let dependency = session.project().join("dep.bend");
+    let dependency_uri = uri(&dependency);
+    let errors = "Error:\nselected root rejection\nLocation: main\n2>| def main: U32\n  |     ^^^^\n3 |   Dep.value\nError:\nselected imported rejection\nLocation: Dep.value\n1>| def value: U32\n  |     ^^^^^\n2 |   1\n";
+    fs::write(session.control.join("compiler.stderr"), errors).must_be("imported compiler error");
+    session.response(
+        vec![
+            finding(&session.root, "root/lint", range(1, 4, 8)),
+            finding(&dependency, "dependency/lint", range(0, 4, 9)),
+        ],
+        vec![],
+        true,
+    );
+    session.configure(true, false, 10_000);
+    session.open(source);
+    let baseline = session.client.receive_matching(TIMEOUT, |message| {
+        message["method"] == "textDocument/publishDiagnostics"
+            && message["params"]["uri"] == dependency_uri
+            && message["params"]["diagnostics"].as_array().is_some_and(|items| {
+                items.iter().any(|item| item["message"] == "selected imported rejection")
+            })
+    }).must_be("selected imported diagnostic before lint");
+    session.save();
+    session.lint();
+    let merged = session.client.receive_matching(TIMEOUT, |message| {
+        message["params"]["uri"] == dependency_uri && has_lint(message)
+    }).must_be("imported compiler and lint union");
+    let selected: Vec<_> = merged["params"]["diagnostics"].as_array().must_be("imported union")
+        .iter().filter(|item| item["source"] != "bend-lint").cloned().collect();
+    assert_eq!(json!(selected), baseline["params"]["diagnostics"]);
+    session.configure(false, false, 10_000);
+    let cleared = session.client.receive_matching(TIMEOUT, |message| {
+        message["method"] == "textDocument/publishDiagnostics"
+            && message["params"]["uri"] == dependency_uri
+            && message["params"]["diagnostics"] == baseline["params"]["diagnostics"]
+    }).must_be("disable clears only imported lint findings");
+    assert!(!has_lint(&cleared));
+    session.finish();
+}
+
+#[test]
+fn editing_saved_document_clears_published_lint_until_next_real_save() {
+    let mut session = Session::new(SOURCE, &[]);
+    session.standard_response();
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.save();
+    session.lint();
+    session.change(2, "def main(x: U32) -> U32:\n  x\n");
+    let cleared = session.client.receive_matching(TIMEOUT, |message| {
+        message["method"] == "textDocument/publishDiagnostics"
+            && message["params"]["uri"] == session.document
+            && message["params"]["version"] == 2
+            && !has_lint(message)
+    }).must_be("unsaved edit immediately removes disk diagnostics");
+    assert!(!has_lint(&cleared));
+    session.no_lint();
+    assert_eq!(session.wait_file("calls").lines().count(), 1, "no lint on change");
+    session.finish();
+}
+
+#[test]
+fn config_file_change_invalidates_pending_project_results() {
+    let mut session = Session::new(SOURCE, &[]);
+    session.standard_response();
+    session.block();
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.save();
+    let address = session.wait_file("address");
+    let config = session.project().join("bend-lint.json");
+    fs::write(&config, "{\"rules\":{\"language/unneeded_plus\":\"off\"}}")
+        .must_be("change project rules");
+    session.client.notify("workspace/didChangeWatchedFiles", json!({
+        "changes":[{"uri":uri(&config),"type":2}]
+    }));
+    session.release();
+    socket_closed(&address);
+    session.no_lint();
+    session.finish();
+}
+
+#[test]
+fn invalid_ranges_and_outside_paths_never_become_editor_findings() {
+    for invalid in ["surrogate", "reversed", "past-end", "outside"] {
+        let source = "# 😀x\ndef main(+x: U32) -> U32:\n  x\n";
+        let mut session = Session::new(source, &[]);
+        let (path, span) = match invalid {
+            "surrogate" => (session.root.clone(), range(0, 3, 4)),
+            "reversed" => (session.root.clone(), range(0, 5, 4)),
+            "past-end" => (session.root.clone(), range(99, 0, 1)),
+            "outside" => {
+                let outside = session.directory.path().join("outside.bend");
+                fs::write(&outside, source).must_be("outside project source");
+                (outside, range(0, 4, 5))
+            }
+            _ => unreachable!("enumerated invalid finding case"),
+        };
+        session.response(vec![finding(&path, "invalid/location", span)], vec![], true);
+        session.configure(true, false, 10_000);
+        session.open(source);
+        session.save();
+        session.wait_file("started");
+        socket_closed(&session.wait_file("address"));
+        session.no_lint();
+        session.finish();
+    }
+}
+
+#[test]
+fn missing_analyzer_is_visible_without_erasing_compiler_diagnostics() {
+    let mut session = Session::new(SOURCE, &[]);
+    fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR).must_be("compiler error");
+    let missing = session.directory.path().join("missing analyzer");
+    session.client.notify("workspace/didChangeConfiguration", json!({"settings":{
+        "bend2-lsp":{"compilerPath":executable()},
+        "bend":{"lint":{"enabled":true,"path":missing,"timeoutMs":10_000}}
+    }}));
+    session.open(SOURCE);
+    session.compiler(1);
+    session.save();
+    session.failure();
+    session.no_lint();
+    session.change(2, SOURCE);
+    session.compiler(2);
+    session.finish();
+}
+
+#[test]
+fn relative_analyzer_path_is_never_resolved_from_project_or_path() {
+    let mut session = Session::new(SOURCE, &[]);
+    session.client.notify("workspace/didChangeConfiguration", json!({"settings":{
+        "bend2-lsp":{"compilerPath":executable()},
+        "bend":{"lint":{"enabled":true,"path":"bend-lint","timeoutMs":10_000}}
+    }}));
+    session.open(SOURCE);
+    session.save();
+    session.no_lint();
+    assert!(!session.control.join("calls").exists());
+    session.finish();
+}
+
+#[test]
+fn valid_multifile_dangerous_action_versions_every_open_saved_target() {
+    let dependency_source = "def value: U32\n  1\n";
+    let mut session = Session::new(SOURCE, &[("dep.bend", dependency_source)]);
+    let dependency = session.project().join("dep.bend");
+    let dependency_uri = uri(&dependency);
+    let mut item = finding(&session.root, "custom/multifile", range(0, 9, 10));
+    item["fixes"] = json!([{"title":"Change both files","applicability":"dangerous","edits":[
+        {"path":session.root,"range":range(0, 9, 10),"text":""},
+        {"path":dependency,"range":range(1, 2, 3),"text":"2"}
+    ]}]);
+    session.response(vec![item], vec![], true);
+    session.configure(true, true, 10_000);
+    session.client.notify("textDocument/didOpen", json!({"textDocument":{
+        "uri":dependency_uri,"languageId":"bend","version":7,"text":dependency_source
+    }}));
+    session.open(SOURCE);
+    session.save();
+    let diagnostics = session.lint()["params"]["diagnostics"].clone();
+    let actions = session.actions(diagnostics.clone(), 1);
+    assert_eq!(actions.len(), 1);
+    let edits = actions[0]["edit"]["documentChanges"].as_array().must_be("multifile changes");
+    assert_eq!(edits.len(), 2);
+    let root_edit = edits.iter().find(|edit| edit["textDocument"]["uri"] == session.document)
+        .must_be("root edit");
+    assert_eq!(root_edit["textDocument"]["version"], 1);
+    assert_eq!(root_edit["edits"], json!([{"range":range(0, 9, 10),"newText":""}]));
+    let dep_edit = edits.iter().find(|edit| edit["textDocument"]["uri"] == dependency_uri)
+        .must_be("dependency edit");
+    assert_eq!(dep_edit["textDocument"]["version"], 7);
+    assert_eq!(dep_edit["edits"], json!([{"range":range(1, 2, 3),"newText":"2"}]));
+    session.client.notify("textDocument/didChange", json!({"textDocument":{
+        "uri":dependency_uri,"version":8},"contentChanges":[{"text":"# unsaved\n"}]
+    }));
+    assert!(session.actions(diagnostics, 1).is_empty(), "a dirty target invalidates the entire edit");
+    assert_eq!(fs::read_to_string(&dependency).must_be("unchanged dependency"), dependency_source);
+    session.finish();
+}

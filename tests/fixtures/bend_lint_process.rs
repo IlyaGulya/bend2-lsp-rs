@@ -40,6 +40,17 @@ fn run() -> io::Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
     if arguments.iter().any(|arg| arg == "--check-only") {
+        if control.join("compiler-block").exists() {
+            let listener = hold_socket(&control.join("compiler-address"))?;
+            let deadline = Instant::now() + Duration::from_secs(30);
+            while !control.join("compiler-release").exists() {
+                if Instant::now() >= deadline {
+                    return Err(io::Error::other("compiler fixture gate deadline exceeded"));
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            drop(listener);
+        }
         if let Ok(output) = fs::read(control.join("compiler.stderr")) {
             io::stderr().write_all(&output)?;
             return Ok(ExitCode::FAILURE);
