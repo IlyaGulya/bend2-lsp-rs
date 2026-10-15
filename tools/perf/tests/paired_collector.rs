@@ -7,11 +7,22 @@ fn git(root: &Path, arguments: &[&str]) -> TestResult<String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args(["-c", "user.name=Performance fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false"])
+        .args([
+            "-c",
+            "user.name=Performance fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+        ])
         .args(arguments)
         .output()?;
     if !output.status.success() {
-        return Err(format!("fixture git command failed: {}", String::from_utf8_lossy(&output.stderr)).into());
+        return Err(format!(
+            "fixture git command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
     }
     Ok(String::from_utf8(output.stdout)?.trim().to_owned())
 }
@@ -42,21 +53,39 @@ fn paired_collection_rejects_wrong_source_revision_before_compilation() -> TestR
         "gate_identity": {"workflow": "performance", "job": "compare", "step": "Compare pull request with main", "head_sha": "0".repeat(40)},
         "files": [], "expected": []
     });
-    fs::write(output.join("artifact-manifest.json"), serde_json::to_vec(&manifest)?)?;
+    fs::write(
+        output.join("artifact-manifest.json"),
+        serde_json::to_vec(&manifest)?,
+    )?;
     let result = Command::new(env!("CARGO_BIN_EXE_bend2-perf"))
         .args(["paired", "collect", "--baseline-source"])
         .arg(&baseline)
-        .arg("--candidate-source").arg(&candidate)
-        .arg("--work-dir").arg(temporary.path().join("work"))
-        .arg("--output-dir").arg(&output)
+        .arg("--candidate-source")
+        .arg(&candidate)
+        .arg("--work-dir")
+        .arg(temporary.path().join("work"))
+        .arg("--output-dir")
+        .arg(&output)
         .env("GITHUB_ACTIONS", "true")
         .output()?;
-    assert_eq!(result.status.code(), Some(2), "{}", String::from_utf8_lossy(&result.stderr));
-    let failure: serde_json::Value = serde_json::from_reader(fs::File::open(output.join("paired-failure.json"))?)?;
-    assert_eq!(failure["reason"], json!({
-        "kind": "source_revision_mismatch", "variant": "b",
-        "expected": "0".repeat(40), "actual": actual_candidate
-    }));
-    assert!(!output.join("paired-data.json").exists(), "unverified source must never produce completed evidence");
+    assert_eq!(
+        result.status.code(),
+        Some(2),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let failure: serde_json::Value =
+        serde_json::from_reader(fs::File::open(output.join("paired-failure.json"))?)?;
+    assert_eq!(
+        failure["reason"],
+        json!({
+            "kind": "source_revision_mismatch", "variant": "b",
+            "expected": "0".repeat(40), "actual": actual_candidate
+        })
+    );
+    assert!(
+        !output.join("paired-data.json").exists(),
+        "unverified source must never produce completed evidence"
+    );
     Ok(())
 }

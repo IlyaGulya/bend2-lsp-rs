@@ -1,9 +1,12 @@
 //! Report-only fixed experiment; never an ordinary performance admission path.
 use super::{ReportArgs, report, require};
-use crate::{ToolResult, common::write_json, repeated::{METHOD, PAIRS, comparisons}};
+use crate::{
+    ToolResult,
+    common::write_json,
+    repeated::{METHOD, PAIRS, comparisons},
+};
 use serde_json::{Value, json};
 use std::{fmt::Write as _, fs};
-
 
 fn text<'a>(value: &'a Value, key: &str) -> ToolResult<&'a str> {
     value[key]

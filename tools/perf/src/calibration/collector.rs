@@ -3,20 +3,17 @@ use crate::{
     ToolResult,
     callgrind::{
         self,
-        collect::{Build, Environment, clean_environment, command_strings, compile, copy_verified_source, ensure_immutable, environment_metadata, host_metadata, measure, run_logged},
+        collect::{
+            Build, Environment, clean_environment, command_strings, compile, copy_verified_source,
+            ensure_immutable, environment_metadata, host_metadata, measure, run_logged,
+        },
         parse_probe_symbols, source_manifest,
     },
     common::{sha256_file, write_json},
 };
 use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
-use std::{
-    collections::BTreeMap,
-    fmt::Write as _,
-    fs,
-    path::Path,
-    process::Command,
-};
+use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path, process::Command};
 
 const INLAY_ANCHOR: &str = "fn inlay_hints_warm(fixture: WarmSnapshot) -> Vec<analysis::InlayHint> {\n    std::hint::black_box(analysis::inlay_hints(\n        std::hint::black_box(fixture.snapshot),\n        analysis::TextRange::new(0, fixture.source.len()),\n    ))\n}";
 const SETUP_ANCHORS: [&str; 3] = [
@@ -25,7 +22,6 @@ const SETUP_ANCHORS: [&str; 3] = [
     "    fn large() -> Self {\n        Self {\n            source: LARGE_SOURCE,\n            snapshot: &LARGE_SNAPSHOT,\n            completion_prefix: \"worker_\",\n            identifier_name: \"worker_0599\",\n        }\n    }",
 ];
 const HELPERS: &str = "#[inline(never)]\nfn calibration_inlay_query(\n    snapshot: &analysis::DocumentSnapshot,\n    source_len: usize,\n) -> Vec<analysis::InlayHint> {\n    std::hint::black_box(analysis::inlay_hints(\n        std::hint::black_box(snapshot),\n        analysis::TextRange::new(0, source_len),\n    ))\n}\n\n#[inline(never)]\nfn calibration_allocation_control() {\n    std::hint::black_box(vec![1_u64; 65_536]);\n}\n\n";
-
 
 fn exact_replace(text: &str, anchor: &str, replacement: &str) -> ToolResult<String> {
     require(
@@ -106,8 +102,6 @@ pub(super) fn balanced_order(job_id: &str, pair: u64) -> ToolResult<Vec<&'static
     Ok(order)
 }
 
-
-
 fn independent_build(
     variant: &str,
     source: &Path,
@@ -121,7 +115,10 @@ fn independent_build(
     copy_verified_source(source, &checkout, original)?;
     fs::write(checkout.join("benches/analysis.rs"), harness)?;
     let mut build = compile(checkout, variant, output, environment)?;
-    let analysis = build.benchmarks.get_mut("analysis").ok_or("missing analysis executable")?;
+    let analysis = build
+        .benchmarks
+        .get_mut("analysis")
+        .ok_or("missing analysis executable")?;
     let mut nm = command_strings(&["nm", "-C", "-S", "--defined-only"]);
     nm.push(analysis.executable.as_os_str().to_owned());
     let symbols = run_logged(

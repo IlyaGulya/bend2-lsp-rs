@@ -45,7 +45,8 @@ struct ReportArgs {
 
 fn report_outputs(args: &ReportArgs) -> ToolResult<(Value, String, u8)> {
     let root = args.root.canonicalize()?;
-    let manifest = callgrind::strict_json(&fs::read_to_string(root.join("artifact-manifest.json"))?)?;
+    let manifest =
+        callgrind::strict_json(&fs::read_to_string(root.join("artifact-manifest.json"))?)?;
     let verdict = report::build(&root, &manifest)?;
     let status = match verdict["status"].as_str() {
         Some("complete") => 0,

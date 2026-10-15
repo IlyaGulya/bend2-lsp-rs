@@ -44,6 +44,10 @@ struct MeasurementArgs {
     #[arg(long)]
     run_id: String,
     #[arg(long)]
+    run_attempt: String,
+    #[arg(long)]
+    workflow_sha: String,
+    #[arg(long)]
     benchmark_exit_code: u8,
     #[arg(long)]
     policy_exit_code: u8,
@@ -151,6 +155,7 @@ fn validate_source(args: &MeasurementArgs, manifest: &Value) -> ToolResult<()> {
     for (field, expected) in [
         ("base_sha", args.base_sha.as_str()),
         ("candidate_sha", args.candidate_sha.as_str()),
+        ("workflow_sha", args.workflow_sha.as_str()),
     ] {
         if !hex(expected, 40) || manifest[field].as_str() != Some(expected) {
             return Err(format!("Admission {field} differs from exact source provenance").into());
@@ -170,17 +175,19 @@ fn validate_source(args: &MeasurementArgs, manifest: &Value) -> ToolResult<()> {
     if !positive_id(&args.run_id) || manifest["run_id"].as_str() != Some(args.run_id.as_str()) {
         return Err("Admission run ID differs from exact run provenance".into());
     }
-    if !manifest["workflow_sha"]
-        .as_str()
-        .is_some_and(|sha| hex(sha, 40))
-        || !manifest["run_attempt"].as_str().is_some_and(positive_id)
+    if !positive_id(&args.run_attempt)
+        || manifest["run_attempt"].as_str() != Some(args.run_attempt.as_str())
     {
-        return Err("Missing or malformed workflow SHA or run attempt".into());
+        return Err("Admission run attempt differs from exact run provenance".into());
     }
     Ok(())
 }
 
-fn validate_outcomes(args: &MeasurementArgs, manifest: &Value, classification: &str) -> ToolResult<()> {
+fn validate_outcomes(
+    args: &MeasurementArgs,
+    manifest: &Value,
+    classification: &str,
+) -> ToolResult<()> {
     let repeated = manifest["measurement_method"] == METHOD;
     let policy_exit = match classification {
         "passed" => 0,
@@ -209,7 +216,12 @@ fn validate_outcomes(args: &MeasurementArgs, manifest: &Value, classification: &
         .ok_or("Missing candidate outcome")?;
     if candidate["benchmark_exit_code"].as_u64() != Some(u64::from(args.benchmark_exit_code))
         || candidate["policy_exit_code"].as_u64() != Some(u64::from(args.policy_exit_code))
-        || candidate["status"] != if policy_exit == 0 { "success" } else { "failure" }
+        || candidate["status"]
+            != if policy_exit == 0 {
+                "success"
+            } else {
+                "failure"
+            }
     {
         return Err("Candidate outcome or retained command exits are inconsistent".into());
     }
@@ -294,14 +306,23 @@ fn measurement(args: &MeasurementArgs) -> ToolResult<Value> {
             }
         }
         let failures = policy::validate_verdict(&verdict, &manifest, &inputs)?;
-        let classification = if failures.is_empty() { "passed" } else { "regression" };
-        (classification, failures.into_iter().map(Value::String).collect())
+        let classification = if failures.is_empty() {
+            "passed"
+        } else {
+            "regression"
+        };
+        (
+            classification,
+            failures.into_iter().map(Value::String).collect(),
+        )
     };
     validate_outcomes(args, &manifest, classification)?;
     let mut result = json!({
         "status": classification,
         "base_sha": args.base_sha, "candidate_sha": args.candidate_sha,
-        "head_sha": args.head_sha, "run_id": args.run_id, "failures": failures
+        "head_sha": args.head_sha, "run_id": args.run_id,
+        "run_attempt": args.run_attempt, "workflow_sha": args.workflow_sha,
+        "failures": failures
     });
     if let Some(method) = manifest.get("measurement_method") {
         result["method"] = method.clone();

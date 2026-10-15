@@ -1,10 +1,16 @@
 //! Qualified fixed-sample policy shared by controls and source comparisons.
-use crate::{ToolResult, callgrind::{self, Identity}, policy};
+use crate::{
+    ToolResult,
+    callgrind::{self, Identity},
+    policy,
+};
 use serde_json::{Value, json};
 use std::{cmp::Ordering, collections::BTreeMap};
 
 fn text<'a>(value: &'a Value, key: &str) -> ToolResult<&'a str> {
-    value[key].as_str().ok_or_else(|| format!("missing {key}").into())
+    value[key]
+        .as_str()
+        .ok_or_else(|| format!("missing {key}").into())
 }
 
 pub(crate) const PAIRS: usize = 105;

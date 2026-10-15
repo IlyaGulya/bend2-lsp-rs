@@ -1,6 +1,12 @@
 //! Process execution and immutable source handling shared by Callgrind collectors.
-use super::{BENCHMARKS, baseline_name, parse_executable, parse_measurement, parse_workload_list, require, source_manifest};
-use crate::{ToolResult, callgrind, common::{sha256_file, write_json}};
+use super::{
+    BENCHMARKS, baseline_name, parse_executable, parse_measurement, parse_workload_list, require,
+    source_manifest,
+};
+use crate::{
+    ToolResult, callgrind,
+    common::{sha256_file, write_json},
+};
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -13,148 +19,170 @@ use std::{
 
 pub(crate) type Environment = BTreeMap<OsString, OsString>;
 
-pub(crate) fn clean_environment() -> Environment { env::vars_os()
-    .filter(|(key, _)| {
-        !key.to_string_lossy().starts_with("IAI_CALLGRIND_") && key != "CARGO_TARGET_DIR"
-    })
-    .collect() }
-
-pub(crate) fn run_logged(command: &[OsString],
-cwd: &Path,
-stdout: &Path,
-stderr: &Path,
-environment: &Environment,) -> ToolResult<String> { if let Some(parent) = stdout.parent() {
-    fs::create_dir_all(parent)?;
+pub(crate) fn clean_environment() -> Environment {
+    env::vars_os()
+        .filter(|(key, _)| {
+            !key.to_string_lossy().starts_with("IAI_CALLGRIND_") && key != "CARGO_TARGET_DIR"
+        })
+        .collect()
 }
-let argv = command
-    .iter()
-    .map(|argument| {
-        argument
-            .to_str()
-            .ok_or("calibration command argument is not UTF-8")
-    })
-    .collect::<Result<Vec<_>, _>>()?;
-write_json(
-    &stdout.with_extension("command.json"),
-    &json!({"argv": argv, "cwd": cwd}),
-)?;
-let (executable, arguments) = command.split_first().ok_or("empty calibration command")?;
-let status = Command::new(executable)
-    .args(arguments)
-    .current_dir(cwd)
-    .env_clear()
-    .envs(environment)
-    .stdin(Stdio::null())
-    .stdout(File::create(stdout)?)
-    .stderr(File::create(stderr)?)
-    .status()?;
-require(
-    status.success(),
-    &format!(
-        "command exited {status}: {command:?}; see {} and {}",
-        stderr.display(),
-        stdout.display()
-    ),
-)?;
-Ok(fs::read_to_string(stdout)?) }
 
-pub(crate) fn command_strings(command: &[&str]) -> Vec<OsString> { command.iter().map(OsString::from).collect() }
-
-pub(crate) fn environment_metadata(source: &Path,
-output: &Path,
-environment: &Environment,) -> ToolResult<Value> { let mut tools = serde_json::Map::new();
-for (key, command) in [
-    ("rustc", vec!["rustc", "--version", "--verbose"]),
-    ("cargo", vec!["cargo", "--version"]),
-    ("valgrind", vec!["valgrind", "--version"]),
-] {
-    let text = run_logged(
-        &command_strings(&command),
-        source,
-        &output.join(format!("environment/{key}.stdout")),
-        &output.join(format!("environment/{key}.stderr")),
-        environment,
-    )?;
-    tools.insert(key.to_owned(), text.trim().into());
-}
-let installed = run_logged(
-    &command_strings(&["cargo", "install", "--list"]),
-    source,
-    &output.join("environment/installed.stdout"),
-    &output.join("environment/installed.stderr"),
-    environment,
-)?;
-let versions: Vec<_> = installed
-    .lines()
-    .filter_map(|line| {
-        line.strip_prefix("iai-callgrind-runner v")
-            .and_then(|version| version.strip_suffix(':'))
-    })
-    .collect();
-let path = environment
-    .get(&OsString::from("PATH"))
-    .ok_or("runner PATH is missing")?;
-require(
-    versions == ["0.16.1"]
-        && env::split_paths(path)
-            .any(|directory| directory.join("iai-callgrind-runner").is_file()),
-    "requires cargo-installed iai-callgrind-runner 0.16.1 on PATH",
-)?;
-tools.insert(
-    "iai_runner".to_owned(),
-    "iai-callgrind-runner 0.16.1".into(),
-);
-let os = match env::consts::OS {
-    "linux" => "Linux",
-    "macos" => "Darwin",
-    "windows" => "Windows",
-    other => other,
-};
-tools.insert("os".to_owned(), os.into());
-tools.insert("arch".to_owned(), env::consts::ARCH.into());
-tools.insert("cache_args".to_owned(), json!(["--cache-sim=yes"]));
-Ok(Value::Object(tools)) }
-
-pub(crate) fn host_metadata() -> ToolResult<Value> { let kernel = Command::new("uname").arg("-r").output()?;
-let hostname = Command::new("hostname").output()?;
-let mut host = json!({"kernel": String::from_utf8(kernel.stdout)?.trim(), "hostname": String::from_utf8(hostname.stdout)?.trim(), "cpu": "", "runner_identity": env::var("RUNNER_NAME").unwrap_or_else(|_| "unknown".to_owned())});
-if Path::new("/proc/cpuinfo").is_file() {
-    host["cpuinfo"] = fs::read_to_string("/proc/cpuinfo")?.into();
-}
-Ok(host) }
-
-pub(crate) fn freeze_source(checkout: &Path, manifest: &Value) -> ToolResult<()> { for entry in manifest["files"]
-    .as_array()
-    .ok_or("manifest files missing")?
-{
-    let path = checkout.join(entry["path"].as_str().ok_or("manifest path missing")?);
-    let mut permissions = fs::metadata(&path)?.permissions();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        permissions.set_mode(permissions.mode() & !0o222);
-    }
-    #[cfg(not(unix))]
-    permissions.set_readonly(true);
-    fs::set_permissions(path, permissions)?;
-}
-Ok(()) }
-pub(crate) fn copy_verified_source(source: &Path, checkout: &Path, original: &Value) -> ToolResult<()> { fs::create_dir(checkout)?;
-for entry in original["files"]
-    .as_array()
-    .ok_or("manifest files missing")?
-{
-    let relative = entry["path"].as_str().ok_or("manifest path missing")?;
-    let destination = checkout.join(relative);
-    if let Some(parent) = destination.parent() {
+pub(crate) fn run_logged(
+    command: &[OsString],
+    cwd: &Path,
+    stdout: &Path,
+    stderr: &Path,
+    environment: &Environment,
+) -> ToolResult<String> {
+    if let Some(parent) = stdout.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::copy(source.join(relative), destination)?;
+    let argv = command
+        .iter()
+        .map(|argument| {
+            argument
+                .to_str()
+                .ok_or("calibration command argument is not UTF-8")
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    write_json(
+        &stdout.with_extension("command.json"),
+        &json!({"argv": argv, "cwd": cwd}),
+    )?;
+    let (executable, arguments) = command.split_first().ok_or("empty calibration command")?;
+    let status = Command::new(executable)
+        .args(arguments)
+        .current_dir(cwd)
+        .env_clear()
+        .envs(environment)
+        .stdin(Stdio::null())
+        .stdout(File::create(stdout)?)
+        .stderr(File::create(stderr)?)
+        .status()?;
+    require(
+        status.success(),
+        &format!(
+            "command exited {status}: {command:?}; see {} and {}",
+            stderr.display(),
+            stdout.display()
+        ),
+    )?;
+    Ok(fs::read_to_string(stdout)?)
 }
-require(
-    source_manifest(checkout, &[])? == *original,
-    "source changed while copying; discard this measurement",
-) }
+
+pub(crate) fn command_strings(command: &[&str]) -> Vec<OsString> {
+    command.iter().map(OsString::from).collect()
+}
+
+pub(crate) fn environment_metadata(
+    source: &Path,
+    output: &Path,
+    environment: &Environment,
+) -> ToolResult<Value> {
+    let mut tools = serde_json::Map::new();
+    for (key, command) in [
+        ("rustc", vec!["rustc", "--version", "--verbose"]),
+        ("cargo", vec!["cargo", "--version"]),
+        ("valgrind", vec!["valgrind", "--version"]),
+    ] {
+        let text = run_logged(
+            &command_strings(&command),
+            source,
+            &output.join(format!("environment/{key}.stdout")),
+            &output.join(format!("environment/{key}.stderr")),
+            environment,
+        )?;
+        tools.insert(key.to_owned(), text.trim().into());
+    }
+    let installed = run_logged(
+        &command_strings(&["cargo", "install", "--list"]),
+        source,
+        &output.join("environment/installed.stdout"),
+        &output.join("environment/installed.stderr"),
+        environment,
+    )?;
+    let versions: Vec<_> = installed
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("iai-callgrind-runner v")
+                .and_then(|version| version.strip_suffix(':'))
+        })
+        .collect();
+    let path = environment
+        .get(&OsString::from("PATH"))
+        .ok_or("runner PATH is missing")?;
+    require(
+        versions == ["0.16.1"]
+            && env::split_paths(path)
+                .any(|directory| directory.join("iai-callgrind-runner").is_file()),
+        "requires cargo-installed iai-callgrind-runner 0.16.1 on PATH",
+    )?;
+    tools.insert(
+        "iai_runner".to_owned(),
+        "iai-callgrind-runner 0.16.1".into(),
+    );
+    let os = match env::consts::OS {
+        "linux" => "Linux",
+        "macos" => "Darwin",
+        "windows" => "Windows",
+        other => other,
+    };
+    tools.insert("os".to_owned(), os.into());
+    tools.insert("arch".to_owned(), env::consts::ARCH.into());
+    tools.insert("cache_args".to_owned(), json!(["--cache-sim=yes"]));
+    Ok(Value::Object(tools))
+}
+
+pub(crate) fn host_metadata() -> ToolResult<Value> {
+    let kernel = Command::new("uname").arg("-r").output()?;
+    let hostname = Command::new("hostname").output()?;
+    let mut host = json!({"kernel": String::from_utf8(kernel.stdout)?.trim(), "hostname": String::from_utf8(hostname.stdout)?.trim(), "cpu": "", "runner_identity": env::var("RUNNER_NAME").unwrap_or_else(|_| "unknown".to_owned())});
+    if Path::new("/proc/cpuinfo").is_file() {
+        host["cpuinfo"] = fs::read_to_string("/proc/cpuinfo")?.into();
+    }
+    Ok(host)
+}
+
+pub(crate) fn freeze_source(checkout: &Path, manifest: &Value) -> ToolResult<()> {
+    for entry in manifest["files"]
+        .as_array()
+        .ok_or("manifest files missing")?
+    {
+        let path = checkout.join(entry["path"].as_str().ok_or("manifest path missing")?);
+        let mut permissions = fs::metadata(&path)?.permissions();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            permissions.set_mode(permissions.mode() & !0o222);
+        }
+        #[cfg(not(unix))]
+        permissions.set_readonly(true);
+        fs::set_permissions(path, permissions)?;
+    }
+    Ok(())
+}
+pub(crate) fn copy_verified_source(
+    source: &Path,
+    checkout: &Path,
+    original: &Value,
+) -> ToolResult<()> {
+    fs::create_dir(checkout)?;
+    for entry in original["files"]
+        .as_array()
+        .ok_or("manifest files missing")?
+    {
+        let relative = entry["path"].as_str().ok_or("manifest path missing")?;
+        let destination = checkout.join(relative);
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::copy(source.join(relative), destination)?;
+    }
+    require(
+        source_manifest(checkout, &[])? == *original,
+        "source changed while copying; discard this measurement",
+    )
+}
 pub(crate) struct BenchmarkBuild {
     pub(crate) executable: PathBuf,
     pub(crate) identities: BTreeSet<super::Identity>,
@@ -168,7 +196,6 @@ pub(crate) struct Build {
     pub(crate) identities: BTreeSet<super::Identity>,
     pub(crate) metadata: Value,
 }
-
 
 pub(crate) fn compile(
     checkout: PathBuf,

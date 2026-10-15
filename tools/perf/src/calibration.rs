@@ -21,7 +21,10 @@ mod report;
 #[cfg(test)]
 mod tests;
 
-use crate::{ToolResult, callgrind::{self, BENCHMARKS, Identity, METRICS, PROBE, baseline_name, require}};
+use crate::{
+    ToolResult,
+    callgrind::{self, BENCHMARKS, Identity, METRICS, PROBE, baseline_name, require},
+};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
@@ -117,4 +120,3 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         Command::Report(args) => report::run(&args),
     }
 }
-
