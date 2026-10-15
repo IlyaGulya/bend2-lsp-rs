@@ -2,8 +2,8 @@ mod reports;
 
 use super::{
     Arguments, Identity, METRICS, PROBE, VARIANTS,
+    callgrind::*,
     collector::{balanced_order, variant_harness},
-    integrity::*,
 };
 use crate::ToolResult;
 use clap::Parser as _;
@@ -321,7 +321,7 @@ fn cargo_artifact_is_required_and_cannot_escape_independent_target() -> ToolResu
         use std::os::unix::fs::PermissionsExt as _;
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))?;
     }
-    let artifact = json!({"reason": "compiler-artifact", "target": {"name": "analysis", "kind": ["bench"]}, "executable": executable});
+    let artifact = json!({"reason": "compiler-artifact", "target": {"name": "analysis", "kind": ["bench"], "src_path": root.join("benches/analysis.rs")}, "executable": executable});
     let finished = json!({"reason": "build-finished", "success": true});
     let messages = |rows: &[Value]| {
         rows.iter()
@@ -333,7 +333,8 @@ fn cargo_artifact_is_required_and_cannot_escape_independent_target() -> ToolResu
         parse_executable(
             &messages(&[artifact.clone(), finished.clone()])?,
             &root,
-            &target
+            &target,
+            "analysis"
         )?,
         executable.canonicalize()?
     );
@@ -350,7 +351,7 @@ fn cargo_artifact_is_required_and_cannot_escape_independent_target() -> ToolResu
         ],
         vec![artifact.clone(), finished.clone(), finished],
     ] {
-        assert!(parse_executable(&messages(&rows)?, &root, &target).is_err());
+        assert!(parse_executable(&messages(&rows)?, &root, &target, "analysis").is_err());
     }
     #[cfg(unix)]
     {
@@ -363,11 +364,81 @@ fn cargo_artifact_is_required_and_cannot_escape_independent_target() -> ToolResu
                     json!({"reason": "build-finished", "success": true})
                 ])?,
                 &root,
-                &target
+                &target,
+                "analysis"
             )
             .is_err()
         );
     }
+    Ok(())
+}
+
+#[test]
+fn reference_locations_cargo_artifact_is_selected_without_analysis_substitution() -> ToolResult<()>
+{
+    let directory = tempfile::tempdir()?;
+    let root = directory.path().canonicalize()?;
+    let target = root.join("target");
+    fs::create_dir(&target)?;
+    let executable = target.join("reference_locations-compiler-chosen");
+    fs::write(&executable, b"reference benchmark artifact")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))?;
+    }
+    let artifact = json!({"reason": "compiler-artifact", "target": {"name": "reference_locations", "kind": ["bench"], "src_path": root.join("benches/reference_locations.rs")}, "executable": executable});
+    let finished = json!({"reason": "build-finished", "success": true});
+    let messages = format!("{artifact}\n{finished}\n");
+    assert_eq!(
+        parse_executable(&messages, &root, &target, "reference_locations")?,
+        executable.canonicalize()?
+    );
+    for rows in [
+        vec![finished.clone()],
+        vec![artifact.clone(), artifact.clone(), finished.clone()],
+        vec![
+            json!({"reason": "compiler-artifact", "target": {"name": "analysis", "kind": ["bench"], "src_path": root.join("benches/analysis.rs")}, "executable": executable}),
+            finished.clone(),
+        ],
+    ] {
+        let messages = rows
+            .iter()
+            .map(Value::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(parse_executable(&messages, &root, &target, "reference_locations").is_err());
+    }
+    for (field, value) in [
+        ("src_path", json!(root.join("benches/analysis.rs"))),
+        ("src_path", Value::Null),
+        ("kind", json!(["bin"])),
+        ("name", json!("other")),
+    ] {
+        let mut wrong = artifact.clone();
+        wrong["target"][field] = value;
+        assert!(
+            parse_executable(
+                &format!("{wrong}\n{finished}\n"),
+                &root,
+                &target,
+                "reference_locations"
+            )
+            .is_err()
+        );
+    }
+    let analysis_executable = target.join("analysis-compiler-chosen");
+    fs::copy(&executable, &analysis_executable)?;
+    let analysis = json!({"reason": "compiler-artifact", "target": {"name": "analysis", "kind": ["bench"], "src_path": root.join("benches/analysis.rs")}, "executable": analysis_executable});
+    let both = format!("{analysis}\n{artifact}\n{finished}\n");
+    assert_eq!(
+        parse_executable(&both, &root, &target, "reference_locations")?,
+        executable.canonicalize()?
+    );
+    assert_eq!(
+        parse_executable(&both, &root, &target, "analysis")?,
+        analysis_executable.canonicalize()?
+    );
     Ok(())
 }
 
@@ -439,15 +510,64 @@ fn executed_workload_manifest_rejects_incomplete_or_duplicate_list() -> ToolResu
         .into_iter()
         .collect();
     let valid = format!("{}\n\n0 tests, 3 benchmarks", lines.join("\n"));
-    assert_eq!(parse_workload_list(&valid)?, signals());
+    assert_eq!(parse_workload_list(&valid, "analysis")?, signals());
     for text in [
         valid.replace("3 benchmarks", "4 benchmarks"),
         format!("{valid}\n{}", lines[0]),
         format!("{}\n0 tests, 2 benchmarks", lines[..2].join("\n")),
         format!("{valid}\nprofiler warning"),
     ] {
-        assert!(parse_workload_list(&text).is_err());
+        assert!(parse_workload_list(&text, "analysis").is_err());
     }
+    Ok(())
+}
+
+#[test]
+fn reference_locations_list_retains_every_real_case_and_rejects_incomplete_coverage()
+-> ToolResult<()> {
+    let lines = ["small", "medium", "large"].map(|size| {
+        format!("reference_locations::reference_order_hot_paths::reference_location_order_warm::{size}: benchmark")
+    });
+    let valid = format!("{}\n0 tests, 3 benchmarks", lines.join("\n"));
+    let expected = BTreeSet::from([
+        (
+            "reference_location_order_warm".to_owned(),
+            Some("small".to_owned()),
+        ),
+        (
+            "reference_location_order_warm".to_owned(),
+            Some("medium".to_owned()),
+        ),
+        (
+            "reference_location_order_warm".to_owned(),
+            Some("large".to_owned()),
+        ),
+    ]);
+    assert_eq!(
+        parse_workload_list(&valid, "reference_locations")?,
+        expected
+    );
+    for invalid in [
+        format!("{}\n0 tests, 2 benchmarks", lines[..2].join("\n")),
+        format!("{valid}\n{}", lines[0]),
+        valid.replace("3 benchmarks", "4 benchmarks"),
+        valid.replace("reference_locations::", "analysis::"),
+    ] {
+        assert!(parse_workload_list(&invalid, "reference_locations").is_err());
+    }
+    let expanded = format!(
+        "{}\nreference_locations::reference_order_hot_paths::reference_location_order_warm::extra: benchmark\n0 tests, 4 benchmarks",
+        lines.join("\n")
+    );
+    let mut expanded_expected = expected;
+    expanded_expected.insert((
+        "reference_location_order_warm".to_owned(),
+        Some("extra".to_owned()),
+    ));
+    assert_eq!(
+        parse_workload_list(&expanded, "reference_locations")?,
+        expanded_expected
+    );
     Ok(())
 }
 

@@ -1,5 +1,6 @@
 mod admission;
 mod calibration;
+mod callgrind;
 mod common;
 mod dashboard;
 mod doctor;
@@ -7,9 +8,11 @@ mod hosted;
 mod latency;
 mod lifecycle_stress;
 mod native;
+mod paired;
 mod platform_memory;
 mod policy;
 mod profiling;
+mod repeated;
 mod reports;
 mod scenario;
 mod transport;
@@ -43,7 +46,7 @@ fn run() -> ToolResult<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some((command, args)) = args.split_first() else {
         return Err(
-            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|admission|calibration|reports|native|lifecycle-stress> [arguments]"
+            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|admission|calibration|paired|reports|native|lifecycle-stress> [arguments]"
                 .into(),
         );
     };
@@ -59,6 +62,7 @@ fn run() -> ToolResult<()> {
         "policy" => policy::run(args),
         "admission" => admission::run(args),
         "calibration" => calibration::run(args),
+        "paired" => paired::run(args),
         "reports" => reports::run(args),
         "native" => native::run(args),
         "--help" | "-h" => {
@@ -72,7 +76,7 @@ fn run() -> ToolResult<()> {
                  profile discovery-10000 --native\n\
                                                 Collect the native OS diagnostic trace\n\
                  open <run-id|report-directory> Download or open a validated unified report\n\n\
-                 Internal CI commands: collect-profile, collect-scenario, native, dashboard, workflow, reports, policy, admission, calibration.\n\
+                 Internal CI commands: collect-profile, collect-scenario, native, dashboard, workflow, reports, policy, admission, calibration, paired.\n\
                  lifecycle-stress --binary PATH --output PATH\n\
                                                 Run local 10000-file repeated LSP correctness stress\n\
                  All measurements require hosted CI. Doctor, report/admission validation, and lifecycle correctness stress are safe locally."

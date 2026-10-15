@@ -1,5 +1,5 @@
 //! Validate retained measurements and the exact human-review environment, without collecting.
-use crate::{ToolResult, common, policy};
+use crate::{ToolResult, common, paired, policy, repeated::METHOD};
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use std::{
@@ -20,7 +20,7 @@ struct Args {
 
 #[derive(Subcommand)]
 enum AdmissionCommand {
-    /// Classify a retained exact-run measurement; both valid outcomes exit successfully.
+    /// Classify retained evidence; successful validation is not performance approval.
     Measurement(MeasurementArgs),
     /// Require the repository owner's sole User review on performance-exception.
     Environment {
@@ -44,9 +44,16 @@ struct MeasurementArgs {
     #[arg(long)]
     run_id: String,
     #[arg(long)]
+    run_attempt: String,
+    #[arg(long)]
+    workflow_sha: String,
+    #[arg(long)]
     benchmark_exit_code: u8,
     #[arg(long)]
     policy_exit_code: u8,
+    /// Require the active method instead of accepting a historical single-pair bundle.
+    #[arg(long, value_parser = [METHOD])]
+    measurement_method: Option<String>,
 }
 
 pub(crate) fn run(args: &[String]) -> ToolResult<()> {
@@ -148,6 +155,7 @@ fn validate_source(args: &MeasurementArgs, manifest: &Value) -> ToolResult<()> {
     for (field, expected) in [
         ("base_sha", args.base_sha.as_str()),
         ("candidate_sha", args.candidate_sha.as_str()),
+        ("workflow_sha", args.workflow_sha.as_str()),
     ] {
         if !hex(expected, 40) || manifest[field].as_str() != Some(expected) {
             return Err(format!("Admission {field} differs from exact source provenance").into());
@@ -167,20 +175,34 @@ fn validate_source(args: &MeasurementArgs, manifest: &Value) -> ToolResult<()> {
     if !positive_id(&args.run_id) || manifest["run_id"].as_str() != Some(args.run_id.as_str()) {
         return Err("Admission run ID differs from exact run provenance".into());
     }
-    if !manifest["workflow_sha"]
-        .as_str()
-        .is_some_and(|sha| hex(sha, 40))
-        || !manifest["run_attempt"].as_str().is_some_and(positive_id)
+    if !positive_id(&args.run_attempt)
+        || manifest["run_attempt"].as_str() != Some(args.run_attempt.as_str())
     {
-        return Err("Missing or malformed workflow SHA or run attempt".into());
+        return Err("Admission run attempt differs from exact run provenance".into());
     }
     Ok(())
 }
 
-fn validate_outcomes(args: &MeasurementArgs, manifest: &Value, regression: bool) -> ToolResult<()> {
-    if !matches!(args.benchmark_exit_code, 0 | 3)
-        || args.policy_exit_code != u8::from(regression)
-        || (!regression && args.benchmark_exit_code != 0)
+fn validate_outcomes(
+    args: &MeasurementArgs,
+    manifest: &Value,
+    classification: &str,
+) -> ToolResult<()> {
+    let repeated = manifest["measurement_method"] == METHOD;
+    let policy_exit = match classification {
+        "passed" => 0,
+        "regression" => 1,
+        "inconclusive" if repeated => 3,
+        _ => return Err("Invalid measurement classification".into()),
+    };
+    let benchmark_valid = if repeated {
+        args.benchmark_exit_code == 0
+    } else {
+        matches!(args.benchmark_exit_code, 0 | 3)
+    };
+    if !benchmark_valid
+        || args.policy_exit_code != policy_exit
+        || (policy_exit == 0 && args.benchmark_exit_code != 0)
     {
         return Err(
             "Command exits disagree with validated metrics or report a collector error".into(),
@@ -194,7 +216,12 @@ fn validate_outcomes(args: &MeasurementArgs, manifest: &Value, regression: bool)
         .ok_or("Missing candidate outcome")?;
     if candidate["benchmark_exit_code"].as_u64() != Some(u64::from(args.benchmark_exit_code))
         || candidate["policy_exit_code"].as_u64() != Some(u64::from(args.policy_exit_code))
-        || candidate["status"] != if regression { "failure" } else { "success" }
+        || candidate["status"]
+            != if policy_exit == 0 {
+                "success"
+            } else {
+                "failure"
+            }
     {
         return Err("Candidate outcome or retained command exits are inconsistent".into());
     }
@@ -231,42 +258,76 @@ fn measurement(args: &MeasurementArgs) -> ToolResult<Value> {
     }
     let manifest = read_json(&confined(&root, "artifact-manifest.json")?)?;
     validate_source(args, &manifest)?;
+    if let Some(required) = &args.measurement_method
+        && manifest["measurement_method"].as_str() != Some(required.as_str())
+    {
+        return Err("Artifact does not use the required measurement method".into());
+    }
     let inventory = verify_inventory(&root, &manifest)?;
     if !inventory.contains_key("callgrind-policy.json") {
         return Err("Policy verdict is absent from manifest inventory".into());
     }
     let verdict = read_json(&confined(&root, "callgrind-policy.json")?)?;
-    let mut identities = vec![&verdict["inputs"]["baseline_manifest"]];
-    identities.extend(
-        verdict["inputs"]["summaries"]
-            .as_array()
-            .ok_or("Missing policy summary inventory")?,
-    );
-    let mut inputs = BTreeMap::new();
-    for identity in identities {
-        let name = identity["path"]
-            .as_str()
-            .ok_or("Missing policy input path")?;
-        let item = inventory
-            .get(name)
-            .ok_or("Policy input is absent from manifest inventory")?;
-        if item["sha256"] != identity["sha256"] || item["size"] != identity["size"] {
-            return Err("Policy input identity differs from manifest inventory".into());
+    let (classification, failures) = if manifest.get("measurement_method").is_some() {
+        if manifest["measurement_method"] != METHOD {
+            return Err("Unsupported retained measurement method".into());
         }
-        if inputs
-            .insert(name.to_owned(), read_json(&confined(&root, name)?)?)
-            .is_some()
-        {
-            return Err("Duplicate policy input identity".into());
+        let failures = paired::report::validate(&root, &manifest, &verdict)?;
+        let classification = match verdict["status"].as_str() {
+            Some("complete") => "passed",
+            Some("regression") => "regression",
+            Some("inconclusive") => "inconclusive",
+            _ => return Err("Invalid paired measurement outcome".into()),
+        };
+        (classification, failures)
+    } else {
+        let mut identities = vec![&verdict["inputs"]["baseline_manifest"]];
+        identities.extend(
+            verdict["inputs"]["summaries"]
+                .as_array()
+                .ok_or("Missing policy summary inventory")?,
+        );
+        let mut inputs = BTreeMap::new();
+        for identity in identities {
+            let name = identity["path"]
+                .as_str()
+                .ok_or("Missing policy input path")?;
+            let item = inventory
+                .get(name)
+                .ok_or("Policy input is absent from manifest inventory")?;
+            if item["sha256"] != identity["sha256"] || item["size"] != identity["size"] {
+                return Err("Policy input identity differs from manifest inventory".into());
+            }
+            if inputs
+                .insert(name.to_owned(), read_json(&confined(&root, name)?)?)
+                .is_some()
+            {
+                return Err("Duplicate policy input identity".into());
+            }
         }
-    }
-    let failures = policy::validate_verdict(&verdict, &manifest, &inputs)?;
-    validate_outcomes(args, &manifest, !failures.is_empty())?;
-    Ok(json!({
-        "status": if failures.is_empty() { "passed" } else { "regression" },
+        let failures = policy::validate_verdict(&verdict, &manifest, &inputs)?;
+        let classification = if failures.is_empty() {
+            "passed"
+        } else {
+            "regression"
+        };
+        (
+            classification,
+            failures.into_iter().map(Value::String).collect(),
+        )
+    };
+    validate_outcomes(args, &manifest, classification)?;
+    let mut result = json!({
+        "status": classification,
         "base_sha": args.base_sha, "candidate_sha": args.candidate_sha,
-        "head_sha": args.head_sha, "run_id": args.run_id, "failures": failures
-    }))
+        "head_sha": args.head_sha, "run_id": args.run_id,
+        "run_attempt": args.run_attempt, "workflow_sha": args.workflow_sha,
+        "failures": failures
+    });
+    if let Some(method) = manifest.get("measurement_method") {
+        result["method"] = method.clone();
+    }
+    Ok(result)
 }
 
 fn validate_environment(owner_id: u64, environment: &Value) -> ToolResult<()> {

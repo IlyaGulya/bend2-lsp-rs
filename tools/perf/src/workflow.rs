@@ -1,5 +1,8 @@
 //! Hosted workflow source validation and failure-aware artifact inventories.
-use crate::{ToolResult, common};
+use crate::{
+    ToolResult, callgrind, common,
+    repeated::{METHOD, PAIRS},
+};
 use serde_json::{Map, Value, json};
 use std::{
     env, fs,
@@ -66,11 +69,12 @@ struct CollectionRequest {
     scenario: String,
     selected_target: String,
     native_kind: String,
+    measurement_method: Option<String>,
 }
 
 impl CollectionRequest {
     fn read() -> ToolResult<Self> {
-        Ok(Self {
+        let request = Self {
             request_id: variable("REQUEST_ID")?,
             mode: variable("MODE")?,
             base_sha: variable("BASE_SHA")?,
@@ -78,7 +82,20 @@ impl CollectionRequest {
             scenario: variable("SCENARIO")?,
             selected_target: variable("SELECTED_TARGET")?,
             native_kind: env::var("NATIVE_KIND").unwrap_or_else(|_| "cpu".to_owned()),
-        })
+            measurement_method: env::var_os("MEASUREMENT_METHOD")
+                .map(|value| {
+                    value
+                        .into_string()
+                        .map_err(|_| "Non-Unicode measurement method")
+                })
+                .transpose()?,
+        };
+        if let Some(method) = &request.measurement_method
+            && (request.mode != "callgrind" || method != METHOD)
+        {
+            return Err("Unsupported workflow measurement method".into());
+        }
+        Ok(request)
     }
 
     fn targets(&self) -> impl Iterator<Item = &'static Target> + '_ {
@@ -300,7 +317,12 @@ fn expected(request: &CollectionRequest, target: &str) -> Vec<Value> {
     };
     if request.mode == "callgrind" {
         add(
-            "analysis_hot_paths-baseline.json".to_owned(),
+            if request.measurement_method.is_some() {
+                "paired-data.json"
+            } else {
+                "analysis_hot_paths-baseline.json"
+            }
+            .to_owned(),
             "callgrind-input",
         );
         add("callgrind-policy.json".to_owned(), "callgrind");
@@ -400,6 +422,31 @@ fn relative(root: &Path, path: &Path) -> ToolResult<String> {
         .replace('\\', "/"))
 }
 
+fn paired_collection_status(root: &Path, statuses: &Value) -> Value {
+    let result = (|| -> ToolResult<()> {
+        let data = callgrind::strict_json(&fs::read_to_string(root.join("paired-data.json"))?)?;
+        callgrind::require(
+            data["format_version"] == 1
+                && data["kind"] == "paired-callgrind"
+                && data["method"] == METHOD
+                && data["pairs"] == PAIRS,
+            "No completed paired dataset was retained",
+        )?;
+        callgrind::require(
+            data["samples"]
+                .as_array()
+                .is_some_and(|samples| samples.len() == 2 * PAIRS)
+                && statuses["candidate"]["benchmark_exit_code"] == 0,
+            "Collection did not complete every required source pair",
+        )?;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => json!({"status": "success", "samples": 2 * PAIRS}),
+        Err(error) => json!({"status": "failure", "error": error.to_string()}),
+    }
+}
+
 fn finalize(root: &Path, request: &CollectionRequest, value: &mut Value) -> ToolResult<()> {
     let steps: Value =
         serde_json::from_str(&env::var("STEPS_JSON").unwrap_or_else(|_| "{}".to_owned()))?;
@@ -450,7 +497,9 @@ fn finalize(root: &Path, request: &CollectionRequest, value: &mut Value) -> Tool
     let mut paths = Vec::new();
     files(root, &mut paths)?;
     paths.sort();
-    if request.mode == "callgrind" {
+    if request.measurement_method.is_some() {
+        value["statuses"]["callgrind-data"] = paired_collection_status(root, &value["statuses"]);
+    } else if request.mode == "callgrind" {
         let mut count = 0;
         for path in &paths {
             if path.file_name().is_some_and(|name| name == "summary.json") {
@@ -509,6 +558,9 @@ fn manifest(finish: bool) -> ToolResult<()> {
         "native_heap": if target.contains("linux") {"not-applicable: Linux uses DHAT, not a native heap tracing backend"}
             else {"requested when native profiling is selected"},
     });
+    if let Some(method) = &request.measurement_method {
+        value["measurement_method"] = method.clone().into();
+    }
     let outcome = if finish {
         finalize(&root, &request, &mut value)
     } else {

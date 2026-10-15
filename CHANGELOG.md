@@ -13,6 +13,16 @@
 
 ### Under the hood
 
+- Gate performance comparisons with 105 fresh source pairs after full prospective
+  A/A and positive-control qualification. Keep numeric limits unchanged; block
+  inconclusive results instead of treating uncertainty as a pass or regression.
+- Bind control evidence to both benchmark executables and all 54 workloads,
+  including reference ordering. Preserve the original benchmark harnesses in
+  ordinary source comparisons and retain raw failures without retries for luck.
+- Recompute admission verdicts from retained Callgrind counters and raw output.
+  Bind results to the exact source, workflow, run and attempt; reject stale or
+  contradictory evidence. Show exact uncertainty bounds in HTML and Markdown
+  reports while preserving historical scalar evidence as historical.
 - Require genuine compiler diagnostics in all six native and installed-executable
   E2E matrices. Pin official Unix archives and build the Windows compiler from
   exact upstream source with a pinned native Bun runtime and a resource-locator
