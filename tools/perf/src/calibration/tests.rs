@@ -3,7 +3,7 @@ mod reports;
 use super::{
     Arguments, Identity, METRICS, PROBE, VARIANTS,
     collector::{balanced_order, variant_harness},
-    integrity::*,
+    callgrind::*,
 };
 use crate::ToolResult;
 use clap::Parser as _;

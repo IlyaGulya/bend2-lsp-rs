@@ -447,6 +447,14 @@ jobs:
           key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh') }}
           restore-keys: |
             cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
+      - name: Verify repeated evidence CLI contracts on the native host
+        id: repeated-evidence
+        run: |
+          source "$PERF_ROOT/run.sh"
+          run cargo test --locked -p bend2-perf --no-fail-fast \
+            --test paired_contract --test paired_admission --test paired_dashboard --test paired_collector \
+            --target-dir "$RUNNER_TEMP/native-perf-tools" \
+            2>&1 | tee "$PERF_ROOT/paired-cli-tests.log"
       - name: Build independent baseline and candidate default release executables
         id: latency-binaries
         run: |

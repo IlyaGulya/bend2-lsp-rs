@@ -1,4 +1,3 @@
-use super::{BENCHMARKS, Identity, METRICS, PROBE, require, sha256_bytes};
 use crate::{ToolResult, common::sha256_file};
 use serde_json::{Map, Value, json};
 use std::{
@@ -6,6 +5,29 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
+
+pub(crate) mod collect;
+
+pub(crate) const BENCHMARKS: [&str; 2] = ["analysis", "reference_locations"];
+pub(crate) const METRICS: [&str; 3] = ["Ir", "I1mr", "ILmr"];
+pub(crate) const PROBE: &str = "calibration_layout_probe";
+pub(crate) type Identity = (String, Option<String>);
+
+pub(crate) fn require(condition: bool, message: &str) -> ToolResult<()> {
+    if !condition {
+        return Err(message.to_owned().into());
+    }
+    Ok(())
+}
+
+pub(crate) fn sha256_bytes(bytes: &[u8]) -> String {
+    use sha2::{Digest as _, Sha256};
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+pub(crate) fn baseline_name(job_id: &str, pair: u64, variant: &str) -> String {
+    sha256_bytes(format!("{job_id}:{pair}:{variant}").as_bytes())
+}
 
 // Parse containers ourselves so duplicate keys remain visible. Primitive syntax,
 // string escaping and number representation stay authoritative serde_json work.

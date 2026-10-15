@@ -1,6 +1,6 @@
 use super::{
     BENCHMARKS, Identity, METRICS, PROBE, ROLES, ReportArgs, VARIANTS, baseline_name,
-    integrity::{identity, parse_measurement, signals, strict_json},
+    callgrind::{identity, parse_measurement, signals, strict_json},
     require,
 };
 use crate::{ToolResult, common::write_json, policy};

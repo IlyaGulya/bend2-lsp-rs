@@ -16,23 +16,17 @@
 //! matching; mixed-newline duplicates and non-newline anchor drift still fail.
 
 mod collector;
-mod integrity;
 mod repeated;
 mod report;
 #[cfg(test)]
 mod tests;
 
-use crate::ToolResult;
+use crate::{ToolResult, callgrind::{self, BENCHMARKS, Identity, METRICS, PROBE, baseline_name, require}};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 const VARIANTS: [&str; 5] = ["a", "b", "layout", "extra_work", "extra_alloc"];
-const BENCHMARKS: [&str; 2] = ["analysis", "reference_locations"];
-const METRICS: [&str; 3] = ["Ir", "I1mr", "ILmr"];
 const ROLES: [&str; 2] = ["discovery", "validation"];
-const PROBE: &str = "calibration_layout_probe";
-
-type Identity = (String, Option<String>);
 
 #[derive(Parser)]
 #[command(no_binary_name = true)]
@@ -124,18 +118,3 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
     }
 }
 
-fn require(condition: bool, message: &str) -> ToolResult<()> {
-    if !condition {
-        return Err(message.to_owned().into());
-    }
-    Ok(())
-}
-
-fn sha256_bytes(bytes: &[u8]) -> String {
-    use sha2::{Digest as _, Sha256};
-    format!("{:x}", Sha256::digest(bytes))
-}
-
-fn baseline_name(job_id: &str, pair: u64, variant: &str) -> String {
-    sha256_bytes(format!("{job_id}:{pair}:{variant}").as_bytes())
-}

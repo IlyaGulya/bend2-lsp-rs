@@ -75,7 +75,7 @@ impl Serialize for Document {
 
 impl Report {
     pub fn result(&self) -> ToolResult<()> {
-        if matches!(self.status.as_str(), "failed" | "incomplete" | "regression") {
+        if matches!(self.status.as_str(), "failed" | "incomplete" | "regression" | "inconclusive") {
             return Err(format!("Performance report is {}; diagnostic index.html and unified-report.json were written", self.status).into());
         }
         Ok(())
@@ -188,6 +188,8 @@ pub(super) fn collect_scoped(root: &Path, target_only: bool) -> ToolResult<Repor
         "failed"
     } else if !issues.is_empty() || targets.iter().any(|target| target.status == "incomplete") {
         "incomplete"
+    } else if targets.iter().any(|target| target.status == "inconclusive") {
+        "inconclusive"
     } else if targets.iter().any(|target| target.status == "regression") {
         "regression"
     } else if targets
@@ -261,15 +263,15 @@ fn attributable_gate_failure(
     repository: &str,
     targets: &[TargetEvidence],
 ) -> ToolResult<()> {
-    let gate_target = targets
+    let (gate_target, document) = targets
         .iter()
-        .find(|target| {
-            target
-                .documents
-                .iter()
-                .any(|document| document.kind == "callgrind" && document.status == "regression")
+        .find_map(|target| {
+            target.documents.iter().find(|document| {
+                document.kind == "callgrind"
+                    && matches!(document.status.as_str(), "regression" | "inconclusive")
+            }).map(|document| (target, document))
         })
-        .ok_or("No validated authoritative gate regression")?;
+        .ok_or("No validated authoritative gate regression or uncertainty")?;
     if !gate_target.errors.is_empty() || !gate_target.missing.is_empty() {
         return Err("Canonical gate bundle has failed or incomplete evidence".into());
     }
@@ -295,9 +297,7 @@ fn attributable_gate_failure(
         return Err("Hosted failure is not bound to the canonical gate run/source identity".into());
     }
     let candidate = &gate["statuses"]["candidate"];
-    if candidate["status"] != "failure"
-        || candidate["policy_exit_code"] != 1
-        || !matches!(candidate["benchmark_exit_code"].as_u64(), Some(0 | 3))
+    if !candidate_outcome_agrees(document, candidate)
     {
         return Err("Hosted gate failure lacks agreeing actual command exit codes".into());
     }
@@ -445,16 +445,25 @@ fn load_target(root: &Path, path: &Path, manifest: &Value) -> ToolResult<TargetE
     if manifest["mode"] == "callgrind"
         && !target.documents.iter().any(|document| {
             document.kind == "callgrind"
-                && matches!(document.status.as_str(), "complete" | "regression")
+                && matches!(document.status.as_str(), "complete" | "regression" | "inconclusive")
         })
     {
         target.missing.push("Authoritative Callgrind policy verdict is absent or invalid; no passing gate is inferred".into());
     }
     pair_discovery(&mut target);
-    target.status = if !target.errors.is_empty() {
+    target.status = target_status(&target).into();
+    Ok(target)
+}
+
+fn target_status(target: &TargetEvidence) -> &'static str {
+    if !target.errors.is_empty() {
         "failed"
     } else if !target.missing.is_empty() {
         "incomplete"
+    } else if target.documents.iter().any(|document| {
+        document.kind == "callgrind" && document.status == "inconclusive"
+    }) {
+        "inconclusive"
     } else if !target.regressions.is_empty() {
         "regression"
     } else if !target.changed_scope.is_empty() {
@@ -462,8 +471,6 @@ fn load_target(root: &Path, path: &Path, manifest: &Value) -> ToolResult<TargetE
     } else {
         "complete"
     }
-    .into();
-    Ok(target)
 }
 
 fn verify_artifact(
@@ -590,6 +597,19 @@ fn validate_callgrind(
         if target.provenance["mode"] != "callgrind" {
             return Err("Callgrind policy verdict requires a canonical gate manifest".into());
         }
+        if document.data["format_version"] == 2 {
+            return Ok(crate::paired::report::validate(directory, &target.provenance, &document.data)?
+                .into_iter()
+                .filter(|failure| failure["classification"] == "regression")
+                .map(|failure| format!("{} [{}]: {} regression",
+                    failure["function_name"].as_str().unwrap_or_default(),
+                    failure["id"].as_str().unwrap_or("default"),
+                    failure["metric"].as_str().unwrap_or_default()))
+                .collect());
+        }
+        if target.provenance["measurement_method"] == crate::repeated::METHOD {
+            return Err("Paired gate manifest requires repeated evidence, not a historical verdict".into());
+        }
         let mut identities = vec![&document.data["inputs"]["baseline_manifest"]];
         identities.extend(
             document.data["inputs"]["summaries"]
@@ -624,7 +644,9 @@ fn validate_callgrind(
     })();
     match outcome {
         Ok(failures) => {
-            document.status = if failures.is_empty() {
+            document.status = if document.data["format_version"] == 2 {
+                document.data["status"].as_str().unwrap_or("failed")
+            } else if failures.is_empty() {
                 "complete"
             } else {
                 "regression"
@@ -833,18 +855,7 @@ fn merge_callgrind(targets: &mut Vec<TargetEvidence>, issues: &mut Vec<String>) 
         target.regressions.extend(gate.regressions);
         target.artifacts.extend(gate.artifacts);
         target.documents.extend(gate.documents);
-        target.status = if !target.errors.is_empty() {
-            "failed"
-        } else if !target.missing.is_empty() {
-            "incomplete"
-        } else if !target.regressions.is_empty() {
-            "regression"
-        } else if !target.changed_scope.is_empty() {
-            "changed-scope"
-        } else {
-            "complete"
-        }
-        .into();
+        target.status = target_status(target).into();
     }
 }
 
@@ -1188,25 +1199,49 @@ fn verify_bundle(
     verified
 }
 
+fn candidate_outcome_agrees(document: &Document, candidate: &Value) -> bool {
+    let policy_exit = match document.status.as_str() {
+        "complete" => 0,
+        "regression" => 1,
+        "inconclusive" if document.data["format_version"] == 2 => 3,
+        _ => return false,
+    };
+    candidate["status"] == if policy_exit == 0 { "success" } else { "failure" }
+        && candidate["policy_exit_code"] == policy_exit
+        && if document.data["format_version"] == 2 {
+            candidate["benchmark_exit_code"] == 0
+        } else {
+            matches!(candidate["benchmark_exit_code"].as_u64(), Some(0 | 3))
+        }
+}
+
 fn validate_statuses(manifest: &Value, target: &mut TargetEvidence) {
-    let policy_regression = target
-        .documents
-        .iter()
-        .any(|document| document.kind == "callgrind" && document.status == "regression");
+    let policy = target.documents.iter().find(|document| {
+        document.kind == "callgrind"
+            && matches!(document.status.as_str(), "complete" | "regression" | "inconclusive")
+    });
+    if let Some(document) = policy.filter(|document| document.data["format_version"] == 2) {
+        if !candidate_outcome_agrees(document, &manifest["statuses"]["candidate"]) {
+            target.errors.push("Paired policy verdict disagrees with actual candidate command outcomes".into());
+        }
+        for name in ["baseline", "callgrind-data"] {
+            if manifest["statuses"][name]["status"] != "success" {
+                target.errors.push(format!("Paired collection outcome is not successful: {name}"));
+            }
+        }
+    }
     if let Some(statuses) = manifest["statuses"].as_object() {
         for (name, value) in statuses {
             let status = value
                 .as_str()
                 .or_else(|| value["status"].as_str())
                 .unwrap_or("unknown");
-            // A failed candidate step is a numerical gate outcome only when the
-            // retained evaluator verdict and both actual command exits agree.
+            // A failed candidate step is a verified gate decision only when the
+            // retained verdict and both actual command exits agree.
             if manifest["mode"] == "callgrind"
                 && name == "candidate"
                 && status == "failure"
-                && policy_regression
-                && matches!(value["benchmark_exit_code"].as_u64(), Some(0 | 3))
-                && value["policy_exit_code"] == 1
+                && policy.is_some_and(|document| candidate_outcome_agrees(document, value))
             {
                 continue;
             }

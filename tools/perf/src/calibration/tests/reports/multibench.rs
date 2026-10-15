@@ -135,7 +135,7 @@ fn v2_evidence_rejects_missing_misattributed_and_forged_measurements() -> ToolRe
         original.replace("reference_location_order_warm", "inlay_hints_warm"),
         original.replace("\"Int\":200", "\"Int\":201"),
         original.replace(
-            &crate::calibration::baseline_name("training", 1, "a"),
+            &crate::callgrind::baseline_name("training", 1, "a"),
             "stale",
         ),
     ] {

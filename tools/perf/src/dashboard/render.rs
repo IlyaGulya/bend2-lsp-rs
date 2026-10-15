@@ -34,9 +34,10 @@ fn href(path: &str) -> String {
 
 fn status(value: &str) -> String {
     let class = match value {
-        "complete" => "complete",
+        "complete" | "passed" => "complete",
         "failed" => "failed",
         "regression" => "regression",
+        "inconclusive" => "incomplete",
         "changed-scope" => "changed-scope",
         _ => "incomplete",
     };
@@ -251,6 +252,9 @@ fn render_target(output: &mut String, target: &TargetEvidence, index: usize) -> 
             "memory" => heap(output, document)?,
             "profile" => profile(output, document)?,
             "callgrind" => {
+                if paired_document(document) {
+                    paired_callgrind(output, &document.data)?;
+                }
                 json_details(output, "Original Callgrind gate evidence", &document.data)?;
             }
             _ => {}
@@ -862,6 +866,24 @@ fn markdown_document(output: &mut String, document: &Document) -> ToolResult<()>
     match document.kind.as_str() {
         "latency" => markdown_latency(output, &document.data)?,
         "discovery" => markdown_discovery(output, &document.data)?,
+        "callgrind" if paired_document(document) => {
+            writeln!(output, "Method: **{}**. Inconclusive evidence blocks admission; it is neither a pass nor an accepted regression.\n", md(&text(&document.data["method"])))?;
+            output.push_str("Normalized allowance-adjusted residuals, not baseline/candidate counts. Lower and upper endpoints are one-sided 95% bounds; positive residuals exceed the unchanged allowance.\n\n| Workload | Event | Samples | Median residual | Lower bound | Upper bound | Classification |\n|---|---|---:|---|---|---|---|\n");
+            for workload in document.data["workloads"].as_array().into_iter().flatten() {
+                for metric in crate::callgrind::METRICS {
+                    let comparison = &workload["metrics"][metric];
+                    writeln!(output, "| {} [{}] | {} | {} | {} | {} | {} | {} |",
+                        md(&text(&workload["function_name"])), md(workload["id"].as_str().unwrap_or("default")),
+                        metric, comparison["samples"], residual(&comparison["median"])?,
+                        residual(&comparison["lower"])?, residual(&comparison["upper"])?,
+                        md(&text(&comparison["classification"])))?;
+                }
+            }
+            for workload in document.data["new_workloads"].as_array().into_iter().flatten() {
+                writeln!(output, "- New candidate workload: {} [{}]; no baseline comparison.",
+                    md(&text(&workload["function_name"])), md(workload["id"].as_str().unwrap_or("default")))?;
+            }
+        }
         "memory" => {
             output.push_str("Candidate-only DHAT, not RSS or latency evidence.\n\n| Scenario | Status | Total bytes | Global peak live bytes | End live bytes |\n|---|---|---:|---:|---:|\n");
             for profile in document.data["profiles"].as_array().into_iter().flatten() {
@@ -911,6 +933,46 @@ fn markdown_document(output: &mut String, document: &Document) -> ToolResult<()>
             artifact.sha256
         )?;
     }
+    Ok(())
+}
+
+fn paired_document(document: &Document) -> bool {
+    document.data["format_version"] == 2
+        && matches!(document.status.as_str(), "complete" | "regression" | "inconclusive")
+}
+
+fn residual(value: &Value) -> ToolResult<String> {
+    let numerator = value["numerator"].as_number().ok_or("Missing residual numerator")?;
+    let denominator = value["denominator"].as_u64().filter(|value| *value > 0)
+        .ok_or("Missing residual denominator")?;
+    Ok(format!("{numerator}/{denominator}"))
+}
+
+fn paired_callgrind(output: &mut String, data: &Value) -> ToolResult<()> {
+    write!(output, "<section class=\"document\"><h3>Repeated Callgrind admission</h3><p>Method: <strong>{}</strong>. Decision: {}.</p><p class=\"note\">Inconclusive evidence blocks admission; it is neither a pass nor an accepted regression. Residuals are normalized candidate minus baseline minus the unchanged metric allowance, divided by baseline (at least one). These are not synthetic baseline/candidate counts or editor latency. Lower and upper endpoints are one-sided 95% bounds; positive residuals exceed the allowance.</p>",
+        escape(&text(&data["method"])), status(data["status"].as_str().unwrap_or("unknown")))?;
+    table_start(output, "Paired residual comparisons — exact fractions",
+        &["Workload", "Event", "Samples", "Median residual", "Lower bound", "Upper bound", "Classification"])?;
+    for workload in data["workloads"].as_array().into_iter().flatten() {
+        for metric in crate::callgrind::METRICS {
+            let comparison = &workload["metrics"][metric];
+            write!(output, "<tr><th scope=\"row\">{} [{}]</th><td>{metric}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                escape(&text(&workload["function_name"])), escape(workload["id"].as_str().unwrap_or("default")),
+                comparison["samples"], residual(&comparison["median"])?,
+                residual(&comparison["lower"])?, residual(&comparison["upper"])?,
+                status(comparison["classification"].as_str().unwrap_or("unknown")))?;
+        }
+    }
+    table_end(output);
+    if let Some(workloads) = data["new_workloads"].as_array().filter(|workloads| !workloads.is_empty()) {
+        output.push_str("<h4>New candidate workloads</h4><p>No baseline comparison; these do not replace baseline workloads.</p><ul>");
+        for workload in workloads {
+            write!(output, "<li>{} [{}]</li>", escape(&text(&workload["function_name"])),
+                escape(workload["id"].as_str().unwrap_or("default")))?;
+        }
+        output.push_str("</ul>");
+    }
+    output.push_str("</section>");
     Ok(())
 }
 
