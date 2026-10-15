@@ -1,9 +1,9 @@
 use super::super::{adapters, lsp::Backend, orchestration::run_staging};
 use crate::{
-    analysis::{DocumentSnapshot, Revision, TextRange},
+    analysis::{DocumentSnapshot, Revision},
     workspace::{
-        Document, PathRename, WorkspaceDb, import_rename_edits, normalize_path, renamed_path,
-        resolve_import_targets,
+        Document, PathRename, PreparedImportTarget, WorkspaceDb, import_rename_edits,
+        normalize_path, renamed_path, resolve_import_targets,
     },
 };
 use std::{
@@ -158,7 +158,11 @@ fn expand_renames(
     let indexed: Vec<_> = paths
         .into_iter()
         .map(|(path, owned)| {
-            let resolved = physical_path(&path);
+            let resolved = if owned {
+                physical_path(&path)
+            } else {
+                crate::workspace::canonical_directory_entry_path(&path)
+            };
             (path, resolved, owned)
         })
         .collect();
@@ -211,11 +215,33 @@ fn expand_renames(
     Ok(expanded)
 }
 
+fn import_rename_projections(renames: &[PathRename]) -> Vec<PathRename> {
+    renames
+        .iter()
+        .map(|rename| PathRename {
+            old: crate::workspace::canonical_directory_entry_path(&rename.old),
+            new: crate::workspace::canonical_directory_entry_path(&rename.new),
+        })
+        .collect()
+}
+
+fn prepare_rename_paths(
+    requested: &[PathRename],
+    paths: Vec<(PathBuf, bool)>,
+) -> Result<(Vec<PathRename>, Vec<PathRename>)> {
+    let renames = expand_renames(requested, paths)?;
+    // Expanded URI aliases can cross display namespaces; import matching must
+    // instead keep the original request and its filesystem projection separate.
+    let projected_renames = import_rename_projections(requested);
+    Ok((renames, projected_renames))
+}
+
 struct WillSource {
     document: Document,
     path: PathBuf,
+    physical_path: Option<PathBuf>,
     open: bool,
-    imports: Vec<(TextRange, PathBuf)>,
+    imports: Vec<PreparedImportTarget>,
 }
 
 fn will_sources(database: &WorkspaceDb) -> Vec<WillSource> {
@@ -231,6 +257,7 @@ fn will_sources(database: &WorkspaceDb) -> Vec<WillSource> {
             Some(WillSource {
                 document,
                 path,
+                physical_path: None,
                 open,
                 imports: Vec::new(),
             })
@@ -257,9 +284,71 @@ fn prepare_will_sources(sources: Vec<WillSource>) -> Result<Vec<WillSource>> {
             }
         }
         source.imports = resolve_import_targets(&source.path, &source.document);
+        source.physical_path = Some(crate::workspace::canonical_source_path(&source.path));
         prepared.push(source);
     }
     Ok(prepared)
+}
+
+fn prepared_rename_target<'a>(
+    source: &'a WillSource,
+    range: crate::analysis::TextRange,
+    renames: &'a [PathRename],
+    projected_renames: &'a [PathRename],
+) -> Option<crate::workspace::ImportRenameTarget<'a>> {
+    source.imports.iter().find_map(|target| {
+        let (site, path, identity) = match target {
+            PreparedImportTarget::Native {
+                range,
+                path,
+                physical_path,
+                rename_path,
+            } => (
+                *range,
+                path,
+                rename_path.as_deref().unwrap_or(physical_path),
+            ),
+            PreparedImportTarget::Editor {
+                range,
+                path,
+                rename_path,
+            } => (*range, path, rename_path.as_deref().unwrap_or(path)),
+        };
+        (site == range).then(|| {
+            crate::workspace::import_rename_target(
+                path,
+                identity,
+                &source.path,
+                source.physical_path.as_deref().unwrap_or(&source.path),
+                renames,
+                projected_renames,
+            )
+        })
+    })
+}
+
+fn will_source_edits(
+    source: &WillSource,
+    database: &WorkspaceDb,
+    renames: &[PathRename],
+    projected_renames: &[PathRename],
+) -> Option<Vec<(crate::analysis::TextRange, String)>> {
+    import_rename_edits(&source.path, &source.document, renames, |range| {
+        prepared_rename_target(source, range, renames, projected_renames).or_else(|| {
+            let import = source
+                .document
+                .syntax
+                .imports()
+                .iter()
+                .find(|import| import.path == range)?;
+            database.editor_import_rename_target(
+                &source.path,
+                import.path_text(&source.document.text),
+                renames,
+                projected_renames,
+            )
+        })
+    })
 }
 
 struct RenameSource {
@@ -272,14 +361,22 @@ struct RenameSource {
 
 struct PreparedSource {
     source: RenameSource,
-    imports: Vec<(TextRange, PathBuf)>,
+    physical_path: PathBuf,
+    imports: Vec<PreparedImportTarget>,
     disk_snapshot: Option<Arc<DocumentSnapshot>>,
-    disk_imports: Vec<(TextRange, PathBuf)>,
+    disk_imports: Vec<PreparedImportTarget>,
 }
 
-fn rename_sources(database: &WorkspaceDb, renames: &[PathRename]) -> Vec<RenameSource> {
-    let affected = database.rename_import_edits(renames).unwrap_or_default();
-    database
+fn rename_sources(
+    database: &WorkspaceDb,
+    renames: &[PathRename],
+    requested: &[PathRename],
+    projected_renames: &[PathRename],
+) -> (Vec<RenameSource>, Vec<PathBuf>) {
+    let affected = database
+        .rename_import_edits(requested, projected_renames)
+        .unwrap_or_default();
+    let sources = database
         .loaded_documents()
         .into_iter()
         .filter_map(|document| {
@@ -305,7 +402,14 @@ fn rename_sources(database: &WorkspaceDb, renames: &[PathRename]) -> Vec<RenameS
                 open,
             })
         })
-        .collect()
+        .collect();
+    let destinations = database
+        .indexed_paths()
+        .map(|(path, _)| (path, renamed_path(path, renames)))
+        .filter(|(old, new)| *old != new.as_path())
+        .map(|(_, new)| new)
+        .collect();
+    (sources, destinations)
 }
 
 fn prepare_sources(mut sources: Vec<RenameSource>) -> Vec<PreparedSource> {
@@ -333,6 +437,7 @@ fn prepare_sources(mut sources: Vec<RenameSource>) -> Vec<PreparedSource> {
                 resolve_import_targets(&source.path, snapshot)
             });
             PreparedSource {
+                physical_path: crate::workspace::canonical_source_path(&source.path),
                 source,
                 imports,
                 disk_snapshot,
@@ -362,18 +467,16 @@ impl Backend {
                 )
             };
             drop(read);
-            let requested = requested.clone();
+            let staging_requested = requested.clone();
             let Some(prepared) = run_staging(self.workspace.staging.clone(), move || {
-                Ok::<_, Error>((
-                    expand_renames(&requested, paths)?,
-                    prepare_will_sources(sources)?,
-                ))
+                let (renames, projected_renames) = prepare_rename_paths(&staging_requested, paths)?;
+                Ok::<_, Error>((projected_renames, renames, prepare_will_sources(sources)?))
             })
             .await
             else {
                 return Err(Error::internal_error());
             };
-            let (renames, sources) = prepared?;
+            let (projected_renames, renames, sources) = prepared?;
             let _read = self.workspace_ready_read().await;
             if generation != self.workspace.generation() {
                 continue;
@@ -386,17 +489,10 @@ impl Backend {
             }
             let mut changes = Vec::new();
             for source in sources {
-                let edits =
-                    import_rename_edits(&source.path, &source.document, &renames, |range| {
-                        source
-                            .imports
-                            .iter()
-                            .find(|(path, _)| *path == range)
-                            .map(|(_, target)| target.as_path())
-                    })
+                let edits = will_source_edits(&source, &database, &requested, &projected_renames)
                     .ok_or_else(|| {
-                        Error::invalid_params("Moved file cannot be represented by a Bend import")
-                    })?;
+                    Error::invalid_params("Moved file cannot be represented by a Bend import")
+                })?;
                 if !edits.is_empty() {
                     changes.push((source.document, source.open, edits));
                 }
@@ -442,11 +538,11 @@ impl Backend {
             return;
         };
         for uri in retired_uris {
-            if self.document(&uri).is_some() {
+            if self.workspace.read().is_document_open(&uri) {
                 continue;
             }
             self.diagnostics
-                .cancel_if(&uri, || self.document(&uri).is_none())
+                .cancel_if(&uri, || !self.workspace.read().is_document_open(&uri))
                 .await;
             self.remove_import_diagnostics(&uri).await;
             self.client.publish_diagnostics(uri, Vec::new(), None).await;
@@ -459,6 +555,7 @@ impl Backend {
                 .collect()
         };
         self.workspace.load_reachable_async(&roots, None).await;
+        self.prepare_semantic_views().await;
         for document in documents {
             let version = document.revision.0;
             self.schedule_diagnostics(document.uri, version).await;
@@ -479,23 +576,24 @@ impl Backend {
                 .map(|(path, owned)| (path.to_path_buf(), owned))
                 .collect();
             drop(read);
-            let requested = requested.to_vec();
-            let renames = match run_staging(self.workspace.staging.clone(), move || {
-                expand_renames(&requested, paths)
-            })
-            .await?
-            {
-                Ok(renames) => renames,
-                Err(error) => {
-                    tracing::warn!(%error, "Ignoring conflicting filesystem rename aliases");
-                    return None;
-                }
-            };
+            let staging_requested = requested.to_vec();
+            let (renames, projected_renames) =
+                match run_staging(self.workspace.staging.clone(), move || {
+                    prepare_rename_paths(&staging_requested, paths)
+                })
+                .await?
+                {
+                    Ok(renames) => renames,
+                    Err(error) => {
+                        tracing::warn!(%error, "Ignoring conflicting filesystem rename aliases");
+                        return None;
+                    }
+                };
             let read = self.file_rename_ready_read().await;
             if generation != self.workspace.generation() {
                 continue;
             }
-            let sources = {
+            let (sources, destinations) = {
                 let database = self.workspace.read();
                 if !database.rename_paths_compatible(&renames) {
                     tracing::warn!(
@@ -503,7 +601,7 @@ impl Backend {
                     );
                     return None;
                 }
-                rename_sources(&database, &renames)
+                rename_sources(&database, &renames, requested, &projected_renames)
             };
             let retired_uris = sources
                 .iter()
@@ -511,25 +609,44 @@ impl Backend {
                 .map(|source| source.old_uri.clone())
                 .collect();
             drop(read);
-            let prepared = run_staging(self.workspace.staging.clone(), move || {
-                prepare_sources(sources)
-            })
-            .await?;
+            let (prepared, physical_paths) =
+                run_staging(self.workspace.staging.clone(), move || {
+                    let physical_paths: HashMap<_, _> = destinations
+                        .into_iter()
+                        .map(|path| {
+                            let physical = crate::workspace::canonical_source_path(&path);
+                            (path, physical)
+                        })
+                        .collect();
+                    (prepare_sources(sources), physical_paths)
+                })
+                .await?;
             let _update = self.workspace.updates.write().await;
             if let Some(documents) = self.workspace.commit_file_rename(generation, |database| {
-                let merged = database.rename_paths(&renames);
+                let merged = database.rename_paths(&renames, &physical_paths);
                 for PreparedSource {
                     source,
+                    physical_path,
                     imports,
                     disk_snapshot,
                     disk_imports,
                 } in prepared
                 {
-                    database.sync_disk_snapshot_prepared(&source.path, disk_snapshot, disk_imports);
+                    database.sync_disk_snapshot_prepared(
+                        &source.path,
+                        &physical_path,
+                        disk_snapshot,
+                        disk_imports,
+                    );
                     if source.open
                         && let Some(snapshot) = source.snapshot
                     {
-                        database.update_open_snapshot_prepared(&source.uri, snapshot, imports);
+                        database.update_open_snapshot_prepared(
+                            &source.uri,
+                            snapshot,
+                            Some(physical_path),
+                            imports,
+                        );
                     }
                 }
                 Some((merged, (database.open_documents(), retired_uris)))

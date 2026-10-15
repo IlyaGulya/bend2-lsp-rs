@@ -105,14 +105,6 @@ fn range(line: u32, start: u32, end: u32) -> Value {
     json!({"start":{"line":line,"character":start},"end":{"line":line,"character":end}})
 }
 
-fn hierarchy_item(name: &str, uri: &str, line: u32, end: u32) -> Value {
-    json!({
-        "name":name,"kind":12,"uri":uri,
-        "range":{"start":{"line":line,"character":0},"end":{"line":line+1,"character":3}},
-        "selectionRange":range(line, 4, end)
-    })
-}
-
 #[test]
 fn release_stdio_queries_observe_incremental_unsaved_workspace() {
     let temp = tempdir().must_be("release E2E directory");
@@ -177,8 +169,8 @@ fn initialize_capabilities(client: &mut LspClient, workspace: &Path) {
 }
 
 fn query_workspace(client: &mut LspClient, main_uri: &str, dependency_uri: &str) -> Vec<Value> {
-    // Queue every query immediately, without diagnostics or a request-response
-    // barrier first committing either pending document on behalf of later queries.
+    // Position and prepare queries all observe the pending edits without a prior
+    // response barrier. Continuations must use the resulting opaque handles.
     let position = json!({"textDocument":{"uri":main_uri},"position":{"line":3,"character":8}});
     let declaration =
         json!({"textDocument":{"uri":dependency_uri},"position":{"line":0,"character":6}});
@@ -195,25 +187,22 @@ fn query_workspace(client: &mut LspClient, main_uri: &str, dependency_uri: &str)
             json!({"textDocument":{"uri":dependency_uri},"position":{"line":0,"character":6},"newName":"limit"}),
         ),
         ("workspace/symbol", json!({"query":"clamp"})),
+        ("textDocument/prepareCallHierarchy", declaration),
         (
-            "callHierarchy/incomingCalls",
-            json!({"item":hierarchy_item("clamp", dependency_uri, 0, 9)}),
-        ),
-        (
-            "callHierarchy/outgoingCalls",
-            json!({"item":hierarchy_item("main", main_uri, 2, 8)}),
+            "textDocument/prepareCallHierarchy",
+            json!({"textDocument":{"uri":main_uri},"position":{"line":2,"character":5}}),
         ),
         (
             "textDocument/documentSymbol",
             json!({"textDocument":{"uri":main_uri}}),
         ),
-        ("textDocument/prepareCallHierarchy", declaration),
     ];
     let ids: Vec<_> = requests
         .iter()
         .map(|(method, params)| client.send_request(method, params.clone()))
         .collect();
-    ids.into_iter()
+    let mut responses: Vec<_> = ids
+        .into_iter()
         .map(|id| {
             let response = client
                 .receive_matching(TIMEOUT, |message| message["id"] == id)
@@ -221,7 +210,19 @@ fn query_workspace(client: &mut LspClient, main_uri: &str, dependency_uri: &str)
             assert!(response.get("error").is_none(), "query failed: {response}");
             response["result"].clone()
         })
-        .collect()
+        .collect();
+    let incoming = client.request(
+        "callHierarchy/incomingCalls",
+        json!({"item":responses[6][0]}),
+    );
+    let outgoing = client.request(
+        "callHierarchy/outgoingCalls",
+        json!({"item":responses[7][0]}),
+    );
+    let prepared = std::mem::replace(&mut responses[6], incoming["result"].clone());
+    responses[7] = outgoing["result"].clone();
+    responses.push(prepared);
+    responses
 }
 
 fn assert_workspace_queries(responses: &[Value], main_uri: &str, dependency_uri: &str) {
@@ -281,6 +282,7 @@ fn assert_workspace_queries(responses: &[Value], main_uri: &str, dependency_uri:
     assert_eq!(documents[0]["name"], "main");
     assert_eq!(documents[0]["selectionRange"], range(2, 4, 8));
     assert_eq!(responses[9][0]["name"], "clamp");
+    assert_eq!(responses[9][0]["data"]["rootUri"], dependency_uri);
 }
 
 fn wait_started(control: &Path, key: &str) -> SocketAddr {

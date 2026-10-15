@@ -68,32 +68,7 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
         semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
             SemanticTokensOptions {
                 work_done_progress_options: WorkDoneProgressOptions::default(),
-                legend: SemanticTokensLegend {
-                    token_types: vec![
-                        SemanticTokenType::NAMESPACE,
-                        SemanticTokenType::TYPE,
-                        SemanticTokenType::CLASS,
-                        SemanticTokenType::ENUM,
-                        SemanticTokenType::INTERFACE,
-                        SemanticTokenType::STRUCT,
-                        SemanticTokenType::TYPE_PARAMETER,
-                        SemanticTokenType::PARAMETER,
-                        SemanticTokenType::VARIABLE,
-                        SemanticTokenType::PROPERTY,
-                        SemanticTokenType::ENUM_MEMBER,
-                        SemanticTokenType::EVENT,
-                        SemanticTokenType::FUNCTION,
-                        SemanticTokenType::METHOD,
-                        SemanticTokenType::MACRO,
-                        SemanticTokenType::KEYWORD,
-                        SemanticTokenType::MODIFIER,
-                        SemanticTokenType::COMMENT,
-                        SemanticTokenType::STRING,
-                        SemanticTokenType::NUMBER,
-                        SemanticTokenType::OPERATOR,
-                    ],
-                    token_modifiers: Vec::new(),
-                },
+                legend: semantic_tokens_legend(),
                 range: Some(false),
                 full: Some(SemanticTokensFullOptions::Bool(true)),
             },
@@ -109,7 +84,39 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
                 ..Default::default()
             }),
         }),
+        experimental: Some(serde_json::json!({
+            "bend2SemanticDocument": {"schemaVersion": 1, "method": "bend2/semanticDocument"}
+        })),
         ..Default::default()
+    }
+}
+
+fn semantic_tokens_legend() -> SemanticTokensLegend {
+    SemanticTokensLegend {
+        token_types: vec![
+            SemanticTokenType::NAMESPACE,
+            SemanticTokenType::TYPE,
+            SemanticTokenType::CLASS,
+            SemanticTokenType::ENUM,
+            SemanticTokenType::INTERFACE,
+            SemanticTokenType::STRUCT,
+            SemanticTokenType::TYPE_PARAMETER,
+            SemanticTokenType::PARAMETER,
+            SemanticTokenType::VARIABLE,
+            SemanticTokenType::PROPERTY,
+            SemanticTokenType::ENUM_MEMBER,
+            SemanticTokenType::EVENT,
+            SemanticTokenType::FUNCTION,
+            SemanticTokenType::METHOD,
+            SemanticTokenType::MACRO,
+            SemanticTokenType::KEYWORD,
+            SemanticTokenType::MODIFIER,
+            SemanticTokenType::COMMENT,
+            SemanticTokenType::STRING,
+            SemanticTokenType::NUMBER,
+            SemanticTokenType::OPERATOR,
+        ],
+        token_modifiers: Vec::new(),
     }
 }
 

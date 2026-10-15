@@ -234,7 +234,11 @@ mod protocol {
         editor.replace("import tools.bend as Tools\ndef main:\n  Tls");
         assert_eq!(item(&editor.complete("\n  Tls"), "Tools")["kind"], 9);
         editor.replace("import tools.bend as Tools\ndef main(Tools):\n  Tools.ap");
-        assert!(editor.complete("Tools.ap").is_empty());
+        assert_eq!(item(&editor.complete("\n  Tools.ap"), "append")["kind"], 3);
+        editor.replace("import tools.bend as Tools\ndef main(Tools.append):\n  Tools.ap");
+        let shadowed = editor.complete("\n  Tools.ap");
+        assert_eq!(item(&shadowed, "Tools.append")["kind"], 6);
+        assert!(!shadowed.iter().any(|entry| entry["label"] == "append"));
         editor.finish();
     }
 
@@ -869,6 +873,11 @@ mod protocol {
             "import tools.bend as Kit\ndef main(Kit):\n  value\n",
             Some("def value:\n  1\n"),
         );
+        let prefix_binding = editor.complete("\n  value");
+        let reused = imported_item(&prefix_binding, "value", "./tools.bend");
+        assert_eq!(reused["textEdit"]["newText"], "Kit.value");
+        assert!(reused["additionalTextEdits"].is_null());
+        editor.replace("import tools.bend as Kit\ndef main(Kit.value):\n  value\n");
         assert!(!editor.complete("\n  value").iter().any(|item| {
             item["label"] == "value" && item["labelDetails"]["description"] == "./tools.bend"
         }));

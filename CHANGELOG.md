@@ -2,8 +2,19 @@
 
 ## Unreleased
 
+### Features
+
+- Expose versioned `bend2/semanticDocument` metadata for written declarations, documentation, signatures, bodies, reference targets, and enclosing definitions. Extraction is scoped to an explicitly prepared entry and reports uncertain input rather than substituting a name-only target.
+
 ### Bug Fixes
 
+- Respect complete lexical names in navigation, hover, references, and rename.
+  A binding named `D` does not shadow the distinct name `D.member`; a binding
+  named `D.member` does.
+- Replace the complete existing name when accepting completion in its middle.
+- Build callers and callees from entry-scoped import and binding indexes, including line-broken `!(` calls and the implementation body of a `law`. Hierarchy ranges point to the implementation's actual file when a law is declared elsewhere. Reject stale hierarchy handles with `ContentModified` instead of silently resolving a replacement by name.
+- Keep physical file identity separate from editor URIs; reject conflicting open overlays and unsafe rename capture instead of returning partial edits.
+- Keep existential signature domains separate from a following braced equality; require the compiler's adjacent `!(` spelling instead of inventing a call for rejected `! (` input.
 - Support enhanced multi-error diagnostics with verified Bend 2.0.37 builds.
   Preserve independent errors, original-cause links, and precise source ranges.
 - Keep enhanced compiler checks working when project and temporary paths contain
@@ -13,6 +24,11 @@
 
 ### Under the hood
 
+- Add an independent, checksum-pinned official Bend 2.0.37 source oracle,
+  differential corpus and generated projects, replayable failures, bounded
+  shrinking, and required fail-closed semantic checks. The PR resource profile
+  remains provisional until at least 20 CI runs across five jobs validate it.
+  Existing Callgrind metrics, thresholds, and baseline selection are unchanged.
 - Require genuine compiler diagnostics in all six native and installed-executable
   E2E matrices. Pin official Unix archives and build the Windows compiler from
   exact upstream source with a pinned native Bun runtime and a resource-locator
@@ -468,7 +484,6 @@ indexing and discovery remain deferred.
 ### Bug Fixes
 
 - Respect lexical parameter shadowing in declaration navigation and hover, including shadowed module qualifiers and scoped parameter annotations.
-- Reject unsupported module-alias rename instead of renaming an imported member under a different cursor.
 - Preserve body indentation after colonless declarations during newline formatting; handle comments, quoted delimiters, and incomplete literals safely.
 - Retain watched closed-file updates across concurrent document commits and preserve newer open-buffer import edges until close.
 - Wait for relevant imported-document revisions in cross-file queries without blocking unrelated documents during cold snapshot construction.

@@ -225,7 +225,7 @@ impl Backend {
     pub(super) async fn run_diagnostics(&self, uri: Url, version: i32) {
         let span = tracing::Span::current();
         sleep(Duration::from_millis(250)).await;
-        let Some(doc) = self.document(&uri) else {
+        let Some(doc) = self.workspace.read().open_document(&uri) else {
             span.record("outcome", "document_missing");
             return;
         };
@@ -266,7 +266,9 @@ impl Backend {
                 .any(|item| item.code == Some(NumberOrString::String("holes".into())))
             {
                 let current_revision = self
-                    .document(&uri)
+                    .workspace
+                    .read()
+                    .open_document(&uri)
                     .filter(|current| Arc::ptr_eq(&current.snapshot, &doc.snapshot))
                     .map(|current| current.revision);
                 if !diagnostics_revision_is_current(current_revision, Revision(version)) {
@@ -279,7 +281,7 @@ impl Backend {
                     if normalize_path(&source_path) == root_path {
                         diagnostics.push(item);
                     } else if let Ok(source_uri) = Url::from_file_path(&source_path)
-                        && self.document(&source_uri).is_none()
+                        && !self.workspace.read().is_document_open(&source_uri)
                     {
                         imported.entry(source_uri).or_default().push(item);
                     }
@@ -289,7 +291,9 @@ impl Backend {
             }
         }
         let current_revision = self
-            .document(&uri)
+            .workspace
+            .read()
+            .open_document(&uri)
             .filter(|current| Arc::ptr_eq(&current.snapshot, &doc.snapshot))
             .map(|current| current.revision);
         span.record("diagnostic_count", diagnostics.len());
@@ -420,7 +424,7 @@ impl Backend {
         let span = tracing::Span::current();
         let mut published_count = 0;
         for uri in affected {
-            if self.document(&uri).is_some() {
+            if self.workspace.read().is_document_open(&uri) {
                 continue;
             }
             let diagnostics = {
@@ -441,7 +445,7 @@ impl Backend {
                 }
                 combined
             };
-            if self.document(&uri).is_none() {
+            if !self.workspace.read().is_document_open(&uri) {
                 let publish_span = tracing::info_span!(
                     "diagnostics.publish",
                     kind = "imported_target",

@@ -203,8 +203,8 @@ fn syntax_index_lexes_once_and_reuses_names_imports_calls_and_context() {
     use bend2_lsp::analysis::{TokenKind, completion_items, identifier_ranges, signature_help};
 
     let source = r#"import lib.bend as Lib
-def target(a: Type, b: Type):
-  "target(y) \" ( [ #"
+def target(a: Type, b: Type) -> Type:
+  ignored = "target(y) \" ( [ #"
   # target(x, [)
   target(1, nested(2, 3),
 "#;
@@ -306,7 +306,7 @@ fn syntax_index_keeps_malformed_literal_hole_and_delimiter_diagnostics() {
 fn resolved_names_keep_parameter_and_pattern_shadowing_local() {
     use bend2_lsp::analysis::identifier_ranges;
 
-    let source = "def target(value):\n  value\ndef shadow(target):\n  target(1)\ndef main:\n  target(2)\ndef choose(value):\n  match value:\n    case Some(item):\n      item\n    case None:\n      0\n  item\n";
+    let source = "import Base\ntype Maybe is Type:\n  Some{item: U32}\n  None{}\ndef target(value: U32) -> U32:\n  value\ndef shadow(target: (U32 -> U32)) -> U32:\n  target(1)\ndef main() -> U32:\n  target(2)\ndef choose(value: Maybe) -> U32:\n  match value:\n    case Some{item}:\n      item\n    case None{}:\n      0\ndef outside() -> U32:\n  item\n";
     let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
     let target_name = snapshot
         .syntax
@@ -397,11 +397,47 @@ fn assert_legacy_fixture_outputs_match_indexed_queries_exactly(
         .collect();
     let legacy_tokens: Vec<[u32; 5]> = serde_json::from_value(golden["semantic_tokens"].clone())
         .must_be("legacy semantic tokens must match the canonical shape");
-    assert_exact_output(
-        "semantic token (line, range, kind)",
-        &semantic_tokens,
-        &legacy_tokens,
+    assert_eq!(
+        semantic_tokens.len(),
+        legacy_tokens.len(),
+        "semantic token count"
     );
+    for (actual, legacy) in semantic_tokens.iter().zip(&legacy_tokens) {
+        if actual == legacy {
+            continue;
+        }
+        // The immutable legacy corpus predates compiler grammar resolution.
+        // `case Nil: state` binds a variable: this file defines no Nil
+        // constructor. Keep the golden unchanged and prove that sole semantic
+        // correction rather than repinning generated token output.
+        assert_eq!(
+            &actual[..4],
+            &legacy[..4],
+            "legacy token ranges are unchanged"
+        );
+        assert_eq!(
+            (legacy[4], actual[4]),
+            (1, 8),
+            "only a type-to-binding correction"
+        );
+        let start = snapshot.line_index.offset(source, actual[0], actual[1]);
+        let end = snapshot.line_index.offset(source, actual[2], actual[3]);
+        assert_eq!(&source[start..end], "Nil");
+        let token = snapshot
+            .syntax
+            .token_at_or_before(start)
+            .must_be("Nil token");
+        let occurrence = snapshot
+            .syntax
+            .reference_for_token(token)
+            .must_be("grammar occurrence");
+        assert_eq!(occurrence.role, analysis::ReferenceRole::Binding);
+        assert_eq!(occurrence.kind, analysis::ReferenceKind::Declaration);
+        let local = occurrence.local_binding.must_be("native pattern binding");
+        let binding = &snapshot.syntax.bindings()[local.0];
+        assert_eq!(occurrence.resolved, Some(binding.id));
+        assert_eq!(snapshot.syntax.constructor_by_name(binding.name), None);
+    }
 
     let identifier_ranges: Vec<[u32; 4]> = analysis::identifier_ranges(&snapshot, identifier_name)
         .into_iter()
@@ -480,13 +516,13 @@ fn medium_and_large_legacy_fixture_outputs_match_indexed_queries_exactly() {
 
 #[test]
 fn constructor_definitions_preserve_source_order_when_names_were_seen_earlier() {
-    for prefix in ["", "def prior(value: Second) -> Nat:\n  0n\n\n"] {
+    for prefix in ["", "def prior() -> FirstType: Second{}\n\n"] {
         let source = format!(
             "{prefix}type FirstType is Data:\n  First{{}}\n  Second{{}}\n\
-             type OtherType is Data:\n  First{{}}\n"
+             type OtherType is Data:\n  Third{{}}\n"
         );
         let snapshot = DocumentSnapshot::new(Revision(1), source.clone());
-        for name in ["First", "Second"] {
+        for name in ["First", "Second", "Third"] {
             let start = source
                 .find(&format!("  {name}"))
                 .must_be("constructor declaration")
@@ -503,7 +539,7 @@ fn constructor_definitions_preserve_source_order_when_names_were_seen_earlier() 
 fn inlay_hints_order_nested_calls_and_limit_labels_to_declared_parameters() {
     let source = "def pair(first: U32, second: U32) -> U32:\n  first\n\
                   def unary(only: U32) -> U32:\n  only\n\
-                  def main() -> U32:\n  unary(pair(5, 6))\n  pair(1)\n  pair(2, 3, 4)\n  0\n";
+                  def main() -> U32:\n  _ = unary(pair(5, 6))\n  _ = pair(1)\n  _ = pair(2, 3, 4)\n  0\n";
     let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
     let labels = |range| {
         bend2_lsp::analysis::inlay_hints(&snapshot, range)
@@ -517,22 +553,22 @@ fn inlay_hints_order_nested_calls_and_limit_labels_to_declared_parameters() {
     assert_eq!(
         labels(TextRange::new(0, source.len())),
         vec![
-            (5, 8, "only: ".to_owned()),
-            (5, 13, "first: ".to_owned()),
-            (5, 16, "second: ".to_owned()),
-            (6, 7, "first: ".to_owned()),
-            (7, 7, "first: ".to_owned()),
-            (7, 10, "second: ".to_owned()),
+            (5, 12, "only: ".to_owned()),
+            (5, 17, "first: ".to_owned()),
+            (5, 20, "second: ".to_owned()),
+            (6, 11, "first: ".to_owned()),
+            (7, 11, "first: ".to_owned()),
+            (7, 14, "second: ".to_owned()),
         ]
     );
     assert_eq!(
         labels(TextRange::new(
-            snapshot.line_index.offset(source, 5, 13),
-            snapshot.line_index.offset(source, 5, 16),
+            snapshot.line_index.offset(source, 5, 17),
+            snapshot.line_index.offset(source, 5, 20),
         )),
         vec![
-            (5, 13, "first: ".to_owned()),
-            (5, 16, "second: ".to_owned())
+            (5, 17, "first: ".to_owned()),
+            (5, 20, "second: ".to_owned())
         ]
     );
 }
@@ -568,13 +604,8 @@ fn dense_index_lookups_distinguish_zero_ids_missing_entries_and_nested_calls() {
         "def"
     );
     assert_eq!(syntax.symbol_for_token(TokenId(0)), None);
-    assert_eq!(
-        syntax
-            .reference_for_token(TokenId(0))
-            .must_be("keyword reference")
-            .resolved,
-        None
-    );
+    assert!(syntax.is_keyword(syntax.name_for_token(TokenId(0)).must_be("keyword name")));
+    assert_eq!(syntax.reference_for_token(TokenId(0)), None);
     let punctuation = syntax
         .token_at_or_before(first + "first".len())
         .must_be("opening delimiter");
@@ -693,7 +724,7 @@ fn parameter_hints_preserve_nested_order_range_boundaries_and_argument_arity() {
         "def add(left: U32, right: U32) -> U32:\n  left\n",
         "def ident(value: U32) -> U32:\n  value\n",
         "def zero() -> U32:\n  0\n",
-        "def main() -> U32:\n  add(ident(1), 2)\n  ident(3, 4)\n  unknown(5)\n  zero()\n",
+        "def main() -> U32:\n  _ = add(ident(1), 2)\n  _ = ident(3, 4)\n  _ = unknown(5)\n  zero()\n",
     );
     let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
     let nested = source.find("add(ident(1), 2)").must_be("nested call");
@@ -777,7 +808,7 @@ fn parameter_hints_distinguish_unresolved_and_zero_arity_calls_from_newly_resolv
     let source = concat!(
         "import ./other.bend as library\n",
         "def nop() -> U32:\n  0\n",
-        "def main() -> U32:\n  nop()\n  absent(1)\n  library.echo(2)\n",
+        "def main() -> U32:\n  _ = nop()\n  _ = absent(1)\n  library.echo(2)\n",
     );
     let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
     assert!(
@@ -829,4 +860,110 @@ fn module_completion_preserves_ascii_case_underscores_repeated_letters_and_unico
         bend2_lsp::analysis::completion_match("πfoo", "πF"),
         Some((2, 0, 5))
     );
+}
+
+#[test]
+fn duplicate_constructor_declarations_have_no_arbitrary_standalone_target() {
+    let source = "type A is Data:\n  C{}\ntype B is Data:\n  C{}\ndef use() -> A: C{}\n";
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let name = snapshot
+        .syntax
+        .name_id(source, "C")
+        .must_be("constructor name");
+    assert_eq!(snapshot.syntax.constructor_by_name(name), None);
+    assert_eq!(bend2_lsp::analysis::declaration_range(&snapshot, "C"), None);
+    assert_eq!(
+        snapshot
+            .syntax
+            .declaration_sites()
+            .iter()
+            .filter(|site| site.name == name)
+            .count(),
+        2
+    );
+    for parent_name in ["A", "B"] {
+        let parent = snapshot
+            .syntax
+            .name_id(source, parent_name)
+            .and_then(|name| snapshot.syntax.symbol_by_name(name))
+            .must_be("parent type");
+        let constructor = snapshot
+            .syntax
+            .constructors(parent.id)
+            .first()
+            .must_be("parent's exact constructor");
+        assert_eq!(
+            snapshot.syntax.constructor_by_symbol(constructor.symbol),
+            Some(constructor)
+        );
+        assert_eq!(constructor.parent, parent.id);
+        assert_eq!(snapshot.syntax.constructor_by_symbol(parent.id), None);
+    }
+    assert_eq!(
+        snapshot
+            .syntax
+            .constructor_by_symbol(bend2_lsp::analysis::SymbolId(usize::MAX)),
+        None
+    );
+    let use_offset = source.rfind("C{}").must_be("constructor use");
+    let occurrence = snapshot
+        .syntax
+        .reference_for_token(
+            snapshot
+                .syntax
+                .token_at_or_before(use_offset)
+                .must_be("constructor token"),
+        )
+        .must_be("constructor occurrence");
+    assert_eq!(
+        occurrence.role,
+        bend2_lsp::analysis::ReferenceRole::Constructor
+    );
+    assert_eq!(occurrence.resolved, None);
+}
+
+#[test]
+fn workspace_symbol_queries_keep_constructor_facts_nested() {
+    use bend2_lsp::analysis::{
+        DeclarationKind, SymbolKind, WorkspaceSymbolQuery, document_symbols,
+    };
+
+    let source = "type Shape is Data:\n  Circle{radius: U32}\ndef add(x: U32, y: U32) -> U32: U32.add(x, y)\ndef kelvin() -> U32: 273\n";
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    for (query, expected) in [
+        ("", vec!["Shape", "add", "kelvin"]),
+        ("SH", vec!["Shape"]),
+        ("ADD", vec!["add"]),
+        ("Circle", vec![]),
+    ] {
+        let query = WorkspaceSymbolQuery::new(query);
+        let names = query
+            .symbols(&snapshot)
+            .map(|symbol| symbol.name)
+            .collect::<Vec<_>>();
+        assert_eq!(names, expected);
+    }
+    let constructor = snapshot
+        .syntax
+        .symbols()
+        .iter()
+        .find(|symbol| symbol.kind == SymbolKind::Constructor)
+        .must_be("constructor symbol fact");
+    assert_eq!(
+        snapshot.syntax.name_text(source, constructor.name),
+        "Circle"
+    );
+    assert!(
+        snapshot
+            .syntax
+            .declaration_sites()
+            .iter()
+            .any(|site| site.symbol == constructor.id && site.kind == DeclarationKind::Constructor)
+    );
+    let outline = document_symbols(&snapshot);
+    assert_eq!(outline.len(), 3);
+    assert_eq!(outline[0].name, "Shape");
+    assert_eq!(outline[0].children.len(), 1);
+    assert_eq!(outline[0].children[0].name, "Circle");
+    assert_eq!(outline[0].children[0].kind, SymbolKind::Constructor);
 }

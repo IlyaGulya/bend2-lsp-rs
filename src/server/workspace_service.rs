@@ -3,8 +3,8 @@ use super::{
     state::{State, revision_result},
 };
 use crate::{
-    analysis::Revision,
-    workspace::{FileId, WorkspaceDb},
+    analysis::{DocumentSnapshot, Revision},
+    workspace::{FileId, SemanticBase, SemanticView, WorkspaceDb},
 };
 use std::{
     collections::HashMap,
@@ -68,6 +68,8 @@ pub(super) struct WorkspaceService {
     pub(super) file_operations: RwLock<()>,
     pub(super) roots: State<Vec<PathBuf>>,
     pub(super) staging: Arc<Semaphore>,
+    pub(super) semantic_preparation: Mutex<()>,
+    pub(super) state_changed: tokio::sync::Notify,
     pub(super) discovery: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub(super) discovery_epoch: AtomicU64,
     pub(super) discovery_closed: AtomicBool,
@@ -86,6 +88,8 @@ impl Default for WorkspaceService {
             file_operations: RwLock::new(()),
             roots: State::new(Vec::new()),
             staging: Arc::new(Semaphore::new(4)),
+            semantic_preparation: Mutex::new(()),
+            state_changed: tokio::sync::Notify::new(),
             discovery: Mutex::new(None),
             discovery_epoch: AtomicU64::new(0),
             discovery_closed: AtomicBool::new(false),
@@ -131,6 +135,7 @@ impl WorkspaceService {
             .or_insert_with(|| Arc::new(DocumentRevisionSync::new(document)))
             .clone();
         let ticket = revision_result(sync.reserve(revision))?;
+        self.state_changed.notify_waiters();
         Some((id, ticket, path))
     }
     pub(super) fn begin_refresh(&self, uri: &Url, revision: Revision) -> Option<RevisionTicket> {
@@ -156,7 +161,11 @@ impl WorkspaceService {
         if !state.is_closed(closed) || state.database.file_id_by_uri(uri) != Some(closed.file) {
             return None;
         }
-        state.apply(|database| database.close_document_prepared(uri))
+        let result = state.apply(|database| database.close_document_prepared(uri));
+        if result.is_some() {
+            self.state_changed.notify_waiters();
+        }
+        result
     }
     /// Validation and all database/index changes share the same exclusive
     /// state guard as reservation and close. Snapshot construction happens first.
@@ -200,19 +209,71 @@ impl WorkspaceService {
         let _state = self.state.write();
         revision_result(ticket.mark_committed())
     }
+
+    pub(super) async fn invalidate_editor_import_paths(&self, events: &[(Url, PathBuf)]) {
+        let _update = self.updates.write().await;
+        let mut state = self.state.write();
+        for (_, path) in events {
+            state.database.invalidate_editor_import_path(path);
+        }
+    }
+
+    pub(super) fn publish_editor_import_paths(
+        &self,
+        file: FileId,
+        expected: &Arc<DocumentSnapshot>,
+        paths: HashMap<PathBuf, Option<PathBuf>>,
+    ) -> bool {
+        let mut state = self.state.write();
+        if state.revisions.get(&file).is_some_and(|sync| {
+            let status = revision_result(sync.status());
+            status.is_pending() || (status.desired().is_none() && state.database.is_file_open(file))
+        }) {
+            return false;
+        }
+        state
+            .database
+            .set_editor_import_paths(file, expected, paths)
+    }
+
+    /// Publishing a derived index must not invalidate source-generation captures
+    /// held by refresh and file-operation staging.
+    pub(super) fn publish_semantic_view(
+        &self,
+        view: Arc<SemanticView>,
+        base: Option<&SemanticBase>,
+    ) -> bool {
+        let mut state = self.state.write();
+        if state.database.semantic_view(view.root()).is_some()
+            || view.documents().iter().any(|document| {
+                let Some(file) = state.database.file_id_by_uri(&document.uri) else {
+                    return false;
+                };
+                state.revisions.get(&file).is_some_and(|sync| {
+                    let status = revision_result(sync.status());
+                    status.is_pending()
+                        || (status.desired().is_none() && state.database.is_file_open(file))
+                })
+            })
+        {
+            return false;
+        }
+        state.database.publish_semantic_view(view, base)
+    }
 }
 
 #[derive(Default)]
 pub(super) struct RegistrationState {
     pub(super) watch: bool,
     pub(super) type_hierarchy: bool,
+    pub(super) versioned_edits: bool,
 }
 
 #[cfg(test)]
 mod tests {
     use super::WorkspaceService;
     use crate::{analysis::Revision, workspace::Document};
-    use std::io;
+    use std::{collections::HashMap, io};
     use url::Url;
 
     #[test]
@@ -332,6 +393,132 @@ mod tests {
                 .text,
             "def reopened = 1\n"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn cold_semantic_publication_rejects_closed_and_reopened_inputs() -> io::Result<()> {
+        let service = WorkspaceService::default();
+        let uri = Url::parse("untitled:semantic-epoch").map_err(io::Error::other)?;
+        let (root, first, _) = service
+            .begin_revision(&uri, None, Revision(7), true)
+            .ok_or_else(|| io::Error::other("first epoch"))?;
+        service
+            .commit(Some(&first), None, |database| {
+                Some(database.set_open_document_prepared(
+                    Document::new(
+                        uri.clone(),
+                        "bend".into(),
+                        Revision(7),
+                        "def old:\n  7\n".into(),
+                    ),
+                    None,
+                    None,
+                    Vec::new(),
+                ))
+            })
+            .ok_or_else(|| io::Error::other("first commit"))?;
+        assert!(service.finish_revision(&first));
+        let input = service
+            .read()
+            .capture_semantic_view(root, None)
+            .ok_or_else(|| io::Error::other("captured semantic input"))?;
+        let stale = std::sync::Arc::new(input.build());
+        let stale_snapshot = stale
+            .document(root)
+            .ok_or_else(|| io::Error::other("captured editor input"))?
+            .snapshot
+            .clone();
+        let closed = service
+            .begin_close(&uri)
+            .ok_or_else(|| io::Error::other("close epoch"))?;
+        assert!(service.read().is_file_open(root));
+        assert!(!service.publish_semantic_view(stale.clone(), None));
+        assert!(!service.publish_editor_import_paths(root, &stale_snapshot, HashMap::new()));
+        assert!(service.commit_close(closed, &uri).is_some());
+        assert!(!service.read().is_file_open(root));
+        assert!(!service.publish_semantic_view(stale.clone(), None));
+        assert!(!service.publish_editor_import_paths(root, &stale_snapshot, HashMap::new()));
+        drop(first);
+        let (_, reopened, _) = service
+            .begin_revision(&uri, None, Revision(1), true)
+            .ok_or_else(|| io::Error::other("reopened epoch"))?;
+        service
+            .commit(Some(&reopened), None, |database| {
+                Some(database.set_open_document_prepared(
+                    Document::new(
+                        uri.clone(),
+                        "bend".into(),
+                        Revision(1),
+                        "def fresh:\n  1\n".into(),
+                    ),
+                    None,
+                    None,
+                    Vec::new(),
+                ))
+            })
+            .ok_or_else(|| io::Error::other("reopened commit"))?;
+        assert!(service.finish_revision(&reopened));
+        assert!(!service.publish_semantic_view(stale, None));
+        assert!(!service.publish_editor_import_paths(root, &stale_snapshot, HashMap::new()));
+        let current = service
+            .read()
+            .capture_semantic_view(root, None)
+            .ok_or_else(|| io::Error::other("current semantic input"))?;
+        let current = std::sync::Arc::new(current.build());
+        let generation = service.generation();
+        assert!(service.publish_semantic_view(current, None));
+        assert_eq!(
+            service.generation(),
+            generation,
+            "derived publication is not a source mutation"
+        );
+        assert!(service.read().semantic_views_ready_for(Some(root)));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn enabled_close_waiter_observes_commit_and_reopen_notifications() -> io::Result<()> {
+        let service = WorkspaceService::default();
+        let uri = Url::parse("untitled:close-signal").map_err(io::Error::other)?;
+        let (_, first, _) = service
+            .begin_revision(&uri, None, Revision(1), true)
+            .ok_or_else(|| io::Error::other("reserve first epoch"))?;
+        service
+            .commit(Some(&first), None, |database| {
+                Some(database.set_open_document_prepared(
+                    Document::new(
+                        uri.clone(),
+                        "bend".into(),
+                        Revision(1),
+                        "def main:\n  1\n".into(),
+                    ),
+                    None,
+                    None,
+                    Vec::new(),
+                ))
+            })
+            .ok_or_else(|| io::Error::other("commit first epoch"))?;
+        assert!(service.finish_revision(&first));
+        let closed = service
+            .begin_close(&uri)
+            .ok_or_else(|| io::Error::other("close epoch"))?;
+        let committed = service.state_changed.notified();
+        tokio::pin!(committed);
+        committed.as_mut().enable();
+        assert!(service.commit_close(closed, &uri).is_some());
+        tokio::time::timeout(std::time::Duration::from_secs(1), committed)
+            .await
+            .map_err(io::Error::other)?;
+        let reopened = service.state_changed.notified();
+        tokio::pin!(reopened);
+        reopened.as_mut().enable();
+        let _next = service
+            .begin_revision(&uri, None, Revision(1), true)
+            .ok_or_else(|| io::Error::other("reserve reopened epoch"))?;
+        tokio::time::timeout(std::time::Duration::from_secs(1), reopened)
+            .await
+            .map_err(io::Error::other)?;
         Ok(())
     }
 }

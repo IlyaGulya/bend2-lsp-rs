@@ -8,7 +8,6 @@ pub(super) struct Scanner<'a> {
     bytes: &'a [u8],
     offset: usize,
     tokens: Vec<Token>,
-    identifier_count: usize,
     semantic_token_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
@@ -31,7 +30,6 @@ impl<'a> Scanner<'a> {
             bytes: source.as_bytes(),
             offset: 0,
             tokens: Vec::new(),
-            identifier_count: 0,
             semantic_token_count: 0,
             names: NameTable::new(),
             diagnostics: Vec::new(),
@@ -66,7 +64,11 @@ impl<'a> Scanner<'a> {
                 self.number();
             } else if matches!(byte, b'(' | b'[' | b'{' | b')' | b']' | b'}') {
                 self.delimiter();
-            } else if b"+-*/%=<>!&|^~".contains(&byte) {
+            } else if b"+-*/%=<>!&|^~".contains(&byte)
+                || [".|.", ".^.", ".&."]
+                    .iter()
+                    .any(|operator| self.source[self.offset..].starts_with(*operator))
+            {
                 self.operator();
             } else {
                 if !byte.is_ascii() {
@@ -85,7 +87,6 @@ impl<'a> Scanner<'a> {
         self.delimiter_pairs.sort_unstable_by_key(|pair| pair.open);
         ScanOutput {
             tokens: self.tokens,
-            identifier_count: self.identifier_count,
             semantic_token_count: self.semantic_token_count,
             names: self.names,
             diagnostics: self.diagnostics,
@@ -177,11 +178,30 @@ impl<'a> Scanner<'a> {
 
     fn number(&mut self) {
         let start = self.offset;
-        self.offset += 1;
-        while self.offset < self.bytes.len()
-            && (self.bytes[self.offset].is_ascii_alphanumeric() || self.bytes[self.offset] == b'_')
+        while self.bytes.get(self.offset).is_some_and(u8::is_ascii_digit) {
+            self.offset += 1;
+        }
+        if self.bytes.get(self.offset) == Some(&b'n') {
+            self.offset += 1;
+        } else if self.bytes.get(self.offset) == Some(&b'.')
+            && self
+                .bytes
+                .get(self.offset + 1)
+                .is_some_and(u8::is_ascii_digit)
         {
             self.offset += 1;
+            while self.bytes.get(self.offset).is_some_and(u8::is_ascii_digit) {
+                self.offset += 1;
+            }
+            if matches!(self.bytes.get(self.offset), Some(b'e' | b'E')) {
+                self.offset += 1;
+                if matches!(self.bytes.get(self.offset), Some(b'+' | b'-')) {
+                    self.offset += 1;
+                }
+                while self.bytes.get(self.offset).is_some_and(u8::is_ascii_digit) {
+                    self.offset += 1;
+                }
+            }
         }
         self.push_token(
             start,
@@ -234,12 +254,22 @@ impl<'a> Scanner<'a> {
     }
 
     fn operator(&mut self) {
+        const OPERATORS: &[&str] = &[
+            "<&>", ".|.", ".^.", ".&.", "->", "=>", "<-", "==", "!=", "<=", ">=", "&&", "||", "<<",
+            ">>", "<>", "++",
+        ];
         let start = self.offset;
-        self.offset += 1;
-        while self.offset < self.bytes.len() && b"+-*/%=<>!&|^~".contains(&self.bytes[self.offset])
-        {
-            self.offset += 1;
-        }
+        let glued_close =
+            self.bytes[start] == b'>' && start > 0 && !self.bytes[start - 1].is_ascii_whitespace();
+        let width = if glued_close {
+            1
+        } else {
+            OPERATORS
+                .iter()
+                .find(|operator| self.source[start..].starts_with(**operator))
+                .map_or(1, |operator| operator.len())
+        };
+        self.offset += width;
         self.push_token(
             start,
             self.offset,
@@ -299,8 +329,6 @@ impl<'a> Scanner<'a> {
         ));
         if name.is_none() {
             self.names.append_non_name();
-        } else {
-            self.identifier_count += 1;
         }
     }
 }
