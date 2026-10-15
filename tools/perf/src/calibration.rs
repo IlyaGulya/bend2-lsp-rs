@@ -27,6 +27,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 const VARIANTS: [&str; 5] = ["a", "b", "layout", "extra_work", "extra_alloc"];
+const BENCHMARKS: [&str; 2] = ["analysis", "reference_locations"];
 const METRICS: [&str; 3] = ["Ir", "I1mr", "ILmr"];
 const ROLES: [&str; 2] = ["discovery", "validation"];
 const PROBE: &str = "calibration_layout_probe";
@@ -87,6 +88,12 @@ struct ReportArgs {
     expected_validation_jobs: Option<u64>,
     #[arg(long, value_parser = positive_integer)]
     expected_pairs: Option<u64>,
+    /// Require this many unique executed workloads in every job.
+    #[arg(long, value_parser = positive_integer)]
+    expected_workloads: Option<u64>,
+    /// Require source-bound analysis and `reference_locations` evidence.
+    #[arg(long)]
+    require_all_benchmarks: bool,
     /// Reject incomplete coverage, source-identical A/A failures, or missed positive controls.
     #[arg(long)]
     require_control_validation: bool,

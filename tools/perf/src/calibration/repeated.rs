@@ -188,7 +188,10 @@ fn build(jobs: &[Value], args: &ReportArgs) -> ToolResult<Value> {
         args.expected_discovery_jobs,
         args.expected_validation_jobs,
         args.expected_pairs,
-    );
+    )
+    .and_then(|()| {
+        report::check_expected_scope(jobs, args.expected_workloads, args.require_all_benchmarks)
+    });
     let coverage = design
         && expected.is_ok()
         && args.expected_discovery_jobs.is_none_or(|n| n == 3)
@@ -219,6 +222,7 @@ fn build(jobs: &[Value], args: &ReportArgs) -> ToolResult<Value> {
     let hosts = historical["hosts"].take();
     Ok(json!({
         "format_version": 1, "method": METHOD, "mode": "report-only", "active_gates_changed": false, "evidence_verified": true,
+        "benchmark_scope": historical["benchmark_scope"],
         "coverage": {"planned_jobs": {"discovery": 3, "validation": 3}, "planned_pairs_per_job": 105, "predeclared_coverage_met": coverage, "observed_jobs": historical["coverage"]["observed_jobs"], "observed_pairs": historical["coverage"]["observed_pairs"], "balanced_execution_order": jobs.iter().all(balanced), "expectation_error": expected.err().map(|e| e.to_string())},
         "control_validation": {"passed": coverage && repeatability && sensitivity, "classification": if !coverage { "insufficient_evidence" } else if repeatability && sensitivity { "passed" } else { "failed" }, "coverage_sufficient": coverage, "repeatability_passed": repeatability, "sensitivity_passed": sensitivity, "repeatability_failures": failures, "sensitivity_failures": missed},
         "assumptions": "Conditional independent fresh-process samples within each job under randomized balanced execution order. No pooling across jobs, hosts, or builds. Reused a baselines make within-pair comparisons dependent. Bounds are one-sided marginal 95% bounds, not simultaneous or familywise claims. All upper bounds passing is an intersection-union criterion, conditional on sampling assumptions. This estimates typical median process change, not p95, tails, or editor latency.",
@@ -239,6 +243,11 @@ fn markdown(report: &Value) -> ToolResult<String> {
         writeln!(output, "Unverified evidence: {}", report["evidence_error"])?;
         return Ok(output);
     }
+    writeln!(
+        output,
+        "## Executed benchmark scope\n\n{}\n\nHistorical v1 evidence covers analysis only; it does not establish reference-location coverage.\n",
+        report["benchmark_scope"]
+    )?;
     writeln!(
         output,
         "{}\n\n{}\n\n{}\n\n## Per-job exact median residual bounds\n\n| Job | Variant | Workload | Event | n | Median | Lower | Upper | Classification |\n| --- | --- | --- | --- | ---: | --- | --- | --- | --- |",

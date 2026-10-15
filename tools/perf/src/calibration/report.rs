@@ -1,5 +1,5 @@
 use super::{
-    Identity, METRICS, PROBE, ROLES, ReportArgs, VARIANTS, baseline_name,
+    BENCHMARKS, Identity, METRICS, PROBE, ROLES, ReportArgs, VARIANTS, baseline_name,
     integrity::{identity, parse_measurement, signals, strict_json},
     require,
 };
@@ -38,8 +38,8 @@ fn digest(value: &Value) -> bool {
 fn validate_metadata(data: &Value) -> ToolResult<()> {
     require(data.is_object(), "dataset must be an object")?;
     require(
-        data["format_version"].as_u64() == Some(1),
-        "format_version must be integer 1",
+        matches!(data["format_version"].as_u64(), Some(1 | 2)),
+        "format_version must be integer 1 or 2",
     )?;
     for field in ["job_id", "source_revision"] {
         require(
@@ -53,10 +53,20 @@ fn validate_metadata(data: &Value) -> ToolResult<()> {
             .is_some_and(|role| ROLES.contains(&role)),
         "role must be discovery or validation",
     )?;
-    for field in ["fixture_sha256", "harness_sha256"] {
+    require(
+        digest(&data["fixture_sha256"]),
+        "fixture_sha256 must be a lowercase SHA256",
+    )?;
+    if data["format_version"] == 2 {
+        let harnesses = benchmark_map(&data["harness_sha256"])?;
         require(
-            digest(&data[field]),
-            &format!("{field} must be a lowercase SHA256"),
+            harnesses.values().all(digest),
+            "harness hashes must be lowercase SHA256",
+        )?;
+    } else {
+        require(
+            digest(&data["harness_sha256"]),
+            "harness_sha256 must be a lowercase SHA256",
         )?;
     }
     let environment = data["environment"]
@@ -102,50 +112,146 @@ fn validate_variants(data: &Value) -> ToolResult<()> {
                 .all(|variant| variants.contains_key(*variant)),
         "variants must contain exactly a, b, layout, extra_work, extra_alloc",
     )?;
+    let mut ownership = None;
     for (name, variant) in variants {
         require(variant.is_object(), "variant must be an object")?;
-        for field in ["source_sha256", "binary_sha256"] {
-            require(
-                digest(&variant[field]),
-                "variant source/binary hash must be a lowercase SHA256",
-            )?;
+        require(
+            digest(&variant["source_sha256"]),
+            "variant source hash must be a lowercase SHA256",
+        )?;
+        if data["format_version"] == 2 {
+            let benchmarks = benchmark_map(&variant["benchmarks"])?;
+            let mut current = BTreeMap::new();
+            let mut union = BTreeSet::new();
+            let mut executables = BTreeSet::new();
+            for benchmark in BENCHMARKS {
+                let manifest = &benchmarks[benchmark];
+                validate_binary(manifest)?;
+                require(
+                    executables.insert(manifest["executable"].as_str()),
+                    "benchmark executables must be distinct",
+                )?;
+                let identities = manifest_identities(&manifest["workloads"])?;
+                require(
+                    identities.is_disjoint(&union),
+                    "benchmark workload ownership must be disjoint",
+                )?;
+                union.extend(identities.iter().cloned());
+                if benchmark == "analysis" {
+                    validate_probe(manifest, name)?;
+                    require(
+                        manifest["layout_probe_collected"] == false,
+                        "analysis layout probe must have no collected execution",
+                    )?;
+                    require(
+                        signals().is_subset(&identities),
+                        "missing small/medium/large inlay_hints_warm controls",
+                    )?;
+                } else {
+                    require(
+                        manifest.get("layout_probe").is_none()
+                            && manifest.get("layout_probe_collected").is_none(),
+                        "reference benchmark must not declare an analysis layout probe",
+                    )?;
+                    require(
+                        ["small", "medium", "large"].iter().all(|size| {
+                            identities.contains(&(
+                                "reference_location_order_warm".to_owned(),
+                                Some((*size).to_owned()),
+                            ))
+                        }),
+                        "missing small/medium/large reference_location_order_warm controls",
+                    )?;
+                }
+                current.insert(benchmark, identities);
+            }
+            if let Some(previous) = &ownership {
+                require(
+                    previous == &current,
+                    "benchmark workload identities or ownership differ between variants",
+                )?;
+            }
+            ownership = Some(current);
+        } else {
+            validate_binary(variant)?;
+            validate_probe(variant, name)?;
         }
-        require(
-            nonempty(&variant["executable"]),
-            "variant executable must be nonempty",
-        )?;
-        let probe = &variant["layout_probe"];
-        require(probe.is_object(), "variant layout_probe must be an object")?;
-        require(
-            probe["symbol"].as_str().is_some_and(|symbol| {
-                !symbol.trim().is_empty() && symbol.rsplit("::").next() == Some(PROBE)
-            }),
-            "variant must retain calibration_layout_probe",
-        )?;
-        require(
-            probe["address"].as_str().is_some_and(|address| {
-                !address.is_empty()
-                    && address.chars().all(|char| char.is_ascii_hexdigit())
-                    && address.chars().any(|char| char != '0')
-            }),
-            "variant probe address must be nonzero hexadecimal",
-        )?;
-        require(
-            probe["size"]
-                .as_u64()
-                .is_some_and(|size| size >= if name == "layout" { 1024 } else { 1 }),
-            "variant probe size is invalid",
-        )?;
-        require(
-            variant
-                .get("layout_probe_collected")
-                .is_none_or(|value| value == false),
-            "variant layout probe must have no collected execution",
-        )?;
     }
     require(
         variants["a"]["source_sha256"] == variants["b"]["source_sha256"],
         "A/A source hashes differ",
+    )
+}
+
+fn benchmark_map(value: &Value) -> ToolResult<&Map<String, Value>> {
+    let benchmarks = value.as_object().ok_or("benchmarks must be an object")?;
+    require(
+        benchmarks.len() == BENCHMARKS.len()
+            && BENCHMARKS.iter().all(|name| benchmarks.contains_key(*name)),
+        "benchmarks must contain exactly analysis and reference_locations",
+    )?;
+    Ok(benchmarks)
+}
+
+fn manifest_identities(value: &Value) -> ToolResult<BTreeSet<Identity>> {
+    let rows = value
+        .as_array()
+        .filter(|rows| !rows.is_empty())
+        .ok_or("manifest workloads must be a nonempty list")?;
+    let mut identities = BTreeSet::new();
+    for row in rows {
+        require(
+            row.as_object().is_some_and(|row| row.len() == 2),
+            "manifest identity must contain only function_name and id",
+        )?;
+        require(
+            identities.insert(identity(row)?),
+            "duplicate manifest workload identity",
+        )?;
+    }
+    Ok(identities)
+}
+
+fn validate_binary(manifest: &Value) -> ToolResult<()> {
+    require(manifest.is_object(), "benchmark manifest must be an object")?;
+    require(
+        digest(&manifest["binary_sha256"]),
+        "variant binary hash must be a lowercase SHA256",
+    )?;
+    require(
+        nonempty(&manifest["executable"]),
+        "variant executable must be nonempty",
+    )
+}
+
+fn validate_probe(manifest: &Value, variant: &str) -> ToolResult<()> {
+    let probe = &manifest["layout_probe"];
+    require(probe.is_object(), "variant layout_probe must be an object")?;
+    require(
+        probe["symbol"].as_str().is_some_and(|symbol| {
+            !symbol.trim().is_empty() && symbol.rsplit("::").next() == Some(PROBE)
+        }),
+        "variant must retain calibration_layout_probe",
+    )?;
+    require(
+        probe["address"].as_str().is_some_and(|address| {
+            !address.is_empty()
+                && address.chars().all(|char| char.is_ascii_hexdigit())
+                && address.chars().any(|char| char != '0')
+        }),
+        "variant probe address must be nonzero hexadecimal",
+    )?;
+    require(
+        probe["size"]
+            .as_u64()
+            .is_some_and(|size| size >= if variant == "layout" { 1024 } else { 1 }),
+        "variant probe size is invalid",
+    )?;
+    require(
+        manifest
+            .get("layout_probe_collected")
+            .is_none_or(|value| value == false),
+        "variant layout probe must have no collected execution",
     )
 }
 
@@ -199,6 +305,61 @@ fn workload_identities(workloads: &Value) -> ToolResult<BTreeSet<Identity>> {
     Ok(current)
 }
 
+fn benchmark_measurements(
+    data: &Value,
+    sample: &Value,
+    root: &Path,
+    baseline: &str,
+    variant: &str,
+    manifests: &BTreeMap<&str, BTreeSet<Identity>>,
+    evidence_files: &mut BTreeSet<PathBuf>,
+) -> ToolResult<Vec<Value>> {
+    let benchmarks = benchmark_map(&sample["benchmarks"])?;
+    let mut measured = Vec::with_capacity(manifests.values().map(BTreeSet::len).sum());
+    for benchmark in BENCHMARKS {
+        let evidence = &benchmarks[benchmark];
+        let stdout = evidence_path(root, evidence, "raw_stdout")?;
+        let stderr = evidence_path(root, evidence, "raw_stderr")?;
+        require(
+            evidence_files.insert(stdout.clone()) && evidence_files.insert(stderr),
+            "benchmark raw evidence files must be distinct for every execution",
+        )?;
+        let expected = &manifests[benchmark];
+        require(
+            evidence["verified_callgrind_profiles"]
+                .as_u64()
+                .is_some_and(|count| count >= expected.len() as u64),
+            "benchmark verified Callgrind profile count is missing or incomplete",
+        )?;
+        let executable = Path::new(
+            data["variants"][variant]["benchmarks"][benchmark]["executable"]
+                .as_str()
+                .ok_or("executable missing")?,
+        );
+        let (rows, _) =
+            parse_measurement(&fs::read_to_string(stdout)?, baseline, executable, expected)?;
+        measured.extend(rows);
+    }
+    Ok(measured)
+}
+
+fn validate_sample_counts(sample: &Value, measured: &[Value]) -> ToolResult<()> {
+    let measured = measured
+        .iter()
+        .map(|row| Ok((identity(row)?, &row["counts"])))
+        .collect::<ToolResult<BTreeMap<_, _>>>()?;
+    let declared = sample["workloads"]
+        .as_array()
+        .ok_or("workloads missing")?
+        .iter()
+        .map(|row| Ok((identity(row)?, &row["counts"])))
+        .collect::<ToolResult<BTreeMap<_, _>>>()?;
+    require(
+        measured == declared,
+        "dataset counts contradict retained raw stdout",
+    )
+}
+
 pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
     validate_metadata(data)?;
     let samples = data["samples"]
@@ -208,6 +369,12 @@ pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
     let mut seen = BTreeSet::new();
     let mut orders: BTreeMap<u64, BTreeSet<u64>> = BTreeMap::new();
     let mut identities = None;
+    let mut evidence_files = BTreeSet::new();
+    let manifests = if data["format_version"] == 2 {
+        Some(benchmark_identities(data)?)
+    } else {
+        None
+    };
     for sample in samples {
         require(sample.is_object(), "sample must be an object")?;
         let pair = sample["pair"]
@@ -229,8 +396,6 @@ pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
             orders.entry(pair).or_default().insert(order),
             "duplicate execution order within pair",
         )?;
-        let stdout = evidence_path(root, sample, "raw_stdout")?;
-        evidence_path(root, sample, "raw_stderr")?;
         let current = workload_identities(&sample["workloads"])?;
         if let Some(previous) = &identities {
             require(
@@ -243,31 +408,33 @@ pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
             pair,
             variant,
         );
-        let executable = Path::new(
-            data["variants"][variant]["executable"]
-                .as_str()
-                .ok_or("executable missing")?,
-        );
-        let (measured, _) = parse_measurement(
-            &fs::read_to_string(stdout)?,
-            &baseline,
-            executable,
-            &current,
-        )?;
-        let measured = measured
-            .iter()
-            .map(|row| Ok((identity(row)?, &row["counts"])))
-            .collect::<ToolResult<BTreeMap<_, _>>>()?;
-        let declared = sample["workloads"]
-            .as_array()
-            .ok_or("workloads missing")?
-            .iter()
-            .map(|row| Ok((identity(row)?, &row["counts"])))
-            .collect::<ToolResult<BTreeMap<_, _>>>()?;
-        require(
-            measured == declared,
-            "dataset counts contradict retained raw stdout",
-        )?;
+        let measured = if let Some(manifests) = &manifests {
+            benchmark_measurements(
+                data,
+                sample,
+                root,
+                &baseline,
+                variant,
+                manifests,
+                &mut evidence_files,
+            )?
+        } else {
+            let stdout = evidence_path(root, sample, "raw_stdout")?;
+            evidence_path(root, sample, "raw_stderr")?;
+            let executable = Path::new(
+                data["variants"][variant]["executable"]
+                    .as_str()
+                    .ok_or("executable missing")?,
+            );
+            parse_measurement(
+                &fs::read_to_string(stdout)?,
+                &baseline,
+                executable,
+                &current,
+            )?
+            .0
+        };
+        validate_sample_counts(sample, &measured)?;
         identities = Some(current);
     }
     require(
@@ -288,6 +455,36 @@ pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
                 .all(|variant| seen.contains(&(*pair, *variant)))
         }),
         "every pair must contain all five variants",
+    )
+}
+
+fn benchmark_identities(data: &Value) -> ToolResult<BTreeMap<&str, BTreeSet<Identity>>> {
+    if data["format_version"] == 1 {
+        return Ok(BTreeMap::from([(
+            "analysis",
+            workload_identities(&data["samples"][0]["workloads"])?,
+        )]));
+    }
+    BENCHMARKS
+        .into_iter()
+        .map(|benchmark| {
+            Ok((
+                benchmark,
+                manifest_identities(&data["variants"]["a"]["benchmarks"][benchmark]["workloads"])?,
+            ))
+        })
+        .collect()
+}
+
+pub(super) fn benchmark_scope(data: &Value) -> ToolResult<Value> {
+    let identities = benchmark_identities(data)?;
+    let benchmarks: Map<_, _> = identities
+        .iter()
+        .map(|(name, identities)| ((*name).to_owned(), json!(identities.len())))
+        .collect();
+    let workloads = workload_identities(&data["samples"][0]["workloads"])?.len();
+    Ok(
+        json!({"evidence_format_version": data["format_version"], "benchmarks": benchmarks, "workloads": workloads}),
     )
 }
 
@@ -339,8 +536,10 @@ pub(super) fn validate_comparability(jobs: &[Value]) -> ToolResult<()> {
         "both discovery and held-out validation jobs are required",
     )?;
     let first_identities = workload_identities(&first["samples"][0]["workloads"])?;
+    let first_benchmarks = benchmark_identities(first)?;
     for job in &jobs[1..] {
         for field in [
+            "format_version",
             "source_revision",
             "fixture_sha256",
             "harness_sha256",
@@ -361,6 +560,10 @@ pub(super) fn validate_comparability(jobs: &[Value]) -> ToolResult<()> {
         require(
             workload_identities(&job["samples"][0]["workloads"])? == first_identities,
             "incomparable workload identities across jobs",
+        )?;
+        require(
+            benchmark_identities(job)? == first_benchmarks,
+            "incomparable benchmark workload ownership across jobs",
         )?;
     }
     Ok(())
@@ -601,6 +804,7 @@ pub(super) fn build_report(jobs: &[Value]) -> ToolResult<Value> {
     for job in jobs {
         let mut record = Map::new();
         for key in [
+            "format_version",
             "job_id",
             "role",
             "source_revision",
@@ -611,12 +815,14 @@ pub(super) fn build_report(jobs: &[Value]) -> ToolResult<Value> {
         ] {
             record.insert(key.to_owned(), job[key].clone());
         }
+        record.insert("benchmark_scope".to_owned(), benchmark_scope(job)?);
         record.insert("execution_order".to_owned(), Value::Array(job["samples"].as_array().ok_or("samples missing")?.iter().map(|sample| json!({"pair": sample["pair"], "variant": sample["variant"], "order": sample["order"]})).collect()));
         provenance.push(Value::Object(record));
     }
     let by_metric: Map<_, _> = METRICS.iter().map(|metric| ((*metric).to_owned(), json!({"samples": validation_aa.iter().filter(|row| row["metric"] == *metric).count(), "current_false_positives": validation_aa.iter().filter(|row| row["metric"] == *metric && row["current_passed"] == false).count(), "proposed_false_positives": validation_aa.iter().filter(|row| row["metric"] == *metric && row["proposed_passed"] == false).count()}))).collect();
     Ok(json!({
         "format_version": 1, "method": "historical", "mode": "proposal-only", "active_gates_changed": false,
+        "benchmark_scope": benchmark_scope(jobs.first().ok_or("no calibration jobs")?)?,
         "coverage": {"planned_jobs": {"discovery": 7, "validation": 3}, "planned_pairs_per_job": 5, "observed_jobs": {"discovery": role_count("discovery"), "validation": role_count("validation")}, "observed_pairs": observed_pairs, "predeclared_coverage_met": sufficient, "limitation": if sufficient { "Predeclared coverage collected; finite dependent samples do not establish tail reliability or policy approval." } else { "Insufficient predeclared coverage. No calibrated policy approval or tail reliability claim." }},
         "dependence": "Each pair reuses the same a baseline for b, layout, extra_work and extra_alloc. Comparisons within a pair are dependent; pairs within a job share builds and environment.",
         "learning": "Cache allowance per workload/event is max(active allowance for the comparison baseline, maximum positive discovery A/A delta). Validation, layout, and positive controls never train it. Ir remains unchanged at 2%.",
@@ -666,6 +872,36 @@ pub(super) fn check_expected_coverage(
     Ok(())
 }
 
+pub(super) fn check_expected_scope(
+    jobs: &[Value],
+    expected_workloads: Option<u64>,
+    require_all_benchmarks: bool,
+) -> ToolResult<()> {
+    for job in jobs {
+        if require_all_benchmarks {
+            require(
+                job["format_version"] == 2,
+                "all benchmarks require v2 analysis and reference_locations evidence",
+            )?;
+            for variant in VARIANTS {
+                benchmark_map(&job["variants"][variant]["benchmarks"])?;
+            }
+        }
+        if let Some(expected) = expected_workloads {
+            let observed =
+                u64::try_from(workload_identities(&job["samples"][0]["workloads"])?.len())?;
+            require(
+                observed == expected,
+                &format!(
+                    "job {}: expected {expected} workloads, found {observed}",
+                    job["job_id"]
+                ),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn escape(value: &str) -> String {
     value.replace('|', "\\|").replace('\n', " ")
 }
@@ -683,6 +919,41 @@ fn percentage(value: &Value) -> String {
         || "undefined".to_owned(),
         |number| format!("{:+.2}%", number * 100.0),
     )
+}
+
+fn render_sensitivity(report: &Value, output: &mut String) -> ToolResult<()> {
+    output.push_str("\n## Unchanged 2% Ir positive-control sensitivity\n\n");
+    output.push_str(if report["sensitivity"]["passed"] == true {
+        "PASS"
+    } else {
+        "FAIL: one or more validation controls were not detected."
+    });
+    output.push_str("\n\n| Job | Pair | Control | Workload | Ir delta | Ir relative delta | Detected |\n| --- | ---: | --- | --- | ---: | ---: | --- |\n");
+    for row in report["sensitivity"]["signals"]
+        .as_array()
+        .ok_or("signals missing")?
+    {
+        let relative = if row["relative_delta"].is_null() {
+            "undefined (zero baseline)".to_owned()
+        } else {
+            percentage(&row["relative_delta"])
+        };
+        writeln!(
+            output,
+            "| {} | {} | {} | {} | {:+} | {relative} | {} |",
+            escape(text(row, "job_id")?),
+            row["pair"],
+            text(row, "variant")?,
+            escape(text(row, "id")?),
+            delta(row)?,
+            if row["current_passed"] == true {
+                "no"
+            } else {
+                "yes"
+            }
+        )?;
+    }
+    Ok(())
 }
 
 pub(super) fn render_markdown(report: &Value) -> ToolResult<String> {
@@ -727,37 +998,7 @@ pub(super) fn render_markdown(report: &Value) -> ToolResult<String> {
             values["proposed_false_positives"]
         )?;
     }
-    output.push_str("\n## Unchanged 2% Ir positive-control sensitivity\n\n");
-    output.push_str(if report["sensitivity"]["passed"] == true {
-        "PASS"
-    } else {
-        "FAIL: one or more validation controls were not detected."
-    });
-    output.push_str("\n\n| Job | Pair | Control | Workload | Ir delta | Ir relative delta | Detected |\n| --- | ---: | --- | --- | ---: | ---: | --- |\n");
-    for row in report["sensitivity"]["signals"]
-        .as_array()
-        .ok_or("signals missing")?
-    {
-        let relative = if row["relative_delta"].is_null() {
-            "undefined (zero baseline)".to_owned()
-        } else {
-            percentage(&row["relative_delta"])
-        };
-        writeln!(
-            output,
-            "| {} | {} | {} | {} | {:+} | {relative} | {} |",
-            escape(text(row, "job_id")?),
-            row["pair"],
-            text(row, "variant")?,
-            escape(text(row, "id")?),
-            delta(row)?,
-            if row["current_passed"] == true {
-                "no"
-            } else {
-                "yes"
-            }
-        )?;
-    }
+    render_sensitivity(report, &mut output)?;
     output.push_str("\n## All A/A and control distributions\n\nRelative deltas retain sign; zero baselines are undefined, but absolute comparisons remain active.\n\n| Role | Variant | Workload | Event | n | Delta min / p50 / p95 / max | Relative p50 / p95 / max | Undefined relative | Current / proposed exceedances |\n| --- | --- | --- | --- | ---: | --- | --- | ---: | --- |\n");
     for row in report["summaries"].as_array().ok_or("summaries missing")? {
         let absolute = &row["absolute_delta"];
@@ -781,6 +1022,11 @@ pub(super) fn render_markdown(report: &Value) -> ToolResult<String> {
             row["proposed_exceedances"]
         )?;
     }
+    writeln!(
+        output,
+        "\n## Executed benchmark scope\n\n{}\n\nHistorical v1 evidence covers analysis only; it does not establish reference-location coverage.",
+        report["benchmark_scope"]
+    )?;
     Ok(output)
 }
 
@@ -795,12 +1041,21 @@ pub(super) fn run(args: &ReportArgs) -> ToolResult<()> {
         args.expected_validation_jobs,
         args.expected_pairs,
     )?;
-    let report = build_report(&jobs)?;
+    let expected_scope =
+        check_expected_scope(&jobs, args.expected_workloads, args.require_all_benchmarks);
+    let mut report = build_report(&jobs)?;
+    if let Err(error) = &expected_scope {
+        report["coverage"]["expectation_error"] = json!(error.to_string());
+        report["coverage"]["predeclared_coverage_met"] = json!(false);
+        report["control_validation"]["passed"] = json!(false);
+        report["control_validation"]["coverage_sufficient"] = json!(false);
+    }
     write_json(&args.json_output, &report)?;
     if let Some(parent) = args.markdown_output.parent() {
         fs::create_dir_all(parent)?;
     }
     fs::write(&args.markdown_output, render_markdown(&report)?)?;
+    expected_scope?;
     require(
         report["sensitivity"]["passed"] == true,
         "Calibration sensitivity failed: validation work/alloc controls did not exceed unchanged 2% Ir policy.",

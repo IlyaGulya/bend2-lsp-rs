@@ -1,5 +1,5 @@
 use super::{
-    CollectArgs, PROBE, VARIANTS, baseline_name,
+    BENCHMARKS, CollectArgs, PROBE, VARIANTS, baseline_name,
     integrity::{
         self, parse_executable, parse_measurement, parse_probe_symbols, parse_workload_list,
         source_manifest,
@@ -254,25 +254,22 @@ fn freeze_source(checkout: &Path, manifest: &Value) -> ToolResult<()> {
     Ok(())
 }
 
-struct Build {
-    checkout: PathBuf,
+struct BenchmarkBuild {
     executable: PathBuf,
-    manifest: Value,
     identities: BTreeSet<super::Identity>,
     metadata: Value,
 }
 
-fn independent_build(
-    variant: &str,
-    source: &Path,
-    work: &Path,
-    output: &Path,
-    environment: &Environment,
-    original: &Value,
-    harness: &str,
-) -> ToolResult<Build> {
-    let checkout = work.join(variant);
-    fs::create_dir(&checkout)?;
+struct Build {
+    checkout: PathBuf,
+    manifest: Value,
+    benchmarks: BTreeMap<&'static str, BenchmarkBuild>,
+    identities: BTreeSet<super::Identity>,
+    metadata: Value,
+}
+
+fn copy_verified_source(source: &Path, checkout: &Path, original: &Value) -> ToolResult<()> {
+    fs::create_dir(checkout)?;
     for entry in original["files"]
         .as_array()
         .ok_or("manifest files missing")?
@@ -285,9 +282,22 @@ fn independent_build(
         fs::copy(source.join(relative), destination)?;
     }
     require(
-        source_manifest(&checkout, &[])? == *original,
+        source_manifest(checkout, &[])? == *original,
         "source changed while copying; discard this calibration job",
-    )?;
+    )
+}
+
+fn independent_build(
+    variant: &str,
+    source: &Path,
+    work: &Path,
+    output: &Path,
+    environment: &Environment,
+    original: &Value,
+    harness: &str,
+) -> ToolResult<Build> {
+    let checkout = work.join(variant);
+    copy_verified_source(source, &checkout, original)?;
     fs::write(checkout.join("benches/analysis.rs"), harness)?;
     let manifest = source_manifest(&checkout, &[])?;
     write_json(&output.join(format!("manifests/{variant}.json")), &manifest)?;
@@ -301,57 +311,100 @@ fn independent_build(
         "--locked",
         "--bench",
         "analysis",
+        "--bench",
+        "reference_locations",
         "--no-run",
         "--message-format=json",
         "--target-dir",
     ]);
     command.push(target.as_os_str().to_owned());
-    let built = run_logged(
+    let compiler_output = run_logged(
         &command,
         &checkout,
         &output.join(format!("builds/{variant}.stdout")),
         &output.join(format!("builds/{variant}.stderr")),
         &build_environment,
     )?;
-    let executable = parse_executable(&built, &checkout, &target)?;
-    let mut nm = command_strings(&["nm", "-C", "-S", "--defined-only"]);
-    nm.push(executable.as_os_str().to_owned());
-    let symbols = run_logged(
-        &nm,
-        &checkout,
-        &output.join(format!("builds/{variant}.nm.stdout")),
-        &output.join(format!("builds/{variant}.nm.stderr")),
-        environment,
-    )?;
-    let probe = parse_probe_symbols(&symbols, variant == "layout")?;
-    let metadata = json!({"source_sha256": manifest["sha256"], "binary_sha256": sha256_file(&executable)?, "executable": executable, "layout_probe": probe});
-    require(
-        source_manifest(&checkout, &[])? == manifest,
-        "source manifest changed during build",
-    )?;
-    let listed = run_logged(
-        &[executable.as_os_str().to_owned(), "--list".into()],
-        &checkout,
-        &output.join(format!("builds/{variant}.list.stdout")),
-        &output.join(format!("builds/{variant}.list.stderr")),
-        environment,
-    )?;
-    let identities = parse_workload_list(&listed)?;
-    Ok(Build {
+    let mut benchmarks = BTreeMap::<_, BenchmarkBuild>::new();
+    let mut identities = BTreeSet::new();
+    let mut metadata = json!({"source_sha256": manifest["sha256"], "benchmarks": {}});
+    for benchmark in BENCHMARKS {
+        let executable = parse_executable(&compiler_output, &checkout, &target, benchmark)?;
+        require(
+            benchmarks
+                .values()
+                .all(|compiled| compiled.executable != executable),
+            "distinct benchmark targets must not share an executable",
+        )?;
+        let mut permissions = fs::metadata(&executable)?.permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&executable, permissions)?;
+        let binary_sha256 = sha256_file(&executable)?;
+        let listed = run_logged(
+            &[executable.as_os_str().to_owned(), "--list".into()],
+            &checkout,
+            &output.join(format!("builds/{variant}/{benchmark}.list.stdout")),
+            &output.join(format!("builds/{variant}/{benchmark}.list.stderr")),
+            environment,
+        )?;
+        let listed_identities = parse_workload_list(&listed, benchmark)?;
+        for identity in &listed_identities {
+            require(
+                identities.insert(identity.clone()),
+                "benchmark workload identities collide across executables",
+            )?;
+        }
+        let workloads: Vec<_> = listed_identities
+            .iter()
+            .map(|(function_name, id)| json!({"function_name": function_name, "id": id}))
+            .collect();
+        let mut benchmark_metadata = json!({"binary_sha256": binary_sha256, "executable": executable, "workloads": workloads});
+        if benchmark == "analysis" {
+            let mut nm = command_strings(&["nm", "-C", "-S", "--defined-only"]);
+            nm.push(executable.as_os_str().to_owned());
+            let symbols = run_logged(
+                &nm,
+                &checkout,
+                &output.join(format!("builds/{variant}/{benchmark}.nm.stdout")),
+                &output.join(format!("builds/{variant}/{benchmark}.nm.stderr")),
+                environment,
+            )?;
+            benchmark_metadata["layout_probe"] =
+                parse_probe_symbols(&symbols, variant == "layout")?;
+        }
+        metadata["benchmarks"][benchmark] = benchmark_metadata.clone();
+        benchmarks.insert(
+            benchmark,
+            BenchmarkBuild {
+                executable,
+                identities: listed_identities,
+                metadata: benchmark_metadata,
+            },
+        );
+    }
+    let build = Build {
         checkout,
-        executable,
         manifest,
+        benchmarks,
         identities,
         metadata,
-    })
+    };
+    ensure_immutable(&build)?;
+    Ok(build)
 }
 
 fn ensure_immutable(build: &Build) -> ToolResult<()> {
     require(
-        source_manifest(&build.checkout, &[])? == build.manifest
-            && sha256_file(&build.executable)? == build.metadata["binary_sha256"],
-        "immutable source or compiled executable changed before/during measurement",
-    )
+        source_manifest(&build.checkout, &[])? == build.manifest,
+        "immutable source changed before/during measurement",
+    )?;
+    for benchmark in build.benchmarks.values() {
+        require(
+            sha256_file(&benchmark.executable)? == benchmark.metadata["binary_sha256"],
+            "immutable compiled executable changed before/during measurement",
+        )?;
+    }
+    Ok(())
 }
 
 fn measure(
@@ -367,42 +420,59 @@ fn measure(
     let name = format!("pair{pair:03}{}", variant.replace('_', ""));
     let raw = output.join("raw").join(name);
     fs::create_dir_all(&raw)?;
-    let home = raw.join("iai");
     let baseline = baseline_name(job_id, pair, variant);
-    let stdout = raw.join("stdout.jsonl");
-    let stderr = raw.join("stderr.log");
-    let command = vec![
-        build.executable.as_os_str().to_owned(),
-        "--output-format=json".into(),
-        "--save-summary=pretty-json".into(),
-        format!("--save-baseline={baseline}").into(),
-        "--callgrind-args=--cache-sim=yes".into(),
-        format!("--home={}", home.display()).into(),
-    ];
-    let measured = run_logged(&command, &build.checkout, &stdout, &stderr, environment)?;
-    let (workloads, summaries) =
-        parse_measurement(&measured, &baseline, &build.executable, &build.identities)?;
-    let mut profile_count = 0_u64;
-    for summary in summaries {
-        let paths = summary["profiles"][0]["out_paths"]
-            .as_array()
-            .ok_or("executed summary has no raw Callgrind profiles")?;
-        require(
-            !paths.is_empty(),
-            "executed summary has no raw Callgrind profiles",
+    let mut workloads = Vec::with_capacity(build.identities.len());
+    let mut benchmark_samples = serde_json::Map::new();
+    for benchmark in BENCHMARKS {
+        let compiled = &build.benchmarks[benchmark];
+        let benchmark_raw = raw.join(benchmark);
+        fs::create_dir(&benchmark_raw)?;
+        let home = benchmark_raw.join("iai");
+        let stdout = benchmark_raw.join("stdout.jsonl");
+        let stderr = benchmark_raw.join("stderr.log");
+        let command = vec![
+            compiled.executable.as_os_str().to_owned(),
+            "--output-format=json".into(),
+            "--save-summary=pretty-json".into(),
+            format!("--save-baseline={baseline}").into(),
+            "--callgrind-args=--cache-sim=yes".into(),
+            format!("--home={}", home.display()).into(),
+        ];
+        let measured = run_logged(&command, &build.checkout, &stdout, &stderr, environment)?;
+        let (measured_workloads, summaries) = parse_measurement(
+            &measured,
+            &baseline,
+            &compiled.executable,
+            &compiled.identities,
         )?;
-        for emitted in paths {
-            let emitted = emitted.as_str().ok_or("malformed Callgrind output path")?;
-            let path = integrity::resolve_path(Path::new(emitted))?;
+        let mut profile_count = 0_u64;
+        for summary in summaries {
+            let paths = summary["profiles"][0]["out_paths"]
+                .as_array()
+                .ok_or("executed summary has no raw Callgrind profiles")?;
             require(
-                path.starts_with(&home) && path.is_file(),
-                "Callgrind output escaped fresh measurement home or is missing",
+                !paths.is_empty(),
+                "executed summary has no raw Callgrind profiles",
             )?;
-            integrity::check_probe_absent(&fs::read_to_string(path)?)?;
-            profile_count += 1;
+            for emitted in paths {
+                let emitted = emitted.as_str().ok_or("malformed Callgrind output path")?;
+                let path = integrity::resolve_path(Path::new(emitted))?;
+                require(
+                    path.starts_with(&home) && path.is_file(),
+                    "Callgrind output escaped fresh measurement home or is missing",
+                )?;
+                integrity::check_probe_absent(&fs::read_to_string(path)?)?;
+                profile_count += 1;
+            }
         }
+        workloads.extend(measured_workloads);
+        benchmark_samples.insert(
+            benchmark.to_owned(),
+            json!({"raw_stdout": stdout.strip_prefix(output)?, "raw_stderr": stderr.strip_prefix(output)?, "verified_callgrind_profiles": profile_count}),
+        );
     }
-    let sample = json!({"pair": pair, "variant": variant, "order": order, "raw_stdout": stdout.strip_prefix(output)?, "raw_stderr": stderr.strip_prefix(output)?, "workloads": workloads, "verified_callgrind_profiles": profile_count});
+    ensure_immutable(build)?;
+    let sample = json!({"pair": pair, "variant": variant, "order": order, "workloads": workloads, "benchmarks": benchmark_samples});
     write_json(&raw.join("sample.json"), &sample)?;
     Ok(sample)
 }
@@ -432,7 +502,14 @@ fn collect_job(
     write_json(&output.join("source-manifest.json"), &original)?;
     let harness_path = source.join("benches/analysis.rs");
     let harness = fs::read_to_string(&harness_path)?;
-    dataset["harness_sha256"] = sha256_file(&harness_path)?.into();
+    let mut harness_hashes = serde_json::Map::new();
+    for benchmark in BENCHMARKS {
+        harness_hashes.insert(
+            benchmark.to_owned(),
+            sha256_file(&source.join(format!("benches/{benchmark}.rs")))?.into(),
+        );
+    }
+    dataset["harness_sha256"] = harness_hashes.into();
     dataset["fixture_sha256"] =
         source_manifest(&source.join("benches/fixtures"), &excluded)?["sha256"].clone();
     let generated = VARIANTS
@@ -456,6 +533,13 @@ fn collect_job(
                 build.identities == previous.identities,
                 "independently built harness has a different executed workload manifest",
             )?;
+            for benchmark in BENCHMARKS {
+                require(
+                    build.benchmarks[benchmark].identities
+                        == previous.benchmarks[benchmark].identities,
+                    "independently built benchmark has a different workload manifest",
+                )?;
+            }
         }
         dataset["variants"][variant] = build.metadata.clone();
         builds.insert(variant, build);
@@ -485,7 +569,8 @@ fn collect_job(
     }
     for variant in VARIANTS {
         ensure_immutable(&builds[variant])?;
-        dataset["variants"][variant]["layout_probe_collected"] = false.into();
+        dataset["variants"][variant]["benchmarks"]["analysis"]["layout_probe_collected"] =
+            false.into();
     }
     require(
         source_manifest(source, &excluded)? == original,
@@ -495,7 +580,7 @@ fn collect_job(
     println!(
         "Collected {} complete pairs / {} fresh-process measurements in {}",
         args.pairs,
-        dataset["samples"].as_array().map_or(0, Vec::len),
+        dataset["samples"].as_array().map_or(0, Vec::len) * BENCHMARKS.len(),
         output.join("data.json").display()
     );
     Ok(())
@@ -508,7 +593,7 @@ pub(super) fn collect(args: &CollectArgs) -> ToolResult<()> {
     integrity::validate_directories(&source, &work, &output)?;
     fs::create_dir_all(&work)?;
     fs::create_dir_all(&output)?;
-    let mut dataset = json!({"format_version": 1, "job_id": args.job_id, "role": args.role, "variants": {}, "samples": []});
+    let mut dataset = json!({"format_version": 2, "job_id": args.job_id, "role": args.role, "variants": {}, "samples": []});
     if let Err(error) = collect_job(args, &source, &work, &output, &mut dataset) {
         write_json(&output.join("partial-data.json"), &dataset)?;
         write_json(

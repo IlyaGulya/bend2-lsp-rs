@@ -12,6 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod multibench;
 mod repeated;
 
 fn dataset(job_id: &str, role: &str, pairs: u64) -> Value {
