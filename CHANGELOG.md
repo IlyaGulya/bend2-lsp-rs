@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 
 ### Bug Fixes
 
