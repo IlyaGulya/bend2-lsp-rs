@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Optional lint integration (feature branch; not stable 0.6.2)
+
+- Add off-by-default saved-file diagnostics from a user-installed standalone
+  bend-lint executable. Explicit opt-in trusts both the tool and project rules;
+  upstream may fetch its own pinned compiler/dependencies and build rule programs.
+- Merge lexical, selected-compiler, imported, and lint diagnostics without late
+  publications erasing other providers. Preserve compiler source identifiers and
+  related information; reject obsolete revisions and clear only retired results.
+- Keep unsaved editor buffers out of disk-based lint results. Cancel stale jobs,
+  bound output/work, and contain analyzer descendants on Unix and Windows.
+- Offer separately enabled, explicitly requested **dangerous** lint Code Actions
+  with saved-content, UTF-16, overlap, and version checks for every touched file.
+  Never run automatic fixes, safe fix-all, or a replacement formatter.
+- Require real-stdio process/publication regressions and genuine standalone
+  analyzer diagnostics and explicit-action E2Es on all six native CI targets.
+  Pin the npm package and Bun archives and retain runtime identity evidence.
+  The standalone JSON contract targets upstream
+  `02ef84b38b8c06cbd607e270c4930e633e9dab0f`, not the older bundled PR #1389 tool.
+
+
 ### Bug Fixes
 
 - Support enhanced multi-error diagnostics with verified Bend 2.0.37 builds.

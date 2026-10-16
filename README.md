@@ -103,6 +103,140 @@ server appends the staged source path and `--check-only` itself. The same
 configured executable and argument prefix are also used for `bend base`.
 Changing these settings clears the cached `Base` module and rechecks open files.
 
+### Optional bend-lint (disabled by default)
+
+`bend2-lsp` can run the standalone
+[`bend-lint`](https://github.com/MattCozendey/bend-lint) after you save a file.
+Compiler and lexical diagnostics remain independent and are merged with lint
+findings instead of replacing one another.
+
+**Trust boundary:** enabling this provider is explicit consent to execute the
+configured external program and the project's lint rules. Rules are executable
+project code, not passive configuration. Upstream bend-lint can download its
+pinned Bend and BendHub dependencies, compile rules, create caches, and start
+native or JavaScript child processes. The LSP does not install bend-lint, run
+package-manager discovery, or download dependencies itself. Prepare the external
+tool and its caches outside the LSP if you require offline operation.
+
+Install the tool yourself in each trusted project. The inspected standalone
+release is `bend-lint@0.1.0`, requiring Bun 1.4.3. Clang is optional: upstream
+otherwise builds rules as JavaScript. Its native backend accepts clang 14 or
+newer, but **Windows ARM64 requires a compatible version**, not just that minimum.
+
+For native rule builds on Windows ARM64, use the verified
+[Clang 18.1.8 ARM64 installer](https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/LLVM-18.1.8-woa64.exe).
+Before installing or running bend-lint, set `CC` to the installed `clang.exe`'s
+absolute path. Your editor must inherit that environment when starting the LSP.
+The native CI details below explain the LLVM 19–22 incompatibilities.
+
+```sh
+# These are explicit installation commands for you, never commands run by the LSP.
+bun add -D --trust bend-lint@0.1.0
+```
+
+The upstream installer can create `bend-lint.json` and a formatter rule. Review
+those files before enabling the provider. The server itself never creates lint
+configuration or replaces its existing formatter. The older tool bundled with
+Bend 2.0.37 / PR #1389 uses a different CLI/JSON contract and is not supported.
+The machine-readable contract was checked against standalone upstream
+[`02ef84b38b8c06cbd607e270c4930e633e9dab0f`](https://github.com/MattCozendey/bend-lint/tree/02ef84b38b8c06cbd607e270c4930e633e9dab0f).
+Use the installed npm package, not a raw development checkout: upstream's
+packaging rewrites its rule API imports to match published BendHub packages.
+
+Send the following through `workspace/didChangeConfiguration`, together with any
+compiler overrides you already use. Use an absolute installed Bun path and an
+absolute installed script path; this also avoids Windows `.cmd` launchers:
+
+```json
+{
+  "bend": {
+    "lint": {
+      "enabled": true,
+      "path": "/absolute/path/to/bun",
+      "arguments": ["/absolute/project/node_modules/bend-lint/src/linter/seam.ts"],
+      "timeoutMs": 120000,
+      "dangerousCodeActions": false
+    }
+  }
+}
+```
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `bend.lint.enabled` | `false` | Explicit consent to external tool and project-rule execution |
+| `bend.lint.path` | empty | Required absolute executable path; no PATH/package-manager discovery |
+| `bend.lint.arguments` | `[]` | Literal argument prefix, for example an installed script; never interpreted by a shell |
+| `bend.lint.timeoutMs` | `10000` | Process deadline, from 1 to 120000 ms; first rule builds can require the larger value |
+| `bend.lint.dangerousCodeActions` | `false` | Separate consent to explicitly requested, potentially behavior-changing edits |
+
+The invocation appends `<saved-file> --json --jobs 1`, with the working directory
+set to the nearest ancestor containing `bend-lint.json`. No `--fix` or
+`--fix-dangerously` invocation is permitted. Missing tools, invalid configuration,
+malformed output, process failures, and timeouts are reported through the editor's
+LSP log, not fake source diagnostics. Process output is bounded to 8 MiB per stream;
+logged stderr is limited to 16 KiB. Cancellation, timeout, shutdown, and exit kill
+and reap the contained process group (Unix) or job object (Windows).
+
+Only `didSave` starts analysis: opening, typing, and enabling the setting do not.
+Disk findings are withheld if any open file buffer differs from disk, including
+dependencies and configured program entries. One lint job and result snapshot are
+active server-wide; a new save supersedes the previous one. Edits, close/reopen,
+workspace/configuration changes, and watched source/rule/configuration changes
+cancel and clear lint results conservatively. The saved snapshot is bounded to
+4096 files, 4096 directories, 32768 directory entries, and 32 MiB. Source features
+and compiler overlay checks continue to support unsaved text.
+
+Findings keep the upstream rule code, severity, message, path, and verified
+zero-based UTF-16 range under source `bend-lint`; suppressed findings are ignored.
+The standalone analyzer does **not** emit Bend's own compiler errors. It can skip
+type-dependent rules when its own check fails. Its pinned compiler is independent
+of `compilerPath`: the inspected Unix tool pins Bend 2.0.37, while Windows pins an
+upstream fork. The LSP log includes invocation identity, available installed-package
+version/compiler metadata (not executable attestation), and upstream stderr notes.
+An arbitrary executable or the JSON response alone does not attest tool versions.
+
+With `dangerousCodeActions: true`, invoke Code Actions explicitly to see
+`quickfix.bend-lint.dangerous` suggestions labelled **Dangerous**. They are never
+preferred, offered on automatic requests, applied by the server, or exposed as a
+safe fix-all. Every touched file must be open, saved, unchanged since analysis,
+and have valid non-overlapping UTF-16 edits. All edits carry document versions;
+your client must honor those versions when applying them. Closed, missing, dirty,
+stale, or unverifiable multi-file targets are refused as a whole.
+
+The native quality matrix requires both the portable lifecycle suite and a
+genuine analyzer E2E on all six OS/CPU targets. The latter checks real
+`language/unneeded_plus` diagnostics and a `layout/format` replacement through
+stdio LSP, refuses automatic actions, and applies the versioned edit only as an
+explicit simulated user action. Its bootstrap pins the npm archive and native
+Bun 1.4.3 archive checksums and records the actual runtime architecture.
+Windows ARM CI additionally pins native Clang 18.1.8 through upstream's `CC`
+override and verifies that the genuine analyzer builds an ARM64 rule executable.
+Bend's existing compiler-capability guard uses ordinary C calling conventions
+with this version; the native backend remains enabled and no linter or compiler
+source is patched. LLVM 19–21 have a Windows ARM64
+[`preserve_most` register-preservation defect](https://github.com/llvm/llvm-project/pull/166436);
+LLVM 22.1.8 instead fails the rule program's SEH prologue.
+
+Deterministic regression tests also hold lint publication busy while opening,
+editing, closing, or immediately saving a document. Subsequent requests must not
+overtake document updates or observe an older snapshot, even with lint disabled.
+Failed genuine CLI runs can retain their exact input and invocation through
+`BEND2_LINT_TEST_FAILURE_DIR`. Windows ARM CI additionally captures native PE
+headers and an exception minidump with a restricted debuggee environment; CI,
+repository, and cache credentials are not passed to the debugger or analyzer.
+Diagnostic collection never turns the original failing E2E into a pass.
+
+The genuine test is opt-in locally because it executes trusted rules and may
+populate upstream's compiler and BendHub caches. After provisioning your tools:
+
+```sh
+BEND2_LINT_TEST_PATH=/absolute/path/to/bun \
+BEND2_LINT_TEST_ARGUMENTS='["/absolute/project/node_modules/bend-lint/src/linter/seam.ts"]' \
+BEND2_COMPILER_TEST_PATH=/absolute/path/to/bend \
+cargo test --locked --test bend_lint_e2e -- --ignored --nocapture
+```
+
+
 ## Supported LSP features
 
 “Supported” means the feature is implemented; its UI still depends on your
@@ -110,7 +244,7 @@ editor. Source-based features are **not** a full compiler type checker.
 
 | Feature | Support and scope |
 | --- | --- |
-| Diagnostics | Local lexical checks plus errors from the installed Bend CLI; see limitations below |
+| Diagnostics | Local lexical checks plus errors from the installed Bend CLI; optional saved-file bend-lint findings |
 | Completion | Fuzzy ranked names, UTF-16 identifier replacement edits, scoped bindings, explicit-type constructor filtering in nested case patterns, imported members, `Base`, indexed import paths, and indexed symbols with acceptance-time auto-imports |
 | Signature help | Function parameters and the active argument |
 | Hover | Declaration-derived information; not inferred types for arbitrary expressions |
@@ -122,7 +256,7 @@ editor. Source-based features are **not** a full compiler type checker.
 | Document symbols | Outline of declarations in a document |
 | Workspace symbols | Search over indexed workspace documents; not a scan of every file on disk |
 | Semantic highlighting | Full-document semantic tokens |
-| Code actions | Auto-import of available indexed symbols, comment-preserving organize imports, and missing closing delimiters |
+| Code actions | Auto-import, comment-preserving organize imports, missing closing delimiters, and separately opted-in explicit dangerous lint fixes |
 | Inlay hints | Argument-name hints; not inferred-type hints |
 | Code lenses | Reference counts |
 | Call hierarchy | Incoming/outgoing calls through indexed declarations and local imports |
