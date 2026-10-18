@@ -572,6 +572,13 @@ impl SyntaxIndex {
         names.into_boxed_slice()
     }
 
+    pub(crate) fn completion_prefix_run_len(&self, first: SymbolId, prefix_len: usize) -> usize {
+        if prefix_len == 0 {
+            return self.symbols.len() - first.0;
+        }
+        1 + self.completion.prefix_continuation_len(first.0, prefix_len)
+    }
+
     #[must_use]
     pub fn tokens(&self) -> &[Token] {
         &self.tokens
