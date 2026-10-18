@@ -2,10 +2,16 @@
 
 ## What the oracle proves
 
-The production server does not invoke the oracle. `examples/semantic_probe.rs`
+The production server does not invoke the oracle. `tools/semantic-probe/src/main.rs`
 projects the same immutable `SemanticView` used by LSP into a test-only JSONL
 protocol. The differential worker executes the vendored Bend compiler, not an
 independent implementation of name resolution.
+
+The projection is an isolated, unpublished workspace binary rather than a Cargo
+example. Required release preparation builds only the server and this tool;
+the server's benchmark-only dev-dependencies are not part of that build.
+It inherits the workspace's Rust version and lint policy and keeps the same
+release optimization settings and JSONL protocol.
 
 The compiler and Base are exact official Bend 2.0.37 source bytes from commit
 `4ff8545f19b09b7d2b8ca2303668100eac8efd66`. Installation verifies their sizes and
@@ -105,15 +111,15 @@ From the repository root:
 
 ```sh
 python3 scripts/semantic_install.py --download-runtime --report target/semantic-install.json
-cargo build --release --locked --bin bend2-lsp --example semantic_probe
+cargo build --release --locked --package bend2-lsp --package bend2-semantic-probe --bins
 python3 scripts/semantic_conformance.py startup \
-  --candidate target/release/examples/semantic_probe \
+  --candidate target/release/semantic_probe \
   --report target/semantic-startup.json
 python3 scripts/semantic_conformance.py plan --profile corpus \
   --output target/semantic-corpus-plan.json
 python3 scripts/semantic_conformance.py run \
   --plan target/semantic-corpus-plan.json \
-  --candidate target/release/examples/semantic_probe \
+  --candidate target/release/semantic_probe \
   --lsp target/release/bend2-lsp \
   --report target/semantic-corpus-report.json \
   --artifact-dir target/semantic-corpus-failures
@@ -161,7 +167,7 @@ than blessing candidate output as compiler truth.
 
 ## Resource and performance contracts
 
-The PR profile `semantic-pr-v5-bounded-native-heaps-release` is **provisional**,
+The PR profile `semantic-pr-v6-isolated-probe-release` is **provisional**,
 not calibrated evidence. Its two case-worker pairs use bounded reply retention
 and ordinary native heaps with idle collection; corpus, seed, release settings,
 limits, and admission

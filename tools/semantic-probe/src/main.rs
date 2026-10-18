@@ -18,11 +18,14 @@ use url::Url;
 static BASE_SNAPSHOT: LazyLock<Arc<DocumentSnapshot>> = LazyLock::new(|| {
     Arc::new(DocumentSnapshot::new(
         Revision(1),
-        include_str!("../tests/fixtures/semantic/compiler/base.bend").to_owned(),
+        include_str!("../../../tests/fixtures/semantic/compiler/base.bend").to_owned(),
     ))
 });
-static BASE_PROVENANCE: LazyLock<Arc<str>> =
-    LazyLock::new(|| Arc::from(include_str!("../tests/fixtures/semantic/compiler/pin.json")));
+static BASE_PROVENANCE: LazyLock<Arc<str>> = LazyLock::new(|| {
+    Arc::from(include_str!(
+        "../../../tests/fixtures/semantic/compiler/pin.json"
+    ))
+});
 
 fn logical_file(document: &Document, root: &Path) -> Result<String, Box<dyn Error>> {
     Ok(if document.uri.scheme() == "bend-base" {

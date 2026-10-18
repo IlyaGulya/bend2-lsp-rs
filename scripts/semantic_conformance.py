@@ -558,7 +558,7 @@ def harness_sources():
 
 
 def candidate_source_digest():
-    paths=list((ROOT/'src').rglob('*.rs'))+[ROOT/'examples/semantic_probe.rs',ROOT/'Cargo.toml',ROOT/'Cargo.lock',ROOT/'rust-toolchain.toml']
+    paths=list((ROOT/'src').rglob('*.rs'))+list((ROOT/'tools/semantic-probe/src').rglob('*.rs'))+[ROOT/'tools/semantic-probe/Cargo.toml',ROOT/'Cargo.toml',ROOT/'Cargo.lock',ROOT/'rust-toolchain.toml']
     return digest(canonical({str(path.relative_to(ROOT)):file_digest(path) for path in paths}))
 
 
@@ -759,7 +759,7 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
         report['metrics']['fresh_worker_seconds']=time.monotonic()-fresh_started
         report['isolation']={'aba':True,'fresh':True,'repeated':True,'aba_views':[first['id'],second['id'],first['id']],'repeated_views':[first['id'],first['id']],'reversed_views':len(reversed_history),'reversed_history':reversed_history}
         from semantic_stdio import run_stdio
-        lsp_binary=lsp or str(Path(command).parent.parent/'bend2-lsp')
+        lsp_binary=lsp or str(Path(command).parent/'bend2-lsp')
         stdio_started=time.monotonic()
         histories['stdio_started_seconds']=stdio_started-began
         report['lsp_sha256']=file_digest(lsp_binary)

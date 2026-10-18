@@ -160,6 +160,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bend2-semantic-probe"
+version = "0.6.2"
+dependencies = [
+ "bend2-lsp",
+ "serde_json",
+ "tempfile",
+ "url",
+]
+
+[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

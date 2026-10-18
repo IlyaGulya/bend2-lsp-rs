@@ -43,6 +43,9 @@
   Batch small canonical components within the existing payload bound; preserve
   complete Base comparison and all history and stdio checks. Resource
   qualification remains provisional.
+- Isolate the semantic projection tool from the server's benchmark-only
+  dependencies during required release preparation. Preserve its protocol,
+  workspace lint policy, release optimization settings, and setup/run budgets.
 - Require fresh qualification of the expanded 99-workload performance scope.
   Retain all 54 existing baseline workloads and the unchanged numeric limits.
 

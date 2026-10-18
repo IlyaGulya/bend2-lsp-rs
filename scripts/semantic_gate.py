@@ -33,7 +33,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / "scripts/semantic_gate_profile.json"
 PROFILE = json.loads(PROFILE_PATH.read_text())
-if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v5-bounded-native-heaps-release" or PROFILE.get("workers") != 2:
+if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v6-isolated-probe-release" or PROFILE.get("workers") != 2:
     raise ValueError("unsupported semantic supervisor profile; review profile and runner together")
 INTERRUPTED = None
 
@@ -443,7 +443,7 @@ def validate_report(plan, report):
         raise ValueError("incomplete reverse history timing")
 
 def default_candidate():
-    return Path(os.environ.get("CARGO_TARGET_DIR", ROOT/"target"))/"release/examples/semantic_probe"
+    return Path(os.environ.get("CARGO_TARGET_DIR", ROOT/"target"))/"release/semantic_probe"
 
 
 def release_build_profile():
@@ -542,7 +542,7 @@ def run_gate(output, candidate, seed=PROFILE["seed"], projects=None, *, calibrat
             if sha256(canonical(row["case"])) != row["input_sha256"]:
                 raise ValueError("planned source checksum mismatch")
         stage = supervise(command + ["run", "--plan", str(plan_path.resolve()),
-            "--candidate", str(candidate.resolve()), "--lsp", str(candidate.resolve().parent.parent/"bend2-lsp"),
+            "--candidate", str(candidate.resolve()), "--lsp", str(candidate.resolve().parent/"bend2-lsp"),
             "--report", str(worker_path.resolve()),
             "--artifact-dir", str((output/"failures").resolve()), "--deadline-seconds",
             str(max(0.001, deadline-time.monotonic()-PROFILE["shutdown_seconds"]))],
@@ -580,7 +580,7 @@ def setup(output):
         "artifact_bytes": 64*PROFILE["artifact_bytes"]}
     oracle_report = logs/"oracle-worker-report.json"
     for name, command in (("oracle", [sys.executable, "scripts/semantic_install.py", "--check", "--native-contracts", "--report", str(oracle_report.resolve())]),
-            ("candidate", ["cargo", "build", "--release", "--locked", "--package", "bend2-lsp", "--bin", "bend2-lsp", "--example", "semantic_probe"])):
+            ("candidate", ["cargo", "build", "--release", "--locked", "--package", "bend2-lsp", "--package", "bend2-semantic-probe", "--bins"])):
         stages[name] = supervise(command, deadline=started+PROFILE["setup_target_seconds"]-install_seconds,
             output_path=logs/f"setup-{name}.log", artifact_dir=logs, limits=limits)
         if stages[name]["status"] != "pass":
