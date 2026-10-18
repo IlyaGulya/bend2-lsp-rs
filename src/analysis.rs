@@ -705,34 +705,20 @@ fn collect_module_completions(
 ) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let named_symbols = syntax
+    syntax
         .symbols()
         .iter()
-        .map(|symbol| (symbol, syntax.name_text(source, symbol.name)));
-    let matches = |(_, name): &(_, &str)| completion_matches(name, prefix, ascii_prefix);
-    let mut remaining = named_symbols.clone();
-    let Some(first_match) = remaining.position(|symbol| matches(&symbol)) else {
-        return Vec::new();
-    };
-    // Size the first matching run, even after unrelated declarations. position
-    // and take_while consume their boundary items, so no name is matched twice.
-    let matching_run_len = 1 + remaining.by_ref().take_while(matches).count();
-    // Keep Vec's ordinary four-item minimum for short, noncontiguous matches.
-    let mut items = Vec::with_capacity(matching_run_len.next_power_of_two().max(4));
-    items.extend(
-        named_symbols
-            .skip(first_match)
-            .take(matching_run_len)
-            .chain(remaining.filter(matches))
-            .map(|(symbol, name)| {
+        .filter_map(|symbol| {
+            let name = syntax.name_text(source, symbol.name);
+            completion_matches(name, prefix, ascii_prefix).then(|| {
                 completion(
                     name.to_owned(),
                     source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                     symbol.kind,
                 )
-            }),
-    );
-    items
+            })
+        })
+        .collect()
 }
 
 #[must_use]
