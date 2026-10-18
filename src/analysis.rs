@@ -709,14 +709,15 @@ fn collect_module_completions(
     for symbol in syntax.symbols() {
         let name = syntax.name_text(source, symbol.name);
         if completion_matches(name, prefix, ascii_prefix) {
-            if items.len() == items.capacity() {
-                items.reserve_exact(items.capacity().saturating_mul(3).max(4));
-            }
-            items.push(completion(
+            let item = completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
-            ));
+            );
+            if items.len() == items.capacity() {
+                items.reserve_exact(items.capacity().saturating_mul(3).max(4));
+            }
+            items.push(item);
         }
     }
     items
