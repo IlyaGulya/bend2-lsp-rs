@@ -714,18 +714,13 @@ fn collect_module_completions(
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
             );
-            if items.len() == items.capacity() {
-                grow_completion_buffer(&mut items);
+            if items.is_empty() {
+                items = Vec::with_capacity(syntax.symbols().len().min(16));
             }
             items.push(item);
         }
     }
     items
-}
-
-#[cold]
-fn grow_completion_buffer(items: &mut Vec<Completion>) {
-    items.reserve_exact(items.capacity().saturating_mul(3).max(4));
 }
 
 #[must_use]
