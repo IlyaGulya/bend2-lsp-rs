@@ -11,21 +11,15 @@ pub(super) struct CompletionIndex {
     patterns: Box<[PatternContext]>,
     imports: Box<[TextRange]>,
     cases: Box<[(TextRange, TextRange)]>,
-    // Common byte-prefix lengths between adjacent declaration names, capped at u8::MAX.
-    symbol_name_prefixes: Box<[u8]>,
 }
 
 impl CompletionIndex {
     pub(super) fn build(source: &str, syntax: &SyntaxIndex) -> Self {
-        let symbol_name_prefixes = Self::symbol_name_prefixes(source, syntax);
         if ["import", "match", "case"]
             .iter()
             .all(|keyword| syntax.name_id(source, keyword).is_none())
         {
-            return Self {
-                symbol_name_prefixes,
-                ..Self::default()
-            };
+            return Self::default();
         }
         let mut patterns = Vec::new();
         let mut imports = Vec::new();
@@ -103,36 +97,7 @@ impl CompletionIndex {
             patterns: patterns.into_boxed_slice(),
             imports: imports.into_boxed_slice(),
             cases: cases.into_boxed_slice(),
-            symbol_name_prefixes,
         }
-    }
-
-    fn symbol_name_prefixes(source: &str, syntax: &SyntaxIndex) -> Box<[u8]> {
-        syntax
-            .symbols()
-            .windows(2)
-            .map(|pair| {
-                let left = syntax.name_text(source, pair[0].name);
-                let right = syntax.name_text(source, pair[1].name);
-                let length = left
-                    .bytes()
-                    .zip(right.bytes())
-                    .take(usize::from(u8::MAX))
-                    .take_while(|(left, right)| left == right)
-                    .count();
-                u8::try_from(length).unwrap_or(u8::MAX)
-            })
-            .collect()
-    }
-
-    pub(super) fn prefix_continuation_len(&self, first: usize, prefix_len: usize) -> usize {
-        let Ok(prefix_len) = u8::try_from(prefix_len) else {
-            return 0;
-        };
-        self.symbol_name_prefixes[first..]
-            .iter()
-            .take_while(|&&length| length >= prefix_len)
-            .count()
     }
 
     pub(super) fn pattern_type(&self, offset: usize) -> Option<CasePatternType> {

@@ -705,34 +705,27 @@ fn collect_module_completions(
 ) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let mut symbols = syntax.symbols().iter();
-    let Some((first, name)) = symbols.find_map(|symbol| {
-        let name = syntax.name_text(source, symbol.name);
-        completion_matches(name, prefix, ascii_prefix).then_some((symbol, name))
-    }) else {
-        return Vec::new();
-    };
-    let capacity = if name.starts_with(prefix) {
-        syntax
-            .completion_prefix_run_len(first.id, prefix.len())
-            .max(4)
-    } else {
-        4
-    };
-    let mut items = Vec::with_capacity(capacity);
-    items.push(completion(
-        name.to_owned(),
-        source[first.detail_range.start..first.detail_range.end].to_owned(),
-        first.kind,
-    ));
-    for symbol in symbols {
+    let mut items = Vec::new();
+    for symbol in syntax.symbols() {
         let name = syntax.name_text(source, symbol.name);
         if completion_matches(name, prefix, ascii_prefix) {
-            items.push(completion(
+            let item = completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
-            ));
+            );
+            if items.capacity() == 0 {
+                let capacity = if name.starts_with(prefix) {
+                    syntax
+                        .completion_capacity_hint(symbol, prefix.len())
+                        .next_power_of_two()
+                        .max(4)
+                } else {
+                    4
+                };
+                items.reserve_exact(capacity);
+            }
+            items.push(item);
         }
     }
     items
