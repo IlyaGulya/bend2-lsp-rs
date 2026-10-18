@@ -710,7 +710,7 @@ fn collect_module_completions(
         let name = syntax.name_text(source, symbol.name);
         if completion_matches(name, prefix, ascii_prefix) {
             if items.len() == items.capacity() {
-                items.reserve(items.capacity().saturating_mul(3).max(4));
+                items.reserve_exact(items.capacity().saturating_mul(3).max(4));
             }
             items.push(completion(
                 name.to_owned(),
