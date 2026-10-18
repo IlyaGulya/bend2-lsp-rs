@@ -470,11 +470,18 @@ selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
 and validation both use the predeclared method; neither trains an allowance.
 
 Every independently built variant now contains both benchmark executables:
-`analysis` (51 workloads) and `reference_locations` (three workloads). Each
+`analysis` (96 workloads) and `reference_locations` (three workloads). Each
 logical sample runs them in that order, in two distinct fresh processes with
 separate output directories. The fixed experiment therefore contains 1,050
 benchmark-process executions per job, without changing the 105 paired samples
 used for each workload/event comparison.
+
+Semantic extraction adds 45 workloads to the original 54-workload scope.
+Qualification now requires all 99 workloads; the earlier 54-workload controls
+do not qualify this expanded scope. Ordinary source admission still compares
+every existing baseline workload and reports candidate-only workloads as
+unpaired until a later baseline contains them. No existing workload, metric,
+numeric allowance, or benchmark guard boundary changes.
 
 Evidence format v2 binds each benchmark's actual `--list` identities, executable
 hash and raw stdout/stderr to its frozen variant source. Both original harness
@@ -482,7 +489,7 @@ hashes are retained; the reference-location harness is not modified. Workload
 sets must be complete, disjoint and consistent across variants. Reports expose
 the benchmark scope and reparse both raw outputs before accepting merged counts.
 Historical v1 evidence remains explicitly analysis-only and cannot be mixed
-with v2 evidence or used to establish complete 54-workload control coverage.
+with v2 evidence or used to qualify the expanded all-benchmark scope.
 
 For each job, variant, workload and event separately, the reporter sorts the
 105 exact signed paired residuals:
@@ -518,8 +525,8 @@ reliability, whole-editor latency, or the probability of a future raw failure.
 There are no tail-confidence or zero-tail-failure claims, even when every
 observed A/A comparison passes.
 
-Control validation requires complete 3/3/105 coverage of all 54 workloads across
-both executables, enforced with `--expected-workloads 54 --require-all-benchmarks`,
+Control validation requires complete 3/3/105 coverage of all 99 workloads across
+both executables, enforced with `--expected-workloads 99 --require-all-benchmarks`,
 and all of the following:
 
 - Every source-identical `b` versus `a` workload/event comparison passes in
@@ -566,7 +573,7 @@ For retained artifacts, the equivalent report command is:
 bend2-perf calibration report INPUT \
   --method paired-median-105-v1 --require-control-validation \
   --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-  --expected-workloads 54 --require-all-benchmarks \
+  --expected-workloads 99 --require-all-benchmarks \
   --json-output report.json --markdown-output report.md
 ```
 

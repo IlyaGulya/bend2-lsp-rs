@@ -15,6 +15,9 @@
 - Build callers and callees from entry-scoped import and binding indexes, including line-broken `!(` calls and the implementation body of a `law`. Hierarchy ranges point to the implementation's actual file when a law is declared elsewhere. Reject stale hierarchy handles with `ContentModified` instead of silently resolving a replacement by name.
 - Keep physical file identity separate from editor URIs; reject conflicting open overlays and unsafe rename capture instead of returning partial edits.
 - Keep existential signature domains separate from a following braced equality; require the compiler's adjacent `!(` spelling instead of inventing a call for rejected `! (` input.
+- Wait for compiler settings to finish changing before resolving names, so
+  immediate navigation uses the current compiler's `Base` module instead of
+  a stale or missing one.
 
 ### Under the hood
 
@@ -28,6 +31,18 @@
   A/B/A, repeated-case, fresh-worker, and real stdio checks. Version the provisional
   semantic resource profile for two native worker pairs without changing budgets
   or the separate product Callgrind policy.
+- Store references contiguously by target while preserving source-order iteration
+  and token identities. Cache semantic coloring during cold indexing and reuse
+  prepared source identities instead of repeating path canonicalization.
+- Preserve completed native-history divergences alongside later failures.
+  Record and replay both native histories, minimize their required context, and
+  reject promotion of oracle-integrity failures as production semantic truth.
+- Bound oracle memory with streamed runtime authentication, authenticated
+  on-demand reply loading, and small heaps in both native VM contexts. Reuse
+  validated per-reply projections instead of repeating normalization, while
+  preserving complete Base comparison and all history and stdio checks.
+- Require fresh qualification of the expanded 99-workload performance scope.
+  Retain all 54 existing baseline workloads and the unchanged numeric limits.
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 

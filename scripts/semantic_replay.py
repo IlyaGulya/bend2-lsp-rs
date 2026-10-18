@@ -15,7 +15,7 @@ import time
 
 from semantic_conformance import ToolFailure, Worker, canonical, compare, open_workers
 from semantic_generate import layout_variant, remap_answer, validate_bounds
-from semantic_install import ROOT, SOURCE, digest, runtime_path
+from semantic_install import ROOT, SOURCE, digest, native_worker_command, runtime_path
 from semantic_reduce import structural_reductions
 
 
@@ -205,6 +205,9 @@ def replay(directory,candidate=None,recorded_tools=False,shrink_mode=None,deadli
     if deadline_seconds is not None:budget=min(budget,max(0,deadline_seconds))
     overall_deadline=overall_started+budget
     bundle=load_bundle(directory)
+    native_history=bundle.get('candidate_kind')=='oracle-history'
+    if not native_history and ('reverse_oracle' in bundle.get('raw_replies_base64',{}) or 'oracle-state-leak' in bundle.get('failure_class','') or any('prior_histories' in entry or entry.get('class')=='oracle-state-leak' or 'oracle-state-leak' in entry.get('error','') for entry in bundle.get('diff',[]))):
+        raise ToolFailure('hash-only-native-history-not-replayable')
     harness_matches=all((ROOT/'scripts'/name).is_file() and (ROOT/'scripts'/name).read_text()==text for name,text in bundle['harness'].items())
     if not harness_matches and not recorded_tools:raise ToolFailure('harness-pin-mismatch; explicitly select --recorded-tools')
     selected_runtime=runtime_path(runtime_pin=json.loads(bundle['compiler_files']['runtime-pin.json'])) if recorded_tools else runtime_path()
@@ -220,14 +223,15 @@ def replay(directory,candidate=None,recorded_tools=False,shrink_mode=None,deadli
         runtime_cache.mkdir(parents=True)
         shutil.copyfile(runtime_archive,runtime_cache/'runtime.zip')
         shutil.copyfile(selected_runtime,runtime_cache/'bun');(runtime_cache/'bun').chmod(0o755)
-        if candidate is None:
-            compressed=Path(directory)/'candidate.gz'
-            if not compressed.is_file():raise ToolFailure('missing-recorded-candidate; supply --candidate with exact recorded checksum')
-            binary=directory_root/'semantic-probe'
-            with gzip.open(compressed,'rb') as stream:content=stream.read(268_435_457)
-            if len(content)>268_435_456:raise ToolFailure('candidate-decompression-limit')
-            binary.write_bytes(content);binary.chmod(0o755);candidate=str(binary)
-        if digest(Path(candidate).read_bytes())!=bundle['candidate_sha256']:raise ToolFailure('candidate-pin-mismatch')
+        if not native_history:
+            if candidate is None:
+                compressed=Path(directory)/'candidate.gz'
+                if not compressed.is_file():raise ToolFailure('missing-recorded-candidate; supply --candidate with exact recorded checksum')
+                binary=directory_root/'semantic-probe'
+                with gzip.open(compressed,'rb') as stream:content=stream.read(268_435_457)
+                if len(content)>268_435_456:raise ToolFailure('candidate-decompression-limit')
+                binary.write_bytes(content);binary.chmod(0o755);candidate=str(binary)
+            if digest(Path(candidate).read_bytes())!=bundle['candidate_sha256']:raise ToolFailure('candidate-pin-mismatch')
         if not harness_matches:
             previous={name:module for name,module in sys.modules.items() if name.startswith('semantic_') or name=='bootstrap_bend'}
             for name in previous:sys.modules.pop(name,None)
@@ -247,9 +251,17 @@ def replay(directory,candidate=None,recorded_tools=False,shrink_mode=None,deadli
         provenance=json.loads((installation/'provenance.json').read_text())
         for field in ('pin_sha256','adapter_sha256','worker_sha256','pristine_worker_sha256','book_stream_sha256','runtime_sha256'):
             if provenance[field]!=bundle['provenance'][field]:raise ToolFailure('recorded-tool-pin-mismatch:'+field)
+        if native_history:
+            from semantic_history_replay import replay_history
+            result=replay_history(bundle,native_worker_command(selected_runtime,installation),overall_deadline,shrink_mode)
+            if shrink_mode:
+                save_minimized(directory,result['shrink'])
+                if result['shrink']['status']=='tool-failure':raise ToolFailure('native-history-shrink-tool-failure:'+str(result['shrink']['error']))
+            result['elapsed_seconds']=time.monotonic()-overall_started
+            return result
         if bundle.get('candidate_kind')=='lsp':
             from semantic_consumer import replay_consumer, shrink_consumer
-            compiler=Worker([selected_runtime,str(installation/'worker.ts')])
+            compiler=Worker(native_worker_command(selected_runtime,installation))
             try:
                 result=replay_consumer(bundle,compiler,str(Path(candidate).resolve()),overall_deadline)
                 if shrink_mode:
@@ -260,7 +272,7 @@ def replay(directory,candidate=None,recorded_tools=False,shrink_mode=None,deadli
                 result['elapsed_seconds']=time.monotonic()-overall_started
                 return result
             finally:compiler.close()
-        compiler,probe=open_workers([selected_runtime,str(installation/'worker.ts')],[str(Path(candidate).resolve())])
+        compiler,probe=open_workers(native_worker_command(selected_runtime,installation),[str(Path(candidate).resolve())])
         began=overall_started
         try:
             request=bundle['request'];first=compiler.ask(request,min(15,overall_deadline-time.monotonic()));actual=probe.ask(request,min(10,overall_deadline-time.monotonic()))
@@ -287,7 +299,10 @@ def save_minimized(directory,reduced):
 
 
 def promote_bundle(directory,output):
-    bundle=load_bundle(directory);raw=(directory/'minimized.json').read_bytes()
+    bundle=load_bundle(directory)
+    if bundle.get('candidate_kind')=='oracle-history' or 'reverse_oracle' in bundle.get('raw_replies_base64',{}) or 'oracle-state-leak' in bundle.get('failure_class','') or any('prior_histories' in entry or 'oracle-state-leak' in entry.get('error','') for entry in bundle.get('diff',[])):
+        raise ToolFailure('oracle-integrity-evidence-is-not-promotable')
+    raw=(directory/'minimized.json').read_bytes()
     if digest(raw)!=(directory/'minimized.sha256').read_text().strip():raise ToolFailure('minimized-checksum-mismatch')
     reduced=json.loads(raw);case=reduced['case']
     validate_bounds(case)

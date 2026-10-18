@@ -193,7 +193,7 @@ impl LanguageServer for Backend {
         fields(method = "did_change_configuration")
     )]
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
-        let _operation = self.workspace.document_operation().await;
+        let _operation = self.workspace.file_operations.write().await;
         let (config, warnings) = CompilerConfig::from_settings(&params.settings);
         let Some(library_path) = run_staging(
             self.workspace.staging.clone(),
@@ -565,6 +565,95 @@ mod workspace_readiness_tests {
         let wait = wait_for_captured_revision(closed.subscribe(), ticket.generation());
         closed.close()?;
         tokio::time::timeout(Duration::from_secs(1), wait).await??;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn definition_waits_for_compiler_configuration_and_uses_new_base()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use super::Backend;
+        use crate::server::{
+            compiler::CompilerReapers, diagnostics::DiagnosticsService,
+            workspace_service::WorkspaceService,
+        };
+        use std::{
+            future::{Future, poll_fn},
+            os::unix::fs::PermissionsExt,
+            task::Poll,
+        };
+        use tower_lsp::{
+            LanguageServer, LspService,
+            lsp_types::{
+                DidChangeConfigurationParams, GotoDefinitionParams, GotoDefinitionResponse,
+            },
+        };
+        use url::Url;
+
+        let root = tempfile::tempdir()?;
+        let compiler = root.path().join("compiler");
+        std::fs::write(
+            &compiler,
+            "#!/bin/sh\ncase \"$1\" in\nversion) printf 'Bend test\\n';;\n--help) printf 'Bend\\nusage: bend <file> --check-only\\nbend base\\n';;\nbase) printf 'def builtin: U32\\n  1\\n';;\nesac\n",
+        )?;
+        std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755))?;
+        let mut backend = None;
+        let (_service, _socket) = LspService::new(|client| {
+            let server = Backend::new(
+                client,
+                Arc::new(WorkspaceService::default()),
+                Arc::new(DiagnosticsService::default()),
+                Arc::new(CompilerReapers::default()),
+            );
+            backend = Some(server.clone());
+            server
+        });
+        let backend = backend.ok_or_else(|| std::io::Error::other("service backend"))?;
+        backend.compiler.config.write().path = root
+            .path()
+            .join("unavailable")
+            .to_string_lossy()
+            .into_owned();
+        let path = root.path().join("main.bend");
+        let uri = Url::from_file_path(&path).map_err(|()| std::io::Error::other("main URI"))?;
+        backend
+            .open_workspace_text(
+                uri.clone(),
+                "bend".into(),
+                1,
+                "import Base\ndef main: U32\n  builtin\n".into(),
+                Some(path),
+            )
+            .await
+            .ok_or_else(|| std::io::Error::other("open main document"))?;
+        backend.prepare_semantic_views().await;
+        let params: GotoDefinitionParams = serde_json::from_value(serde_json::json!({
+            "textDocument":{"uri":uri}, "position":{"line":2,"character":2}
+        }))?;
+        assert!(backend.goto_definition(params.clone()).await?.is_none());
+
+        let staging = backend.workspace.staging.clone();
+        let held = staging
+            .clone()
+            .acquire_many_owned(u32::try_from(staging.available_permits())?)
+            .await?;
+        let configuration = backend.did_change_configuration(DidChangeConfigurationParams {
+            settings: serde_json::json!({"bend2-lsp":{"compilerPath":compiler}}),
+        });
+        tokio::pin!(configuration);
+        assert!(poll_fn(|cx| Poll::Ready(configuration.as_mut().poll(cx).is_pending())).await);
+        let definition = backend.goto_definition(params);
+        tokio::pin!(definition);
+        assert!(poll_fn(|cx| Poll::Ready(definition.as_mut().poll(cx).is_pending())).await);
+        drop(held);
+        let ((), result) = tokio::join!(configuration, definition);
+        let Some(GotoDefinitionResponse::Scalar(location)) = result? else {
+            return Err(std::io::Error::other("configured Base definition").into());
+        };
+        assert_ne!(location.uri, uri);
+        assert_eq!(location.range.start.line, 0);
+        assert_eq!(location.range.start.character, 4);
+        assert_eq!(location.range.end.character, 11);
         Ok(())
     }
 }

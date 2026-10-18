@@ -54,7 +54,7 @@ impl WorkspaceDb {
             .physical_files
             .get(path)
             .into_iter()
-            .flat_map(|files| files.iter())
+            .flat_map(PhysicalAliases::iter)
             .filter_map(|file| self.entries[file.0].open_snapshot.as_ref());
         let Some(first) = snapshots.next() else {
             return false;
@@ -76,7 +76,7 @@ impl WorkspaceDb {
             self.physical_files
                 .get(path)
                 .into_iter()
-                .flat_map(|files| files.iter())
+                .flat_map(PhysicalAliases::iter)
                 .copied()
                 .filter(|file| self.entries[file.0].open_snapshot.is_some())
                 .min_by(|left, right| {

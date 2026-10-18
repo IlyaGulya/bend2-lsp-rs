@@ -29,7 +29,8 @@ function sourceCoordinates(text:string,parsed:string) {
   return {text,original,parsed:starts(parsed),byteStarts,asciiLines};
 }
 class Pristine {
-  private thread=new ThreadWorker(new URL('./semantic_pristine_worker.ts',import.meta.url));
+  // Bun's node wrapper forwards this option; the parent's --smol does not set worker heap size.
+  private thread=new ThreadWorker(new URL('./semantic_pristine_worker.ts',import.meta.url),{smol:true} as Bun.WorkerOptions);
   private waiting:any=null;
   private queued:any=null;
   private serial=0;
@@ -297,5 +298,6 @@ try {
     let request:any;
     try{if(Buffer.byteLength(line)>300000)throw Error('input-limit');request=JSON.parse(line);const response=await run(request);const output=JSON.stringify(response);if(Buffer.byteLength(output)>4000000)throw Error('output-limit');console.log(output);}
     catch(error){console.log(JSON.stringify({schema:1,id:request?.id??null,root:request?.root??null,outcome:'oracle-error',error:String(error),provenance}));if(pristine.failed)break;}
+    finally {Bun.gc(false);}
   }
 } finally {input.close();await pristine.close();}

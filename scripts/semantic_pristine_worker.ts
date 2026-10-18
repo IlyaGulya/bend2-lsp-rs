@@ -15,6 +15,7 @@ parentPort.on('message',async(message:any)=>{
     if(busy)throw Error('pristine-overlapping-request');
     if(message?.kind==='start'){
       if(active||!Number.isSafeInteger(message.request)||message.request!==lastRequest+1||typeof message.root!=='string')throw Error('pristine-start-protocol-failure');
+      if(lastRequest>0)Bun.gc(false);
       busy=true;lastRequest=message.request;networkAttempted=false;
       const book=Plain.book_nil(),metrics:Record<string,number>={};let error:any=null,stage=performance.now();
       try {

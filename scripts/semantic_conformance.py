@@ -2,6 +2,7 @@
 """Real compiler differential conformance. Tool/protocol errors never mean agreement."""
 import argparse
 from collections import Counter
+from collections.abc import Mapping
 import hashlib
 import gzip
 import base64
@@ -21,7 +22,7 @@ import threading
 import time
 
 from semantic_generate import PROFILE, canonical, generate, layout_variant, remap_answer, validate_bounds
-from semantic_install import ROOT, SOURCE, digest, install, runtime_path
+from semantic_install import ROOT, SOURCE, digest, file_digest, install, native_worker_command, runtime_path
 from semantic_process import signal_group
 
 SCHEMA=1
@@ -168,7 +169,7 @@ class RawHistorySpool:
         self.directory=Path(directory);self.directory.mkdir(parents=True,exist_ok=True)
         self.file=tempfile.NamedTemporaryFile(mode='w+b',prefix='oracle-history-',suffix='.gz',dir=self.directory,delete=False)
         self.path=Path(self.file.name);self.lock=threading.Lock()
-        self.index={};self.histories={'forward':[],'reverse':[]};self.closed=False
+        self.index={};self.histories={'forward':[],'reverse':[]};self.items={'forward':[],'reverse':[]};self.closed=False
         try:self._budget(0)
         except BaseException:self.close();raise
 
@@ -192,8 +193,10 @@ class RawHistorySpool:
             self._budget(len(compressed))
             self.file.seek(0,os.SEEK_END);offset=self.file.tell()
             self.file.write(compressed);self.file.flush()
-            self.index[key]=(offset,len(compressed),len(raw),digest(raw))
-            self.histories[history].append({'id':item['id'],'oracle_sha256':fingerprint,'raw_sha256':digest(raw),'input_sha256':item['input_sha256'] if 'input_sha256' in item else digest(canonical(request_for(item)))})
+            raw_sha=digest(raw)
+            self.index[key]=(offset,len(compressed),len(raw),raw_sha)
+            self.histories[history].append({'id':item['id'],'oracle_sha256':fingerprint,'raw_sha256':raw_sha,'input_sha256':item['input_sha256'] if 'input_sha256' in item else digest(canonical(request_for(item)))})
+            self.items[history].append(item)
 
     def load(self,history,key):
         with self.lock:
@@ -208,7 +211,12 @@ class RawHistorySpool:
         position=next(index for index,row in enumerate(rows) if row['id']==key)
         return rows[:position]
 
-    def close(self,deadline=None):
+    def requests(self,history,key):
+        rows=self.histories[history]
+        position=next(index for index,row in enumerate(rows) if row['id']==key)
+        return [request_for(item) for item in self.items[history][:position+1]]
+
+    def close(self,deadline=None,retain=False):
         deadline=time.monotonic()+SHUTDOWN_SECONDS if deadline is None else deadline
         if not self.lock.acquire(timeout=max(0,deadline-time.monotonic())):
             raise ToolFailure('history-spool-shutdown-timeout')
@@ -216,8 +224,23 @@ class RawHistorySpool:
             if self.closed:return
             self.closed=True
             self.file.close()
-            self.path.unlink()
+            if not retain:self.path.unlink()
         finally:self.lock.release()
+
+
+class SpoolAnswers(Mapping):
+    """Load authenticated replies without retaining every decoded response."""
+    def __init__(self,spool,history):
+        self.spool=spool;self.history=history
+
+    def __getitem__(self,key):
+        return json.loads(self.spool.load(self.history,key))
+
+    def __iter__(self):
+        return (row['id'] for row in self.spool.histories[self.history])
+
+    def __len__(self):
+        return len(self.spool.histories[self.history])
 
 
 class ReverseHistory:
@@ -278,15 +301,16 @@ class ReverseHistory:
             raise error from failure['error']
         if self.cleanup_error:raise ToolFailure('reverse-history-cleanup:'+str(self.cleanup_error))
 
-    def cancel(self):
-        if self.cleanup_deadline is None:self.cleanup_deadline=min(self.deadline+SHUTDOWN_SECONDS,time.monotonic()+SHUTDOWN_SECONDS)
+    def cancel(self,deadline=None):
+        cutoff=min(self.deadline+SHUTDOWN_SECONDS,time.monotonic()+SHUTDOWN_SECONDS) if deadline is None else min(self.deadline+SHUTDOWN_SECONDS,deadline)
+        self.cleanup_deadline=min(self.cleanup_deadline,cutoff) if self.cleanup_deadline is not None else cutoff
         self.cancelled.set()
         if self.thread.is_alive():
             try:self.worker._fail('history-cancelled')
             except BaseException as error:self.cancel_error=error
 
-    def close(self):
-        self.cancel()
+    def close(self,deadline=None):
+        self.cancel(deadline)
         # Killing the owned group also releases ask's queue/write wait. The
         # thread alone closes streams, avoiding a close-versus-select race.
         self.thread.join(timeout=max(0,self.cleanup_deadline-time.monotonic()))
@@ -303,13 +327,28 @@ class ReverseHistory:
         self.check()
         if not self.metrics.get('complete') or len(self.completed)!=len(self.items):
             raise ToolFailure('incomplete-reverse-history')
-        for item,row in zip(self.items,self.completed):
-            if row['id']!=item['id'] or row['oracle_sha256']!=forward.get(item['id']):
-                error=ToolFailure('oracle-state-leak')
-                reverse_raw=self.spool.load('reverse',item['id']);forward_raw=self.spool.load('forward',item['id'])
-                error.history_failure={'error':error,'item':item,'oracle':json.loads(reverse_raw),'forward':json.loads(forward_raw),'raw':reverse_raw,'forward_raw':forward_raw,'stderr':self.worker.errors.decode(errors='replace'),'hashes':{'reverse':row,'forward_sha256':forward.get(item['id'])},'prior_histories':{history:self.spool.prior(history,item['id']) for history in ('forward','reverse')}}
-                raise error
+        if any(row['id']!=item['id'] or item['id'] not in forward for item,row in zip(self.items,self.completed)):
+            raise ToolFailure('incomplete-forward-history')
+        for evidence in self.divergences(forward):
+            error=evidence['error'];error.history_failure=evidence
+            raise error
         return self.completed
+
+    def divergences(self,forward,pending=None):
+        if self.thread.is_alive():raise ToolFailure('unsettled-reverse-history')
+        for item,row in zip(self.items,self.completed):
+            key=item['id']
+            pending_forward=pending is not None and pending['item']['id']==key
+            forward_sha=pending['oracle_sha256'] if pending_forward else forward.get(key)
+            if forward_sha is None or row['oracle_sha256']==forward_sha:continue
+            error=ToolFailure('oracle-state-leak')
+            reverse_raw=self.spool.load('reverse',key)
+            forward_raw=pending['raw'] if pending_forward else self.spool.load('forward',key)
+            prior_histories={'reverse':self.spool.prior('reverse',key)}
+            prior_histories['forward']=list(self.spool.histories['forward']) if pending_forward else self.spool.prior('forward',key)
+            forward_requests=[request_for(prior) for prior in self.spool.items['forward']]+[request_for(pending['item'])] if pending_forward else self.spool.requests('forward',key)
+            evidence={'error':error,'item':item,'oracle':json.loads(reverse_raw),'forward':json.loads(forward_raw),'raw':reverse_raw,'forward_raw':forward_raw,'stderr':self.worker.errors.decode(errors='replace'),'hashes':{'reverse':row,'forward_sha256':forward_sha},'prior_histories':prior_histories,'oracle_history':{'schema':1,'roles':{'oracle':'reverse','candidate':'forward'},'requests':{'oracle':self.spool.requests('reverse',key),'candidate':forward_requests}}}
+            yield evidence
 
 
 def rpc_overlap(forward,reverse):
@@ -355,6 +394,11 @@ def normalized(answer):
 def semantic_structure(answer):
     """Alpha/offset-independent graph shape, retaining binder identity and file separation."""
     normalized(answer)
+    return _semantic_structure(answer)
+
+
+def _semantic_structure(answer):
+    """Project a reply already validated in this iteration; never revisit its Base."""
     records=answer['declarations']+answer['occurrences']
     sites={site_tuple(record['site']) for record in answer['declarations']}
     sites.update(site_tuple(record['target']) for record in records if record.get('target') and record['target']['file']!='@Base.bend')
@@ -371,13 +415,29 @@ def semantic_structure(answer):
 
 
 def compare(expected,actual):
-    e=normalized(expected);a=normalized(actual);differences=[]
+    return _compare_normalized(normalized(expected),normalized(actual))
+
+
+def _compare_normalized(e,a):
+    differences=[]
     if e['root']!=a['root']:differences.append({'class':'root','expected':e['root'],'actual':a['root']})
     if e['revisions']!=a['revisions']:differences.append({'class':'revisions','expected':e['revisions'],'actual':a['revisions']})
     for field in ('declarations','occurrences','base_entities'):
-        missing=Counter(map(repr,e[field]))-Counter(map(repr,a[field]));extra=Counter(map(repr,a[field]))-Counter(map(repr,e[field]))
+        expected=list(map(repr,e[field]));actual=list(map(repr,a[field]))
+        if expected==actual:continue
+        expected=Counter(expected);actual=Counter(actual)
+        missing=expected-actual;extra=actual-expected
         if missing or extra:differences.append({'class':field,'missing':list(missing.elements()),'extra':list(extra.elements())})
     return differences
+
+
+def _layout_fingerprint(answer,projection,mapping):
+    # Only project-local records change. Reuse this reply's validated, sorted
+    # Base tuples, not a Base cached from another compiler call or project.
+    local={field:answer[field] for field in ('outcome','root','revisions','declarations','occurrences')}
+    remapped=normalized(remap_answer(local,mapping))
+    remapped['base_entities']=projection['base_entities']
+    return digest(canonical(remapped))
 
 
 def apply_manifest_requirements(case,corpus):
@@ -499,21 +559,44 @@ def harness_sources():
 
 def candidate_source_digest():
     paths=list((ROOT/'src').rglob('*.rs'))+[ROOT/'examples/semantic_probe.rs',ROOT/'Cargo.toml',ROOT/'Cargo.lock',ROOT/'rust-toolchain.toml']
-    return digest(canonical({str(path.relative_to(ROOT)):digest(path.read_bytes()) for path in paths}))
+    return digest(canonical({str(path.relative_to(ROOT)):file_digest(path) for path in paths}))
 
 
-def save_failure(directory,item,oracle,candidate,diff,provenance,command,stderr,raw_replies=None,consumer=None):
+def save_failure(directory,item,oracle,candidate,diff,provenance,command,stderr,raw_replies=None,consumer=None,oracle_history=None):
     harness=harness_sources();binary=Path(command).read_bytes()
     identity={'id':item['id'],'input_sha256':item['input_sha256'],'candidate_sha256':digest(binary),'harness_sha256':digest(canonical(harness)),'pin_sha256':provenance['pin_sha256'],'diff':diff,'consumer_predicate':consumer.get('predicate') if consumer else None}
+    if oracle_history is not None:identity['oracle_history']=oracle_history
     directory=Path(directory)/digest(canonical(identity))
     directory.mkdir(parents=True,exist_ok=True)
     if (directory/'original.json').exists():return str(directory)
     payload={'schema':1,'item':item,'request':request_for(item),'oracle':oracle,'candidate':candidate,'diff':diff,'failure_class':','.join(sorted(d['class'] for d in diff)),'provenance':provenance,'candidate_sha256':digest(binary),'candidate_kind':'lsp' if consumer else 'probe','candidate_source_sha256':candidate_source_digest(),'harness':harness,'harness_sha256':digest(canonical(harness)),'stderr':stderr,'compiler_files':{p.name:p.read_text() for p in SOURCE.iterdir() if p.is_file()},'raw_replies':{name:data.decode(errors='replace') for name,data in (raw_replies or {}).items()},'consumer':consumer}
+    if oracle_history is not None:
+        payload['candidate_kind']='oracle-history';payload['oracle_history']=oracle_history
     payload['raw_replies_base64']={name:base64.b64encode(data).decode('ascii') for name,data in (raw_replies or {}).items()}
     raw=canonical(payload);(directory/'original.json').write_bytes(raw+b'\n')
     compressed=gzip.compress(binary,compresslevel=6,mtime=0);(directory/'candidate.gz').write_bytes(compressed)
     (directory/'sha256.json').write_bytes(canonical({'original.json':digest(raw+b'\n'),'candidate.gz':digest(compressed)})+b'\n')
     return str(directory)
+
+
+def record_history_failure(report,evidence,artifact_dir,provenance,command,histories):
+    item=evidence['item']
+    details={'class':'tool-failure','error':str(evidence['error']),'history':'reverse'}
+    if 'hashes' in evidence:details['hashes']=evidence['hashes']
+    if 'prior_histories' in evidence:
+        details['prior_histories']=evidence['prior_histories']
+        details['worker_pids']={name:histories[name]['pid'] for name in ('forward','reverse')}
+    raw_replies={'oracle':evidence['raw'],'candidate':b''}
+    if 'forward_raw' in evidence:
+        details['compared_histories']={'oracle':'reverse','candidate':'forward'}
+        raw_replies={'reverse_oracle':evidence['raw'],'forward_oracle':evidence['forward_raw']}
+    failure=next((failure for failure in report['failures'] if failure.get('history')=='reverse' and failure.get('id')==item['id'] and failure.get('error')==str(evidence['error'])),None)
+    if failure is None:
+        failure={'class':'tool-failure','error':str(evidence['error']),'id':item['id'],'history':'reverse'}
+        report['failures'].append(failure)
+    report['status']='fail'
+    failure['bundle']=save_failure(artifact_dir,item,evidence['oracle'],evidence.get('forward',{}),[details],provenance,command,{'oracle':evidence['stderr'],'candidate':''},raw_replies,oracle_history=evidence.get('oracle_history'))
+    return failure
 
 
 def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=None):
@@ -522,23 +605,26 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
     installation,provenance=install(runtime,check=True)
     if time.monotonic()>=deadline:raise ToolFailure('deadline-exhausted-during-authentication')
     command=str(Path(candidate).resolve())
-    candidate_sha=digest(Path(command).read_bytes())
+    candidate_sha=file_digest(command)
     compiler=probe=None
     counts={'planned':len(plan['planned']),'generated':plan['counts']['projects'],'valid_planned':sum(i['facet']=='valid' for i in plan['planned']),'invalid_planned':sum(i['facet']=='compiler-error' for i in plan['planned']),'recovery_planned':sum(i['facet']=='recovery' for i in plan['planned']),'validated':0,'compared':0,'matched':0,'intended_invalid':0,'recovery':0}
     report={'schema':1,'status':'fail','profile':plan['profile'],'seed':plan['seed'],'manifest_sha256':plan['manifest_sha256'],'pin_sha256':plan['pin_sha256'],'profile_sha256':plan['profile_sha256'],'corpus_sha256':plan['corpus_sha256'],'candidate_sha256':candidate_sha,'planned':[{'id':i['id'],'input_sha256':i['input_sha256']} for i in plan['planned']],'completed':[],'counts':counts,'coverage':{},'failures':[],'provenance':provenance,'metrics':{'startup_seconds':time.monotonic()-began,'case_seconds':[]},'offline':True}
     report['harness_sha256']=digest(canonical(harness_sources()));report['candidate_source_sha256']=candidate_source_digest()
-    originals={};oracle_history={};oracle_answers={};stdio_oracle_raw={};reverse=None;spool=None
+    originals={};oracle_history={};reverse=None;reverse_verified=False;spool=None;forward_pending=None
+    original_cases={item['case_id']:item['case'] for item in plan['planned'] if item['variant']=='original'}
+    layout_cases={item['case_id'] for item in plan['planned'] if item['variant']!='original'}
+    semantic_digests={};structure_hashes={}
     isolation=[i for i in plan['planned'] if i['facet']=='valid']
     histories={'workers':2,'forward':{'planned':len(plan['planned'])}}
     report['metrics']['histories']=histories
-    from semantic_stdio import SELECTED
     try:
         if len(isolation)<2:raise ToolFailure('insufficient-isolation-cases')
         spool=RawHistorySpool(artifact_dir)
-        compiler,probe=open_workers([runtime,str(installation/'worker.ts')],[command])
+        oracle_answers=SpoolAnswers(spool,'forward')
+        compiler,probe=open_workers(native_worker_command(runtime,installation),[command])
         histories['forward']['pid']=compiler.process.pid
         histories['candidate_pid']=probe.process.pid
-        reverse=ReverseHistory([runtime,str(installation/'worker.ts')],isolation,provenance,deadline,began,spool)
+        reverse=ReverseHistory(native_worker_command(runtime,installation),isolation,provenance,deadline,began,spool)
         histories['reverse']=reverse.metrics
         report['isolation']={'reversed_history':reverse.completed}
         report['metrics']['startup_seconds']=time.monotonic()-began
@@ -546,13 +632,19 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
         for item in plan['planned']:
             reverse.check()
             start=time.monotonic();request=request_for(item);case_limit=5 if item['case_id'].startswith('generated-') else 15
-            oracle={};candidate_reply={};oracle_rpc_started=time.monotonic()
+            oracle={};candidate_reply={};oracle_normalized=candidate_normalized=None;oracle_rpc_started=time.monotonic()
             oracle=compiler.ask(request,min(case_limit,deadline-time.monotonic()))
             oracle_rpc_seconds=time.monotonic()-oracle_rpc_started
-            oracle_answers[item['id']]=oracle
-            if (item['case_id'] in SELECTED or item['case'].get('consumer_profile')) and item['variant']=='original':stdio_oracle_raw[item['id']]=compiler.last_raw
             if oracle.get('provenance')!=provenance:raise ToolFailure('worker-pin-mismatch')
             if oracle['outcome']=='oracle-error':raise ToolFailure('oracle-error:'+oracle.get('error',''))
+            # Keep the native response before any candidate, manifest, or
+            # metamorphic failure can cut off a completed reverse comparison.
+            if oracle['outcome']=='valid':oracle_normalized=normalized(oracle)
+            key=item['id'];fingerprint=digest(canonical(oracle_normalized if oracle_normalized is not None else oracle))
+            forward_pending={'item':item,'raw':compiler.last_raw,'oracle_sha256':fingerprint} if oracle['outcome']=='valid' and item['facet']=='valid' else None
+            spool.append('forward',item,compiler.last_raw,fingerprint)
+            if oracle['outcome']=='valid' or item['facet']!='valid':oracle_history[key]=fingerprint
+            forward_pending=None
             if oracle['outcome']=='valid' and any(occurrence.get('target') is None for occurrence in oracle.get('occurrences',[])):raise ToolFailure('oracle-origin-ambiguity')
             candidate_rpc_started=time.monotonic()
             candidate_reply=probe.ask(request,min(case_limit,deadline-time.monotonic()))
@@ -562,14 +654,28 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
                 if oracle['outcome']!='valid':raise ToolFailure('invalid-generated-input' if item['case_id'].startswith('generated-') else 'unexpected-corpus-rejection')
                 check_manifest_assertions(item['case'],item['root'],oracle)
                 counts['validated']+=1
-                diff=compare(oracle,candidate_reply);counts['compared']+=1
-                if item['variant']=='original':originals[(item['case_id'],item['root'])]=oracle
+                candidate_normalized=normalized(candidate_reply)
+                diff=_compare_normalized(oracle_normalized,candidate_normalized);counts['compared']+=1
+                if item['variant']=='original':
+                    if item['case_id'] in layout_cases:
+                        _,mapping=layout_variant(item['case'])
+                        originals[(item['case_id'],item['root'])]=(item['id'],_layout_fingerprint(oracle,oracle_normalized,mapping))
+                    if item['case_id'].startswith('generated-'):
+                        structure_hash=structure_hashes.setdefault(item['case_id'],hashlib.sha256(b'['))
+                        if item['root']!=item['case']['roots'][0]:structure_hash.update(b',')
+                        structure_hash.update(canonical(_semantic_structure(oracle)))
+                        if item['root']==item['case']['roots'][-1]:
+                            structure_hash.update(b']');semantic_digests[item['case_id']]=structure_hash.hexdigest()
+                            del structure_hashes[item['case_id']]
                 else:
-                    original_case=next(p['case'] for p in plan['planned'] if p['case_id']==item['case_id'] and p['variant']=='original')
-                    _,mapping=layout_variant(original_case)
-                    metamorphic=remap_answer(originals[(item['case_id'],item['root'])],mapping)
-                    meta_diff=compare(metamorphic,oracle)
-                    if meta_diff:raise ToolFailure('compiler-metamorphic-correspondence-failure:'+json.dumps(meta_diff))
+                    original_id,layout_fingerprint=originals.pop((item['case_id'],item['root']))
+                    if layout_fingerprint!=fingerprint:
+                        # Decode the full authenticated original only to explain
+                        # a real mismatch, never on every successful layout view.
+                        _,mapping=layout_variant(original_cases[item['case_id']])
+                        metamorphic=remap_answer(oracle_answers[original_id],mapping)
+                        meta_diff=_compare_normalized(normalized(metamorphic),oracle_normalized)
+                        raise ToolFailure('compiler-metamorphic-correspondence-failure:'+json.dumps(meta_diff))
                 if not diff:counts['matched']+=1
             elif facet in ('compiler-error','recovery'):
                 if oracle['outcome']!='compiler-error':raise ToolFailure('intended-invalid-accepted')
@@ -587,8 +693,6 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
                 check_manifest_assertions(item['case'],item['root'],candidate_reply,recovery=True)
                 counts['intended_invalid' if facet=='compiler-error' else 'recovery']+=1
             else:raise ToolFailure('unknown-facet')
-            key=item['id'];oracle_history[key]=digest(canonical(normalized(oracle))) if facet=='valid' else digest(canonical(oracle))
-            spool.append('forward',item,compiler.last_raw,oracle_history[key])
             comparison_seconds=time.monotonic()-comparison_started
             if diff:
                 reverse.cancel()
@@ -598,7 +702,7 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
             report['metrics'].setdefault('cases',[]).append({'id':key,'oracle_rpc_started_seconds':oracle_rpc_started-began,'oracle_rpc_seconds':oracle_rpc_seconds,'candidate_rpc_seconds':candidate_rpc_seconds,'comparison_and_manifest_seconds':comparison_seconds,'oracle_stages':oracle.get('metrics',{}),'candidate_stages':candidate_reply.get('metrics',{})})
             if facet=='valid':
                 report.setdefault('view_coverage',{})[key]={'planned':1,'validated':1,'compared':1,'matched':int(not diff)}
-                expected_records=normalized(oracle)['occurrences'];actual_records=Counter(map(repr,normalized(candidate_reply)['occurrences']))
+                expected_records=oracle_normalized['occurrences'];actual_records=Counter(map(repr,candidate_normalized['occurrences']))
                 for record in expected_records:
                     role_counts=report.setdefault('role_coverage',{}).setdefault(record[1],{'planned':0,'validated':0,'compared':0,'matched':0})
                     for counter in ('planned','validated','compared'):role_counts[counter]+=1
@@ -623,7 +727,6 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
         histories['forward']['finished_seconds']=time.monotonic()-began
         histories['forward']['completed']=len(report['completed'])
         generated_cases={item['case_id']:item['case'] for item in plan['planned'] if item['case_id'].startswith('generated-') and item['variant']=='original'}
-        semantic_digests={case_id:digest(canonical([semantic_structure(oracle_answers[case_id+'/'+root+'/original']) for root in case['roots']])) for case_id,case in generated_cases.items()}
         input_digests={case['input_sha256'] for case in generated_cases.values()}
         report['generator']={'projects':len(generated_cases),'unique_inputs':len(input_digests),'unique_semantic_structures':len(set(semantic_digests.values())),'semantic_digests':semantic_digests,'depth_distribution':dict(Counter(case['depth'] for case in generated_cases.values()))}
         if len(input_digests)!=len(generated_cases) or len(set(semantic_digests.values()))!=len(generated_cases):raise ToolFailure('duplicate-generated-input-or-semantic-structure')
@@ -640,13 +743,13 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
             if digest(canonical(normalized(reply)))!=oracle_history[item['id']]:raise ToolFailure('oracle-state-leak')
         report['metrics']['forward_aba_repeated_seconds']=time.monotonic()-isolation_started
         reversed_history=reverse.finish(oracle_history)
-        spool.close()
+        reverse_verified=True
         histories['oracle_rpc_overlap_seconds']=rpc_overlap(report['metrics']['cases'],reverse.metrics['cases'])
         # finish joins the reverse owner, including group cleanup, before a
         # fresh native session or the real stdio server increases aggregate RSS.
         fresh_started=time.monotonic()
         histories['fresh_started_seconds']=fresh_started-began
-        fresh=Worker([runtime,str(installation/'worker.ts')])
+        fresh=Worker(native_worker_command(runtime,installation))
         try:
             histories['fresh_pid']=fresh.process.pid
             fresh_reply=fresh.ask(request_for(first),min(15,deadline-time.monotonic()))
@@ -659,7 +762,7 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
         lsp_binary=lsp or str(Path(command).parent.parent/'bend2-lsp')
         stdio_started=time.monotonic()
         histories['stdio_started_seconds']=stdio_started-began
-        report['lsp_sha256']=digest(Path(lsp_binary).read_bytes())
+        report['lsp_sha256']=file_digest(lsp_binary)
         report['stdio']=run_stdio(plan,oracle_answers,lsp_binary,deadline)
         report['metrics']['stdio_seconds']=time.monotonic()-stdio_started
         if len(report['completed'])==counts['planned'] and not report['failures']:report['status']='pass'
@@ -667,22 +770,12 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
         if reverse is not None:reverse.cancel()
         failure={'class':'tool-failure','error':str(error),'id':item['id'] if 'item' in locals() else None}
         if hasattr(error,'history_failure'):
-            evidence=error.history_failure;item=evidence['item'];failure['id']=item['id'];failure['history']='reverse'
-            details={'class':'tool-failure','error':str(error),'history':'reverse'}
-            if 'hashes' in evidence:details['hashes']=evidence['hashes']
-            if 'prior_histories' in evidence:
-                details['prior_histories']=evidence['prior_histories']
-                details['worker_pids']={name:histories[name]['pid'] for name in ('forward','reverse')}
-            raw_replies={'oracle':evidence['raw'],'candidate':b''}
-            if 'forward_raw' in evidence:
-                details['compared_histories']={'oracle':'reverse','candidate':'forward'}
-                raw_replies={'reverse_oracle':evidence['raw'],'forward_oracle':evidence['forward_raw']}
-            failure['bundle']=save_failure(artifact_dir,item,evidence['oracle'],evidence.get('forward',{}),[details],provenance,command,{'oracle':evidence['stderr'],'candidate':''},raw_replies)
+            evidence=error.history_failure;failure['id']=evidence['item']['id'];failure['history']='reverse'
         elif hasattr(error,'consumer_item'):
             item=error.consumer_item;failure['id']=item['id'];consumer=error.consumer_evidence
             failure['class']='consumer-mismatch' if consumer.get('predicate') else 'tool-failure'
             wire=b'\n'.join(base64.b64decode(message) for message in consumer['raw_messages_base64'])
-            failure['bundle']=save_failure(artifact_dir,item,error.consumer_oracle,consumer['details'],[{'class':failure['class'],'error':str(error)}],provenance,error.consumer_binary,{'oracle':compiler.errors.decode(errors='replace'),'candidate':consumer['stderr']},{'oracle':stdio_oracle_raw.get(item['id'],b''),'candidate':wire},consumer)
+            failure['bundle']=save_failure(artifact_dir,item,error.consumer_oracle,consumer['details'],[{'class':failure['class'],'error':str(error)}],provenance,error.consumer_binary,{'oracle':compiler.errors.decode(errors='replace'),'candidate':consumer['stderr']},{'oracle':spool.load('forward',item['id']),'candidate':wire},consumer)
             if consumer.get('predicate') and deadline-time.monotonic()>2:
                 from semantic_consumer import shrink_consumer
                 from semantic_replay import save_minimized
@@ -697,19 +790,40 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
         # Attempt every owned cleanup even if an earlier cleanup fails. Never
         # replace the original mismatch/timeout with a shutdown exception.
         cleanup_deadline=min(deadline+SHUTDOWN_SECONDS,time.monotonic()+SHUTDOWN_SECONDS)
+        retain_spool=False
         for name,owner in (('reverse',reverse),('oracle',compiler),('candidate',probe)):
             if owner is None:continue
-            try:owner.close() if name=='reverse' else owner.close(deadline=cleanup_deadline)
+            try:owner.close(deadline=cleanup_deadline)
             except BaseException as error:
                 report['failures'].append({'class':'cleanup-failure','worker':name,'error':str(error)})
                 report['status']='fail'
-        if reverse is not None and reverse.failure and not any(f.get('history')=='reverse' for f in report['failures']):
-            evidence=reverse.failure
-            report['failures'].append({'class':'tool-failure','history':'reverse','id':evidence['item']['id'] if evidence['item'] else None,'error':str(evidence['error']),'raw_reply_base64':base64.b64encode(evidence['raw']).decode('ascii'),'stderr':reverse.worker.errors.decode(errors='replace')})
+        if reverse is not None:
+            report.setdefault('isolation',{})['reversed_views']=len(reverse.completed)
+            if reverse.thread.is_alive():
+                retain_spool=True
+            else:
+                try:
+                    if reverse.failure:
+                        evidence={**reverse.failure,'stderr':reverse.worker.errors.decode(errors='replace')}
+                        record_history_failure(report,evidence,artifact_dir,provenance,command,histories)
+                    if spool is not None and not spool.closed and not reverse_verified:
+                        for evidence in reverse.divergences(oracle_history,forward_pending):
+                            record_history_failure(report,evidence,artifact_dir,provenance,command,histories)
+                except BaseException as error:
+                    # A failed archive must not turn the only exact original
+                    # bytes into a deleted scratch file.
+                    retain_spool=True
+                    report['failures'].append({'class':'evidence-failure','history':'reverse','error':str(error)})
+                    if reverse.failure:
+                        report['failures'][-1]['raw_reply_base64']=base64.b64encode(reverse.failure['raw']).decode('ascii')
+                    if forward_pending is not None:
+                        report['failures'][-1]['forward_raw_reply_base64']=base64.b64encode(forward_pending['raw']).decode('ascii')
+                    report['status']='fail'
+        if spool is not None and retain_spool:
+            report['history_spool']={'path':str(spool.path),'retained':True}
             report['status']='fail'
-        if reverse is not None:report['isolation']['reversed_views']=len(reverse.completed)
-        if spool is not None:
-            try:spool.close(deadline=cleanup_deadline)
+        if spool is not None and (reverse is None or not reverse.thread.is_alive()):
+            try:spool.close(deadline=cleanup_deadline,retain=retain_spool)
             except BaseException as error:
                 report['failures'].append({'class':'cleanup-failure','worker':'history-spool','error':str(error)})
                 report['status']='fail'
@@ -728,7 +842,7 @@ def startup_measurement(candidate,runtime=None):
         if runtime is None:runtime=runtime_path()
         installation,provenance=install(runtime,check=True)
         report['provenance']=provenance
-        compiler,probe=open_workers([runtime,str(installation/'worker.ts')],[str(Path(candidate).resolve())])
+        compiler,probe=open_workers(native_worker_command(runtime,installation),[str(Path(candidate).resolve())])
         spawned=time.monotonic();report['metrics']['prepare_seconds']=spawned-began
         expected=compiler.ask(request,15);report['raw']['oracle']=expected
         actual=probe.ask(request,15);report['raw']['candidate']=actual

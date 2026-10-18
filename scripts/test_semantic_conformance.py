@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tool-logic tests only; semantic truth in the gate comes from the real compiler."""
 import copy
+import base64
+from contextlib import closing
 import json
 import io
 import subprocess
@@ -13,7 +15,7 @@ import sys
 import tempfile
 import unittest
 
-from semantic_conformance import RawHistorySpool, ReverseHistory, ToolFailure, Worker, apply_manifest_requirements, check_manifest_assertions, compare, make_plan, normalized, semantic_structure, validate_plan, validate_source_provenance
+from semantic_conformance import RawHistorySpool, ReverseHistory, SpoolAnswers, ToolFailure, Worker, apply_manifest_requirements, check_manifest_assertions, compare, execute, make_plan, normalized, request_for, semantic_structure, validate_plan, validate_source_provenance
 from semantic_generate import FAMILIES, PROFILE, canonical, generate, layout_variant, remap_answer, validate_bounds
 from semantic_install import SOURCE, authenticate_runtime, digest, instrument
 from semantic_replay import load_bundle, predicate, reductions, safe_name
@@ -75,6 +77,62 @@ class ComparatorTests(unittest.TestCase):
             elif mutation=='native-body':actual['base_entities'][0]['bodyOwner']=None
             else:actual['base_entities'][0]['signatureOwner']=body
             with self.subTest(mutation=mutation):self.assertTrue(compare(expected,actual))
+
+    def test_reordering_records_does_not_hide_semantic_differences(self):
+        changed=copy.deepcopy(self.answer);changed['declarations'].reverse()
+        self.assertEqual(compare(self.answer,changed),[])
+        changed['declarations'][0]['bodyOwner']=None
+        difference=compare(self.answer,changed)
+        self.assertEqual([row['class'] for row in difference],['declarations'])
+        self.assertEqual(len(difference[0]['missing']),1)
+        self.assertEqual(len(difference[0]['extra']),1)
+
+    def test_structure_still_rejects_malformed_base_records(self):
+        base={'site':{'file':'@Base.bend','start':100,'end':112},'name':'Base.law','kind':'law','target':None,'signatureOwner':None,'bodyOwner':None}
+        for mutation in ('duplicate','owner','site'):
+            changed=copy.deepcopy(self.answer);changed['base_entities']=[copy.deepcopy(base)]
+            if mutation=='duplicate':changed['base_entities'].append(copy.deepcopy(base))
+            elif mutation=='owner':del changed['base_entities'][0]['signatureOwner']
+            else:changed['base_entities'][0]['site']['end']=100
+            with self.subTest(mutation=mutation),self.assertRaises(ToolFailure):
+                semantic_structure(changed)
+
+    def test_compact_layout_fingerprint_preserves_complete_semantic_identity(self):
+        from semantic_conformance import _layout_fingerprint
+        text='import lib as Alias\r\ndef x(x: Type):\r\n  Alias.target(x)\r\n'
+        library='def target(x: Type):\r\n  x\r\n'
+        def site(source,token,start=0,file='main.bend'):
+            offset=source.encode().index(token.encode(),start)
+            return {'file':file,'start':offset,'end':offset+len(token.encode())}
+        owner=site(text,'x',text.index('def '));binder=site(text,'x',owner['end'])
+        alias=site(text,'Alias');use=site(text,'Alias.target',alias['end'])
+        target=site(library,'target',file='lib.bend')
+        case={'id':'layout-identity','files':{'main.bend':text,'lib.bend':library},'roots':['main.bend'],'revisions':{'main.bend':1,'lib.bend':7}}
+        _,mapping=layout_variant(case)
+        base_site={'file':'@Base.bend','start':100,'end':112}
+        answer={'outcome':'valid','root':'main.bend','revisions':case['revisions'],
+            'declarations':[
+                {'site':owner,'kind':'def','name':'x','target':owner,'signatureOwner':owner,'bodyOwner':owner},
+                {'site':binder,'kind':'local','name':'x','target':binder,'signatureOwner':owner,'bodyOwner':None},
+                {'site':alias,'kind':'alias','name':'Alias.target','target':target,'signatureOwner':None,'bodyOwner':None}],
+            'occurrences':[
+                {'site':use,'role':'call','target':target,'binding':'global','status':'resolved','enclosing':owner},
+                {'site':site(text,'x',use['end']),'role':'value','target':binder,'binding':'local','status':'resolved','enclosing':owner}],
+            'base_entities':[{'site':base_site,'name':'Base.law','kind':'law','target':base_site,'signatureOwner':base_site,'bodyOwner':None}]}
+        before=copy.deepcopy(answer)
+        fingerprint=_layout_fingerprint(answer,normalized(answer),mapping)
+        transformed=remap_answer(answer,mapping)
+        self.assertEqual(fingerprint,digest(canonical(normalized(transformed))))
+        self.assertEqual(answer,before)
+        for mutation in ('revision','target','owner','name','base-owner'):
+            changed=copy.deepcopy(transformed)
+            if mutation=='revision':changed['revisions']['lib.bend']+=1
+            elif mutation=='target':changed['occurrences'][1]['target']=changed['declarations'][0]['site']
+            elif mutation=='owner':changed['occurrences'][0]['enclosing']=None
+            elif mutation=='name':changed['declarations'][2]['name']='Another.target'
+            else:changed['base_entities'][0]['bodyOwner']=base_site
+            with self.subTest(mutation=mutation):
+                self.assertNotEqual(fingerprint,digest(canonical(normalized(changed))))
 
     def test_consumer_predicate_ignores_request_id_not_semantic_site(self):
         from semantic_stdio import ConsumerMismatch
@@ -388,15 +446,60 @@ class ProvenanceAndReplayTests(unittest.TestCase):
             with self.assertRaises(ToolFailure):worker.ask({'schema':1,'id':'x','root':'main.bend'},2)
         finally:worker.close()
     def test_runtime_override_cannot_self_attest_version(self):
-        archive=io.BytesIO()
-        with zipfile.ZipFile(archive,'w') as package:package.writestr('bun-test/bun',b'authenticated release binary')
-        data=archive.getvalue();artifact={'name':'bun-test.zip','sha256':digest(data)}
         with tempfile.TemporaryDirectory() as temporary:
+            archive=Path(temporary)/'runtime.zip'
+            with zipfile.ZipFile(archive,'w') as package:package.writestr('bun-test/bun',b'authenticated release binary')
+            artifact={'name':'bun-test.zip','sha256':digest(archive.read_bytes())}
             candidate=Path(temporary)/'bun';candidate.write_text('#!/bin/sh\necho 1.4.2\n');candidate.chmod(0o755)
-            with self.assertRaisesRegex(ValueError,'authenticated release archive'):authenticate_runtime(candidate,data,artifact)
+            with self.assertRaisesRegex(ValueError,'authenticated release archive'):authenticate_runtime(candidate,archive,artifact)
             candidate.write_bytes(b'authenticated release binary')
-            self.assertEqual(authenticate_runtime(candidate,data,artifact),str(candidate.resolve()))
-            with self.assertRaisesRegex(ValueError,'artifact checksum'):authenticate_runtime(candidate,data+b'corrupt',artifact)
+            self.assertEqual(authenticate_runtime(candidate,archive,artifact),str(candidate.resolve()))
+            with archive.open('ab') as stream:stream.write(b'corrupt')
+            with self.assertRaisesRegex(ValueError,'artifact checksum'):authenticate_runtime(candidate,archive,artifact)
+
+    def test_runtime_archive_requires_the_exact_pinned_member(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive=Path(temporary)/'runtime.zip';candidate=Path(temporary)/'bun'
+            candidate.write_bytes(b'authenticated release binary')
+            with zipfile.ZipFile(archive,'w') as package:package.writestr('other-platform/bun',candidate.read_bytes())
+            artifact={'name':'bun-test.zip','sha256':digest(archive.read_bytes())}
+            with self.assertRaises(KeyError):authenticate_runtime(candidate,archive,artifact)
+
+    def test_runtime_archive_member_integrity_is_checked_while_streaming(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive=Path(temporary)/'runtime.zip';candidate=Path(temporary)/'bun'
+            candidate.write_bytes(b'authenticated release binary')
+            with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_STORED) as package:
+                package.writestr('bun-test/bun',candidate.read_bytes())
+            with zipfile.ZipFile(archive) as package:
+                member=package.getinfo('bun-test/bun')
+                offset=member.header_offset+30+len(member.filename.encode())+len(member.extra)
+            with archive.open('r+b') as stream:stream.seek(offset);stream.write(b'X')
+            artifact={'name':'bun-test.zip','sha256':digest(archive.read_bytes())}
+            with self.assertRaisesRegex(zipfile.BadZipFile,'CRC'):
+                authenticate_runtime(candidate,archive,artifact)
+
+    def test_runtime_authentication_checks_multichunk_member_and_executable_tails(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive=Path(temporary)/'runtime.zip';candidate=Path(temporary)/'bun'
+            tail=b'authenticated-tail\n'
+            with candidate.open('wb') as stream:
+                for _ in range(12):stream.write(bytes(range(256))*1024)
+                stream.write(tail)
+            with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED) as package:
+                package.write(candidate,'bun-test/bun')
+            artifact={'name':'bun-test.zip','sha256':digest(archive.read_bytes())}
+            self.assertEqual(authenticate_runtime(candidate,archive,artifact),str(candidate.resolve()))
+            with candidate.open('r+b') as stream:stream.seek(-len(tail),2);stream.write(b'X')
+            with self.assertRaisesRegex(ValueError,'authenticated release archive'):
+                authenticate_runtime(candidate,archive,artifact)
+            with candidate.open('r+b') as stream:
+                stream.seek(-len(tail),2);stream.write(tail);stream.truncate(stream.tell()-1)
+            with self.assertRaisesRegex(ValueError,'authenticated release archive'):
+                authenticate_runtime(candidate,archive,artifact)
+            with archive.open('r+b') as stream:stream.seek(-1,2);stream.write(b'X')
+            with self.assertRaisesRegex(ValueError,'artifact checksum'):
+                authenticate_runtime(candidate,archive,artifact)
 
     def test_reply_flood_is_bounded_and_killed(self):
         program='import sys,time;sys.stdin.readline();sys.stdout.write("{}\\n"*1000000);sys.stdout.flush();time.sleep(30)'
@@ -491,6 +594,23 @@ class ReverseHistoryFailureTests(unittest.TestCase):
         self.assertEqual(evidence['prior_histories']['forward'],[])
         self.assertEqual([row['id'] for row in history.completed],['c','b','a'])
         self.assertTrue(history.metrics['complete'])
+        self.assertEqual(evidence['oracle_history'],{'schema':1,'roles':{'oracle':'reverse','candidate':'forward'},'requests':{'oracle':[request_for(item) for item in reversed(self.items())],'candidate':[request_for(self.items()[0])]}})
+
+    def test_settled_intersection_survives_a_later_reverse_native_error(self):
+        history=self.history(self.valid_program(" if index==1:reply['revisions']['main.bend']=2\n if index==2:reply.update(outcome='oracle-error',error='original-tail-failure')\n"))
+        with self.assertRaisesRegex(ToolFailure,'original-tail-failure'):history.finish({})
+        specimen={'root':'main.bend','outcome':'valid','revisions':{'main.bend':1},'declarations':[],'occurrences':[]}
+        failures=list(history.divergences({'b':digest(canonical(normalized(specimen)))}))
+        self.assertEqual([evidence['item']['id'] for evidence in failures],['b'])
+        self.assertEqual(failures[0]['forward_raw'],self.forward_raw['b'])
+        self.assertEqual(history.failure['oracle']['error'],'original-tail-failure')
+
+    def test_settled_intersection_does_not_invent_missing_forward_cases(self):
+        history=self.history(self.valid_program(" reply['revisions']['main.bend']=2\n"))
+        history.thread.join(timeout=3)
+        specimen={'root':'main.bend','outcome':'valid','revisions':{'main.bend':1},'declarations':[],'occurrences':[]}
+        failures=list(history.divergences({'b':digest(canonical(normalized(specimen)))}))
+        self.assertEqual([evidence['item']['id'] for evidence in failures],['b'])
 
     def test_eof_keeps_truncated_original_bytes(self):
         history=self.history("import sys;sys.stdin.readline();sys.stdout.write('{original-truncated');sys.stdout.flush()")
@@ -535,7 +655,146 @@ class ReverseHistoryFailureTests(unittest.TestCase):
                 self.assertEqual(history.cleanup_deadline,cutoff)
 
 
+class ExecuteHistoryEvidenceTests(unittest.TestCase):
+    # These stateful subprocess controls prove evidence/orchestration behavior,
+    # not compiler semantics. Only native smoke establishes semantic truth.
+    def exercise_failure(self,mode):
+        from unittest.mock import patch
+        import semantic_conformance as conformance
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        root=Path(temporary.name);artifacts=root/'artifacts'
+        provenance={'pin_sha256':'protocol-specimen'}
+        items=[]
+        for name in ('bad','a','b','c'):
+            case={'files':{'main.bend':'def main(): Type\n'},'revisions':{'main.bend':1},'families':[]}
+            if mode=='manifest' and name=='a':case['assertions']=[{'use':'absent','role':'call','binding':'global','target_file':'main.bend'}]
+            items.append({'id':name,'case_id':name,'root':'main.bend','case':case,'facet':'compiler-error' if name=='bad' else 'valid','variant':'original','input_sha256':digest(canonical(case))})
+        plan={'schema':1,'profile':'protocol-specimen','seed':0,'planned':items,'counts':{'projects':0},**{name:'specimen' for name in ('manifest_sha256','pin_sha256','profile_sha256','corpus_sha256')}}
+        common=("import json,sys\n"
+            "seen=[]\n"
+            "for line in sys.stdin:\n"
+            " request=json.loads(line);key=request['id'];seen.append(key)\n"
+            " reply={'schema':1,'id':key,'root':request['root'],'outcome':'valid','provenance':"+repr(provenance)+",'revisions':{'main.bend':1},'declarations':[],'occurrences':[]}\n")
+        (root/'worker.ts').write_text(common+
+            " reverse=seen[0]=='c'\n"
+            " if key=='bad':reply.update(outcome='compiler-error',error='expected-prefix-rejection')\n"
+            " if reverse and key=='a':reply['revisions']['main.bend']=2\n"+
+            (" if not reverse and key=='b':reply.update(outcome='oracle-error',error='original-forward-native-error')\n" if mode=='native-error' else "")+
+            " print('  '+json.dumps(reply)+'   ',flush=True)\n")
+        candidate=root/'candidate'
+        candidate_tail=''
+        if mode=='mismatch':candidate_tail=" if key=='a':reply['revisions']['main.bend']=3\n"
+        elif mode in ('candidate-error','archive-error'):candidate_tail=" if key=='a':reply.update(outcome='oracle-error',error='original-candidate-error')\n"
+        elif mode=='malformed':candidate_tail=" if key=='a':sys.stdout.write('{candidate-original');sys.stdout.flush();sys.exit()\n"
+        candidate.write_text('#!'+sys.executable+'\n'+common+candidate_tail+" print(' '+json.dumps(reply)+'  ',flush=True)\n")
+        candidate.chmod(0o755)
+        owners=[]
+        def completed_reverse(*args):
+            history=ReverseHistory(*args);owners.append(history)
+            self.addCleanup(history.close)
+            history.thread.join(timeout=2)
+            self.assertFalse(history.thread.is_alive(),'protocol specimen did not settle')
+            self.assertIsNone(history.failure)
+            return history
+        class BudgetedSpool(RawHistorySpool):
+            def append(self,history,item,raw,fingerprint):
+                if mode=='budget' and history=='forward' and item['id']=='a':
+                    with patch.dict(conformance.GATE_PROFILE,{'artifact_bytes':self.path.stat().st_size}):
+                        return super().append(history,item,raw,fingerprint)
+                return super().append(history,item,raw,fingerprint)
+        original_save=conformance.save_failure;original_spools=[]
+        def archive_or_save(*args,**kwargs):
+            if mode=='archive-error' and kwargs.get('oracle_history') is not None:
+                original_spools.append(owners[0].spool.path.read_bytes())
+                raise OSError('original-history-archive-write-error')
+            return original_save(*args,**kwargs)
+        with patch.object(conformance,'validate_plan'),patch.object(conformance,'install',return_value=(root,provenance)),patch.object(conformance,'native_worker_command',side_effect=lambda runtime,installation:[runtime,str(installation/'worker.ts')]),patch.object(conformance,'ReverseHistory',side_effect=completed_reverse),patch.object(conformance,'RawHistorySpool',BudgetedSpool),patch.object(conformance,'save_failure',side_effect=archive_or_save):
+            report=execute(plan,str(candidate),artifacts,runtime=sys.executable,deadline_seconds=2)
+        self.assertEqual(report['status'],'fail')
+        self.assertFalse(owners[0].thread.is_alive())
+        self.assertIsNotNone(owners[0].worker.process.returncode)
+        history_failures=[failure for failure in report['failures'] if failure.get('history')=='reverse' and failure.get('error')=='oracle-state-leak']
+        self.assertEqual(len(history_failures),1,report['failures'])
+        if mode=='archive-error':
+            self.assertNotIn('bundle',history_failures[0])
+            self.assertTrue(report['history_spool']['retained'])
+            self.assertEqual(Path(report['history_spool']['path']).read_bytes(),original_spools[0])
+            self.assertTrue(owners[0].spool.file.closed)
+            return report
+        self.assertFalse(list(artifacts.glob('oracle-history-*.gz')))
+        bundle=json.loads((Path(history_failures[0]['bundle'])/'original.json').read_text())
+        self.assertEqual(bundle['candidate_kind'],'oracle-history')
+        self.assertEqual(bundle['oracle_history'],{'schema':1,'roles':{'oracle':'reverse','candidate':'forward'},'requests':{'oracle':[request_for(item) for item in reversed(items[1:])],'candidate':[request_for(item) for item in items[:2]]}})
+        details=bundle['diff'][0]
+        self.assertEqual([row['id'] for row in details['prior_histories']['forward']],['bad'])
+        self.assertEqual([row['id'] for row in details['prior_histories']['reverse']],['c','b'])
+        self.assertEqual(details['prior_histories']['forward'][0]['input_sha256'],items[0]['input_sha256'])
+        for name,answer in (('reverse_oracle',bundle['oracle']),('forward_oracle',bundle['candidate'])):
+            raw=base64.b64decode(bundle['raw_replies_base64'][name])
+            self.assertTrue(raw.startswith(b'  {'));self.assertTrue(raw.endswith(b'}   '))
+            self.assertEqual(json.loads(raw),answer)
+        self.assertEqual(bundle['oracle']['revisions'],{'main.bend':2})
+        self.assertEqual(bundle['candidate']['revisions'],{'main.bend':1})
+        return report
+
+    def test_completed_reverse_divergence_survives_each_forward_failure_boundary(self):
+        for mode,error in (
+            ('mismatch',None),
+            ('candidate-error','not-semantic-reply:oracle-error'),
+            ('malformed','truncated-reply'),
+            ('manifest','oracle-witness-source-missing'),
+            ('native-error','oracle-error:original-forward-native-error'),
+            ('budget','history-spool-artifact-limit'),
+            ('late-forward','proof-context-isolation-pair-missing'),
+        ):
+            with self.subTest(mode=mode):
+                report=self.exercise_failure(mode)
+                forward=[failure for failure in report['failures'] if failure.get('history')!='reverse']
+                if error is None:
+                    self.assertEqual(forward[0]['class'],'semantic-mismatch')
+                else:self.assertEqual(forward[0]['error'],error)
+                original=json.loads((Path(forward[0]['bundle'])/'original.json').read_text())
+                if mode=='malformed':self.assertEqual(base64.b64decode(original['raw_replies_base64']['candidate']),b'{candidate-original')
+                if mode=='budget':self.assertEqual(json.loads(base64.b64decode(original['raw_replies_base64']['oracle']))['id'],'a')
+
+    def test_archive_write_failure_keeps_the_original_bounded_spool(self):
+        report=self.exercise_failure('archive-error')
+        self.assertEqual(report['failures'][0]['error'],'not-semantic-reply:oracle-error')
+        self.assertTrue((Path(report['failures'][0]['bundle'])/'original.json').is_file())
+        evidence_failure=next(failure for failure in report['failures'] if failure['class']=='evidence-failure')
+        self.assertEqual(evidence_failure['error'],'original-history-archive-write-error')
+
+
 class RawHistorySpoolBoundaryTests(unittest.TestCase):
+    def test_lazy_answers_preserve_full_payload_without_shared_decoded_state(self):
+        with tempfile.TemporaryDirectory() as directory,closing(RawHistorySpool(directory)) as spool:
+            specimen=ComparatorTests();specimen.setUp()
+            answer=specimen.answer
+            base={'file':'@Base.bend','start':100,'end':112}
+            answer['base_entities']=[{'site':base,'name':'Base.law','kind':'law','target':base,'signatureOwner':base,'bodyOwner':None}]
+            raw=b'  '+canonical(answer)+b'   '
+            item={'id':'one','input_sha256':'input'}
+            spool.append('forward',item,raw,digest(canonical(normalized(answer))))
+            spool.append('reverse',item,raw,digest(canonical(normalized(answer))))
+            answers=SpoolAnswers(spool,'forward')
+            self.assertEqual(list(answers),['one']);self.assertEqual(len(answers),1)
+            loaded=answers['one'];self.assertEqual(loaded,answer)
+            loaded['base_entities'][0]['bodyOwner']=base.copy()
+            loaded['revisions']['main.bend']=99;loaded['occurrences'].clear()
+            self.assertEqual(answers['one'],answer)
+            self.assertEqual(spool.load('forward','one'),raw)
+            self.assertEqual(spool.load('reverse','one'),raw)
+            with self.assertRaises(KeyError):answers['missing']
+
+    def test_lazy_answers_reject_corrupt_authenticated_history(self):
+        with tempfile.TemporaryDirectory() as directory,closing(RawHistorySpool(directory)) as spool:
+            item={'id':'one','input_sha256':'input'}
+            spool.append('forward',item,b'{"outcome":"valid"}','semantic')
+            offset,length,size,checksum=spool.index[('forward','one')]
+            spool.index[('forward','one')]=(offset,length,size,'0'*len(checksum))
+            with self.assertRaisesRegex(ToolFailure,'corrupt-history-spool'):
+                SpoolAnswers(spool,'forward')['one']
+
     def test_visible_spool_is_counted_and_removed_without_exceeding_byte_limit(self):
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as directory:

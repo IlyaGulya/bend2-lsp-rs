@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "name": "semantic-pr-v3-parallel-histories-release",
+  "name": "semantic-pr-v4-bounded-smol-histories-release",
   "runner": "ubuntu-24.04",
   "candidate_build_profile": {
     "name": "release",

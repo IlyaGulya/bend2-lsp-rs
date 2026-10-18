@@ -835,9 +835,9 @@ impl Backend {
                         )
                     });
                     PreparedDiskUpdate {
-                        physical_path,
                         file,
                         snapshot,
+                        physical_path,
                         imports,
                     }
                 })

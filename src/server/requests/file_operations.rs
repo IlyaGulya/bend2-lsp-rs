@@ -439,8 +439,8 @@ fn prepare_sources(mut sources: Vec<RenameSource>) -> Vec<PreparedSource> {
                 resolve_import_targets(&source.path, &physical_path, snapshot)
             });
             PreparedSource {
-                physical_path,
                 source,
+                physical_path,
                 imports,
                 disk_snapshot,
                 disk_imports,

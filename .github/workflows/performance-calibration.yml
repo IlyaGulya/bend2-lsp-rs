@@ -174,7 +174,7 @@ jobs:
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
             --method paired-median-105-v1 \
             --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-            --expected-workloads 54 --require-all-benchmarks \
+            --expected-workloads 99 --require-all-benchmarks \
             --require-control-validation \
             --json-output target/performance-calibration-report/report.json \
             --markdown-output target/performance-calibration-report/report.md

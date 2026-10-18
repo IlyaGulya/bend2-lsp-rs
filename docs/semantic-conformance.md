@@ -40,6 +40,15 @@ stream; Base is neither cached nor omitted from parity. Per-path stage durations
 overlap and must not be summed as wall latency. Required bounded setup also runs
 native Book-field mutation, stream corruption, worker-failure, and EOF contracts.
 
+Both the main Bun VM (`--smol`) and the pristine worker VM (`smol: true`) use
+the pinned runtime's small-heap mode; the parent CLI flag does not configure
+the worker heap. Completed projects request asynchronous collection without
+recreating either VM or changing its ordered history. Runtime archive/member
+authentication uses bounded streams over a private authenticated snapshot.
+Full native replies remain in the visible, artifact-budgeted compressed spool;
+later consumers load authenticated replies instead of retaining every decoded
+Base declaration table in RAM.
+
 The forward session completes all 634 planned views (627 valid comparisons,
 five intended-invalid views, two recovery views), then performs the proof-context
 A/B/A and repeated-case checks in that same session. The reverse session covers
@@ -60,6 +69,15 @@ comparison succeeds or during failure cleanup. A state-leak bundle contains both
 original replies, their IDs/hashes, ordered prior history identities, worker PIDs,
 and pinned provenance. Cancellation and owner joining share the pinned two-second
 shutdown grace and remaining deadline; repeated cleanup does not renew that grace.
+
+Reverse-history integrity failures use an explicit `oracle-history` bundle:
+both complete ordered native request prefixes, both original target replies,
+pins, and prior-history identities are recorded. Replay reconstructs two native
+sessions and repeats them in fresh processes; it never substitutes the Rust
+probe for a native history. Bounded history-prefix shrinking retains the target
+and the same observed divergence. These failures diagnose an untrustworthy
+oracle and cannot be promoted as production semantic truth. Completed reverse
+divergences are preserved alongside a later forward failure before spool cleanup.
 
 Exact source origins distinguish identical files and same-spelling declarations.
 Comparisons include missing and extra edges, multiplicity, binding versus global
@@ -135,9 +153,10 @@ than blessing candidate output as compiler truth.
 
 ## Resource and performance contracts
 
-The PR profile `semantic-pr-v3-parallel-histories-release` is **provisional**, not
-calibrated evidence. Its two case-worker pairs change scheduling only; corpus,
-seed, release build settings, limits, and admission targets remain unchanged:
+The PR profile `semantic-pr-v4-bounded-smol-histories-release` is **provisional**,
+not calibrated evidence. Its two case-worker pairs use bounded reply retention
+and small native heaps; corpus, seed, release settings, limits, and admission
+targets remain unchanged:
 
 | Constraint | Initial profile |
 | --- | ---: |

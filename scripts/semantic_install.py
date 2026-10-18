@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Offline, content-addressed test-tool installation; never installs product dependencies."""
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import platform
+import tempfile
 import zipfile
-import io
 
 from bootstrap_bend import compiler_environment, download_asset
 
@@ -20,6 +21,15 @@ OFFICIAL_PINS = ROOT / "scripts/bend_compiler_pins.json"
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def file_digest(path):
+    with Path(path).open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def native_worker_command(runtime, installation):
+    return [runtime, "--smol", str(installation / "worker.ts")]
 
 
 def replace_once(source, before, after):
@@ -56,13 +66,25 @@ def instrument(source):
     return source
 
 
-def authenticate_runtime(candidate,archive_bytes,artifact):
-    """Authenticate the executable against bytes in the pinned release archive."""
-    if digest(archive_bytes)!=artifact['sha256']:raise ValueError('runtime artifact checksum mismatch')
-    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as package:
-        expected=digest(package.read(artifact['name'][:-4]+'/bun'))
+@contextmanager
+def authenticated_runtime_archive(archive,artifact):
+    # Keep the authenticated compressed snapshot private, as the former bytes value was.
+    with Path(archive).open("rb") as source,tempfile.TemporaryFile() as snapshot:
+        checksum=hashlib.sha256()
+        while block:=source.read(1024*1024):
+            checksum.update(block);snapshot.write(block)
+        if checksum.hexdigest()!=artifact['sha256']:raise ValueError('runtime artifact checksum mismatch')
+        snapshot.seek(0)
+        with zipfile.ZipFile(snapshot) as package:
+            yield package
+
+
+def authenticate_runtime(candidate,archive,artifact):
+    """Authenticate the executable against a pinned archive without retaining its bytes."""
+    with authenticated_runtime_archive(archive,artifact) as package,package.open(artifact['name'][:-4]+'/bun') as stream:
+        expected=hashlib.file_digest(stream,"sha256").hexdigest()
     binary=Path(shutil.which(str(candidate)) or candidate).resolve()
-    if not binary.is_file() or digest(binary.read_bytes())!=expected:raise ValueError('runtime binary does not match authenticated release archive')
+    if not binary.is_file() or file_digest(binary)!=expected:raise ValueError('runtime binary does not match authenticated release archive')
     return str(binary)
 
 
@@ -79,17 +101,16 @@ def runtime_path(download=False,override=None,runtime_pin=None):
     if download:
         directory.mkdir(parents=True,exist_ok=True)
         if not archive.exists():
-            data=download_asset("oven-sh/bun",artifact)
-            archive.write_bytes(data)
-        data=archive.read_bytes()
-        if digest(data)!=artifact['sha256']:raise ValueError('runtime artifact checksum mismatch')
-        with zipfile.ZipFile(io.BytesIO(data)) as package:
+            archive.write_bytes(download_asset("oven-sh/bun",artifact))
+        with authenticated_runtime_archive(archive,artifact) as package:
             member=artifact['name'][:-4]+'/bun'
-            content=package.read(member)
-        if not binary.exists() or binary.read_bytes()!=content:binary.write_bytes(content)
+            with package.open(member) as stream:expected=hashlib.file_digest(stream,"sha256").hexdigest()
+            if not binary.exists() or file_digest(binary)!=expected:
+                with package.open(member) as source,binary.open("wb") as output:
+                    shutil.copyfileobj(source,output,length=1024*1024)
         binary.chmod(0o755)
     if not archive.is_file():raise ValueError('pinned runtime is not installed; run semantic_install.py --download-runtime')
-    return authenticate_runtime(override or binary,archive.read_bytes(),artifact)
+    return authenticate_runtime(override or binary,archive,artifact)
 
 
 def validate_compiler_pin(pin):
@@ -153,7 +174,7 @@ def install(runtime=None,check=False):
         if check:
             if not path.is_file() or path.read_bytes()!=content:raise ValueError('oracle installation is stale; run semantic_install.py')
         elif not path.exists() or path.read_bytes() != content:path.write_bytes(content)
-    provenance = {"schema":1,"pin":pin,"pin_sha256":digest((SOURCE/'pin.json').read_bytes()),"adapter_sha256":digest(adapter),"worker_sha256":digest(worker),"pristine_worker_sha256":digest(pristine_worker),"book_stream_sha256":digest(book_stream),"runtime_pin_sha256":digest((SOURCE/'runtime-pin.json').read_bytes()),"runtime_sha256":digest(Path(shutil.which(runtime) or runtime).resolve().read_bytes()),"installation":key}
+    provenance = {"schema":1,"pin":pin,"pin_sha256":digest((SOURCE/'pin.json').read_bytes()),"adapter_sha256":digest(adapter),"worker_sha256":digest(worker),"pristine_worker_sha256":digest(pristine_worker),"book_stream_sha256":digest(book_stream),"runtime_pin_sha256":digest((SOURCE/'runtime-pin.json').read_bytes()),"runtime_sha256":file_digest(Path(shutil.which(runtime) or runtime).resolve()),"installation":key}
     provenance["official_pins_sha256"] = digest(official_bytes)
     recorded=dest/'provenance.json'
     if check:
@@ -173,7 +194,7 @@ if __name__ == "__main__":
     if args.download_runtime:runtime_path(download=True)
     destination, provenance = install(args.runtime,check=args.check)
     if args.native_contracts:
-        subprocess.run([runtime_path(override=args.runtime),str(ROOT/'scripts/test_semantic_book_stream.ts'),str(destination)],cwd=ROOT,check=True,
+        subprocess.run([runtime_path(override=args.runtime),"--smol",str(ROOT/'scripts/test_semantic_book_stream.ts'),str(destination)],cwd=ROOT,check=True,
             env=compiler_environment())
     if args.report:
         args.report.parent.mkdir(parents=True,exist_ok=True)

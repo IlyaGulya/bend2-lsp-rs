@@ -1284,8 +1284,7 @@ fn reference_token_index(
             && local_index
                 .lookup(reference.full_name, tokens[reference.token.0].range.start)
                 .is_none()
-            && source[name_range.start..name_range.end]
-                .as_bytes()
+            && source.as_bytes()[name_range.start..name_range.end]
                 .first()
                 .is_some_and(u8::is_ascii_lowercase);
         for segment in &facts.segments[reference.segment_span.start..reference.segment_span.end] {

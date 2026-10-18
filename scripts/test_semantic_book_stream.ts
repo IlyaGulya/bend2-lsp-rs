@@ -63,7 +63,7 @@ async function nativeBookControls(root:string) {
   }
 }
 async function childContract(start:any,following:any,error:string){
-  const worker=new Worker(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'));
+  const worker=new Worker(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'),{smol:true} as Bun.WorkerOptions);
   const exited=once(worker,'exit');
   const timer=setTimeout(()=>{void worker.terminate();throw Error('pristine-contract-timeout');},5000);
   try {
@@ -85,7 +85,7 @@ try {
   await childContract({kind:'start',request:2,root},null,'start-protocol');
   fs.writeFileSync(root,'import forbidden@0.0.0.0/main.bend as remote\n');
   await childContract({kind:'start',request:1,root},null,'network-forbidden');
-  const empty=new Worker(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'));
+  const empty=new Worker(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'),{smol:true} as Bun.WorkerOptions);
   await empty.terminate();
   const request={schema:1,id:'failure-contract',root:'main.bend',files:{'main.bend':'import Base\n\ndef main() -> U32:\n  1\n'},revisions:{'main.bend':1}};
   for(const [name,source,error]of [
@@ -95,11 +95,11 @@ try {
   ]){
     const copy=path.join(fixture,name);fs.cpSync(installation,copy,{recursive:true});
     fs.writeFileSync(path.join(copy,'semantic_pristine_worker.ts'),source);
-    const result=spawnSync(process.execPath,[path.join(copy,'worker.ts')],{input:JSON.stringify(request)+'\n',encoding:'utf8',timeout:5000,maxBuffer:4000000});
+    const result=spawnSync(process.execPath,['--smol',path.join(copy,'worker.ts')],{input:JSON.stringify(request)+'\n',encoding:'utf8',timeout:5000,maxBuffer:4000000});
     assert.equal(result.error,undefined);assert.equal(result.status,0,result.stderr);
     const answer=JSON.parse(result.stdout);assert.equal(answer.outcome,'oracle-error');assert.ok(answer.error.includes(error),answer.error);
   }
-  const eof=spawnSync(process.execPath,[path.join(installation,'worker.ts')],{input:'',encoding:'utf8',timeout:5000,maxBuffer:4000000});
+  const eof=spawnSync(process.execPath,['--smol',path.join(installation,'worker.ts')],{input:'',encoding:'utf8',timeout:5000,maxBuffer:4000000});
   assert.equal(eof.error,undefined);assert.equal(eof.status,0,eof.stderr);assert.equal(eof.stdout,'');
   console.log('Exact bounded stream, mutation/reorder/truncation, credit/id/finish/overlap, forbidden network and termination contracts passed');
 }finally {fs.rmSync(fixture,{recursive:true,force:true});}
