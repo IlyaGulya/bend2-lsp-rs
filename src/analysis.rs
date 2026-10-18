@@ -711,17 +711,18 @@ fn collect_module_completions(
         .map(|symbol| (symbol, syntax.name_text(source, symbol.name)));
     let matches = |(_, name): &(_, &str)| completion_matches(name, prefix, ascii_prefix);
     let mut remaining = named_symbols.clone();
-    // Seed ordinary Vec growth from leading matches, without allocating for a
-    // miss or reserving space for unrelated declarations. take_while consumes
-    // the first non-match; every remaining symbol is tested exactly once.
-    let leading_matches = remaining.by_ref().take_while(matches).count();
+    let Some(first_match) = remaining.position(|symbol| matches(&symbol)) else {
+        return Vec::new();
+    };
+    // Size the first matching run, even after unrelated declarations. position
+    // and take_while consume their boundary items, so no name is matched twice.
+    let matching_run_len = 1 + remaining.by_ref().take_while(matches).count();
     let mut items = Vec::new();
-    if leading_matches != 0 {
-        items.reserve(leading_matches.next_power_of_two());
-    }
+    items.reserve(matching_run_len.next_power_of_two());
     items.extend(
         named_symbols
-            .take(leading_matches)
+            .skip(first_match)
+            .take(matching_run_len)
             .chain(remaining.filter(matches))
             .map(|(symbol, name)| {
                 completion(
