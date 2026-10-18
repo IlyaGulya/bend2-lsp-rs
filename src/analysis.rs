@@ -709,6 +709,10 @@ fn collect_module_completions(
     for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
+            if items.len() == items.capacity() {
+                // Grow fourfold only at result-buffer boundaries, without rematching names.
+                items.reserve_exact(items.capacity().saturating_mul(3).max(4));
+            }
             items.push(completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
