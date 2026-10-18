@@ -705,20 +705,21 @@ fn collect_module_completions(
 ) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    syntax
-        .symbols()
-        .iter()
-        .filter_map(|symbol| {
-            let name = syntax.name_text(source, symbol.name);
-            completion_matches(name, prefix, ascii_prefix).then(|| {
-                completion(
-                    name.to_owned(),
-                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                    symbol.kind,
-                )
-            })
-        })
-        .collect()
+    let mut items = Vec::new();
+    for symbol in syntax.symbols() {
+        let name = syntax.name_text(source, symbol.name);
+        if completion_matches(name, prefix, ascii_prefix) {
+            if items.len() == items.capacity() {
+                items.reserve(items.capacity().saturating_mul(3).max(4));
+            }
+            items.push(completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                symbol.kind,
+            ));
+        }
+    }
+    items
 }
 
 #[must_use]
