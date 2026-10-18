@@ -40,11 +40,19 @@ stream; Base is neither cached nor omitted from parity. Per-path stage durations
 overlap and must not be summed as wall latency. Required bounded setup also runs
 native Book-field mutation, stream corruption, worker-failure, and EOF contracts.
 
-Both the main Bun VM (`--smol`) and the pristine worker VM (`smol: true`) use
-the pinned runtime's small-heap mode; the parent CLI flag does not configure
-the worker heap. Completed projects request asynchronous collection without
-recreating either VM or changing its ordered history. Runtime archive/member
-authentication uses bounded streams over a private authenticated snapshot.
+Both native VMs use ordinary Bun heaps. At idle Book boundaries, synchronous
+[young-generation collection](https://bun.com/reference/bun/jsc/edenGC) reclaims
+short-lived allocations. If the reported heap after that collection exceeds
+32 MiB, [full collection and sweeping](https://bun.com/reference/bun/jsc/gcAndSweep)
+reclaims older unreachable objects before continuing. This is a soft collection
+trigger, not a memory allowance or a guarantee that RSS is below its ceiling.
+Neither VM is recreated and both retain their complete ordered histories.
+
+Credited canonical batches keep their 65,536-UTF-16-code-unit payload ceiling.
+Up to 256 small chunks share a batch to reduce round trips; individual chunk
+bounds, exact component comparison, and credit/sequence checks are unchanged.
+Runtime archive/member authentication uses bounded streams over a private
+authenticated snapshot.
 Full native replies remain in the visible, artifact-budgeted compressed spool;
 later consumers load authenticated replies instead of retaining every decoded
 Base declaration table in RAM.
@@ -153,9 +161,10 @@ than blessing candidate output as compiler truth.
 
 ## Resource and performance contracts
 
-The PR profile `semantic-pr-v4-bounded-smol-histories-release` is **provisional**,
+The PR profile `semantic-pr-v5-bounded-native-heaps-release` is **provisional**,
 not calibrated evidence. Its two case-worker pairs use bounded reply retention
-and small native heaps; corpus, seed, release settings, limits, and admission
+and ordinary native heaps with idle collection; corpus, seed, release settings,
+limits, and admission
 targets remain unchanged:
 
 | Constraint | Initial profile |

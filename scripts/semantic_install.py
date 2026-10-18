@@ -29,7 +29,7 @@ def file_digest(path):
 
 
 def native_worker_command(runtime, installation):
-    return [runtime, "--smol", str(installation / "worker.ts")]
+    return [runtime, str(installation / "worker.ts")]
 
 
 def replace_once(source, before, after):
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     if args.download_runtime:runtime_path(download=True)
     destination, provenance = install(args.runtime,check=args.check)
     if args.native_contracts:
-        subprocess.run([runtime_path(override=args.runtime),"--smol",str(ROOT/'scripts/test_semantic_book_stream.ts'),str(destination)],cwd=ROOT,check=True,
+        subprocess.run([runtime_path(override=args.runtime),str(ROOT/'scripts/test_semantic_book_stream.ts'),str(destination)],cwd=ROOT,check=True,
             env=compiler_environment())
     if args.report:
         args.report.parent.mkdir(parents=True,exist_ok=True)

@@ -37,10 +37,12 @@
 - Preserve completed native-history divergences alongside later failures.
   Record and replay both native histories, minimize their required context, and
   reject promotion of oracle-integrity failures as production semantic truth.
-- Bound oracle memory with streamed runtime authentication, authenticated
-  on-demand reply loading, and small heaps in both native VM contexts. Reuse
-  validated per-reply projections instead of repeating normalization, while
-  preserving complete Base comparison and all history and stdio checks.
+- Stream oracle runtime authentication and load authenticated replies on demand
+  instead of retaining every decoded Base table. Collect short-lived native
+  allocations at idle Book boundaries without resetting ordered histories.
+  Batch small canonical components within the existing payload bound; preserve
+  complete Base comparison and all history and stdio checks. Resource
+  qualification remains provisional.
 - Require fresh qualification of the expanded 99-workload performance scope.
   Retain all 54 existing baseline workloads and the unchanged numeric limits.
 

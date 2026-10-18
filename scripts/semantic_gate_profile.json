@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "name": "semantic-pr-v4-bounded-smol-histories-release",
+  "name": "semantic-pr-v5-bounded-native-heaps-release",
   "runner": "ubuntu-24.04",
   "candidate_build_profile": {
     "name": "release",

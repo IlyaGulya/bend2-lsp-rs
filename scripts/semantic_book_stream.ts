@@ -1,6 +1,6 @@
 // Exact native canonical components; never serialize an entire Book or replace HTerm lowering.
 export const CHUNK_CHARS=16384;
-export const BATCH_CHUNKS=64;
+export const BATCH_CHUNKS=256;
 export const BATCH_CHARS=65536;
 export type Chunk=[number,number,string,boolean];
 function* components(native:any,book:any):Generator<string> {

@@ -1,7 +1,9 @@
 // One persistent pristine history, one fresh Book per project, one credited batch at a time.
 import {parentPort} from 'node:worker_threads';
+import {edenGC,gcAndSweep} from 'bun:jsc';
 import * as Plain from './bend.ts';
 import {bookChunks,BATCH_CHUNKS,BATCH_CHARS} from './semantic_book_stream.ts';
+const IDLE_HEAP_BYTES=32*1024*1024;
 if(!parentPort)throw Error('missing-pristine-parent');
 let networkAttempted=false;
 globalThis.fetch=async()=>{networkAttempted=true;throw Error('network-forbidden');};
@@ -15,7 +17,8 @@ parentPort.on('message',async(message:any)=>{
     if(busy)throw Error('pristine-overlapping-request');
     if(message?.kind==='start'){
       if(active||!Number.isSafeInteger(message.request)||message.request!==lastRequest+1||typeof message.root!=='string')throw Error('pristine-start-protocol-failure');
-      if(lastRequest>0)Bun.gc(false);
+      // The previous callback has returned and no longer owns a live Book.
+      if(lastRequest>0&&edenGC()>IDLE_HEAP_BYTES)gcAndSweep();
       busy=true;lastRequest=message.request;networkAttempted=false;
       const book=Plain.book_nil(),metrics:Record<string,number>={};let error:any=null,stage=performance.now();
       try {
