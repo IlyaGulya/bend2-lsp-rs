@@ -151,7 +151,8 @@ impl Backend {
                 let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source));
                 let provenance = Arc::from(format!("fnv1a64:{:016x}", snapshot.content_hash()));
                 let physical_path = crate::workspace::canonical_source_path(&path);
-                let imports = crate::workspace::resolve_import_targets(&path, &snapshot);
+                let imports =
+                    crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
                 Some((
                     BaseModule {
                         uri,

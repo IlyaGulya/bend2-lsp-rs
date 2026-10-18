@@ -68,7 +68,7 @@ impl WorkspaceDb {
     ) -> Option<bool> {
         let path = self.entries.get(file.0)?.path.clone()?;
         let physical = crate::workspace::canonical_source_path(&path);
-        let imports = crate::workspace::resolve_import_targets(&path, expected);
+        let imports = crate::workspace::resolve_import_targets(&path, &physical, expected);
         self.refresh_imports_prepared(file, expected, &physical, imports)
     }
 
@@ -107,11 +107,9 @@ impl WorkspaceDb {
         if changed {
             // Re-resolution changes graph identity, not the snapshot owning
             // the editor path facts just published by this same preparation.
-            let editor_paths = self.editor_import_paths.remove(&file);
+            let editor_paths = self.entries[file.0].editor_import_paths.take();
             self.invalidate_semantic_file(file);
-            if let Some(paths) = editor_paths {
-                self.editor_import_paths.insert(file, paths);
-            }
+            self.entries[file.0].editor_import_paths = editor_paths;
         }
         Some(changed || identity_changed)
     }
@@ -122,10 +120,7 @@ impl WorkspaceDb {
             if self
                 .import_path_dependents
                 .get_mut(&path)
-                .is_some_and(|files| {
-                    files.remove(&file);
-                    files.is_empty()
-                })
+                .is_some_and(|files| files.remove(file))
             {
                 self.import_path_dependents.remove(&path);
             }
@@ -135,36 +130,31 @@ impl WorkspaceDb {
     pub(in crate::workspace) fn refresh_import_watch_paths(&mut self, file: FileId) {
         let entry = &self.entries[file.0];
         let mut paths = Vec::new();
-        let imports_base = entry.snapshot().is_some_and(|snapshot| {
-            snapshot.syntax.imports().iter().any(|import| {
-                import.valid_syntax
-                    && import.alias.is_none()
-                    && import.path_text(&snapshot.text) == "Base"
-            })
-        });
+        let mut imports_base = false;
         if let Some(snapshot) = entry.snapshot() {
             let physical_directory = entry.physical_path.as_deref().and_then(Path::parent);
             let logical_directory = entry.path.as_deref().and_then(Path::parent);
-            for directory in physical_directory
-                .into_iter()
-                .chain(logical_directory.filter(|directory| Some(*directory) != physical_directory))
-            {
-                for import in snapshot.syntax.imports() {
-                    let imported = import.path_text(&snapshot.text);
-                    if !imported.is_empty()
-                        && imported != "Base"
-                        && !crate::workspace::is_hub_import_path(imported)
-                    {
-                        let path = crate::workspace::normalize_path(&directory.join(imported));
-                        if path.extension().is_none() {
-                            paths.push(path.with_extension("bend"));
-                        }
-                        paths.push(path);
+            for import in snapshot.syntax.imports() {
+                let imported = import.path_text(&snapshot.text);
+                if imported == "Base" {
+                    imports_base |= import.valid_syntax && import.alias.is_none();
+                    continue;
+                }
+                if imported.is_empty() || crate::workspace::is_hub_import_path(imported) {
+                    continue;
+                }
+                for directory in physical_directory.into_iter().chain(
+                    logical_directory.filter(|directory| Some(*directory) != physical_directory),
+                ) {
+                    let path = crate::workspace::normalize_path(&directory.join(imported));
+                    if path.extension().is_none() {
+                        paths.push(path.with_extension("bend"));
                     }
+                    paths.push(path);
                 }
             }
         }
-        if let Some(prepared) = self.editor_import_paths.get(&file) {
+        if let Some(prepared) = &self.entries[file.0].editor_import_paths {
             paths.extend(prepared.keys().cloned());
         }
         paths.sort_unstable();
@@ -174,8 +164,11 @@ impl WorkspaceDb {
             for path in &paths {
                 self.import_path_dependents
                     .entry(path.clone())
-                    .or_default()
-                    .insert(file);
+                    .and_modify(|files| files.insert(file))
+                    .or_insert_with(|| crate::workspace::ImportWatchDependents {
+                        first: file,
+                        others: std::collections::HashSet::new(),
+                    });
             }
             self.entries[file.0].import_watch_paths = paths.into_boxed_slice();
         }

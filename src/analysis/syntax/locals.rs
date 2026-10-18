@@ -22,13 +22,32 @@ impl LocalIndex {
             (!binding.anonymous && binding.scope.start < binding.scope.end)
                 .then_some(binding.name.0)
         });
-        let mut visibility: Vec<Visibility> = Vec::new();
-        let mut events = Vec::with_capacity(bindings.len() * 2);
-        let mut active = vec![false; bindings.len()];
+        let mut visibility: Vec<Visibility> = Vec::with_capacity(bindings.len());
+        let mut events = Vec::new();
+        let mut active = Vec::new();
         let mut heap = BinaryHeap::<usize>::new();
         for span in &mut name_spans {
+            let indices = &binding_indices[span.start..span.end];
+            if indices
+                .windows(2)
+                .all(|pair| bindings[pair[0]].scope.end <= bindings[pair[1]].scope.start)
+            {
+                // Most names occur in independent declaration scopes. Their
+                // existing source order already is the complete visibility map;
+                // reserve the boundary sweep for actual shadowing/overlap.
+                let first = visibility.len();
+                visibility.extend(indices.iter().map(|index| Visibility {
+                    binding: bindings[*index].binding_id,
+                    range: bindings[*index].scope,
+                }));
+                *span = TextRange::new(first, visibility.len());
+                continue;
+            }
+            if active.is_empty() {
+                active.resize(bindings.len(), false);
+            }
             events.clear();
-            for &index in &binding_indices[span.start..span.end] {
+            for &index in indices {
                 events.extend([index * 2, index * 2 + 1]);
             }
             if !events

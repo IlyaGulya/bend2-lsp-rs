@@ -61,8 +61,11 @@ impl WorkspaceDb {
             && self.entries[previous.0].open_snapshot.is_none()
             && self.entries[previous.0].snapshot().is_some()
             && self.entries[previous.0].path.as_deref() == Some(path)
-            && let Some(physical) = self.entries[previous.0].physical_path.clone()
-            && physical.as_path() != physical_path
+            && let Some(physical) = self.entries[previous.0]
+                .physical_path
+                .as_ref()
+                .filter(|physical| physical.as_path() != physical_path)
+                .cloned()
             && let Ok(canonical_uri) = Url::from_file_path(&physical)
         {
             self.invalidate_semantic_file(previous);

@@ -1,4 +1,5 @@
 use super::{FileId, WorkspaceDb};
+use crate::workspace::PhysicalAliases;
 use std::path::{Path, PathBuf};
 
 impl WorkspaceDb {
@@ -12,19 +13,22 @@ impl WorkspaceDb {
         }
         self.invalidate_semantic_file(file);
         if let Some(previous) = self.entries[file.0].physical_path.take()
-            && self.physical_files.get_mut(&previous).is_some_and(|files| {
-                files.retain(|candidate| *candidate != file);
-                files.is_empty()
-            })
+            && self
+                .physical_files
+                .get_mut(&previous)
+                .is_some_and(|files| files.remove(file))
         {
             self.physical_files.remove(&previous);
         }
         self.entries[file.0].physical_path.clone_from(&path);
         if let Some(path) = path {
             self.physical_files
-                .entry(path.clone())
-                .or_default()
-                .push(file);
+                .entry(path)
+                .and_modify(|files| files.others.push(file))
+                .or_insert_with(|| PhysicalAliases {
+                    first: file,
+                    others: Vec::new(),
+                });
             self.invalidate_physical_file(file);
         }
     }

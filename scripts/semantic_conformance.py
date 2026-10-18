@@ -5,6 +5,7 @@ from collections import Counter
 import hashlib
 import gzip
 import base64
+import io
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,8 @@ from semantic_process import signal_group
 
 SCHEMA=1
 MAX_OUTPUT=4_000_000
+GATE_PROFILE=json.loads((ROOT/'scripts/semantic_gate_profile.json').read_text())
+SHUTDOWN_SECONDS=GATE_PROFILE['shutdown_seconds']
 sys.modules.setdefault('semantic_conformance',sys.modules[__name__])
 
 
@@ -109,10 +112,10 @@ class Worker:
                 except BlockingIOError:continue
                 remaining=remaining[written:]
         except (BrokenPipeError,OSError) as error:
-            self._fail('worker-crash');raise ToolFailure('worker-crash') from error
+            self._fail('worker-crash');raise self.failure from error
         try:line=self.lines.get(timeout=max(0,deadline-time.monotonic()))
         except queue.Empty as error:
-            self._fail('worker-timeout');raise ToolFailure('worker-timeout') from error
+            self._fail('worker-timeout');raise self.failure from error
         with self.lock:
             if self.failure:raise self.failure
         if isinstance(line,Exception):raise line
@@ -125,18 +128,29 @@ class Worker:
             self._fail('missing-outcome');raise ToolFailure('missing-outcome')
         return reply
 
-    def close(self):
-        with self.lock:self.closed=True
-        # The session leader may already have exited while descendants hold pipes.
-        signal_group(self.process,signal.SIGTERM)
-        try:self.process.wait(timeout=1)
+    def close(self,deadline=None):
+        deadline=min(time.monotonic()+SHUTDOWN_SECONDS,deadline) if deadline is not None else time.monotonic()+SHUTDOWN_SECONDS
+        with self.lock:
+            if getattr(self,'cleanup_complete',False):return
+            self.closed=True
+        errors=[]
+        # All waits share the pinned grace, rather than each receiving a new
+        # timeout. Always escalate even if the group leader already exited.
+        try:signal_group(self.process,signal.SIGTERM)
+        except OSError as error:errors.append(str(error))
+        try:self.process.wait(timeout=max(0,min(1,deadline-time.monotonic())))
         except subprocess.TimeoutExpired:pass
-        # Always escalate the group, even if waiting for the leader succeeded.
-        signal_group(self.process,signal.SIGKILL)
-        self.process.wait(timeout=2)
-        self.reader.join(timeout=1);self.err_reader.join(timeout=1)
+        try:signal_group(self.process,signal.SIGKILL)
+        except OSError as error:errors.append(str(error))
+        try:self.process.wait(timeout=max(0,deadline-time.monotonic()))
+        except subprocess.TimeoutExpired:errors.append('worker-reap-timeout')
+        for reader in (self.reader,self.err_reader):
+            reader.join(timeout=max(0,deadline-time.monotonic()))
+            if reader.is_alive():errors.append('worker-reader-shutdown-timeout')
         for stream in (self.process.stdin,self.process.stdout,self.process.stderr):stream.close()
         self.home.cleanup()
+        if errors:raise ToolFailure(';'.join(errors))
+        self.cleanup_complete=True
 
 
 
@@ -146,6 +160,168 @@ def open_workers(compiler_command,candidate_command):
     try:probe=Worker(candidate_command)
     except BaseException:compiler.close();raise
     return compiler,probe
+
+
+class RawHistorySpool:
+    """Visible, artifact-budgeted compressed bytes; only bounded indexes in RAM."""
+    def __init__(self,directory):
+        self.directory=Path(directory);self.directory.mkdir(parents=True,exist_ok=True)
+        self.file=tempfile.NamedTemporaryFile(mode='w+b',prefix='oracle-history-',suffix='.gz',dir=self.directory,delete=False)
+        self.path=Path(self.file.name);self.lock=threading.Lock()
+        self.index={};self.histories={'forward':[],'reverse':[]};self.closed=False
+        try:self._budget(0)
+        except BaseException:self.close();raise
+
+    def _budget(self,additional):
+        size=additional;count=0
+        for path in self.directory.rglob('*'):
+            if path.is_symlink():raise ToolFailure('artifact-symlink')
+            if path.is_file():
+                count+=1;size+=path.stat().st_size
+                if size>GATE_PROFILE['artifact_bytes'] or count>GATE_PROFILE['artifact_files']:
+                    raise ToolFailure('history-spool-artifact-limit')
+
+    def append(self,history,item,raw,fingerprint):
+        if len(raw)>MAX_OUTPUT:raise ToolFailure('history-spool-reply-limit')
+        try:compressed=gzip.compress(raw,compresslevel=1,mtime=0)
+        except (OSError,MemoryError,ValueError) as error:raise ToolFailure('history-spool-compression:'+str(error)) from error
+        with self.lock:
+            if self.closed:raise ToolFailure('closed-history-spool')
+            key=(history,item['id'])
+            if key in self.index:raise ToolFailure('duplicate-history-spool-view')
+            self._budget(len(compressed))
+            self.file.seek(0,os.SEEK_END);offset=self.file.tell()
+            self.file.write(compressed);self.file.flush()
+            self.index[key]=(offset,len(compressed),len(raw),digest(raw))
+            self.histories[history].append({'id':item['id'],'oracle_sha256':fingerprint,'raw_sha256':digest(raw),'input_sha256':item['input_sha256'] if 'input_sha256' in item else digest(canonical(request_for(item)))})
+
+    def load(self,history,key):
+        with self.lock:
+            offset,length,raw_length,raw_sha=self.index[(history,key)]
+            self.file.seek(offset);compressed=self.file.read(length)
+        with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as stream:raw=stream.read(MAX_OUTPUT+1)
+        if len(raw)!=raw_length or digest(raw)!=raw_sha:raise ToolFailure('corrupt-history-spool')
+        return raw
+
+    def prior(self,history,key):
+        rows=self.histories[history]
+        position=next(index for index,row in enumerate(rows) if row['id']==key)
+        return rows[:position]
+
+    def close(self,deadline=None):
+        deadline=time.monotonic()+SHUTDOWN_SECONDS if deadline is None else deadline
+        if not self.lock.acquire(timeout=max(0,deadline-time.monotonic())):
+            raise ToolFailure('history-spool-shutdown-timeout')
+        try:
+            if self.closed:return
+            self.closed=True
+            self.file.close()
+            self.path.unlink()
+        finally:self.lock.release()
+
+
+class ReverseHistory:
+    """One independently owned persistent oracle; retain hashes, not native Books."""
+    def __init__(self,command,items,provenance,deadline,origin,spool):
+        self.worker=Worker(command)
+        self.items=list(reversed(items));self.provenance=provenance
+        self.deadline=deadline;self.origin=origin;self.spool=spool;self.cleanup_deadline=None
+        self.cancelled=threading.Event();self.failure=None;self.cleanup_error=None;self.cancel_error=None
+        self.completed=[];self.metrics={'pid':self.worker.process.pid,'planned':len(self.items),'cases':[]}
+        self.thread=threading.Thread(target=self._run,name='semantic-reverse-history',daemon=True)
+        try:self.thread.start()
+        except BaseException:self.worker.close();raise
+
+    def _run(self):
+        self.metrics['started_seconds']=time.monotonic()-self.origin
+        item=None;reply={}
+        try:
+            for item in self.items:
+                if self.cancelled.is_set():return
+                reply={};started=time.monotonic()
+                reply=self.worker.ask(request_for(item),min(5 if item['case_id'].startswith('generated-') else 15,self.deadline-started))
+                ended=time.monotonic()
+                if reply.get('provenance')!=self.provenance:raise ToolFailure('worker-pin-mismatch')
+                if reply.get('outcome')=='oracle-error':raise ToolFailure('oracle-error:'+reply.get('error',''))
+                fingerprint=digest(canonical(normalized(reply)))
+                self.spool.append('reverse',item,self.worker.last_raw,fingerprint)
+                self.completed.append({'id':item['id'],'oracle_sha256':fingerprint})
+                self.metrics['cases'].append({'id':item['id'],'oracle_rpc_started_seconds':started-self.origin,'oracle_rpc_seconds':ended-started,'oracle_stages':reply.get('metrics',{})})
+            self.metrics['complete']=True
+        except BaseException as error:
+            # Only our explicit cancellation is suppressible, never an original
+            # EOF, timeout, parity failure, or malformed reply racing with it.
+            if not (self.cancelled.is_set() and str(error)=='history-cancelled'):
+                self.failure={'error':error,'item':item,'oracle':reply,'raw':self.worker.last_raw}
+        finally:
+            self.metrics['finished_seconds']=time.monotonic()-self.origin
+            self.metrics['completed']=len(self.completed)
+            cutoff=min(self.deadline+SHUTDOWN_SECONDS,self.cleanup_deadline if self.cleanup_deadline is not None else time.monotonic()+SHUTDOWN_SECONDS)
+            try:self.worker.close(deadline=cutoff)
+            except BaseException as error:self.cleanup_error=error
+            if self.failure is None and self.cancelled.is_set() and item is not None:
+                # A native error can already be in the pipe when forward
+                # failure cancels ask. After readers drain, retain that original
+                # reply rather than replacing it with our cancellation marker.
+                raw=self.worker.last_raw
+                try:queued=json.loads(raw)
+                except (ValueError,UnicodeError):queued=None
+                if isinstance(queued,dict) and queued.get('schema')==SCHEMA and queued.get('id')==item['id'] and queued.get('root')==item['root'] and queued.get('outcome')=='oracle-error':
+                    self.failure={'error':ToolFailure('oracle-error:'+str(queued.get('error',''))),'item':item,'oracle':queued,'raw':raw}
+            self.metrics['closed_seconds']=time.monotonic()-self.origin
+
+    def check(self):
+        if self.failure:
+            failure=self.failure
+            error=ToolFailure(str(failure['error']))
+            error.history_failure={**failure,'stderr':self.worker.errors.decode(errors='replace')}
+            raise error from failure['error']
+        if self.cleanup_error:raise ToolFailure('reverse-history-cleanup:'+str(self.cleanup_error))
+
+    def cancel(self):
+        if self.cleanup_deadline is None:self.cleanup_deadline=min(self.deadline+SHUTDOWN_SECONDS,time.monotonic()+SHUTDOWN_SECONDS)
+        self.cancelled.set()
+        if self.thread.is_alive():
+            try:self.worker._fail('history-cancelled')
+            except BaseException as error:self.cancel_error=error
+
+    def close(self):
+        self.cancel()
+        # Killing the owned group also releases ask's queue/write wait. The
+        # thread alone closes streams, avoiding a close-versus-select race.
+        self.thread.join(timeout=max(0,self.cleanup_deadline-time.monotonic()))
+        if self.thread.is_alive():raise ToolFailure('reverse-history-shutdown-timeout')
+        if self.cleanup_error:raise ToolFailure('reverse-history-cleanup:'+str(self.cleanup_error))
+        if self.cancel_error:raise ToolFailure('reverse-history-cancel:'+str(self.cancel_error))
+
+    def finish(self,forward):
+        self.thread.join(timeout=max(0,self.deadline-time.monotonic()))
+        if self.thread.is_alive():
+            self.close()
+            self.check()
+            raise ToolFailure('deadline-exhausted-during-reverse-history')
+        self.check()
+        if not self.metrics.get('complete') or len(self.completed)!=len(self.items):
+            raise ToolFailure('incomplete-reverse-history')
+        for item,row in zip(self.items,self.completed):
+            if row['id']!=item['id'] or row['oracle_sha256']!=forward.get(item['id']):
+                error=ToolFailure('oracle-state-leak')
+                reverse_raw=self.spool.load('reverse',item['id']);forward_raw=self.spool.load('forward',item['id'])
+                error.history_failure={'error':error,'item':item,'oracle':json.loads(reverse_raw),'forward':json.loads(forward_raw),'raw':reverse_raw,'forward_raw':forward_raw,'stderr':self.worker.errors.decode(errors='replace'),'hashes':{'reverse':row,'forward_sha256':forward.get(item['id'])},'prior_histories':{history:self.spool.prior(history,item['id']) for history in ('forward','reverse')}}
+                raise error
+        return self.completed
+
+
+def rpc_overlap(forward,reverse):
+    """Intersection of two sequential RPC timelines, not summed native CPU time."""
+    left=iter(forward);right=iter(reverse);a=next(left,None);b=next(right,None);seconds=0
+    while a is not None and b is not None:
+        start_a=a['oracle_rpc_started_seconds'];end_a=start_a+a['oracle_rpc_seconds']
+        start_b=b['oracle_rpc_started_seconds'];end_b=start_b+b['oracle_rpc_seconds']
+        seconds+=max(0,min(end_a,end_b)-max(start_a,start_b))
+        if end_a<=end_b:a=next(left,None)
+        else:b=next(right,None)
+    return seconds
 
 
 def site_tuple(site):
@@ -316,6 +492,7 @@ def check_manifest_assertions(case,root,answer,recovery=False):
 
 def harness_sources():
     sources={path.name:path.read_text() for path in (ROOT/'scripts').glob('semantic_*.py')}
+    sources['semantic_gate_profile.json']=(ROOT/'scripts/semantic_gate_profile.json').read_text()
     for name in ('semantic_worker.ts','semantic_pristine_worker.ts','semantic_book_stream.ts','bootstrap_bend.py','bend_compiler_pins.json'):sources[name]=(ROOT/'scripts'/name).read_text()
     return sources
 
@@ -346,14 +523,28 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
     if time.monotonic()>=deadline:raise ToolFailure('deadline-exhausted-during-authentication')
     command=str(Path(candidate).resolve())
     candidate_sha=digest(Path(command).read_bytes())
-    compiler,probe=open_workers([runtime,str(installation/'worker.ts')],[command])
+    compiler=probe=None
     counts={'planned':len(plan['planned']),'generated':plan['counts']['projects'],'valid_planned':sum(i['facet']=='valid' for i in plan['planned']),'invalid_planned':sum(i['facet']=='compiler-error' for i in plan['planned']),'recovery_planned':sum(i['facet']=='recovery' for i in plan['planned']),'validated':0,'compared':0,'matched':0,'intended_invalid':0,'recovery':0}
     report={'schema':1,'status':'fail','profile':plan['profile'],'seed':plan['seed'],'manifest_sha256':plan['manifest_sha256'],'pin_sha256':plan['pin_sha256'],'profile_sha256':plan['profile_sha256'],'corpus_sha256':plan['corpus_sha256'],'candidate_sha256':candidate_sha,'planned':[{'id':i['id'],'input_sha256':i['input_sha256']} for i in plan['planned']],'completed':[],'counts':counts,'coverage':{},'failures':[],'provenance':provenance,'metrics':{'startup_seconds':time.monotonic()-began,'case_seconds':[]},'offline':True}
     report['harness_sha256']=digest(canonical(harness_sources()));report['candidate_source_sha256']=candidate_source_digest()
-    originals={};oracle_history={};oracle_answers={};stdio_oracle_raw={}
+    originals={};oracle_history={};oracle_answers={};stdio_oracle_raw={};reverse=None;spool=None
+    isolation=[i for i in plan['planned'] if i['facet']=='valid']
+    histories={'workers':2,'forward':{'planned':len(plan['planned'])}}
+    report['metrics']['histories']=histories
     from semantic_stdio import SELECTED
     try:
+        if len(isolation)<2:raise ToolFailure('insufficient-isolation-cases')
+        spool=RawHistorySpool(artifact_dir)
+        compiler,probe=open_workers([runtime,str(installation/'worker.ts')],[command])
+        histories['forward']['pid']=compiler.process.pid
+        histories['candidate_pid']=probe.process.pid
+        reverse=ReverseHistory([runtime,str(installation/'worker.ts')],isolation,provenance,deadline,began,spool)
+        histories['reverse']=reverse.metrics
+        report['isolation']={'reversed_history':reverse.completed}
+        report['metrics']['startup_seconds']=time.monotonic()-began
+        histories['forward']['started_seconds']=time.monotonic()-began
         for item in plan['planned']:
+            reverse.check()
             start=time.monotonic();request=request_for(item);case_limit=5 if item['case_id'].startswith('generated-') else 15
             oracle={};candidate_reply={};oracle_rpc_started=time.monotonic()
             oracle=compiler.ask(request,min(case_limit,deadline-time.monotonic()))
@@ -397,12 +588,14 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
                 counts['intended_invalid' if facet=='compiler-error' else 'recovery']+=1
             else:raise ToolFailure('unknown-facet')
             key=item['id'];oracle_history[key]=digest(canonical(normalized(oracle))) if facet=='valid' else digest(canonical(oracle))
+            spool.append('forward',item,compiler.last_raw,oracle_history[key])
             comparison_seconds=time.monotonic()-comparison_started
             if diff:
+                reverse.cancel()
                 bundle=save_failure(artifact_dir,item,oracle,candidate_reply,diff,provenance,command,{'oracle':compiler.errors.decode(errors='replace'),'candidate':probe.errors.decode(errors='replace')},{'oracle':compiler.last_raw,'candidate':probe.last_raw})
                 report['failures'].append({'id':key,'class':'semantic-mismatch','diff':diff,'bundle':bundle})
             report['completed'].append({'id':key,'input_sha256':item['input_sha256'],'oracle_sha256':oracle_history[key],'candidate_sha256':digest(canonical(candidate_reply))})
-            report['metrics'].setdefault('cases',[]).append({'id':key,'oracle_rpc_seconds':oracle_rpc_seconds,'candidate_rpc_seconds':candidate_rpc_seconds,'comparison_and_manifest_seconds':comparison_seconds,'oracle_stages':oracle.get('metrics',{}),'candidate_stages':candidate_reply.get('metrics',{})})
+            report['metrics'].setdefault('cases',[]).append({'id':key,'oracle_rpc_started_seconds':oracle_rpc_started-began,'oracle_rpc_seconds':oracle_rpc_seconds,'candidate_rpc_seconds':candidate_rpc_seconds,'comparison_and_manifest_seconds':comparison_seconds,'oracle_stages':oracle.get('metrics',{}),'candidate_stages':candidate_reply.get('metrics',{})})
             if facet=='valid':
                 report.setdefault('view_coverage',{})[key]={'planned':1,'validated':1,'compared':1,'matched':int(not diff)}
                 expected_records=normalized(oracle)['occurrences'];actual_records=Counter(map(repr,normalized(candidate_reply)['occurrences']))
@@ -415,6 +608,7 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
                 family_counts['planned']+=1;family_counts['validated']+=facet=='valid';family_counts['compared']+=facet=='valid';family_counts['matched']+=facet=='valid' and not diff
             report['metrics']['case_seconds'].append(time.monotonic()-start)
             if diff:
+                reverse.close()
                 # Persist original before spending any oracle calls on reduction.
                 from semantic_replay import save_minimized, shrink
                 remaining=max(0,min(30,deadline-time.monotonic()-2))
@@ -426,37 +620,65 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
                     report['failures'][-1]['shrink']={'attempts':reduced['attempts'],'status':reduced['status']}
                     report['metrics']['failure_shrink_seconds']=time.monotonic()-shrink_started
                 return report
+        histories['forward']['finished_seconds']=time.monotonic()-began
+        histories['forward']['completed']=len(report['completed'])
         generated_cases={item['case_id']:item['case'] for item in plan['planned'] if item['case_id'].startswith('generated-') and item['variant']=='original'}
         semantic_digests={case_id:digest(canonical([semantic_structure(oracle_answers[case_id+'/'+root+'/original']) for root in case['roots']])) for case_id,case in generated_cases.items()}
         input_digests={case['input_sha256'] for case in generated_cases.values()}
         report['generator']={'projects':len(generated_cases),'unique_inputs':len(input_digests),'unique_semantic_structures':len(set(semantic_digests.values())),'semantic_digests':semantic_digests,'depth_distribution':dict(Counter(case['depth'] for case in generated_cases.values()))}
         if len(input_digests)!=len(generated_cases) or len(set(semantic_digests.values()))!=len(generated_cases):raise ToolFailure('duplicate-generated-input-or-semantic-structure')
-        # Required fresh-Book A/B/A, repeated-case, and reversed order checks.
-        isolation=[i for i in plan['planned'] if i['facet']=='valid']
-        if len(isolation)<2:raise ToolFailure('insufficient-isolation-cases')
+        # The original forward session still proves A/B/A and repetition after
+        # every planned forward case, independent of the reverse session.
         proof_contexts=[item for item in isolation if item['case_id']=='proof-context' and item['variant']=='original']
         if len(proof_contexts)!=2:raise ToolFailure('proof-context-isolation-pair-missing')
         first,second=proof_contexts
-        sequence=[first,second,first,first]+list(reversed(isolation))
-        for item in sequence:
+        isolation_started=time.monotonic()
+        for item in (first,second,first,first):
+            reverse.check()
             reply=compiler.ask(request_for(item),min(5 if item['case_id'].startswith('generated-') else 15,deadline-time.monotonic()))
+            if reply.get('provenance')!=provenance:raise ToolFailure('worker-pin-mismatch')
             if digest(canonical(normalized(reply)))!=oracle_history[item['id']]:raise ToolFailure('oracle-state-leak')
+        report['metrics']['forward_aba_repeated_seconds']=time.monotonic()-isolation_started
+        reversed_history=reverse.finish(oracle_history)
+        spool.close()
+        histories['oracle_rpc_overlap_seconds']=rpc_overlap(report['metrics']['cases'],reverse.metrics['cases'])
+        # finish joins the reverse owner, including group cleanup, before a
+        # fresh native session or the real stdio server increases aggregate RSS.
+        fresh_started=time.monotonic()
+        histories['fresh_started_seconds']=fresh_started-began
         fresh=Worker([runtime,str(installation/'worker.ts')])
         try:
+            histories['fresh_pid']=fresh.process.pid
             fresh_reply=fresh.ask(request_for(first),min(15,deadline-time.monotonic()))
+            if fresh_reply.get('provenance')!=provenance:raise ToolFailure('worker-pin-mismatch')
             if digest(canonical(normalized(fresh_reply)))!=oracle_history[first['id']]:raise ToolFailure('fresh-worker-state-leak')
         finally:fresh.close()
-        report['isolation']={'aba':True,'fresh':True,'repeated':True,'aba_views':[first['id'],second['id'],first['id']],'reversed_views':len(isolation)}
+        report['metrics']['fresh_worker_seconds']=time.monotonic()-fresh_started
+        report['isolation']={'aba':True,'fresh':True,'repeated':True,'aba_views':[first['id'],second['id'],first['id']],'repeated_views':[first['id'],first['id']],'reversed_views':len(reversed_history),'reversed_history':reversed_history}
         from semantic_stdio import run_stdio
         lsp_binary=lsp or str(Path(command).parent.parent/'bend2-lsp')
         stdio_started=time.monotonic()
+        histories['stdio_started_seconds']=stdio_started-began
         report['lsp_sha256']=digest(Path(lsp_binary).read_bytes())
         report['stdio']=run_stdio(plan,oracle_answers,lsp_binary,deadline)
         report['metrics']['stdio_seconds']=time.monotonic()-stdio_started
         if len(report['completed'])==counts['planned'] and not report['failures']:report['status']='pass'
     except (ToolFailure,OSError,ValueError,KeyError,TypeError,IndexError,UnicodeError) as error:
+        if reverse is not None:reverse.cancel()
         failure={'class':'tool-failure','error':str(error),'id':item['id'] if 'item' in locals() else None}
-        if hasattr(error,'consumer_item'):
+        if hasattr(error,'history_failure'):
+            evidence=error.history_failure;item=evidence['item'];failure['id']=item['id'];failure['history']='reverse'
+            details={'class':'tool-failure','error':str(error),'history':'reverse'}
+            if 'hashes' in evidence:details['hashes']=evidence['hashes']
+            if 'prior_histories' in evidence:
+                details['prior_histories']=evidence['prior_histories']
+                details['worker_pids']={name:histories[name]['pid'] for name in ('forward','reverse')}
+            raw_replies={'oracle':evidence['raw'],'candidate':b''}
+            if 'forward_raw' in evidence:
+                details['compared_histories']={'oracle':'reverse','candidate':'forward'}
+                raw_replies={'reverse_oracle':evidence['raw'],'forward_oracle':evidence['forward_raw']}
+            failure['bundle']=save_failure(artifact_dir,item,evidence['oracle'],evidence.get('forward',{}),[details],provenance,command,{'oracle':evidence['stderr'],'candidate':''},raw_replies)
+        elif hasattr(error,'consumer_item'):
             item=error.consumer_item;failure['id']=item['id'];consumer=error.consumer_evidence
             failure['class']='consumer-mismatch' if consumer.get('predicate') else 'tool-failure'
             wire=b'\n'.join(base64.b64decode(message) for message in consumer['raw_messages_base64'])
@@ -472,7 +694,25 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
             failure['bundle']=save_failure(artifact_dir,item,locals().get('oracle',{}),locals().get('candidate_reply',{}),[{'class':'tool-failure','error':str(error)}],provenance,command,{'oracle':compiler.errors.decode(errors='replace'),'candidate':probe.errors.decode(errors='replace')},{'oracle':compiler.last_raw,'candidate':probe.last_raw})
         report['failures'].append(failure)
     finally:
-        compiler.close();probe.close()
+        # Attempt every owned cleanup even if an earlier cleanup fails. Never
+        # replace the original mismatch/timeout with a shutdown exception.
+        cleanup_deadline=min(deadline+SHUTDOWN_SECONDS,time.monotonic()+SHUTDOWN_SECONDS)
+        for name,owner in (('reverse',reverse),('oracle',compiler),('candidate',probe)):
+            if owner is None:continue
+            try:owner.close() if name=='reverse' else owner.close(deadline=cleanup_deadline)
+            except BaseException as error:
+                report['failures'].append({'class':'cleanup-failure','worker':name,'error':str(error)})
+                report['status']='fail'
+        if reverse is not None and reverse.failure and not any(f.get('history')=='reverse' for f in report['failures']):
+            evidence=reverse.failure
+            report['failures'].append({'class':'tool-failure','history':'reverse','id':evidence['item']['id'] if evidence['item'] else None,'error':str(evidence['error']),'raw_reply_base64':base64.b64encode(evidence['raw']).decode('ascii'),'stderr':reverse.worker.errors.decode(errors='replace')})
+            report['status']='fail'
+        if reverse is not None:report['isolation']['reversed_views']=len(reverse.completed)
+        if spool is not None:
+            try:spool.close(deadline=cleanup_deadline)
+            except BaseException as error:
+                report['failures'].append({'class':'cleanup-failure','worker':'history-spool','error':str(error)})
+                report['status']='fail'
         report['metrics']['elapsed_seconds']=time.monotonic()-began
         rss=resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
         report['metrics']['peak_child_rss_bytes']=rss if sys.platform=='darwin' else rss*1024

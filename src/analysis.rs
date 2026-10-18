@@ -417,67 +417,10 @@ pub fn selection_range(snapshot: &DocumentSnapshot, mut offset: usize) -> Select
 
 #[must_use]
 pub fn semantic_tokens(snapshot: &DocumentSnapshot) -> Vec<SemanticToken> {
-    let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let mut result = Vec::with_capacity(syntax.semantic_token_count());
-    for (index, token) in syntax.tokens().iter().enumerate() {
-        let token_type = match token.kind {
-            TokenKind::Comment => Some(17),
-            TokenKind::StringLiteral => Some(18),
-            TokenKind::Number => Some(19),
-            TokenKind::Operator => Some(20),
-            TokenKind::Identifier => {
-                let token_id = TokenId(index);
-                let name = syntax.name_for_token(token_id);
-                let symbol = syntax.symbol_for_token(token_id);
-                if (token.flags.contextual_keyword()
-                    || name.is_some_and(|name| syntax.is_keyword(name)))
-                    && syntax.reference_for_token(token_id).is_none()
-                {
-                    Some(15)
-                } else if let Some(symbol) = symbol.and_then(|id| syntax.symbol_by_id(id)) {
-                    Some(if symbol.kind == SymbolKind::Function {
-                        12
-                    } else {
-                        1
-                    })
-                } else if symbol.is_some_and(|id| syntax.binding_by_id(id).is_some()) {
-                    Some(8)
-                } else if syntax
-                    .reference_for_token(token_id)
-                    .is_some_and(|reference| {
-                        // Recovery coloring is syntactic, not a guessed target:
-                        // grammar-owned local bindings still take precedence.
-                        reference.token == token_id
-                            && matches!(
-                                reference.role,
-                                ReferenceRole::Call | ReferenceRole::Offload
-                            )
-                            && syntax
-                                .binding_named_at(reference.full_name, token.range.start)
-                                .is_none()
-                            && syntax
-                                .name_text(source, reference.name)
-                                .as_bytes()
-                                .first()
-                                .is_some_and(u8::is_ascii_lowercase)
-                    })
-                {
-                    Some(12)
-                } else if name.is_some_and(|name| {
-                    syntax
-                        .name_text(source, name)
-                        .as_bytes()
-                        .first()
-                        .is_some_and(u8::is_ascii_uppercase)
-                }) {
-                    Some(1)
-                } else {
-                    Some(8)
-                }
-            }
-            TokenKind::Punctuation | TokenKind::Delimiter => None,
-        };
+    for token in syntax.tokens() {
+        let token_type = token.flags.semantic_type();
         if let Some(token_type) = token_type {
             result.push(SemanticToken {
                 range: token.range,
@@ -559,9 +502,11 @@ fn completion_matches(label: &str, query: &str, ascii: bool) -> bool {
 fn ascii_subsequence_matches(label: &str, query: &str) -> bool {
     let mut characters = label.bytes();
     for wanted in query.bytes() {
-        let lower = wanted.to_ascii_lowercase();
-        let upper = wanted.to_ascii_uppercase();
-        if !characters.any(|character| character == lower || character == upper) {
+        // Folding only the ASCII case bit is sufficient for an alphabetic
+        // wanted byte, and cannot turn punctuation or UTF-8 bytes into a match.
+        let case_bit = u8::from(wanted.is_ascii_alphabetic()) << 5;
+        let wanted = wanted | case_bit;
+        if !characters.any(|character| character | case_bit == wanted) {
             return false;
         }
     }

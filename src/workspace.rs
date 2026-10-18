@@ -281,6 +281,59 @@ impl SourceGraph {
     }
 }
 
+struct PhysicalAliases {
+    first: FileId,
+    others: Vec<FileId>,
+}
+
+impl PhysicalAliases {
+    fn iter(&self) -> impl Iterator<Item = &FileId> {
+        std::iter::once(&self.first).chain(self.others.iter())
+    }
+
+    /// Remove an identity, returning whether this physical source has no owners.
+    fn remove(&mut self, file: FileId) -> bool {
+        if self.first == file {
+            let Some(first) = self.others.pop() else {
+                return true;
+            };
+            self.first = first;
+        } else {
+            self.others.retain(|candidate| *candidate != file);
+        }
+        false
+    }
+}
+struct ImportWatchDependents {
+    first: FileId,
+    others: HashSet<FileId>,
+}
+
+impl ImportWatchDependents {
+    fn iter(&self) -> impl Iterator<Item = &FileId> {
+        std::iter::once(&self.first).chain(self.others.iter())
+    }
+
+    fn insert(&mut self, file: FileId) {
+        if self.first != file {
+            self.others.insert(file);
+        }
+    }
+
+    fn remove(&mut self, file: FileId) -> bool {
+        if self.first == file {
+            let Some(first) = self.others.iter().next().copied() else {
+                return true;
+            };
+            self.others.remove(&first);
+            self.first = first;
+        } else {
+            self.others.remove(&file);
+        }
+        false
+    }
+}
+
 struct FileEntry {
     uri: Url,
     path: Option<PathBuf>,
@@ -296,6 +349,7 @@ struct FileEntry {
     import_paths: Box<[PathBuf]>,
     import_rename_paths: Box<[Option<PathBuf>]>,
     import_watch_paths: Box<[PathBuf]>,
+    editor_import_paths: Option<PreparedEditorImportPaths>,
     reverse_imports: Vec<FileId>,
 }
 
@@ -331,13 +385,12 @@ pub struct WorkspaceDb {
     semantic_views: HashMap<FileId, Arc<SemanticView>>,
     semantic_dependents: HashMap<FileId, HashSet<FileId>>,
     dirty_semantic_roots: HashSet<FileId>,
-    physical_files: HashMap<PathBuf, Vec<FileId>>,
+    physical_files: HashMap<PathBuf, PhysicalAliases>,
     physical_generations: HashMap<PathBuf, u64>,
     semantic_physical_dependents: HashMap<PathBuf, HashSet<FileId>>,
     semantic_library_path: Option<PathBuf>,
     semantic_base_importers: HashSet<FileId>,
-    import_path_dependents: HashMap<PathBuf, HashSet<FileId>>,
-    editor_import_paths: HashMap<FileId, PreparedEditorImportPaths>,
+    import_path_dependents: HashMap<PathBuf, ImportWatchDependents>,
 }
 
 impl WorkspaceDb {
@@ -428,7 +481,7 @@ impl WorkspaceDb {
                 PreparedImportTarget::Native { .. } => None,
             })
             .collect();
-        self.editor_import_paths.insert(id, editor_paths);
+        self.entries[id.0].editor_import_paths = Some(editor_paths);
         self.refresh_import_watch_paths(id);
         self.compiler_documents
             .get_or_insert_with(HashMap::new)
@@ -534,7 +587,7 @@ impl WorkspaceDb {
         entry.path.is_none()
             || entry.snapshot().is_none()
             || (!self.is_needed(*file) && !self.is_compiler_document(source))
-            || self.editor_import_paths.contains_key(file)
+            || entry.editor_import_paths.is_some()
     }
 
     pub(crate) fn set_editor_import_paths(
@@ -554,7 +607,7 @@ impl WorkspaceDb {
         {
             return false;
         }
-        self.editor_import_paths.insert(file, paths);
+        self.entries[file.0].editor_import_paths = Some(paths);
         self.refresh_import_watch_paths(file);
         true
     }
@@ -562,8 +615,8 @@ impl WorkspaceDb {
     pub(crate) fn invalidate_editor_import_path(&mut self, path: &Path) {
         let path = normalize_path(path);
         if let Some(sources) = self.import_path_dependents.get(&path) {
-            for source in sources {
-                self.editor_import_paths.remove(source);
+            for source in sources.iter() {
+                self.entries[source.0].editor_import_paths = None;
             }
         }
     }
@@ -601,7 +654,7 @@ impl WorkspaceDb {
         let prepared = self
             .by_path
             .get(source)
-            .and_then(|file| self.editor_import_paths.get(file));
+            .and_then(|file| self.entries[file.0].editor_import_paths.as_ref());
         let candidate = normalize_path(&source.parent()?.join(written));
         if let Some((path, _)) = prepared.and_then(|paths| paths.get_key_value(&candidate)) {
             return Some(path.as_path());
@@ -636,9 +689,9 @@ impl WorkspaceDb {
     ) -> Option<ImportRenameTarget<'a>> {
         let file = self.by_path.get(source)?;
         let logical = self.editor_import_target_path(source, written)?;
-        let physical = self
+        let physical = self.entries[file.0]
             .editor_import_paths
-            .get(file)
+            .as_ref()
             .and_then(|paths| paths.get(logical))
             .and_then(Option::as_deref)
             .unwrap_or(logical);
@@ -1112,10 +1165,13 @@ impl WorkspaceDb {
     }
 
     pub fn set_open_document(&mut self, document: Document, path: Option<PathBuf>) -> FileId {
-        let imports = path.as_deref().map_or_else(Vec::new, |path| {
-            resolve_import_targets(path, &document.snapshot)
-        });
         let physical_path = path.as_deref().map(canonical_source_path);
+        let imports = path
+            .as_deref()
+            .zip(physical_path.as_deref())
+            .map_or_else(Vec::new, |(path, physical)| {
+                resolve_import_targets(path, physical, &document.snapshot)
+            });
         self.set_open_document_prepared(document, path, physical_path, imports)
     }
 
@@ -1144,13 +1200,13 @@ impl WorkspaceDb {
         uri: &Url,
         snapshot: Arc<DocumentSnapshot>,
     ) -> Option<(FileId, bool)> {
-        let imports = self
-            .document_path(uri)
-            .map_or_else(Vec::new, |path| resolve_import_targets(&path, &snapshot));
-        let physical_path = self
-            .document_path(uri)
-            .as_deref()
-            .map(canonical_source_path);
+        let path = self.entries.get(self.by_uri.get(uri)?.0)?.path.as_deref();
+        let physical_path = path.map(canonical_source_path);
+        let imports = path
+            .zip(physical_path.as_deref())
+            .map_or_else(Vec::new, |(path, physical)| {
+                resolve_import_targets(path, physical, &snapshot)
+            });
         self.update_open_snapshot_prepared(uri, snapshot, physical_path, imports)
     }
 
@@ -1223,10 +1279,10 @@ impl WorkspaceDb {
         }
         let snapshot =
             text.map(|text| Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text)));
-        let imports = snapshot
-            .as_ref()
-            .map_or_else(Vec::new, |snapshot| resolve_import_targets(&path, snapshot));
         let physical_path = canonical_source_path(&path);
+        let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
+            resolve_import_targets(&path, &physical_path, snapshot)
+        });
         self.sync_disk_snapshot_prepared(&path, &physical_path, snapshot, imports)
     }
 
@@ -1533,6 +1589,12 @@ impl WorkspaceDb {
     }
 
     fn intern(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
+        if let Some(&id) = self.by_uri.get(&uri)
+            && self.entries[id.0].uri == uri
+            && self.entries[id.0].path == path
+        {
+            return id;
+        }
         let path = path.map(|path| normalize_path(&path));
         let existing = self
             .by_uri
@@ -1585,6 +1647,7 @@ impl WorkspaceDb {
             import_paths: Box::default(),
             import_rename_paths: Box::default(),
             import_watch_paths: Box::default(),
+            editor_import_paths: None,
             reverse_imports: Vec::new(),
         });
         self.by_uri.insert(uri, id);
@@ -1628,7 +1691,7 @@ impl WorkspaceDb {
                 }
             }
         }
-        self.editor_import_paths.insert(source, editor_paths);
+        self.entries[source.0].editor_import_paths = Some(editor_paths);
         self.refresh_import_watch_paths(source);
         if self.entries[source.0].imports.as_ref() == imports.as_slice()
             && self.entries[source.0].import_paths.as_ref() == import_paths.as_slice()
@@ -1678,13 +1741,15 @@ impl WorkspaceDb {
     }
 }
 pub(super) fn normalize_path(path: &Path) -> PathBuf {
-    let absolute = if path.is_absolute() {
-        path.to_path_buf()
+    let absolute;
+    let path = if path.is_absolute() {
+        path
     } else {
-        std::env::current_dir().unwrap_or_default().join(path)
+        absolute = std::env::current_dir().unwrap_or_default().join(path);
+        &absolute
     };
-    let mut normalized = PathBuf::new();
-    for component in absolute.components() {
+    let mut normalized = PathBuf::with_capacity(path.as_os_str().len());
+    for component in path.components() {
         match component {
             Component::CurDir => {}
             Component::ParentDir => {
@@ -1903,16 +1968,16 @@ fn hub_cached_path(imported: &str, library: &Path) -> Option<PathBuf> {
 
 pub(crate) fn resolve_import_targets(
     source: &Path,
+    physical_source: &Path,
     snapshot: &DocumentSnapshot,
 ) -> Vec<PreparedImportTarget> {
-    let physical_source = canonical_source_path(source);
     analysis::imports(snapshot)
         .iter()
         .filter_map(|import| {
             let imported = import.path_text(&snapshot.text);
             if import.valid_syntax
                 && let Some((path, physical_path, rename_path)) =
-                    resolve_native_import_target(source, &physical_source, imported)
+                    resolve_native_import_target(source, physical_source, imported)
             {
                 return Some(PreparedImportTarget::Native {
                     range: import.path,
@@ -1960,10 +2025,17 @@ fn resolve_native_import_target(
             return None;
         }
         let candidate = normalize_path(&source.parent()?.join(imported));
-        let physical = canonical_source_path(&physical_source.parent()?.join(imported));
+        let physical = if source.parent() == physical_source.parent() {
+            canonical_source_path(&candidate)
+        } else {
+            canonical_source_path(&physical_source.parent()?.join(imported))
+        };
         (candidate, physical)
     };
-    let path = if candidate == physical_path || canonical_source_path(&candidate) == physical_path {
+    let path = if candidate == physical_path
+        || source.parent() == physical_source.parent()
+        || canonical_source_path(&candidate) == physical_path
+    {
         candidate
     } else {
         physical_path.clone()

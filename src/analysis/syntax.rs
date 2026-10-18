@@ -22,11 +22,6 @@ mod locals;
 #[path = "syntax/parser.rs"]
 mod parser;
 
-const KEYWORDS: &[&str] = &[
-    "def", "law", "type", "is", "match", "case", "do", "return", "for", "exs", "where", "import",
-    "Type", "Data", "Kind", "Quant",
-];
-
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct TokenId(pub usize);
 
@@ -128,13 +123,51 @@ pub enum TokenKind {
     Punctuation,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default)]
 pub struct TokenFlags(u8);
+
+impl PartialEq for TokenFlags {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 & Self::LEXICAL_MASK == other.0 & Self::LEXICAL_MASK
+    }
+}
+
+impl Eq for TokenFlags {}
+
+impl std::fmt::Debug for TokenFlags {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_tuple("TokenFlags")
+            .field(&(self.0 & Self::LEXICAL_MASK))
+            .finish()
+    }
+}
 
 impl TokenFlags {
     const ESCAPED: u8 = 1;
     const UNTERMINATED: u8 = 2;
     const CONTEXTUAL_KEYWORD: u8 = 4;
+    // Presentation uses the spare bits without widening every Token. Public
+    // equality/debug and the lexical flag accessors remain independent of it.
+    const LEXICAL_MASK: u8 = 7;
+    const SEMANTIC_SHIFT: u32 = 3;
+
+    const fn with_semantic_type(self, token_type: Option<u8>) -> Self {
+        let encoded = match token_type {
+            Some(token_type) => (token_type + 1) << Self::SEMANTIC_SHIFT,
+            None => 0,
+        };
+        Self((self.0 & Self::LEXICAL_MASK) | encoded)
+    }
+
+    pub(super) fn semantic_type(self) -> Option<u32> {
+        let encoded = self.0 >> Self::SEMANTIC_SHIFT;
+        if encoded == 0 {
+            None
+        } else {
+            Some(u32::from(encoded - 1))
+        }
+    }
 
     #[must_use]
     pub const fn escaped(self) -> bool {
@@ -347,7 +380,7 @@ struct CallIndex {
 
 struct ReferenceIndex {
     references: Vec<Reference>,
-    by_symbol_indices: Vec<usize>,
+    source_indices: Vec<usize>,
     by_symbol_spans: Vec<TextRange>,
     by_name_indices: Vec<usize>,
     by_name_spans: Vec<TextRange>,
@@ -362,9 +395,36 @@ struct SyntaxLine {
     indent: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct NameFacts {
+    grammar: parser::Tag,
+    semantic_type: u8,
+    capitalized: bool,
+}
+
+impl NameFacts {
+    fn new(text: &str) -> Self {
+        let grammar = parser::Tag::classify(text.as_bytes());
+        let capitalized = text.as_bytes().first().is_some_and(u8::is_ascii_uppercase);
+        let semantic_type = if grammar.is_semantic_keyword() {
+            15
+        } else if capitalized {
+            1
+        } else {
+            8
+        };
+        Self {
+            grammar,
+            semantic_type,
+            capitalized,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 struct NameTable {
     ranges: Vec<TextRange>,
+    facts: Vec<NameFacts>,
     lookup: HashMap<u64, NameId>,
     collision_next: Vec<IndexSlot>,
     token_names: Vec<IndexSlot>,
@@ -373,6 +433,7 @@ impl NameTable {
     fn new() -> Self {
         Self {
             ranges: Vec::new(),
+            facts: Vec::new(),
             lookup: HashMap::new(),
             collision_next: Vec::new(),
             token_names: Vec::new(),
@@ -393,6 +454,7 @@ impl NameTable {
         }
         let id = NameId(self.ranges.len());
         self.ranges.push(range);
+        self.facts.push(NameFacts::new(name));
         self.collision_next.push(IndexSlot::from_option(
             self.lookup.insert(hash, id).map(|id| id.0),
         ));
@@ -432,23 +494,12 @@ impl NameTable {
     }
 }
 
-fn keyword_name_flags(source: &str, names: &NameTable) -> Vec<bool> {
-    let mut flags = vec![false; names.ranges.len()];
-    for keyword in KEYWORDS {
-        if let Some(name) = names.find(source, keyword) {
-            flags[name.0] = true;
-        }
-    }
-    flags
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct SyntaxIndex {
     tokens: Box<[Token]>,
     semantic_token_count: usize,
     parameter_hints: Box<[ParameterHint]>,
     names: NameTable,
-    keyword_names: Box<[bool]>,
     imports: Box<[IndexedImport]>,
     symbols: Box<[IndexedSymbol]>,
     bindings: Box<[IndexedBinding]>,
@@ -459,7 +510,7 @@ pub struct SyntaxIndex {
     scopes: Box<[IndexedScope]>,
     segments: Box<[NameSegment]>,
     references: Box<[Reference]>,
-    reference_indices: Box<[usize]>,
+    reference_source_indices: Box<[usize]>,
     reference_spans: Box<[TextRange]>,
     name_reference_indices: Box<[usize]>,
     name_reference_spans: Box<[TextRange]>,
@@ -509,7 +560,7 @@ impl SyntaxIndex {
             &mut scan.names,
         );
         let ScanOutput {
-            tokens,
+            mut tokens,
             semantic_token_count,
             names,
             diagnostics,
@@ -517,17 +568,15 @@ impl SyntaxIndex {
             delimiter_context,
             ..
         } = scan;
-        let keyword_names = keyword_name_flags(source, &names);
         let mut symbol_by_name = standalone_symbol_table(&facts.symbols, names.ranges.len());
         let constructor_targets = standalone_constructor_targets(&facts.constructors);
         let constructor_index = constructor_index(std::mem::take(&mut facts.constructors));
         let auxiliary = AuxiliaryIndex::new(diagnostics, constructor_index);
         resolve_standalone_references(&mut facts, &symbol_by_name, &constructor_targets);
+        let local_index = locals::LocalIndex::build(&facts.bindings, names.ranges.len());
         let (token_symbols, token_references) =
-            reference_token_index(tokens.len(), &facts.references, &facts.segments);
-        for call in &mut facts.calls {
-            call.callee = token_symbols[call.callee_token.0].value().map(SymbolId);
-        }
+            reference_token_index(source, &mut tokens, &names, &facts, &local_index);
+        let parameter_hint_count = resolve_calls(&mut facts.calls, &token_symbols, &facts.symbols);
         let calls = index_calls(
             facts.calls,
             &facts.references,
@@ -541,10 +590,14 @@ impl SyntaxIndex {
             facts.symbols.len() + facts.bindings.len(),
             names.ranges.len(),
         );
-        let local_index = locals::LocalIndex::build(&facts.bindings, names.ranges.len());
         let (completion_code_end, completion_eof_bindings) =
             completion_bindings_at_eof(&tokens, &facts.bindings, &facts.symbols);
-        let parameter_hints = build_parameter_hints(&calls.calls, &facts.arguments, &facts.symbols);
+        let parameter_hints = build_parameter_hints(
+            &calls.calls,
+            &facts.arguments,
+            &facts.symbols,
+            parameter_hint_count,
+        );
         for (name, id) in constructor_targets {
             if let Some(id) = id
                 && symbol_by_name[name.0].value().is_none()
@@ -558,7 +611,6 @@ impl SyntaxIndex {
             parameter_hints: parameter_hints.into_boxed_slice(),
             names,
             imports: facts.imports.into_boxed_slice(),
-            keyword_names: keyword_names.into_boxed_slice(),
             symbols: facts.symbols.into_boxed_slice(),
             bindings: facts.bindings.into_boxed_slice(),
             local_index,
@@ -568,7 +620,7 @@ impl SyntaxIndex {
             scopes: facts.scopes.into_boxed_slice(),
             segments: facts.segments.into_boxed_slice(),
             references: references.references.into_boxed_slice(),
-            reference_indices: references.by_symbol_indices.into_boxed_slice(),
+            reference_source_indices: references.source_indices.into_boxed_slice(),
             reference_spans: references.by_symbol_spans.into_boxed_slice(),
             name_reference_indices: references.by_name_indices.into_boxed_slice(),
             name_reference_spans: references.by_name_spans.into_boxed_slice(),
@@ -662,8 +714,10 @@ impl SyntaxIndex {
     }
 
     #[must_use]
-    pub fn all_references(&self) -> &[Reference] {
-        &self.references
+    pub fn all_references(&self) -> impl ExactSizeIterator<Item = &Reference> {
+        self.reference_source_indices
+            .iter()
+            .map(|index| &self.references[*index])
     }
 
     #[must_use]
@@ -756,12 +810,15 @@ impl SyntaxIndex {
 
     #[must_use]
     pub fn is_keyword(&self, name: NameId) -> bool {
-        self.keyword_names.get(name.0).copied().unwrap_or(false)
+        self.names
+            .facts
+            .get(name.0)
+            .is_some_and(|facts| facts.semantic_type == 15)
     }
 
     #[must_use]
     pub fn is_keyword_text(name: &str) -> bool {
-        KEYWORDS.contains(&name)
+        parser::Tag::classify(name.as_bytes()).is_semantic_keyword()
     }
 
     #[must_use]
@@ -883,11 +940,9 @@ impl SyntaxIndex {
             .or_else(|| self.binding_by_id(id).map(|binding| binding.name_range))
     }
 
-    pub fn references(&self, id: SymbolId) -> impl Iterator<Item = &Reference> {
+    pub fn references(&self, id: SymbolId) -> std::slice::Iter<'_, Reference> {
         let span = self.reference_spans.get(id.0).copied().unwrap_or_default();
-        self.reference_indices[span.start..span.end]
-            .iter()
-            .map(|index| &self.references[*index])
+        self.references[span.start..span.end].iter()
     }
 
     pub fn references_named(&self, name: NameId) -> impl Iterator<Item = &Reference> {
@@ -902,7 +957,7 @@ impl SyntaxIndex {
     }
 
     pub fn qualified_references(&self, root: NameId) -> impl Iterator<Item = &Reference> {
-        self.references.iter().filter(move |reference| {
+        self.all_references().filter(move |reference| {
             reference
                 .qualifier_token
                 .and_then(|token| self.name_for_token(token))
@@ -1139,6 +1194,26 @@ fn constructor_index(entries: Vec<IndexedConstructor>) -> Option<ConstructorInde
     })
 }
 
+fn resolve_calls(
+    calls: &mut [CallSite],
+    token_symbols: &[IndexSlot],
+    symbols: &[IndexedSymbol],
+) -> usize {
+    let mut hint_count = 0;
+    for call in calls {
+        call.callee = token_symbols[call.callee_token.0].value().map(SymbolId);
+        if let Some(symbol) = call
+            .callee
+            .and_then(|id| symbols.get(id.0))
+            .filter(|symbol| symbol.kind == SymbolKind::Function)
+        {
+            hint_count += (call.argument_indices.end - call.argument_indices.start)
+                .min(symbol.parameter_span.end - symbol.parameter_span.start);
+        }
+    }
+    hint_count
+}
+
 fn index_calls(
     calls: Vec<CallSite>,
     references: &[Reference],
@@ -1175,19 +1250,61 @@ fn index_calls(
 }
 
 fn reference_token_index(
-    token_count: usize,
-    references: &[Reference],
-    segments: &[NameSegment],
+    source: &str,
+    tokens: &mut [Token],
+    names: &NameTable,
+    facts: &parser::FileFacts,
+    local_index: &locals::LocalIndex,
 ) -> (Vec<IndexSlot>, Vec<IndexSlot>) {
-    let mut symbols = vec![IndexSlot::EMPTY; token_count];
-    let mut occurrences = vec![IndexSlot::EMPTY; token_count];
-    for (index, reference) in references.iter().enumerate() {
+    let mut symbols = vec![IndexSlot::EMPTY; tokens.len()];
+    let mut occurrences = vec![IndexSlot::EMPTY; tokens.len()];
+    for (index, reference) in facts.references.iter().enumerate() {
         if reference.synthetic {
             continue;
         }
-        for segment in &segments[reference.segment_span.start..reference.segment_span.end] {
+        let resolved_type = reference.resolved.and_then(|id| {
+            if let Some(symbol) = facts.symbols.get(id.0) {
+                Some(if symbol.kind == SymbolKind::Function {
+                    12
+                } else {
+                    1
+                })
+            } else {
+                id.0.checked_sub(facts.symbols.len())
+                    .filter(|index| *index < facts.bindings.len())
+                    .map(|_| 8)
+            }
+        });
+        // Cache the exact snapshot-local presentation while visiting the same
+        // segments needed for identity indexing. Recovery coloring never invents
+        // a target and cannot override a grammar-owned lexical binding.
+        let name_range = names.range(reference.name);
+        let recovery_call = resolved_type.is_none()
+            && matches!(reference.role, ReferenceRole::Call | ReferenceRole::Offload)
+            && local_index
+                .lookup(reference.full_name, tokens[reference.token.0].range.start)
+                .is_none()
+            && source[name_range.start..name_range.end]
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_lowercase);
+        for segment in &facts.segments[reference.segment_span.start..reference.segment_span.end] {
             symbols[segment.token.0] = IndexSlot::from_option(reference.resolved.map(|id| id.0));
             occurrences[segment.token.0] = IndexSlot::some(index);
+            let token_type = resolved_type.unwrap_or_else(|| {
+                if recovery_call && segment.token == reference.token {
+                    12
+                } else if names
+                    .for_token(segment.token)
+                    .is_some_and(|name| names.facts[name.0].capitalized)
+                {
+                    1
+                } else {
+                    8
+                }
+            });
+            let token = &mut tokens[segment.token.0];
+            token.flags = token.flags.with_semantic_type(Some(token_type));
         }
     }
     (symbols, occurrences)
@@ -1221,17 +1338,8 @@ fn build_parameter_hints(
     calls: &[CallSite],
     arguments: &[TextRange],
     symbols: &[IndexedSymbol],
+    capacity: usize,
 ) -> Vec<ParameterHint> {
-    let capacity = calls
-        .iter()
-        .filter_map(|call| {
-            let symbol = symbols.get(call.callee?.0)?;
-            (symbol.kind == SymbolKind::Function).then_some(
-                (call.argument_indices.end - call.argument_indices.start)
-                    .min(symbol.parameter_span.end - symbol.parameter_span.start),
-            )
-        })
-        .sum();
     let mut hints = Vec::with_capacity(capacity);
     for call in calls {
         let Some(symbol) = call
@@ -1256,20 +1364,48 @@ fn build_parameter_hints(
 }
 
 fn index_references(
-    references: Vec<Reference>,
-    token_references: Vec<IndexSlot>,
+    mut references: Vec<Reference>,
+    mut token_references: Vec<IndexSlot>,
     id_count: usize,
     name_count: usize,
 ) -> ReferenceIndex {
-    let (by_symbol_indices, by_symbol_spans) = compact_groups(&references, id_count, |reference| {
-        reference.resolved.map(|id| id.0)
+    // Store each target's wide records contiguously: callers copying a complete
+    // result can use one bulk copy instead of copying every occurrence separately.
+    // The final group retains unresolved/invalid targets without exposing them
+    // through a valid SymbolId. All other traversals preserve parser source order.
+    let (mut order, mut by_symbol_spans) = compact_groups(&references, id_count + 1, |reference| {
+        Some(reference.resolved.map_or(id_count, |id| id.0.min(id_count)))
     });
-    let (by_name_indices, by_name_spans) = compact_groups(&references, name_count, |reference| {
-        Some(reference.full_name.0)
-    });
+    let _ = by_symbol_spans.pop();
+    let (mut by_name_indices, by_name_spans) =
+        compact_groups(&references, name_count, |reference| {
+            Some(reference.full_name.0)
+        });
+    let mut source_indices = vec![0; references.len()];
+    for (destination, &source) in order.iter().enumerate() {
+        source_indices[source] = destination;
+    }
+    for slot in &mut token_references {
+        if let Some(source) = slot.value() {
+            *slot = IndexSlot::some(source_indices[source]);
+        }
+    }
+    for index in &mut by_name_indices {
+        *index = source_indices[*index];
+    }
+    // Consume a source -> destination permutation with swaps; do not allocate a
+    // second wide-record arena. Keep the immutable inverse for source traversals.
+    order.copy_from_slice(&source_indices);
+    for source in 0..order.len() {
+        while order[source] != source {
+            let destination = order[source];
+            references.swap(source, destination);
+            order.swap(source, destination);
+        }
+    }
     ReferenceIndex {
         references,
-        by_symbol_indices,
+        source_indices,
         by_symbol_spans,
         by_name_indices,
         by_name_spans,

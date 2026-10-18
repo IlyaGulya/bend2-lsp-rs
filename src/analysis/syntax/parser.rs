@@ -56,8 +56,8 @@ struct EnvironmentEntry {
     previous: Option<usize>,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum Tag {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum Tag {
     Other,
     Import,
     As,
@@ -123,7 +123,7 @@ enum Tag {
 }
 
 impl Tag {
-    fn classify(text: &[u8]) -> Self {
+    pub(super) fn classify(text: &[u8]) -> Self {
         match text {
             b"import" => Self::Import,
             b"as" => Self::As,
@@ -189,6 +189,28 @@ impl Tag {
             _ => Self::Other,
         }
     }
+
+    pub(super) fn is_semantic_keyword(self) -> bool {
+        matches!(
+            self,
+            Self::Def
+                | Self::Law
+                | Self::Type
+                | Self::Is
+                | Self::Match
+                | Self::Case
+                | Self::Do
+                | Self::Return
+                | Self::For
+                | Self::Exs
+                | Self::Where
+                | Self::Import
+                | Self::Universe
+                | Self::Data
+                | Self::Kind
+                | Self::Quant
+        )
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -197,44 +219,54 @@ struct ParserToken {
     tag: Tag,
 }
 
-fn significant_tokens(source: &str, tokens: &[Token]) -> Vec<ParserToken> {
+fn significant_tokens(
+    source: &str,
+    tokens: &[Token],
+    names: &NameTable,
+) -> (Vec<ParserToken>, usize) {
     let bytes = source.as_bytes();
-    tokens
-        .iter()
-        .enumerate()
-        .filter(|(_, token)| token.kind != TokenKind::Comment)
-        .map(|(index, token)| {
-            let range = token.range;
-            let tag = match token.kind {
-                TokenKind::Identifier
-                | TokenKind::Operator
-                | TokenKind::Delimiter
-                | TokenKind::Punctuation => Tag::classify(&bytes[range.start..range.end]),
-                _ => Tag::Other,
-            };
-            // Only a standalone, adjacent dot joins identifier segments. Dotted
-            // operators (.|., .^., .&.) must not hide a neighboring keyword.
-            let dotted = tag != Tag::Other
-                && token.kind == TokenKind::Identifier
-                && (index
-                    .checked_sub(1)
-                    .and_then(|index| tokens.get(index))
-                    .is_some_and(|previous| {
-                        previous.range.end == range.start
-                            && previous.range.end - previous.range.start == 1
-                            && bytes[previous.range.start] == b'.'
-                    })
-                    || tokens.get(index + 1).is_some_and(|next| {
-                        next.range.start == range.end
-                            && next.range.end - next.range.start == 1
-                            && bytes[next.range.start] == b'.'
-                    }));
-            ParserToken {
-                index,
-                tag: if dotted { Tag::Other } else { tag },
+    let mut significant = Vec::with_capacity(tokens.len());
+    let mut identifier_count = 0;
+    for (index, token) in tokens.iter().enumerate() {
+        if token.kind == TokenKind::Comment {
+            continue;
+        }
+        let range = token.range;
+        let tag = match token.kind {
+            TokenKind::Identifier => {
+                identifier_count += 1;
+                names
+                    .for_token(TokenId(index))
+                    .map_or(Tag::Other, |name| names.facts[name.0].grammar)
             }
-        })
-        .collect()
+            TokenKind::Operator | TokenKind::Delimiter | TokenKind::Punctuation => {
+                Tag::classify(&bytes[range.start..range.end])
+            }
+            _ => Tag::Other,
+        };
+        // Only a standalone, adjacent dot joins identifier segments. Dotted
+        // operators (.|., .^., .&.) must not hide a neighboring keyword.
+        let dotted = tag != Tag::Other
+            && token.kind == TokenKind::Identifier
+            && (index
+                .checked_sub(1)
+                .and_then(|index| tokens.get(index))
+                .is_some_and(|previous| {
+                    previous.range.end == range.start
+                        && previous.range.end - previous.range.start == 1
+                        && bytes[previous.range.start] == b'.'
+                })
+                || tokens.get(index + 1).is_some_and(|next| {
+                    next.range.start == range.end
+                        && next.range.end - next.range.start == 1
+                        && bytes[next.range.start] == b'.'
+                }));
+        significant.push(ParserToken {
+            index,
+            tag: if dotted { Tag::Other } else { tag },
+        });
+    }
+    (significant, identifier_count)
 }
 
 struct Parser<'a> {
@@ -273,7 +305,7 @@ pub(super) fn parse(
     line_index: &LineIndex,
     names: &mut NameTable,
 ) -> FileFacts {
-    let significant = significant_tokens(source, tokens);
+    let (significant, identifier_count) = significant_tokens(source, tokens, names);
     let limit = significant.len();
     let environment = vec![None; names.ranges.len()];
     let mut parser = Parser {
@@ -293,7 +325,7 @@ pub(super) fn parse(
         constructor_names: HashSet::new(),
         scope_bindings: Vec::new(),
         binding_next: Vec::new(),
-        pattern_candidates: Vec::new(),
+        pattern_candidates: Vec::with_capacity(identifier_count),
         declaration_references: Vec::new(),
         argument_work: Vec::new(),
         separator_work: Vec::new(),
@@ -309,8 +341,8 @@ pub(super) fn parse(
             constructors: Vec::new(),
             scopes: Vec::new(),
             bindings: Vec::new(),
-            references: Vec::new(),
-            segments: Vec::new(),
+            references: Vec::with_capacity(identifier_count),
+            segments: Vec::with_capacity(identifier_count),
             calls: Vec::new(),
             arguments: Vec::new(),
             separators: Vec::new(),
@@ -502,7 +534,11 @@ impl Parser<'_> {
                 .filter(|token| self.tokens[token.0].range.start < line.full_end)
             {
                 if Some(self.tokens[token.0].range.start) == alias_keyword {
-                    self.tokens[token.0].flags.0 |= super::TokenFlags::CONTEXTUAL_KEYWORD;
+                    let flags = self.tokens[token.0].flags;
+                    self.tokens[token.0].flags = super::TokenFlags(
+                        flags.with_semantic_type(Some(15)).0
+                            | super::TokenFlags::CONTEXTUAL_KEYWORD,
+                    );
                 }
                 let _ = self.bump();
             }
@@ -519,7 +555,11 @@ impl Parser<'_> {
                 if self.at(Tag::Unsafe)
                     && let Some(token) = self.token()
                 {
-                    self.tokens[token.0].flags.0 |= super::TokenFlags::CONTEXTUAL_KEYWORD;
+                    let flags = self.tokens[token.0].flags;
+                    self.tokens[token.0].flags = super::TokenFlags(
+                        flags.with_semantic_type(Some(15)).0
+                            | super::TokenFlags::CONTEXTUAL_KEYWORD,
+                    );
                 }
                 self.eat(Tag::Unsafe);
             }

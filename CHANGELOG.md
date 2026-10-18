@@ -29,6 +29,11 @@
   shrinking, and required fail-closed semantic checks. The PR resource profile
   remains provisional until at least 20 CI runs across five jobs validate it.
   Existing Callgrind metrics, thresholds, and baseline selection are unchanged.
+- Overlap complete forward and reversed semantic histories in two independent
+  persistent oracle sessions, retaining full reverse coverage and same-session
+  A/B/A, repeated-case, fresh-worker, and real stdio checks. Version the provisional
+  semantic resource profile for two native worker pairs without changing budgets
+  or the separate product Callgrind policy.
 - Require genuine compiler diagnostics in all six native and installed-executable
   E2E matrices. Pin official Unix archives and build the Windows compiler from
   exact upstream source with a pinned native Bun runtime and a resource-locator

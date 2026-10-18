@@ -283,8 +283,9 @@ fn prepare_will_sources(sources: Vec<WillSource>) -> Result<Vec<WillSource>> {
                 }
             }
         }
-        source.imports = resolve_import_targets(&source.path, &source.document);
-        source.physical_path = Some(crate::workspace::canonical_source_path(&source.path));
+        let physical_path = crate::workspace::canonical_source_path(&source.path);
+        source.imports = resolve_import_targets(&source.path, &physical_path, &source.document);
+        source.physical_path = Some(physical_path);
         prepared.push(source);
     }
     Ok(prepared)
@@ -430,14 +431,15 @@ fn prepare_sources(mut sources: Vec<RenameSource>) -> Vec<PreparedSource> {
             let disk_snapshot = std::fs::read_to_string(&source.path)
                 .ok()
                 .map(|text| Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text)));
+            let physical_path = crate::workspace::canonical_source_path(&source.path);
             let disk_imports = disk_snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                resolve_import_targets(&source.path, snapshot)
+                resolve_import_targets(&source.path, &physical_path, snapshot)
             });
             let imports = source.snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                resolve_import_targets(&source.path, snapshot)
+                resolve_import_targets(&source.path, &physical_path, snapshot)
             });
             PreparedSource {
-                physical_path: crate::workspace::canonical_source_path(&source.path),
+                physical_path,
                 source,
                 imports,
                 disk_snapshot,

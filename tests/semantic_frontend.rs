@@ -17,6 +17,51 @@ fn call_full_name<'a>(document: &'a DocumentSnapshot, call: &CallSite) -> &'a st
 }
 
 #[test]
+fn indexed_reference_traversals_preserve_source_order_and_token_identity() {
+    let source = "def first(x): second(x, D.target(x))\ndef second(y): first(y)\n";
+    let document = snapshot(source);
+    let syntax = &document.syntax;
+    let source_order: Vec<_> = syntax.all_references().collect();
+    assert_eq!(
+        source_order
+            .iter()
+            .map(|reference| syntax.name_text(source, reference.full_name))
+            .collect::<Vec<_>>(),
+        [
+            "first", "x", "second", "x", "D.target", "x", "second", "y", "first", "y"
+        ]
+    );
+    for id in syntax
+        .symbols()
+        .iter()
+        .map(|symbol| symbol.id)
+        .chain(syntax.bindings().iter().map(|binding| binding.id))
+    {
+        let expected: Vec<_> = source_order
+            .iter()
+            .copied()
+            .filter(|reference| reference.resolved == Some(id))
+            .collect();
+        assert_eq!(syntax.references(id).collect::<Vec<_>>(), expected);
+    }
+    for reference in source_order {
+        for segment in syntax.reference_segments(reference) {
+            assert_eq!(syntax.reference_for_token(segment.token), Some(reference));
+        }
+        let expected: Vec<_> = syntax
+            .all_references()
+            .filter(|candidate| candidate.full_name == reference.full_name)
+            .collect();
+        assert_eq!(
+            syntax
+                .references_named(reference.full_name)
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
+}
+
+#[test]
 fn lambda_call_resolves_to_its_binder_and_stops_at_argument_boundary() {
     let source = "def target(x: U32) -> U32: x\ndef main(target: U32) -> U32: apply(target => target(1), target)\n";
     let document = snapshot(source);
@@ -282,7 +327,6 @@ fn implicit_array_write_rebinding_retains_both_same_span_origins() {
     let start = source.find("a[i]").must_be("array write");
     let occurrences: Vec<_> = syntax
         .all_references()
-        .iter()
         .filter(|reference| reference.full_range == TextRange::new(start, start + 1))
         .collect();
     assert_eq!(occurrences.len(), 2);
@@ -1095,7 +1139,6 @@ fn law_existential_domains_do_not_consume_the_following_braced_type_as_a_constru
     let proof_start = source.find("{x == y").must_be("written equality");
     let locals: Vec<_> = syntax
         .all_references()
-        .iter()
         .filter(|reference| reference.full_range.start >= proof_start)
         .filter_map(|reference| {
             let name = syntax.name_text(source, reference.full_name);
@@ -1302,7 +1345,6 @@ fn native_import_headers_accept_reserved_aliases_without_term_occurrences() {
             document
                 .syntax
                 .all_references()
-                .iter()
                 .all(|reference| reference.full_range.start > header.len())
         );
         assert!(

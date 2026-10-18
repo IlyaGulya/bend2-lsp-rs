@@ -315,6 +315,14 @@ impl<'a> Scanner<'a> {
         flags: TokenFlags,
         name: Option<NameId>,
     ) {
+        let token_type = match kind {
+            TokenKind::Identifier => name.map(|name| self.names.facts[name.0].semantic_type),
+            TokenKind::Comment => Some(17),
+            TokenKind::StringLiteral => Some(18),
+            TokenKind::Number => Some(19),
+            TokenKind::Operator => Some(20),
+            TokenKind::Punctuation | TokenKind::Delimiter => None,
+        };
         self.semantic_token_count += usize::from(!matches!(
             kind,
             TokenKind::Punctuation | TokenKind::Delimiter
@@ -322,7 +330,7 @@ impl<'a> Scanner<'a> {
         self.tokens.push(Token {
             range: TextRange::new(start, end),
             kind,
-            flags,
+            flags: flags.with_semantic_type(token_type),
         });
         self.delimiter_context.push(IndexSlot::from_option(
             self.delimiters.last().map(|(_, id)| id.0),

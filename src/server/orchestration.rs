@@ -165,12 +165,19 @@ impl Backend {
         let opened = run_staging(self.workspace.staging.clone(), move || {
             let snapshot = Arc::new(trace_document_snapshot(Revision(version), text));
             let document = Document::with_snapshot(uri, language_id, snapshot);
-            let imports = build_path.as_deref().map_or_else(Vec::new, |path| {
-                crate::workspace::resolve_import_targets(path, &document.snapshot)
-            });
             let physical_path = build_path
                 .as_deref()
                 .map(crate::workspace::canonical_source_path);
+            let imports = build_path
+                .as_deref()
+                .zip(physical_path.as_deref())
+                .map_or_else(Vec::new, |(path, physical_path)| {
+                    crate::workspace::resolve_import_targets(
+                        path,
+                        physical_path,
+                        &document.snapshot,
+                    )
+                });
             let library_path = crate::workspace::canonical_library_path();
             (document, imports, physical_path, library_path)
         })
@@ -472,10 +479,17 @@ impl Backend {
         let generation = self.workspace.generation();
         let Some((document, path, physical_path, library_path, imports)) =
             run_staging(self.workspace.staging.clone(), move || {
-                let imports = path.as_deref().map_or_else(Vec::new, |path| {
-                    crate::workspace::resolve_import_targets(path, &document.snapshot)
-                });
                 let physical_path = path.as_deref().map(crate::workspace::canonical_source_path);
+                let imports = path.as_deref().zip(physical_path.as_deref()).map_or_else(
+                    Vec::new,
+                    |(path, physical_path)| {
+                        crate::workspace::resolve_import_targets(
+                            path,
+                            physical_path,
+                            &document.snapshot,
+                        )
+                    },
+                );
                 let library_path = crate::workspace::canonical_library_path();
                 (document, path, physical_path, library_path, imports)
             })
@@ -558,10 +572,13 @@ impl Backend {
                     document.language_id.clone(),
                     snapshot.clone(),
                 );
-                let imports = path.as_deref().map_or_else(Vec::new, |path| {
-                    crate::workspace::resolve_import_targets(path, &snapshot)
-                });
                 let physical_path = path.as_deref().map(crate::workspace::canonical_source_path);
+                let imports = path.as_deref().zip(physical_path.as_deref()).map_or_else(
+                    Vec::new,
+                    |(path, physical_path)| {
+                        crate::workspace::resolve_import_targets(path, physical_path, &snapshot)
+                    },
+                );
                 let library_path = crate::workspace::canonical_library_path();
                 (updated_document, physical_path, library_path, imports)
             })
@@ -809,11 +826,16 @@ impl Backend {
                     let snapshot = std::fs::read_to_string(&file.path)
                         .ok()
                         .map(|text| Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text)));
+                    let physical_path = crate::workspace::canonical_source_path(&file.path);
                     let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                        crate::workspace::resolve_import_targets(&file.path, snapshot)
+                        crate::workspace::resolve_import_targets(
+                            &file.path,
+                            &physical_path,
+                            snapshot,
+                        )
                     });
                     PreparedDiskUpdate {
-                        physical_path: crate::workspace::canonical_source_path(&file.path),
+                        physical_path,
                         file,
                         snapshot,
                         imports,
@@ -822,14 +844,19 @@ impl Backend {
                 .collect();
             let importers = importers
                 .into_iter()
-                .map(|importer| PreparedImporter {
-                    id: importer.id,
-                    physical_path: crate::workspace::canonical_source_path(&importer.path),
-                    imports: crate::workspace::resolve_import_targets(
+                .map(|importer| {
+                    let physical_path = crate::workspace::canonical_source_path(&importer.path);
+                    let imports = crate::workspace::resolve_import_targets(
                         &importer.path,
+                        &physical_path,
                         &importer.snapshot,
-                    ),
-                    snapshot: importer.snapshot,
+                    );
+                    PreparedImporter {
+                        id: importer.id,
+                        physical_path,
+                        imports,
+                        snapshot: importer.snapshot,
+                    }
                 })
                 .collect();
             (

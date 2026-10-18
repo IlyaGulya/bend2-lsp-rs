@@ -29,13 +29,37 @@ The worker canonicalizes its sandbox before enforcing path containment. Every
 case gets a fresh compiler Book; A/B/A, repeated, reversed-order, and fresh-process
 checks detect state leakage.
 
-One project remains in flight. Its instrumented and pristine native compiler
-paths run concurrently in isolated Bun threads, with identical persistent
-request histories and a fresh Book in each path. Complete ordered native
+Two independent persistent oracle sessions overlap the complete forward
+differential history and complete reversed valid history. Each session has at
+most one project in flight. Within each session, instrumented and pristine native
+compiler paths run concurrently in isolated Bun threads, with the exact same
+ordered request history and a fresh Book in each path. No mutable Book or Base
+is shared across requests or sessions. Complete ordered native
 `term_key(term_lower(...))` components are compared through a credited, bounded
 stream; Base is neither cached nor omitted from parity. Per-path stage durations
 overlap and must not be summed as wall latency. Required bounded setup also runs
 native Book-field mutation, stream corruption, worker-failure, and EOF contracts.
+
+The forward session completes all 634 planned views (627 valid comparisons,
+five intended-invalid views, two recovery views), then performs the proof-context
+A/B/A and repeated-case checks in that same session. The reverse session covers
+all 627 valid views in exact reversed order and retains bounded IDs and semantic
+hashes until every result is compared with the forward history. It is joined
+and shut down before the fresh-worker comparison and 13 real stdio projects
+(418 consumer checks). A timeout, EOF, mismatch, or early forward failure cancels
+and joins the reverse owner; original failures remain failures, not partial
+successes. Reports include independent worker PIDs, complete reverse IDs/hashes,
+per-history start/finish/close times, per-case RPC intervals, and the measured
+intersection of forward/reverse RPC intervals (`oracle_rpc_overlap_seconds`).
+
+Exact forward/reverse native reply bytes are temporarily retained in one visible,
+compressed spool under the attempt's artifact directory. The spool is charged
+against the existing artifact byte/file ceilings, checks those ceilings before
+each append, retains only bounded indexes in memory, and is deleted once history
+comparison succeeds or during failure cleanup. A state-leak bundle contains both
+original replies, their IDs/hashes, ordered prior history identities, worker PIDs,
+and pinned provenance. Cancellation and owner joining share the pinned two-second
+shutdown grace and remaining deadline; repeated cleanup does not renew that grace.
 
 Exact source origins distinguish identical files and same-spelling declarations.
 Comparisons include missing and extra edges, multiplicity, binding versus global
@@ -111,12 +135,14 @@ than blessing candidate output as compiler truth.
 
 ## Resource and performance contracts
 
-The initial PR profile is **provisional**, not calibrated evidence:
+The PR profile `semantic-pr-v3-parallel-histories-release` is **provisional**, not
+calibrated evidence. Its two case-worker pairs change scheduling only; corpus,
+seed, release build settings, limits, and admission targets remain unchanged:
 
 | Constraint | Initial profile |
 | --- | ---: |
 | Generated projects | 256 |
-| Worker concurrency | 1 |
+| Worker concurrency (independent pristine/instrumented pairs) | 2 |
 | Successful-run p95 target | 60 s |
 | Hard measured-run deadline | 120 s |
 | Setup target, measured separately | 300 s |

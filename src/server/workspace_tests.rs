@@ -413,12 +413,14 @@ mod tests {
             generated_source.into(),
         ));
         let generated_payload = Arc::downgrade(&snapshot);
-        let imports = crate::workspace::resolve_import_targets(&generated_path, &snapshot);
+        let physical_path = crate::workspace::canonical_source_path(&generated_path);
+        let imports =
+            crate::workspace::resolve_import_targets(&generated_path, &physical_path, &snapshot);
         let mut database = WorkspaceDb::default();
         database.register_compiler_document(
             generated_uri.clone(),
             generated_path.clone(),
-            crate::workspace::canonical_source_path(&generated_path),
+            physical_path,
             snapshot,
             imports,
             Arc::new(directory),

@@ -33,7 +33,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / "scripts/semantic_gate_profile.json"
 PROFILE = json.loads(PROFILE_PATH.read_text())
-if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v2-release":
+if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v3-parallel-histories-release" or PROFILE.get("workers") != 2:
     raise ValueError("unsupported semantic supervisor profile; review profile and runner together")
 INTERRUPTED = None
 
@@ -422,8 +422,25 @@ def validate_report(plan, report):
     stdio = report["stdio"]
     if not stdio["planned"] or not (stdio["planned"] == stdio["completed"] == stdio["passed"]):
         raise ValueError("incomplete real stdio scenarios")
-    if not report["isolation"].get("aba") or not report["isolation"].get("fresh"):
+    isolation = report["isolation"]
+    if not all(isolation.get(check) for check in ("aba", "fresh", "repeated")):
         raise ValueError("missing worker isolation checks")
+    valid_ids = [row["id"] for row in planned if row.get("facet", "valid") == "valid"]
+    forward_hashes = {row["id"]: row["oracle_sha256"] for row in report["completed"]}
+    expected_reverse = [{"id": key, "oracle_sha256": forward_hashes[key]} for key in reversed(valid_ids)]
+    if isolation.get("reversed_views") != len(valid_ids) or isolation.get("reversed_history") != expected_reverse:
+        raise ValueError("missing, reordered or divergent reverse oracle history")
+    histories = report["metrics"]["histories"]
+    forward, reverse = histories["forward"], histories["reverse"]
+    if histories.get("workers") != PROFILE["workers"] or forward.get("planned") != len(planned) or forward.get("completed") != len(planned):
+        raise ValueError("incomplete forward worker history")
+    if reverse.get("planned") != len(valid_ids) or reverse.get("completed") != len(valid_ids) or reverse.get("complete") is not True:
+        raise ValueError("incomplete reverse worker history")
+    identities = [forward["pid"], reverse["pid"], histories["candidate_pid"], histories["fresh_pid"]]
+    if any(type(pid) is not int or pid <= 0 for pid in identities) or len(set(identities)) != len(identities):
+        raise ValueError("non-independent semantic workers")
+    if [row["id"] for row in reverse["cases"]] != list(reversed(valid_ids)):
+        raise ValueError("incomplete reverse history timing")
 
 def default_candidate():
     return Path(os.environ.get("CARGO_TARGET_DIR", ROOT/"target"))/"release/examples/semantic_probe"

@@ -768,7 +768,7 @@ impl WorkspaceDb {
     }
 
     pub(super) fn invalidate_semantic_file(&mut self, file: FileId) {
-        self.editor_import_paths.remove(&file);
+        self.entries[file.0].editor_import_paths = None;
         self.entries[file.0].semantic_generation =
             self.entries[file.0].semantic_generation.wrapping_add(1);
         if let Some(roots) = self.semantic_dependents.remove(&file) {

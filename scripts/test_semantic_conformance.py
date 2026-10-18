@@ -13,7 +13,7 @@ import sys
 import tempfile
 import unittest
 
-from semantic_conformance import ToolFailure, Worker, apply_manifest_requirements, check_manifest_assertions, compare, make_plan, normalized, semantic_structure, validate_plan, validate_source_provenance
+from semantic_conformance import RawHistorySpool, ReverseHistory, ToolFailure, Worker, apply_manifest_requirements, check_manifest_assertions, compare, make_plan, normalized, semantic_structure, validate_plan, validate_source_provenance
 from semantic_generate import FAMILIES, PROFILE, canonical, generate, layout_variant, remap_answer, validate_bounds
 from semantic_install import SOURCE, authenticate_runtime, digest, instrument
 from semantic_replay import load_bundle, predicate, reductions, safe_name
@@ -434,6 +434,127 @@ class ProvenanceAndReplayTests(unittest.TestCase):
         self.assertNotEqual(observed,swapped)
         moved=answer(21)
         self.assertNotEqual(observed,predicate(moved,answer(10),source))
+
+
+class ReverseHistoryFailureTests(unittest.TestCase):
+    # Real pipes/processes exercise cancellation and late failure boundaries.
+    # These protocol specimens are not a semantic oracle or native parity proof.
+    def items(self):
+        return [{'id':name,'case_id':name,'root':'main.bend','case':{'files':{'main.bend':'def main(): Type\n'},'revisions':{'main.bend':1}}} for name in ('a','b','c')]
+
+    def history(self,program,items=None):
+        directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup)
+        spool=RawHistorySpool(directory.name);self.addCleanup(spool.close)
+        items=self.items() if items is None else items
+        self.forward_raw={}
+        for item in items:
+            specimen={'schema':1,'id':item['id'],'root':'main.bend','outcome':'valid','provenance':{},'revisions':{'main.bend':1},'declarations':[],'occurrences':[]}
+            raw=b' '+canonical(specimen)+b'   ';self.forward_raw[item['id']]=raw
+            spool.append('forward',item,raw,digest(canonical(normalized(specimen))))
+        started=time.monotonic()
+        history=ReverseHistory([sys.executable,'-c',program],items,{},started+4,started,spool)
+        self.addCleanup(history.close)
+        return history
+
+    def valid_program(self,tail=''):
+        return ("import json,sys\n"
+            "for index,line in enumerate(sys.stdin):\n"
+            " request=json.loads(line)\n"
+            " reply={'schema':1,'id':request['id'],'root':'main.bend','outcome':'valid','provenance':{},'revisions':{'main.bend':1},'declarations':[],'occurrences':[]}\n"
+            +tail+
+            " print('  '+json.dumps(reply)+'  ',flush=True)\n")
+
+    def test_last_reverse_error_preserves_original_reply_and_cannot_pass_partial(self):
+        history=self.history(self.valid_program(" if index==2:reply.update(outcome='oracle-error',error='original-tail-failure')\n"))
+        with self.assertRaisesRegex(ToolFailure,'original-tail-failure') as caught:
+            history.finish({})
+        evidence=caught.exception.history_failure
+        self.assertEqual(evidence['item']['id'],'a')
+        self.assertEqual(json.loads(evidence['raw'])['error'],'original-tail-failure')
+        self.assertEqual([row['id'] for row in history.completed],['c','b'])
+        self.assertFalse(history.thread.is_alive())
+        self.assertIsNotNone(history.worker.process.returncode)
+
+    def test_late_hash_mismatch_is_not_hidden_by_complete_reverse_count(self):
+        history=self.history(self.valid_program(" if index==2:reply['revisions']['main.bend']=2\n"))
+        specimen={'root':'main.bend','outcome':'valid','revisions':{'main.bend':1},'declarations':[],'occurrences':[]}
+        expected=digest(canonical(normalized(specimen)))
+        with self.assertRaisesRegex(ToolFailure,'oracle-state-leak') as caught:
+            history.finish(dict.fromkeys(('a','b','c'),expected))
+        evidence=caught.exception.history_failure
+        self.assertEqual(evidence['item']['id'],'a')
+        self.assertEqual(evidence['oracle']['revisions'],{'main.bend':2})
+        self.assertEqual(evidence['forward']['revisions'],{'main.bend':1})
+        self.assertTrue(evidence['raw'].startswith(b'  {'));self.assertTrue(evidence['raw'].endswith(b'}  '))
+        self.assertEqual(evidence['forward_raw'],self.forward_raw['a'])
+        self.assertEqual([row['id'] for row in evidence['prior_histories']['reverse']],['c','b'])
+        self.assertEqual(evidence['prior_histories']['forward'],[])
+        self.assertEqual([row['id'] for row in history.completed],['c','b','a'])
+        self.assertTrue(history.metrics['complete'])
+
+    def test_eof_keeps_truncated_original_bytes(self):
+        history=self.history("import sys;sys.stdin.readline();sys.stdout.write('{original-truncated');sys.stdout.flush()")
+        with self.assertRaisesRegex(ToolFailure,'truncated-reply') as caught:
+            history.finish({})
+        self.assertEqual(caught.exception.history_failure['raw'],b'{original-truncated')
+        self.assertFalse(history.thread.is_alive())
+
+    def test_forward_cancellation_does_not_erase_a_native_error_already_in_the_pipe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ready=Path(directory)/'emitted'
+            program=("import json,pathlib,sys,time;request=json.loads(sys.stdin.readline());"
+                "print(json.dumps({'schema':1,'id':request['id'],'root':'main.bend','outcome':'oracle-error','provenance':{},'error':'original-racing-failure'}),flush=True);"
+                "pathlib.Path("+repr(str(ready))+").write_text('emitted');time.sleep(30)")
+            history=self.history(program)
+            deadline=time.monotonic()+2
+            while not ready.exists() and history.failure is None and time.monotonic()<deadline:time.sleep(.001)
+            self.assertTrue(ready.exists() or history.failure is not None)
+            history.cancel();history.close()
+            with self.assertRaisesRegex(ToolFailure,'original-racing-failure') as caught:history.check()
+            self.assertEqual(json.loads(caught.exception.history_failure['raw'])['error'],'original-racing-failure')
+
+    def test_early_forward_cancellation_unblocks_inflight_reverse_and_reaps_it(self):
+        for phase in ('write','reply'):
+            with self.subTest(phase=phase),tempfile.TemporaryDirectory() as directory:
+                ready=Path(directory)/'inflight'
+                items=self.items()
+                if phase=='write':
+                    for item in items:item['case']['files']['main.bend']='x'*140000
+                consume="sys.stdin.readline();" if phase=='reply' else ""
+                history=self.history("import pathlib,sys,time;"+consume+"pathlib.Path("+repr(str(ready))+").write_text('ready');time.sleep(30)",items)
+                deadline=time.monotonic()+2
+                while not ready.exists() and time.monotonic()<deadline:time.sleep(.005)
+                self.assertTrue(ready.exists(),'reverse request did not start')
+                self.assertTrue(history.worker.awaiting)
+                started=time.monotonic();history.close()
+                self.assertLess(time.monotonic()-started,3)
+                self.assertFalse(history.thread.is_alive())
+                self.assertIsNotNone(history.worker.process.returncode)
+                self.assertIsNone(history.failure,'intentional cancellation replaced the forward failure')
+                cutoff=history.cleanup_deadline;history.close()
+                self.assertEqual(history.cleanup_deadline,cutoff)
+
+
+class RawHistorySpoolBoundaryTests(unittest.TestCase):
+    def test_visible_spool_is_counted_and_removed_without_exceeding_byte_limit(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            spool=RawHistorySpool(directory)
+            self.addCleanup(spool.close)
+            self.assertEqual(list(Path(directory).iterdir()),[spool.path])
+            item={'id':'one','input_sha256':'input'}
+            with patch.dict('semantic_conformance.GATE_PROFILE',{'artifact_bytes':1}):
+                with self.assertRaisesRegex(ToolFailure,'artifact-limit'):
+                    spool.append('forward',item,b'original bytes','semantic')
+            self.assertEqual(spool.path.stat().st_size,0)
+            spool.close()
+            self.assertEqual(list(Path(directory).iterdir()),[])
+
+    def test_spool_creation_cannot_bypass_file_count_limit(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory,patch.dict('semantic_conformance.GATE_PROFILE',{'artifact_files':0}):
+            with self.assertRaisesRegex(ToolFailure,'artifact-limit'):RawHistorySpool(directory)
+            self.assertEqual(list(Path(directory).iterdir()),[])
 
 
 if __name__=='__main__':unittest.main()

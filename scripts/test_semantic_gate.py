@@ -349,17 +349,50 @@ class ReportTests(unittest.TestCase):
     def setUp(self):
         self.plan = {"schema":1, "planned": [{"id":"a", "input_sha256":"digest", "facet":"valid", "case":{"families":["lambda"]}}],
             "pin_sha256":"pin", "profile_sha256":"profile", "manifest_sha256":"manifest"}
-        self.report = {"schema":1, "status":"pass", "completed":[{"id":"a", "input_sha256":"digest"}],
+        self.report = {"schema":1, "status":"pass", "completed":[{"id":"a", "input_sha256":"digest", "oracle_sha256":"0"*64}],
             "counts":{**dict.fromkeys(("planned", "validated", "compared", "matched", "valid_planned"),1),
                 "invalid_planned":0, "recovery_planned":0, "intended_invalid":0, "recovery":0},
             "failures":[], **{key:self.plan[key] for key in
                 ("pin_sha256", "profile_sha256", "manifest_sha256")},
             "coverage":{"lambda":{"planned":1,"validated":1,"compared":1,"matched":1}},
-            "stdio":{"planned":2,"completed":2,"passed":2}, "isolation":{"aba":True,"fresh":True}}
+            "stdio":{"planned":2,"completed":2,"passed":2},
+            "isolation":{"aba":True,"fresh":True,"repeated":True,"reversed_views":1,
+                "reversed_history":[{"id":"a","oracle_sha256":"0"*64}]},
+            "metrics":{"histories":{"workers":2,"candidate_pid":103,"fresh_pid":104,
+                "forward":{"pid":101,"planned":1,"completed":1},
+                "reverse":{"pid":102,"planned":1,"completed":1,"complete":True,"cases":[{"id":"a"}]}}}}
         self.report["planned"] = copy.deepcopy(self.report["completed"])
 
     def test_complete_report_passes(self):
         gate.validate_report(self.plan, self.report)
+
+    def test_reverse_coverage_and_session_independence_fail_closed(self):
+        for mutation in ("omitted","duplicate","wrong-hash","incomplete","shared-session","not-repeated"):
+            report=copy.deepcopy(self.report)
+            if mutation=="omitted":report["isolation"]["reversed_history"]=[]
+            elif mutation=="duplicate":report["isolation"]["reversed_history"]*=2
+            elif mutation=="wrong-hash":report["isolation"]["reversed_history"][0]["oracle_sha256"]="1"*64
+            elif mutation=="incomplete":report["metrics"]["histories"]["reverse"]["complete"]=False
+            elif mutation=="shared-session":report["metrics"]["histories"]["reverse"]["pid"]=101
+            else:report["isolation"]["repeated"]=False
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):
+                gate.validate_report(self.plan,report)
+
+    def test_reverse_order_cannot_be_replaced_with_forward_order(self):
+        plan=copy.deepcopy(self.plan);report=copy.deepcopy(self.report)
+        plan["planned"].append({**copy.deepcopy(plan["planned"][0]),"id":"b","input_sha256":"second"})
+        second={"id":"b","input_sha256":"second","oracle_sha256":"1"*64}
+        report["planned"].append(second);report["completed"].append(second)
+        for field in ("planned","validated","compared","matched","valid_planned"):report["counts"][field]=2
+        report["coverage"]["lambda"]=dict.fromkeys(("planned","validated","compared","matched"),2)
+        history=[{"id":"b","oracle_sha256":"1"*64},{"id":"a","oracle_sha256":"0"*64}]
+        report["isolation"].update(reversed_views=2,reversed_history=history)
+        report["metrics"]["histories"]["forward"].update(planned=2,completed=2)
+        report["metrics"]["histories"]["reverse"].update(planned=2,completed=2,cases=[{"id":"b"},{"id":"a"}])
+        gate.validate_report(plan,report)
+        report["isolation"]["reversed_history"].reverse()
+        with self.assertRaisesRegex(ValueError,"reordered"):
+            gate.validate_report(plan,report)
 
     def test_unknown_schema_and_missing_family_fail(self):
         with self.assertRaises(ValueError):
@@ -407,8 +440,9 @@ class ReportTests(unittest.TestCase):
                 plan = {**self.plan,"planned":[*self.plan["planned"],extra]}
                 report = copy.deepcopy(self.report)
                 report["planned"].append({"id":lane,"input_sha256":"other"})
-                report["completed"].append({"id":lane,"input_sha256":"other"})
+                report["completed"].append({"id":lane,"input_sha256":"other","oracle_sha256":"1"*64})
                 report["counts"].update(planned=2, **{f"{lane}_planned":1})
+                report["metrics"]["histories"]["forward"].update(planned=2,completed=2)
                 with self.assertRaises(ValueError):
                     gate.validate_report(plan, report)
                 report["counts"]["intended_invalid" if lane=="invalid" else "recovery"] = 1

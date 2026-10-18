@@ -113,8 +113,9 @@ impl WorkspaceService {
                 continue;
             };
             let snapshot = Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text));
-            let imports = crate::workspace::resolve_import_targets(&path, &snapshot);
             let physical_path = canonical_source_path(&path);
+            let imports =
+                crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
             sources.push(PreparedSource {
                 path,
                 physical_path,
@@ -264,10 +265,14 @@ impl WorkspaceService {
                             .map(|text| {
                                 Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text))
                             });
-                        let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                            crate::workspace::resolve_import_targets(&path, snapshot)
-                        });
                         let physical_path = canonical_source_path(&path);
+                        let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
+                            crate::workspace::resolve_import_targets(
+                                &path,
+                                &physical_path,
+                                snapshot,
+                            )
+                        });
                         (id, generation, path, physical_path, snapshot, imports)
                     })
                     .collect::<Vec<_>>()
