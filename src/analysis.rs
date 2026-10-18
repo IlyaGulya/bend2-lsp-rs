@@ -703,19 +703,34 @@ fn collect_module_completions(
     prefix: &str,
     ascii_prefix: bool,
 ) -> Vec<Completion> {
-    let mut items = Vec::new();
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    for symbol in syntax.symbols() {
-        let name = syntax.name_text(source, symbol.name);
-        if completion_matches(name, prefix, ascii_prefix) {
-            items.push(completion(
-                name.to_owned(),
-                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                symbol.kind,
-            ));
-        }
+    let named_symbols = syntax
+        .symbols()
+        .iter()
+        .map(|symbol| (symbol, syntax.name_text(source, symbol.name)));
+    let matches = |(_, name): &(_, &str)| completion_matches(name, prefix, ascii_prefix);
+    let mut remaining = named_symbols.clone();
+    // Seed ordinary Vec growth from leading matches, without allocating for a
+    // miss or reserving space for unrelated declarations. take_while consumes
+    // the first non-match; every remaining symbol is tested exactly once.
+    let leading_matches = remaining.by_ref().take_while(matches).count();
+    let mut items = Vec::new();
+    if leading_matches != 0 {
+        items.reserve(leading_matches.next_power_of_two());
     }
+    items.extend(
+        named_symbols
+            .take(leading_matches)
+            .chain(remaining.filter(matches))
+            .map(|(symbol, name)| {
+                completion(
+                    name.to_owned(),
+                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                    symbol.kind,
+                )
+            }),
+    );
     items
 }
 
