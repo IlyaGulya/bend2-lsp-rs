@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "name": "semantic-pr-v6-isolated-probe-release",
+  "name": "semantic-pr-v7-overlapped-candidate-rpc",
   "runner": "ubuntu-24.04",
   "candidate_build_profile": {
     "name": "release",

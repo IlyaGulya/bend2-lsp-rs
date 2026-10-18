@@ -46,6 +46,13 @@ stream; Base is neither cached nor omitted from parity. Per-path stage durations
 overlap and must not be summed as wall latency. Required bounded setup also runs
 native Book-field mutation, stream corruption, worker-failure, and EOF contracts.
 
+The forward controller sends its native request before querying the Rust
+candidate, so the candidate can run while the oracle is busy. This adds no
+processes or threads. Each RPC retains its absolute reply-arrival deadline;
+later consumption does not extend that deadline. A completed native response is
+preserved before a deferred candidate error is raised. Forward oracle and
+candidate RPC durations can overlap and must not be summed as wall latency.
+
 Both native VMs use ordinary Bun heaps. At idle Book boundaries, synchronous
 [young-generation collection](https://bun.com/reference/bun/jsc/edenGC) reclaims
 short-lived allocations. If the reported heap after that collection exceeds
@@ -167,7 +174,7 @@ than blessing candidate output as compiler truth.
 
 ## Resource and performance contracts
 
-The PR profile `semantic-pr-v6-isolated-probe-release` is **provisional**,
+The PR profile `semantic-pr-v7-overlapped-candidate-rpc` is **provisional**,
 not calibrated evidence. Its two case-worker pairs use bounded reply retention
 and ordinary native heaps with idle collection; corpus, seed, release settings,
 limits, and admission

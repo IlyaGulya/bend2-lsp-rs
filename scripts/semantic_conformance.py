@@ -77,7 +77,7 @@ class Worker:
                     with self.lock:
                         if not self.awaiting:self._fail('unsolicited-reply');return
                         self.awaiting=False
-                        try:self.lines.put_nowait(bytes(line))
+                        try:self.lines.put_nowait((bytes(line),time.monotonic()))
                         except queue.Full:self._fail('queued-output-limit');return
                     pending.clear()
         except OSError as error:self._fail(str(error))
@@ -92,7 +92,7 @@ class Worker:
                     del self.errors[MAX_OUTPUT:];self._fail('stderr-output-limit');return
         except OSError as error:self._fail(str(error))
 
-    def ask(self,request,timeout):
+    def start(self,request,timeout):
         deadline=time.monotonic()+timeout
         if timeout<=0:raise ToolFailure('deadline-exhausted')
         raw=canonical(request)
@@ -114,12 +114,20 @@ class Worker:
                 remaining=remaining[written:]
         except (BrokenPipeError,OSError) as error:
             self._fail('worker-crash');raise self.failure from error
-        try:line=self.lines.get(timeout=max(0,deadline-time.monotonic()))
+        return request,deadline
+
+    def receive(self,pending):
+        request,deadline=pending
+        try:packet=self.lines.get(timeout=max(0,deadline-time.monotonic()))
         except queue.Empty as error:
             self._fail('worker-timeout');raise self.failure from error
         with self.lock:
             if self.failure:raise self.failure
-        if isinstance(line,Exception):raise line
+        if isinstance(packet,Exception):raise packet
+        line,received_at=packet
+        # Independent work may delay consumption, but never extend the reply deadline.
+        if received_at>deadline:
+            self._fail('worker-timeout');raise self.failure
         self.last_raw=line
         try:reply=json.loads(line,parse_constant=lambda value:float('invalid-'+value))
         except (ValueError,UnicodeError) as error:self._fail('malformed-reply');raise ToolFailure('malformed-reply') from error
@@ -128,6 +136,10 @@ class Worker:
         if reply.get('outcome') not in ('valid','compiler-error','oracle-error'):
             self._fail('missing-outcome');raise ToolFailure('missing-outcome')
         return reply
+
+    def ask(self,request,timeout):
+        return self.receive(self.start(request,timeout))
+
 
     def close(self,deadline=None):
         deadline=min(time.monotonic()+SHUTDOWN_SECONDS,deadline) if deadline is not None else time.monotonic()+SHUTDOWN_SECONDS
@@ -633,12 +645,17 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
             reverse.check()
             start=time.monotonic();request=request_for(item);case_limit=5 if item['case_id'].startswith('generated-') else 15
             oracle={};candidate_reply={};oracle_normalized=candidate_normalized=None;oracle_rpc_started=time.monotonic()
-            oracle=compiler.ask(request,min(case_limit,deadline-time.monotonic()))
+            oracle_pending=compiler.start(request,min(case_limit,deadline-time.monotonic()))
+            candidate_rpc_started=time.monotonic();candidate_error=None
+            try:candidate_reply=probe.ask(request,min(case_limit,deadline-time.monotonic()))
+            except (ToolFailure,OSError,ValueError,KeyError,TypeError,IndexError,UnicodeError) as error:candidate_error=error
+            candidate_rpc_seconds=time.monotonic()-candidate_rpc_started
+            oracle=compiler.receive(oracle_pending)
             oracle_rpc_seconds=time.monotonic()-oracle_rpc_started
             if oracle.get('provenance')!=provenance:raise ToolFailure('worker-pin-mismatch')
             if oracle['outcome']=='oracle-error':raise ToolFailure('oracle-error:'+oracle.get('error',''))
-            # Keep the native response before any candidate, manifest, or
-            # metamorphic failure can cut off a completed reverse comparison.
+            # Preserve native evidence before raising a deferred candidate error
+            # or a manifest/metamorphic failure cuts off the reverse comparison.
             if oracle['outcome']=='valid':oracle_normalized=normalized(oracle)
             key=item['id'];fingerprint=digest(canonical(oracle_normalized if oracle_normalized is not None else oracle))
             forward_pending={'item':item,'raw':compiler.last_raw,'oracle_sha256':fingerprint} if oracle['outcome']=='valid' and item['facet']=='valid' else None
@@ -646,9 +663,7 @@ def execute(plan,candidate,artifact_dir,runtime=None,deadline_seconds=110,lsp=No
             if oracle['outcome']=='valid' or item['facet']!='valid':oracle_history[key]=fingerprint
             forward_pending=None
             if oracle['outcome']=='valid' and any(occurrence.get('target') is None for occurrence in oracle.get('occurrences',[])):raise ToolFailure('oracle-origin-ambiguity')
-            candidate_rpc_started=time.monotonic()
-            candidate_reply=probe.ask(request,min(case_limit,deadline-time.monotonic()))
-            candidate_rpc_seconds=time.monotonic()-candidate_rpc_started
+            if candidate_error is not None:raise candidate_error
             diff=[];facet=item['facet'];comparison_started=time.monotonic()
             if facet=='valid':
                 if oracle['outcome']!='valid':raise ToolFailure('invalid-generated-input' if item['case_id'].startswith('generated-') else 'unexpected-corpus-rejection')

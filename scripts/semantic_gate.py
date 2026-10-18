@@ -33,7 +33,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / "scripts/semantic_gate_profile.json"
 PROFILE = json.loads(PROFILE_PATH.read_text())
-if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v6-isolated-probe-release" or PROFILE.get("workers") != 2:
+if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v7-overlapped-candidate-rpc" or PROFILE.get("workers") != 2:
     raise ValueError("unsupported semantic supervisor profile; review profile and runner together")
 INTERRUPTED = None
 

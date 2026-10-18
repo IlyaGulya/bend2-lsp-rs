@@ -46,6 +46,10 @@
 - Isolate the semantic projection tool from the server's benchmark-only
   dependencies during required release preparation. Preserve its protocol,
   workspace lint policy, release optimization settings, and setup/run budgets.
+- Overlap Rust projection requests with native oracle execution. Enforce RPC
+  deadlines against complete reply arrival and preserve native evidence before
+  reporting an early candidate failure. Keep resource qualification provisional
+  and all workload, time, memory, and Callgrind limits unchanged.
 - Require fresh qualification of the expanded 99-workload performance scope.
   Retain all 54 existing baseline workloads and the unchanged numeric limits.
 

@@ -440,6 +440,29 @@ class ProvenanceAndReplayTests(unittest.TestCase):
         finally:worker.close()
         self.assertIsNotNone(worker.process.returncode)
 
+    def test_reply_deadline_tracks_arrival_not_deferred_consumption(self):
+        import threading
+        from unittest.mock import patch
+        request={'schema':1,'id':'x','root':'main.bend'}
+        program='import sys;sys.stdin.readline();print(\'{"schema":1,"id":"x","root":"main.bend","outcome":"valid"}\',flush=True);sys.stdin.read()'
+        for arrival in (100,102):
+            with self.subTest(arrival=arrival):
+                worker=Worker([sys.executable,'-c',program]);ready=threading.Event();clock=[100]
+                original_put=worker.lines.put_nowait
+                def publish(packet):
+                    original_put(packet);ready.set()
+                def now():
+                    return arrival if threading.current_thread() is worker.reader else clock[0]
+                try:
+                    with patch.object(worker.lines,'put_nowait',side_effect=publish),patch('semantic_conformance.time.monotonic',side_effect=now):
+                        pending=worker.start(request,1)
+                        self.assertTrue(ready.wait(5),'real child response did not reach the bounded pipe')
+                        clock[0]=103
+                        if arrival==100:self.assertEqual(worker.receive(pending)['outcome'],'valid')
+                        else:
+                            with self.assertRaisesRegex(ToolFailure,'worker-timeout'):worker.receive(pending)
+                finally:worker.close()
+
     def test_real_process_incomplete_reply_fails(self):
         worker=Worker([sys.executable,'-c','import sys; sys.stdout.write("{");sys.stdout.flush()'])
         try:
