@@ -143,9 +143,6 @@ pub struct IndexedSymbol {
     pub parameter_span: TextRange,
     pub scope: TextRange,
     pub kind: SymbolKind,
-    // Capped UTF-8 byte prefixes shared with the next and all remaining symbols.
-    pub name_prefix_to_next: u8,
-    pub name_prefix_to_end: u8,
     pub start_line: usize,
 }
 
@@ -573,23 +570,6 @@ impl SyntaxIndex {
             }
         }
         names.into_boxed_slice()
-    }
-
-    pub(crate) fn completion_capacity_hint(
-        &self,
-        first: &IndexedSymbol,
-        prefix_len: usize,
-    ) -> usize {
-        if prefix_len <= usize::from(first.name_prefix_to_end) {
-            return self.symbols.len() - first.id.0;
-        }
-        let Ok(prefix_len) = u8::try_from(prefix_len) else {
-            return 1;
-        };
-        1 + self.symbols[first.id.0..]
-            .iter()
-            .take_while(|symbol| symbol.name_prefix_to_next >= prefix_len)
-            .count()
     }
 
     #[must_use]

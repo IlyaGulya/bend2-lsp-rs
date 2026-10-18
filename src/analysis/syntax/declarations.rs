@@ -87,32 +87,13 @@ pub(super) fn parse_symbols(
         .collect();
     let mut symbol_index = symbols.len();
     let mut next_scope_end = source.len();
-    let mut next_prefix: Option<(&str, u8)> = None;
     for (line_number, line) in lines.iter().enumerate().rev() {
         let code = source[line.code.start..line.code.end].trim();
         if line.indent != 0 || code.is_empty() || code.starts_with('#') {
             continue;
         }
         if symbol_index > 0 && symbols[symbol_index - 1].start_line == line_number {
-            let symbol = &mut symbols[symbol_index - 1];
-            symbol.scope = TextRange::new(line.full_end, next_scope_end);
-            let range = names.range(symbol.name);
-            let name = &source[range.start..range.end];
-            let (shared, remaining) = if let Some((next, remaining)) = next_prefix {
-                let length = name
-                    .bytes()
-                    .zip(next.bytes())
-                    .take(usize::from(u8::MAX))
-                    .take_while(|(left, right)| left == right)
-                    .count();
-                let shared = u8::try_from(length).unwrap_or(u8::MAX);
-                (shared, shared.min(remaining))
-            } else {
-                (0, u8::try_from(name.len()).unwrap_or(u8::MAX))
-            };
-            symbol.name_prefix_to_next = shared;
-            symbol.name_prefix_to_end = remaining;
-            next_prefix = Some((name, remaining));
+            symbols[symbol_index - 1].scope = TextRange::new(line.full_end, next_scope_end);
             symbol_index -= 1;
         }
         next_scope_end = line.content.start;
@@ -454,8 +435,6 @@ fn parse_top_level_symbol(
         parameter_span: TextRange::new(0, 0),
         scope: TextRange::new(line.full_end, line.full_end),
         kind,
-        name_prefix_to_next: 0,
-        name_prefix_to_end: 0,
         start_line: line_number,
     })
 }
