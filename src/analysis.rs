@@ -707,40 +707,16 @@ fn collect_module_completions(
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
     for symbol in syntax.symbols() {
-        let name = syntax.name_text(source, symbol.name);
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
-            let item = completion(
+            items.push(completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
-            );
-            if items.capacity() == 0 && name.starts_with(prefix) {
-                let capacity = module_completion_capacity(snapshot, symbol, prefix);
-                if capacity > 4 {
-                    items.reserve_exact(capacity.next_power_of_two());
-                }
-            }
-            items.push(item);
+            ));
         }
     }
     items
-}
-
-#[cold]
-fn module_completion_capacity(
-    snapshot: &DocumentSnapshot,
-    first: &IndexedSymbol,
-    prefix: &str,
-) -> usize {
-    let syntax = &snapshot.syntax;
-    1 + syntax.symbols()[first.id.0 + 1..]
-        .iter()
-        .take_while(|symbol| {
-            syntax
-                .name_text(&snapshot.text, symbol.name)
-                .starts_with(prefix)
-        })
-        .count()
 }
 
 #[must_use]
