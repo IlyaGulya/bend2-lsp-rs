@@ -29,6 +29,15 @@
 - Acknowledge prior stdio document mutations before releasing held analyzer
   output, so tests cannot mistake pre-mutation results for stale publication.
 
+### Under the hood
+
+- Pre-size module autocomplete results from leading matches without repeating
+  semantic matching, allocating for misses, or reserving unrelated declarations.
+  Preserve suggestion contents, order, fuzzy matching and keyword suppression.
+- Fail ordinary performance admission on regressions without automatically
+  requesting approval. Protected exact-run owner review is available only after
+  an explicitly requested manual comparison; numeric limits remain unchanged.
+
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 
