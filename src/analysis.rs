@@ -717,8 +717,8 @@ fn collect_module_completions(
     // Size the first matching run, even after unrelated declarations. position
     // and take_while consume their boundary items, so no name is matched twice.
     let matching_run_len = 1 + remaining.by_ref().take_while(matches).count();
-    let mut items = Vec::new();
-    items.reserve(matching_run_len.next_power_of_two());
+    // Keep Vec's ordinary four-item minimum for short, noncontiguous matches.
+    let mut items = Vec::with_capacity(matching_run_len.next_power_of_two().max(4));
     items.extend(
         named_symbols
             .skip(first_match)
