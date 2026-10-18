@@ -348,6 +348,56 @@ No approval is universal or inferred from an earlier acceptance. In particular,
 the accepted ordinary cache exception for PR #42 does not authorize PR #43 or
 any later candidate/run. Existing historical failed compares remain failed.
 
+## Collection lifetime and artifact publication
+
+The ordinary and qualification collectors run under `bend2-perf workflow
+supervise`. Each invocation owns a new POSIX process group. Linux supervision
+also adopts orphaned descendants as a child subreaper and reaps only that
+owned group, never unrelated children. A leader exiting does not prove its
+writers have stopped. Unexpected surviving descendants make collection fail,
+even when their leader returned zero and subsequent cleanup succeeds.
+
+The measurement deadlines remain 210 minutes for ordinary paired collection
+and 330 minutes for qualification. Their outer steps reserve two additional
+minutes for termination, reaping and report handling, not additional samples
+or measurement time. Deadline expiry remains a nonzero collection result;
+TERM is followed by bounded KILL escalation when needed. Unknown process
+states count as present, not absent.
+
+The lifecycle receipt is checkpointed outside the measurement output, because
+collectors require fresh output directories. After collection, the always-run
+publication step copies it to `collection-lifecycle.json`. A pending receipt,
+incomplete cleanup, inconsistent lifecycle or never-spawned command cannot
+authorize raw publication. Completed cleanup after a timeout or interruption
+can permit evidence retention, never a successful measurement verdict.
+Sealing independently checks that the recorded group is absent, including
+zombies, before walking the raw tree and again before publication.
+
+`bend2-perf workflow seal --source ROOT --output DESTINATION` creates an
+independent, write-finished snapshot. Publication currently requires Linux GNU
+and atomic `renameat2(RENAME_NOREPLACE)`; unsupported platforms fail closed.
+Existing destinations and overlapping source/output paths are never replaced.
+Links, special files, changed inputs and copy errors are rejected rather than
+followed, skipped or retried into apparent success.
+
+A committed `sample.json` identifies a completed measurement. Its files retain
+their original `raw/...` paths. Uncommitted samples are retained only under
+`incomplete/raw/...`, with source-to-snapshot paths and hashes in
+`snapshot-publication.json`. Original dataset, command and provenance metadata
+are copied verbatim. This diagnostic namespace cannot supply missing samples
+or make partial coverage admissible.
+
+Cleanup or copy failures publish only a bounded failure envelope, without
+partially copied raw evidence, and return nonzero. Successful snapshot
+publication says nothing about the measurement verdict. The original full
+105-pair, workload, source, uncertainty and admission checks remain authoritative;
+the final admission job also requires the measurement job itself to succeed.
+No permissions, approval, benchmark input, metric or numeric allowance changes.
+
+Local Linux correctness checks may exercise the supervisor with controlled
+child processes and the sealer with fixture files. They are not hosted
+Callgrind measurements, performance admission or a semantic compiler oracle.
+
 ## Historical single-pair calibration
 
 The historical raw calibration protocol ran on host Ubuntu 24.04, like
@@ -547,9 +597,17 @@ control-validation command exits unsuccessfully.
 
 The workflow uses native Ubuntu 24.04, Rust 1.98.1, Iai-Callgrind runner 0.16.1,
 and checksum/provenance-bound Valgrind 3.27.1, matching the raw collector.
-Each collection job has a fixed 360-minute timeout; collection itself is limited
-to 330 minutes, leaving time for failure evidence and uploads. This allows the
-full predeclared sample count rather than reducing it to fit a shorter deadline.
+Each collection job has a fixed 360-minute timeout; measurement itself remains
+limited to 330 minutes. The 332-minute collection step includes a separate
+cleanup reserve before sealed evidence and uploads. Missing pairs still fail
+coverage; the reserve neither extends measurement time nor qualifies a scope.
+
+The expanded-scope [run 39103430549](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39103430549)
+hit that 330-minute measurement limit on all six jobs, and all six raw uploads
+failed. Its official report rejects `no data.json datasets found` as
+`insufficient_evidence`. In-progress directory names are not completed-pair
+counts. This is not qualification of the 99-workload scope or a reason to
+reduce coverage, pool hosts or widen limits.
 Actions are SHA-pinned; checkouts do not persist credentials; permissions are
 read-only; only trusted manual main runs save tool/download caches, never
 benchmark object caches.

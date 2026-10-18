@@ -20,7 +20,7 @@ tempfile = "3"
 url = "2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-nix = { version = "0.31", features = ["fs"] }
+nix = { version = "0.31", features = ["fs", "process"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libproc = "=0.14.11"

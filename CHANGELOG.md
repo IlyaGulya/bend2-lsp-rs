@@ -52,6 +52,11 @@
   and all workload, time, memory, and Callgrind limits unchanged.
 - Require fresh qualification of the expanded 99-workload performance scope.
   Retain all 54 existing baseline workloads and the unchanged numeric limits.
+- Stop and reap owned Callgrind descendants before publishing CI evidence.
+  Publish completed samples and incomplete diagnostics through an atomic,
+  no-clobber snapshot instead of uploading a live measurement tree. Keep the
+  measurement deadlines, all 105 pairs, workload coverage and numeric gates
+  unchanged; interrupted or incomplete collection still blocks admission.
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 

@@ -97,12 +97,16 @@ jobs:
         run: |
           cargo test --locked --release -p bend2-perf --bin bend2-perf calibration:: --target-dir "$RUNNER_TEMP/perf-tools-target"
       - name: Collect exactly 105 balanced independent-build pairs
-        timeout-minutes: 330
+        # Keep the 330-minute measurement budget; reserve separate cleanup time.
+        timeout-minutes: 332
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
           CALIBRATION_ROLE: ${{ matrix.role }}
         run: |
-          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
+          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow supervise \
+            --timeout-seconds 19800 \
+            --receipt "$RUNNER_TEMP/calibration-collection-lifecycle.json" -- \
+            "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
             --source "$GITHUB_WORKSPACE" \
             --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
             --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
@@ -116,12 +120,25 @@ jobs:
           mkdir -p "$output"
           "$VALGRIND_INSTALL_ROOT/bin/valgrind" --version > "$output/valgrind-version.txt"
           cp "$VALGRIND_INSTALL_ROOT/provenance.json" "$output/valgrind-provenance.json"
+      - name: Seal stopped calibration evidence
+        if: always()
+        env:
+          CALIBRATION_JOB: ${{ matrix.job }}
+        run: |
+          if [[ -f "$RUNNER_TEMP/calibration-collection-lifecycle.json" ]]; then
+            mkdir -p "target/performance-calibration/$CALIBRATION_JOB"
+            cp "$RUNNER_TEMP/calibration-collection-lifecycle.json" \
+              "target/performance-calibration/$CALIBRATION_JOB/collection-lifecycle.json"
+          fi
+          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow seal \
+            --source "target/performance-calibration/$CALIBRATION_JOB" \
+            --output "$RUNNER_TEMP/calibration-artifact"
       - name: Preserve every collected result and failure diagnostic
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
-          path: target/performance-calibration/${{ matrix.job }}/
+          path: ${{ runner.temp }}/calibration-artifact/
           if-no-files-found: error
           retention-days: 14
       - name: Save trusted Cargo downloads
