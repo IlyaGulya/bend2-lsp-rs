@@ -101,7 +101,12 @@ for variant, key in (("a", "BASE_SHA"), ("b", "CANDIDATE_SHA")):
             events, = [line.split()[1:] for line in lines if line.startswith("events:")]
             totals = [line.split()[1:] for line in lines if line.startswith("totals:")]
             totals = totals or [line.split()[1:] for line in lines if line.startswith("summary:")]
-            raw = dict(zip(events, map(int, totals[-1]), strict=True))
+            assert len(totals) == 1, "One preferred counter row per raw profile"
+            values = list(map(int, totals[0]))
+            assert 0 < len(values) <= len(events)
+            # Callgrind omits trailing zeroes; match paired/report.rs normalization.
+            values += [0] * (len(events) - len(values))
+            raw = dict(zip(events, values, strict=True))
             assert counts == {key: raw[key] for key in metrics}, "Raw totals must agree"
             results[variant][identity] = counts
         assert digest(executable) == binary_hash, "Immutable measured executable"
