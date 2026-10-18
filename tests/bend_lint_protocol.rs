@@ -240,7 +240,13 @@ impl Session {
         fs::write(self.control.join("block"), "").must_be("block analyzer completion");
     }
 
-    fn release(&self) {
+    fn release(&mut self) {
+        // Writing a notification into stdin does not acknowledge server receipt.
+        // Keep analyzer output blocked until preceding mutations are observed.
+        self.client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument":{"uri":self.document}}),
+        );
         fs::write(self.control.join("release"), "").must_be("release analyzer completion");
     }
 

@@ -220,6 +220,10 @@ LLVM 22.1.8 instead fails the rule program's SEH prologue.
 Deterministic regression tests also hold lint publication busy while opening,
 editing, closing, or immediately saving a document. Subsequent requests must not
 overtake document updates or observe an older snapshot, even with lint disabled.
+Process fixtures wait for a stdio read acknowledgement before releasing held
+analyzer output: writing prior mutations into stdin alone does not prove that
+the server has observed them.
+
 In-flight results and requested edits are also rejected when a captured source
 or configuration symlink changes target, including symlinked parent directories;
 unchanged target bytes alone are not sufficient. Linux regression cases require

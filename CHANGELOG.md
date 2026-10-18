@@ -26,6 +26,8 @@
   `02ef84b38b8c06cbd607e270c4930e633e9dab0f`, not the older bundled PR #1389 tool.
 - Synchronize import-completion fixtures with their indexed unsaved candidates,
   without making production queries wait for unrelated pending builds.
+- Acknowledge prior stdio document mutations before releasing held analyzer
+  output, so tests cannot mistake pre-mutation results for stale publication.
 
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
