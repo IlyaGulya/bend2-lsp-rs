@@ -44,17 +44,15 @@ shuffling occur in argument setup. Ordering, deduplication and owned-input
 teardown are measured; workspace lookup, discovery, wire serialization and the
 full LSP process are not. Unchanged-algorithm measurements were collected before
 the borrowed-URI correction. Those archived measurements support an experimental
-before/after comparison; new cases remain unpaired in admission until a main
-baseline contains them. Existing paired cases retain the unchanged strict policy.
+before/after comparison, not admission of a later candidate.
 The ordering cases run in their own `reference_locations` benchmark binary;
-the `analysis` binary retains its existing workloads. CI collects both targets
-into one source-bound admission inventory and applies the same policy to every
-paired case. A main revision without the new target contributes only its existing
-baseline IDs; once main contains the target, its ordering cases are paired too.
-Candidate collection always requires the ordering target.
-Both candidate targets select the named `main` baseline, including initially
-unpaired ordering cases. The uploaded evidence retains the entire combined
-inventory, including target-discovery metadata and isolated raw profiles.
+the `analysis` binary retains its existing workloads. Current main contains both
+targets. CI builds both original source revisions independently and retains
+both executable inventories, hashes and isolated raw profiles. Each of the
+105 source pairs uses fresh processes and output directories; it does not reuse
+a saved `main` counter snapshot. Every baseline workload is required.
+Candidate-only workloads remain explicitly unpaired until a later baseline
+contains them.
 
 Indexed query result capacity must not introduce a second warm semantic pass.
 The scanner counts semantic-token-producing token kinds as it emits tokens.
@@ -267,31 +265,40 @@ layouts, benchmark metrics, and regression limits remain unchanged.
 ## Ordinary measurement and exact-run admission
 
 The [`performance` workflow](../.github/workflows/performance.yml) has separate
-**Callgrind measurement** and **performance admission** checks. Measurement
-success means that the ordinary comparison was collected and validated, not
-that every policy limit passed. Admission means the candidate is permitted by
-ordinary policy or by an explicit owner-reviewed exception for that exact run.
-The baseline source, benchmark fixtures, metrics, 2% instruction limit,
-cache-event allowances, and no-retry policy are unchanged.
+**Callgrind measurement** and **performance admission** checks. The active
+`paired-median-105-v1` method uses 105 fixed, fresh-process pairs of the exact
+base and merge-candidate sources. Both original benchmark harnesses are unchanged;
+calibration-only helpers and controls are never inserted into ordinary builds.
+Odd pairs execute A then B; even pairs execute B then A. Each source invocation
+runs both benchmark executables with isolated output and a unique baseline name.
+No adaptive stopping, outlier deletion, pooled hosts, retries for luck, or
+numeric-limit changes are permitted.
 
 The original `compare` job identity and `Compare pull request with main` step
-are retained in the source-bound verdict and artifact manifest. The candidate
-step keeps its real outcome, benchmark exit code, and policy exit code even
-when a numerical regression is allowed to proceed to validation. After
-`workflow finalize` inventories and hashes the retained inputs, `bend2-perf
-admission measurement` validates the existing verdict through the authoritative
-policy validator, without running a second comparison or implementing new
-limits. It verifies the base SHA, merge-candidate SHA, PR head SHA, and workflow
-run ID, confined hash-bound inputs, and producer exits (benchmark 0/3 and policy
-0/1) against the metrics and recorded outcomes.
+remain in the source-bound verdict and artifact manifest. Collection must exit
+0. The policy report exits 0 for a pass, 1 for confirmed regression, 3 for
+inconclusive bounds, and 2 for invalid evidence. Actual outcomes and both exits
+are retained even when the candidate step fails.
 
-Only a complete, consistent result is classified as `passed` or `regression`;
-both are valid measurements. Missing, malformed, source-mismatched or
-inconsistent evidence, unexpected producer exits, collector errors, and
-inventory failures remain red and cannot request an exception. The job summary
-shows the exact source/run/attempt identities, actual producer exits, and each
-failed workload's authoritative metric counts. Raw profiles, summaries, verdict,
-manifest, and admission classification remain downloadable.
+After `workflow finalize` inventories and hashes the inputs, `bend2-perf
+admission measurement --measurement-method paired-median-105-v1` recomputes the
+canonical verdict from retained evidence. It checks the exact base, candidate,
+PR head and workflow SHAs, run ID and attempt against the caller's expectations.
+Source manifests, executable identities, complete workload inventories, raw
+stdout and Callgrind counters must agree. Raw profiles use the pinned runner's
+`totals:` precedence, with `summary:` only as its documented fallback. Inputs
+must be confined, non-aliased and hash-bound. Historical unmarked or scalar
+verdicts cannot satisfy the required method.
+
+Every comparison retains exact median and lower/upper residual fractions.
+All upper bounds must be nonpositive to pass. A positive lower bound establishes
+a regression; bounds spanning the boundary are `inconclusive`. If any comparison
+is inconclusive, the whole measurement remains inconclusive even when another
+comparison confirms a regression. Uncertainty and invalid evidence block before
+owner-exception routing; neither becomes a pass or an accepted regression.
+The summary and dashboard preserve these distinctions, sample counts and bounds
+without inventing scalar baseline/candidate pairs. Raw evidence and failed
+reports remain downloadable.
 
 A valid `passed` result needs no exception. For `regression`, measurement first
 reads the public GitHub REST definition of the `performance-exception`
@@ -341,18 +348,20 @@ No approval is universal or inferred from an earlier acceptance. In particular,
 the accepted ordinary cache exception for PR #42 does not authorize PR #43 or
 any later candidate/run. Existing historical failed compares remain failed.
 
-## Report-only CI calibration
+## Historical single-pair calibration
 
-The separate [`performance-calibration` workflow](../.github/workflows/performance-calibration.yml)
-does not modify the active comparator, thresholds, or baseline workflow. It runs
-on host Ubuntu 24.04, like `performance / compare`, with Rust 1.98.1,
-Iai-Callgrind runner 0.16.1, and the runner's installed Valgrind. Persistent Docker
-is for local smoke runs; its architecture and Valgrind version are not CI evidence.
+The historical raw calibration protocol ran on host Ubuntu 24.04, like
+`performance / compare`, with Rust 1.98.1, Iai-Callgrind runner 0.16.1 and pinned
+Valgrind 3.27.1. Its observed false alarms motivated the separately qualified
+fixed-series method below. The current
+[`performance-calibration` workflow](../.github/workflows/performance-calibration.yml)
+uses that qualified protocol, not the old five-pair schedule.
 
-Seven discovery jobs and three independently assigned validation jobs each run
-five balanced series. Each job builds five isolated Cargo targets: source-identical
-A/B, a layout control, duplicate inlay-query work, and a 512 KiB initialized
-allocation. Every measurement uses a fresh benchmark process and output directory.
+The old protocol used seven discovery jobs and three independently assigned
+validation jobs, each with five balanced series. Each job built five isolated
+Cargo targets: source-identical A/B, a layout control, duplicate inlay-query
+work, and a 512 KiB initialized allocation. Every measurement used a fresh
+benchmark process and output directory.
 All inlay variants use the same non-inlined query helper with blackboxed inputs.
 The allocation helper is retained in every variant and called only by its control,
 after the query result is produced. These calibration-only fences isolate control
@@ -371,12 +380,40 @@ The reporter reparses retained stdout with the collector's fresh-summary validat
 baseline identity, executed binary, workload identities, and counts must match
 `data.json`. Merely retaining a file with the right name is insufficient evidence.
 
-The report learns a per-workload/event cache floor only from positive discovery
+The historical raw-report method learns a per-workload/event cache floor only from positive discovery
 A/A deltas, combined with the unchanged active allowance for each comparison.
 Holdout, layout, and positive controls never train the proposal. Instruction
 limits remain 2%; both positive controls must exceed them on all three validation
 inlay workloads. A/A exceedances remain visible rather than being retried away.
 Proposals are never automatically installed.
+
+The strengthened raw-control gate required `--require-control-validation`.
+Its verdict required complete seven-job discovery / three-job validation /
+five-pair coverage, no source-identical A/A exceedance of the active limits in
+either role, and detection of every held-out work/allocation control. Reports
+were written before a failed check exited; raw evidence and individual failures
+remained available. The failed controls below were not accepted regressions or
+permission to widen limits. The historical CLI reader can still report partial
+retained datasets, with failed control validation displayed explicitly.
+
+The version-only 0.6.2 candidate exposed why this check is necessary.
+[Calibration run 38682489026](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38682489026)
+used exact merge source `0993cea112e7ea2726d26ad23992fcca6b64259e`.
+Its held-out unchanged-source comparisons exceeded the instruction limit
+13 times and the cache limits twice in 2,295 event comparisons. Positive controls
+were still detected. Five processes of one unchanged executable in validation-03
+measured 590–620 instructions for the small identifier query and
+5,459,801–5,673,275 for burst invalidation. Its SHA-256 was
+`b8c22daf2fbea711353b2a76a6bbc02b7ca1f5e90cc4010890b4ebf6cd7eb531`.
+These are calibration-harness observations, not permission to reclassify the
+ordinary candidate comparison or claim a production slowdown.
+
+A report-only fixed-five median prototype still exceeded active limits for
+unchanged-source controls: two discovery incremental-invalidation cases and
+one held-out small identifier query. It was not adopted. Pooled samples remove
+those particular exceedances, but that finite, dependent sample is not evidence
+for changing the admission estimator. The production benchmark, limits,
+baseline collection, and no-retry policy remain unchanged.
 
 Reported p50/p95 are empirical nearest-rank values, not tail-confidence claims.
 Comparisons share an A baseline within each series; series share builds within
@@ -407,13 +444,157 @@ The discovery-only proposal did not remove those instruction exceedances; it
 never changes the instruction gate. This finite sample supplies no evidence that
 cache allowances need increasing and does not establish tail reliability.
 
-The hosted calibration workflow runs the Rust `bend2-perf calibration collect`
-and `calibration report` commands from [`tools/perf`](../tools/perf), with
-independent work/output directories and unchanged source inputs. Collection is
-CI-only. It enforces the predeclared seven discovery jobs, three validation jobs,
-and five independent pairs per job through the existing `--expected-*-jobs` and
-`--expected-pairs` report options. Local fixture-based report/contract tests do
+The historical protocol used the Rust `bend2-perf calibration collect` and
+`calibration report` commands from [`tools/perf`](../tools/perf), with independent
+work/output directories. Its 7/3/5 data remains historical evidence, not
+qualification of the active estimator. Local fixture-based contract tests do
 not collect measurements.
+
+## Fixed-series controls and qualification
+
+The [`performance-calibration` workflow](../.github/workflows/performance-calibration.yml)
+enforces the prospectively qualified `paired-median-105-v1` protocol. It runs
+for changes to the measurement infrastructure or benchmark scope and can be
+manually dispatched. Passing controls qualify the measurement method; they do
+not automatically admit a candidate, change a baseline or rewrite historical
+raw verdicts. Ordinary admission separately measures the original sources.
+
+The fixed experiment has three discovery jobs (`discovery-01` through
+`discovery-03`) and three independently assigned validation jobs
+(`validation-01` through `validation-03`), each collecting exactly 105 pairs.
+Every pair measures the existing five variants (`a`, `b`, `layout`, `extra_work`,
+`extra_alloc`) in the collector's balanced five-position order, with a fresh
+process and isolated output for every measurement. The odd sample count is
+divisible by five. There is no adaptive stopping, retry-for-luck, best-sample
+selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
+and validation both use the predeclared method; neither trains an allowance.
+
+Every independently built variant now contains both benchmark executables:
+`analysis` (51 workloads) and `reference_locations` (three workloads). Each
+logical sample runs them in that order, in two distinct fresh processes with
+separate output directories. The fixed experiment therefore contains 1,050
+benchmark-process executions per job, without changing the 105 paired samples
+used for each workload/event comparison.
+
+Evidence format v2 binds each benchmark's actual `--list` identities, executable
+hash and raw stdout/stderr to its frozen variant source. Both original harness
+hashes are retained; the reference-location harness is not modified. Workload
+sets must be complete, disjoint and consistent across variants. Reports expose
+the benchmark scope and reparse both raw outputs before accepting merged counts.
+Historical v1 evidence remains explicitly analysis-only and cannot be mixed
+with v2 evidence or used to establish complete 54-workload control coverage.
+
+For each job, variant, workload and event separately, the reporter sorts the
+105 exact signed paired residuals:
+
+```text
+(candidate - baseline - active_allowance(event, baseline)) / max(baseline, 1)
+```
+
+The active allowance is unchanged: `floor(2 * baseline / 100)` for `Ir`,
+and `max(ceil(3 * baseline / 100), 3)` for cache events. This changes the
+estimator, not the numeric limits, benchmark workload, measured metrics,
+guard boundaries or cache geometry. Exact integer/rational arithmetic retains
+valid zero counters and full-width counts; floating-point display values never
+decide the result.
+
+Exact distribution-free binomial order-statistic bounds provide separate
+one-sided 95% lower and upper confidence bounds for the population median.
+Reports retain the sample count, bound ranks and confidence, exact median and
+bound fractions, and every raw pair comparison. Ties remain in the ordered
+sample: an upper bound equal to zero passes; a lower bound strictly greater
+than zero is a regression; every other outcome is inconclusive. An inconclusive
+result is not a pass.
+
+These are conditional, same-job process-randomization claims, assuming
+independent fresh-process observations for each comparison with fixed builds.
+Variants share the same A baseline within a pair, and pairs share builds;
+comparisons across variants, workloads or events are not independent. Bounds
+are not simultaneous across metrics. Per-event lower-bound regressions are
+not familywise significance claims. Requiring every upper bound to pass has
+an intersection-union rationale only under the declared sampling assumptions.
+The method estimates typical (median) per-process change, not p95, tail
+reliability, whole-editor latency, or the probability of a future raw failure.
+There are no tail-confidence or zero-tail-failure claims, even when every
+observed A/A comparison passes.
+
+Control validation requires complete 3/3/105 coverage of all 54 workloads across
+both executables, enforced with `--expected-workloads 54 --require-all-benchmarks`,
+and all of the following:
+
+- Every source-identical `b` versus `a` workload/event comparison passes in
+  every discovery and validation job independently.
+- Both `extra_work` and `extra_alloc` are classified as regressions for `Ir`
+  on all three inlay workloads in every held-out validation job. Merely
+  inconclusive positive controls do not demonstrate sensitivity.
+- Existing raw profile, stdout, source-manifest and binary-identity validation
+  succeeds. Missing, duplicate, stale, malformed or unverified evidence cannot
+  establish control acceptance.
+
+The layout variant remains diagnostic, not an assumed cost-equivalent A/A
+control or training data. No learned cache allowance applies to this method.
+Raw one-pair failures remain visible even when a repeated comparison passes.
+Insufficient coverage, inconclusive A/A, a missed positive control or invalid
+evidence fails closed; JSON and Markdown diagnostics are retained before the
+control-validation command exits unsuccessfully.
+
+The workflow uses native Ubuntu 24.04, Rust 1.98.1, Iai-Callgrind runner 0.16.1,
+and checksum/provenance-bound Valgrind 3.27.1, matching the raw collector.
+Each collection job has a fixed 360-minute timeout; collection itself is limited
+to 330 minutes, leaving time for failure evidence and uploads. This allows the
+full predeclared sample count rather than reducing it to fit a shorter deadline.
+Actions are SHA-pinned; checkouts do not persist credentials; permissions are
+read-only; only trusted manual main runs save tool/download caches, never
+benchmark object caches.
+There is no privileged PR-code execution, environment approval, release or
+nightly schedule. The always-run report job downloads only this run and
+attempt's six collection artifacts and checks full coverage even after
+collection or download failure. Raw results, failure diagnostics, profiler
+provenance and reports are retained for 14 days. Existing Rust control contracts
+remain mandatory. The obsolete prospective-only workflow has been replaced by
+this single qualified control workflow.
+
+A maintainer can dispatch the controls on a reviewed source revision:
+
+```bash
+gh workflow run performance-calibration.yml --ref <reviewed-ref>
+```
+
+For retained artifacts, the equivalent report command is:
+
+```bash
+bend2-perf calibration report INPUT \
+  --method paired-median-105-v1 --require-control-validation \
+  --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
+  --expected-workloads 54 --require-all-benchmarks \
+  --json-output report.json --markdown-output report.md
+```
+
+Collection remains hosted-only. The default raw report method is retained for
+historical datasets; the active workflow explicitly selects the qualified
+method. A calibration report's `active_gates_changed: false` means the report
+itself does not install policy or admit a candidate.
+
+The fresh [full prospective qualification](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38720430197)
+at `af128eb5ca571348b9b09d476368da4032e924ec` completed all six jobs, all 105
+pairs and all 54 workloads. Source-identical A/A repeatability and held-out
+positive-control sensitivity both passed, with no control failures. This
+qualified the fixed method before the admission cutover; it is not performance
+evidence for release 0.6.2 or permission to retry a rejected candidate unchanged.
+
+The earlier [analysis-only experiment](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38692087771)
+is insufficient evidence: only two of six fixed 105-pair jobs completed; four
+hit their 180-minute job deadline, and their raw-artifact uploads also failed.
+Its retained report rejects the missing coverage. Completed jobs are not reused
+as part of a new experiment or promoted to complete-scope validation.
+
+A [non-admitting infrastructure smoke](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/38716125552)
+exercised both genuine executables, all five variants and all 54 workloads on
+two independent jobs with one pair each. Collection, raw-evidence validation
+and scope enforcement passed. Its control verdict remains failed: coverage is
+insufficient and raw single-pair A/A exceedances remain visible. A green smoke
+workflow is not repeatability validation or candidate admission.
+
 
 ## Functional-fix performance acceptance (PR #4)
 
@@ -660,7 +841,7 @@ never overwritten.
 
 The diagnostic workflow supports `compare`, `cpu`, `heap`, `native`, and `full`.
 Ordinary PRs retain clean native latency/discovery/process-memory collection and
-the unchanged canonical Linux x86-64 Callgrind job. Infrastructure-source changes
+the source-bound, fixed105 Linux x86-64 Callgrind admission. Infrastructure-source changes
 add six-target backend verification and native tooling contract tests.
 The weekly/manual full workflow additionally retains every original thirteen
 DHAT workload and profiles all four shared scenarios: `discovery-10`,
@@ -888,67 +1069,51 @@ Iai-Callgrind requires debug symbols. The release profile strips symbols, so `Ca
 
 Callgrind records `Ir` (instructions executed). Available cache events include `I1mr` (L1 instruction-cache read misses) and `ILmr` (last-level instruction-cache instruction misses); the `EventKind` reference defines cache events as requiring cache simulation (`--cache-sim=yes`) ([EventKind 0.16.1](https://docs.rs/iai-callgrind/0.16.1/iai_callgrind/enum.EventKind.html)). The documented default Callgrind metrics include cache-hit metrics, but for explicit instruction-cache miss limits configure cache simulation explicitly.
 
-The active `performance` workflow enforces these regression limits:
+The active `performance` workflow retains these per-pair allowances:
 
-- `Ir`: Iai relative limit `candidate × 100 ≤ baseline × 102` (+2%).
-- `I1mr` and `ILmr`: `bend2-perf policy` allows
-  `max(ceil(baseline × 0.03), 3 events)` additional misses.
+- `Ir`: `floor(2 × baseline / 100)` additional instructions, equivalent to
+  `candidate × 100 ≤ baseline × 102`.
+- `I1mr` and `ILmr`: `max(ceil(3 × baseline / 100), 3)` additional misses.
 
-The workflow enables cache simulation and emits JSON summaries in both the
-base and candidate runs. The base run writes an authoritative manifest of
-unique canonical `(function_name, id)` pairs. Candidate comparison requires
-every baseline ID exactly once with paired metrics, compares `Ir`, `I1mr`, and
-`ILmr` for every baseline benchmark, and fails on missing/duplicate IDs or
-malformed metrics. Candidate-only IDs are reported as new workloads without
-comparison; after merge, they appear in the next base manifest and become
-required. There is no fixed workload count. Iai applies only the `Ir` limit;
-the script enforces all three metric limits and the complete baseline set.
-The policy measures instruction events and instruction-cache misses, not
-cycles or allocation counts. For Cachegrind as the selected tool, the separate
-options are `--cachegrind-limits` / `IAI_CALLGRIND_CACHEGRIND_LIMITS`.
-[Upstream regression guide (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/regressions.md) · [CLI reference (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/basics.md)
+The shared [`policy.rs`](../tools/perf/src/policy.rs) arithmetic remains
+authoritative. The fixed105 estimator applies it to every source pair, then
+uses exact signed normalized residual bounds as specified above. It measures
+instructions and instruction-cache misses, not cycles, allocation counts or
+editor latency.
 
-The hosted comparison saves baseline summaries on the reference revision, then
-generates the benchmark manifest before evaluating the candidate. Its runner
-commands are:
+Both source revisions must be clean, exact Git checkouts. The collector verifies
+tracked source inputs, freezes independent copies, builds both benchmark
+executables, records their actual `--list` inventories and rejects source or
+binary mutation. Every baseline `(function_name, id)` is required exactly once
+in each sample. Missing, duplicate or reassigned workloads and malformed counters
+fail closed. Candidate-only workloads are listed without a fabricated zero
+baseline. Ordinary admission follows the actual baseline inventory rather than
+a hard-coded workload count; the control experiment separately requires its
+predeclared complete 54-workload scope.
+
+Inside the source-bound hosted job, after `workflow prepare` creates the
+`paired-median-105-v1` envelope, the collector and reporter are invoked as:
 
 ```sh
-# On the reference revision
-cargo bench --bench analysis -- \
-  --save-baseline=main \
-  --callgrind-args='--cache-sim=yes' \
-  --output-format=json \
-  --save-summary=pretty-json
-"$PERF_TOOL" policy \
-  target/iai/bend2-lsp/analysis/analysis_hot_paths \
-  --write-baseline-manifest=target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
-
-# On the candidate revision, with the baseline data and manifest available
-cargo bench --bench analysis -- \
-  --baseline=main \
-  --callgrind-args='--cache-sim=yes' \
-  --callgrind-limits='ir=2%' \
-  --output-format=json \
-  --save-summary=pretty-json
-"$PERF_TOOL" policy \
-  target/iai/bend2-lsp/analysis/analysis_hot_paths \
-  --baseline-manifest=target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json \
-  --baseline-name=main
+"$RUNNER_TEMP/bend2-perf" paired collect \
+  --baseline-source "$RUNNER_TEMP/paired-main" \
+  --candidate-source "$GITHUB_WORKSPACE" \
+  --work-dir "$RUNNER_TEMP/paired-work" \
+  --output-dir "$PERF_ROOT"
+"$RUNNER_TEMP/bend2-perf" paired report "$PERF_ROOT" \
+  --json-output "$PERF_ROOT/callgrind-policy.json" \
+  --markdown-output "$PERF_ROOT/callgrind-policy.md"
 ```
 
-The workflow runs the candidate revision's manifest writer after the base
-checkout, before checking out the candidate. This keeps the baseline ID set
-authoritative while allowing the new writer to be used before the change is
-merged.
+The workflow records both exits and always finalizes the input inventory before
+admission validation. It explicitly supplies the required method, expected run
+attempt and workflow SHA; the attempt published to downstream admission comes
+from the validated result, not an independently relabeled environment value.
+Each fresh Iai invocation saves to a unique isolated baseline and must emit
+current-only `Left` counts. Existing saved summaries never supply a source pair.
 
-`--save-baseline=NAME` compares to an existing named baseline if present and
-then replaces it; `--baseline=NAME` compares without replacing. Baselines are
-benchmark output data (by default under `target/iai`), so CI must preserve/pass
-that data or generate it from the chosen reference revision. The Iai gate
-rejects an over-limit `Ir` regression with exit code 3; the custom comparator
-independently enforces all three metric limits and the complete baseline ID set,
-rejecting duplicate/missing IDs and malformed summaries.
-[Baseline guide (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/baselines.md) · [CLI reference (v0.16.1)](https://raw.githubusercontent.com/gungraun/gungraun/v0.16.1/docs/src/cli_and_env/basics.md)
+The legacy `bend2-perf policy` reader remains available for historical scalar
+artifacts and boundary contracts. It is not the active PR admission path.
 
 ### Active cache-event floor
 

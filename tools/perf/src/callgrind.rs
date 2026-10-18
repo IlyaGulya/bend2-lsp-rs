@@ -1,4 +1,3 @@
-use super::{Identity, METRICS, PROBE, require, sha256_bytes};
 use crate::{ToolResult, common::sha256_file};
 use serde_json::{Map, Value, json};
 use std::{
@@ -6,6 +5,29 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
+
+pub(crate) mod collect;
+
+pub(crate) const BENCHMARKS: [&str; 2] = ["analysis", "reference_locations"];
+pub(crate) const METRICS: [&str; 3] = ["Ir", "I1mr", "ILmr"];
+pub(crate) const PROBE: &str = "calibration_layout_probe";
+pub(crate) type Identity = (String, Option<String>);
+
+pub(crate) fn require(condition: bool, message: &str) -> ToolResult<()> {
+    if !condition {
+        return Err(message.to_owned().into());
+    }
+    Ok(())
+}
+
+pub(crate) fn sha256_bytes(bytes: &[u8]) -> String {
+    use sha2::{Digest as _, Sha256};
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+pub(crate) fn baseline_name(job_id: &str, pair: u64, variant: &str) -> String {
+    sha256_bytes(format!("{job_id}:{pair}:{variant}").as_bytes())
+}
 
 // Parse containers ourselves so duplicate keys remain visible. Primitive syntax,
 // string escaping and number representation stay authoritative serde_json work.
@@ -211,7 +233,13 @@ pub(super) fn parse_measurement(
     Ok((workloads, summaries))
 }
 
-pub(super) fn parse_executable(text: &str, checkout: &Path, target: &Path) -> ToolResult<PathBuf> {
+pub(super) fn parse_executable(
+    text: &str,
+    checkout: &Path,
+    target: &Path,
+    benchmark: &str,
+) -> ToolResult<PathBuf> {
+    require(BENCHMARKS.contains(&benchmark), "unknown benchmark target")?;
     let mut artifacts = Vec::new();
     let mut finished = false;
     for line in text.lines().filter(|line| !line.trim().is_empty()) {
@@ -228,13 +256,27 @@ pub(super) fn parse_executable(text: &str, checkout: &Path, target: &Path) -> To
             finished = true;
         }
         if message["reason"] == "compiler-artifact"
-            && message["target"]["name"] == "analysis"
+            && message["target"]["name"] == benchmark
             && message["target"]["kind"] == json!(["bench"])
         {
+            let source = message["target"]["src_path"]
+                .as_str()
+                .ok_or("benchmark compiler-artifact has no source path")?;
+            let source = Path::new(source);
+            let source = if source.is_absolute() {
+                source.to_owned()
+            } else {
+                checkout.join(source)
+            };
+            require(
+                resolve_path(&source)?
+                    == resolve_path(&checkout.join(format!("benches/{benchmark}.rs")))?,
+                "benchmark compiler-artifact has the wrong source path",
+            )?;
             let executable = message["executable"]
                 .as_str()
                 .filter(|path| !path.is_empty())
-                .ok_or("analysis compiler-artifact has no executable")?;
+                .ok_or("benchmark compiler-artifact has no executable")?;
             let path = Path::new(executable);
             artifacts.push(resolve_path(&if path.is_absolute() {
                 path.to_owned()
@@ -245,9 +287,11 @@ pub(super) fn parse_executable(text: &str, checkout: &Path, target: &Path) -> To
     }
     require(
         finished && artifacts.len() == 1,
-        "expected one successful analysis compiler-artifact",
+        "expected one successful requested benchmark compiler-artifact",
     )?;
-    let executable = artifacts.pop().ok_or("missing analysis artifact")?;
+    let executable = artifacts
+        .pop()
+        .ok_or("missing requested benchmark artifact")?;
     require(
         executable.starts_with(resolve_path(target)?)
             && executable.is_file()
@@ -290,12 +334,20 @@ pub(super) fn parse_probe_symbols(text: &str, large: bool) -> ToolResult<Value> 
     symbols.pop().ok_or_else(|| "missing layout probe".into())
 }
 
-pub(super) fn parse_workload_list(text: &str) -> ToolResult<BTreeSet<Identity>> {
+pub(super) fn parse_workload_list(text: &str, benchmark: &str) -> ToolResult<BTreeSet<Identity>> {
+    let (prefix, required_function) = match benchmark {
+        "analysis" => ("analysis::analysis_hot_paths::", "inlay_hints_warm"),
+        "reference_locations" => (
+            "reference_locations::reference_order_hot_paths::",
+            "reference_location_order_warm",
+        ),
+        _ => return Err("unknown benchmark target".into()),
+    };
     let mut identities = BTreeSet::new();
     let mut count = None;
     for line in text.lines().filter(|line| !line.trim().is_empty()) {
         if let Some(identity) = line
-            .strip_prefix("analysis::analysis_hot_paths::")
+            .strip_prefix(prefix)
             .and_then(|line| line.strip_suffix(": benchmark"))
         {
             let fields: Vec<_> = identity.split("::").collect();
@@ -336,9 +388,13 @@ pub(super) fn parse_workload_list(text: &str) -> ToolResult<BTreeSet<Identity>> 
         !identities.is_empty() && count == Some(identities.len()),
         "benchmark --list workload count is missing or inconsistent",
     )?;
+    let required = ["small", "medium", "large"]
+        .map(|size| (required_function.to_owned(), Some(size.to_owned())))
+        .into_iter()
+        .collect::<BTreeSet<_>>();
     require(
-        signals().is_subset(&identities),
-        "executed harness is missing the three inlay_hints_warm positive-control workloads",
+        required.is_subset(&identities),
+        "executed harness is missing required benchmark workloads",
     )?;
     Ok(identities)
 }

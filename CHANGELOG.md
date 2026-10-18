@@ -15,12 +15,6 @@
 - Build callers and callees from entry-scoped import and binding indexes, including line-broken `!(` calls and the implementation body of a `law`. Hierarchy ranges point to the implementation's actual file when a law is declared elsewhere. Reject stale hierarchy handles with `ContentModified` instead of silently resolving a replacement by name.
 - Keep physical file identity separate from editor URIs; reject conflicting open overlays and unsafe rename capture instead of returning partial edits.
 - Keep existential signature domains separate from a following braced equality; require the compiler's adjacent `!(` spelling instead of inventing a call for rejected `! (` input.
-- Support enhanced multi-error diagnostics with verified Bend 2.0.37 builds.
-  Preserve independent errors, original-cause links, and precise source ranges.
-- Keep enhanced compiler checks working when project and temporary paths contain
-  spaces or non-ASCII characters.
-- Resolve local imports during enhanced Windows checks, including transitive
-  imports, and keep related errors linked to the original declarations.
 
 ### Under the hood
 
@@ -34,6 +28,30 @@
   A/B/A, repeated-case, fresh-worker, and real stdio checks. Version the provisional
   semantic resource profile for two native worker pairs without changing budgets
   or the separate product Callgrind policy.
+
+## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
+
+### Bug Fixes
+
+- Support enhanced multi-error diagnostics with verified Bend 2.0.37 builds.
+  Preserve independent errors, original-cause links, and precise source ranges.
+- Keep enhanced compiler checks working when project and temporary paths contain
+  spaces or non-ASCII characters.
+- Resolve local imports during enhanced Windows checks, including transitive
+  imports, and keep related errors linked to the original declarations.
+
+### Under the hood
+
+- Gate performance comparisons with 105 fresh source pairs after full prospective
+  A/A and positive-control qualification. Keep numeric limits unchanged; block
+  inconclusive results instead of treating uncertainty as a pass or regression.
+- Bind control evidence to both benchmark executables and all 54 workloads,
+  including reference ordering. Preserve the original benchmark harnesses in
+  ordinary source comparisons and retain raw failures without retries for luck.
+- Recompute admission verdicts from retained Callgrind counters and raw output.
+  Bind results to the exact source, workflow, run and attempt; reject stale or
+  contradictory evidence. Show exact uncertainty bounds in HTML and Markdown
+  reports while preserving historical scalar evidence as historical.
 - Require genuine compiler diagnostics in all six native and installed-executable
   E2E matrices. Pin official Unix archives and build the Windows compiler from
   exact upstream source with a pinned native Bun runtime and a resource-locator
