@@ -21,10 +21,11 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 240
     env:
       REQUEST_ID: pr-${{ github.run_id }}-${{ github.run_attempt }}
       MODE: callgrind
+      MEASUREMENT_METHOD: paired-median-105-v1
       SCENARIO: analysis-hot-paths
       SELECTED_TARGET: all
       WORKFLOW_SHA: ${{ github.workflow_sha }}
@@ -93,87 +94,38 @@ jobs:
           cp "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" "$RUNNER_TEMP/bend2-perf"
       - name: Prepare durable Callgrind evidence inventory
         run: '"$RUNNER_TEMP/bend2-perf" workflow prepare'
-      - name: Measure main baseline
+      - name: Prepare exact main source
         id: baseline
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CANDIDATE_SHA: ${{ github.sha }}
-          BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
         run: |
           git fetch --no-tags origin "$BASE_SHA"
-          git checkout "$BASE_SHA"
-          cargo bench --locked --bench analysis -- \
-            --save-baseline=main \
-            --callgrind-args='--cache-sim=yes' \
-            --output-format=json \
-            --save-summary=pretty-json
-          cargo metadata --locked --no-deps --format-version 1 > "$PERF_ROOT/baseline-targets.json"
-          reference_baseline="$(jq -er '
-            any(.packages[] | select(.name == "bend2-lsp") | .targets[];
-              .name == "reference_locations" and (.kind | index("bench")) != null)
-            | if . then "true" else "false" end
-          ' "$PERF_ROOT/baseline-targets.json")"
-          if [[ "$reference_baseline" == true ]]; then
-            cargo bench --locked --bench reference_locations -- \
-              --save-baseline=main \
-              --callgrind-args='--cache-sim=yes' \
-              --output-format=json \
-              --save-summary=pretty-json
-            mkdir -p "$PERF_ROOT/reference_locations"
-            cp -R target/iai/bend2-lsp/reference_locations/. "$PERF_ROOT/reference_locations/"
-          fi
-          "$RUNNER_TEMP/bend2-perf" policy \
-            "$PERF_ROOT" \
-            --write-baseline-manifest="$BASELINE_MANIFEST"
+          git worktree add --detach "$RUNNER_TEMP/paired-main" "$BASE_SHA"
+          [[ "$(git -C "$RUNNER_TEMP/paired-main" rev-parse HEAD)" == "$BASE_SHA" ]]
       - name: Compare pull request with main
         id: candidate
-        # Preserve the producer's failure outcome and exit codes; only the
-        # post-inventory validator may distinguish regression from an error.
+        # Collection, regression and uncertainty retain distinct exit codes.
+        # Only the post-inventory validator may classify the retained evidence.
         continue-on-error: true
-        env:
-          CANDIDATE_SHA: ${{ github.sha }}
-          BASELINE_MANIFEST: target/iai/bend2-lsp/analysis/analysis_hot_paths-baseline.json
+        timeout-minutes: 210
         run: |
-          git checkout "$CANDIDATE_SHA"
           benchmark_status=0
-          cargo bench --locked --bench analysis -- \
-            --baseline=main \
-            --callgrind-args='--cache-sim=yes' \
-            --callgrind-limits='ir=2%' \
-            --output-format=json \
-            --save-summary=pretty-json || benchmark_status=$?
-          # Iai exits 3 for a regression. Still report the independent cache gates.
-          if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
-            printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
-            exit "$benchmark_status"
-          fi
-          reference_status=0
-          cargo bench --locked --bench reference_locations -- \
-            --baseline=main \
-            --callgrind-args='--cache-sim=yes' \
-            --callgrind-limits='ir=2%' \
-            --output-format=json \
-            --save-summary=pretty-json || reference_status=$?
-          if [[ "$reference_status" != 0 ]]; then
-            benchmark_status="$reference_status"
-          fi
+          "$RUNNER_TEMP/bend2-perf" paired collect \
+            --baseline-source "$RUNNER_TEMP/paired-main" \
+            --candidate-source "$GITHUB_WORKSPACE" \
+            --work-dir "$RUNNER_TEMP/paired-work" \
+            --output-dir "$PERF_ROOT" || benchmark_status=$?
           printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
-          if [[ "$benchmark_status" != 0 && "$benchmark_status" != 3 ]]; then
+          policy_status=0
+          "$RUNNER_TEMP/bend2-perf" paired report "$PERF_ROOT" \
+            --json-output "$PERF_ROOT/callgrind-policy.json" \
+            --markdown-output "$PERF_ROOT/callgrind-policy.md" || policy_status=$?
+          printf 'policy_exit_code=%s\n' "$policy_status" >> "$GITHUB_OUTPUT"
+          if [[ -f "$PERF_ROOT/callgrind-policy.md" ]]; then
+            cat "$PERF_ROOT/callgrind-policy.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$benchmark_status" != 0 ]]; then
             exit "$benchmark_status"
           fi
-          mkdir -p "$PERF_ROOT/reference_locations"
-          cp -R target/iai/bend2-lsp/reference_locations/. "$PERF_ROOT/reference_locations/"
-          policy_status=0
-          "$RUNNER_TEMP/bend2-perf" policy \
-            "$PERF_ROOT" \
-            --baseline-manifest="$BASELINE_MANIFEST" --baseline-name=main \
-            --artifact-manifest="$PERF_ROOT/artifact-manifest.json" \
-            --verdict="$PERF_ROOT/callgrind-policy.json" || policy_status=$?
-          printf 'policy_exit_code=%s\n' "$policy_status" >> "$GITHUB_OUTPUT"
-          if [[ "$policy_status" != 0 ]]; then
-            exit "$policy_status"
-          fi
-          exit "$benchmark_status"
+          exit "$policy_status"
       - name: Record unchanged Callgrind gate outcomes and raw identities
         if: always()
         env:
@@ -188,24 +140,31 @@ jobs:
         run: |
           "$RUNNER_TEMP/bend2-perf" admission measurement \
             --root "$PERF_ROOT" \
+            --measurement-method paired-median-105-v1 \
             --base-sha "$BASE_SHA" --candidate-sha "$CANDIDATE_SHA" \
             --head-sha "$WORKFLOW_HEAD_SHA" --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" --workflow-sha "$WORKFLOW_SHA" \
             --benchmark-exit-code "$BENCHMARK_EXIT_CODE" \
             --policy-exit-code "$POLICY_EXIT_CODE" \
             > "$PERF_ROOT/admission-measurement.json"
           status="$(jq -er '.status' "$PERF_ROOT/admission-measurement.json")"
           {
             printf '### Callgrind measurement: %s\n\n' "$status"
-            printf 'Valid collection is not admission of a regression.\n\n'
+            printf 'Valid collection is not admission of a regression or an inconclusive result.\n\n'
             printf -- "- Base: \`%s\`\n- Merge candidate: \`%s\`\n- PR head: \`%s\`\n" \
               "$BASE_SHA" "$CANDIDATE_SHA" "$WORKFLOW_HEAD_SHA"
             printf -- "- Run: \`%s\`, attempt: \`%s\`\n- Benchmark exit: \`%s\`; policy exit: \`%s\`\n\n" \
               "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$BENCHMARK_EXIT_CODE" "$POLICY_EXIT_CODE"
-            jq -r '.failures[] | "- " + .' "$PERF_ROOT/admission-measurement.json"
+            jq -r '.failures[] | "- \(.function_name)/\(.id // "-") \(.metric): \(.classification)"' \
+              "$PERF_ROOT/admission-measurement.json"
           } >> "$GITHUB_STEP_SUMMARY"
           case "$status" in
             passed)
               printf '\nOrdinary policy passed; no exception review is needed.\n' >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            inconclusive)
+              printf '\nThe fixed series does not establish a pass or a regression. Admission is blocked; owner exceptions do not apply.\n' >> "$GITHUB_STEP_SUMMARY"
+              exit 1
               ;;
             regression)
               printf '\nOrdinary policy failed. Admission requires explicit owner review of this run and commit; no prior approval applies.\n' >> "$GITHUB_STEP_SUMMARY"
@@ -245,9 +204,8 @@ jobs:
               ;;
           esac
           # Publish nothing before evidence and any required protection validate.
-          jq -r 'to_entries[] | select(.key == "status" or .key == "base_sha" or .key == "candidate_sha" or .key == "head_sha" or .key == "run_id") | "\(.key)=\(.value)"' \
+          jq -r 'to_entries[] | select(.key == "status" or .key == "base_sha" or .key == "candidate_sha" or .key == "head_sha" or .key == "run_id" or .key == "run_attempt") | "\(.key)=\(.value)"' \
             "$PERF_ROOT/admission-measurement.json" >> "$GITHUB_OUTPUT"
-          printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
           if [[ "$status" == regression ]]; then
             printf 'environment_id=%s\nprior_approval_count=%s\n' \
               "$environment_id" "$prior_approval_count" >> "$GITHUB_OUTPUT"
@@ -447,6 +405,14 @@ jobs:
           key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-${{ hashFiles('Cargo.lock', 'scripts/install-tools.sh') }}
           restore-keys: |
             cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.ci-cache.outputs.toolchain-key }}-
+      - name: Verify repeated evidence CLI contracts on the native host
+        id: repeated-evidence
+        run: |
+          source "$PERF_ROOT/run.sh"
+          run cargo test --locked -p bend2-perf --no-fail-fast \
+            --test paired_contract --test paired_admission --test paired_dashboard --test paired_collector \
+            --target-dir "$RUNNER_TEMP/native-perf-tools" \
+            2>&1 | tee "$PERF_ROOT/paired-cli-tests.log"
       - name: Build independent baseline and candidate default release executables
         id: latency-binaries
         run: |

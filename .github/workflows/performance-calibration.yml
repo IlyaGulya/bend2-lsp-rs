@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/performance-calibration.yml
+      - .github/workflows/performance.yml
+      - benches/**
       - scripts/ci-cache.sh
       - scripts/install-tools.sh
       - scripts/install-valgrind.sh
@@ -21,7 +23,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
@@ -31,14 +33,6 @@ jobs:
           - job: discovery-02
             role: discovery
           - job: discovery-03
-            role: discovery
-          - job: discovery-04
-            role: discovery
-          - job: discovery-05
-            role: discovery
-          - job: discovery-06
-            role: discovery
-          - job: discovery-07
             role: discovery
           - job: validation-01
             role: validation
@@ -102,7 +96,8 @@ jobs:
       - name: Check Rust calibration contracts
         run: |
           cargo test --locked --release -p bend2-perf --bin bend2-perf calibration:: --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Collect balanced independent-build measurements
+      - name: Collect exactly 105 balanced independent-build pairs
+        timeout-minutes: 330
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
           CALIBRATION_ROLE: ${{ matrix.role }}
@@ -111,7 +106,7 @@ jobs:
             --source "$GITHUB_WORKSPACE" \
             --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
             --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
-            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 5
+            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 105
       - name: Preserve installed profiler provenance
         if: always() && steps.valgrind.outcome == 'success'
         env:
@@ -164,24 +159,32 @@ jobs:
         run: |
           rustup toolchain install 1.98.1 --profile minimal
           cargo build --locked --release -p bend2-perf --target-dir "$RUNNER_TEMP/perf-tools-target"
+      - name: Prepare report input even when collection fails
+        if: always()
+        run: mkdir -p target/performance-calibration-input
       - name: Download independent runner datasets
+        if: always()
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-*
           path: target/performance-calibration-input
-      - name: Report discovery allowances and untouched holdout sensitivity
+      - name: Validate A/A repeatability and positive-control sensitivity
+        if: always()
         run: |
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
-            --expected-discovery-jobs 7 --expected-validation-jobs 3 --expected-pairs 5 \
+            --method paired-median-105-v1 \
+            --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
+            --expected-workloads 54 --require-all-benchmarks \
+            --require-control-validation \
             --json-output target/performance-calibration-report/report.json \
             --markdown-output target/performance-calibration-report/report.md
-      - name: Publish observed calibration summary
+      - name: Publish fixed-series control validation
         if: always()
         run: |
           if [[ -f target/performance-calibration-report/report.md ]]; then
             cat target/performance-calibration-report/report.md >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Preserve report without changing active gates
+      - name: Preserve source-bound control report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

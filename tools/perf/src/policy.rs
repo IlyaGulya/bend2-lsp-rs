@@ -1,4 +1,4 @@
-use crate::ToolResult;
+use crate::{ToolResult, callgrind::METRICS};
 use clap::Parser;
 use serde_json::{Value, json};
 use std::{
@@ -7,7 +7,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub(crate) const METRICS: [&str; 3] = ["Ir", "I1mr", "ILmr"];
 type BenchmarkId = (String, Option<String>);
 type Counts = [u64; 3];
 type Pairs = [(u64, u64); 3];
@@ -16,6 +15,12 @@ type Pairs = [(u64, u64); 3];
 pub(crate) struct ExitError {
     pub(crate) status: u8,
     message: String,
+}
+
+impl ExitError {
+    pub(crate) const fn new(status: u8, message: String) -> Self {
+        Self { status, message }
+    }
 }
 
 impl fmt::Display for ExitError {
@@ -360,7 +365,7 @@ fn data_error(context: &str, error: &dyn fmt::Display) -> Box<dyn std::error::Er
     })
 }
 
-const PROVENANCE_FIELDS: [&str; 8] = [
+pub(crate) const PROVENANCE_FIELDS: [&str; 8] = [
     "target",
     "base_sha",
     "candidate_sha",

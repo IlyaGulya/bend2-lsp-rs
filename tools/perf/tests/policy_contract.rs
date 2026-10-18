@@ -674,6 +674,8 @@ fn admission(
             format!("--candidate-sha={}", "b".repeat(40)),
             format!("--head-sha={}", "d".repeat(40)),
             "--run-id=12345".into(),
+            "--run-attempt=1".into(),
+            format!("--workflow-sha={}", "c".repeat(40)),
             format!("--benchmark-exit-code={benchmark_code}"),
             format!("--policy-exit-code={policy_code}"),
         ])

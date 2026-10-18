@@ -16,21 +16,20 @@
 //! matching; mixed-newline duplicates and non-newline anchor drift still fail.
 
 mod collector;
-mod integrity;
+mod repeated;
 mod report;
 #[cfg(test)]
 mod tests;
 
-use crate::ToolResult;
-use clap::{Parser, Subcommand};
+use crate::{
+    ToolResult,
+    callgrind::{self, BENCHMARKS, Identity, METRICS, PROBE, baseline_name, require},
+};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 const VARIANTS: [&str; 5] = ["a", "b", "layout", "extra_work", "extra_alloc"];
-const METRICS: [&str; 3] = ["Ir", "I1mr", "ILmr"];
 const ROLES: [&str; 2] = ["discovery", "validation"];
-const PROBE: &str = "calibration_layout_probe";
-
-type Identity = (String, Option<String>);
 
 #[derive(Parser)]
 #[command(no_binary_name = true)]
@@ -63,9 +62,19 @@ struct CollectArgs {
     pairs: u64,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+enum ReportMethod {
+    #[default]
+    Historical,
+    #[value(name = "paired-median-105-v1")]
+    PairedMedian105V1,
+}
+
 #[derive(Parser)]
 struct ReportArgs {
     input_root: PathBuf,
+    #[arg(long, value_enum, default_value = "historical")]
+    method: ReportMethod,
     #[arg(long)]
     json_output: PathBuf,
     #[arg(long)]
@@ -76,6 +85,15 @@ struct ReportArgs {
     expected_validation_jobs: Option<u64>,
     #[arg(long, value_parser = positive_integer)]
     expected_pairs: Option<u64>,
+    /// Require this many unique executed workloads in every job.
+    #[arg(long, value_parser = positive_integer)]
+    expected_workloads: Option<u64>,
+    /// Require source-bound analysis and `reference_locations` evidence.
+    #[arg(long)]
+    require_all_benchmarks: bool,
+    /// Reject incomplete coverage, source-identical A/A failures, or missed positive controls.
+    #[arg(long)]
+    require_control_validation: bool,
 }
 
 fn positive_integer(value: &str) -> Result<u64, String> {
@@ -101,20 +119,4 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         }
         Command::Report(args) => report::run(&args),
     }
-}
-
-fn require(condition: bool, message: &str) -> ToolResult<()> {
-    if !condition {
-        return Err(message.to_owned().into());
-    }
-    Ok(())
-}
-
-fn sha256_bytes(bytes: &[u8]) -> String {
-    use sha2::{Digest as _, Sha256};
-    format!("{:x}", Sha256::digest(bytes))
-}
-
-fn baseline_name(job_id: &str, pair: u64, variant: &str) -> String {
-    sha256_bytes(format!("{job_id}:{pair}:{variant}").as_bytes())
 }
