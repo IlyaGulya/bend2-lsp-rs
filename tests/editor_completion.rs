@@ -292,8 +292,7 @@ mod protocol {
             "Base"
         );
         let target = editor.temp.path().join("local.bend");
-        let uri = Url::from_file_path(&target).must_be("indexed target URI");
-        editor.client.notify("textDocument/didOpen", json!({"textDocument":{"uri":uri,"languageId":"bend","version":1,"text":"def local:\n  1\n"}}));
+        editor.index_unsaved("local.bend", "def local:\n  1\n");
         editor.replace("import lcl as Local\ndef main:\n  1\n");
         let items = editor.complete("import lcl");
         let local = item(&items, "local.bend");

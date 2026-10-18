@@ -21,6 +21,7 @@ type Identities = BTreeMap<PathBuf, [u8; 32]>;
 struct DiskFiles {
     contents: BTreeMap<PathBuf, String>,
     identities: Identities,
+    aliases: BTreeMap<PathBuf, PathBuf>,
     bytes: usize,
     keep_contents: bool,
 }
@@ -31,12 +32,27 @@ pub(super) struct SavedProject {
     pub(super) sources: BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     pub(super) uris: BTreeMap<PathBuf, Url>,
     files: Identities,
+    aliases: BTreeMap<PathBuf, PathBuf>,
     tree_paths: HashSet<PathBuf>,
 }
 
 impl DiskFiles {
+    fn canonicalize(&mut self, path: &Path) -> io::Result<PathBuf> {
+        let canonical = fs::canonicalize(path)?;
+        if let Some(previous) = self.aliases.get(path) {
+            if previous != &canonical {
+                return Err(io::Error::other(
+                    "bend-lint source alias changed during capture",
+                ));
+            }
+        } else if canonical != path {
+            self.aliases.insert(path.to_path_buf(), canonical.clone());
+        }
+        Ok(canonical)
+    }
+
     fn read(&mut self, path: &Path) -> io::Result<PathBuf> {
-        let path = fs::canonicalize(path)?;
+        let path = self.canonicalize(path)?;
         if self.identities.contains_key(&path) {
             return Ok(path);
         }
@@ -92,7 +108,7 @@ fn project_files(root: &Path, keep_contents: bool) -> io::Result<DiskFiles> {
     let mut visited = HashSet::new();
     let mut entries = 0;
     while let Some((directory, under_rules)) = pending.pop() {
-        let directory = fs::canonicalize(directory)?;
+        let directory = files.canonicalize(&directory)?;
         if !visited.insert((directory.clone(), under_rules)) {
             continue;
         }
@@ -247,12 +263,18 @@ impl SavedProject {
             );
             sources.insert(path, snapshot);
         }
+        for document in documents {
+            if let Ok(path) = document.uri.to_file_path() {
+                files.canonicalize(&path)?;
+            }
+        }
         let uris = source_uris(graph, documents, &sources);
         let saved = Self {
             root,
             entry,
             sources,
             files: files.identities,
+            aliases: files.aliases,
             tree_paths,
             uris,
         };
@@ -290,11 +312,20 @@ impl SavedProject {
         {
             return false;
         }
+        // Equal canonical bytes do not prove that a source/configuration alias
+        // still names the same file, including aliases in parent directories.
+        if !self.aliases.iter().all(|(path, expected)| {
+            tree.canonicalize(path)
+                .is_ok_and(|actual| actual == *expected)
+        }) {
+            return false;
+        }
         self.files
             .keys()
             .filter(|path| !self.tree_paths.contains(*path))
             .all(|path| tree.read(path).is_ok())
             && tree.identities == self.files
+            && tree.aliases == self.aliases
     }
 
     pub(super) fn source(&self, path: &str) -> Option<(PathBuf, &Arc<DocumentSnapshot>)> {

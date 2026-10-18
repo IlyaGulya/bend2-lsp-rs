@@ -220,6 +220,12 @@ LLVM 22.1.8 instead fails the rule program's SEH prologue.
 Deterministic regression tests also hold lint publication busy while opening,
 editing, closing, or immediately saving a document. Subsequent requests must not
 overtake document updates or observe an older snapshot, even with lint disabled.
+In-flight results and requested edits are also rejected when a captured source
+or configuration symlink changes target, including symlinked parent directories;
+unchanged target bytes alone are not sufficient. Linux regression cases require
+findings on non-UTF-8 native filenames to retain their lossless file URIs without
+terminating the server.
+
 Failed genuine CLI runs can retain their exact input and invocation through
 `BEND2_LINT_TEST_FAILURE_DIR`. Windows ARM CI additionally captures native PE
 headers and an exception minidump with a restricted debuggee environment; CI,

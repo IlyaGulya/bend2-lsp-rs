@@ -1,7 +1,7 @@
 use super::saved::SavedProject;
 use crate::analysis::DocumentSnapshot;
 use serde::Deserialize;
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{collections::HashMap, io};
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Position, Range};
 use url::Url;
 
@@ -72,7 +72,7 @@ pub(super) fn offsets(snapshot: &DocumentSnapshot, range: Range) -> Option<(usiz
     (start <= end).then_some((start, end))
 }
 
-fn finding_target(saved: &SavedProject, finding: &Finding) -> io::Result<(PathBuf, Url)> {
+fn finding_target(saved: &SavedProject, finding: &Finding) -> io::Result<Url> {
     let (path, snapshot) = saved
         .source(&finding.path)
         .ok_or_else(|| io::Error::other("bend-lint finding path is not a captured source file"))?;
@@ -81,14 +81,13 @@ fn finding_target(saved: &SavedProject, finding: &Finding) -> io::Result<(PathBu
             "bend-lint finding has an invalid UTF-16 range",
         ));
     }
-    let uri = saved.uris.get(&path).cloned().map_or_else(
+    saved.uris.get(&path).cloned().map_or_else(
         || {
             Url::from_file_path(&path)
                 .map_err(|()| io::Error::other("bend-lint finding path is not a file URI"))
         },
         Ok,
-    )?;
-    Ok((path, uri))
+    )
 }
 
 pub(super) fn parse(output: &std::process::Output, saved: &SavedProject) -> io::Result<Findings> {
@@ -123,7 +122,7 @@ pub(super) fn parse(output: &std::process::Output, saved: &SavedProject) -> io::
                 "bend-lint returned more than 4096 fixes or edits",
             ));
         }
-        let (path, uri) = finding_target(saved, &finding)?;
+        let uri = finding_target(saved, &finding)?;
         let diagnostic = Diagnostic {
             range: finding.range,
             severity: Some(severity(&finding.severity)?),
@@ -131,7 +130,7 @@ pub(super) fn parse(output: &std::process::Output, saved: &SavedProject) -> io::
             source: Some("bend-lint".into()),
             message: finding.message,
             data: Some(
-                serde_json::json!({"path":finding.path,"canonicalPath":path,"provider":"bend-lint","compiler":"external bend-lint compiler, not the selected LSP Bend"}),
+                serde_json::json!({"path":finding.path,"provider":"bend-lint","compiler":"external bend-lint compiler, not the selected LSP Bend"}),
             ),
             ..Diagnostic::default()
         };

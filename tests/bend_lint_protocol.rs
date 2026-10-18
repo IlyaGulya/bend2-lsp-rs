@@ -1077,3 +1077,124 @@ fn lint_rule_cannot_impersonate_an_automatic_parser_fix() {
     );
     session.finish();
 }
+
+#[cfg(unix)]
+#[test]
+fn retargeting_project_symlink_discards_inflight_findings() {
+    use std::os::unix::fs::symlink;
+
+    let first = "def first(x: U32) -> U32:\n  x\n";
+    let second = "def second(x: U32) -> U32:\n  x\n";
+    let mut session = Session::new(SOURCE, &[("a.bend", first), ("b.bend", second)]);
+    let alias = session.project().join("alias.bend");
+    let target = session.project().join("b.bend");
+    symlink(session.project().join("a.bend"), &alias).must_be("create original source alias");
+    session.response(
+        vec![finding(&alias, "language/unneeded_plus", range(0, 0, 3))],
+        vec![],
+        true,
+    );
+    session.block();
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":uri(&target),"languageId":"bend","version":1,"text":second}}),
+    );
+    session.save();
+    let address = session.wait_file("address");
+    fs::remove_file(&alias).must_be("remove old source alias");
+    symlink(&target, &alias).must_be("retarget source alias without changing either source");
+    session.release();
+    socket_closed(&address);
+    session.no_lint();
+    session.finish();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn non_utf8_symlink_target_keeps_lossless_diagnostics_and_server_responsive() {
+    use std::{
+        ffi::OsString,
+        os::unix::{ffi::OsStringExt, fs::symlink},
+    };
+
+    let mut session = Session::new(SOURCE, &[]);
+    let target = session
+        .directory
+        .path()
+        .join(OsString::from_vec(b"\xff.bend".to_vec()));
+    fs::write(&target, SOURCE).must_be("write non-UTF-8 native source path");
+    let alias = session.project().join("alias.bend");
+    symlink(&target, &alias).must_be("create UTF-8 alias to native source path");
+    session.response(
+        vec![finding(&alias, "language/unneeded_plus", range(0, 9, 10))],
+        vec![],
+        true,
+    );
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.save();
+    let target_uri = uri(&target);
+    let packet = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            has_lint(message) && message["params"]["uri"] == target_uri
+        })
+        .must_be("native source receives lint at its lossless file URI");
+    assert_eq!(
+        packet["params"]["diagnostics"][0]["code"],
+        "language/unneeded_plus"
+    );
+    let response = session.client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument":{"uri":session.document}}),
+    );
+    assert_eq!(response["result"][0]["name"], "main");
+    session.finish();
+}
+
+#[cfg(unix)]
+#[test]
+fn retargeting_project_directory_symlink_discards_inflight_findings() {
+    use std::os::unix::fs::symlink;
+
+    let first = "def first(x: U32) -> U32:\n  x\n";
+    let second = "def second(x: U32) -> U32:\n  x\n";
+    let mut session = Session::new(SOURCE, &[]);
+    let original_directory = session.project().join("a");
+    let target_directory = session.project().join("b");
+    for (directory, text) in [(&original_directory, first), (&target_directory, second)] {
+        fs::create_dir(directory).must_be("create saved source directory");
+        fs::write(directory.join("source.bend"), text).must_be("write saved directory source");
+    }
+    let alias = session.project().join("alias");
+    let target = target_directory.join("source.bend");
+    symlink(&original_directory, &alias).must_be("create original directory alias");
+    session.response(
+        vec![finding(
+            &alias.join("source.bend"),
+            "language/unneeded_plus",
+            range(0, 0, 3),
+        )],
+        vec![],
+        true,
+    );
+    session.block();
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":uri(&target),"languageId":"bend","version":1,"text":second}}),
+    );
+    session.save();
+    let address = session.wait_file("address");
+    fs::remove_file(&alias).must_be("remove old directory alias");
+    symlink(&target_directory, &alias).must_be("retarget directory alias");
+    session.release();
+    socket_closed(&address);
+    session.no_lint();
+    session.finish();
+}

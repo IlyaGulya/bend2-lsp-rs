@@ -12,6 +12,10 @@
   related information; reject obsolete revisions and clear only retired results.
 - Keep unsaved editor buffers out of disk-based lint results. Cancel stale jobs,
   bound output/work, and contain analyzer descendants on Unix and Windows.
+- Reject in-flight lint results and requested fixes after source/configuration
+  symlink retargeting, including changes in parent directories.
+- Keep Linux lint diagnostics working for UTF-8 aliases to non-UTF-8 filenames;
+  retain lossless file URIs without serializing native paths into JSON metadata.
 - Offer separately enabled, explicitly requested **dangerous** lint Code Actions
   with saved-content, UTF-16, overlap, and version checks for every touched file.
   Never run automatic fixes, safe fix-all, or a replacement formatter.
@@ -20,6 +24,8 @@
   Pin the npm package and Bun archives and retain runtime identity evidence.
   The standalone JSON contract targets upstream
   `02ef84b38b8c06cbd607e270c4930e633e9dab0f`, not the older bundled PR #1389 tool.
+- Synchronize import-completion fixtures with their indexed unsaved candidates,
+  without making production queries wait for unrelated pending builds.
 
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
