@@ -715,12 +715,17 @@ fn collect_module_completions(
                 symbol.kind,
             );
             if items.len() == items.capacity() {
-                items.reserve_exact(items.capacity().saturating_mul(3).max(4));
+                grow_completion_buffer(&mut items);
             }
             items.push(item);
         }
     }
     items
+}
+
+#[cold]
+fn grow_completion_buffer(items: &mut Vec<Completion>) {
+    items.reserve_exact(items.capacity().saturating_mul(3).max(4));
 }
 
 #[must_use]
