@@ -717,7 +717,7 @@ fn collect_module_completions(
             );
             if items.capacity() == 0
                 && symbols.len() >= 4
-                && prefix.len() <= usize::from(symbol.suffix_name_prefix)
+                && syntax.module_completion_suffix_covers(symbols.len() + 1, prefix.len())
                 && name.starts_with(prefix)
             {
                 items.reserve_exact((symbols.len() + 1).next_power_of_two());

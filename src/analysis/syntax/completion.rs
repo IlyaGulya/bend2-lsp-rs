@@ -11,15 +11,23 @@ pub(super) struct CompletionIndex {
     patterns: Box<[PatternContext]>,
     imports: Box<[TextRange]>,
     cases: Box<[(TextRange, TextRange)]>,
+    module_suffix_count: u16,
+    module_suffix_prefix_len: u16,
 }
 
 impl CompletionIndex {
     pub(super) fn build(source: &str, syntax: &SyntaxIndex) -> Self {
+        let (module_suffix_count, module_suffix_prefix_len) =
+            module_completion_suffix(source, syntax);
         if ["import", "match", "case"]
             .iter()
             .all(|keyword| syntax.name_id(source, keyword).is_none())
         {
-            return Self::default();
+            return Self {
+                module_suffix_count,
+                module_suffix_prefix_len,
+                ..Self::default()
+            };
         }
         let mut patterns = Vec::new();
         let mut imports = Vec::new();
@@ -97,7 +105,14 @@ impl CompletionIndex {
             patterns: patterns.into_boxed_slice(),
             imports: imports.into_boxed_slice(),
             cases: cases.into_boxed_slice(),
+            module_suffix_count,
+            module_suffix_prefix_len,
         }
+    }
+
+    pub(super) fn module_suffix_covers(&self, remaining: usize, prefix_len: usize) -> bool {
+        remaining <= usize::from(self.module_suffix_count)
+            && prefix_len <= usize::from(self.module_suffix_prefix_len)
     }
 
     pub(super) fn pattern_type(&self, offset: usize) -> Option<CasePatternType> {
@@ -126,6 +141,37 @@ impl CompletionIndex {
         let range = self.imports[index];
         (offset <= range.end).then_some(range)
     }
+}
+
+#[cold]
+#[inline(never)]
+fn module_completion_suffix(source: &str, syntax: &SyntaxIndex) -> (u16, u16) {
+    let Some(last) = syntax.symbols.last() else {
+        return (0, 0);
+    };
+    let last_name = &source[last.name_range.start..last.name_range.end];
+    let mut prefix_len = u16::try_from(last_name.len()).unwrap_or(u16::MAX);
+    let mut count = 1_u16;
+    for symbol in syntax
+        .symbols
+        .iter()
+        .rev()
+        .skip(1)
+        .take(usize::from(u16::MAX) - 1)
+    {
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
+        let limit = usize::from(prefix_len).min(name.len());
+        let mut shared = 0;
+        while shared < limit && name.as_bytes()[shared] == last_name.as_bytes()[shared] {
+            shared += 1;
+        }
+        if shared == 0 {
+            break;
+        }
+        prefix_len = u16::try_from(shared).unwrap_or(u16::MAX);
+        count += 1;
+    }
+    (count, prefix_len)
 }
 
 fn import_context(source: &str, start: usize, end: usize) -> Option<TextRange> {

@@ -143,8 +143,6 @@ pub struct IndexedSymbol {
     pub parameter_span: TextRange,
     pub scope: TextRange,
     pub kind: SymbolKind,
-    // Capped byte prefix shared by this name and every following declaration name.
-    pub suffix_name_prefix: u8,
     pub start_line: usize,
 }
 
@@ -991,6 +989,15 @@ impl SyntaxIndex {
     #[must_use]
     pub fn completion_import_path(&self, offset: usize) -> Option<TextRange> {
         self.completion.import_path(offset)
+    }
+
+    #[must_use]
+    pub(crate) fn module_completion_suffix_covers(
+        &self,
+        remaining: usize,
+        prefix_len: usize,
+    ) -> bool {
+        self.completion.module_suffix_covers(remaining, prefix_len)
     }
 }
 
