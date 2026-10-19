@@ -709,13 +709,11 @@ fn collect_module_completions(
     for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
-            items.extend(std::iter::once_with(|| {
-                completion(
-                    name.to_owned(),
-                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                    symbol.kind,
-                )
-            }));
+            items.extend([completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                symbol.kind,
+            )]);
         }
     }
     items
