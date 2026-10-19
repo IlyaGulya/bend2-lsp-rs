@@ -710,8 +710,8 @@ fn collect_module_completions(
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
             if items.len() == items.capacity() {
-                // Reserve ordinary doubling only when full, without rematching names.
-                items.reserve_exact(items.capacity().max(4));
+                // Grow geometrically only when full, without rematching names.
+                items.reserve_exact(items.capacity().saturating_mul(2).max(4));
             }
             items.push(completion(
                 name.to_owned(),
