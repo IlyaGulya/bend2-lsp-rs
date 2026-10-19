@@ -120,6 +120,13 @@ the Unicode path. All workload bodies, ownership/teardown boundaries and gates
 remain unchanged. Correctness smoke and layout sizes are not hosted performance
 admission.
 
+Module completion scans indexed declarations once, reading names from indexed
+source ranges. It selects the existing ASCII or non-ASCII query path once;
+the two specialized loops stay separate in generated code. Result buffers use
+ordinary `Vec` growth only after a match, without a capacity prepass, new snapshot
+metadata, or allocations on a miss. Materialization preserves declaration order,
+subsequence matching, keyword suppression and result ownership; it does not
+rescan source semantics. Cold snapshot construction remains separately gated.
 
 A paired candidate with zero collected instructions against a nonzero baseline
 is a collection failure, not a performance improvement. The authoritative
@@ -354,8 +361,20 @@ The summary and dashboard preserve these distinctions, sample counts and bounds
 without inventing scalar baseline/candidate pairs. Raw evidence and failed
 reports remain downloadable.
 
-A valid `passed` result needs no exception. For `regression`, measurement first
-reads the public GitHub REST definition of the `performance-exception`
+Automatic pull-request comparisons fail admission on a confirmed regression.
+They do not inspect the exception environment or schedule an approval request.
+A valid `passed` result needs no exception.
+
+A maintainer can explicitly dispatch `performance` at the desired candidate
+commit with an exact 40-character `base_sha` and
+`request_performance_exception: true`. The input defaults to false. This runs
+a fresh full comparison; it does not reuse another run's measurements or
+approvals. Only this manual request, followed by a valid `regression` verdict,
+can schedule protected review. Unknown, incomplete or inconclusive evidence
+still blocks admission and cannot request an exception.
+
+For an explicitly requested regression review, measurement first reads the
+public GitHub REST definition of the `performance-exception`
 environment without a token and validates it with `bend2-perf admission
 environment`: its name must match, required reviewers must be exactly one
 `User` whose numeric ID is the repository owner's, and administrator bypass
@@ -386,8 +405,9 @@ environment, bypassed review, different environment/reviewer, missing fresh
 approval, or malformed/API-failed history cannot be mistaken for acceptance:
 protected-job success alone is not proof of owner approval.
 The owner reviews the bounded acceptance report required by the
-[ADR](adr-tiny-performance-gates.md) before approving. Until that approval,
-regression admission remains pending, not green.
+[ADR](adr-tiny-performance-gates.md) before approving. Only the explicitly
+requested manual exception remains pending until approval; ordinary regressions
+fail admission without waiting for human action.
 
 The token-free `performance admission` job always evaluates the dependencies:
 it passes only for successful validated measurement plus `passed` with no

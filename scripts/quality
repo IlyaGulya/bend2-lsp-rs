@@ -35,6 +35,7 @@ printf '== release integrity ==\n'
 python3 -m unittest discover -s scripts -p test_release.py
 printf '== semantic supervisor contract tests ==\n'
 python3 -m unittest discover -s scripts -p 'test_semantic*.py'
+python3 -m unittest discover -s scripts -p test_bootstrap_bend_lint.py
 
 printf '== format ==\n'
 cargo fmt --all -- --check

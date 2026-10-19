@@ -31,6 +31,10 @@ pub(super) struct ClosedRevision {
 }
 
 impl WorkspaceState {
+    pub(super) fn generation(&self) -> u64 {
+        self.generation
+    }
+
     pub(super) fn is_closed(&self, closed: ClosedRevision) -> bool {
         self.revisions.get(&closed.file).is_some_and(|sync| {
             let status = revision_result(sync.status());
