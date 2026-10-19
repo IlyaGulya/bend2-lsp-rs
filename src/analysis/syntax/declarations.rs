@@ -85,6 +85,19 @@ pub(super) fn parse_symbols(
         .filter(|(_, line)| line.indent == 0)
         .filter_map(|(line_number, line)| parse_top_level_symbol(source, *line, line_number, names))
         .collect();
+    record_symbol_metadata(source, lines, &mut symbols);
+    symbols
+}
+
+// Keep scope and completion metadata preparation out of the large snapshot builder.
+#[cold]
+#[inline(never)]
+fn record_symbol_metadata(source: &str, lines: &[SyntaxLine], symbols: &mut [IndexedSymbol]) {
+    let Some(last) = symbols.last() else {
+        return;
+    };
+    let last_name = &source[last.name_range.start..last.name_range.end];
+    let mut prefix_len = u8::try_from(last_name.len()).unwrap_or(u8::MAX);
     let mut symbol_index = symbols.len();
     let mut next_scope_end = source.len();
     for (line_number, line) in lines.iter().enumerate().rev() {
@@ -93,12 +106,22 @@ pub(super) fn parse_symbols(
             continue;
         }
         if symbol_index > 0 && symbols[symbol_index - 1].start_line == line_number {
-            symbols[symbol_index - 1].scope = TextRange::new(line.full_end, next_scope_end);
+            let symbol = &mut symbols[symbol_index - 1];
+            symbol.scope = TextRange::new(line.full_end, next_scope_end);
+            if prefix_len != 0 {
+                let name = &source[symbol.name_range.start..symbol.name_range.end];
+                let limit = usize::from(prefix_len).min(name.len());
+                let mut shared = 0;
+                while shared < limit && name.as_bytes()[shared] == last_name.as_bytes()[shared] {
+                    shared += 1;
+                }
+                prefix_len = u8::try_from(shared).unwrap_or(u8::MAX);
+                symbol.suffix_name_prefix = prefix_len;
+            }
             symbol_index -= 1;
         }
         next_scope_end = line.content.start;
     }
-    symbols
 }
 
 // Keep type-body parsing out of the already large snapshot builder.
@@ -435,6 +458,7 @@ fn parse_top_level_symbol(
         parameter_span: TextRange::new(0, 0),
         scope: TextRange::new(line.full_end, line.full_end),
         kind,
+        suffix_name_prefix: 0,
         start_line: line_number,
     })
 }

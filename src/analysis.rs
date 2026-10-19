@@ -706,14 +706,23 @@ fn collect_module_completions(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
-    for symbol in syntax.symbols() {
+    let mut symbols = syntax.symbols().iter();
+    while let Some(symbol) = symbols.next() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
-            items.extend([completion(
+            let item = completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
-            )]);
+            );
+            if items.capacity() == 0
+                && symbols.len() >= 4
+                && prefix.len() <= usize::from(symbol.suffix_name_prefix)
+                && name.starts_with(prefix)
+            {
+                items.reserve_exact((symbols.len() + 1).next_power_of_two());
+            }
+            items.push(item);
         }
     }
     items
