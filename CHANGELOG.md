@@ -31,10 +31,10 @@
 
 ### Under the hood
 
-- Pre-size module autocomplete results from the first matching declaration run,
-  including after unrelated declarations, without repeating semantic matching,
-  allocating for misses, or reserving unrelated declarations. Preserve suggestion
-  contents, order, fuzzy matching and keyword suppression.
+- Reduce autocomplete lookup and matching overhead using indexed declaration
+  name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
+  pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
+  suggestion contents, order, fuzzy matching and keyword suppression.
 - Fail ordinary performance admission on regressions without automatically
   requesting approval. Protected exact-run owner review is available only after
   an explicitly requested manual comparison; numeric limits remain unchanged.

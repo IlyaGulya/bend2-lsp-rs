@@ -67,14 +67,13 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
-Module completion reserves from the first run of matching indexed declarations,
-even after unrelated declarations, rounded to ordinary `Vec` growth capacity.
-Each declaration is matched once: the initial search consumes its first match,
-the run consumes its first rejection, and the remaining iterator filters only
-later declarations. Dense matches avoid repeated result-buffer growth without
-reserving the entire symbol count for a sparse query or allocating for a miss.
-Materialization preserves declaration order, subsequence matching, keyword
-suppression and result ownership; it does not rescan source semantics.
+Module completion scans indexed declarations once, reading names from indexed
+source ranges. It selects the existing ASCII or non-ASCII query path once;
+the two specialized loops stay separate in generated code. Result buffers use
+ordinary `Vec` growth only after a match, without a capacity prepass, new snapshot
+metadata, or allocations on a miss. Materialization preserves declaration order,
+subsequence matching, keyword suppression and result ownership; it does not
+rescan source semantics. Cold snapshot construction remains separately gated.
 
 A paired candidate with zero collected instructions against a nonzero baseline
 is a collection failure, not a performance improvement. The authoritative

@@ -703,35 +703,32 @@ fn collect_module_completions(
     prefix: &str,
     ascii_prefix: bool,
 ) -> Vec<Completion> {
+    if ascii_prefix {
+        collect_module_completions_for_query::<true>(snapshot, prefix)
+    } else {
+        collect_module_completions_for_query::<false>(snapshot, prefix)
+    }
+}
+
+// Keep the two specialized loops from merging into one large query function.
+#[inline(never)]
+fn collect_module_completions_for_query<const ASCII_PREFIX: bool>(
+    snapshot: &DocumentSnapshot,
+    prefix: &str,
+) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
-    let named_symbols = syntax
-        .symbols()
-        .iter()
-        .map(|symbol| (symbol, syntax.name_text(source, symbol.name)));
-    let matches = |(_, name): &(_, &str)| completion_matches(name, prefix, ascii_prefix);
-    let mut remaining = named_symbols.clone();
-    let Some(first_match) = remaining.position(|symbol| matches(&symbol)) else {
-        return Vec::new();
-    };
-    // Size the first matching run, even after unrelated declarations. position
-    // and take_while consume their boundary items, so no name is matched twice.
-    let matching_run_len = 1 + remaining.by_ref().take_while(matches).count();
-    // Keep Vec's ordinary four-item minimum for short, noncontiguous matches.
-    let mut items = Vec::with_capacity(matching_run_len.next_power_of_two().max(4));
-    items.extend(
-        named_symbols
-            .skip(first_match)
-            .take(matching_run_len)
-            .chain(remaining.filter(matches))
-            .map(|(symbol, name)| {
-                completion(
-                    name.to_owned(),
-                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                    symbol.kind,
-                )
-            }),
-    );
+    let mut items = Vec::new();
+    for symbol in syntax.symbols() {
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
+        if completion_matches(name, prefix, ASCII_PREFIX) {
+            items.push(completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                symbol.kind,
+            ));
+        }
+    }
     items
 }
 
