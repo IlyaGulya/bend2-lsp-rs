@@ -98,7 +98,23 @@ pub(super) fn parse_symbols(
         }
         next_scope_end = line.content.start;
     }
+    record_completion_prefixes(source, &mut symbols);
     symbols
+}
+
+#[cold]
+fn record_completion_prefixes(source: &str, symbols: &mut [IndexedSymbol]) {
+    let mut previous = "";
+    for symbol in symbols {
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
+        let limit = previous.len().min(name.len()).min(usize::from(u8::MAX));
+        let mut shared = 0;
+        while shared < limit && previous.as_bytes()[shared] == name.as_bytes()[shared] {
+            shared += 1;
+        }
+        symbol.previous_name_prefix = u8::try_from(shared).unwrap_or(u8::MAX);
+        previous = name;
+    }
 }
 
 // Keep type-body parsing out of the already large snapshot builder.
@@ -435,6 +451,7 @@ fn parse_top_level_symbol(
         parameter_span: TextRange::new(0, 0),
         scope: TextRange::new(line.full_end, line.full_end),
         kind,
+        previous_name_prefix: 0,
         start_line: line_number,
     })
 }

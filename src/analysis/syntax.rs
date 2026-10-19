@@ -143,6 +143,8 @@ pub struct IndexedSymbol {
     pub parameter_span: TextRange,
     pub scope: TextRange,
     pub kind: SymbolKind,
+    // Capped UTF-8 byte prefix shared with the preceding declaration name.
+    pub previous_name_prefix: u8,
     pub start_line: usize,
 }
 

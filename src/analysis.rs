@@ -706,7 +706,8 @@ fn collect_module_completions(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
-    for symbol in syntax.symbols() {
+    let mut symbols = syntax.symbols().iter();
+    while let Some(symbol) = symbols.next() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
             let item = completion(
@@ -714,13 +715,26 @@ fn collect_module_completions(
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
             );
-            if items.len() == items.capacity() {
-                items.reserve(items.capacity().max(4));
+            if items.capacity() == 0
+                && name.starts_with(prefix)
+                && let Ok(prefix_len) = u8::try_from(prefix.len())
+            {
+                let capacity = module_completion_capacity(symbols.as_slice(), prefix_len);
+                if capacity > 4 {
+                    items.reserve_exact(capacity.next_power_of_two());
+                }
             }
             items.push(item);
         }
     }
     items
+}
+
+fn module_completion_capacity(symbols: &[IndexedSymbol], prefix_len: u8) -> usize {
+    1 + symbols
+        .iter()
+        .take_while(|symbol| symbol.previous_name_prefix >= prefix_len)
+        .count()
 }
 
 #[must_use]
