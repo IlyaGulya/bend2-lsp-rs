@@ -703,25 +703,31 @@ fn collect_module_completions(
     prefix: &str,
     ascii_prefix: bool,
 ) -> Vec<Completion> {
+    if ascii_prefix {
+        collect_module_completions_for_query::<true>(snapshot, prefix)
+    } else {
+        collect_module_completions_for_query::<false>(snapshot, prefix)
+    }
+}
+
+fn collect_module_completions_for_query<const ASCII_PREFIX: bool>(
+    snapshot: &DocumentSnapshot,
+    prefix: &str,
+) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
     for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
-        if completion_matches(name, prefix, ascii_prefix) {
-            items.push(materialize_module_completion(
-                name,
-                &source[symbol.detail_range.start..symbol.detail_range.end],
+        if completion_matches(name, prefix, ASCII_PREFIX) {
+            items.push(completion(
+                name.to_owned(),
+                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
             ));
         }
     }
     items
-}
-
-#[inline(never)]
-fn materialize_module_completion(name: &str, detail: &str, kind: SymbolKind) -> Completion {
-    completion(name.to_owned(), detail.to_owned(), kind)
 }
 
 #[must_use]
