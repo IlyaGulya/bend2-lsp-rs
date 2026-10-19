@@ -22,6 +22,14 @@ Warm queries must not rescan source, reparse imports or headers, or rebuild a
 whole-workspace representation. Loading and preparing a view is cold work,
 measured separately from ready-view queries.
 
+Definite declaration-name occurrences reuse their snapshot-local `SymbolId`,
+with an exact written-range check, instead of searching all declaration sites.
+Entry construction retains signature template arity by semantic entity, so
+filling a law does not rescan its declaring file. File generations and overlay
+conflicts are prepared once per immutable file context. Registration borrows
+the shared snapshot rather than cloning document URI/language metadata for
+each declaration. These construction-local facts do not add warm-query work.
+
 The server keeps its service/request split: `server/lsp.rs` delegates protocol
 requests, `server/requests/` projects indexed results, and `WorkspaceService`
 owns document revisions, discovery, and workspace publication. Semantic view

@@ -67,6 +67,30 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
+The `semantic_view_cold.declarations_{100,1000,10000}` cases construct entry
+views from captured snapshot facts. Declaration-name occurrences reuse existing
+snapshot-local IDs with an exact range check. Construction caches each file's
+generation/conflict facts and each entity's signature template arity; it borrows
+shared snapshots and preallocates qualified names rather than repeatedly
+searching declarations, hashing paths or cloning document metadata.
+
+A local Linux ARM64 diagnostic against `19ec528`, using pinned Valgrind 3.27.1
+and the unchanged 32 KiB I1/D1 and 8 MiB LL geometry, exercised all 96 analysis
+workloads once per revision with positive instruction counters throughout:
+
+| Cold-view declarations | Before instructions | After instructions |
+| --- | ---: | ---: |
+| 100 | 2,752,351 | 1,832,008 |
+| 1,000 | 30,952,226 | 19,115,829 |
+| 10,000 | 574,473,391 | 186,083,914 |
+
+This is diagnostic evidence, not admission: it is not the 105-pair hosted
+comparison, does not include the separate reference-order binary, and does not
+establish editor latency or native-oracle resource qualification. Four workloads
+had instruction increases above 5% in this single local comparison; they are not
+waived or hidden by the lower aggregate. Existing CI gates remain authoritative
+for every instruction and independent cache metric.
+
 A paired candidate with zero collected instructions against a nonzero baseline
 is a collection failure, not a performance improvement. The authoritative
 summary reader rejects it before producing or validating an admission verdict.

@@ -424,6 +424,59 @@ fn invalid_law_fill_is_not_grouped_and_duplicate_alias_keeps_explicit_issue() {
 }
 
 #[test]
+fn law_template_arity_survives_interleaved_constructors_and_rejected_declarations() {
+    let temp = tempdir().must_be("temporary workspace");
+    let mut db = WorkspaceDb::default();
+    let source = concat!(
+        "type Marker is Data:\n  Marker{}\n",
+        "law needs_two:\n  for ~A: Kind(0)\n  for ~B: Kind(0)\n  A\n",
+        "law accepts_one:\n  for ~A: Kind(0)\n  for value: A\n  A\n",
+        "def duplicate(x):\n  x\n",
+        "def duplicate(x):\n  x\n",
+        "def needs_two(A):\n  A\n",
+        "def accepts_one(A, value):\n  value\n",
+    );
+    let root = open(&mut db, &temp.path().join("main.bend"), source);
+    let view = view(&db, root, None);
+    for (name, filled) in [("needs_two", false), ("accepts_one", true)] {
+        let entity = view
+            .entities()
+            .iter()
+            .find(|entity| entity.name == name)
+            .must_be("law signature");
+        let body_start = source
+            .find(&format!("def {name}("))
+            .must_be("written implementation")
+            + "def ".len();
+        assert_eq!(
+            entity.body_owner.map(|owner| owner.range.start),
+            filled.then_some(body_start),
+        );
+        let declaration = view
+            .declarations()
+            .iter()
+            .find(|declaration| {
+                declaration.site.file == root && declaration.site.range.start == body_start
+            })
+            .must_be("implementation declaration");
+        assert_eq!(
+            declaration.target,
+            if filled {
+                SemanticTarget::Global(entity.id)
+            } else {
+                SemanticTarget::Unresolved
+            },
+        );
+        assert_eq!(
+            view.resolve_at(root, entity.signature_owner.range.start)
+                .must_be("signature binding")
+                .target,
+            SemanticTarget::Global(entity.id),
+        );
+    }
+}
+
+#[test]
 fn rename_rejects_local_capture_and_global_collision_without_source_rescan() {
     let temp = tempdir().must_be("temporary workspace");
     let mut db = WorkspaceDb::default();

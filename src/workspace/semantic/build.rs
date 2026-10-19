@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     path::{Component, Path},
+    sync::Arc,
 };
 
 use super::{
@@ -8,13 +9,51 @@ use super::{
     SemanticFileContext, SemanticIssue, SemanticOccurrence, SemanticSite, SemanticTarget,
     SemanticView, SemanticViewInput,
 };
-use crate::analysis::{DeclarationKind, DeclarationSite, ReferenceRole, SymbolId, TextRange};
+use crate::analysis::{
+    DeclarationKind, DeclarationSite, DocumentSnapshot, ReferenceRole, SymbolId, TextRange,
+};
 
 struct FileContext {
     file: FileId,
+    generation: u64,
     namespace: String,
     aliases: HashMap<String, String>,
     base: bool,
+    conflicted: bool,
+}
+
+impl FileContext {
+    fn new(
+        input: &SemanticViewInput,
+        file: FileId,
+        namespace: String,
+        aliases: HashMap<String, String>,
+        base: bool,
+    ) -> Self {
+        let captured = input.file(file);
+        let generation = captured.map_or_else(
+            || input.base.as_ref().map_or(0, |base| base.generation),
+            |entry| {
+                entry
+                    .path
+                    .as_ref()
+                    .and_then(|path| input.physical_generations.get(path))
+                    .copied()
+                    .unwrap_or(entry.generation)
+            },
+        );
+        let conflicted = captured
+            .and_then(|entry| entry.path.as_ref())
+            .is_some_and(|path| input.conflicting_paths.contains(path));
+        Self {
+            file,
+            generation,
+            namespace,
+            aliases,
+            base,
+            conflicted,
+        }
+    }
 }
 
 struct FileLoad {
@@ -41,6 +80,8 @@ struct Builder {
     constructors: HashMap<String, SemanticTarget>,
     top_levels: HashMap<String, SemanticTarget>,
     sites: HashMap<(FileId, SymbolId), SemanticTarget>,
+    // Signature metadata stays aligned with entities, including filled laws.
+    template_parameter_counts: Vec<usize>,
     pending: Vec<PendingOccurrence>,
 }
 
@@ -102,6 +143,7 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         constructors: HashMap::new(),
         top_levels: HashMap::new(),
         sites: HashMap::new(),
+        template_parameter_counts: Vec::new(),
         pending: Vec::new(),
     };
     let contexts = builder.load_order();
@@ -178,7 +220,7 @@ impl Builder {
         base: bool,
         top: Option<&Path>,
     ) -> Option<FileLoad> {
-        let document = self.view.document(file).cloned()?;
+        let document = Arc::clone(&self.view.document(file)?.snapshot);
         let mut aliases = HashMap::new();
         let mut children = Vec::new();
         for import in document.syntax.imports() {
@@ -263,37 +305,15 @@ impl Builder {
             children.push((edge.target, namespace, false));
         }
         Some(FileLoad {
-            context: FileContext {
-                file,
-                namespace,
-                aliases,
-                base,
-            },
+            context: FileContext::new(&self.view.input, file, namespace, aliases, base),
             children,
         })
     }
 
-    fn site(&self, file: FileId, range: TextRange) -> SemanticSite {
-        let generation = self.view.input.file(file).map_or_else(
-            || {
-                self.view
-                    .input
-                    .base
-                    .as_ref()
-                    .map_or(0, |base| base.generation)
-            },
-            |entry| {
-                entry
-                    .path
-                    .as_ref()
-                    .and_then(|path| self.view.input.physical_generations.get(path))
-                    .copied()
-                    .unwrap_or(entry.generation)
-            },
-        );
+    fn site(context: &FileContext, range: TextRange) -> SemanticSite {
         SemanticSite {
-            file,
-            generation,
+            file: context.file,
+            generation: context.generation,
             range,
         }
     }
@@ -318,13 +338,14 @@ impl Builder {
         PendingTarget::Name(qualified, false)
     }
 
-    fn register(&mut self, context: &FileContext, declaration: &DeclarationSite) {
-        let document = self.view.document(context.file).cloned();
-        let Some(document) = document else {
-            return;
-        };
+    fn register(
+        &mut self,
+        context: &FileContext,
+        document: &DocumentSnapshot,
+        declaration: &DeclarationSite,
+    ) {
         let name = document.syntax.name_text(&document.text, declaration.name);
-        let site = self.site(context.file, declaration.name_range);
+        let site = Self::site(context, declaration.name_range);
         let resolved = self.resolve(context, name, site);
         let existing = match &resolved {
             PendingTarget::Name(name, _) => self.top_levels.get(name).copied(),
@@ -333,17 +354,7 @@ impl Builder {
         let fill = match existing {
             Some(SemanticTarget::Global(id)) if declaration.kind == DeclarationKind::Def => {
                 let entity = &self.view.entities[id.index];
-                let required = self
-                    .view
-                    .document(entity.declaration.file)
-                    .and_then(|document| {
-                        document
-                            .syntax
-                            .declaration_sites()
-                            .iter()
-                            .find(|site| site.name_range == entity.declaration.range)
-                    })
-                    .map_or(0, |site| site.template_parameter_count);
+                let required = self.template_parameter_counts[id.index];
                 // book_load marks Base laws native only after parsing that whole file.
                 (entity.kind == DeclarationKind::Law
                     && entity.body_owner.is_none()
@@ -358,13 +369,7 @@ impl Builder {
             }
             _ => None,
         };
-        let conflicted = self
-            .view
-            .input
-            .file(context.file)
-            .and_then(|file| file.path.as_ref())
-            .is_some_and(|path| self.view.input.conflicting_paths.contains(path));
-        let target = if conflicted {
+        let target = if context.conflicted {
             let canonical = qualify(&context.namespace, name);
             self.names
                 .insert(canonical.clone(), SemanticTarget::Ambiguous);
@@ -441,6 +446,8 @@ impl Builder {
             kind: declaration.kind,
             base: context.base,
         });
+        self.template_parameter_counts
+            .push(declaration.template_parameter_count);
         let target = SemanticTarget::Global(id);
         if declaration.kind == DeclarationKind::Constructor {
             self.constructors.insert(canonical.clone(), target);
@@ -453,16 +460,17 @@ impl Builder {
     }
 
     fn file(&mut self, context: &FileContext) {
-        let Some(document) = self.view.document(context.file).cloned() else {
+        let Some(document) = self.view.document(context.file) else {
             return;
         };
+        let document = Arc::clone(&document.snapshot);
         for binding in document.syntax.bindings() {
             let id = SemanticBindingId {
                 view: self.view.serial(),
                 file: context.file,
                 symbol: binding.id,
             };
-            let site = self.site(context.file, binding.name_range);
+            let site = Self::site(context, binding.name_range);
             self.view.bindings.insert(id, site);
             self.view
                 .targets_by_site
@@ -488,10 +496,10 @@ impl Builder {
                 if at > reference.full_range.start {
                     break;
                 }
-                self.register(context, declaration);
+                self.register(context, &document, declaration);
                 next += 1;
             }
-            let site = self.site(context.file, reference.range);
+            let site = Self::site(context, reference.range);
             let local = reference
                 .local_binding
                 .and_then(|id| document.syntax.bindings().get(id.0))
@@ -505,9 +513,10 @@ impl Builder {
                         file: context.file,
                         symbol,
                     }))
-                } else if let Some(declaration) = declarations
-                    .iter()
-                    .find(|declaration| declaration.name_range == reference.full_range)
+                } else if let Some(declaration) = reference
+                    .resolved
+                    .and_then(|symbol| document.syntax.declaration_site(symbol))
+                    .filter(|declaration| declaration.name_range == reference.full_range)
                 {
                     PendingTarget::Declaration(context.file, declaration.symbol)
                 } else {
@@ -547,7 +556,7 @@ impl Builder {
             });
         }
         for declaration in &registration[next..] {
-            self.register(context, declaration);
+            self.register(context, &document, declaration);
         }
     }
 
@@ -725,7 +734,11 @@ fn qualify(namespace: &str, name: &str) -> String {
     if namespace.is_empty() {
         name.to_owned()
     } else {
-        format!("{namespace}:{name}")
+        let mut qualified = String::with_capacity(namespace.len() + 1 + name.len());
+        qualified.push_str(namespace);
+        qualified.push(':');
+        qualified.push_str(name);
+        qualified
     }
 }
 

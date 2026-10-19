@@ -76,6 +76,24 @@ class SupervisorTests(unittest.TestCase):
         else:
             self.assertEqual(snapshot.observer_rss_bytes,0)
 
+    @unittest.skipUnless(sys.platform=="linux", "Linux proc stat accounting")
+    def test_proc_command_parentheses_preserve_identity_and_rss_units(self):
+        pid = os.getpid()
+        command = Path("/proc/self/comm")
+        original = command.read_text()
+        before = gate.process_table()[pid]
+        try:
+            command.write_text("rss) space (\n")
+            observed = gate.process_table()[pid]
+            self.assertEqual(observed[0], os.getppid())
+            self.assertEqual(observed[1], os.getpgrp())
+            self.assertEqual(observed[3], before[3])
+            self.assertTrue(gate.is_live_process(observed))
+            self.assertGreater(observed[2], 0)
+            self.assertEqual(observed[2] % os.sysconf("SC_PAGE_SIZE"), 0)
+        finally:
+            command.write_text(original)
+
     def test_real_child_named_ps_remains_observed(self):
         process = subprocess.Popen(["ps","-c","import time; time.sleep(60)"],
             executable=sys.executable, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

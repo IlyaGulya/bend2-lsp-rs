@@ -67,15 +67,17 @@ def process_table(*, deadline=None, cancellable=True):
     """pid -> (ppid, process group, RSS bytes, birth identity, state)."""
     if sys.platform == "linux":
         result = ProcessSnapshot()
-        for entry in Path("/proc").iterdir():
-            if not entry.name.isdigit():
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        for name in os.listdir("/proc"):
+            if not name.isdigit():
                 continue
             try:
-                text = (entry / "stat").read_text()
-                fields = text[text.rindex(")") + 2:].split()
+                with open("/proc/"+name+"/stat", "rb", buffering=0) as stream:
+                    text = stream.read().decode("utf-8")
+                fields = text[text.rindex(")") + 2:].split(None, 22)
                 # State, ppid, pgrp, ... starttime (22), rss (24).
-                result[int(entry.name)] = (int(fields[1]), int(fields[2]),
-                    int(fields[21]) * os.sysconf("SC_PAGE_SIZE"), fields[19], fields[0])
+                result[int(name)] = (int(fields[1]), int(fields[2]),
+                    int(fields[21]) * page_size, fields[19], fields[0])
             except (FileNotFoundError, ProcessLookupError):
                 continue
         if os.getpid() not in result:

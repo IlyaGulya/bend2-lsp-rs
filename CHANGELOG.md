@@ -57,6 +57,10 @@
   no-clobber snapshot instead of uploading a live measurement tree. Keep the
   measurement deadlines, all 105 pairs, workload coverage and numeric gates
   unchanged; interrupted or incomplete collection still blocks admission.
+- Avoid repeated declaration scans, path hashing and document metadata copies
+  when preparing references and call hierarchy information.
+- Reduce Linux semantic-gate sampling allocations without changing process
+  coverage, RSS accounting, sampling cadence, resource limits or cleanup.
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 
