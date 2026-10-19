@@ -74,9 +74,6 @@ pub(super) fn parse_imports(source: &str, lines: &[SyntaxLine]) -> Vec<IndexedIm
     imports
 }
 
-// Keep declaration collection and prefix preparation out of the large snapshot builder.
-#[cold]
-#[inline(never)]
 pub(super) fn parse_symbols(
     source: &str,
     lines: &[SyntaxLine],
@@ -100,17 +97,6 @@ pub(super) fn parse_symbols(
             symbol_index -= 1;
         }
         next_scope_end = line.content.start;
-    }
-    let mut previous = "";
-    for symbol in &mut symbols {
-        let name = &source[symbol.name_range.start..symbol.name_range.end];
-        let limit = previous.len().min(name.len()).min(usize::from(u8::MAX));
-        let mut shared = 0;
-        while shared < limit && previous.as_bytes()[shared] == name.as_bytes()[shared] {
-            shared += 1;
-        }
-        symbol.previous_name_prefix = u8::try_from(shared).unwrap_or(u8::MAX);
-        previous = name;
     }
     symbols
 }
@@ -449,7 +435,6 @@ fn parse_top_level_symbol(
         parameter_span: TextRange::new(0, 0),
         scope: TextRange::new(line.full_end, line.full_end),
         kind,
-        previous_name_prefix: 0,
         start_line: line_number,
     })
 }

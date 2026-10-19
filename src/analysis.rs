@@ -706,42 +706,19 @@ fn collect_module_completions(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
-    let mut symbols = syntax.symbols().iter();
-    while let Some(symbol) = symbols.next() {
+    for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
-            let item = completion(
-                name.to_owned(),
-                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                symbol.kind,
-            );
-            if items.capacity() == 0 {
-                items = module_completion_buffer(symbols.as_slice(), name, prefix);
-            }
-            items.push(item);
+            items.extend(std::iter::once_with(|| {
+                completion(
+                    name.to_owned(),
+                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                    symbol.kind,
+                )
+            }));
         }
     }
     items
-}
-
-#[cold]
-#[inline(never)]
-fn module_completion_buffer(
-    symbols: &[IndexedSymbol],
-    name: &str,
-    prefix: &str,
-) -> Vec<Completion> {
-    let mut capacity = 4;
-    if name.starts_with(prefix)
-        && let Ok(prefix_len) = u8::try_from(prefix.len())
-    {
-        let matches = 1 + symbols
-            .iter()
-            .take_while(|symbol| symbol.previous_name_prefix >= prefix_len)
-            .count();
-        capacity = matches.next_power_of_two().max(capacity);
-    }
-    Vec::with_capacity(capacity)
 }
 
 #[must_use]
