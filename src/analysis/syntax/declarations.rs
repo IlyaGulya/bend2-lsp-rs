@@ -74,6 +74,9 @@ pub(super) fn parse_imports(source: &str, lines: &[SyntaxLine]) -> Vec<IndexedIm
     imports
 }
 
+// Keep declaration collection and prefix preparation out of the large snapshot builder.
+#[cold]
+#[inline(never)]
 pub(super) fn parse_symbols(
     source: &str,
     lines: &[SyntaxLine],
@@ -98,14 +101,8 @@ pub(super) fn parse_symbols(
         }
         next_scope_end = line.content.start;
     }
-    record_completion_prefixes(source, &mut symbols);
-    symbols
-}
-
-#[cold]
-fn record_completion_prefixes(source: &str, symbols: &mut [IndexedSymbol]) {
     let mut previous = "";
-    for symbol in symbols {
+    for symbol in &mut symbols {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         let limit = previous.len().min(name.len()).min(usize::from(u8::MAX));
         let mut shared = 0;
@@ -115,6 +112,7 @@ fn record_completion_prefixes(source: &str, symbols: &mut [IndexedSymbol]) {
         symbol.previous_name_prefix = u8::try_from(shared).unwrap_or(u8::MAX);
         previous = name;
     }
+    symbols
 }
 
 // Keep type-body parsing out of the already large snapshot builder.

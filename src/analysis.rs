@@ -715,14 +715,8 @@ fn collect_module_completions(
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
             );
-            if items.capacity() == 0
-                && name.starts_with(prefix)
-                && let Ok(prefix_len) = u8::try_from(prefix.len())
-            {
-                let capacity = module_completion_capacity(symbols.as_slice(), prefix_len);
-                if capacity > 4 {
-                    items.reserve_exact(capacity.next_power_of_two());
-                }
+            if items.capacity() == 0 {
+                items = module_completion_buffer(symbols.as_slice(), name, prefix);
             }
             items.push(item);
         }
@@ -730,11 +724,24 @@ fn collect_module_completions(
     items
 }
 
-fn module_completion_capacity(symbols: &[IndexedSymbol], prefix_len: u8) -> usize {
-    1 + symbols
-        .iter()
-        .take_while(|symbol| symbol.previous_name_prefix >= prefix_len)
-        .count()
+#[cold]
+#[inline(never)]
+fn module_completion_buffer(
+    symbols: &[IndexedSymbol],
+    name: &str,
+    prefix: &str,
+) -> Vec<Completion> {
+    let mut capacity = 4;
+    if name.starts_with(prefix)
+        && let Ok(prefix_len) = u8::try_from(prefix.len())
+    {
+        let matches = 1 + symbols
+            .iter()
+            .take_while(|symbol| symbol.previous_name_prefix >= prefix_len)
+            .count();
+        capacity = matches.next_power_of_two().max(capacity);
+    }
+    Vec::with_capacity(capacity)
 }
 
 #[must_use]
