@@ -2,6 +2,7 @@
 pub mod lsp_client;
 mod support;
 
+use bend2_lsp::analysis::LineIndex;
 use lsp_client::LspClient;
 use serde_json::{Value, json};
 use std::{
@@ -12,6 +13,7 @@ use std::{
 };
 use support::Must;
 use tempfile::tempdir;
+use tower_lsp::lsp_types::TextEdit;
 use url::Url;
 
 const ANALYZER_TIMEOUT_MS: u64 = 120_000;
@@ -84,6 +86,93 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
         format_actual,
         reported_edit,
     );
+    client.finish();
+}
+
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
+    const IMPORTS: &str = "bend-lint-rules/layout/imports";
+    const CANONICAL_PATH: &str = "bend-lint-rules/layout/canon_import_path";
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("real import ordering workspace");
+    let project = directory.path().join("import ordering 🦀");
+    fs::create_dir_all(project.join("support")).must_be("create imported modules");
+    for name in ["alpha", "zeta"] {
+        fs::write(
+            project.join("support").join(format!("{name}.bend")),
+            "import Base\n\ndef one() -> U32:\n  1\n",
+        )
+        .must_be("write real imported module");
+    }
+    let source = concat!(
+        "import support/zeta.bend as zeta\n",
+        "import Base\n",
+        "import ./support/alpha.bend as Alpha\n",
+        "\ndef main() -> U32:\n",
+        "  (zeta.one() + Alpha.one() : U32)\n",
+    );
+    let root = project.join("main.bend");
+    fs::write(&root, source).must_be("write unsorted imports");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "packages":{"bend-lint-rules":"0.1.0.0"},
+            "rules":{IMPORTS:{},CANONICAL_PATH:{}}
+        }))
+        .must_be("serialize real import rules"),
+    )
+    .must_be("enable genuine import rules");
+    let before_cli = genuine_report(&executable, &arguments, &root);
+    finding(&before_cli["findings"], IMPORTS);
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&root);
+    let before_lsp = saved_diagnostics(&mut client, &document, source, started);
+    finding(&before_lsp["params"]["diagnostics"], IMPORTS);
+    let organized = organize_imports_source(&mut client, &root, source, 1)
+        .must_be("organize imports action for the reported order");
+    fs::write(&root, &organized).must_be("user applies the import action");
+    client.notify(
+        "textDocument/didChange",
+        json!({
+            "textDocument":{"uri":document,"version":2},
+            "contentChanges":[{"text":organized}]
+        }),
+    );
+    // This versioned read also acknowledges the editor's preceding mutation.
+    assert!(
+        organize_imports_source(&mut client, &root, &organized, 2).is_none(),
+        "organizing the edited result must be idempotent"
+    );
+    // Let dependency/index publication finish before this fresh save; workspace
+    // changes intentionally retire disk lint jobs while they are in flight.
+    client
+        .receive_matching(Duration::from_secs(10), |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == document
+                && message["params"]["version"] == 2
+        })
+        .must_be("updated document publication before the fresh save");
+    client.notify(
+        "textDocument/didSave",
+        json!({"textDocument":{"uri":document}}),
+    );
+    // The still-noncanonical path is an independent finding. Its arrival at
+    // revision 2 proves lint completed, rather than observing an interim clear.
+    let after_lsp = wait_for_saved_diagnostics(&mut client, &document, started, 2);
+    let after_cli = genuine_report(&executable, &arguments, &root);
+    for findings in [&after_cli["findings"], &after_lsp["params"]["diagnostics"]] {
+        assert!(
+            findings
+                .as_array()
+                .must_be("genuine findings after organizing")
+                .iter()
+                .all(|finding| finding["code"] != IMPORTS),
+            "Organize imports must satisfy the genuine import-order rule: {findings}"
+        );
+        finding(findings, CANONICAL_PATH);
+    }
     client.finish();
 }
 
@@ -256,12 +345,17 @@ fn saved_diagnostics(
         "textDocument/didSave",
         json!({"textDocument":{"uri":document}}),
     );
-    let packet = wait_for_saved_diagnostics(client, document, started);
+    let packet = wait_for_saved_diagnostics(client, document, started, 1);
     assert_eq!(packet["params"]["version"], 1);
     packet
 }
 
-fn wait_for_saved_diagnostics(client: &mut LspClient, document: &str, started: Instant) -> Value {
+fn wait_for_saved_diagnostics(
+    client: &mut LspClient,
+    document: &str,
+    started: Instant,
+    version: i32,
+) -> Value {
     let waiting = Instant::now();
     let deadline = waiting + Duration::from_secs(150);
     loop {
@@ -282,7 +376,7 @@ fn wait_for_saved_diagnostics(client: &mut LspClient, document: &str, started: I
             "[LSP +{:.3}s] {message}",
             received.duration_since(started).as_secs_f64()
         );
-        if lint_packet(&message, document) {
+        if lint_packet(&message, document) && message["params"]["version"] == version {
             return message;
         }
     }
@@ -382,6 +476,57 @@ fn explicit_user_fix(
             "contentChanges":[{"text":applied}]
         }),
     );
+}
+
+fn organize_imports_source(
+    client: &mut LspClient,
+    root: &Path,
+    source: &str,
+    version: i32,
+) -> Option<String> {
+    let document = uri(root);
+    let response = client.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument":{"uri":document},
+            "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},
+            "context":{"diagnostics":[],"only":["source.organizeImports"],"triggerKind":1}
+        }),
+    );
+    let action = response["result"]
+        .as_array()
+        .must_be("import action response")
+        .iter()
+        .find(|action| action["kind"] == "source.organizeImports")?;
+    let changes = action["edit"]["documentChanges"]
+        .as_array()
+        .must_be("versioned import edit");
+    assert_eq!(
+        changes.len(),
+        1,
+        "organizing only edits the current document"
+    );
+    assert_eq!(changes[0]["textDocument"]["uri"], document);
+    assert_eq!(changes[0]["textDocument"]["version"], version);
+    let edits: Vec<TextEdit> =
+        serde_json::from_value(changes[0]["edits"].clone()).must_be("import text edits");
+    let index = LineIndex::new(source);
+    let mut edits: Vec<_> = edits
+        .into_iter()
+        .map(|edit| {
+            (
+                index.offset(source, edit.range.start.line, edit.range.start.character),
+                index.offset(source, edit.range.end.line, edit.range.end.character),
+                edit.new_text,
+            )
+        })
+        .collect();
+    edits.sort_unstable_by_key(|(start, end, _)| (*start, *end));
+    let mut result = source.to_owned();
+    for (start, end, replacement) in edits.into_iter().rev() {
+        result.replace_range(start..end, &replacement);
+    }
+    Some(result)
 }
 
 fn uri(path: &Path) -> String {

@@ -434,7 +434,10 @@ fn organize_group(
     });
     let mut indices: Vec<_> = (0..group.len()).collect();
     if !conflicting {
-        indices.sort_by_key(|index| (group[*index].path, group[*index].alias));
+        indices.sort_by_key(|index| {
+            let record = &group[*index];
+            (record.path != "Base", record.path, record.alias)
+        });
     }
     let mut seen: HashMap<_, usize> = HashMap::new();
     let mut chunks: Vec<Cow<'_, str>> = Vec::with_capacity(group.len());

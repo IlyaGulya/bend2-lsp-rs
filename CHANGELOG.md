@@ -29,6 +29,11 @@
 - Acknowledge prior stdio document mutations before releasing held analyzer
   output, so tests cannot mistake pre-mutation results for stale publication.
 
+### Bug Fixes
+
+- Keep `import Base` first when organizing imports, preventing repeated bend-lint
+  import-order warnings after applying the action.
+
 ### Under the hood
 
 - Reduce autocomplete lookup and matching overhead using indexed declaration
