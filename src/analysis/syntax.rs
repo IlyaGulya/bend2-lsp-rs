@@ -990,15 +990,6 @@ impl SyntaxIndex {
     pub fn completion_import_path(&self, offset: usize) -> Option<TextRange> {
         self.completion.import_path(offset)
     }
-
-    #[must_use]
-    pub(crate) fn module_completion_suffix_covers(
-        &self,
-        remaining: usize,
-        prefix_len: usize,
-    ) -> bool {
-        self.completion.module_suffix_covers(remaining, prefix_len)
-    }
 }
 
 fn hash_name(name: &str) -> u64 {

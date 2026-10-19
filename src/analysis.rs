@@ -706,26 +706,22 @@ fn collect_module_completions(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
-    let mut symbols = syntax.symbols().iter();
-    while let Some(symbol) = symbols.next() {
+    for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
-            let item = completion(
-                name.to_owned(),
-                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+            items.push(materialize_module_completion(
+                name,
+                &source[symbol.detail_range.start..symbol.detail_range.end],
                 symbol.kind,
-            );
-            if items.capacity() == 0
-                && symbols.len() >= 4
-                && syntax.module_completion_suffix_covers(symbols.len() + 1, prefix.len())
-                && name.starts_with(prefix)
-            {
-                items.reserve_exact((symbols.len() + 1).next_power_of_two());
-            }
-            items.push(item);
+            ));
         }
     }
     items
+}
+
+#[inline(never)]
+fn materialize_module_completion(name: &str, detail: &str, kind: SymbolKind) -> Completion {
+    completion(name.to_owned(), detail.to_owned(), kind)
 }
 
 #[must_use]
