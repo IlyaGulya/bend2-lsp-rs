@@ -709,15 +709,15 @@ fn collect_module_completions(
     for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ascii_prefix) {
-            if items.len() == items.capacity() {
-                // Grow geometrically only when full, without rematching names.
-                items.reserve_exact(items.capacity().saturating_mul(2).max(4));
-            }
-            items.push(completion(
+            let item = completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                 symbol.kind,
-            ));
+            );
+            if items.len() == items.capacity() {
+                items.reserve(items.capacity().max(4));
+            }
+            items.push(item);
         }
     }
     items
