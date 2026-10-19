@@ -710,6 +710,8 @@ fn collect_module_completions(
     }
 }
 
+// Keep the two specialized loops from merging into one large query function.
+#[inline(never)]
 fn collect_module_completions_for_query<const ASCII_PREFIX: bool>(
     snapshot: &DocumentSnapshot,
     prefix: &str,
