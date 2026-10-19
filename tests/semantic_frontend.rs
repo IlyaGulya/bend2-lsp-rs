@@ -40,6 +40,7 @@ fn indexed_reference_traversals_preserve_source_order_and_token_identity() {
         let expected: Vec<_> = source_order
             .iter()
             .copied()
+            .map(|reference| &reference.reference)
             .filter(|reference| reference.resolved == Some(id))
             .collect();
         assert_eq!(syntax.references(id).collect::<Vec<_>>(), expected);
@@ -54,7 +55,7 @@ fn indexed_reference_traversals_preserve_source_order_and_token_identity() {
             .collect();
         assert_eq!(
             syntax
-                .references_named(reference.full_name)
+                .indexed_references_named(reference.full_name)
                 .collect::<Vec<_>>(),
             expected
         );
@@ -120,10 +121,13 @@ fn dotted_atoms_have_one_occurrence_and_are_not_prefix_shadowed() {
         .must_be("atom occurrence");
     assert_eq!(syntax.reference_for_token(terminal), Some(reference));
     assert_eq!(reference.full_range, TextRange::new(start, start + 8));
-    assert_eq!(reference.range, TextRange::new(start + 2, start + 8));
+    assert_eq!(
+        reference.reference.range,
+        TextRange::new(start + 2, start + 8)
+    );
     assert_eq!(syntax.name_text(source, reference.full_name), "D.target");
-    assert_eq!(reference.kind, ReferenceKind::Call);
-    assert_eq!(reference.resolved, None);
+    assert_eq!(reference.reference.kind, ReferenceKind::Call);
+    assert_eq!(reference.reference.resolved, None);
     assert_eq!(syntax.calls().len(), 1);
     assert_eq!(
         syntax.calls()[0].call_range,
@@ -274,7 +278,7 @@ fn repeated_sequential_shadowing_has_indexed_lookup_and_one_visible_name() {
     let reference = syntax
         .reference_for_token(syntax.token_at_or_before(offset).must_be("final token"))
         .must_be("final occurrence");
-    assert_eq!(reference.resolved, Some(binding.id));
+    assert_eq!(reference.reference.resolved, Some(binding.id));
     assert_eq!(syntax.references(binding.id).count(), 2);
     let visible: Vec<_> = syntax.visible_bindings(offset).collect();
     assert_eq!(visible, [binding]);
@@ -332,11 +336,11 @@ fn implicit_array_write_rebinding_retains_both_same_span_origins() {
     assert_eq!(occurrences.len(), 2);
     let read = occurrences
         .iter()
-        .find(|reference| reference.kind == ReferenceKind::Read)
+        .find(|reference| reference.reference.kind == ReferenceKind::Read)
         .must_be("outer read");
     let declaration = occurrences
         .iter()
-        .find(|reference| reference.kind == ReferenceKind::Declaration)
+        .find(|reference| reference.reference.kind == ReferenceKind::Declaration)
         .must_be("implicit declaration");
     assert_ne!(read.local_binding, declaration.local_binding);
     assert!(declaration.synthetic);
@@ -504,7 +508,7 @@ fn dotted_binders_match_only_the_same_complete_semantic_atom() {
                 .must_be("prefix token"),
         )
         .must_be("one atom");
-    assert_eq!(occurrence.resolved, Some(parameters[1].id));
+    assert_eq!(occurrence.reference.resolved, Some(parameters[1].id));
     assert_eq!(syntax.references(parameters[0].id).count(), 1);
     assert_eq!(syntax.references(parameters[1].id).count(), 2);
     assert_eq!(syntax.name_text(source, occurrence.full_name), "D.target");
@@ -575,7 +579,7 @@ fn call_expressions_are_not_destructuring_patterns_and_do_not_fabricate_binders(
         .reference_for_token(syntax.token_at_or_before(last).must_be("item token"))
         .must_be("uncertain recovered occurrence");
     assert!(reference.uncertain);
-    assert_eq!(reference.resolved, None);
+    assert_eq!(reference.reference.resolved, None);
 }
 
 #[test]
@@ -691,6 +695,7 @@ fn rewrite_implicit_proof_has_real_percent_origin_and_no_fake_declaration_use() 
         )
         .must_be("proof read");
     let target = reference
+        .reference
         .resolved
         .and_then(|id| syntax.binding_by_id(id))
         .must_be("implicit local identity");
@@ -703,7 +708,7 @@ fn rewrite_implicit_proof_has_real_percent_origin_and_no_fake_declaration_use() 
         1,
         "no fabricated declaration occurrence"
     );
-    assert_eq!(reference.kind, ReferenceKind::Read);
+    assert_eq!(reference.reference.kind, ReferenceKind::Read);
     assert!(!reference.synthetic);
     assert_eq!(syntax.binding_named_at(target.name, target.scope.end), None);
 }
@@ -746,7 +751,7 @@ fn bare_known_constructors_are_not_variable_patterns_but_lambda_names_can_shadow
         .must_be("invalid pattern occurrence");
     assert!(occurrence.uncertain);
     assert_eq!(occurrence.local_binding, None);
-    assert_eq!(occurrence.resolved, None);
+    assert_eq!(occurrence.reference.resolved, None);
     assert_eq!(
         syntax.bindings().len(),
         1,
@@ -776,19 +781,25 @@ fn dotted_local_rename_ranges_cover_the_complete_binder_at_every_use() {
     let document = snapshot(source);
     let syntax = &document.syntax;
     let binding = &syntax.parameters(&syntax.symbols()[0])[0];
-    let occurrences: Vec<_> = syntax.references(binding.id).collect();
+    let occurrences: Vec<_> = syntax
+        .all_references()
+        .filter(|occurrence| occurrence.reference.resolved == Some(binding.id))
+        .collect();
     assert_eq!(occurrences.len(), 2);
     for occurrence in &occurrences {
         assert_eq!(
-            &source[occurrence.range.start..occurrence.range.end],
+            &source[occurrence.reference.range.start..occurrence.reference.range.end],
             "Foo.target"
         );
-        assert_eq!(occurrence.range, occurrence.full_range);
-        assert_eq!(syntax.name_text(source, occurrence.name), "Foo.target");
+        assert_eq!(occurrence.reference.range, occurrence.full_range);
+        assert_eq!(
+            syntax.name_text(source, occurrence.reference.name),
+            "Foo.target"
+        );
     }
     let mut ranges: Vec<_> = occurrences
         .iter()
-        .map(|occurrence| occurrence.range)
+        .map(|occurrence| occurrence.reference.range)
         .collect();
     ranges.sort_unstable_by_key(|range| std::cmp::Reverse(range.start));
     let mut renamed = source.to_owned();
@@ -811,8 +822,8 @@ fn dotted_local_rename_capture_is_visible_in_the_index_at_the_complete_use() {
     let use_reference = syntax
         .reference_for_token(syntax.token_at_or_before(use_offset).must_be("use token"))
         .must_be("local occurrence");
-    assert_eq!(use_reference.resolved, Some(binding.id));
-    assert_eq!(use_reference.range, use_reference.full_range);
+    assert_eq!(use_reference.reference.resolved, Some(binding.id));
+    assert_eq!(use_reference.reference.range, use_reference.full_range);
     let replacement = syntax.name_id(source, "other").must_be("capture name");
     let capture = syntax
         .binding_named_at(replacement, use_offset)
@@ -867,10 +878,10 @@ fn constructor_role_restores_terminal_edit_range_after_ignoring_an_exact_local_n
     );
     assert_eq!(reference.local_binding, None);
     assert_eq!(
-        &source[reference.range.start..reference.range.end],
+        &source[reference.reference.range.start..reference.reference.range.end],
         "target"
     );
-    assert_eq!(syntax.name_text(source, reference.name), "target");
+    assert_eq!(syntax.name_text(source, reference.reference.name), "target");
     assert_eq!(
         &source[reference.full_range.start..reference.full_range.end],
         "Foo.target"
@@ -1128,9 +1139,15 @@ fn law_existential_domains_do_not_consume_the_following_braced_type_as_a_constru
         .must_be("Word type")
         .symbol;
     let uses: Vec<_> = syntax
-        .references_named(word)
-        .filter(|reference| reference.kind != ReferenceKind::Declaration)
-        .map(|reference| (reference.role, reference.resolved, reference.uncertain))
+        .indexed_references_named(word)
+        .filter(|reference| reference.reference.kind != ReferenceKind::Declaration)
+        .map(|reference| {
+            (
+                reference.role,
+                reference.reference.resolved,
+                reference.uncertain,
+            )
+        })
         .collect();
     assert_eq!(
         uses,
@@ -1371,6 +1388,7 @@ fn native_import_headers_accept_reserved_aliases_without_term_occurrences() {
             assert_eq!(occurrence.role, bend2_lsp::analysis::ReferenceRole::Call);
             assert_eq!(
                 occurrence
+                    .reference
                     .qualifier
                     .map(|name| document.syntax.name_text(&source, name)),
                 Some(alias)

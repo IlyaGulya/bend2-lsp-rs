@@ -1508,8 +1508,10 @@ impl WorkspaceDb {
                 .copied()
                 .filter(|id| entries[id.0].snapshot().is_some()),
         );
-        let retired: Vec<_> = previous.difference(&self.reachable).copied().collect();
-        for id in retired {
+        for id in previous {
+            if self.reachable.contains(&id) {
+                continue;
+            }
             self.invalidate_semantic_file(id);
             self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
             self.entries[id.0].retired = true;

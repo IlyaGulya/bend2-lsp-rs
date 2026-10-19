@@ -3,9 +3,9 @@ mod syntax;
 
 pub use syntax::{
     BindingId, CallSite, CasePatternType, DeclarationBodyKind, DeclarationKind, DeclarationSite,
-    DiagnosticKind, IndexedBinding, IndexedConstructor, IndexedImport, IndexedScope, IndexedSymbol,
-    NameId, NameSegment, Reference, ReferenceKind, ReferenceRole, ScopeId, SymbolId,
-    SyntaxDiagnostic, SyntaxIndex, Token, TokenFlags, TokenId, TokenKind,
+    DiagnosticKind, IndexedBinding, IndexedConstructor, IndexedImport, IndexedReference,
+    IndexedScope, IndexedSymbol, NameId, NameSegment, Reference, ReferenceKind, ReferenceRole,
+    ScopeId, SymbolId, SyntaxDiagnostic, SyntaxIndex, Token, TokenFlags, TokenId, TokenKind,
 };
 
 pub type Import = IndexedImport;
@@ -577,7 +577,7 @@ pub fn scoped_completion_items(
         items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
     }
     for symbol in syntax.symbols() {
-        let name = syntax.name_text(source, symbol.name);
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
         if symbol.kind != SymbolKind::Constructor
             && completion_matches(name, prefix, ascii_prefix)
             && (local_names.is_empty()
@@ -596,14 +596,42 @@ pub fn scoped_completion_items(
     items
 }
 
+const COMPLETION_KEYWORDS: [&str; 12] = [
+    "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import", "as",
+];
+
 fn append_keyword_completions(items: &mut Vec<Completion>, prefix: &str, ascii_prefix: bool) {
-    for keyword in [
-        "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
-        "as",
-    ] {
-        if completion_matches(keyword, prefix, ascii_prefix)
-            && !items.iter().any(|item| item.label == keyword)
-        {
+    let mut missing = 0_u16;
+    for (index, keyword) in COMPLETION_KEYWORDS.into_iter().enumerate() {
+        if completion_matches(keyword, prefix, ascii_prefix) {
+            missing |= 1 << index;
+        }
+    }
+    if missing == 0 {
+        return;
+    }
+    // Check existing labels once, rather than rescanning all declarations for
+    // every matching keyword. The match also skips non-keyword label lengths.
+    for item in items.iter() {
+        let index = match item.label.as_str() {
+            "def" => 0,
+            "type" => 1,
+            "law" => 2,
+            "match" => 3,
+            "case" => 4,
+            "do" => 5,
+            "return" => 6,
+            "for" => 7,
+            "exs" => 8,
+            "where" => 9,
+            "import" => 10,
+            "as" => 11,
+            _ => continue,
+        };
+        missing &= !(1 << index);
+    }
+    for (index, keyword) in COMPLETION_KEYWORDS.into_iter().enumerate() {
+        if missing & (1 << index) != 0 {
             items.push(Completion {
                 label: keyword.into(),
                 detail: "Bend keyword".into(),
@@ -669,17 +697,14 @@ pub fn typed_constructor_completion_items(
 }
 
 pub fn keyword_completions(prefix: &str) -> impl Iterator<Item = Completion> + '_ {
-    [
-        "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import",
-        "as",
-    ]
-    .into_iter()
-    .filter(move |keyword| completion_matches(keyword, prefix, prefix.is_ascii()))
-    .map(|keyword| Completion {
-        label: keyword.into(),
-        detail: "Bend keyword".into(),
-        kind: CompletionKind::Keyword,
-    })
+    COMPLETION_KEYWORDS
+        .into_iter()
+        .filter(move |keyword| completion_matches(keyword, prefix, prefix.is_ascii()))
+        .map(|keyword| Completion {
+            label: keyword.into(),
+            detail: "Bend keyword".into(),
+            kind: CompletionKind::Keyword,
+        })
 }
 
 #[must_use]
@@ -696,7 +721,7 @@ fn collect_module_completions(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     for symbol in syntax.symbols() {
-        let name = syntax.name_text(source, symbol.name);
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
         if symbol.kind != SymbolKind::Constructor && completion_matches(name, prefix, ascii_prefix)
         {
             items.push(completion(
@@ -723,7 +748,7 @@ pub fn qualified_completion_items(
         .iter()
         .filter(|symbol| symbol.kind != SymbolKind::Constructor)
         .filter_map(|symbol| {
-            let name = syntax.name_text(source, symbol.name);
+            let name = &source[symbol.name_range.start..symbol.name_range.end];
             let label = name.strip_prefix(qualifier)?.strip_prefix('.')?;
             completion_matches(label, prefix, ascii_prefix).then(|| {
                 let label = label.to_owned();
@@ -797,8 +822,18 @@ impl WorkspaceSymbolQuery {
             if symbol.kind == SymbolKind::Constructor {
                 return None;
             }
-            let name = syntax.name_text(source, symbol.name);
-            if !is_empty && !name.to_lowercase().contains(&self.normalized) {
+            let name = &source[symbol.name_range.start..symbol.name_range.end];
+            let matches = is_empty
+                || if name.is_ascii() {
+                    // ASCII names need no allocated lowercase copy. Keep Unicode
+                    // names on str's full (including contextual) lowercase path.
+                    name.as_bytes()
+                        .windows(self.normalized.len())
+                        .any(|window| window.eq_ignore_ascii_case(self.normalized.as_bytes()))
+                } else {
+                    name.to_lowercase().contains(&self.normalized)
+                };
+            if !matches {
                 return None;
             }
             Some(WorkspaceSymbol {

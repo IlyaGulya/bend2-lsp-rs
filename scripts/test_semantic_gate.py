@@ -130,10 +130,52 @@ class SupervisorTests(unittest.TestCase):
                 process.kill()
                 process.wait(timeout=2)
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux child subreaping")
+    def test_quiet_success_reaps_an_adopted_zombie(self):
+        code = ("import os\n"
+            "child=os.fork()\n"
+            "if child==0: os._exit(0)\n"
+            "os.waitid(os.P_PID,child,os.WEXITED|os.WNOWAIT)\n"
+            "print(child,flush=True)\n")
+        result = self.run_child(code)
+        self.assertEqual(result["status"], "pass", result)
+        child = int((self.directory/"output.log").read_text())
+        with self.assertRaises(ChildProcessError):
+            os.waitpid(child, os.WNOHANG)
+
+    def test_success_with_closed_child_stdout_still_terminates_the_child(self):
+        pidfile, release = self.directory/"detached.pid", self.directory/"release"
+        code = ("import pathlib,subprocess,sys,time\n"
+            "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'],"
+            "stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)\n"
+            f"pathlib.Path({str(pidfile)!r}).write_text(str(child.pid))\n"
+            f"while not pathlib.Path({str(release)!r}).exists(): time.sleep(.005)\n"
+            "print('complete')\n")
+        class ObservedChild(gate.ProcessTree):
+            def sample(self):
+                observation = super().sample()
+                if pidfile.is_file():
+                    child = pidfile.read_text()
+                    if child and int(child) in observation[2]:
+                        release.touch()
+                return observation
+        result = gate.supervise([sys.executable,"-c",code],
+            deadline=time.monotonic()+10, output_path=self.directory/"output.log",
+            artifact_dir=self.directory, tree=ObservedChild())
+        self.assertEqual(result["status"], "pass", result)
+        self.assertTrue(release.is_file(), "child was not observed before leader exit")
+        self.assertEqual(result["returncode"], 0)
+        self.assertFalse(result["cleanup_errors"])
+        child = int(pidfile.read_text())
+        self.assert_dead(child)
+        if sys.platform == "linux":
+            with self.assertRaises(ChildProcessError):
+                os.waitpid(child, os.WNOHANG)
+
     def test_primary_output_failure_survives_cleanup_failure_and_worker_is_reaped(self):
         class FailedCleanup(gate.ProcessTree):
-            def kill(self):
-                super().kill()
+            def kill(self, *, quiescent=None):
+                super().kill(quiescent=quiescent)
                 raise RuntimeError("injected cleanup observation failure")
         code = "import os;"+chr(10)+"while True: os.write(1,b'x'*1024)"
         result = gate.supervise([sys.executable,"-c",code],
@@ -235,19 +277,22 @@ class SupervisorTests(unittest.TestCase):
             self.assert_dead(int(pid))
 
     def test_monitor_failure_still_kills_owned_group(self):
+        pidfile = self.directory/"monitored.pid"
         class FailedMonitor(gate.ProcessTree):
             def sample(self):
-                if getattr(self, "samples", 0) >= 8:
-                    raise RuntimeError("monitor unavailable")
+                # Inject only after the real worker has published its PID.
+                # A sample count races interpreter startup on a busy host.
+                if pidfile.is_file() and pidfile.read_text():
+                    raise RuntimeError("injected monitor unavailable")
                 return super().sample()
-        pidfile = self.directory/"monitored.pid"
         code = "import os,time; open("+repr(str(pidfile))+",'w').write(str(os.getpid())); time.sleep(60)"
         result = gate.supervise([sys.executable,"-c",code], deadline=time.monotonic()+2,
             output_path=self.directory/"output.log", artifact_dir=self.directory,
             limits=self.limits, tree=FailedMonitor())
         self.assertEqual(result["status"], "error")
-        self.assertIn("monitor", result["error"])
+        self.assertIn("injected monitor unavailable", result["error"])
         self.assert_dead(int(pidfile.read_text()))
+        self.assertIsNotNone(result["returncode"])
 
     def test_child_memory_is_aggregated_and_killed(self):
         base = gate.ProcessTree().sample()[0]
@@ -299,8 +344,8 @@ class SupervisorTests(unittest.TestCase):
 
     def test_final_artifact_violation_survives_cleanup_observation_failure(self):
         class FailedCleanup(gate.ProcessTree):
-            def kill(self):
-                super().kill()
+            def kill(self, *, quiescent=None):
+                super().kill(quiescent=quiescent)
                 raise RuntimeError("injected cleanup observation failure")
         witness = self.directory/"original.json"
         code = "import os,time; os.write(1,b'x'); time.sleep(.1); open("+repr(str(witness))+",'wb').write(b'x'*8192)"

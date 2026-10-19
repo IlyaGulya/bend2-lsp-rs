@@ -201,6 +201,12 @@ subprocess timeout. A stalled observer cannot turn an expired phase into success
 The supervisor also bounds output/report sizes and kills/reaps process groups,
 including children whose group leader has already exited. Reports distinguish
 setup, startup, comparison, normalization, stdio, and shutdown costs.
+A complete observation with no live owned child may be reused only after the
+worker has exited successfully and stdout reached EOF. Cleanup still signals
+owned groups, waits the leader and reaps adopted Linux children. A final
+nonblocking leader poll precedes CPU accounting; it adds no wait allowance and
+cannot erase an earlier cleanup failure. Live children or unavailable monitoring
+still require fresh cleanup observations.
 
 The independent Linux Callgrind gate still measures cold snapshots separately
 from warm analysis. Existing Ir, I1mr, ILmr metrics, thresholds, baseline
@@ -231,6 +237,12 @@ per-job run ordinals reject copied reports and skewed allocations such as
 16 + 1 + 1 + 1 + 1. Source, candidate, profile, and provenance must match;
 missing or failed supporting phases reject admission. The report computes the
 observed p95; it does not automatically change policy.
+
+The `6ee0f23` [CI cohort](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39208885161)
+completed all 20 normal runs with 627 exact semantic comparisons each. Its
+descriptive p95 was 114.771427 s, not an admitted result against the 60 s target.
+Four supporting jobs timed out at 512 projects; one timed out at 256 and did not
+attempt 512. The official aggregate rejected the incomplete supporting evidence.
 
 Do not label the profile calibrated until that real CI evidence exists and is
 accepted. Updating a compiler pin requires reviewing the source/instrumentation

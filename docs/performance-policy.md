@@ -91,6 +91,36 @@ had instruction increases above 5% in this single local comparison; they are not
 waived or hidden by the lower aggregate. Existing CI gates remain authoritative
 for every instruction and independent cache metric.
 
+The subsequent hosted comparison of `6ee0f23` (tested merge `ca105e33`) completed
+all 105 fresh pairs in run
+[39208885069](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39208885069).
+Collection succeeded within the unchanged 210-minute measurement deadline, but
+numeric admission did not: 22 of the 54 baseline workloads passed and 32 failed.
+The exact-run exception was rejected; this comparison remains blocking. In
+particular, larger standalone reference records introduced per-record copy
+calls; instruction-cache regressions also remain independently blocking.
+
+Reference queries now project borrowed compact headers while semantic linking
+retains complete indexed records in the same arena. A throwaway program against
+actual Rust 1.98.1 ARM64 release metadata observed:
+
+| Representation | Copied reference bytes | Retained full-record bytes |
+| --- | ---: | ---: |
+| Expanded record in `6ee0f23` | 160 | 160 |
+| Compact projection | 104 | 168 |
+
+The extra full-record padding is an explicit retention trade-off, not omitted
+metadata or a memory-budget exception. Frozen `Vec` buckets also retain their
+capacity metadata instead of slice-only metadata; avoiding table reconstruction
+does not waive retained-memory qualification. The projection preserves target grouping
+and order; full source facts are still prepared cold. Final semantic-view bucket
+compaction reuses existing hash tables, cold grouping reuses span cursors, and
+ASCII workspace-symbol matching avoids allocating lowercase names while keeping
+the Unicode path. All workload bodies, ownership/teardown boundaries and gates
+remain unchanged. Correctness smoke and layout sizes are not hosted performance
+admission.
+
+
 A paired candidate with zero collected instructions against a nonzero baseline
 is a collection failure, not a performance improvement. The authoritative
 summary reader rejects it before producing or validating an admission verdict.

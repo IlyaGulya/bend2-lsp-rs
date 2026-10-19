@@ -40,7 +40,7 @@ pub(super) fn unresolved_reference(document: &Document, offset: usize) -> Option
     {
         return None;
     }
-    let reference = syntax.reference_for_token(token)?;
+    let reference = &syntax.reference_for_token(token)?.reference;
     if reference.kind == ReferenceKind::Declaration {
         return None;
     }

@@ -23,9 +23,10 @@
 
 - Add an independent, checksum-pinned official Bend 2.0.37 source oracle,
   differential corpus and generated projects, replayable failures, bounded
-  shrinking, and required fail-closed semantic checks. The PR resource profile
-  remains provisional until at least 20 CI runs across five jobs validate it.
-  Existing Callgrind metrics, thresholds, and baseline selection are unchanged.
+  shrinking, and required fail-closed semantic checks. Twenty correct normal
+  runs do not qualify the provisional PR resource profile while its latency
+  target and supporting scaling phases fail. Existing Callgrind metrics,
+  thresholds, and baseline selection are unchanged.
 - Overlap complete forward and reversed semantic histories in two independent
   persistent oracle sessions, retaining full reverse coverage and same-session
   A/B/A, repeated-case, fresh-worker, and real stdio checks. Version the provisional
@@ -61,6 +62,19 @@
   when preparing references and call hierarchy information.
 - Reduce Linux semantic-gate sampling allocations without changing process
   coverage, RSS accounting, sampling cadence, resource limits or cleanup.
+- Keep standalone reference-result copies separate from complete semantic
+  records without dropping linking or recovery information. Reuse cold grouping
+  buffers and semantic index tables, avoid redundant ASCII case-folding
+  allocations, and consume retired workspace reachability without an extra list.
+  Preserve query results, workload ownership and all performance gates; resource
+  and cache qualification remain blocking.
+- Skip redundant cleanup scans only after a complete observation proves that no
+  owned child remains live and the worker has exited with stdout closed.
+  Still signal owned groups, wait the direct worker and reap adopted Linux
+  children; poll once more without blocking before final CPU accounting.
+  Inject monitor failures after the test worker actually starts, rather than
+  racing startup with a fixed sample count. Resource limits and shutdown
+  deadlines remain unchanged.
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 

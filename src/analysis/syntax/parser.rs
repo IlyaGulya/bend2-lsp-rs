@@ -1,8 +1,8 @@
 use super::{
     BindingId, CallSite, DeclarationBodyKind, DeclarationKind, DeclarationSite, IndexedBinding,
-    IndexedConstructor, IndexedImport, IndexedScope, IndexedSymbol, LineIndex, NameId, NameSegment,
-    NameTable, Reference, ReferenceKind, ReferenceRole, ScopeId, SymbolId, SymbolKind, SyntaxLine,
-    TextRange, Token, TokenId, TokenKind,
+    IndexedConstructor, IndexedImport, IndexedReference, IndexedScope, IndexedSymbol, LineIndex,
+    NameId, NameSegment, NameTable, Reference, ReferenceKind, ReferenceRole, ScopeId, SymbolId,
+    SymbolKind, SyntaxLine, TextRange, Token, TokenId, TokenKind,
 };
 use std::{cell::Cell, collections::HashSet};
 
@@ -13,7 +13,7 @@ pub(super) struct FileFacts {
     pub constructors: Vec<IndexedConstructor>,
     pub scopes: Vec<IndexedScope>,
     pub bindings: Vec<IndexedBinding>,
-    pub references: Vec<Reference>,
+    pub references: Vec<IndexedReference>,
     pub segments: Vec<NameSegment>,
     pub calls: Vec<CallSite>,
     pub arguments: Vec<TextRange>,
@@ -673,8 +673,8 @@ impl Parser<'_> {
     fn mark_declaration(&mut self, reference: usize, symbol: SymbolId) {
         self.nonlocal_role(reference, ReferenceRole::Binding);
         let occurrence = &mut self.facts.references[reference];
-        occurrence.kind = ReferenceKind::Declaration;
-        occurrence.enclosing = None;
+        occurrence.reference.kind = ReferenceKind::Declaration;
+        occurrence.reference.enclosing = None;
         self.declaration_references.push((reference, symbol));
     }
 
@@ -1020,7 +1020,7 @@ impl Parser<'_> {
         let occurrence = self.facts.references[reference];
         let index = self.facts.bindings.len();
         let name = occurrence.full_name;
-        let declaration = occurrence.token;
+        let declaration = occurrence.reference.token;
         let id = SymbolId(index);
         let anonymous = &self.source[occurrence.full_range.start..occurrence.full_range.end] == "_";
         self.facts.bindings.push(IndexedBinding {
@@ -1042,12 +1042,12 @@ impl Parser<'_> {
         self.scope_bindings[scope_id.0] = Some(index);
         self.pattern_candidates[reference] = false;
         let reference = &mut self.facts.references[reference];
-        reference.kind = ReferenceKind::Declaration;
+        reference.reference.kind = ReferenceKind::Declaration;
         reference.role = ReferenceRole::Binding;
-        reference.resolved = (!anonymous).then_some(id);
+        reference.reference.resolved = (!anonymous).then_some(id);
         reference.local_binding = (!anonymous).then_some(BindingId(index));
-        reference.name = name;
-        reference.range = occurrence.full_range;
+        reference.reference.name = name;
+        reference.reference.range = occurrence.full_range;
         if !anonymous {
             self.open_binding(name, index);
         }
@@ -1106,21 +1106,24 @@ impl Parser<'_> {
             )
         });
         let index = self.facts.references.len();
-        self.facts.references.push(Reference {
-            name,
+        self.facts.references.push(IndexedReference {
+            reference: Reference {
+                name,
+                qualifier,
+                qualifier_token: (first != last).then_some(first),
+                token: last,
+                range: if local_binding.is_some() {
+                    range
+                } else {
+                    self.tokens[last.0].range
+                },
+                enclosing: self.owner,
+                kind: ReferenceKind::Read,
+                resolved: local_binding.map(SymbolId),
+            },
             full_name,
             full_range: range,
-            range: if local_binding.is_some() {
-                range
-            } else {
-                self.tokens[last.0].range
-            },
             segment_span: TextRange::new(segment_start, self.facts.segments.len()),
-            qualifier,
-            qualifier_token: (first != last).then_some(first),
-            token: last,
-            enclosing: self.owner,
-            kind: ReferenceKind::Read,
             role: if self.in_type {
                 ReferenceRole::Type
             } else {
@@ -1130,7 +1133,6 @@ impl Parser<'_> {
             uncertain: self.uncertain,
             synthetic: false,
             local_binding: local_binding.map(BindingId),
-            resolved: local_binding.map(SymbolId),
         });
         self.pattern_candidates.push(true);
         Some(index)
@@ -1462,7 +1464,7 @@ impl Parser<'_> {
         open: TokenId,
         offload: bool,
     ) -> usize {
-        self.facts.references[reference].kind = ReferenceKind::Call;
+        self.facts.references[reference].reference.kind = ReferenceKind::Call;
         self.facts.references[reference].role = if offload {
             ReferenceRole::Offload
         } else {
@@ -1473,12 +1475,12 @@ impl Parser<'_> {
         let slot = self.facts.calls.len();
         self.facts.calls.push(CallSite {
             caller: (!self.in_type).then_some(self.owner).flatten(),
-            callee: occurrence.resolved,
-            name: occurrence.name,
-            qualifier: occurrence.qualifier,
-            qualifier_token: occurrence.qualifier_token,
-            callee_token: occurrence.token,
-            callee_range: occurrence.range,
+            callee: occurrence.reference.resolved,
+            name: occurrence.reference.name,
+            qualifier: occurrence.reference.qualifier,
+            qualifier_token: occurrence.reference.qualifier_token,
+            callee_token: occurrence.reference.token,
+            callee_range: occurrence.reference.range,
             call_range: TextRange::new(callee.range.start, end),
             argument_range: TextRange::new(end, end),
             argument_indices: TextRange::default(),
@@ -1689,15 +1691,15 @@ impl Parser<'_> {
 
     fn nonlocal_role(&mut self, reference: usize, role: ReferenceRole) {
         self.pattern_candidates[reference] = false;
-        let token = self.facts.references[reference].token;
+        let token = self.facts.references[reference].reference.token;
         let terminal_name = self.names.for_token(token);
         let reference = &mut self.facts.references[reference];
         reference.role = role;
-        reference.resolved = None;
+        reference.reference.resolved = None;
         reference.local_binding = None;
-        reference.range = self.tokens[token.0].range;
+        reference.reference.range = self.tokens[token.0].range;
         if let Some(name) = terminal_name {
-            reference.name = name;
+            reference.reference.name = name;
         }
     }
 
@@ -1804,7 +1806,9 @@ impl Parser<'_> {
         self.open_scope(self.offset());
         for reference in first.references.start..pattern_end {
             let occurrence = self.facts.references[reference];
-            if self.pattern_candidates[reference] && occurrence.kind == ReferenceKind::Read {
+            if self.pattern_candidates[reference]
+                && occurrence.reference.kind == ReferenceKind::Read
+            {
                 let full = if count == 1 && first.reference.is_some() {
                     TextRange::new(
                         first.range.start,
@@ -1911,7 +1915,7 @@ impl Parser<'_> {
 
     fn bind_pattern_reference(&mut self, reference: usize) {
         let occurrence = self.facts.references[reference];
-        if occurrence.qualifier.is_some() && occurrence.resolved.is_none() {
+        if occurrence.reference.qualifier.is_some() && occurrence.reference.resolved.is_none() {
             self.uncertain = true;
             self.facts.references[reference].uncertain = true;
             return;
@@ -2225,8 +2229,8 @@ impl Parser<'_> {
     fn finalize_resolution_ids(&mut self, symbol_count: usize, permutation: Option<&[usize]>) {
         let remap = |index| permutation.map_or(index, |permutation| permutation[index]);
         for reference in &mut self.facts.references {
-            if let Some(binding) = reference.resolved {
-                reference.resolved = Some(SymbolId(symbol_count + remap(binding.0)));
+            if let Some(binding) = reference.reference.resolved {
+                reference.reference.resolved = Some(SymbolId(symbol_count + remap(binding.0)));
             }
             if let Some(permutation) = permutation {
                 reference.local_binding = reference
@@ -2235,7 +2239,7 @@ impl Parser<'_> {
             }
         }
         for (reference, symbol) in self.declaration_references.drain(..) {
-            self.facts.references[reference].resolved = Some(symbol);
+            self.facts.references[reference].reference.resolved = Some(symbol);
         }
         for call in &mut self.facts.calls {
             if let Some(binding) = call.callee {
@@ -2249,8 +2253,8 @@ impl Parser<'_> {
         let names = &self.names;
         self.facts.references.retain(|reference| {
             let range = names.range(reference.full_name);
-            !(reference.kind == ReferenceKind::Declaration
-                && reference.resolved.is_none()
+            !(reference.reference.kind == ReferenceKind::Declaration
+                && reference.reference.resolved.is_none()
                 && &source[range.start..range.end] == "_")
         });
     }

@@ -313,7 +313,7 @@ impl SemanticView {
                     };
                     document
                         .syntax
-                        .references_named(name)
+                        .indexed_references_named(name)
                         .filter(|reference| reference.role == ReferenceRole::Binding)
                         .filter_map(|reference| reference.local_binding)
                         .filter_map(|binding| document.syntax.bindings().get(binding.0))
@@ -359,7 +359,7 @@ impl SemanticView {
             }
             for reference in document
                 .syntax
-                .references_named(name)
+                .indexed_references_named(name)
                 .filter(|reference| reference.role == ReferenceRole::Binding)
             {
                 let Some(other) = reference
@@ -374,24 +374,27 @@ impl SemanticView {
             }
         }
         // Existing bare uses of the new spelling must not be captured by this binder.
-        document.syntax.references_named(name).all(|reference| {
-            if reference.role == ReferenceRole::Binding
-                || !binding.scope.contains(reference.full_range.start)
-            {
-                return true;
-            }
-            if document
-                .syntax
-                .name_text(&document.text, reference.full_name)
-                != new_name
-            {
-                return true;
-            }
-            reference
-                .local_binding
-                .and_then(|other| document.syntax.bindings().get(other.0))
-                .is_some_and(|other| shadows(other, binding))
-        })
+        document
+            .syntax
+            .indexed_references_named(name)
+            .all(|reference| {
+                if reference.role == ReferenceRole::Binding
+                    || !binding.scope.contains(reference.full_range.start)
+                {
+                    return true;
+                }
+                if document
+                    .syntax
+                    .name_text(&document.text, reference.full_name)
+                    != new_name
+                {
+                    return true;
+                }
+                reference
+                    .local_binding
+                    .and_then(|other| document.syntax.bindings().get(other.0))
+                    .is_some_and(|other| shadows(other, binding))
+            })
     }
 }
 

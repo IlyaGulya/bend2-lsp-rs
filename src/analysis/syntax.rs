@@ -322,22 +322,27 @@ pub enum ReferenceRole {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Reference {
     pub name: NameId,
-    pub full_name: NameId,
-    pub full_range: TextRange,
-    pub segment_span: TextRange,
     pub qualifier: Option<NameId>,
     pub qualifier_token: Option<TokenId>,
     pub token: TokenId,
     pub range: TextRange,
     pub enclosing: Option<SymbolId>,
     pub kind: ReferenceKind,
+    pub resolved: Option<SymbolId>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct IndexedReference {
+    pub reference: Reference,
+    pub full_name: NameId,
+    pub full_range: TextRange,
+    pub segment_span: TextRange,
     pub role: ReferenceRole,
     pub in_type: bool,
     pub uncertain: bool,
     pub synthetic: bool,
-    /// Proven lexical identity; `resolved` may additionally cache a standalone file target.
+    /// Proven lexical identity; `reference.resolved` may additionally cache a standalone file target.
     pub local_binding: Option<BindingId>,
-    pub resolved: Option<SymbolId>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -379,7 +384,7 @@ struct CallIndex {
 }
 
 struct ReferenceIndex {
-    references: Vec<Reference>,
+    references: Vec<IndexedReference>,
     source_indices: Vec<usize>,
     by_symbol_spans: Vec<TextRange>,
     by_name_indices: Vec<usize>,
@@ -509,7 +514,7 @@ pub struct SyntaxIndex {
     sites: Box<[DeclarationSite]>,
     scopes: Box<[IndexedScope]>,
     segments: Box<[NameSegment]>,
-    references: Box<[Reference]>,
+    references: Box<[IndexedReference]>,
     reference_source_indices: Box<[usize]>,
     reference_spans: Box<[TextRange]>,
     name_reference_indices: Box<[usize]>,
@@ -714,14 +719,14 @@ impl SyntaxIndex {
     }
 
     #[must_use]
-    pub fn all_references(&self) -> impl ExactSizeIterator<Item = &Reference> {
+    pub fn all_references(&self) -> impl ExactSizeIterator<Item = &IndexedReference> {
         self.reference_source_indices
             .iter()
             .map(|index| &self.references[*index])
     }
 
     #[must_use]
-    pub fn reference_segments(&self, reference: &Reference) -> &[NameSegment] {
+    pub fn reference_segments(&self, reference: &IndexedReference) -> &[NameSegment] {
         &self.segments[reference.segment_span.start..reference.segment_span.end]
     }
 
@@ -940,12 +945,27 @@ impl SyntaxIndex {
             .or_else(|| self.binding_by_id(id).map(|binding| binding.name_range))
     }
 
-    pub fn references(&self, id: SymbolId) -> std::slice::Iter<'_, Reference> {
+    #[must_use]
+    pub fn references(
+        &self,
+        id: SymbolId,
+    ) -> impl ExactSizeIterator<Item = &Reference> + DoubleEndedIterator + std::iter::FusedIterator + Clone
+    {
         let span = self.reference_spans.get(id.0).copied().unwrap_or_default();
-        self.references[span.start..span.end].iter()
+        self.references[span.start..span.end]
+            .iter()
+            .map(|indexed| &indexed.reference)
     }
 
     pub fn references_named(&self, name: NameId) -> impl Iterator<Item = &Reference> {
+        self.indexed_references_named(name)
+            .map(|reference| &reference.reference)
+    }
+
+    pub fn indexed_references_named(
+        &self,
+        name: NameId,
+    ) -> impl Iterator<Item = &IndexedReference> {
         let span = self
             .name_reference_spans
             .get(name.0)
@@ -956,9 +976,10 @@ impl SyntaxIndex {
             .map(|index| &self.references[*index])
     }
 
-    pub fn qualified_references(&self, root: NameId) -> impl Iterator<Item = &Reference> {
+    pub fn qualified_references(&self, root: NameId) -> impl Iterator<Item = &IndexedReference> {
         self.all_references().filter(move |reference| {
             reference
+                .reference
                 .qualifier_token
                 .and_then(|token| self.name_for_token(token))
                 == Some(root)
@@ -966,7 +987,7 @@ impl SyntaxIndex {
     }
 
     #[must_use]
-    pub fn reference_for_token(&self, token: TokenId) -> Option<&Reference> {
+    pub fn reference_for_token(&self, token: TokenId) -> Option<&IndexedReference> {
         let index = self.token_references.get(token.0)?.value()?;
         self.references.get(index)
     }
@@ -1150,25 +1171,25 @@ fn compact_groups<T>(
     group_count: usize,
     key: impl Fn(&T) -> Option<usize>,
 ) -> (Vec<usize>, Vec<TextRange>) {
-    let mut counts = vec![0; group_count];
+    let mut spans = vec![TextRange::default(); group_count];
     for item in items {
         if let Some(group) = key(item).filter(|group| *group < group_count) {
-            counts[group] += 1;
+            spans[group].end += 1;
         }
     }
-    let mut spans = Vec::with_capacity(group_count);
     let mut total = 0;
-    for count in &mut counts {
-        let end = total + *count;
-        spans.push(TextRange::new(total, end));
-        *count = total;
-        total = end;
+    for span in &mut spans {
+        let count = span.end;
+        // Reuse each final span's end as its insertion cursor instead of
+        // allocating a separate group-count/cursor buffer.
+        *span = TextRange::new(total, total);
+        total += count;
     }
     let mut indices = vec![0; total];
     for (index, item) in items.iter().enumerate() {
         if let Some(group) = key(item).filter(|group| *group < group_count) {
-            indices[counts[group]] = index;
-            counts[group] += 1;
+            indices[spans[group].end] = index;
+            spans[group].end += 1;
         }
     }
     (indices, spans)
@@ -1216,7 +1237,7 @@ fn resolve_calls(
 
 fn index_calls(
     calls: Vec<CallSite>,
-    references: &[Reference],
+    references: &[IndexedReference],
     segments: &[NameSegment],
     token_references: &[IndexSlot],
     id_count: usize,
@@ -1262,7 +1283,7 @@ fn reference_token_index(
         if reference.synthetic {
             continue;
         }
-        let resolved_type = reference.resolved.and_then(|id| {
+        let resolved_type = reference.reference.resolved.and_then(|id| {
             if let Some(symbol) = facts.symbols.get(id.0) {
                 Some(if symbol.kind == SymbolKind::Function {
                     12
@@ -1278,20 +1299,24 @@ fn reference_token_index(
         // Cache the exact snapshot-local presentation while visiting the same
         // segments needed for identity indexing. Recovery coloring never invents
         // a target and cannot override a grammar-owned lexical binding.
-        let name_range = names.range(reference.name);
+        let name_range = names.range(reference.reference.name);
         let recovery_call = resolved_type.is_none()
             && matches!(reference.role, ReferenceRole::Call | ReferenceRole::Offload)
             && local_index
-                .lookup(reference.full_name, tokens[reference.token.0].range.start)
+                .lookup(
+                    reference.full_name,
+                    tokens[reference.reference.token.0].range.start,
+                )
                 .is_none()
             && source.as_bytes()[name_range.start..name_range.end]
                 .first()
                 .is_some_and(u8::is_ascii_lowercase);
         for segment in &facts.segments[reference.segment_span.start..reference.segment_span.end] {
-            symbols[segment.token.0] = IndexSlot::from_option(reference.resolved.map(|id| id.0));
+            symbols[segment.token.0] =
+                IndexSlot::from_option(reference.reference.resolved.map(|id| id.0));
             occurrences[segment.token.0] = IndexSlot::some(index);
             let token_type = resolved_type.unwrap_or_else(|| {
-                if recovery_call && segment.token == reference.token {
+                if recovery_call && segment.token == reference.reference.token {
                     12
                 } else if names
                     .for_token(segment.token)
@@ -1363,17 +1388,22 @@ fn build_parameter_hints(
 }
 
 fn index_references(
-    mut references: Vec<Reference>,
+    mut references: Vec<IndexedReference>,
     mut token_references: Vec<IndexSlot>,
     id_count: usize,
     name_count: usize,
 ) -> ReferenceIndex {
-    // Store each target's wide records contiguously: callers copying a complete
-    // result can use one bulk copy instead of copying every occurrence separately.
+    // Store each target's indexed records contiguously; legacy queries project
+    // only their compact headers without copying semantic metadata.
     // The final group retains unresolved/invalid targets without exposing them
     // through a valid SymbolId. All other traversals preserve parser source order.
     let (mut order, mut by_symbol_spans) = compact_groups(&references, id_count + 1, |reference| {
-        Some(reference.resolved.map_or(id_count, |id| id.0.min(id_count)))
+        Some(
+            reference
+                .reference
+                .resolved
+                .map_or(id_count, |id| id.0.min(id_count)),
+        )
     });
     let _ = by_symbol_spans.pop();
     let (mut by_name_indices, by_name_spans) =
@@ -1419,11 +1449,13 @@ fn resolve_standalone_references(
 ) {
     for reference in &mut facts.references {
         if reference.uncertain {
-            reference.resolved = None;
+            reference.reference.resolved = None;
             reference.local_binding = None;
             continue;
         }
-        if reference.resolved.is_none() && reference.kind != ReferenceKind::Declaration {
+        if reference.reference.resolved.is_none()
+            && reference.reference.kind != ReferenceKind::Declaration
+        {
             let target = if reference.role == ReferenceRole::Constructor {
                 constructors.get(&reference.full_name).copied().flatten()
             } else {
@@ -1433,7 +1465,7 @@ fn resolve_standalone_references(
                     .and_then(IndexSlot::value)
                     .map(SymbolId)
             };
-            reference.resolved = target.filter(|id| facts.sites[id.0].linkable);
+            reference.reference.resolved = target.filter(|id| facts.sites[id.0].linkable);
         }
     }
 }

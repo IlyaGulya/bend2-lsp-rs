@@ -432,10 +432,13 @@ fn assert_legacy_fixture_outputs_match_indexed_queries_exactly(
             .reference_for_token(token)
             .must_be("grammar occurrence");
         assert_eq!(occurrence.role, analysis::ReferenceRole::Binding);
-        assert_eq!(occurrence.kind, analysis::ReferenceKind::Declaration);
+        assert_eq!(
+            occurrence.reference.kind,
+            analysis::ReferenceKind::Declaration
+        );
         let local = occurrence.local_binding.must_be("native pattern binding");
         let binding = &snapshot.syntax.bindings()[local.0];
-        assert_eq!(occurrence.resolved, Some(binding.id));
+        assert_eq!(occurrence.reference.resolved, Some(binding.id));
         assert_eq!(snapshot.syntax.constructor_by_name(binding.name), None);
     }
 
@@ -593,6 +596,7 @@ fn dense_index_lookups_distinguish_zero_ids_missing_entries_and_nested_calls() {
         syntax
             .reference_for_token(declaration)
             .must_be("declaration reference")
+            .reference
             .resolved,
         Some(SymbolId(0))
     );
@@ -649,6 +653,7 @@ fn dense_index_lookups_distinguish_zero_ids_missing_entries_and_nested_calls() {
         syntax
             .reference_for_token(unknown_token)
             .must_be("unresolved reference")
+            .reference
             .resolved,
         None
     );
@@ -919,7 +924,7 @@ fn duplicate_constructor_declarations_have_no_arbitrary_standalone_target() {
         occurrence.role,
         bend2_lsp::analysis::ReferenceRole::Constructor
     );
-    assert_eq!(occurrence.resolved, None);
+    assert_eq!(occurrence.reference.resolved, None);
 }
 
 #[test]

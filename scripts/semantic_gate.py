@@ -188,11 +188,19 @@ class ProcessTree:
         self.samples += 1
         return rss, table, owned
 
-    def kill(self):
-        try:
-            _, table, _ = self.sample()
-        except (OSError, RuntimeError, subprocess.SubprocessError):
-            table = None  # Monitoring failure must not prevent group cleanup.
+    def kill(self, *, quiescent=None):
+        """Reuse a quiet observation only after worker exit and EOF are confirmed."""
+        if quiescent is not None:
+            table, owned = quiescent
+        else:
+            try:
+                _, table, owned = self.sample()
+            except (OSError, RuntimeError, subprocess.SubprocessError):
+                table = None  # Monitoring failure must not prevent group cleanup.
+                owned = ()
+        quiet = table is not None and not any(
+            pid != os.getpid() and pid in table and is_live_process(table[pid])
+            for pid in owned)
 
         def finished_group(group, snapshot):
             members = [row for row in snapshot.values() if row[1] == group]
@@ -219,6 +227,8 @@ class ProcessTree:
                         errors.append(str(error))
                 except (OSError, RuntimeError, subprocess.SubprocessError) as monitoring_error:
                     errors.append(f"{error}; cannot verify group state: {monitoring_error}")
+        if quiet and not errors:
+            return True
         try:
             table = process_table(deadline=self.deadline, cancellable=self.cancellable)
         except (OSError, RuntimeError, subprocess.SubprocessError):
@@ -239,6 +249,7 @@ class ProcessTree:
                     errors.append(f"{error}; cannot verify child state: {monitoring_error}")
         if errors:
             raise RuntimeError("process-tree kill failed: "+"; ".join(errors))
+        return False
 
     def reap(self):
         if sys.platform == "linux":
@@ -262,6 +273,7 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
     status, reason, output_bytes = "error", None, 0
     process = None
     shutdown_started = None
+    quiescent = None
     cleanup_errors = []
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -284,7 +296,7 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
                         raise RuntimeError(f"interrupted by {INTERRUPTED}")
                     if time.monotonic() >= deadline - limits["shutdown_seconds"]:
                         raise RuntimeError("hard deadline exceeded (shutdown reserve retained)")
-                    rss, _, _ = tree.sample()
+                    rss, table, owned = tree.sample()
                     if time.monotonic() >= tree.deadline:
                         raise RuntimeError("hard deadline exceeded (shutdown reserve retained)")
                     if rss > limits["rss_bytes"]:
@@ -312,6 +324,12 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
                         # them before cleanup can fail and replace this known
                         # resource violation with a monitoring error.
                         artifact_usage(artifact_dir, limits["artifact_bytes"], limits["artifact_files"])
+                        # No live owned process can fork after this observation.
+                        # EOF and successful leader exit now make it safe to
+                        # retain that proof instead of repeating a global scan.
+                        if not any(pid != os.getpid() and pid in table and
+                                is_live_process(table[pid]) for pid in owned):
+                            quiescent = (table, owned)
                         status = "pass"
                         break
             finally:
@@ -323,8 +341,9 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
         shutdown_started = time.monotonic()
         tree.deadline = min(deadline, shutdown_started+limits["shutdown_seconds"])
         tree.cancellable = False
+        verified_quiet = False
         try:
-            tree.kill()
+            verified_quiet = tree.kill(quiescent=quiescent)
         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             status = "error"
             cleanup_errors.append(f"initial tree kill failed: {error}")
@@ -336,6 +355,10 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
                 process.wait(timeout=max(0.001, min(limits["shutdown_seconds"], deadline-time.monotonic())))
             while time.monotonic() < min(deadline, shutdown_started + limits["shutdown_seconds"]):
                 tree.reap()
+                if verified_quiet:
+                    if time.monotonic() >= tree.deadline:
+                        raise RuntimeError("process-tree shutdown deadline exceeded")
+                    break
                 _, table, owned = tree.sample()
                 live = [pid for pid in owned if pid != os.getpid() and pid in table and is_live_process(table[pid])]
                 if not live:
@@ -357,6 +380,16 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
             artifact_usage(artifact_dir, limits["artifact_bytes"], limits["artifact_files"])
         except (OSError, RuntimeError) as error:
             status, reason = "error", str(error)
+    if process is not None:
+        # A timed wait can expire just before SIGKILL completes. Reap any
+        # now-exited leader before CPU accounting without another blocking wait
+        # or changing an existing cleanup failure into a success.
+        try:
+            process.poll()
+        except (OSError, subprocess.SubprocessError) as error:
+            status = "error"
+            cleanup_errors.append(f"final leader reap failed: {error}")
+            reason = reason or cleanup_errors[-1]
     ended = time.monotonic()
     if ended > deadline:
         status = "error"

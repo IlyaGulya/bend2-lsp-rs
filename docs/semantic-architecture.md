@@ -17,6 +17,17 @@ snapshot queries; they are not workspace entity identities. Library dependency
 extraction must use `SemanticView` (or `bend2/semanticDocument`), not combine those
 links across files or use them as an alternative import resolver.
 
+Standalone reference queries project compact `Reference` headers from complete
+`IndexedReference` records. Linking and metadata extraction retain full dotted
+names, source segments, roles, lexical binding identities and recovery flags;
+ordinary reference-result copies do not carry those additional fields.
+`references` and `references_named` expose those headers; metadata consumers use
+`indexed_references_named` or the complete indexed-record iterators.
+The projected iterator retains exact sizing, reverse iteration, cloning and
+fused exhaustion, but is no longer a slice iterator with `as_slice`.
+This is a storage/projection boundary, not a second resolver or deferred
+semantic scan.
+
 The workspace owns views; feature handlers consume captured immutable views.
 Warm queries must not rescan source, reparse imports or headers, or rebuild a
 whole-workspace representation. Loading and preparing a view is cold work,
@@ -29,6 +40,10 @@ filling a law does not rescan its declaring file. File generations and overlay
 conflicts are prepared once per immutable file context. Registration borrows
 the shared snapshot rather than cloning document URI/language metadata for
 each declaration. These construction-local facts do not add warm-query work.
+Final occurrence, reference and call buckets shrink their payloads in place and
+retain their original hash tables instead of allocating replacement tables and
+rehashing all keys. Cold grouped indexes reuse the final span cursors rather
+than allocating separate per-group counts.
 
 The server keeps its service/request split: `server/lsp.rs` delegates protocol
 requests, `server/requests/` projects indexed results, and `WorkspaceService`

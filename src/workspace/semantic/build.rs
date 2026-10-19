@@ -486,6 +486,7 @@ impl Builder {
         });
         let mut next = 0;
         for reference in document.syntax.all_references() {
+            let lexical = &reference.reference;
             while let Some(declaration) = registration.get(next) {
                 let at = match declaration.kind {
                     DeclarationKind::Law => declaration.full_range.end,
@@ -499,7 +500,7 @@ impl Builder {
                 self.register(context, &document, declaration);
                 next += 1;
             }
-            let site = Self::site(context, reference.range);
+            let site = Self::site(context, lexical.range);
             let local = reference
                 .local_binding
                 .and_then(|id| document.syntax.bindings().get(id.0))
@@ -513,7 +514,7 @@ impl Builder {
                         file: context.file,
                         symbol,
                     }))
-                } else if let Some(declaration) = reference
+                } else if let Some(declaration) = lexical
                     .resolved
                     .and_then(|symbol| document.syntax.declaration_site(symbol))
                     .filter(|declaration| declaration.name_range == reference.full_range)
@@ -552,7 +553,7 @@ impl Builder {
                     enclosing: None,
                 },
                 target,
-                owner: reference.enclosing,
+                owner: lexical.enclosing,
             });
         }
         for declaration in &registration[next..] {
@@ -629,30 +630,26 @@ impl Builder {
                 .or_default()
                 .push(occurrence);
         }
-        self.view.occurrences = occurrences
-            .into_iter()
-            .map(|(file, mut entries)| {
-                entries.sort_by_key(|entry| (entry.full_range.start, !entry.synthetic));
-                (file, entries.into_boxed_slice())
-            })
-            .collect();
-        self.view.references = references
-            .into_iter()
-            .map(|(target, entries)| (target, entries.into_boxed_slice()))
-            .collect();
-        self.view.incoming = incoming
-            .into_iter()
-            .map(|(target, indices)| (target, indices.into_boxed_slice()))
-            .collect();
-        self.view.outgoing = outgoing
-            .into_iter()
-            .map(|(target, indices)| (target, indices.into_boxed_slice()))
-            .collect();
+        for entries in occurrences.values_mut() {
+            entries.sort_by_key(|entry| (entry.full_range.start, !entry.synthetic));
+        }
+        self.view.occurrences = compact_index(occurrences);
+        self.view.references = compact_index(references);
+        self.view.incoming = compact_index(incoming);
+        self.view.outgoing = compact_index(outgoing);
         self.view.names = self.names;
         self.view.namespace_indices = namespace_index(&self.view.entities);
         self.view.parameter_hints = parameter_hint_index(&self.view);
         self.view
     }
+}
+
+// Compact each payload without allocating replacement tables and rehashing keys.
+fn compact_index<K, V>(mut index: HashMap<K, Vec<V>>) -> HashMap<K, Vec<V>> {
+    for entries in index.values_mut() {
+        entries.shrink_to_fit();
+    }
+    index
 }
 
 fn parameter_hint_index(view: &SemanticView) -> HashMap<FileId, Box<[(usize, String)]>> {
