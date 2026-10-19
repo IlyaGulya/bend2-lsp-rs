@@ -703,12 +703,25 @@ fn collect_module_completions(
     prefix: &str,
     ascii_prefix: bool,
 ) -> Vec<Completion> {
-    let mut items = Vec::new();
+    if ascii_prefix {
+        collect_module_completions_for_query::<true>(snapshot, prefix)
+    } else {
+        collect_module_completions_for_query::<false>(snapshot, prefix)
+    }
+}
+
+// Keep the two specialized loops from merging into one large query function.
+#[inline(never)]
+fn collect_module_completions_for_query<const ASCII_PREFIX: bool>(
+    snapshot: &DocumentSnapshot,
+    prefix: &str,
+) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
+    let mut items = Vec::new();
     for symbol in syntax.symbols() {
-        let name = syntax.name_text(source, symbol.name);
-        if completion_matches(name, prefix, ascii_prefix) {
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
+        if completion_matches(name, prefix, ASCII_PREFIX) {
             items.push(completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),

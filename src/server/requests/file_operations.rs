@@ -449,7 +449,9 @@ impl Backend {
                 .cancel_if(&uri, || self.document(&uri).is_none())
                 .await;
             self.remove_import_diagnostics(&uri).await;
-            self.client.publish_diagnostics(uri, Vec::new(), None).await;
+            self.diagnostics.documents.write().remove(&uri);
+            self.publish_coordinated_diagnostics(HashSet::from([uri]))
+                .await;
         }
         let roots: Vec<_> = {
             let database = self.workspace.read();
