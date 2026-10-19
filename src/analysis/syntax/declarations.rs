@@ -74,6 +74,8 @@ pub(super) fn parse_imports(source: &str, lines: &[SyntaxLine]) -> Vec<IndexedIm
     imports
 }
 
+// Keep declaration parsing out of the already large snapshot builder.
+#[inline(never)]
 pub(super) fn parse_symbols(
     source: &str,
     lines: &[SyntaxLine],
