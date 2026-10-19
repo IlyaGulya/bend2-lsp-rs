@@ -735,7 +735,7 @@ fn collect_module_completions_for_query<const ASCII_PREFIX: bool>(
     let mut items = Vec::new();
     for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
-        if symbol.kind != SymbolKind::Constructor && completion_matches(name, prefix, ASCII_PREFIX)
+        if completion_matches(name, prefix, ASCII_PREFIX) && symbol.kind != SymbolKind::Constructor
         {
             items.push(completion(
                 name.to_owned(),

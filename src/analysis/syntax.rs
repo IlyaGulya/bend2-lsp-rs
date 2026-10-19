@@ -1,6 +1,7 @@
+use hashbrown::HashTable;
 use std::{
-    collections::{HashMap, hash_map::DefaultHasher},
-    hash::{Hash, Hasher},
+    collections::{HashMap, hash_map::RandomState},
+    hash::BuildHasher,
 };
 
 use super::{InlayHint, LineIndex, SymbolKind, TextRange};
@@ -426,21 +427,34 @@ impl NameFacts {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 struct NameTable {
     ranges: Vec<TextRange>,
     facts: Vec<NameFacts>,
-    lookup: HashMap<u64, NameId>,
-    collision_next: Vec<IndexSlot>,
+    lookup: HashTable<NameId>,
+    hashes: Vec<u64>,
+    hasher: RandomState,
     token_names: Vec<IndexSlot>,
 }
+
+impl PartialEq for NameTable {
+    fn eq(&self, other: &Self) -> bool {
+        self.ranges == other.ranges
+            && self.facts == other.facts
+            && self.token_names == other.token_names
+    }
+}
+
+impl Eq for NameTable {}
+
 impl NameTable {
     fn new() -> Self {
         Self {
             ranges: Vec::new(),
             facts: Vec::new(),
-            lookup: HashMap::new(),
-            collision_next: Vec::new(),
+            lookup: HashTable::new(),
+            hashes: Vec::new(),
+            hasher: RandomState::new(),
             token_names: Vec::new(),
         }
     }
@@ -453,16 +467,15 @@ impl NameTable {
 
     fn intern_name(&mut self, source: &str, range: TextRange) -> NameId {
         let name = &source[range.start..range.end];
-        let hash = hash_name(name);
+        let hash = self.hasher.hash_one(name);
         if let Some(id) = self.find_hashed(source, name, hash) {
             return id;
         }
         let id = NameId(self.ranges.len());
         self.ranges.push(range);
         self.facts.push(NameFacts::new(name));
-        self.collision_next.push(IndexSlot::from_option(
-            self.lookup.insert(hash, id).map(|id| id.0),
-        ));
+        self.hashes.push(hash);
+        self.lookup.insert_unique(hash, id, |id| self.hashes[id.0]);
         id
     }
 
@@ -471,19 +484,16 @@ impl NameTable {
     }
 
     fn find(&self, source: &str, text: &str) -> Option<NameId> {
-        self.find_hashed(source, text, hash_name(text))
+        self.find_hashed(source, text, self.hasher.hash_one(text))
     }
 
     fn find_hashed(&self, source: &str, text: &str, hash: u64) -> Option<NameId> {
-        let mut candidate = self.lookup.get(&hash).copied();
-        while let Some(id) = candidate {
-            let range = self.ranges[id.0];
-            if source[range.start..range.end] == *text {
-                return Some(id);
-            }
-            candidate = self.collision_next[id.0].value().map(NameId);
-        }
-        None
+        self.lookup
+            .find(hash, |id| {
+                let range = self.ranges[id.0];
+                source[range.start..range.end] == *text
+            })
+            .copied()
     }
 
     fn range(&self, id: NameId) -> TextRange {
@@ -1125,12 +1135,6 @@ impl SyntaxIndex {
     }
 }
 
-fn hash_name(name: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    name.hash(&mut hasher);
-    hasher.finish()
-}
-
 struct ScanOutput {
     tokens: Vec<Token>,
     semantic_token_count: usize,
@@ -1494,4 +1498,25 @@ fn standalone_constructor_targets(
             .or_insert(Some(constructor.symbol));
     }
     targets
+}
+
+#[cfg(test)]
+mod name_table_tests {
+    use super::{NameTable, TextRange};
+
+    #[test]
+    fn full_hash_collisions_keep_distinct_names_and_reject_absent_names() {
+        let source = "alpha beta";
+        let mut names = NameTable::new();
+        let alpha = names.intern_name(source, TextRange::new(0, 5));
+        let beta = names.intern_name(source, TextRange::new(6, 10));
+        names.lookup.clear();
+        for id in [alpha, beta] {
+            names.hashes[id.0] = 42;
+            names.lookup.insert_unique(42, id, |_| 42);
+        }
+        assert_eq!(names.find_hashed(source, "alpha", 42), Some(alpha));
+        assert_eq!(names.find_hashed(source, "beta", 42), Some(beta));
+        assert_eq!(names.find_hashed(source, "gamma", 42), None);
+    }
 }

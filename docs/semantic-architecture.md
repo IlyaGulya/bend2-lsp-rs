@@ -45,6 +45,13 @@ retain their original hash tables instead of allocating replacement tables and
 rehashing all keys. Cold grouped indexes reuse the final span cursors rather
 than allocating separate per-group counts.
 
+Snapshot-local name interning stores source ranges and `NameId` values, not
+copied strings. One per-table randomized hash feeds the raw name table directly;
+lookups still compare the complete source spelling, including when full hashes
+collide. Cached hashes support table growth without rescanning names. The hash
+seed and lookup layout are acceleration details, excluded from logical snapshot
+equality. Cold construction and warm lookup remain independently measured.
+
 The server keeps its service/request split: `server/lsp.rs` delegates protocol
 requests, `server/requests/` projects indexed results, and `WorkspaceService`
 owns document revisions, discovery, and workspace publication. Semantic view
