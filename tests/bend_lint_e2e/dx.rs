@@ -16,8 +16,11 @@ fn explicit_checks_preserve_another_documents_genuine_fix() {
     }
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.1.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.1.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
     ).must_be("enable genuine rules");
+    // Preparing trusted rules is an installation step, not part of the LSP's
+    // bounded check. A cold native build can exceed the provider's deadline.
+    genuine_report(&executable, &arguments, &first);
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let documents = [uri(&first), uri(&second)];

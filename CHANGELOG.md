@@ -22,8 +22,8 @@
 - Require real-stdio process/publication regressions and genuine standalone
   analyzer diagnostics and explicit-action E2Es on all six native CI targets.
   Pin the npm package and Bun archives and retain runtime identity evidence.
-  The standalone JSON contract targets upstream
-  `02ef84b38b8c06cbd607e270c4930e633e9dab0f`, not the older bundled PR #1389 tool.
+  The standalone JSON contract targets bend-lint 0.1.1 at upstream
+  `05fb8942eb297088b022d91d6d4187bccdb11d71`, not the older bundled PR #1389 tool.
 - Synchronize import-completion fixtures with their indexed unsaved candidates,
   without making production queries wait for unrelated pending builds.
 - Acknowledge prior stdio document mutations before releasing held analyzer
@@ -41,6 +41,9 @@
 - Keep saved-file lint results when background compiler indexes refresh without
   changing the checked files. Leave unrelated Quick Fix and Organize Imports menus
   unchanged while the optional analyzer is disabled.
+- Update the verified standalone analyzer to bend-lint 0.1.1 with matching
+  `bend-lint-rules` 0.1.1.0 fixtures. Custom rules must use the matching API;
+  upstream renamed `Lint.Value.Text` to `Lint.Value.Chars`.
 
 ### Bug Fixes
 

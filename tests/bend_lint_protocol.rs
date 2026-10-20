@@ -59,8 +59,8 @@ fn range(line: u32, start: u32, end: u32) -> Value {
     json!({"start":{"line":line,"character":start},"end":{"line":line,"character":end}})
 }
 
-// Verified against cli.bend Object.finding/Object.fix/end at upstream
-// 02ef84b38b8c06cbd607e270c4930e633e9dab0f, not an LSP-shaped invented payload.
+// Verified against standalone 0.1.1 cli.bend Object.finding/Object.fix/end at
+// 05fb8942eb297088b022d91d6d4187bccdb11d71, not an LSP-shaped invented payload.
 fn finding(path: &Path, code: &str, span: Value) -> Value {
     let mut finding = json!({"code":code,"severity":"warning","message":"remove unneeded plus",
         "path":path,"fixes":[]});

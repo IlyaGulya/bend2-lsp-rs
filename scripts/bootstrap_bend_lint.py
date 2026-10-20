@@ -25,9 +25,9 @@ BUN = {
     "aarch64-pc-windows-msvc": ("bun-windows-aarch64", 626788838, 39940383, "5e8f142ef722cbc9f67dc068a166e46ee72be8307b38cac7186589d2face668f"),
     "x86_64-pc-windows-msvc": ("bun-windows-x64", 626789809, 44639930, "0bf84e808552beea67bf1202a287a35c6c825d837b287b3f8e9dd513dba35d3d"),
 }
-NPM_URL = "https://registry.npmjs.org/bend-lint/-/bend-lint-0.1.0.tgz"
-NPM_SIZE = 80981
-NPM_SHA256 = "c70c52aaf13f02939bd3bb61400b59fc030c2c54be772f7640502de644744eea"
+NPM_URL = "https://registry.npmjs.org/bend-lint/-/bend-lint-0.1.1.tgz"
+NPM_SIZE = 80984
+NPM_SHA256 = "3ac3e1db8d2c28381a04f4fcc492810b30b6d0757e24df4348dbe6236348feac"
 
 
 def install_windows_clang(destination: Path) -> dict:
@@ -143,7 +143,7 @@ def install(destination: Path, target: str) -> tuple[Path, Path]:
         extract_package(package_archive, package)
         metadata = json.loads((package / "package.json").read_text(encoding="utf-8"))
         script = package / "src/linter/seam.ts"
-        if metadata["name"] != "bend-lint" or metadata["version"] != "0.1.0" or not script.is_file():
+        if metadata["name"] != "bend-lint" or metadata["version"] != "0.1.1" or not script.is_file():
             raise ValueError("unexpected standalone linter identity")
         executable = destination / executable_name
         executable.write_bytes(executable_bytes)
@@ -168,7 +168,7 @@ def install(destination: Path, target: str) -> tuple[Path, Path]:
     except BaseException:
         shutil.rmtree(destination)
         raise
-    print(f"Provisioned standalone bend-lint 0.1.0 and native Bun 1.4.3 ({target})")
+    print(f"Provisioned standalone bend-lint 0.1.1 and native Bun 1.4.3 ({target})")
     return executable, script
 
 

@@ -119,7 +119,7 @@ package-manager discovery, or download dependencies itself. Prepare the external
 tool and its caches outside the LSP if you require offline operation.
 
 Install the tool yourself in each trusted project. The inspected standalone
-release is `bend-lint@0.1.0`, requiring Bun 1.4.3. Clang is optional: upstream
+release is `bend-lint@0.1.1`, requiring Bun 1.4.3. Clang is optional: upstream
 otherwise builds rules as JavaScript. Its native backend accepts clang 14 or
 newer, but **Windows ARM64 requires a compatible version**, not just that minimum.
 
@@ -131,7 +131,7 @@ The native CI details below explain the LLVM 19–22 incompatibilities.
 
 ```sh
 # These are explicit installation commands for you, never commands run by the LSP.
-bun add -D --trust bend-lint@0.1.0
+bun add -D --trust bend-lint@0.1.1
 ```
 
 The upstream installer can create `bend-lint.json` and a formatter rule. Review
@@ -139,9 +139,20 @@ those files before enabling the provider. The server itself never creates lint
 configuration or replaces its existing formatter. The older tool bundled with
 Bend 2.0.37 / PR #1389 uses a different CLI/JSON contract and is not supported.
 The machine-readable contract was checked against standalone upstream
-[`02ef84b38b8c06cbd607e270c4930e633e9dab0f`](https://github.com/MattCozendey/bend-lint/tree/02ef84b38b8c06cbd607e270c4930e633e9dab0f).
+[`05fb8942eb297088b022d91d6d4187bccdb11d71`](https://github.com/MattCozendey/bend-lint/tree/05fb8942eb297088b022d91d6d4187bccdb11d71).
 Use the installed npm package, not a raw development checkout: upstream's
 packaging rewrites its rule API imports to match published BendHub packages.
+
+When upgrading from 0.1.0, update the `bend-lint-rules` package in
+`bend-lint.json` to `0.1.1.0`, and custom rule API imports to
+`bend-lint-api@0.1.1.0/linter/lint.bend`. The rule and CLI API versions must
+match. Custom rules using `Lint.Value.Text` must use `Lint.Value.Chars` instead;
+upstream renamed the constructor to avoid a conflict with Bend's `Event.Text`.
+
+Cold native rule builds can exceed the provider's 120-second maximum deadline.
+Run the installed CLI once outside the LSP, without fix flags, to prepare the
+trusted project's rule cache before checking it from the editor. The server
+does not raise its deadline or install/build tools as a separate preparation step.
 
 Send the following through `workspace/didChangeConfiguration`, together with any
 compiler overrides you already use. Use an absolute installed Bun path and an
