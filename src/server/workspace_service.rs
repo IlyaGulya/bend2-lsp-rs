@@ -31,10 +31,6 @@ pub(super) struct ClosedRevision {
 }
 
 impl WorkspaceState {
-    pub(super) fn generation(&self) -> u64 {
-        self.generation
-    }
-
     pub(super) fn is_closed(&self, closed: ClosedRevision) -> bool {
         self.revisions.get(&closed.file).is_some_and(|sync| {
             let status = revision_result(sync.status());
@@ -210,6 +206,13 @@ impl WorkspaceService {
 pub(super) struct RegistrationState {
     pub(super) watch: bool,
     pub(super) type_hierarchy: bool,
+    pub(super) lint: LintClientCapabilities,
+}
+
+#[derive(Default)]
+pub(super) struct LintClientCapabilities {
+    pub(super) disabled_code_actions: bool,
+    pub(super) work_done_progress: bool,
 }
 
 #[cfg(test)]

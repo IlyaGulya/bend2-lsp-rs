@@ -28,6 +28,19 @@
   without making production queries wait for unrelated pending builds.
 - Acknowledge prior stdio document mutations before releasing held analyzer
   output, so tests cannot mistake pre-mutation results for stale publication.
+- Make optional lint checks discoverable through explicit Run and Status Code
+  Actions, with progress on supporting clients and actionable skip/failure messages.
+  Report the effective server, analyzer, project configuration, and compiler.
+- Explain unavailable lint fixes without offering unsafe or partial edits.
+  Preserve explicit opt-in and document-version checks for dangerous fixes.
+- Retain results and fixes from separately checked entries, sharing unchanged
+  project snapshots. Unrelated dirty projects no longer block saved-file checks.
+- Clear old imported lint findings after a successful empty check. Fence fixes
+  after newly opened source aliases or previously missing imports change inputs,
+  and finish discarded checks with a useful status instead of leaving them running.
+- Keep saved-file lint results when background compiler indexes refresh without
+  changing the checked files. Leave unrelated Quick Fix and Organize Imports menus
+  unchanged while the optional analyzer is disabled.
 
 ### Bug Fixes
 

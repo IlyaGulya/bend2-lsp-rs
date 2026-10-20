@@ -145,15 +145,8 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
         organize_imports_source(&mut client, &root, &organized, 2).is_none(),
         "organizing the edited result must be idempotent"
     );
-    // Let dependency/index publication finish before this fresh save; workspace
-    // changes intentionally retire disk lint jobs while they are in flight.
-    client
-        .receive_matching(Duration::from_secs(10), |message| {
-            message["method"] == "textDocument/publishDiagnostics"
-                && message["params"]["uri"] == document
-                && message["params"]["version"] == 2
-        })
-        .must_be("updated document publication before the fresh save");
+    // The versioned read acknowledged the edit. A fresh save must not wait for
+    // an unrelated compiler publication or background index refresh.
     client.notify(
         "textDocument/didSave",
         json!({"textDocument":{"uri":document}}),
@@ -301,6 +294,11 @@ fn configured_client(project: &Path, executable: &Path, arguments: &[String]) ->
     command.current_dir(project).stderr(Stdio::inherit());
     let mut client = LspClient::spawn(command);
     client.initialize(project);
+    configure_analyzer(&mut client, executable, arguments);
+    client
+}
+
+fn configure_analyzer(client: &mut LspClient, executable: &Path, arguments: &[String]) {
     let mut settings = json!({"bend":{"lint":{
         "enabled":true,"path":executable,"arguments":arguments,
         "dangerousCodeActions":true,"timeoutMs":ANALYZER_TIMEOUT_MS
@@ -314,7 +312,6 @@ fn configured_client(project: &Path, executable: &Path, arguments: &[String]) ->
         "workspace/didChangeConfiguration",
         json!({"settings":settings}),
     );
-    client
 }
 
 fn saved_diagnostics(
@@ -542,3 +539,6 @@ fn lint_packet(message: &Value, document: &str) -> bool {
             .as_array()
             .is_some_and(|items| items.iter().any(|item| item["source"] == "bend-lint"))
 }
+
+#[path = "bend_lint_e2e/dx.rs"]
+mod dx;

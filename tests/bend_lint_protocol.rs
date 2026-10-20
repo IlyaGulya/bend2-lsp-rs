@@ -1204,3 +1204,12 @@ fn retargeting_project_directory_symlink_discards_inflight_findings() {
     session.no_lint();
     session.finish();
 }
+
+#[path = "bend_lint_dx/results.rs"]
+mod dx_results;
+
+#[path = "bend_lint_dx/status.rs"]
+mod dx_status;
+
+#[path = "bend_lint_dx/actions.rs"]
+mod dx_actions;

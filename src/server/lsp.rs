@@ -25,9 +25,9 @@ use tower_lsp::{
         DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentFormattingParams,
         DocumentHighlight, DocumentHighlightParams, DocumentLink, DocumentLinkParams,
         DocumentOnTypeFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
-        DocumentSymbolResponse, FoldingRange, FoldingRangeParams, GotoDefinitionParams,
-        GotoDefinitionResponse, Hover, HoverParams, InitializeParams, InitializeResult,
-        InitializedParams, InlayHint, InlayHintParams, Location, MessageType,
+        DocumentSymbolResponse, ExecuteCommandParams, FoldingRange, FoldingRangeParams,
+        GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, InitializeParams,
+        InitializeResult, InitializedParams, InlayHint, InlayHintParams, Location, MessageType,
         PrepareRenameResponse, ReferenceParams, Registration, RenameFilesParams, RenameParams,
         SelectionRange, SelectionRangeParams, SemanticTokensParams, SemanticTokensResult,
         ServerInfo, SignatureHelp, SignatureHelpParams, SymbolInformation,
@@ -88,6 +88,19 @@ impl LanguageServer for Backend {
             let mut registration = self.registration.write();
             registration.type_hierarchy = supports_type_hierarchy_registration;
             registration.watch = supports_watch_registration;
+            registration.lint.disabled_code_actions = params
+                .capabilities
+                .text_document
+                .as_ref()
+                .and_then(|document| document.code_action.as_ref())
+                .and_then(|actions| actions.disabled_support)
+                .unwrap_or(false);
+            registration.lint.work_done_progress = params
+                .capabilities
+                .window
+                .as_ref()
+                .and_then(|window| window.work_done_progress)
+                .unwrap_or(false);
         }
         let mut result = InitializeResult {
             capabilities: server_capabilities(),
@@ -240,9 +253,16 @@ impl LanguageServer for Backend {
         self.cancel_all_diagnostics().await;
         Ok(())
     }
+    #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "execute_command"))]
+    async fn execute_command(
+        &self,
+        params: ExecuteCommandParams,
+    ) -> Result<Option<serde_json::Value>> {
+        self.handle_lint_command(params).await
+    }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_open", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let invalidation = self.invalidate_lint();
+        let invalidation = self.invalidate_lint_inputs([&params.text_document.uri]);
         let operation = async {
             let _operation = self.workspace.document_operation().await;
             let item = params.text_document;
@@ -269,7 +289,7 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        let invalidation = self.invalidate_lint();
+        let invalidation = self.invalidate_lint_inputs([&params.text_document.uri]);
         let operation = async {
             let _operation = self.workspace.document_operation().await;
             let uri = params.text_document.uri.clone();
@@ -324,7 +344,7 @@ impl LanguageServer for Backend {
 
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_close", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        let invalidation = self.invalidate_lint();
+        let invalidation = self.close_lint(&params.text_document.uri);
         let operation = async {
             let _operation = self.workspace.document_operation().await;
             let uri = params.text_document.uri;

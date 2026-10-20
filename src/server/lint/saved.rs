@@ -28,12 +28,13 @@ struct DiskFiles {
 
 pub(super) struct SavedProject {
     pub(super) root: PathBuf,
-    pub(super) entry: PathBuf,
+    canonical_root: Option<PathBuf>,
     pub(super) sources: BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     pub(super) uris: BTreeMap<PathBuf, Url>,
     files: Identities,
     aliases: BTreeMap<PathBuf, PathBuf>,
     tree_paths: HashSet<PathBuf>,
+    missing_paths: BTreeMap<PathBuf, Option<PathBuf>>,
 }
 
 impl DiskFiles {
@@ -206,6 +207,7 @@ fn source_uris(
             .to_file_path()
             .ok()
             .and_then(|path| fs::canonicalize(path).ok())
+            .filter(|path| sources.contains_key(path))
         {
             uris.insert(path, document.uri.clone());
         }
@@ -219,8 +221,7 @@ impl SavedProject {
         graph: &SourceGraph,
         documents: &[Document],
     ) -> io::Result<Self> {
-        let entry = file.to_path_buf();
-        let root = entry
+        let root = file
             .parent()
             .and_then(|parent| {
                 parent
@@ -228,7 +229,7 @@ impl SavedProject {
                     .find(|path| path.join("bend-lint.json").exists())
             })
             .ok_or_else(|| {
-                io::Error::other("bend-lint requires a nearest ancestor bend-lint.json")
+                io::Error::new(io::ErrorKind::NotFound, format!("No bend-lint.json found for {}; create and review a project configuration before checking", file.display()))
             })?
             .to_path_buf();
         let mut files = project_files(&root, true)?;
@@ -241,10 +242,16 @@ impl SavedProject {
             serde_json::from_str(config_text).map_err(io::Error::other)?;
         let mut pending = source_paths(&config, &root, graph, &files);
         let mut sources = BTreeMap::new();
+        let mut missing_paths = BTreeMap::new();
         while let Some(path) = pending.pop() {
-            // Missing imports are the compiler's concern. Their creation
-            // invalidates the job through watched-file notifications.
             if !path.exists() {
+                let identity = input_identity(&path);
+                missing_paths.insert(path, identity);
+                if missing_paths.len() > FILE_LIMIT {
+                    return Err(io::Error::other(
+                        "bend-lint snapshot exceeds 4096 missing inputs",
+                    ));
+                }
                 continue;
             }
             let path = files.read(&path)?;
@@ -264,43 +271,91 @@ impl SavedProject {
             sources.insert(path, snapshot);
         }
         for document in documents {
-            if let Ok(path) = document.uri.to_file_path() {
+            if let Ok(path) = document.uri.to_file_path()
+                && fs::canonicalize(&path).is_ok_and(|canonical| sources.contains_key(&canonical))
+            {
                 files.canonicalize(&path)?;
             }
         }
         let uris = source_uris(graph, documents, &sources);
         let saved = Self {
+            canonical_root: files.aliases.get(&root).cloned(),
             root,
-            entry,
             sources,
             files: files.identities,
             aliases: files.aliases,
             tree_paths,
+            missing_paths,
             uris,
         };
-        if !Self::documents_saved(documents) {
-            return Err(io::Error::other(
-                "bend-lint skipped: an open buffer differs from disk",
+        if let Some(document) = saved.dirty_document(documents) {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                format!(
+                    "bend-lint skipped: save {} before checking this project; its open buffer differs from disk",
+                    document.uri
+                ),
             ));
         }
         Ok(saved)
     }
 
-    pub(super) fn documents_saved(documents: &[Document]) -> bool {
-        // Program rules may inspect entries beyond the current import graph.
-        // Conservatively require every open file buffer to agree with disk.
-        documents
-            .iter()
-            .filter(|document| document.uri.scheme() == "file")
-            .all(|document| {
-                document
-                    .uri
-                    .to_file_path()
-                    .is_ok_and(|path| disk_matches(&path, &document.text))
+    pub(super) fn covers_path(&self, path: &Path) -> bool {
+        path.starts_with(&self.root)
+            || self
+                .canonical_root
+                .as_ref()
+                .is_some_and(|root| path.starts_with(root))
+            || self.files.contains_key(path)
+            || self.missing_paths.contains_key(path)
+            || self
+                .missing_paths
+                .values()
+                .any(|identity| identity.as_deref() == Some(path))
+            || self.aliases.keys().any(|alias| path.starts_with(alias))
+    }
+
+    pub(super) fn documents_saved(&self, documents: &[Document]) -> bool {
+        self.dirty_document(documents).is_none()
+    }
+
+    pub(super) fn dirty_document<'a>(&self, documents: &'a [Document]) -> Option<&'a Document> {
+        // Program rules may inspect every entry in this project, not just the
+        // current import graph. Other projects do not participate in this check.
+        documents.iter().find(|document| {
+            document.uri.to_file_path().is_ok_and(|path| {
+                let covered = self.covers_path(&path)
+                    || input_identity(&path).is_some_and(|canonical| self.covers_path(&canonical));
+                covered && !disk_matches(&path, &document.text)
             })
+        })
+    }
+
+    pub(super) fn reusable(
+        &self,
+        file: &Path,
+        graph: &SourceGraph,
+        documents: &[Document],
+    ) -> bool {
+        let root = file.parent().and_then(|parent| {
+            parent
+                .ancestors()
+                .find(|path| path.join("bend-lint.json").exists())
+        });
+        root == Some(self.root.as_path())
+            && self.documents_saved(documents)
+            && self.unchanged()
+            && source_uris(graph, documents, &self.sources) == self.uris
     }
 
     pub(super) fn unchanged(&self) -> bool {
+        if self
+            .missing_paths
+            .iter()
+            .any(|(path, identity)| path.exists() || input_identity(path) != *identity)
+        {
+            return false;
+        }
         let Ok(mut tree) = project_files(&self.root, false) else {
             return false;
         };
@@ -338,6 +393,19 @@ impl SavedProject {
         let path = fs::canonicalize(path).ok()?;
         self.sources.get(&path).map(|snapshot| (path, snapshot))
     }
+}
+
+// Resolve existing ancestors too: virtual or missing imported files still have
+// an identity through a symlinked parent, even before the leaf exists on disk.
+pub(super) fn input_identity(path: &Path) -> Option<PathBuf> {
+    if let Ok(canonical) = fs::canonicalize(path) {
+        return Some(canonical);
+    }
+    path.parent()?.ancestors().find_map(|ancestor| {
+        let mut canonical = fs::canonicalize(ancestor).ok()?;
+        canonical.push(path.strip_prefix(ancestor).ok()?);
+        Some(canonical)
+    })
 }
 
 fn disk_matches(path: &Path, text: &str) -> bool {
