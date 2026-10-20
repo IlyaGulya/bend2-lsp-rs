@@ -72,6 +72,12 @@ Runtime call capacity is counted on the existing occurrence traversal.
 Deferred-name lookup selects the constructor table from the occurrence role
 instead of duplicating that flag in pending state.
 
+Per-file occurrence buffers are reserved from the immutable reference-index
+cardinality before linking, then filled in the existing resolution pass.
+Namespace construction streams path components into the final string instead of
+allocating component and name vectors. Neither change adds a semantic cache,
+changes import ordering, or moves work into warm feature queries.
+
 Scanner delimiter matches are built in opening-token order; unclosed openings
 are excluded without sorting completed pairs. A cached stack-top token supplies
 delimiter contexts without dereferencing the pair vector for every token.

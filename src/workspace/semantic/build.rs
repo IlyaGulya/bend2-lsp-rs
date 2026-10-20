@@ -147,28 +147,7 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         call_count: 0,
     };
     let contexts = builder.load_order();
-    let mut declarations = 0;
-    let mut bindings = 0;
-    let mut references = 0;
-    for context in &contexts {
-        if let Some(document) = builder.view.document(context.file) {
-            declarations += document.syntax.declaration_sites().len();
-            bindings += document.syntax.bindings().len();
-            references += document.syntax.all_references().len();
-        }
-    }
-    builder.view.entities.reserve(declarations);
-    builder.view.declarations.reserve(declarations);
-    builder.view.declaration_indices.reserve(declarations);
-    builder.view.bindings.reserve(bindings);
-    builder
-        .view
-        .targets_by_site
-        .reserve(declarations + bindings);
-    builder.names.reserve(declarations);
-    builder.top_levels.reserve(declarations);
-    builder.template_parameter_counts.reserve(declarations);
-    builder.pending.reserve(references);
+    builder.reserve_indexes(&contexts);
     for context in contexts {
         builder.file(&context);
         builder.view.contexts.insert(
@@ -184,6 +163,34 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
 }
 
 impl Builder {
+    fn reserve_indexes(&mut self, contexts: &[FileContext]) {
+        let mut declarations = 0;
+        let mut bindings = 0;
+        let mut references = 0;
+        for context in contexts {
+            if let Some(document) = self.view.document(context.file) {
+                declarations += document.syntax.declaration_sites().len();
+                bindings += document.syntax.bindings().len();
+                let count = document.syntax.all_references().len();
+                references += count;
+                if count != 0 {
+                    self.view
+                        .occurrences
+                        .insert(context.file, Vec::with_capacity(count));
+                }
+            }
+        }
+        self.view.entities.reserve(declarations);
+        self.view.declarations.reserve(declarations);
+        self.view.declaration_indices.reserve(declarations);
+        self.view.bindings.reserve(bindings);
+        self.view.targets_by_site.reserve(declarations + bindings);
+        self.names.reserve(declarations);
+        self.top_levels.reserve(declarations);
+        self.template_parameter_counts.reserve(declarations);
+        self.pending.reserve(references);
+    }
+
     fn load_order(&mut self) -> Vec<FileContext> {
         enum Event {
             Enter(FileId, String, bool),
@@ -590,7 +597,7 @@ impl Builder {
 
     fn finish(mut self) -> SemanticView {
         self.view.calls.reserve(self.call_count);
-        let mut occurrences: HashMap<FileId, Vec<SemanticOccurrence>> = HashMap::new();
+        let mut occurrences = std::mem::take(&mut self.view.occurrences);
         let mut references: HashMap<SemanticTarget, Vec<SemanticOccurrence>> = HashMap::new();
         let mut incoming: HashMap<SemanticTarget, Vec<usize>> = HashMap::new();
         let mut outgoing: HashMap<SemanticEntityId, Vec<usize>> = HashMap::new();
@@ -764,27 +771,29 @@ fn qualify(namespace: &str, name: &str) -> String {
 }
 
 fn namespace(path: &Path, root: &Path) -> String {
-    let path: Vec<_> = path.components().collect();
-    let root: Vec<_> = root.components().collect();
-    let shared = path
-        .iter()
-        .zip(&root)
-        .take_while(|(left, right)| left == right)
-        .count();
-    let mut components: Vec<_> = root[shared..]
-        .iter()
-        .filter(|component| matches!(component, Component::Normal(_)))
-        .map(|_| "..".to_owned())
-        .collect();
-    components.extend(
-        path[shared..]
-            .iter()
-            .filter_map(|component| match component {
-                Component::Normal(name) => Some(name.to_string_lossy().into_owned()),
-                _ => None,
-            }),
-    );
-    let mut namespace = components.join("/");
+    let mut path = path.components().peekable();
+    let mut root = root.components().peekable();
+    while path.peek().is_some() && path.peek() == root.peek() {
+        path.next();
+        root.next();
+    }
+    let mut namespace = String::new();
+    for component in root {
+        if matches!(component, Component::Normal(_)) {
+            if !namespace.is_empty() {
+                namespace.push('/');
+            }
+            namespace.push_str("..");
+        }
+    }
+    for component in path {
+        if let Component::Normal(name) = component {
+            if !namespace.is_empty() {
+                namespace.push('/');
+            }
+            namespace.push_str(&name.to_string_lossy());
+        }
+    }
     if namespace.ends_with(".bend") {
         namespace.truncate(namespace.len() - 5);
     }
