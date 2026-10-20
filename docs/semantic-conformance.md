@@ -214,9 +214,11 @@ setup, startup, comparison, normalization, stdio, and shutdown costs.
 A complete observation with no live owned child may be reused only after the
 worker has exited successfully and stdout reached EOF. Cleanup still signals
 owned groups, waits the leader and reaps adopted Linux children. A final
-nonblocking leader poll precedes CPU accounting; it adds no wait allowance and
-cannot erase an earlier cleanup failure. Live children or unavailable monitoring
-still require fresh cleanup observations.
+nonblocking leader poll and adopted-child drain precede CPU accounting, including
+children that became zombies during the last quiet scan. These add no wait
+allowance and cannot erase an earlier cleanup failure. Live children or
+unavailable monitoring still require fresh cleanup observations. CPU reported
+after forced termination is not proof of a complete tree-CPU measurement.
 On macOS, reaping a group leader can precede reaping its orphaned descendants.
 An EPERM signal therefore waits only within the existing 100ms signaling grace
 for successful delivery or kernel-reported group absence. Permission errors for

@@ -143,6 +143,33 @@ class SupervisorTests(unittest.TestCase):
         with self.assertRaises(ChildProcessError):
             os.waitpid(child, os.WNOHANG)
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux child subreaping")
+    def test_cleanup_reaps_a_child_exiting_after_the_first_nonblocking_wait(self):
+        code = ("import os\n"
+            "child=os.fork()\n"
+            "if child==0: os._exit(0)\n"
+            "os.waitid(os.P_PID,child,os.WEXITED|os.WNOWAIT)\n"
+            "print(child,flush=True)\n")
+        waitpid = os.waitpid
+        first_scan = True
+        def late_exit(pid, options):
+            nonlocal first_scan
+            if pid == -1 and options == os.WNOHANG and first_scan:
+                # Control only the first poll's scheduling outcome. The real
+                # adopted child must still be collected from the kernel.
+                first_scan = False
+                return (0, 0)
+            return waitpid(pid, options)
+        try:
+            with patch.object(gate.os, "waitpid", side_effect=late_exit):
+                result = self.run_child(code)
+            self.assertEqual(result["status"], "pass", result)
+            child = int((self.directory/"output.log").read_text())
+            with self.assertRaises(ChildProcessError):
+                os.waitpid(child, os.WNOHANG)
+        finally:
+            gate.ProcessTree().reap()
+
     def test_success_with_closed_child_stdout_still_terminates_the_child(self):
         pidfile, release = self.directory/"detached.pid", self.directory/"release"
         code = ("import pathlib,subprocess,sys,time\n"

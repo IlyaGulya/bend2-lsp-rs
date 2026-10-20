@@ -1086,8 +1086,9 @@ recorder. Linux ARM64 software-clock DWARF capture requests the complete
 baseline register set, excluding hardware-only SVE VG.
 
 Before creating the cold LSP, native Instruments preparation starts a one-second
-Time Profiler run on `/usr/bin/true` to initialize Apple's tracing and
-authorization services, under the existing 300-second preparation-command bound.
+Time Profiler run attached to the already-live profiling harness PID to initialize
+Apple's tracing and authorization services, under the existing 300-second
+preparation-command bound. This avoids a throwaway target exiting during recorder startup.
 Its trace and command logs are preparation evidence, not scenario samples.
 The actual LSP capture still requires its own tracing-started notification
 within 60 seconds.

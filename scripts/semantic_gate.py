@@ -381,14 +381,15 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
         except (OSError, RuntimeError) as error:
             status, reason = "error", str(error)
     if process is not None:
-        # A timed wait can expire just before SIGKILL completes. Reap any
-        # now-exited leader before CPU accounting without another blocking wait
-        # or changing an existing cleanup failure into a success.
+        # A child can become a zombie between the loop's reap and quiet scan.
+        # Drain those adopted children too before CPU accounting; polling only
+        # the leader leaves their resources waitable until a later phase.
         try:
             process.poll()
+            tree.reap()
         except (OSError, subprocess.SubprocessError) as error:
             status = "error"
-            cleanup_errors.append(f"final leader reap failed: {error}")
+            cleanup_errors.append(f"final child reap failed: {error}")
             reason = reason or cleanup_errors[-1]
     ended = time.monotonic()
     if ended > deadline:
