@@ -13,6 +13,8 @@ pub(super) struct Scanner<'a> {
     diagnostics: Vec<SyntaxDiagnostic>,
     delimiters: Vec<(char, usize)>,
     delimiter_pairs: Vec<DelimiterPair>,
+    // Cache the stack top for token recording; delimiter() alone mutates it.
+    enclosing_delimiter: IndexSlot,
     delimiter_context: Vec<IndexSlot>,
     line_starts: Vec<usize>,
     line_ascii: Vec<u64>,
@@ -35,6 +37,7 @@ impl<'a> Scanner<'a> {
             diagnostics: Vec::new(),
             delimiters: Vec::new(),
             delimiter_pairs: Vec::new(),
+            enclosing_delimiter: IndexSlot::EMPTY,
             delimiter_context: Vec::new(),
             line_starts,
             line_ascii,
@@ -232,7 +235,8 @@ impl<'a> Scanner<'a> {
                 close: id,
             });
             self.delimiters.push((delimiter, pair));
-            self.delimiter_context[id.0] = IndexSlot::some(id.0);
+            self.enclosing_delimiter = IndexSlot::some(id.0);
+            self.delimiter_context[id.0] = self.enclosing_delimiter;
             return;
         }
         let expected = match delimiter {
@@ -244,11 +248,12 @@ impl<'a> Scanner<'a> {
             Some((open, pair)) if open == expected => {
                 self.delimiters.truncate(self.delimiters.len() - 1);
                 self.delimiter_pairs[pair].close = id;
-                self.delimiter_context[id.0] = IndexSlot::from_option(
+                self.enclosing_delimiter = IndexSlot::from_option(
                     self.delimiters
                         .last()
                         .map(|(_, pair)| self.delimiter_pairs[*pair].open.0),
                 );
+                self.delimiter_context[id.0] = self.enclosing_delimiter;
             }
             _ => {
                 self.diagnostics.push(SyntaxDiagnostic {
@@ -338,11 +343,7 @@ impl<'a> Scanner<'a> {
             kind,
             flags: flags.with_semantic_type(token_type),
         });
-        self.delimiter_context.push(IndexSlot::from_option(
-            self.delimiters
-                .last()
-                .map(|(_, pair)| self.delimiter_pairs[*pair].open.0),
-        ));
+        self.delimiter_context.push(self.enclosing_delimiter);
         if name.is_none() {
             self.names.append_non_name();
         }

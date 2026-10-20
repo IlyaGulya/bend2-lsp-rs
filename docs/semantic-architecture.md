@@ -52,14 +52,31 @@ collide. Cached hashes support table growth without rescanning names. The hash
 seed and lookup layout are acceleration details, excluded from logical snapshot
 equality. Cold construction and warm lookup remain independently measured.
 
+The parser's active binding slots and saved undo slots reuse the one-word
+`IndexSlot` representation. Scope IDs remain positions in the immutable scope
+array; scope records retain parents and recovery uncertainty. Definitions, laws,
+types and constructors share a cold record initializer, while parameter parsing
+and final-range updates retain their original order.
+
+The Rust index schema removes unused `DeclarationBodyKind`,
+`DeclarationSite.body_kind`, `IndexedSymbol.start_line`, and
+`IndexedScope.id`/`owner`/`range`. These are not LSP response fields.
+`IndexedSymbol.scope` and its boundary updates remain: the unchanged
+scoped-completion benchmark uses them to select its caret.
+
 Semantic view linking reuses the declaration index for declaration targets and
 enclosing owners rather than maintaining a duplicate target map. Capacities are
 prepared from captured declaration, binding and occurrence counts. Root-namespace
 lookups do not repeat the same qualified/unqualified hash lookup.
+Runtime call capacity is counted on the existing occurrence traversal.
+Deferred-name lookup selects the constructor table from the occurrence role
+instead of duplicating that flag in pending state.
 
 Scanner delimiter matches are built in opening-token order; unclosed openings
-are excluded without sorting completed pairs. Completion contexts retain their
-existing ordering rules and bypass sorting when already ordered. The local
+are excluded without sorting completed pairs. A cached stack-top token supplies
+delimiter contexts without dereferencing the pair vector for every token.
+Completion contexts retain their existing ordering rules and bypass sorting
+when already ordered. The local
 visibility tree needs nondecreasing interval starts; maximum-end augmentation
 handles overlapping intervals without end/binding tie-break keys.
 

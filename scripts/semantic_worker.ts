@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import * as C from './instrumented.ts';
-import {fork} from 'node:child_process';
+import {Worker as ThreadWorker} from 'node:worker_threads';
 import {edenGC,gcAndSweep} from 'bun:jsc';
 import {bookChunks,compareBatch,validateBatch} from './semantic_book_stream.ts';
 
@@ -32,11 +32,8 @@ function sourceCoordinates(text:string,parsed:string) {
   return {text,original,parsed:starts(parsed),byteStarts,asciiLines};
 }
 class Pristine {
-  private child=fork(new URL('./semantic_pristine_worker.ts',import.meta.url),[],{
-    execPath:process.execPath,execArgv:[],serialization:'advanced',
-    stdio:['ignore','pipe','pipe','ipc'],
-  });
-  private closed=new Promise<void>(resolve=>this.child.once('close',()=>resolve()));
+  private child=new ThreadWorker(new URL('./semantic_pristine_worker.ts',import.meta.url),{stdout:true,stderr:true});
+  private closed=new Promise<void>(resolve=>this.child.once('exit',()=>resolve()));
   private errorText='';
   private waiting:any=null;
   private queued:any=null;
@@ -55,11 +52,11 @@ class Pristine {
       else this.queued=message;
     });
     this.child.on('error',(error:any)=>this.fail(error));
-    this.child.on('close',(code:number|null)=>{
+    this.child.on('exit',(code:number)=>{
       if(!this.stopping)this.fail(Error('pristine-unexpected-eof:'+code+':'+this.errorText));
     });
     if(!this.child.stdout||!this.child.stderr){
-      this.child.kill('SIGKILL');throw Error('pristine-pipes-missing');
+      void this.child.terminate();throw Error('pristine-pipes-missing');
     }
     this.child.stdout.on('data',()=>this.fail(Error('pristine-unexpected-stdout')));
     this.child.stderr.on('data',(chunk:Buffer)=>{
@@ -71,7 +68,7 @@ class Pristine {
     if(this.failed)return;
     this.failed=error;
     if(this.waiting){this.waiting.reject(error);this.waiting=null;}
-    this.child.kill('SIGKILL');
+    void this.child.terminate();
   }
   private receive():Promise<any>{
     if(this.failed)return Promise.reject(this.failed);
@@ -83,7 +80,7 @@ class Pristine {
     if(this.failed)throw this.failed;
     if(this.expected!==null)throw Error('pristine-overlapping-credit');
     this.expected=expected;
-    this.child.send(message,(error:Error|null)=>{if(error)this.fail(error);});
+    this.child.postMessage(message);
   }
   start(root:string){
     if(this.failed)throw this.failed;
@@ -313,7 +310,7 @@ async function shutdown(code:number){
   if(stopping)return;
   stopping=true;process.exitCode=code;
   input.close();process.stdin.destroy();
-  // Keep the outer owner alive until its child is terminated and reaped.
+  // Keep the owner alive until its pristine worker has exited.
   await pristine.close();
 }
 process.on('SIGTERM',()=>{void shutdown(143);});

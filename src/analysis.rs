@@ -2,10 +2,10 @@
 mod syntax;
 
 pub use syntax::{
-    BindingId, CallSite, CasePatternType, DeclarationBodyKind, DeclarationKind, DeclarationSite,
-    DiagnosticKind, IndexedBinding, IndexedConstructor, IndexedImport, IndexedReference,
-    IndexedScope, IndexedSymbol, NameId, NameSegment, Reference, ReferenceKind, ReferenceRole,
-    ScopeId, SymbolId, SyntaxDiagnostic, SyntaxIndex, Token, TokenFlags, TokenId, TokenKind,
+    BindingId, CallSite, CasePatternType, DeclarationKind, DeclarationSite, DiagnosticKind,
+    IndexedBinding, IndexedConstructor, IndexedImport, IndexedReference, IndexedScope,
+    IndexedSymbol, NameId, NameSegment, Reference, ReferenceKind, ReferenceRole, ScopeId, SymbolId,
+    SyntaxDiagnostic, SyntaxIndex, Token, TokenFlags, TokenId, TokenKind,
 };
 
 pub type Import = IndexedImport;

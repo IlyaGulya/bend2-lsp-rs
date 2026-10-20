@@ -1,5 +1,5 @@
 use super::{
-    BindingId, CallSite, DeclarationBodyKind, DeclarationKind, DeclarationSite, IndexedBinding,
+    BindingId, CallSite, DeclarationKind, DeclarationSite, IndexSlot, IndexedBinding,
     IndexedConstructor, IndexedImport, IndexedReference, IndexedScope, IndexedSymbol, LineIndex,
     NameId, NameSegment, NameTable, Reference, ReferenceKind, ReferenceRole, ScopeId, SymbolId,
     SymbolKind, SyntaxLine, TextRange, Token, TokenId, TokenKind,
@@ -53,7 +53,7 @@ struct ScopeFrame {
 
 struct EnvironmentEntry {
     binding: usize,
-    previous: Option<usize>,
+    previous: IndexSlot,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -280,7 +280,7 @@ struct Parser<'a> {
     limit: usize,
     owner: Option<SymbolId>,
     scope: Option<ScopeId>,
-    environment: Vec<Option<usize>>,
+    environment: Vec<IndexSlot>,
     environment_stack: Vec<EnvironmentEntry>,
     parameter_bindings: Vec<bool>,
     constructor_names: HashSet<NameId>,
@@ -307,7 +307,7 @@ pub(super) fn parse(
 ) -> FileFacts {
     let (significant, identifier_count) = significant_tokens(source, tokens, names);
     let limit = significant.len();
-    let environment = vec![None; names.ranges.len()];
+    let environment = vec![IndexSlot::EMPTY; names.ranges.len()];
     let mut parser = Parser {
         source,
         tokens,
@@ -617,12 +617,15 @@ impl Parser<'_> {
         }
     }
 
-    fn declaration(&mut self, begin: usize, kind: DeclarationKind) {
-        let Some(reference) = self.atom() else { return };
+    fn push_declaration(
+        &mut self,
+        reference: usize,
+        kind: DeclarationKind,
+        range: TextRange,
+    ) -> SymbolId {
         let symbol = SymbolId(self.facts.symbols.len());
         let name = self.facts.references[reference].full_name;
         let name_range = self.facts.references[reference].full_range;
-        let start = self.tokens[self.significant[begin].index].range.start;
         let symbol_kind = match kind {
             DeclarationKind::Type => SymbolKind::Struct,
             DeclarationKind::Constructor => SymbolKind::Constructor,
@@ -632,30 +635,36 @@ impl Parser<'_> {
             id: symbol,
             name,
             name_range,
-            detail_range: TextRange::new(start, self.end()),
+            detail_range: range,
             parameter_span: TextRange::default(),
-            scope: TextRange::new(start, self.end()),
+            scope: range,
             kind: symbol_kind,
-            start_line: self.line(start),
         });
         self.facts.sites.push(DeclarationSite {
             symbol,
             name,
             kind,
             name_range,
-            full_range: TextRange::new(start, self.end()),
-            signature_range: TextRange::new(start, self.end()),
+            full_range: range,
+            signature_range: range,
             body_range: None,
-            doc_range: self.documentation(start),
+            doc_range: self.documentation(range.start),
             uncertain: false,
             template_parameter_count: 0,
             law_fill_compatible: false,
-            body_kind: DeclarationBodyKind::None,
             linkable: true,
         });
         self.mark_declaration(reference, symbol);
+        symbol
+    }
+
+    fn declaration(&mut self, begin: usize, kind: DeclarationKind) {
+        let Some(reference) = self.atom() else { return };
+        let name_range = self.facts.references[reference].full_range;
+        let start = self.tokens[self.significant[begin].index].range.start;
+        let symbol = self.push_declaration(reference, kind, TextRange::new(start, self.end()));
         self.owner = Some(symbol);
-        let frame = self.open_scope(start);
+        let frame = self.open_scope();
         match kind {
             DeclarationKind::Def => self.definition(symbol),
             DeclarationKind::Law => self.law(symbol),
@@ -685,7 +694,6 @@ impl Parser<'_> {
         let body_start = self.offset();
         self.facts.symbols[symbol.0].scope.start = body_start;
         if self.at(Tag::Import) {
-            self.facts.sites[symbol.0].body_kind = DeclarationBodyKind::Foreign;
             while self.take(Tag::Import) {
                 if self
                     .token()
@@ -699,7 +707,6 @@ impl Parser<'_> {
             }
             self.facts.sites[symbol.0].body_range = Some(TextRange::new(body_start, self.end()));
         } else if self.token().is_some() {
-            self.facts.sites[symbol.0].body_kind = DeclarationBodyKind::Expression;
             let _ = self.body(0);
             if self.end() >= body_start {
                 self.facts.sites[symbol.0].body_range =
@@ -877,37 +884,12 @@ impl Parser<'_> {
             let begin = self.position;
             let previous_owner = self.owner;
             let Some(reference) = self.atom() else { break };
-            let constructor = SymbolId(self.facts.symbols.len());
             let name = self.facts.references[reference].full_name;
             let name_range = self.facts.references[reference].full_range;
-            self.facts.symbols.push(IndexedSymbol {
-                id: constructor,
-                name,
-                name_range,
-                detail_range: name_range,
-                parameter_span: TextRange::default(),
-                scope: name_range,
-                kind: SymbolKind::Constructor,
-                start_line: self.line(name_range.start),
-            });
-            self.facts.sites.push(DeclarationSite {
-                symbol: constructor,
-                name,
-                kind: DeclarationKind::Constructor,
-                name_range,
-                full_range: name_range,
-                signature_range: name_range,
-                body_range: None,
-                doc_range: self.documentation(name_range.start),
-                uncertain: false,
-                template_parameter_count: 0,
-                law_fill_compatible: false,
-                body_kind: DeclarationBodyKind::None,
-                linkable: true,
-            });
-            self.mark_declaration(reference, constructor);
+            let constructor =
+                self.push_declaration(reference, DeclarationKind::Constructor, name_range);
             self.owner = Some(constructor);
-            let frame = self.open_scope(name_range.start);
+            let frame = self.open_scope();
             let complete = self.eat(Tag::OpenBrace)
                 && self.telescope(Tag::CloseBrace, constructor, None).is_some();
             self.facts.sites[constructor.0].linkable = complete;
@@ -932,7 +914,6 @@ impl Parser<'_> {
             }
         }
         if self.end() >= start {
-            self.facts.sites[symbol.0].body_kind = DeclarationBodyKind::Constructors;
             self.facts.sites[symbol.0].body_range = Some(TextRange::new(start, self.end()));
         }
     }
@@ -958,13 +939,10 @@ impl Parser<'_> {
         })
     }
 
-    fn open_scope(&mut self, start: usize) -> ScopeFrame {
+    fn open_scope(&mut self) -> ScopeFrame {
         let scope = ScopeId(self.facts.scopes.len());
         self.facts.scopes.push(IndexedScope {
-            id: scope,
             parent: self.scope,
-            owner: self.owner,
-            range: TextRange::new(start, start),
             uncertain: false,
         });
         self.scope_bindings.push(None);
@@ -994,15 +972,14 @@ impl Parser<'_> {
                 end.max(self.facts.bindings[binding].scope.start);
             next = self.binding_next[binding];
         }
-        self.facts.scopes[scope.0].range.end = end.max(self.facts.scopes[scope.0].range.start);
         self.facts.scopes[scope.0].uncertain = self.uncertain;
     }
 
     fn open_binding(&mut self, name: NameId, binding: usize) {
         if name.0 >= self.environment.len() {
-            self.environment.resize(name.0 + 1, None);
+            self.environment.resize(name.0 + 1, IndexSlot::EMPTY);
         }
-        let previous = self.environment[name.0].replace(binding);
+        let previous = std::mem::replace(&mut self.environment[name.0], IndexSlot::some(binding));
         self.environment_stack
             .push(EnvironmentEntry { binding, previous });
     }
@@ -1093,7 +1070,11 @@ impl Parser<'_> {
         } else {
             self.names.intern_name(self.source, range)
         };
-        let local_binding = self.environment.get(full_name.0).copied().flatten();
+        let local_binding = self
+            .environment
+            .get(full_name.0)
+            .copied()
+            .and_then(IndexSlot::value);
         let name = if local_binding.is_some() {
             full_name
         } else {
@@ -1206,7 +1187,7 @@ impl Parser<'_> {
                 expression.pattern = false;
             } else if precedence == 0 && lookahead == Tag::Lambda {
                 let _ = self.bump();
-                let frame = self.open_scope(self.offset());
+                let frame = self.open_scope();
                 if let Some(reference) = expression.reference {
                     self.bind_pattern_reference(reference);
                 } else {
@@ -1586,7 +1567,7 @@ impl Parser<'_> {
         let annotation = self.type_expression(1).map(|expression| expression.range);
         let full_range = TextRange::new(start, self.end());
         self.eat(Tag::Arrow);
-        let frame = self.open_scope(self.offset());
+        let frame = self.open_scope();
         self.bind(reference, annotation, full_range, false);
         let _ = self.type_expression(0);
         self.close_scope(frame, self.end());
@@ -1610,7 +1591,7 @@ impl Parser<'_> {
         let annotation = self.type_expression(1).map(|expression| expression.range);
         let full_range = TextRange::new(start, self.end());
         self.eat(Tag::Arrow);
-        let frame = self.open_scope(self.offset());
+        let frame = self.open_scope();
         self.bind(reference, annotation, full_range, false);
         let _ = self.type_expression(0);
         self.close_scope(frame, self.end());
@@ -1626,7 +1607,7 @@ impl Parser<'_> {
             None
         };
         self.eat(Tag::Colon);
-        let frame = self.open_scope(self.offset());
+        let frame = self.open_scope();
         self.bind_rewrite_proof(anchor);
         if let Some(reference) = binder {
             self.bind_pattern_reference(reference);
@@ -1803,7 +1784,7 @@ impl Parser<'_> {
         annotation: Option<TextRange>,
     ) {
         self.take(Tag::Semicolon);
-        self.open_scope(self.offset());
+        self.open_scope();
         for reference in first.references.start..pattern_end {
             let occurrence = self.facts.references[reference];
             if self.pattern_candidates[reference]
@@ -1832,7 +1813,7 @@ impl Parser<'_> {
             return false;
         }
         self.take(Tag::Semicolon);
-        self.open_scope(self.offset());
+        self.open_scope();
         let mut declaration = self.facts.references[reference];
         declaration.synthetic = true;
         let index = self.facts.references.len();
@@ -2026,7 +2007,7 @@ impl Parser<'_> {
             let end = self.facts.references.len();
             let complete = complete
                 && self.patterns_have_no_bare_constructors(TextRange::new(references, end));
-            let frame = self.open_scope(self.offset());
+            let frame = self.open_scope();
             if complete {
                 for reference in references..end {
                     if self.pattern_candidates[reference] {
@@ -2084,7 +2065,7 @@ impl Parser<'_> {
                     break;
                 }
                 self.take(Tag::Semicolon);
-                self.open_scope(self.offset());
+                self.open_scope();
                 if annotation.is_some()
                     && let Some(expression) = term
                     && let Some(reference) = expression.reference

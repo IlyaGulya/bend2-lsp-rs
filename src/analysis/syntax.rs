@@ -74,14 +74,6 @@ pub enum DeclarationKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DeclarationBodyKind {
-    None,
-    Expression,
-    Foreign,
-    Constructors,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DeclarationSite {
     pub symbol: SymbolId,
     pub name: NameId,
@@ -93,17 +85,13 @@ pub struct DeclarationSite {
     pub doc_range: Option<TextRange>,
     pub template_parameter_count: usize,
     pub law_fill_compatible: bool,
-    pub body_kind: DeclarationBodyKind,
     pub linkable: bool,
     pub uncertain: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct IndexedScope {
-    pub id: ScopeId,
     pub parent: Option<ScopeId>,
-    pub owner: Option<SymbolId>,
-    pub range: TextRange,
     pub uncertain: bool,
 }
 
@@ -237,7 +225,6 @@ pub struct IndexedSymbol {
     pub parameter_span: TextRange,
     pub scope: TextRange,
     pub kind: SymbolKind,
-    pub start_line: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

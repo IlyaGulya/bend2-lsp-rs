@@ -64,7 +64,7 @@ struct FileLoad {
 #[derive(Clone)]
 enum PendingTarget {
     Direct(SemanticTarget),
-    Name(String, bool),
+    Name(String),
     Declaration(FileId, SymbolId),
 }
 
@@ -82,6 +82,7 @@ struct Builder {
     // Signature metadata stays aligned with entities, including filled laws.
     template_parameter_counts: Vec<usize>,
     pending: Vec<PendingOccurrence>,
+    call_count: usize,
 }
 
 pub(super) fn build(input: SemanticViewInput) -> SemanticView {
@@ -143,6 +144,7 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         top_levels: HashMap::new(),
         template_parameter_counts: Vec::new(),
         pending: Vec::new(),
+        call_count: 0,
     };
     let contexts = builder.load_order();
     let mut declarations = 0;
@@ -339,18 +341,24 @@ impl Builder {
     }
 
     fn resolve(&mut self, context: &FileContext, name: &str, site: SemanticSite) -> PendingTarget {
-        let mut qualified = qualify(&context.namespace, name);
-        if let Some((prefix, suffix)) = name.split_once('.')
-            && let Some(namespace) = context.aliases.get(prefix)
+        let alias = name.split_once('.').and_then(|(prefix, suffix)| {
+            context
+                .aliases
+                .get(prefix)
+                .map(|namespace| (namespace, suffix))
+        });
+        let mut qualified = if let Some((namespace, suffix)) = alias {
+            qualify(namespace, suffix)
+        } else {
+            qualify(&context.namespace, name)
+        };
+        if alias.is_some()
+            && qualified != name
+            && self.names.contains_key(&qualified)
+            && self.names.contains_key(name)
         {
-            qualified = qualify(namespace, suffix);
-            if qualified != name
-                && self.names.contains_key(&qualified)
-                && self.names.contains_key(name)
-            {
-                self.view.issues.push(SemanticIssue::AmbiguousName { site });
-                return PendingTarget::Direct(SemanticTarget::Ambiguous);
-            }
+            self.view.issues.push(SemanticIssue::AmbiguousName { site });
+            return PendingTarget::Direct(SemanticTarget::Ambiguous);
         }
         if qualified != name
             && !self.names.contains_key(&qualified)
@@ -358,7 +366,7 @@ impl Builder {
         {
             name.clone_into(&mut qualified);
         }
-        PendingTarget::Name(qualified, false)
+        PendingTarget::Name(qualified)
     }
 
     fn register(
@@ -371,7 +379,7 @@ impl Builder {
         let site = Self::site(context, declaration.name_range);
         let resolved = self.resolve(context, name, site);
         let existing = match &resolved {
-            PendingTarget::Name(name, _) => self.top_levels.get(name).copied(),
+            PendingTarget::Name(qualified) => self.top_levels.get(qualified).copied(),
             _ => None,
         };
         let fill = match existing {
@@ -556,12 +564,10 @@ impl Builder {
                     .name_text(&document.text, reference.full_name);
                 self.resolve(context, name, site)
             };
-            let target = match target {
-                PendingTarget::Name(name, _) => {
-                    PendingTarget::Name(name, reference.role == ReferenceRole::Constructor)
-                }
-                target => target,
-            };
+            self.call_count += usize::from(
+                !reference.in_type
+                    && matches!(reference.role, ReferenceRole::Call | ReferenceRole::Offload),
+            );
             self.pending.push(PendingOccurrence {
                 occurrence: SemanticOccurrence {
                     site,
@@ -583,6 +589,7 @@ impl Builder {
     }
 
     fn finish(mut self) -> SemanticView {
+        self.view.calls.reserve(self.call_count);
         let mut occurrences: HashMap<FileId, Vec<SemanticOccurrence>> = HashMap::new();
         let mut references: HashMap<SemanticTarget, Vec<SemanticOccurrence>> = HashMap::new();
         let mut incoming: HashMap<SemanticTarget, Vec<usize>> = HashMap::new();
@@ -591,8 +598,8 @@ impl Builder {
             let mut occurrence = pending.occurrence;
             occurrence.target = match pending.target {
                 PendingTarget::Direct(target) => target,
-                PendingTarget::Name(name, constructor) => {
-                    let table = if constructor {
+                PendingTarget::Name(name) => {
+                    let table = if occurrence.role == ReferenceRole::Constructor {
                         &self.constructors
                     } else {
                         &self.top_levels

@@ -28,8 +28,9 @@ test runtime, not executable/runtime equivalence to distributed Bend binaries
 or compatibility with Bend 2.0.36 or future compiler versions.
 
 The adapter avoids allocating Base-local term, binding, call, retain-use and
-type-origin observations that extraction previously discarded. Base file,
-owner, declaration and implementation-origin events remain available, including
+type-origin observations that extraction previously discarded.
+Extra observer-only binding spans are skipped for those discarded observations.
+Base file, owner, declaration and implementation-origin events remain available, including
 `inspect_base`. Base parsing, checking and complete canonical comparison are
 unchanged; no Book or Base result is cached.
 
@@ -44,11 +45,12 @@ checks detect state leakage.
 Two independent persistent oracle sessions overlap the complete forward
 differential history and complete reversed valid history. Each session has at
 most one project in flight. Within each session, instrumented and pristine native
-compiler paths run concurrently in separate authenticated Bun processes, with
-the exact same ordered request history and a fresh Book in each path. The
-pristine child uses bounded credited IPC, rejects stdout noise, and is reaped
-before its outer owner exits on EOF, SIGTERM or SIGINT. No mutable Book or Base
-is shared across requests or sessions. Complete ordered native
+compiler paths run concurrently in separate authenticated module contexts: the
+owner and its pristine worker thread follow the same ordered request history,
+with a fresh Book in each path. The worker uses bounded credited messages,
+rejects stdout noise, and exits before its owner completes EOF, SIGTERM or SIGINT
+shutdown. Worker threads retain the established runtime and GC configuration.
+No mutable Book or Base is shared across requests or sessions. Complete ordered native
 `term_key(term_lower(...))` components are compared through a credited, bounded
 stream; Base is neither cached nor omitted from parity. Per-path stage durations
 overlap and must not be summed as wall latency. Required bounded setup also runs

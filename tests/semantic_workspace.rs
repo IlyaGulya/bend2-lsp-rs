@@ -51,6 +51,68 @@ fn base(path: &Path) -> SemanticBase {
 }
 
 #[test]
+fn reference_groups_preserve_interleaved_forward_uses_and_distinct_locals() {
+    let temp = tempdir().must_be("temporary workspace");
+    let source =
+        "def alpha(x):\n  beta(x)\ndef beta(x):\n  alpha(x)\ndef main():\n  alpha(beta(1))\n";
+    let mut db = WorkspaceDb::default();
+    let root = open(&mut db, &temp.path().join("main.bend"), source);
+    let entry = view(&db, root, None);
+    for (name, roles) in [
+        (
+            "alpha",
+            [
+                ReferenceRole::Binding,
+                ReferenceRole::Call,
+                ReferenceRole::Call,
+            ],
+        ),
+        (
+            "beta",
+            [
+                ReferenceRole::Call,
+                ReferenceRole::Binding,
+                ReferenceRole::Call,
+            ],
+        ),
+    ] {
+        let resolved = target(&entry, root, name);
+        assert!(matches!(resolved, SemanticTarget::Global(_)));
+        let actual: Vec<_> = entry
+            .references(resolved)
+            .iter()
+            .map(|occurrence| {
+                (
+                    occurrence.site.file,
+                    occurrence.site.range.start,
+                    occurrence.role,
+                )
+            })
+            .collect();
+        let expected: Vec<_> = source
+            .match_indices(name)
+            .zip(roles)
+            .map(|((offset, _), role)| (root, offset, role))
+            .collect();
+        assert_eq!(actual, expected);
+    }
+    let local = target(&entry, root, "x");
+    assert!(matches!(local, SemanticTarget::Local(_)));
+    let offsets: Vec<_> = source
+        .match_indices('x')
+        .map(|(offset, _)| offset)
+        .collect();
+    assert_eq!(
+        entry
+            .references(local)
+            .iter()
+            .map(|occurrence| occurrence.site.range.start)
+            .collect::<Vec<_>>(),
+        [offsets[2], offsets[3]]
+    );
+}
+
+#[test]
 fn inherited_base_depends_on_entry_import_order_and_not_path_order() {
     let temp = tempdir().must_be("temporary workspace");
     let dep = temp.path().join("aaa.bend");
