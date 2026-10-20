@@ -45,6 +45,9 @@
   without making production queries wait for unrelated pending builds.
 - Acknowledge prior stdio document mutations before releasing held analyzer
   output, so tests cannot mistake pre-mutation results for stale publication.
+- Publish analyzer fixture socket addresses atomically before signaling readiness,
+  so descendant-cleanup checks cannot read partially written addresses. Keep the
+  timeout assertions and strict flaky-test policy unchanged.
 
 ### Under the hood
 
