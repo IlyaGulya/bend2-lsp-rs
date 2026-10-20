@@ -11,7 +11,7 @@ pub(super) struct Scanner<'a> {
     semantic_token_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
-    delimiters: Vec<(char, TokenId)>,
+    delimiters: Vec<(char, usize)>,
     delimiter_pairs: Vec<DelimiterPair>,
     delimiter_context: Vec<IndexSlot>,
     line_starts: Vec<usize>,
@@ -77,14 +77,15 @@ impl<'a> Scanner<'a> {
                 self.punctuation();
             }
         }
-        for &(delimiter, token) in &self.delimiters {
-            let range = self.tokens[token.0].range;
+        for &(delimiter, pair) in &self.delimiters {
+            let range = self.tokens[self.delimiter_pairs[pair].open.0].range;
             self.diagnostics.push(SyntaxDiagnostic {
                 range,
                 kind: DiagnosticKind::UnclosedDelimiter(delimiter),
             });
         }
-        self.delimiter_pairs.sort_unstable_by_key(|pair| pair.open);
+        // Opening slots already have source order; incomplete opens are not matches.
+        self.delimiter_pairs.retain(|pair| pair.open != pair.close);
         ScanOutput {
             tokens: self.tokens,
             semantic_token_count: self.semantic_token_count,
@@ -225,7 +226,12 @@ impl<'a> Scanner<'a> {
             None,
         );
         if matches!(delimiter, '(' | '[' | '{') {
-            self.delimiters.push((delimiter, id));
+            let pair = self.delimiter_pairs.len();
+            self.delimiter_pairs.push(DelimiterPair {
+                open: id,
+                close: id,
+            });
+            self.delimiters.push((delimiter, pair));
             self.delimiter_context[id.0] = IndexSlot::some(id.0);
             return;
         }
@@ -235,14 +241,14 @@ impl<'a> Scanner<'a> {
             _ => '{',
         };
         match self.delimiters.last().copied() {
-            Some((open, open_token)) if open == expected => {
+            Some((open, pair)) if open == expected => {
                 self.delimiters.truncate(self.delimiters.len() - 1);
-                self.delimiter_pairs.push(DelimiterPair {
-                    open: open_token,
-                    close: id,
-                });
-                self.delimiter_context[id.0] =
-                    IndexSlot::from_option(self.delimiters.last().map(|(_, open)| open.0));
+                self.delimiter_pairs[pair].close = id;
+                self.delimiter_context[id.0] = IndexSlot::from_option(
+                    self.delimiters
+                        .last()
+                        .map(|(_, pair)| self.delimiter_pairs[*pair].open.0),
+                );
             }
             _ => {
                 self.diagnostics.push(SyntaxDiagnostic {
@@ -333,7 +339,9 @@ impl<'a> Scanner<'a> {
             flags: flags.with_semantic_type(token_type),
         });
         self.delimiter_context.push(IndexSlot::from_option(
-            self.delimiters.last().map(|(_, id)| id.0),
+            self.delimiters
+                .last()
+                .map(|(_, pair)| self.delimiter_pairs[*pair].open.0),
         ));
         if name.is_none() {
             self.names.append_non_name();

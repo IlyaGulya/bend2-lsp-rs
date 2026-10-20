@@ -27,6 +27,12 @@ checked for parity. This establishes source-byte conformance under the pinned
 test runtime, not executable/runtime equivalence to distributed Bend binaries
 or compatibility with Bend 2.0.36 or future compiler versions.
 
+The adapter avoids allocating Base-local term, binding, call, retain-use and
+type-origin observations that extraction previously discarded. Base file,
+owner, declaration and implementation-origin events remain available, including
+`inspect_base`. Base parsing, checking and complete canonical comparison are
+unchanged; no Book or Base result is cached.
+
 The Bun runtime is pinned to 1.4.0 and full revision
 `34cbb9a40b4bd1bd767d134a7065e66c2432a676`, matching the production compiler pin.
 Installation authenticates platform archive and executable bytes, version, and
@@ -38,8 +44,10 @@ checks detect state leakage.
 Two independent persistent oracle sessions overlap the complete forward
 differential history and complete reversed valid history. Each session has at
 most one project in flight. Within each session, instrumented and pristine native
-compiler paths run concurrently in isolated Bun threads, with the exact same
-ordered request history and a fresh Book in each path. No mutable Book or Base
+compiler paths run concurrently in separate authenticated Bun processes, with
+the exact same ordered request history and a fresh Book in each path. The
+pristine child uses bounded credited IPC, rejects stdout noise, and is reaped
+before its outer owner exits on EOF, SIGTERM or SIGINT. No mutable Book or Base
 is shared across requests or sessions. Complete ordered native
 `term_key(term_lower(...))` components are compared through a credited, bounded
 stream; Base is neither cached nor omitted from parity. Per-path stage durations
@@ -47,8 +55,8 @@ overlap and must not be summed as wall latency. Required bounded setup also runs
 native Book-field mutation, stream corruption, worker-failure, and EOF contracts.
 
 The forward controller sends its native request before querying the Rust
-candidate, so the candidate can run while the oracle is busy. This adds no
-processes or threads. Each RPC retains its absolute reply-arrival deadline;
+candidate, so the candidate can run while the oracle is busy. This overlap adds
+no further processes or threads. Each RPC retains its absolute reply-arrival deadline;
 later consumption does not extend that deadline. A completed native response is
 preserved before a deferred candidate error is raised. Forward oracle and
 candidate RPC durations can overlap and must not be summed as wall latency.
@@ -207,6 +215,10 @@ owned groups, waits the leader and reaps adopted Linux children. A final
 nonblocking leader poll precedes CPU accounting; it adds no wait allowance and
 cannot erase an earlier cleanup failure. Live children or unavailable monitoring
 still require fresh cleanup observations.
+On macOS, reaping a group leader can precede reaping its orphaned descendants.
+An EPERM signal therefore waits only within the existing 100ms signaling grace
+for successful delivery or kernel-reported group absence. Permission errors for
+surviving inaccessible groups still fail; the cleanup deadline is not extended.
 
 The independent Linux Callgrind gate still measures cold snapshots separately
 from warm analysis. Existing Ir, I1mr, ILmr metrics, thresholds, baseline

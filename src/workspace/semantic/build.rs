@@ -79,7 +79,6 @@ struct Builder {
     names: HashMap<String, SemanticTarget>,
     constructors: HashMap<String, SemanticTarget>,
     top_levels: HashMap<String, SemanticTarget>,
-    sites: HashMap<(FileId, SymbolId), SemanticTarget>,
     // Signature metadata stays aligned with entities, including filled laws.
     template_parameter_counts: Vec<usize>,
     pending: Vec<PendingOccurrence>,
@@ -142,11 +141,32 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         names: HashMap::new(),
         constructors: HashMap::new(),
         top_levels: HashMap::new(),
-        sites: HashMap::new(),
         template_parameter_counts: Vec::new(),
         pending: Vec::new(),
     };
     let contexts = builder.load_order();
+    let mut declarations = 0;
+    let mut bindings = 0;
+    let mut references = 0;
+    for context in &contexts {
+        if let Some(document) = builder.view.document(context.file) {
+            declarations += document.syntax.declaration_sites().len();
+            bindings += document.syntax.bindings().len();
+            references += document.syntax.all_references().len();
+        }
+    }
+    builder.view.entities.reserve(declarations);
+    builder.view.declarations.reserve(declarations);
+    builder.view.declaration_indices.reserve(declarations);
+    builder.view.bindings.reserve(bindings);
+    builder
+        .view
+        .targets_by_site
+        .reserve(declarations + bindings);
+    builder.names.reserve(declarations);
+    builder.top_levels.reserve(declarations);
+    builder.template_parameter_counts.reserve(declarations);
+    builder.pending.reserve(references);
     for context in contexts {
         builder.file(&context);
         builder.view.contexts.insert(
@@ -332,7 +352,10 @@ impl Builder {
                 return PendingTarget::Direct(SemanticTarget::Ambiguous);
             }
         }
-        if !self.names.contains_key(&qualified) && self.names.contains_key(name) {
+        if qualified != name
+            && !self.names.contains_key(&qualified)
+            && self.names.contains_key(name)
+        {
             name.clone_into(&mut qualified);
         }
         PendingTarget::Name(qualified, false)
@@ -390,8 +413,6 @@ impl Builder {
         } else {
             self.register_fresh(context, declaration, name, site)
         };
-        self.sites
-            .insert((context.file, declaration.symbol), target);
         self.view.targets_by_site.insert(site, target);
         self.view.declaration_indices.insert(
             (context.file, declaration.symbol),
@@ -425,7 +446,7 @@ impl Builder {
         if !declaration.linkable
             || alias_conflict
             || table.contains_key(&canonical)
-            || table.contains_key(name)
+            || (canonical != name && table.contains_key(name))
         {
             self.view
                 .issues
@@ -582,20 +603,16 @@ impl Builder {
                         .unwrap_or(SemanticTarget::Unresolved)
                 }
                 PendingTarget::Declaration(file, symbol) => self
-                    .sites
-                    .get(&(file, symbol))
-                    .copied()
-                    .unwrap_or(SemanticTarget::Unresolved),
+                    .view
+                    .declaration(file, symbol)
+                    .map_or(SemanticTarget::Unresolved, |declaration| declaration.target),
             };
             occurrence.enclosing = pending
                 .owner
-                .and_then(|owner| self.sites.get(&(occurrence.site.file, owner)))
-                .and_then(|target| {
-                    if let SemanticTarget::Global(id) = target {
-                        Some(*id)
-                    } else {
-                        None
-                    }
+                .and_then(|owner| self.view.declaration(occurrence.site.file, owner))
+                .and_then(|declaration| match declaration.target {
+                    SemanticTarget::Global(id) => Some(id),
+                    _ => None,
                 });
             if matches!(
                 occurrence.target,

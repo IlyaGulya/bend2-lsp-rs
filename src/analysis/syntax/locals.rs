@@ -95,15 +95,15 @@ impl LocalIndex {
             heap.clear();
             *span = TextRange::new(first_visibility, visibility.len());
         }
-        // Name-contiguous intervals serve lookup directly; only the tree needs source order.
+        // Tree pruning needs nondecreasing starts; equal-start intervals need no tie-break.
         let mut source_indices: Vec<_> = (0..visibility.len()).collect();
         if !visibility
             .iter()
-            .is_sorted_by_key(|entry| (entry.range.start, entry.range.end, entry.binding.0))
+            .is_sorted_by_key(|entry| entry.range.start)
         {
             source_indices.sort_unstable_by_key(|index| {
                 let entry = visibility[*index];
-                (entry.range.start, entry.range.end, entry.binding.0)
+                entry.range.start
             });
         }
         let mut max_end = vec![0; visibility.len()];

@@ -39,12 +39,19 @@ impl CompletionIndex {
             });
             nested_contexts(source, syntax, site.range, &mut patterns);
             let context_end = patterns.len();
-            patterns[context_start..context_end].sort_unstable_by_key(|context| {
+            let contexts = &mut patterns[context_start..context_end];
+            if !contexts.iter().is_sorted_by_key(|context| {
                 (context.range.start, std::cmp::Reverse(context.range.end))
-            });
+            }) {
+                contexts.sort_unstable_by_key(|context| {
+                    (context.range.start, std::cmp::Reverse(context.range.end))
+                });
+            }
             cases.push((site.range, TextRange::new(context_start, context_end)));
         }
-        cases.sort_unstable_by_key(|(range, _)| range.start);
+        if !cases.iter().is_sorted_by_key(|(range, _)| range.start) {
+            cases.sort_unstable_by_key(|(range, _)| range.start);
+        }
         Self {
             patterns: patterns.into_boxed_slice(),
             imports: imports.into_boxed_slice(),

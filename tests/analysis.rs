@@ -302,6 +302,29 @@ fn syntax_index_keeps_malformed_literal_hole_and_delimiter_diagnostics() {
             .any(|diagnostic| diagnostic.kind == DiagnosticKind::UnclosedDelimiter('['))
     );
 }
+
+#[test]
+fn delimiter_lookup_preserves_nesting_and_excludes_unclosed_openings() {
+    use bend2_lsp::analysis::TokenId;
+
+    for (source, expected) in [
+        ("({[]})", vec![(0, Some(5)), (1, Some(4)), (2, Some(3))]),
+        (
+            "([)] {} (",
+            vec![(0, None), (1, Some(3)), (4, Some(5)), (6, None)],
+        ),
+    ] {
+        let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+        for (open, close) in expected {
+            assert_eq!(
+                snapshot.syntax.delimiter_close(TokenId(open)),
+                close.map(TokenId),
+                "{source}, opening {open}"
+            );
+        }
+    }
+}
+
 #[test]
 fn resolved_names_keep_parameter_and_pattern_shadowing_local() {
     use bend2_lsp::analysis::identifier_ranges;

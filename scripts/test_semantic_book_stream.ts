@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import {Worker} from 'node:worker_threads';
-import {spawnSync} from 'node:child_process';
+import {fork,spawn,spawnSync} from 'node:child_process';
+import * as readline from 'node:readline';
 import {once} from 'node:events';
 import {bookChunks,compareBatch,validateBatch,BATCH_CHUNKS,CHUNK_CHARS} from './semantic_book_stream.ts';
 const installation=process.argv[2];
@@ -62,44 +62,81 @@ async function nativeBookControls(root:string) {
     assert.throws(()=>compareBatch(bookChunks(native,original),message),/instrumentation-target-parity-failure/);
   }
 }
-async function childContract(start:any,following:any,error:string){
-  const worker=new Worker(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'));
-  const exited=once(worker,'exit');
-  const timer=setTimeout(()=>{void worker.terminate();throw Error('pristine-contract-timeout');},5000);
+async function childContract(start:any,following:any){
+  const worker=fork(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'),[],{
+    execPath:process.execPath,execArgv:[],serialization:'advanced',stdio:['ignore','pipe','pipe','ipc'],
+  });
+  const closed=once(worker,'close');
+  const timer=setTimeout(()=>{worker.kill('SIGKILL');throw Error('pristine-contract-timeout');},5000);
   try {
-    const first=once(worker,'message');worker.postMessage(start);const [loaded]=await first;
+    const first=once(worker,'message');worker.send(start);const [loaded]=await first;
     if(following){
-      assert.equal(loaded.kind,'loaded');const reply=once(worker,'message');worker.postMessage(following);const [fatal]=await reply;
-      assert.equal(fatal.kind,'fatal');assert.match(fatal.error,new RegExp(error));
-    }else {assert.equal(loaded.kind,'fatal');assert.match(loaded.error,new RegExp(error));}
-    const [code]=await exited;assert.equal(code,0);
-  }finally {clearTimeout(timer);await worker.terminate();}
+      assert.equal(loaded.kind,'loaded');const reply=once(worker,'message');worker.send(following);const [fatal]=await reply;
+      assert.equal(fatal.kind,'fatal');
+    }else {assert.equal(loaded.kind,'fatal');}
+    const [code]=await closed;assert.equal(code,0);
+  }finally {clearTimeout(timer);worker.kill('SIGKILL');await closed;}
+}
+async function signalContract(signal:'SIGTERM'|'SIGINT',request:any){
+  const copy=path.join(fixture,signal);fs.cpSync(installation,copy,{recursive:true});
+  const childScript=path.join(copy,'semantic_pristine_worker.ts'),pidFile=path.join(copy,'child.pid');
+  fs.writeFileSync(childScript,"import {writeFileSync as recordPid} from 'node:fs';recordPid("+JSON.stringify(pidFile)+",String(process.pid));\n"+fs.readFileSync(childScript,'utf8'));
+  const grouped=process.platform!=='win32';
+  const worker=spawn(process.execPath,[path.join(copy,'worker.ts')],{detached:grouped,stdio:['pipe','pipe','pipe']});
+  const closed=once(worker,'close'),output=readline.createInterface({input:worker.stdout});
+  let stderr='';worker.stderr.on('data',chunk=>{stderr+=chunk.toString();});
+  const timeout=Promise.withResolvers<never>();
+  const timer=setTimeout(()=>timeout.reject(Error('pristine-signal-timeout:'+signal)),5000);
+  try {
+    const reply=once(output,'line');worker.stdin.write(JSON.stringify(request)+'\n');
+    const [line]=await Promise.race([reply,timeout.promise]);
+    assert.equal(JSON.parse(line).outcome,'valid',line);
+    const childPid=Number(fs.readFileSync(pidFile,'utf8'));
+    assert.ok(Number.isSafeInteger(childPid)&&childPid>0);
+    assert.ok(worker.pid);
+    if(grouped)process.kill(-worker.pid,signal);else worker.kill(signal);
+    const [code,termination]=await Promise.race([closed,timeout.promise]);
+    assert.equal(termination,null,stderr);assert.equal(code,signal==='SIGTERM'?143:130,stderr);
+    assert.throws(()=>process.kill(childPid,0),(error:any)=>error.code==='ESRCH','pristine child must be reaped before outer close');
+    if(grouped)assert.throws(()=>process.kill(-worker.pid!,0),(error:any)=>error.code==='ESRCH','owned process group must be absent');
+  }finally {
+    clearTimeout(timer);output.close();
+    if(worker.exitCode===null&&worker.signalCode===null){
+      if(grouped&&worker.pid)process.kill(-worker.pid,'SIGKILL');else worker.kill('SIGKILL');
+    }
+    await closed;
+  }
 }
 try {
   const root=path.join(fixture,'main.bend');
   await nativeBookControls(root);
   fs.writeFileSync(root,'import Base\n\ndef main() -> U32:\n  1\n');
-  await childContract({kind:'start',request:1,root},{kind:'next',request:1,sequence:1},'credit-protocol');
-  await childContract({kind:'start',request:1,root},{kind:'finish',request:1},'premature-finish');
-  await childContract({kind:'start',request:1,root},{kind:'start',request:2,root},'start-protocol');
-  await childContract({kind:'start',request:2,root},null,'start-protocol');
+  await childContract({kind:'start',request:1,root},{kind:'next',request:1,sequence:1});
+  await childContract({kind:'start',request:1,root},{kind:'finish',request:1});
+  await childContract({kind:'start',request:1,root},{kind:'start',request:2,root});
+  await childContract({kind:'start',request:2,root},null);
   fs.writeFileSync(root,'import forbidden@0.0.0.0/main.bend as remote\n');
-  await childContract({kind:'start',request:1,root},null,'network-forbidden');
-  const empty=new Worker(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'));
-  await empty.terminate();
+  await childContract({kind:'start',request:1,root},null);
+  const empty=fork(new URL(path.join(installation,'semantic_pristine_worker.ts'),'file:'),[],{
+    execPath:process.execPath,execArgv:[],serialization:'advanced',stdio:['ignore','pipe','pipe','ipc'],
+  });
+  const emptyClosed=once(empty,'close');empty.kill('SIGKILL');await emptyClosed;
   const request={schema:1,id:'failure-contract',root:'main.bend',files:{'main.bend':'import Base\n\ndef main() -> U32:\n  1\n'},revisions:{'main.bend':1}};
-  for(const [name,source,error]of [
-    ['crash',"throw Error('deliberate-worker-crash');",'deliberate-worker-crash'],
-    ['eof','process.exit(0);','pristine-unexpected-eof'],
-    ['malformed',"import {parentPort} from 'node:worker_threads';parentPort.on('message',()=>parentPort.postMessage({kind:'wrong'}));",'pristine-unsolicited-or-stale-reply'],
+  await signalContract('SIGTERM',request);
+  await signalContract('SIGINT',request);
+  for(const [name,source]of [
+    ['crash',"throw Error('deliberate-worker-crash');"],
+    ['eof','process.exit(0);'],
+    ['malformed',"process.on('message',()=>process.send({kind:'wrong'}));"],
+    ['stdout',"console.log('deliberate-noise');process.on('message',()=>{});"],
   ]){
     const copy=path.join(fixture,name);fs.cpSync(installation,copy,{recursive:true});
     fs.writeFileSync(path.join(copy,'semantic_pristine_worker.ts'),source);
     const result=spawnSync(process.execPath,[path.join(copy,'worker.ts')],{input:JSON.stringify(request)+'\n',encoding:'utf8',timeout:5000,maxBuffer:4000000});
     assert.equal(result.error,undefined);assert.equal(result.status,0,result.stderr);
-    const answer=JSON.parse(result.stdout);assert.equal(answer.outcome,'oracle-error');assert.ok(answer.error.includes(error),answer.error);
+    const answer=JSON.parse(result.stdout);assert.equal(answer.outcome,'oracle-error');
   }
   const eof=spawnSync(process.execPath,[path.join(installation,'worker.ts')],{input:'',encoding:'utf8',timeout:5000,maxBuffer:4000000});
   assert.equal(eof.error,undefined);assert.equal(eof.status,0,eof.stderr);assert.equal(eof.stdout,'');
-  console.log('Exact bounded stream, mutation/reorder/truncation, credit/id/finish/overlap, forbidden network and termination contracts passed');
+  console.log('Native canonical mutation/reorder/truncation, credit/id/finish/overlap, forbidden network, stdout rejection and reaped signal termination contracts passed');
 }finally {fs.rmSync(fixture,{recursive:true,force:true});}

@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import * as C from './instrumented.ts';
-import {Worker as ThreadWorker} from 'node:worker_threads';
+import {fork} from 'node:child_process';
 import {edenGC,gcAndSweep} from 'bun:jsc';
 import {bookChunks,compareBatch,validateBatch} from './semantic_book_stream.ts';
 
@@ -32,7 +32,12 @@ function sourceCoordinates(text:string,parsed:string) {
   return {text,original,parsed:starts(parsed),byteStarts,asciiLines};
 }
 class Pristine {
-  private thread=new ThreadWorker(new URL('./semantic_pristine_worker.ts',import.meta.url));
+  private child=fork(new URL('./semantic_pristine_worker.ts',import.meta.url),[],{
+    execPath:process.execPath,execArgv:[],serialization:'advanced',
+    stdio:['ignore','pipe','pipe','ipc'],
+  });
+  private closed=new Promise<void>(resolve=>this.child.once('close',()=>resolve()));
+  private errorText='';
   private waiting:any=null;
   private queued:any=null;
   private serial=0;
@@ -41,7 +46,7 @@ class Pristine {
   active=false;
   private stopping=false;
   constructor(){
-    this.thread.on('message',(message:any)=>{
+    this.child.on('message',(message:any)=>{
       if(message?.kind==='fatal'){this.fail(Error('pristine-worker-failure:'+message.error));return;}
       if(!this.active||message?.kind!==this.expected||message.request!==this.serial){this.fail(Error('pristine-unsolicited-or-stale-reply'));return;}
       this.expected=null;
@@ -49,14 +54,24 @@ class Pristine {
       else if(this.queued!==null)this.fail(Error('pristine-unsolicited-reply'));
       else this.queued=message;
     });
-    this.thread.on('error',(error:any)=>this.fail(error));
-    this.thread.on('exit',(code:number)=>{if(!this.stopping)this.fail(Error('pristine-unexpected-eof:'+code));});
+    this.child.on('error',(error:any)=>this.fail(error));
+    this.child.on('close',(code:number|null)=>{
+      if(!this.stopping)this.fail(Error('pristine-unexpected-eof:'+code+':'+this.errorText));
+    });
+    if(!this.child.stdout||!this.child.stderr){
+      this.child.kill('SIGKILL');throw Error('pristine-pipes-missing');
+    }
+    this.child.stdout.on('data',()=>this.fail(Error('pristine-unexpected-stdout')));
+    this.child.stderr.on('data',(chunk:Buffer)=>{
+      if(this.errorText.length<8192)this.errorText+=chunk.toString().slice(0,8192-this.errorText.length);
+    });
+    this.child.stderr.pipe(process.stderr);
   }
   private fail(error:Error){
     if(this.failed)return;
     this.failed=error;
     if(this.waiting){this.waiting.reject(error);this.waiting=null;}
-    void this.thread.terminate();
+    this.child.kill('SIGKILL');
   }
   private receive():Promise<any>{
     if(this.failed)return Promise.reject(this.failed);
@@ -67,7 +82,8 @@ class Pristine {
   private send(message:any,expected:string){
     if(this.failed)throw this.failed;
     if(this.expected!==null)throw Error('pristine-overlapping-credit');
-    this.expected=expected;this.thread.postMessage(message);
+    this.expected=expected;
+    this.child.send(message,(error:Error|null)=>{if(error)this.fail(error);});
   }
   start(root:string){
     if(this.failed)throw this.failed;
@@ -107,7 +123,7 @@ class Pristine {
   async close(){
     this.stopping=true;
     this.fail(Error('pristine-worker-closed'));
-    await this.thread.terminate();
+    await this.closed;
   }
 }
 const pristine=new Pristine();
@@ -184,9 +200,6 @@ async function run(request:any) {
         const site=origin(p,event.beg,event.end),identity=entityIdentity(event.kind==='constructor'?'constructor':'tld',event.k);
         decls.set(siteKey(site),{site,kind:event.kind,name:event.nm,key:event.k,identity});currentOwners.set(p,{key:event.k,identity,site});return;
       }
-      // Base still parses/checks normally; its local occurrences are not output.
-      // Preserve all declaration and implementation origins above this boundary.
-      if(files.get(p)?.name==='@Base.bend')return;
       if(event.event==='type-origin'){typeOrigins.push(event.tm);return;}
       if(event.event==='retain-use'){
         const site=token(p,event.s,event.k);if(site)retainUses.add(siteKey(site));return;
@@ -295,11 +308,22 @@ async function run(request:any) {
   } finally {if(pristine.active)await pristine.close();fs.rmSync(sandbox,{recursive:true,force:true});}
 }
 const input=readline.createInterface({input:process.stdin,crlfDelay:Infinity});
+let stopping=false;
+async function shutdown(code:number){
+  if(stopping)return;
+  stopping=true;process.exitCode=code;
+  input.close();process.stdin.destroy();
+  // Keep the outer owner alive until its child is terminated and reaped.
+  await pristine.close();
+}
+process.on('SIGTERM',()=>{void shutdown(143);});
+process.on('SIGINT',()=>{void shutdown(130);});
 try {
   for await(const line of input){
+    if(stopping)break;
     let request:any;
     try{if(Buffer.byteLength(line)>300000)throw Error('input-limit');request=JSON.parse(line);const response=await run(request);const output=JSON.stringify(response);if(Buffer.byteLength(output)>4000000)throw Error('output-limit');console.log(output);}
-    catch(error){console.log(JSON.stringify({schema:1,id:request?.id??null,root:request?.root??null,outcome:'oracle-error',error:String(error),provenance}));if(pristine.failed)break;}
+    catch(error){if(stopping)break;console.log(JSON.stringify({schema:1,id:request?.id??null,root:request?.root??null,outcome:'oracle-error',error:String(error),provenance}));if(pristine.failed)break;}
     finally {if(edenGC()>IDLE_HEAP_BYTES)gcAndSweep();}
   }
 } finally {input.close();await pristine.close();}

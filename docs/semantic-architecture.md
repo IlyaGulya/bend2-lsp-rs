@@ -52,6 +52,17 @@ collide. Cached hashes support table growth without rescanning names. The hash
 seed and lookup layout are acceleration details, excluded from logical snapshot
 equality. Cold construction and warm lookup remain independently measured.
 
+Semantic view linking reuses the declaration index for declaration targets and
+enclosing owners rather than maintaining a duplicate target map. Capacities are
+prepared from captured declaration, binding and occurrence counts. Root-namespace
+lookups do not repeat the same qualified/unqualified hash lookup.
+
+Scanner delimiter matches are built in opening-token order; unclosed openings
+are excluded without sorting completed pairs. Completion contexts retain their
+existing ordering rules and bypass sorting when already ordered. The local
+visibility tree needs nondecreasing interval starts; maximum-end augmentation
+handles overlapping intervals without end/binding tie-break keys.
+
 The server keeps its service/request split: `server/lsp.rs` delegates protocol
 requests, `server/requests/` projects indexed results, and `WorkspaceService`
 owns document revisions, discovery, and workspace publication. Semantic view

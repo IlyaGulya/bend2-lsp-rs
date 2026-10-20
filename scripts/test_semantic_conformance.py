@@ -415,6 +415,23 @@ class ProvenanceAndReplayTests(unittest.TestCase):
             signal_group(process,9)
         process.wait.assert_called_once_with(timeout=.1);self.assertEqual(kill.call_count,2)
 
+    def test_reaped_leader_waits_for_orphan_group_kernel_absence(self):
+        from unittest.mock import Mock, patch
+        from semantic_process import signal_group
+        process=Mock(pid=12345);process.wait.return_value=0
+        inaccessible=iter([True,True,False]);absent=False
+        def kernel_signal(_pid,_signal):
+            nonlocal absent
+            if next(inaccessible):
+                raise PermissionError(1,'orphan group awaiting reaping')
+            absent=True
+            raise ProcessLookupError(3,'group absent')
+        with patch('semantic_process.os.killpg',side_effect=kernel_signal), \
+                patch('semantic_process.time.monotonic',return_value=0), \
+                patch('semantic_process.time.sleep'):
+            signal_group(process,9)
+        self.assertTrue(absent,'cleanup must observe kernel group absence')
+
     def test_permission_error_with_live_leader_or_group_is_not_suppressed(self):
         from unittest.mock import Mock, patch
         from semantic_process import signal_group
