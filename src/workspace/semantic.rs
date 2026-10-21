@@ -17,11 +17,11 @@ mod rename;
 mod watch;
 
 #[derive(Default)]
-struct PhysicalCapture {
+struct PhysicalCapture<'a> {
     generations: HashMap<std::path::PathBuf, u64>,
     conflicts: std::collections::HashSet<std::path::PathBuf>,
-    selected: HashMap<std::path::PathBuf, FileId>,
-    overlays: HashMap<std::path::PathBuf, bool>,
+    selected: HashMap<&'a std::path::Path, FileId>,
+    overlays: HashMap<&'a std::path::Path, bool>,
 }
 
 static NEXT_VIEW: AtomicU64 = AtomicU64::new(1);
@@ -407,7 +407,7 @@ impl WorkspaceDb {
         let mut seen = std::collections::HashSet::new();
         let mut physical = PhysicalCapture::default();
         if let Some(path) = &self.entries[root.0].physical_path {
-            physical.selected.insert(path.clone(), root);
+            physical.selected.insert(path.as_path(), root);
         }
         while let Some(id) = pending.pop() {
             if !seen.insert(id) {
@@ -432,7 +432,7 @@ impl WorkspaceDb {
                 );
                 if *physical
                     .overlays
-                    .entry(path.clone())
+                    .entry(path.as_path())
                     .or_insert_with(|| self.physical_overlay_conflict(path))
                 {
                     physical.conflicts.insert(path.clone());
@@ -479,12 +479,12 @@ impl WorkspaceDb {
         Some(input)
     }
 
-    fn capture_semantic_imports(
-        &self,
+    fn capture_semantic_imports<'a>(
+        &'a self,
         imports: &[ImportEdge],
         top: Option<&std::path::Path>,
         source_is_hub: bool,
-        physical: &mut PhysicalCapture,
+        physical: &mut PhysicalCapture<'a>,
     ) -> Box<[ImportEdge]> {
         imports
             .iter()
@@ -492,9 +492,9 @@ impl WorkspaceDb {
                 let target = self.entries[edge.target.0].physical_path.as_ref().map_or(
                     edge.target,
                     |path| {
-                        *physical.selected.entry(path.clone()).or_insert_with(|| {
+                        *physical.selected.entry(path.as_path()).or_insert_with(|| {
                             let (selected, conflict) = self.semantic_source_target(edge.target);
-                            physical.overlays.insert(path.clone(), conflict);
+                            physical.overlays.insert(path.as_path(), conflict);
                             selected
                         })
                     },
