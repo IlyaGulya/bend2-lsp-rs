@@ -78,6 +78,11 @@ Namespace construction streams path components into the final string instead of
 allocating component and name vectors. Neither change adds a semantic cache,
 changes import ordering, or moves work into warm feature queries.
 
+During cold capture, temporary physical-file selection and overlay lookup tables
+borrow paths from the immutably borrowed workspace. They do not clone path
+buffers just to drop them after capture. Published input still owns its paths,
+physical-generation map and conflict set; no workspace borrow escapes capture.
+
 Scanner delimiter matches are built in opening-token order; unclosed openings
 are excluded without sorting completed pairs. A cached stack-top token supplies
 delimiter contexts without dereferencing the pair vector for every token.
