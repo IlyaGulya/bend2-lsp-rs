@@ -1,5 +1,5 @@
 use super::{FileId, WorkspaceDb};
-use crate::workspace::PhysicalAliases;
+use crate::workspace::{PhysicalAliases, physical_source_uri};
 use std::path::{Path, PathBuf};
 
 impl WorkspaceDb {
@@ -11,6 +11,12 @@ impl WorkspaceDb {
         if self.entries[file.0].physical_path == path {
             return;
         }
+        let physical_uri = {
+            let entry = &self.entries[file.0];
+            let previous = entry.physical_path.as_deref().or(entry.path.as_deref());
+            let next = path.as_deref().or(entry.path.as_deref());
+            (previous != next).then(|| physical_source_uri(&entry.uri, next))
+        };
         self.invalidate_semantic_file(file);
         if let Some(previous) = self.entries[file.0].physical_path.take()
             && self
@@ -21,6 +27,9 @@ impl WorkspaceDb {
             self.physical_files.remove(&previous);
         }
         self.entries[file.0].physical_path.clone_from(&path);
+        if let Some(uri) = physical_uri {
+            self.entries[file.0].physical_uri = uri;
+        }
         if let Some(path) = path {
             self.physical_files
                 .entry(path)

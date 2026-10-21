@@ -338,6 +338,7 @@ struct FileEntry {
     uri: Url,
     path: Option<PathBuf>,
     physical_path: Option<PathBuf>,
+    physical_uri: Arc<Url>,
     language_id: String,
     open_snapshot: Option<Arc<DocumentSnapshot>>,
     disk_generation: u64,
@@ -365,6 +366,13 @@ impl FileEntry {
             self.snapshot()?.clone(),
         ))
     }
+}
+
+fn physical_source_uri(uri: &Url, path: Option<&Path>) -> Arc<Url> {
+    Arc::new(
+        path.and_then(|path| Url::from_file_path(path).ok())
+            .unwrap_or_else(|| uri.clone()),
+    )
 }
 
 struct CompilerDocument {
@@ -1642,6 +1650,7 @@ impl WorkspaceDb {
                 self.invalidate_semantic_file(id);
             }
             let entry = &mut self.entries[id.0];
+            let refresh_uri = entry.physical_path.is_none() && entry.path != path;
             if let Some(path) = path {
                 if entry.path.as_ref() != Some(&path)
                     && let Some(old_path) = entry.path.take()
@@ -1656,6 +1665,9 @@ impl WorkspaceDb {
             {
                 self.by_path.remove(&old_path);
             }
+            if refresh_uri {
+                entry.physical_uri = physical_source_uri(&entry.uri, entry.path.as_deref());
+            }
             self.by_uri.insert(uri, id);
             return id;
         }
@@ -1668,6 +1680,7 @@ impl WorkspaceDb {
             uri: uri.clone(),
             path: path.clone(),
             physical_path: None,
+            physical_uri: physical_source_uri(&uri, path.as_deref()),
             language_id: "bend".into(),
             open_snapshot: None,
             disk_generation: 0,

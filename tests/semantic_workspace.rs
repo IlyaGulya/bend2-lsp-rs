@@ -1486,6 +1486,74 @@ fn library_changes_reconsider_native_edges_omitted_from_the_old_view() {
     );
 }
 
+#[test]
+fn physical_uri_tracks_path_removal_and_reattachment_without_rewriting_logical_uri() {
+    let temp = tempdir().must_be("temporary workspace");
+    let path = temp.path().join("identity.bend");
+    let source = "def identity(value):\n  value\n";
+    fs::write(&path, source).must_be("physical source");
+    let physical_path = fs::canonicalize(&path).must_be("canonical source");
+    let physical_uri = uri(&physical_path);
+    let prefix = physical_uri
+        .as_str()
+        .strip_suffix("identity.bend")
+        .must_be("source URI prefix");
+    let logical_uri = Url::parse(&format!("{prefix}%69dentity.bend")).must_be("escaped source URI");
+    let mut db = WorkspaceDb::default();
+    let root = db.set_open_document(
+        Document::new(
+            logical_uri.clone(),
+            "bend".into(),
+            Revision(1),
+            source.into(),
+        ),
+        Some(physical_path.clone()),
+    );
+    let before = Arc::new(view(&db, root, None));
+    assert_eq!(before.physical_uri(root), Some(&physical_uri));
+    assert_eq!(before.physical_file_id(&physical_uri), Some(root));
+    assert!(db.publish_semantic_view(before.clone(), None));
+
+    assert_eq!(
+        db.set_open_document(
+            Document::new(
+                logical_uri.clone(),
+                "bend".into(),
+                Revision(2),
+                source.into()
+            ),
+            None,
+        ),
+        root
+    );
+    assert!(!db.validate_semantic_view(&before, None));
+    let detached = view(&db, root, None);
+    assert_eq!(detached.physical_uri(root), Some(&logical_uri));
+    assert_eq!(detached.physical_file_id(&physical_uri), None);
+    assert_eq!(
+        detached.document(root).must_be("detached source").uri,
+        logical_uri
+    );
+
+    db.set_open_document(
+        Document::new(
+            logical_uri.clone(),
+            "bend".into(),
+            Revision(3),
+            source.into(),
+        ),
+        Some(physical_path),
+    );
+    let reattached = view(&db, root, None);
+    assert_eq!(reattached.physical_uri(root), Some(&physical_uri));
+    assert_eq!(
+        reattached.document(root).must_be("reattached source").uri,
+        logical_uri
+    );
+    assert_eq!(detached.physical_uri(root), Some(&logical_uri));
+    assert_eq!(before.physical_uri(root), Some(&physical_uri));
+}
+
 #[cfg(unix)]
 #[test]
 fn replacing_an_overlay_recaptures_a_retargeted_symlinks_physical_identity() {

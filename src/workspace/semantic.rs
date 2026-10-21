@@ -132,6 +132,7 @@ struct CapturedFile {
     id: FileId,
     document: Option<Document>,
     path: Option<std::path::PathBuf>,
+    physical_uri: Arc<url::Url>,
     generation: u64,
     disk_generation: u64,
     imports: Box<[ImportEdge]>,
@@ -182,8 +183,8 @@ pub struct SemanticView {
     documents: Vec<Document>,
     document_indices: HashMap<FileId, usize>,
     by_uri: HashMap<url::Url, FileId>,
-    physical_uris: HashMap<FileId, url::Url>,
-    by_physical_uri: HashMap<url::Url, FileId>,
+    physical_uris: HashMap<FileId, Arc<url::Url>>,
+    by_physical_uri: HashMap<Arc<url::Url>, FileId>,
     targets_by_site: HashMap<SemanticSite, SemanticTarget>,
     declaration_indices: HashMap<(FileId, SymbolId), usize>,
     names: HashMap<String, SemanticTarget>,
@@ -247,7 +248,7 @@ impl SemanticView {
 
     #[must_use]
     pub fn physical_uri(&self, file: FileId) -> Option<&url::Url> {
-        self.physical_uris.get(&file)
+        self.physical_uris.get(&file).map(AsRef::as_ref)
     }
 
     #[must_use]
@@ -445,6 +446,7 @@ impl WorkspaceDb {
                 id,
                 document: entry.document(),
                 path: entry.physical_path.clone().or_else(|| entry.path.clone()),
+                physical_uri: entry.physical_uri.clone(),
                 generation: entry.semantic_generation,
                 disk_generation: entry.disk_generation,
                 imports: entry.imports.clone(),

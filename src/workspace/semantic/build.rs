@@ -120,21 +120,19 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         if let Some(document) = &file.document {
             view.document_indices.insert(file.id, view.documents.len());
             view.by_uri.insert(document.uri.clone(), file.id);
-            let physical_uri = file
-                .path
-                .as_deref()
-                .and_then(|path| url::Url::from_file_path(path).ok())
-                .unwrap_or_else(|| document.uri.clone());
-            view.by_physical_uri.insert(physical_uri.clone(), file.id);
-            view.physical_uris.insert(file.id, physical_uri);
+            view.by_physical_uri
+                .insert(file.physical_uri.clone(), file.id);
+            view.physical_uris
+                .insert(file.id, file.physical_uri.clone());
             view.documents.push(document.clone());
         }
     }
     if let (Some(base), Some(file)) = (&view.input.base, view.input.base_file) {
         view.document_indices.insert(file, view.documents.len());
         view.by_uri.insert(base.document.uri.clone(), file);
-        view.by_physical_uri.insert(base.document.uri.clone(), file);
-        view.physical_uris.insert(file, base.document.uri.clone());
+        let physical_uri = Arc::new(base.document.uri.clone());
+        view.by_physical_uri.insert(physical_uri.clone(), file);
+        view.physical_uris.insert(file, physical_uri);
         view.documents.push(base.document.clone());
     }
     let mut builder = Builder {
