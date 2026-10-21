@@ -1,5 +1,6 @@
 //! Hosted workflow source validation and failure-aware artifact inventories.
 mod collection;
+mod observer;
 mod snapshot;
 
 use crate::{
@@ -599,6 +600,7 @@ pub(crate) fn run(arguments: &[String]) -> ToolResult<()> {
         .split_first()
         .ok_or("Expected workflow validate, prepare, finalize, status, supervise or seal")?;
     match command.as_str() {
+        "observe-processes" => observer::run(rest),
         "supervise" => collection::run(rest),
         "seal" => snapshot::run(rest),
         _ => {

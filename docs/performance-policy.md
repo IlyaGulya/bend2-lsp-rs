@@ -593,12 +593,31 @@ divisible by five. There is no adaptive stopping, retry-for-luck, best-sample
 selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
 and validation both use the predeclared method; neither trains an allowance.
 
-Every independently built variant now contains both benchmark executables:
-`analysis` (96 workloads) and `reference_locations` (three workloads). Each
-logical sample runs them in that order, in two distinct fresh processes with
-separate output directories. The fixed experiment therefore contains 1,050
-benchmark-process executions per job, without changing the 105 paired samples
-used for each workload/event comparison.
+Every independently built variant contains both benchmark executables:
+`analysis` (96 workloads) and `reference_locations` (three workloads). Within
+one side of a pair, independent library functions run through at most four
+original `iai-callgrind-runner 0.16.1` processes concurrently. The expanded
+candidate has 49 function units and still executes all 99 workloads in their
+original fresh benchmark children. All 105 pairs, five control variants,
+balanced variant order, cache settings, counters, limits and deadlines remain
+unchanged. No next side or variant starts until all current runners finish.
+
+The collector captures each frozen executable's original bincode descriptor
+through a private PATH shim, without recompiling the benchmark or replacing the
+installed runner. It partitions only function case vectors: outer slots,
+dispatch indices, configuration and every selected function's cases retain
+their original order. Main/group setup or teardown and cross-function
+comparisons are rejected; per-case setup remains in the original child.
+Measurement runners receive the original environment, not the capture PATH.
+The runtime shim stays outside retained evidence and is removed before sampling.
+
+Each function retains its descriptor, command and raw stdout/stderr. Benchmark
+stdout/stderr aggregates preserve target/function order; profiles remain in each
+benchmark's fresh `iai` home. Runner errors stop new dispatch and join every
+in-flight child before returning. The existing supervisor still owns the process
+group and deadline; incomplete output cannot acquire a `sample.json` commit
+marker. This orchestration requires fresh fixed-series qualification; a local
+frozen-binary smoke or historical serial controls do not qualify it.
 
 Semantic extraction adds 45 workloads to the original 54-workload scope.
 Qualification now requires all 99 workloads; the earlier 54-workload controls

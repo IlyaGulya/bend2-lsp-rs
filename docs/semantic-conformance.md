@@ -150,6 +150,13 @@ unique input and normalized semantic structures; merely renaming one template
 256 times is not sufficient. Required corpus cases cannot be disabled with an
 environment variable.
 
+On macOS, first build the source-matched native RSS observer with
+`cargo build --locked --package bend2-perf --bin bend2-perf`.
+The quality entry point builds it before the supervisor contracts. Standalone
+commands use `CARGO_TARGET_DIR/debug/bend2-perf` (or `target/debug/bend2-perf`);
+`BEND2_SEMANTIC_OBSERVER` selects an explicitly provisioned observer instead.
+This builds monitoring tooling, not the separately timed release candidate.
+
 The required quality entry point is `./scripts/quality`. It runs supervisor
 contract tests, existing Rust/security/dependency checks, separately measured
 semantic setup, and one bounded conformance run. The required gate uses the
@@ -202,12 +209,20 @@ targets remain unchanged:
 | Attempt artifact bytes | 32 MiB |
 | Attempt artifact files | 512 |
 
-The supervisor samples aggregate descendant RSS using Linux `/proc` or macOS
-`ps`. This is not a hard cgroup memory limit and can miss peaks between samples.
-The interval is a polling sleep plus scan overhead; reports include
-`max_rss_sample_seconds` so delayed observations remain visible. macOS scans
-wait interruptibly within the active phase deadline, not an unrelated fixed
-subprocess timeout. A stalled observer cannot turn an expired phase into success.
+The supervisor samples aggregate descendant RSS using Linux `/proc` or a
+persistent macOS native observer. This is not a hard cgroup memory limit and
+can miss peaks between samples. The interval is a polling sleep plus observation
+overhead; reports include `max_rss_sample_seconds` so delays remain visible.
+The native observer reads current resident memory, not peak or cached exit RSS.
+An unavailable task is treated as exited only with a stable kernel identity and
+positive zombie/exit-state evidence; live or inaccessible observations fail.
+Its own RSS and child CPU are counted, without adopting it as a workload child.
+Bounded IPC, lazy startup, termination and reaping consume the existing phase
+deadline. A failed work observer is terminal: work is never resumed or retried.
+After closing and reaping that instance, cleanup may start one separate
+shutdown-only verifier within the remaining original shutdown reserve. Its
+resources are also counted. Reports preserve the original work/shutdown
+observer errors; successful cleanup cannot turn failed work into success.
 The supervisor also bounds output/report sizes and kills/reaps process groups,
 including children whose group leader has already exited. Reports distinguish
 setup, startup, comparison, normalization, stdio, and shutdown costs.

@@ -7,6 +7,9 @@ use std::{
 };
 
 pub(crate) mod collect;
+pub(crate) mod descriptor;
+mod parallel;
+pub(crate) mod runner;
 
 pub(crate) const BENCHMARKS: [&str; 2] = ["analysis", "reference_locations"];
 pub(crate) const METRICS: [&str; 3] = ["Ir", "I1mr", "ILmr"];

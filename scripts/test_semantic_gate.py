@@ -36,15 +36,15 @@ class SupervisorTests(unittest.TestCase):
             deadline=time.monotonic()+seconds, output_path=self.directory/"output.log",
             artifact_dir=self.directory, limits=limits)
 
-    def delay_first_ps(self, seconds, observers):
+    def delay_first_observer(self, seconds, observers):
         # Exec the real observer with the same PID after a scheduling delay.
         # Only its launch is controlled; RSS and lifecycle evidence are real.
         spawn = subprocess.Popen
         def delayed(command, *args, **kwargs):
-            if command[0] in {"ps", "/bin/ps"} and not observers:
+            if list(command[1:]) == ["workflow", "observe-processes"] and not observers:
                 command = [sys.executable, "-c",
-                    f"import os,sys,time; time.sleep({seconds!r}); os.execv('/bin/ps',['ps']+sys.argv[1:])",
-                    *command[1:]]
+                    f"import os,sys,time; time.sleep({seconds!r}); os.execv(sys.argv[1],sys.argv[1:])",
+                    *command]
                 observer = spawn(command, *args, **kwargs)
                 observers.append(observer)
                 return observer
@@ -213,10 +213,84 @@ class SupervisorTests(unittest.TestCase):
         self.assertTrue(any("injected cleanup" in error for error in result["cleanup_errors"]))
         self.assertIsNotNone(result["returncode"])
 
-    @unittest.skipUnless(sys.platform=="darwin", "macOS ps observer")
+    @unittest.skipUnless(sys.platform=="darwin", "macOS native observer")
+    def test_native_observer_is_counted_not_owned_and_reaped_after_transitions(self):
+        pidfile = self.directory/"worker.pid"
+        temporary_pid = self.directory/"worker.pending"
+        release = self.directory/"release"
+        observations = []
+        check = self
+        class ObservedTree(gate.ProcessTree):
+            def sample(self):
+                rss, table, owned = super().sample()
+                if self.observer is not None:
+                    observer_pid = self.observer.pid
+                    check.assertNotIn(observer_pid, owned)
+                    check.assertNotIn(observer_pid, table)
+                    check.assertGreater(table.observer_rss_bytes, 0)
+                    check.assertEqual(rss, sum(table[pid][2] for pid in owned
+                        if pid in table)+table.observer_rss_bytes)
+                    if pidfile.exists():
+                        child = int(pidfile.read_text())
+                        live = child in table and gate.is_live_process(table[child])
+                        observations.append((observer_pid, live))
+                        if live and child in owned:
+                            release.touch()
+                return rss, table, owned
+        code = ("import os,time; from pathlib import Path; "
+            f"Path({str(temporary_pid)!r}).write_text(str(os.getpid())); "
+            f"os.replace({str(temporary_pid)!r},{str(pidfile)!r}); "
+            f"release=Path({str(release)!r})\n"
+            "while not release.exists(): time.sleep(.005)\n"
+            "print('complete')")
+        tree = ObservedTree()
+        result = gate.supervise([sys.executable,"-c",code], deadline=time.monotonic()+3,
+            output_path=self.directory/"output.log", artifact_dir=self.directory,
+            limits=self.limits, tree=tree)
+        self.assertEqual(result["status"], "pass", result)
+        self.assertIn(int(pidfile.read_text()), tree.children)
+        observer_pids = {pid for pid, _ in observations}
+        self.assertEqual(len(observer_pids), 1)
+        self.assertEqual({live for _, live in observations}, {False, True})
+        for pid in observer_pids:
+            self.assertNotIn(pid, tree.children)
+            self.assert_dead(pid)
+
+    @unittest.skipUnless(sys.platform=="darwin", "macOS native observer")
+    def test_failed_work_observation_has_distinct_cleanup_verification_not_a_retry(self):
+        work_observers = set()
+        cleanup_observers = set()
+        class ObservedTree(gate.ProcessTree):
+            def sample(self):
+                try:
+                    result = super().sample()
+                    if not self.cancellable and self.observer is not None:
+                        cleanup_observers.add(self.observer.pid)
+                    return result
+                finally:
+                    if self.cancellable and self.observer is not None:
+                        work_observers.add(self.observer.pid)
+        observers = []
+        with self.delay_first_observer(60, observers):
+            result = gate.supervise([sys.executable,"-c","print('complete')"],
+                deadline=time.monotonic()+1, output_path=self.directory/"output.log",
+                artifact_dir=self.directory, limits=self.limits, tree=ObservedTree())
+        self.assertEqual(result["status"], "error", result)
+        self.assertIn("deadline", result["error"])
+        self.assertEqual(result["cleanup_errors"], [], result)
+        self.assertLess(result["elapsed_seconds"], 1.3)
+        self.assertIsNotNone(result["returncode"])
+        self.assertEqual(work_observers, {observers[0].pid})
+        self.assertEqual(len(cleanup_observers), 1)
+        self.assertTrue(work_observers.isdisjoint(cleanup_observers))
+        self.assertIsNotNone(observers[0].returncode)
+        for pid in work_observers | cleanup_observers:
+            self.assert_dead(pid)
+
+    @unittest.skipUnless(sys.platform=="darwin", "macOS native observer")
     def test_slow_valid_memory_sample_does_not_abort_work_with_budget_remaining(self):
         observers = []
-        with self.delay_first_ps(.65, observers):
+        with self.delay_first_observer(.65, observers):
             result = self.run_child("print('complete')", seconds=3)
         self.assertEqual(result["status"], "pass", result)
         self.assertGreater(result["peak_process_tree_rss_bytes"], 0)
@@ -225,13 +299,13 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(len(observers), 1)
         self.assertIsNotNone(observers[0].returncode)
 
-    @unittest.skipUnless(sys.platform=="darwin", "macOS ps observer")
+    @unittest.skipUnless(sys.platform=="darwin", "macOS native observer")
     def test_slow_sample_still_enforces_memory_budget(self):
         base = gate.ProcessTree().sample()[0]
         pidfile = self.directory/"slow-memory.pid"
         code = "import os,time; open("+repr(str(pidfile))+",'w').write(str(os.getpid())); x=bytearray(128*1024*1024); time.sleep(60)"
         observers = []
-        with self.delay_first_ps(.65, observers):
+        with self.delay_first_observer(.65, observers):
             result = self.run_child(code, seconds=3, rss_bytes=base+48*1024*1024)
         self.assertEqual(result["status"], "error", result)
         self.assertIn("RSS", result["error"])
@@ -239,11 +313,11 @@ class SupervisorTests(unittest.TestCase):
         self.assert_dead(int(pidfile.read_text()))
         self.assertIsNotNone(observers[0].returncode)
 
-    @unittest.skipUnless(sys.platform=="darwin", "macOS ps observer")
+    @unittest.skipUnless(sys.platform=="darwin", "macOS native observer")
     def test_stalled_observer_cannot_outlive_phase_or_pass_without_measurement(self):
         observers = []
         # Even a successful worker cannot pass without a completed observation.
-        with self.delay_first_ps(60, observers):
+        with self.delay_first_observer(60, observers):
             result = self.run_child("print('complete')", seconds=1)
         self.assertEqual(result["status"], "error", result)
         self.assertIn("deadline", result["error"])
@@ -252,7 +326,7 @@ class SupervisorTests(unittest.TestCase):
         self.assertIsNotNone(observers[0].returncode)
         self.assert_dead(observers[0].pid)
 
-    @unittest.skipUnless(sys.platform=="darwin", "macOS ps observer")
+    @unittest.skipUnless(sys.platform=="darwin", "macOS native observer")
     def test_shutdown_signal_interrupts_stalled_observation_and_reaps_both_children(self):
         observers = []
         pidfile = self.directory/"slow-monitor.pid"
@@ -267,7 +341,7 @@ class SupervisorTests(unittest.TestCase):
                     return
                 time.sleep(.005)
         interrupter = threading.Thread(target=interrupt_observation)
-        with patch.object(gate, "INTERRUPTED", None), self.delay_first_ps(60, observers):
+        with patch.object(gate, "INTERRUPTED", None), self.delay_first_observer(60, observers):
             interrupter.start()
             try:
                 result = self.run_child(code, seconds=3)
@@ -300,6 +374,7 @@ class SupervisorTests(unittest.TestCase):
         code = "import subprocess,sys,time; subprocess.Popen([sys.executable,'-c',"+repr(child)+"],start_new_session=True); time.sleep(60)"
         result = self.run_child(code, seconds=1)
         self.assertEqual(result["status"], "error")
+        self.assertIsNotNone(result["returncode"], result)
         for pid in pidfile.read_text().split():
             self.assert_dead(int(pid))
 
@@ -372,7 +447,8 @@ class SupervisorTests(unittest.TestCase):
     def test_final_artifact_violation_survives_cleanup_observation_failure(self):
         class FailedCleanup(gate.ProcessTree):
             def kill(self, *, quiescent=None):
-                super().kill(quiescent=quiescent)
+                # Inject at the cleanup boundary, not after a real kill that can
+                # itself fail first and prevent the intended fault from running.
                 raise RuntimeError("injected cleanup observation failure")
         witness = self.directory/"original.json"
         code = "import os,time; os.write(1,b'x'); time.sleep(.1); open("+repr(str(witness))+",'wb').write(b'x'*8192)"

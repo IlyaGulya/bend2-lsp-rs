@@ -57,6 +57,16 @@
   runs do not qualify the provisional PR resource profile while its latency
   target and supporting scaling phases fail. Existing Callgrind metrics,
   thresholds, and baseline selection are unchanged.
+- Bound independent Callgrind function collection to four original runner
+  processes while retaining every frozen benchmark case, original dispatch
+  index, cache setting, pair/control order, deadline and numeric gate.
+  Keep per-function descriptors and raw evidence; drain in-flight children
+  before reporting failure. The changed orchestration requires fresh
+  fixed-series qualification, not a local smoke or historical serial controls.
+- Replace repeated macOS process-table subprocesses in the semantic supervisor
+  with a bounded persistent native RSS observer. Count its resources and retain
+  terminal observation failures while verifying escaped-child cleanup within
+  the existing phase and shutdown budgets. Linux monitoring is unchanged.
 - Overlap complete forward and reversed semantic histories in two independent
   persistent oracle sessions, retaining full reverse coverage and same-session
   A/B/A, repeated-case, fresh-worker, and real stdio checks. Version the provisional

@@ -2,8 +2,9 @@
 """Bounded, offline semantic gate, separate from product performance policy.
 
 RSS is a sampled simultaneous sum, not summed historical MaxRSS: Linux reads
-/proc (including this supervisor); macOS reads ps RSS (KiB). Descendants and
-owned process groups remain tracked after reparenting. Polling sleeps at most
+/proc (including this supervisor); macOS uses a bounded persistent native
+observer for current resident RSS (KiB-aligned). Descendants and owned process
+groups remain tracked after reparenting. Polling sleeps at most
 20ms between scans, plus process-table scan overhead; short peaks can be missed.
 macOS scans share the phase deadline, not an independent per-scan cutoff; a slow
 scan delays RSS detection, and the longest scan is reported. This is explicitly
@@ -30,6 +31,8 @@ import time
 import tomllib
 import uuid
 
+from semantic_observer import ObserverError, ProcessObserver
+
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / "scripts/semantic_gate_profile.json"
 PROFILE = json.loads(PROFILE_PATH.read_text())
@@ -51,14 +54,30 @@ def write_json(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, sort_keys=True, indent=2) + "\n")
 
+
+def native_observer_command():
+    executable = os.environ.get("BEND2_SEMANTIC_OBSERVER")
+    if executable:
+        path = Path(executable)
+    else:
+        target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT/"target"))
+        path = target/"debug/bend2-perf"
+    if not path.is_absolute():
+        path = ROOT/path
+    if not path.is_file():
+        raise RuntimeError("native macOS RSS observer is missing; run "
+            "'cargo build --locked --package bend2-perf --bin bend2-perf' "
+            "or set BEND2_SEMANTIC_OBSERVER to that executable")
+    return [str(path), "workflow", "observe-processes"]
+
 class ProcessSnapshot(dict):
     """Observed workload processes plus the observer's simultaneous RSS."""
     observer_rss_bytes = 0
 
 
 def is_live_process(row):
-    # Zombie accounting remains in the RSS sum, but it has no executable tree
-    # to terminate. RSS alone is not a reliable lifecycle predicate on macOS.
+    # Lifecycle uses state and birth identity. RSS can race termination and must
+    # never substitute for a live-process check, including zero-RSS live children.
     return row[4][:1] not in {"Z", "X", "x"}
 
 
@@ -155,15 +174,48 @@ class ProcessTree:
         self.deadline = None
         self.cancellable = True
         self.max_sample_seconds = 0
+        self.observer = None
+        self.observation_errors = []
+        self.shutdown_observer_attempted = False
         if sys.platform == "linux":
             libc = ctypes.CDLL(None, use_errno=True)
             if libc.prctl(36, 1, 0, 0, 0) != 0:  # PR_SET_CHILD_SUBREAPER
                 raise OSError(ctypes.get_errno(), "cannot enable child subreaping")
 
+    def _table(self):
+        if self.observer is None:
+            return process_table(deadline=self.deadline, cancellable=self.cancellable)
+        failed = self.observer.failed
+        try:
+            response = self.observer.observe(os.getpid(), self.identities, self.groups,
+                deadline=self.deadline, cancellable=self.cancellable,
+                interrupted=lambda: INTERRUPTED)
+        except ObserverError as error:
+            if not failed:
+                self.observation_errors.append({
+                    "stage": "work" if self.cancellable else "shutdown", "error": str(error)})
+            raise
+        table = ProcessSnapshot()
+        for pid, parent, group, rss, birth, state in response["processes"]:
+            if pid == response["observer_pid"]:
+                table.observer_rss_bytes = rss
+            else:
+                table[pid] = (parent, group, rss, birth, state)
+        return table
+
+    def _prepare_shutdown_observer(self):
+        if self.observer is None or not self.observer.failed or self.shutdown_observer_attempted:
+            return False
+        # A different stage verifies termination; failed work is never retried.
+        self.shutdown_observer_attempted = True
+        self.observer.close(deadline=self.deadline)
+        self.observer = ProcessObserver(native_observer_command())
+        return True
+
     def sample(self):
         started = time.monotonic()
         try:
-            table = process_table(deadline=self.deadline, cancellable=self.cancellable)
+            table = self._table()
         finally:
             self.max_sample_seconds = max(self.max_sample_seconds, time.monotonic()-started)
         owned = {os.getpid()}
@@ -222,15 +274,14 @@ class ProcessTree:
                 # Darwin can return EPERM when the last live member becomes a
                 # zombie between sampling and killpg. Never ignore live EPERM.
                 try:
-                    if sys.platform != "darwin" or not finished_group(group,
-                            process_table(deadline=self.deadline, cancellable=self.cancellable)):
+                    if sys.platform != "darwin" or not finished_group(group, self._table()):
                         errors.append(str(error))
                 except (OSError, RuntimeError, subprocess.SubprocessError) as monitoring_error:
                     errors.append(f"{error}; cannot verify group state: {monitoring_error}")
         if quiet and not errors:
             return True
         try:
-            table = process_table(deadline=self.deadline, cancellable=self.cancellable)
+            table = self._table()
         except (OSError, RuntimeError, subprocess.SubprocessError):
             table = {}
         for pid, birth in self.identities.items():
@@ -242,7 +293,7 @@ class ProcessTree:
                 pass
             except PermissionError as error:
                 try:
-                    current = process_table(deadline=self.deadline, cancellable=self.cancellable).get(pid)
+                    current = self._table().get(pid)
                     if sys.platform != "darwin" or (current is not None and current[3] == birth and is_live_process(current)):
                         errors.append(str(error))
                 except (OSError, RuntimeError, subprocess.SubprocessError) as monitoring_error:
@@ -269,6 +320,7 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
     tree = ProcessTree() if tree is None else tree
     tree.deadline = deadline-limits["shutdown_seconds"]
     tree.cancellable = True
+    tree.shutdown_observer_attempted = False
     cpu_before = resource.getrusage(resource.RUSAGE_CHILDREN)
     status, reason, output_bytes = "error", None, 0
     process = None
@@ -281,6 +333,8 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
             raise RuntimeError(f"interrupted by {INTERRUPTED}")
         if deadline - started <= limits["shutdown_seconds"]:
             raise RuntimeError("deadline exhausted before spawn")
+        if sys.platform == "darwin":
+            tree.observer = ProcessObserver(native_observer_command())
         with output_path.open("wb") as output:
             process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
@@ -343,11 +397,30 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
         tree.cancellable = False
         verified_quiet = False
         try:
+            tree._prepare_shutdown_observer()
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            status = "error"
+            cleanup_errors.append(f"shutdown observer preparation failed: {error}")
+            reason = reason or cleanup_errors[-1]
+        try:
             verified_quiet = tree.kill(quiescent=quiescent)
         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             status = "error"
             cleanup_errors.append(f"initial tree kill failed: {error}")
             reason = reason or cleanup_errors[-1]
+        if tree.observer is not None and tree.observer.failed and not tree.shutdown_observer_attempted:
+            # Preserve an initial cleanup failure even if its verifier succeeds.
+            verified_quiet = False
+            if status == "pass":
+                status = "error"
+                cleanup_errors.append("native observation failed during initial cleanup")
+                reason = reason or cleanup_errors[-1]
+            try:
+                tree._prepare_shutdown_observer()
+            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                status = "error"
+                cleanup_errors.append(f"shutdown observer preparation failed: {error}")
+                reason = reason or cleanup_errors[-1]
         # Always wait the direct worker, even if another group could not be
         # killed. A cleanup error must not itself leave an unreaped leader.
         try:
@@ -391,6 +464,15 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
             status = "error"
             cleanup_errors.append(f"final child reap failed: {error}")
             reason = reason or cleanup_errors[-1]
+    observer = tree.observer
+    tree.observer = None
+    if observer is not None:
+        try:
+            observer.close(deadline=tree.deadline)
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            status = "error"
+            cleanup_errors.append(f"native observer shutdown failed: {error}")
+            reason = reason or cleanup_errors[-1]
     ended = time.monotonic()
     if ended > deadline:
         status = "error"
@@ -399,6 +481,7 @@ def supervise(command, *, deadline, output_path, artifact_dir, limits=None, tree
     cpu_after = resource.getrusage(resource.RUSAGE_CHILDREN)
     return {"status": status, "error": reason, "elapsed_seconds": ended-started,
         "cleanup_errors": cleanup_errors,
+        "observer_errors": list(tree.observation_errors),
         "shutdown_seconds": ended-shutdown_started, "output_bytes": output_bytes,
         "peak_process_tree_rss_bytes": tree.peak, "rss_samples": tree.samples,
         "max_rss_sample_seconds": tree.max_sample_seconds,

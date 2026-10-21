@@ -198,6 +198,11 @@ jobs:
         run: cargo test --locked --test bend_lint_protocol
       - name: Verify notification ordering under contended lint cleanup
         run: cargo test --locked --lib notification_ordering_tests
+      - name: Verify native macOS semantic supervision
+        if: runner.os == 'macOS'
+        run: |
+          cargo test --locked --package bend2-perf workflow::observer
+          "$PYTHON" -m unittest discover -s scripts -p 'test_semantic*.py'
       - name: Provision checksum-pinned standalone bend-lint and native Bun
         env:
           GH_TOKEN: ${{ github.token }}
