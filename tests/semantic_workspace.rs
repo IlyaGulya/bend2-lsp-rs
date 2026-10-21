@@ -945,6 +945,107 @@ fn watched_symlink_retarget_refreshes_indexed_imports_without_new_source_facts()
 }
 
 #[test]
+fn body_revisions_preserve_missing_import_watches_and_replace_changed_paths() {
+    let temp = tempdir().must_be("temporary workspace");
+    let root_path = temp.path().join("main.bend");
+    let root_uri = uri(&root_path);
+    let mut db = WorkspaceDb::default();
+    open(
+        &mut db,
+        &root_path,
+        "import ./missing as D\ndef main():\n  D.value()\n",
+    );
+    for (revision, source, expected, retired) in [
+        (
+            2,
+            "# shifted import offsets\nimport ./missing as D\ndef main():\n  D.value(1)\n",
+            "missing",
+            None,
+        ),
+        (
+            3,
+            "# shifted import offsets\nimport ./another as D\ndef main():\n  D.value(2)\n",
+            "another",
+            Some("missing"),
+        ),
+    ] {
+        db.update_open_snapshot(
+            &root_uri,
+            Arc::new(DocumentSnapshot::new(Revision(revision), source.into())),
+        )
+        .must_be("update importing body");
+        for path in [expected.to_owned(), format!("{expected}.bend")] {
+            let importers: Vec<_> = db
+                .importer_documents_for_path(&temp.path().join(path))
+                .into_iter()
+                .map(|document| document.uri)
+                .collect();
+            assert_eq!(importers.as_slice(), std::slice::from_ref(&root_uri));
+        }
+        if let Some(retired) = retired {
+            for path in [retired.to_owned(), format!("{retired}.bend")] {
+                assert!(
+                    db.importer_documents_for_path(&temp.path().join(path))
+                        .is_empty()
+                );
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn body_revision_re_resolves_import_symlinks_with_unchanged_watch_spelling() {
+    let temp = tempdir().must_be("temporary workspace");
+    let first = temp.path().join("first.bend");
+    let second = temp.path().join("second.bend");
+    let alias = temp.path().join("alias.bend");
+    fs::write(&first, "def value() -> U32:\n  1\n").must_be("first dependency");
+    fs::write(&second, "def value() -> U32:\n  2\n").must_be("second dependency");
+    std::os::unix::fs::symlink(&first, &alias).must_be("initial import alias");
+    let root_path = temp.path().join("main.bend");
+    let root_uri = uri(&root_path);
+    let mut db = WorkspaceDb::default();
+    let root = open(
+        &mut db,
+        &root_path,
+        "import ./alias.bend as D\ndef main() -> U32:\n  D.value()\n",
+    );
+    let before = Arc::new(view(&db, root, None));
+    assert!(db.publish_semantic_view(before.clone(), None));
+    fs::remove_file(&alias).must_be("remove old import alias");
+    std::os::unix::fs::symlink(&second, &alias).must_be("retarget import alias");
+    let (_, changed) = db
+        .update_open_snapshot(
+            &root_uri,
+            Arc::new(DocumentSnapshot::new(
+                Revision(2),
+                "import ./alias.bend as D\ndef main() -> U32:\n  D.value() + 1\n".into(),
+            )),
+        )
+        .must_be("update body and refresh resolved imports");
+    assert!(changed);
+    assert!(!db.validate_semantic_view(&before, None));
+    db.load_reachable(&[root]);
+    let after = view(&db, root, None);
+    let site = after
+        .target_site(target(&after, root, "D.value"))
+        .must_be("retargeted declaration");
+    assert_eq!(
+        after.physical_uri(site.file),
+        Some(&uri(
+            &fs::canonicalize(&second).must_be("physical second dependency")
+        ))
+    );
+    let importers: Vec<_> = db
+        .importer_documents_for_path(&alias)
+        .into_iter()
+        .map(|document| document.uri)
+        .collect();
+    assert_eq!(importers, [root_uri]);
+}
+
+#[test]
 fn canonical_import_identity_preserves_verified_logical_uri_and_lookup_aliases() {
     let temp = tempdir().must_be("temporary workspace");
     let dependency = temp.path().join("dep.bend");

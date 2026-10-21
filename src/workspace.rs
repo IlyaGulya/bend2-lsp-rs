@@ -1198,7 +1198,7 @@ impl WorkspaceDb {
         entry.language_id = document.language_id;
         entry.open_snapshot = Some(document.snapshot);
         self.dirty_semantic_roots.insert(id);
-        self.refresh_imports_with_targets(id, imports);
+        self.refresh_imports_with_targets(id, imports, None);
         self.extend_reachable(id);
         id
     }
@@ -1229,6 +1229,26 @@ impl WorkspaceDb {
         if self.entries[id.0].uri != *uri {
             return None;
         }
+        let entry = &mut self.entries[id.0];
+        // Watch paths depend on indexed import spelling, Base validity, source
+        // directories and prepared editor paths, not on bodies or byte offsets.
+        let same_watch_inputs = !entry.retired
+            && entry.physical_path == physical_path
+            && entry.snapshot().is_some_and(|previous| {
+                let previous_imports = previous.syntax.imports();
+                let next_imports = snapshot.syntax.imports();
+                previous_imports.len() == next_imports.len()
+                    && previous_imports.iter().zip(next_imports).all(|(old, new)| {
+                        old.path_text(&previous.text) == new.path_text(&snapshot.text)
+                            && old.valid_syntax == new.valid_syntax
+                            && old.alias.is_none() == new.alias.is_none()
+                    })
+            });
+        let previous_editor_paths = if same_watch_inputs {
+            entry.editor_import_paths.take()
+        } else {
+            None
+        };
         self.update_physical_path(id, physical_path);
         self.release_retired_payload(id);
         self.invalidate_semantic_file(id);
@@ -1236,7 +1256,8 @@ impl WorkspaceDb {
         let was_open = entry.open_snapshot.is_some();
         entry.open_snapshot = Some(snapshot);
         self.dirty_semantic_roots.insert(id);
-        let imports_changed = self.refresh_imports_with_targets(id, imports);
+        let imports_changed =
+            self.refresh_imports_with_targets(id, imports, previous_editor_paths.as_ref());
         if !was_open {
             self.extend_reachable(id);
         }
@@ -1271,7 +1292,7 @@ impl WorkspaceDb {
             .as_ref()
             .and_then(|documents| documents.get(&id))
             .map_or_else(Vec::new, |document| document.imports.clone());
-        let imports_changed = self.refresh_imports_with_targets(id, imports);
+        let imports_changed = self.refresh_imports_with_targets(id, imports, None);
         if compiler_owned || !imports_changed {
             self.recompute_reachable();
         }
@@ -1316,7 +1337,7 @@ impl WorkspaceDb {
         // The prepared imports belong to the disk snapshot, not an open overlay
         // that may have changed while the disk snapshot was being constructed.
         let imports_changed = self.entries[id.0].open_snapshot.is_none()
-            && self.refresh_imports_with_targets(id, imports);
+            && self.refresh_imports_with_targets(id, imports, None);
         Some((id, imports_changed))
     }
 
@@ -1671,6 +1692,7 @@ impl WorkspaceDb {
         &mut self,
         source: FileId,
         targets: Vec<PreparedImportTarget>,
+        previous_editor_paths: Option<&PreparedEditorImportPaths>,
     ) -> bool {
         let mut imports = Vec::with_capacity(targets.len());
         let mut import_paths = Vec::with_capacity(targets.len());
@@ -1701,8 +1723,11 @@ impl WorkspaceDb {
                 }
             }
         }
+        let reuse_watch_paths = previous_editor_paths == Some(&editor_paths);
         self.entries[source.0].editor_import_paths = Some(editor_paths);
-        self.refresh_import_watch_paths(source);
+        if !reuse_watch_paths {
+            self.refresh_import_watch_paths(source);
+        }
         if self.entries[source.0].imports.as_ref() == imports.as_slice()
             && self.entries[source.0].import_paths.as_ref() == import_paths.as_slice()
             && self.entries[source.0].import_rename_paths.as_ref() == import_rename_paths.as_slice()
@@ -2099,8 +2124,8 @@ pub(crate) fn resolve_editor_import_paths(
 #[cfg(all(test, unix))]
 mod tests {
     use super::{Document, PathRename, WorkspaceDb};
-    use crate::analysis::Revision;
-    use std::{fs, io};
+    use crate::analysis::{DocumentSnapshot, Revision};
+    use std::{fs, io, sync::Arc};
     use url::Url;
 
     fn projected_renames(renames: &[PathRename]) -> Vec<PathRename> {
@@ -2592,7 +2617,7 @@ mod tests {
                 let second = database
                     .import_target(&uri, paths[1].path)
                     .ok_or_else(|| io::Error::other("second imported source"))?;
-                assert!(std::sync::Arc::ptr_eq(&first.snapshot, &second.snapshot));
+                assert!(Arc::ptr_eq(&first.snapshot, &second.snapshot));
             }
         }
         Ok(())
@@ -2810,6 +2835,47 @@ mod tests {
             .capture_semantic_view(root, None)
             .ok_or_else(|| io::Error::other("strict semantic capture"))?;
         assert_eq!(input.build().documents().len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn revised_base_headers_update_reverse_entry_selection() -> io::Result<()> {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("main.bend");
+        let uri = Url::from_file_path(&path).map_err(|()| io::Error::other("entry URI"))?;
+        let mut database = WorkspaceDb::default();
+        let root = database.set_open_document(
+            Document::new(
+                uri.clone(),
+                "bend".into(),
+                Revision(1),
+                "import Base\ndef main() -> U32:\n  0\n".into(),
+            ),
+            Some(path),
+        );
+        for (revision, header, expected) in [
+            (2, "import Base", vec![root]),
+            (3, "import Base as B", vec![]),
+            (4, "import Base junk", vec![]),
+            (5, "import Base", vec![root]),
+            (6, "import Base junk", vec![]),
+            (7, "import Base", vec![root]),
+        ] {
+            database
+                .update_open_snapshot(
+                    &uri,
+                    Arc::new(DocumentSnapshot::new(
+                        Revision(revision),
+                        format!("{header}\ndef main() -> U32:\n  {revision}\n"),
+                    )),
+                )
+                .ok_or_else(|| io::Error::other("updated Base header"))?;
+            assert_eq!(
+                database.semantic_entry_roots_for_file(super::FileId::BASE),
+                expected,
+                "{header}"
+            );
+        }
         Ok(())
     }
 }

@@ -106,6 +106,14 @@ through indexed reverse imports, then reselect against a coherent generation.
 Published immutable views are reused; unrelated discovered sources do not force
 copies of their semantic environments into a local query.
 
+Body-only overlay updates reuse import-watch paths when indexed import spelling,
+syntax validity, Base alias presence, physical identity and prepared editor paths
+are unchanged. Import offsets may move. Comparison uses exact indexed source
+slices, not a source-wide scan or a collision-prone fingerprint. Every update
+still re-resolves import targets and invalidates semantic views; unchanged watch
+spelling does not imply unchanged symlink targets or semantic bindings. Retired
+entries, changed physical identities and changed import inputs rebuild watches.
+
 Completion preserves fuzzy ranking and grammar-indexed lexical scopes, import
 paths, and explicit constructor-pattern types. EOF caret bindings have a separate
 compact projection, without extending half-open semantic scope ranges. Argument

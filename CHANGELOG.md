@@ -51,6 +51,10 @@
 
 ### Under the hood
 
+- Avoid rebuilding unchanged import-watch paths after body-only edits. Keep
+  missing-import creation watches, refreshed symlink targets, Base-header
+  validity and semantic-view invalidation intact; performance admission still
+  uses the existing Linux Callgrind workloads and thresholds.
 - Add an independent, checksum-pinned official Bend 2.0.37 source oracle,
   differential corpus and generated projects, replayable failures, bounded
   shrinking, and required fail-closed semantic checks. Twenty correct normal

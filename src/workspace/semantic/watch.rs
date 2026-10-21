@@ -103,7 +103,7 @@ impl WorkspaceDb {
     ) -> Option<bool> {
         let identity_changed =
             self.update_source_identity_prepared(file, expected, physical_path)?;
-        let changed = self.refresh_imports_with_targets(file, imports);
+        let changed = self.refresh_imports_with_targets(file, imports, None);
         if changed {
             // Re-resolution changes graph identity, not the snapshot owning
             // the editor path facts just published by this same preparation.
