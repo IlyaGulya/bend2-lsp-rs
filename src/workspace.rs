@@ -383,7 +383,7 @@ struct CompilerDocument {
 #[derive(Default)]
 pub struct WorkspaceDb {
     entries: Vec<FileEntry>,
-    by_uri: HashMap<Url, FileId>,
+    by_uri: HashMap<Arc<Url>, FileId>,
     by_path: HashMap<PathBuf, FileId>,
     compiler_documents: Option<HashMap<FileId, CompilerDocument>>,
     // User file identities stay interned; graph liveness governs their payloads.
@@ -1064,7 +1064,8 @@ impl WorkspaceDb {
                 self.merge_renamed_entry(canonical, retired);
                 merged.push((retired, canonical));
             }
-            self.entries[canonical.0].uri = Arc::new(uri.clone());
+            let uri = Arc::new(uri);
+            self.entries[canonical.0].uri = Arc::clone(&uri);
             self.entries[canonical.0].path = Some(path.clone());
             self.update_physical_path(canonical, physical_paths.get(&path).cloned());
             self.refresh_import_watch_paths(canonical);
@@ -1668,7 +1669,7 @@ impl WorkspaceDb {
             if refresh_uri {
                 entry.physical_uri = physical_source_uri(&entry.uri, entry.path.as_deref());
             }
-            self.by_uri.insert(uri, id);
+            self.by_uri.insert(Arc::clone(&entry.uri), id);
             return id;
         }
         self.allocate_file(uri, path)
@@ -1676,10 +1677,10 @@ impl WorkspaceDb {
 
     fn allocate_file(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
         let id = FileId(self.entries.len());
-        let shared_uri = Arc::new(uri.clone());
-        let physical_uri = physical_source_uri(&shared_uri, path.as_deref());
+        let uri = Arc::new(uri);
+        let physical_uri = physical_source_uri(&uri, path.as_deref());
         self.entries.push(FileEntry {
-            uri: shared_uri,
+            uri: Arc::clone(&uri),
             path: path.clone(),
             physical_path: None,
             physical_uri,

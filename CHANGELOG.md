@@ -53,8 +53,9 @@
 
 - Share indexed physical file URIs across semantic views instead of repeatedly
   encoding unchanged paths, and avoid retaining a second URI buffer when its
-  logical and physical addresses are exactly equal. Preserve logical editor
-  addresses, escaped URI spellings and symlink-retarget invalidation; resolution
+  logical and physical addresses are exactly equal. Share logical URI ownership
+  with workspace lookup keys as well. Preserve logical editor addresses,
+  escaped URI spellings and symlink-retarget invalidation; resolution
   and performance gates are unchanged.
 - Avoid rebuilding unchanged import-watch paths after body-only edits. Keep
   missing-import creation watches, refreshed symlink targets, Base-header

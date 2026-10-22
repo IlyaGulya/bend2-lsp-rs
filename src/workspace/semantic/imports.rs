@@ -58,6 +58,11 @@ impl WorkspaceDb {
         // These are lookup aliases only. Never change an existing source's URI
         // or overlay merely because another import spells its path differently.
         let lookup_target = open_owner.unwrap_or(target);
+        let uri = if self.entries[lookup_target.0].uri.as_ref() == &uri {
+            Arc::clone(&self.entries[lookup_target.0].uri)
+        } else {
+            Arc::new(uri)
+        };
         self.by_uri.insert(uri, lookup_target);
         self.by_path.insert(path, lookup_target);
         self.by_path.entry(physical_path).or_insert(target);
@@ -78,9 +83,10 @@ impl WorkspaceDb {
             && let Ok(canonical_uri) = Url::from_file_path(&physical)
         {
             self.invalidate_semantic_file(previous);
+            let canonical_uri = Arc::new(canonical_uri);
             let old_uri = std::mem::replace(
                 &mut self.entries[previous.0].uri,
-                Arc::new(canonical_uri.clone()),
+                Arc::clone(&canonical_uri),
             );
             self.entries[previous.0].path = Some(physical.clone());
             if self.by_uri.get(old_uri.as_ref()) == Some(&previous) {
