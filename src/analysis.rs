@@ -600,7 +600,23 @@ const COMPLETION_KEYWORDS: [&str; 12] = [
     "def", "type", "law", "match", "case", "do", "return", "for", "exs", "where", "import", "as",
 ];
 
+const MAX_COMPLETION_KEYWORD_BYTES: usize = {
+    let mut maximum = 0;
+    let mut index = 0;
+    while index < COMPLETION_KEYWORDS.len() {
+        let length = COMPLETION_KEYWORDS[index].len();
+        if length > maximum {
+            maximum = length;
+        }
+        index += 1;
+    }
+    maximum
+};
+
 fn append_keyword_completions(items: &mut Vec<Completion>, prefix: &str, ascii_prefix: bool) {
+    if prefix.len() > MAX_COMPLETION_KEYWORD_BYTES {
+        return;
+    }
     let mut missing = 0_u16;
     for (index, keyword) in COMPLETION_KEYWORDS.into_iter().enumerate() {
         if completion_matches(keyword, prefix, ascii_prefix) {

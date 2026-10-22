@@ -58,6 +58,12 @@ array; scope records retain parents and recovery uncertainty. Definitions, laws,
 types and constructors share a cold record initializer, while parameter parsing
 and final-range updates retain their original order.
 
+Reserved calls acquire their targets once, from finalized token resolutions;
+the parser does not maintain an intermediate target that construction overwrites.
+Snapshots without call sites retain empty call lookup tables. Token, cursor,
+caller and callee queries treat missing slots as absent calls; declaration and
+binding reference indexes remain independent of that storage choice.
+
 The Rust index schema removes unused `DeclarationBodyKind`,
 `DeclarationSite.body_kind`, `IndexedSymbol.start_line`, and
 `IndexedScope.id`/`owner`/`range`. These are not LSP response fields.
@@ -134,6 +140,9 @@ compact projection, without extending half-open semantic scope ranges. Argument
 hints are indexed cold; contextual `as`/`unsafe` coloring follows parser tokens.
 Constructor sites remain available in metadata and child outlines without
 becoming duplicate top-level workspace symbols.
+Keyword completion derives its maximum spelling length from the keyword list at
+compile time. A longer prefix skips only the impossible keyword candidates;
+declaration completion and shorter-prefix matching retain their existing rules.
 
 ## Decision and alternatives
 

@@ -51,6 +51,13 @@
 
 ### Under the hood
 
+- Skip impossible keyword suggestions when the completion prefix is longer than
+  every keyword. Derive the bound from the keyword list; keep declaration,
+  case-insensitive subsequence and Unicode matching behavior unchanged.
+- Resolve snapshot call targets once, after token resolution, and keep call
+  lookup tables empty when a file has no calls. Preserve lexical shadowing,
+  declaration references and caller/callee query results; performance admission
+  still requires the unchanged source-bound gates.
 - Share indexed physical file URIs across semantic views instead of repeatedly
   encoding unchanged paths, and avoid retaining a second URI buffer when its
   logical and physical addresses are exactly equal. Share logical URI ownership

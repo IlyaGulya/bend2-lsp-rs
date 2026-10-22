@@ -1456,7 +1456,8 @@ impl Parser<'_> {
         let slot = self.facts.calls.len();
         self.facts.calls.push(CallSite {
             caller: (!self.in_type).then_some(self.owner).flatten(),
-            callee: occurrence.reference.resolved,
+            // SyntaxIndex resolves callees from the finalized token identities.
+            callee: None,
             name: occurrence.reference.name,
             qualifier: occurrence.reference.qualifier,
             qualifier_token: occurrence.reference.qualifier_token,
@@ -2221,11 +2222,6 @@ impl Parser<'_> {
         }
         for (reference, symbol) in self.declaration_references.drain(..) {
             self.facts.references[reference].reference.resolved = Some(symbol);
-        }
-        for call in &mut self.facts.calls {
-            if let Some(binding) = call.callee {
-                call.callee = Some(SymbolId(symbol_count + remap(binding.0)));
-            }
         }
     }
 

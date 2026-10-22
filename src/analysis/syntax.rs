@@ -361,6 +361,7 @@ struct ParameterHint {
     binding: usize,
 }
 
+#[derive(Default)]
 struct CallIndex {
     calls: Vec<CallSite>,
     by_open: Vec<IndexSlot>,
@@ -1233,6 +1234,10 @@ fn index_calls(
     token_references: &[IndexSlot],
     id_count: usize,
 ) -> CallIndex {
+    if calls.is_empty() {
+        return CallIndex::default();
+    }
+
     let mut by_open = vec![IndexSlot::EMPTY; token_references.len()];
     let mut by_name_token = vec![IndexSlot::EMPTY; token_references.len()];
     for (index, call) in calls.iter().enumerate() {
