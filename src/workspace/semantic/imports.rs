@@ -1,5 +1,8 @@
 use super::{FileId, WorkspaceDb};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use url::Url;
 
 impl WorkspaceDb {
@@ -15,7 +18,7 @@ impl WorkspaceDb {
             .copied()
             .filter(|file| {
                 let entry = &self.entries[file.0];
-                entry.uri == uri && entry.open_snapshot.is_some()
+                entry.uri.as_ref() == &uri && entry.open_snapshot.is_some()
             })
             .or_else(|| {
                 self.by_path.get(&path).copied().filter(|file| {
@@ -27,7 +30,11 @@ impl WorkspaceDb {
         let existing = self.physical_files.get(&physical_path).and_then(|files| {
             files.iter().copied().min_by_key(|file| {
                 let entry = &self.entries[file.0];
-                (entry.uri != uri, entry.open_snapshot.is_some(), *file)
+                (
+                    entry.uri.as_ref() != &uri,
+                    entry.open_snapshot.is_some(),
+                    *file,
+                )
             })
         });
         let target = if let Some(existing) = existing {
@@ -35,7 +42,9 @@ impl WorkspaceDb {
         } else {
             if let Some(pending) = self.by_uri.get(&uri).copied().filter(|file| {
                 let entry = &self.entries[file.0];
-                entry.uri == uri && entry.snapshot().is_none() && entry.disk_generation == 0
+                entry.uri.as_ref() == &uri
+                    && entry.snapshot().is_none()
+                    && entry.disk_generation == 0
             }) {
                 self.update_physical_path(pending, Some(physical_path.clone()));
                 self.by_path.entry(path).or_insert(pending);
@@ -69,11 +78,13 @@ impl WorkspaceDb {
             && let Ok(canonical_uri) = Url::from_file_path(&physical)
         {
             self.invalidate_semantic_file(previous);
-            let old_uri =
-                std::mem::replace(&mut self.entries[previous.0].uri, canonical_uri.clone());
+            let old_uri = std::mem::replace(
+                &mut self.entries[previous.0].uri,
+                Arc::new(canonical_uri.clone()),
+            );
             self.entries[previous.0].path = Some(physical.clone());
-            if self.by_uri.get(&old_uri) == Some(&previous) {
-                self.by_uri.remove(&old_uri);
+            if self.by_uri.get(old_uri.as_ref()) == Some(&previous) {
+                self.by_uri.remove(old_uri.as_ref());
             }
             if self.by_path.get(path) == Some(&previous) {
                 self.by_path.remove(path);

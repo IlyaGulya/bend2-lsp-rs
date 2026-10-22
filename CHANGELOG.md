@@ -52,9 +52,10 @@
 ### Under the hood
 
 - Share indexed physical file URIs across semantic views instead of repeatedly
-  encoding unchanged paths. Preserve logical editor addresses, escaped URI
-  spellings and symlink-retarget invalidation; resolution and performance gates
-  are unchanged.
+  encoding unchanged paths, and avoid retaining a second URI buffer when its
+  logical and physical addresses are exactly equal. Preserve logical editor
+  addresses, escaped URI spellings and symlink-retarget invalidation; resolution
+  and performance gates are unchanged.
 - Avoid rebuilding unchanged import-watch paths after body-only edits. Keep
   missing-import creation watches, refreshed symlink targets, Base-header
   validity and semantic-view invalidation intact; performance admission still

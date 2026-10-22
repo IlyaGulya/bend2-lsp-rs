@@ -335,7 +335,7 @@ impl ImportWatchDependents {
 }
 
 struct FileEntry {
-    uri: Url,
+    uri: Arc<Url>,
     path: Option<PathBuf>,
     physical_path: Option<PathBuf>,
     physical_uri: Arc<Url>,
@@ -361,18 +361,18 @@ impl FileEntry {
 
     fn document(&self) -> Option<Document> {
         Some(Document::with_snapshot(
-            self.uri.clone(),
+            self.uri.as_ref().clone(),
             self.language_id.clone(),
             self.snapshot()?.clone(),
         ))
     }
 }
 
-fn physical_source_uri(uri: &Url, path: Option<&Path>) -> Arc<Url> {
-    Arc::new(
-        path.and_then(|path| Url::from_file_path(path).ok())
-            .unwrap_or_else(|| uri.clone()),
-    )
+fn physical_source_uri(uri: &Arc<Url>, path: Option<&Path>) -> Arc<Url> {
+    match path.and_then(|path| Url::from_file_path(path).ok()) {
+        Some(physical) if physical != **uri => Arc::new(physical),
+        _ => uri.clone(),
+    }
 }
 
 struct CompilerDocument {
@@ -506,7 +506,7 @@ impl WorkspaceDb {
     pub fn open_document(&self, uri: &Url) -> Option<Document> {
         let id = self.by_uri.get(uri)?;
         let entry = &self.entries[id.0];
-        if entry.uri != *uri {
+        if entry.uri.as_ref() != uri {
             return None;
         }
         entry.open_snapshot.as_ref()?;
@@ -762,7 +762,7 @@ impl WorkspaceDb {
                     targets.push(path.into());
                 }
             }
-            if entry.uri == *source
+            if entry.uri.as_ref() == source
                 || self
                     .compiler_documents
                     .as_ref()
@@ -874,7 +874,7 @@ impl WorkspaceDb {
                 return;
             };
             let document = Document::with_snapshot(
-                entry.uri.clone(),
+                entry.uri.as_ref().clone(),
                 entry.language_id.clone(),
                 snapshot.clone(),
             );
@@ -1040,7 +1040,7 @@ impl WorkspaceDb {
             if self.by_path.get(old) == Some(id) {
                 self.by_path.remove(old);
             }
-            self.by_uri.remove(&self.entries[id.0].uri);
+            self.by_uri.remove(self.entries[id.0].uri.as_ref());
         }
         let mut merged = Vec::new();
         for (id, _, path) in moves {
@@ -1064,7 +1064,7 @@ impl WorkspaceDb {
                 self.merge_renamed_entry(canonical, retired);
                 merged.push((retired, canonical));
             }
-            self.entries[canonical.0].uri = uri.clone();
+            self.entries[canonical.0].uri = Arc::new(uri.clone());
             self.entries[canonical.0].path = Some(path.clone());
             self.update_physical_path(canonical, physical_paths.get(&path).cloned());
             self.refresh_import_watch_paths(canonical);
@@ -1234,7 +1234,7 @@ impl WorkspaceDb {
         imports: Vec<PreparedImportTarget>,
     ) -> Option<(FileId, bool)> {
         let id = *self.by_uri.get(uri)?;
-        if self.entries[id.0].uri != *uri {
+        if self.entries[id.0].uri.as_ref() != uri {
             return None;
         }
         let entry = &mut self.entries[id.0];
@@ -1280,7 +1280,7 @@ impl WorkspaceDb {
         let id = *self.by_uri.get(uri)?;
         let compiler_owned = self.is_compiler_document(uri);
         let entry = self.entries.get_mut(id.0)?;
-        if entry.uri != *uri {
+        if entry.uri.as_ref() != uri {
             return None;
         }
         entry.open_snapshot.take()?;
@@ -1629,7 +1629,7 @@ impl WorkspaceDb {
 
     fn intern(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
         if let Some(&id) = self.by_uri.get(&uri)
-            && self.entries[id.0].uri == uri
+            && self.entries[id.0].uri.as_ref() == &uri
             && self.entries[id.0].path == path
         {
             return id;
@@ -1639,11 +1639,11 @@ impl WorkspaceDb {
             .by_uri
             .get(&uri)
             .copied()
-            .filter(|id| self.entries[id.0].uri == uri)
+            .filter(|id| self.entries[id.0].uri.as_ref() == &uri)
             .or_else(|| {
                 path.as_ref()
                     .and_then(|path| self.by_path.get(path).copied())
-                    .filter(|id| self.entries[id.0].uri == uri)
+                    .filter(|id| self.entries[id.0].uri.as_ref() == &uri)
             });
         if let Some(id) = existing {
             if self.entries[id.0].path != path {
@@ -1676,11 +1676,13 @@ impl WorkspaceDb {
 
     fn allocate_file(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
         let id = FileId(self.entries.len());
+        let shared_uri = Arc::new(uri.clone());
+        let physical_uri = physical_source_uri(&shared_uri, path.as_deref());
         self.entries.push(FileEntry {
-            uri: uri.clone(),
+            uri: shared_uri,
             path: path.clone(),
             physical_path: None,
-            physical_uri: physical_source_uri(&uri, path.as_deref()),
+            physical_uri,
             language_id: "bend".into(),
             open_snapshot: None,
             disk_generation: 0,

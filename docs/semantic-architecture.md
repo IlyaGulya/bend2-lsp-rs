@@ -86,10 +86,12 @@ physical-generation map and conflict set; no workspace borrow escapes capture.
 Physical content URIs are prepared with indexed file identity, not re-encoded
 for every entry-scoped view. Captured inputs and the view's forward/reverse
 physical-URI tables share an immutable `Arc<Url>`; the public lookup still
-returns `&Url`. Logical document addresses are unchanged, including escaped
-spellings. Rebinding the effective path replaces the shared URI and preserves
-old captured views' identity; a pathless document uses its logical URI.
-Cold workspace construction pays for this projection. The existing initial
+returns `&Url`. An exactly equal logical and physical URI shares the same owner
+within its file entry, rather than retaining two URL buffers. Logical document
+addresses are unchanged, including escaped spellings. Rebinding the effective
+path replaces the shared URI and preserves old captured views' identity;
+a pathless document uses its logical URI. Cold workspace construction pays
+for this projection. The existing initial
 workspace, capture, view-build and update benchmarks retain those costs and
 trade-offs; no query worker, readiness barrier or semantic cache is added.
 
