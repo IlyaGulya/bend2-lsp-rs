@@ -345,6 +345,8 @@ struct FileEntry {
     semantic_generation: u64,
     disk_snapshot: Option<Arc<DocumentSnapshot>>,
     retired: bool,
+    // Warm-query membership; cold graph mutation uses the authoritative reachable set.
+    is_reachable: bool,
     imports: Box<[ImportEdge]>,
     // One logical resolved path per edge; physical target identities may alias.
     import_paths: Box<[PathBuf]>,
@@ -1505,6 +1507,7 @@ impl WorkspaceDb {
         }
         self.release_retired_payload(root);
         self.reachable.insert(root);
+        self.entries[root.0].is_reachable = true;
         self.refresh_semantic_root(root);
         let mut pending: Vec<_> = self.entries[root.0]
             .imports
@@ -1515,6 +1518,7 @@ impl WorkspaceDb {
             if !self.reachable.insert(id) {
                 continue;
             }
+            self.entries[id.0].is_reachable = true;
             self.release_retired_payload(id);
             self.refresh_semantic_root(id);
             pending.extend(self.entries[id.0].imports.iter().map(|edge| edge.target));
@@ -1539,17 +1543,18 @@ impl WorkspaceDb {
             pending.extend(self.entries[id.0].imports.iter().map(|edge| edge.target));
         }
         let previous = std::mem::replace(&mut self.reachable, reachable);
-        let entries = &self.entries;
-        self.dirty_semantic_roots.extend(
-            self.reachable
-                .difference(&previous)
-                .copied()
-                .filter(|id| entries[id.0].snapshot().is_some()),
-        );
+        for id in self.reachable.difference(&previous) {
+            let entry = &mut self.entries[id.0];
+            entry.is_reachable = true;
+            if entry.snapshot().is_some() {
+                self.dirty_semantic_roots.insert(*id);
+            }
+        }
         for id in previous {
             if self.reachable.contains(&id) {
                 continue;
             }
+            self.entries[id.0].is_reachable = false;
             self.invalidate_semantic_file(id);
             self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
             self.entries[id.0].retired = true;
@@ -1559,7 +1564,12 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn dependents(&self, changed: FileId) -> Vec<Document> {
-        if !self.reachable.contains(&changed) {
+        let is_reachable = |id: FileId| {
+            self.entries
+                .get(id.0)
+                .is_some_and(|entry| entry.is_reachable)
+        };
+        if !is_reachable(changed) {
             return Vec::new();
         }
         let dependent_bound = self.reachable.len() - 1;
@@ -1575,7 +1585,7 @@ impl WorkspaceDb {
         // Reverse edges are unique. Terminal frontiers need no visited set
         // or allocated traversal stack.
         for dependent in &self.entries[changed.0].reverse_imports {
-            if *dependent == changed || !self.reachable.contains(dependent) {
+            if *dependent == changed || !is_reachable(*dependent) {
                 continue;
             }
             let entry = &self.entries[dependent.0];
@@ -1596,11 +1606,11 @@ impl WorkspaceDb {
                 .reverse_imports
                 .iter()
                 .copied()
-                .filter(|id| self.reachable.contains(id)),
+                .filter(|id| is_reachable(*id)),
         );
         while let Some(id) = pending.pop() {
             for dependent in &self.entries[id.0].reverse_imports {
-                if !self.reachable.contains(dependent) || !visited.insert(*dependent) {
+                if !is_reachable(*dependent) || !visited.insert(*dependent) {
                     continue;
                 }
                 let entry = &self.entries[dependent.0];
@@ -1690,6 +1700,7 @@ impl WorkspaceDb {
             semantic_generation: 0,
             disk_snapshot: None,
             retired: false,
+            is_reachable: false,
             imports: Box::default(),
             import_paths: Box::default(),
             import_rename_paths: Box::default(),

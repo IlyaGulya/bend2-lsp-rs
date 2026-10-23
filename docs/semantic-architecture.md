@@ -33,6 +33,13 @@ Warm queries must not rescan source, reparse imports or headers, or rebuild a
 whole-workspace representation. Loading and preparing a view is cold work,
 measured separately from ready-view queries.
 
+Cold reachability transitions also publish a compact membership flag on each
+interned file entry. Dependency queries read that indexed flag instead of hashing
+each `FileId` again. Cold graph mutation keeps the reachability set authoritative;
+dependency traversal, terminal frontiers, cycle deduplication and retirement /
+reimport behavior are unchanged. No warm source scan or extra traversal index is
+introduced.
+
 Definite declaration-name occurrences reuse their snapshot-local `SymbolId`,
 with an exact written-range check, instead of searching all declaration sites.
 Entry construction retains signature template arity by semantic entity, so

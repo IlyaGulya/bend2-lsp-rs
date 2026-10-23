@@ -64,6 +64,10 @@
   eligible declaration name. Prepare the bound during cold symbol registration;
   preserve existing matching and snapshot isolation, with cold/memory costs
   retained in the unchanged performance gates.
+- Prepare per-file reachability membership during cold graph updates. Dependency
+  queries reuse the indexed flag without repeatedly hashing file identities;
+  preserve terminal frontiers, cycles, retirement and reimport behavior.
+  Performance qualification remains subject to the original source-bound gates.
 - Skip impossible keyword suggestions when the completion prefix is longer than
   every keyword. Derive the bound from the keyword list; keep declaration,
   case-insensitive subsequence and Unicode matching behavior unchanged.
