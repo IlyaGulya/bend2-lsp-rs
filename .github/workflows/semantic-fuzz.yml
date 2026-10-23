@@ -1,0 +1,143 @@
+name: semantic-fuzz
+
+on:
+  schedule:
+    - cron: '19 3 * * *'
+  workflow_dispatch:
+  # Maintainers opt in by applying this PR's semantic-calibration label.
+  # Keeping it applied opts subsequent pushes/reopens into fresh calibration.
+  # Calibration executes the unprivileged PR merge source without write credentials.
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, labeled]
+
+permissions: {}
+
+concurrency:
+  group: semantic-fuzz-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  search:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    # Supervisor: 45min search, at most 10min shrink, hard 60min.
+    # Preparation and artifact/cleanup have 15min outside that hard runtime.
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Install pinned semantic runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/semantic_gate.py install --output target/semantic-fuzz
+      - name: Prepare once outside measured search
+        run: python3 scripts/semantic_gate.py setup --output target/semantic-fuzz
+      - name: Run bounded deterministic semantic search
+        run: python3 scripts/semantic_gate.py scheduled --output target/semantic-fuzz
+      - name: Preserve reports and original replay bundles even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-fuzz-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/semantic-fuzz/
+          if-no-files-found: warn
+          retention-days: 14
+
+  calibration:
+    # All five VMs and the report job check out the event's immutable SHA.
+    # A labeled event must apply our opt-in label, not an unrelated label.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'semantic-calibration') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'semantic-calibration'))
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        job: [semantic-01, semantic-02, semantic-03, semantic-04, semantic-05]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Install pinned semantic runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CALIBRATION_JOB: ${{ matrix.job }}
+        run: python3 scripts/semantic_gate.py install --output "target/semantic-calibration/$CALIBRATION_JOB"
+      - name: Prepare once and record separate setup cost
+        env:
+          CALIBRATION_JOB: ${{ matrix.job }}
+        run: python3 scripts/semantic_gate.py setup --output "target/semantic-calibration/$CALIBRATION_JOB"
+      - name: Record warm setup separately before measurements
+        env:
+          CALIBRATION_JOB: ${{ matrix.job }}
+        run: python3 scripts/semantic_gate.py setup --output "target/semantic-calibration/$CALIBRATION_JOB/warm-setup"
+      - name: Collect four sequential complete runs without concurrent builds
+        env:
+          SEMANTIC_CALIBRATION_JOB: ${{ matrix.job }}
+        run: |
+          for ordinal in 1 2 3 4; do
+            python3 scripts/semantic_gate.py run --calibration-run-ordinal "$ordinal" --output "target/semantic-calibration/$SEMANTIC_CALIBRATION_JOB/run-$ordinal"
+          done
+      - name: Measure startup and fixed 128 256 512 project scaling independently
+        # Scaling is supporting evidence, not a substitute for any complete run.
+        # All three sizes retain the fixed 120s supervisor bound: there is no
+        # separately reviewed 2x-workload allowance for the 512-project phase.
+        env:
+          SEMANTIC_CALIBRATION_JOB: ${{ matrix.job }}
+        run: python3 scripts/semantic_gate.py scaling --output "target/semantic-calibration/$SEMANTIC_CALIBRATION_JOB/scaling"
+      - name: Preserve every raw run including failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
+          path: target/semantic-calibration/${{ matrix.job }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+  calibration-report:
+    if: >-
+      always() &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'semantic-calibration') &&
+        (github.event.action != 'labeled' || github.event.label.name == 'semantic-calibration')))
+    needs: calibration
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: semantic-calibration-${{ github.run_id }}-${{ github.run_attempt }}-*
+          # Same workflow run/attempt only; never consume another run's artifacts.
+          path: target/semantic-calibration-input
+      - name: Validate independent evidence without adjusting policy
+        run: python3 scripts/semantic_gate.py calibrate-directory target/semantic-calibration-input --output target/semantic-calibration-report/report.json
+      - name: Preserve calibration report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-calibration-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/semantic-calibration-report/
+          if-no-files-found: error
+          retention-days: 14

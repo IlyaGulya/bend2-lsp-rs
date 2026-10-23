@@ -4,8 +4,8 @@ use super::{
     workspace_service::WorkspaceService,
 };
 use crate::{
-    analysis::{DocumentSnapshot, Revision, TextRange},
-    workspace::{FileId, normalize_path},
+    analysis::{DocumentSnapshot, Revision},
+    workspace::{FileId, PreparedImportTarget, canonical_source_path, normalize_path},
 };
 use std::{
     collections::HashSet,
@@ -15,8 +15,9 @@ use std::{
 
 struct PreparedSource {
     path: PathBuf,
+    physical_path: PathBuf,
     snapshot: Arc<DocumentSnapshot>,
-    imports: Vec<(TextRange, PathBuf)>,
+    imports: Vec<PreparedImportTarget>,
     disk_generation: Option<(FileId, u64)>,
     accepted: bool,
 }
@@ -112,9 +113,12 @@ impl WorkspaceService {
                 continue;
             };
             let snapshot = Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text));
-            let imports = crate::workspace::resolve_import_targets(&path, &snapshot);
+            let physical_path = canonical_source_path(&path);
+            let imports =
+                crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
             sources.push(PreparedSource {
                 path,
+                physical_path,
                 snapshot,
                 imports,
                 disk_generation,
@@ -149,7 +153,12 @@ impl WorkspaceService {
             }
             for source in prepared {
                 if source.accepted {
-                    database.discover_snapshot(&source.path, source.snapshot, source.imports);
+                    database.discover_snapshot(
+                        &source.path,
+                        &source.physical_path,
+                        source.snapshot,
+                        source.imports,
+                    );
                 } else {
                     database.admit_discovered_path(source.path);
                 }
@@ -256,10 +265,15 @@ impl WorkspaceService {
                             .map(|text| {
                                 Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text))
                             });
+                        let physical_path = canonical_source_path(&path);
                         let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                            crate::workspace::resolve_import_targets(&path, snapshot)
+                            crate::workspace::resolve_import_targets(
+                                &path,
+                                &physical_path,
+                                snapshot,
+                            )
                         });
-                        (id, generation, path, snapshot, imports)
+                        (id, generation, path, physical_path, snapshot, imports)
                     })
                     .collect::<Vec<_>>()
             })
@@ -280,7 +294,7 @@ impl WorkspaceService {
             commit_span.in_scope(|| {
                 self.commit(None, None, |database| {
                     let mut committed = false;
-                    for (id, generation, path, snapshot, imports) in prepared {
+                    for (id, generation, path, physical_path, snapshot, imports) in prepared {
                         if !database.is_needed(id)
                             || database.disk_generation(id) != Some(generation)
                         {
@@ -288,7 +302,7 @@ impl WorkspaceService {
                         }
                         let missing = snapshot.is_none();
                         committed |= database
-                            .sync_disk_snapshot_prepared(&path, snapshot, imports)
+                            .sync_disk_snapshot_prepared(&path, &physical_path, snapshot, imports)
                             .is_some();
                         if missing {
                             attempted.insert(path);

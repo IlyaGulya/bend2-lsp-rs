@@ -8,12 +8,13 @@ pub(super) struct Scanner<'a> {
     bytes: &'a [u8],
     offset: usize,
     tokens: Vec<Token>,
-    identifier_count: usize,
     semantic_token_count: usize,
     names: NameTable,
     diagnostics: Vec<SyntaxDiagnostic>,
-    delimiters: Vec<(char, TokenId)>,
+    delimiters: Vec<(char, usize)>,
     delimiter_pairs: Vec<DelimiterPair>,
+    // Cache the stack top for token recording; delimiter() alone mutates it.
+    enclosing_delimiter: IndexSlot,
     delimiter_context: Vec<IndexSlot>,
     line_starts: Vec<usize>,
     line_ascii: Vec<u64>,
@@ -31,12 +32,12 @@ impl<'a> Scanner<'a> {
             bytes: source.as_bytes(),
             offset: 0,
             tokens: Vec::new(),
-            identifier_count: 0,
             semantic_token_count: 0,
             names: NameTable::new(),
             diagnostics: Vec::new(),
             delimiters: Vec::new(),
             delimiter_pairs: Vec::new(),
+            enclosing_delimiter: IndexSlot::EMPTY,
             delimiter_context: Vec::new(),
             line_starts,
             line_ascii,
@@ -66,7 +67,11 @@ impl<'a> Scanner<'a> {
                 self.number();
             } else if matches!(byte, b'(' | b'[' | b'{' | b')' | b']' | b'}') {
                 self.delimiter();
-            } else if b"+-*/%=<>!&|^~".contains(&byte) {
+            } else if b"+-*/%=<>!&|^~".contains(&byte)
+                || [".|.", ".^.", ".&."]
+                    .iter()
+                    .any(|operator| self.source[self.offset..].starts_with(*operator))
+            {
                 self.operator();
             } else {
                 if !byte.is_ascii() {
@@ -75,17 +80,17 @@ impl<'a> Scanner<'a> {
                 self.punctuation();
             }
         }
-        for &(delimiter, token) in &self.delimiters {
-            let range = self.tokens[token.0].range;
+        for &(delimiter, pair) in &self.delimiters {
+            let range = self.tokens[self.delimiter_pairs[pair].open.0].range;
             self.diagnostics.push(SyntaxDiagnostic {
                 range,
                 kind: DiagnosticKind::UnclosedDelimiter(delimiter),
             });
         }
-        self.delimiter_pairs.sort_unstable_by_key(|pair| pair.open);
+        // Opening slots already have source order; incomplete opens are not matches.
+        self.delimiter_pairs.retain(|pair| pair.open != pair.close);
         ScanOutput {
             tokens: self.tokens,
-            identifier_count: self.identifier_count,
             semantic_token_count: self.semantic_token_count,
             names: self.names,
             diagnostics: self.diagnostics,
@@ -177,11 +182,30 @@ impl<'a> Scanner<'a> {
 
     fn number(&mut self) {
         let start = self.offset;
-        self.offset += 1;
-        while self.offset < self.bytes.len()
-            && (self.bytes[self.offset].is_ascii_alphanumeric() || self.bytes[self.offset] == b'_')
+        while self.bytes.get(self.offset).is_some_and(u8::is_ascii_digit) {
+            self.offset += 1;
+        }
+        if self.bytes.get(self.offset) == Some(&b'n') {
+            self.offset += 1;
+        } else if self.bytes.get(self.offset) == Some(&b'.')
+            && self
+                .bytes
+                .get(self.offset + 1)
+                .is_some_and(u8::is_ascii_digit)
         {
             self.offset += 1;
+            while self.bytes.get(self.offset).is_some_and(u8::is_ascii_digit) {
+                self.offset += 1;
+            }
+            if matches!(self.bytes.get(self.offset), Some(b'e' | b'E')) {
+                self.offset += 1;
+                if matches!(self.bytes.get(self.offset), Some(b'+' | b'-')) {
+                    self.offset += 1;
+                }
+                while self.bytes.get(self.offset).is_some_and(u8::is_ascii_digit) {
+                    self.offset += 1;
+                }
+            }
         }
         self.push_token(
             start,
@@ -205,8 +229,14 @@ impl<'a> Scanner<'a> {
             None,
         );
         if matches!(delimiter, '(' | '[' | '{') {
-            self.delimiters.push((delimiter, id));
-            self.delimiter_context[id.0] = IndexSlot::some(id.0);
+            let pair = self.delimiter_pairs.len();
+            self.delimiter_pairs.push(DelimiterPair {
+                open: id,
+                close: id,
+            });
+            self.delimiters.push((delimiter, pair));
+            self.enclosing_delimiter = IndexSlot::some(id.0);
+            self.delimiter_context[id.0] = self.enclosing_delimiter;
             return;
         }
         let expected = match delimiter {
@@ -215,14 +245,15 @@ impl<'a> Scanner<'a> {
             _ => '{',
         };
         match self.delimiters.last().copied() {
-            Some((open, open_token)) if open == expected => {
+            Some((open, pair)) if open == expected => {
                 self.delimiters.truncate(self.delimiters.len() - 1);
-                self.delimiter_pairs.push(DelimiterPair {
-                    open: open_token,
-                    close: id,
-                });
-                self.delimiter_context[id.0] =
-                    IndexSlot::from_option(self.delimiters.last().map(|(_, open)| open.0));
+                self.delimiter_pairs[pair].close = id;
+                self.enclosing_delimiter = IndexSlot::from_option(
+                    self.delimiters
+                        .last()
+                        .map(|(_, pair)| self.delimiter_pairs[*pair].open.0),
+                );
+                self.delimiter_context[id.0] = self.enclosing_delimiter;
             }
             _ => {
                 self.diagnostics.push(SyntaxDiagnostic {
@@ -234,12 +265,22 @@ impl<'a> Scanner<'a> {
     }
 
     fn operator(&mut self) {
+        const OPERATORS: &[&str] = &[
+            "<&>", ".|.", ".^.", ".&.", "->", "=>", "<-", "==", "!=", "<=", ">=", "&&", "||", "<<",
+            ">>", "<>", "++",
+        ];
         let start = self.offset;
-        self.offset += 1;
-        while self.offset < self.bytes.len() && b"+-*/%=<>!&|^~".contains(&self.bytes[self.offset])
-        {
-            self.offset += 1;
-        }
+        let glued_close =
+            self.bytes[start] == b'>' && start > 0 && !self.bytes[start - 1].is_ascii_whitespace();
+        let width = if glued_close {
+            1
+        } else {
+            OPERATORS
+                .iter()
+                .find(|operator| self.source[start..].starts_with(**operator))
+                .map_or(1, |operator| operator.len())
+        };
+        self.offset += width;
         self.push_token(
             start,
             self.offset,
@@ -285,6 +326,14 @@ impl<'a> Scanner<'a> {
         flags: TokenFlags,
         name: Option<NameId>,
     ) {
+        let token_type = match kind {
+            TokenKind::Identifier => name.map(|name| self.names.facts[name.0].semantic_type),
+            TokenKind::Comment => Some(17),
+            TokenKind::StringLiteral => Some(18),
+            TokenKind::Number => Some(19),
+            TokenKind::Operator => Some(20),
+            TokenKind::Punctuation | TokenKind::Delimiter => None,
+        };
         self.semantic_token_count += usize::from(!matches!(
             kind,
             TokenKind::Punctuation | TokenKind::Delimiter
@@ -292,15 +341,11 @@ impl<'a> Scanner<'a> {
         self.tokens.push(Token {
             range: TextRange::new(start, end),
             kind,
-            flags,
+            flags: flags.with_semantic_type(token_type),
         });
-        self.delimiter_context.push(IndexSlot::from_option(
-            self.delimiters.last().map(|(_, id)| id.0),
-        ));
+        self.delimiter_context.push(self.enclosing_delimiter);
         if name.is_none() {
             self.names.append_non_name();
-        } else {
-            self.identifier_count += 1;
         }
     }
 }

@@ -21,6 +21,8 @@ use url::Url;
 pub(super) struct BaseModule {
     pub(super) uri: Url,
     pub(super) snapshot: Arc<DocumentSnapshot>,
+    pub(super) provenance: Arc<str>,
+    pub(super) source_directory: Arc<tempfile::TempDir>,
 }
 impl Deref for BaseModule {
     type Target = DocumentSnapshot;
@@ -142,24 +144,42 @@ impl Backend {
             .filter(|source| !source.is_empty());
         if let Some(source) = source {
             let loaded = run_staging(self.workspace.staging.clone(), move || {
-                let directory = tempfile::tempdir().ok()?;
+                let directory = Arc::new(tempfile::tempdir().ok()?);
                 let path = directory.path().join("Base.bend");
                 std::fs::write(&path, &source).ok()?;
                 let uri = Url::from_file_path(&path).ok()?;
                 let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source));
-                Some((BaseModule { uri, snapshot }, path, directory))
+                let provenance = Arc::from(format!("fnv1a64:{:016x}", snapshot.content_hash()));
+                let physical_path = crate::workspace::canonical_source_path(&path);
+                let imports =
+                    crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
+                Some((
+                    BaseModule {
+                        uri,
+                        snapshot,
+                        provenance,
+                        source_directory: directory.clone(),
+                    },
+                    path,
+                    physical_path,
+                    imports,
+                    directory,
+                ))
             })
             .await
             .flatten();
-            if let Some((module, path, directory)) = loaded {
+            if let Some((module, path, physical_path, imports, directory)) = loaded {
                 let _workspace_update = self.workspace.updates.write().await;
                 self.workspace.commit(None, None, |database| {
                     database.register_compiler_document(
                         module.uri.clone(),
                         path,
+                        physical_path,
                         module.snapshot.clone(),
+                        imports,
                         directory,
                     );
+                    database.invalidate_semantic_base();
                     *self.compiler.base_module.write() = Some(module);
                     Some(())
                 });

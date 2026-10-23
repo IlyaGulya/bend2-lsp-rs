@@ -348,9 +348,9 @@ impl Session {
                 self.tools
                     .push(doctor::tool_identity(path.trim(), version.trim())?);
                 self.version = json!({"xcode": version.trim(), "sdk": sdk.trim(), "os": os.trim()});
-                // Initialize Apple's tracing/authorization services before the
-                // cold LSP exists. This trusted target is not scenario evidence;
-                // the actual capture still requires its own 60-second start ACK.
+                // Warm tracing/authorization against this live harness, not a
+                // throwaway launch that can exit during recorder startup.
+                // The cold LSP still requires its own 60-second start ACK.
                 self.command(
                     path.trim(),
                     &[
@@ -365,9 +365,8 @@ impl Session {
                             .join("tracing-preflight.trace")
                             .to_string_lossy()
                             .into_owned(),
-                        "--launch".to_owned(),
-                        "--".to_owned(),
-                        "/usr/bin/true".to_owned(),
+                        "--attach".to_owned(),
+                        std::process::id().to_string(),
                     ],
                 )?;
             }

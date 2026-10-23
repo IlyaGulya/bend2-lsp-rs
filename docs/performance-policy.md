@@ -67,6 +67,59 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
+The `semantic_view_cold.declarations_{100,1000,10000}` cases construct entry
+views from captured snapshot facts. Declaration-name occurrences reuse existing
+snapshot-local IDs with an exact range check. Construction caches each file's
+generation/conflict facts and each entity's signature template arity; it borrows
+shared snapshots and preallocates qualified names rather than repeatedly
+searching declarations, hashing paths or cloning document metadata.
+
+A local Linux ARM64 diagnostic against `19ec528`, using pinned Valgrind 3.27.1
+and the unchanged 32 KiB I1/D1 and 8 MiB LL geometry, exercised all 96 analysis
+workloads once per revision with positive instruction counters throughout:
+
+| Cold-view declarations | Before instructions | After instructions |
+| --- | ---: | ---: |
+| 100 | 2,752,351 | 1,832,008 |
+| 1,000 | 30,952,226 | 19,115,829 |
+| 10,000 | 574,473,391 | 186,083,914 |
+
+This is diagnostic evidence, not admission: it is not the 105-pair hosted
+comparison, does not include the separate reference-order binary, and does not
+establish editor latency or native-oracle resource qualification. Four workloads
+had instruction increases above 5% in this single local comparison; they are not
+waived or hidden by the lower aggregate. Existing CI gates remain authoritative
+for every instruction and independent cache metric.
+
+The subsequent hosted comparison of `6ee0f23` (tested merge `ca105e33`) completed
+all 105 fresh pairs in run
+[39208885069](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39208885069).
+Collection succeeded within the unchanged 210-minute measurement deadline, but
+numeric admission did not: 22 of the 54 baseline workloads passed and 32 failed.
+The exact-run exception was rejected; this comparison remains blocking. In
+particular, larger standalone reference records introduced per-record copy
+calls; instruction-cache regressions also remain independently blocking.
+
+Reference queries now project borrowed compact headers while semantic linking
+retains complete indexed records in the same arena. A throwaway program against
+actual Rust 1.98.1 ARM64 release metadata observed:
+
+| Representation | Copied reference bytes | Retained full-record bytes |
+| --- | ---: | ---: |
+| Expanded record in `6ee0f23` | 160 | 160 |
+| Compact projection | 104 | 168 |
+
+The extra full-record padding is an explicit retention trade-off, not omitted
+metadata or a memory-budget exception. Frozen `Vec` buckets also retain their
+capacity metadata instead of slice-only metadata; avoiding table reconstruction
+does not waive retained-memory qualification. The projection preserves target grouping
+and order; full source facts are still prepared cold. Final semantic-view bucket
+compaction reuses existing hash tables, cold grouping reuses span cursors, and
+ASCII workspace-symbol matching avoids allocating lowercase names while keeping
+the Unicode path. All workload bodies, ownership/teardown boundaries and gates
+remain unchanged. Correctness smoke and layout sizes are not hosted performance
+admission.
+
 Module completion scans indexed declarations once, reading names from indexed
 source ranges. It selects the existing ASCII or non-ASCII query path once;
 the two specialized loops stay separate in generated code. Result buffers use
@@ -369,6 +422,56 @@ No approval is universal or inferred from an earlier acceptance. In particular,
 the accepted ordinary cache exception for PR #42 does not authorize PR #43 or
 any later candidate/run. Existing historical failed compares remain failed.
 
+## Collection lifetime and artifact publication
+
+The ordinary and qualification collectors run under `bend2-perf workflow
+supervise`. Each invocation owns a new POSIX process group. Linux supervision
+also adopts orphaned descendants as a child subreaper and reaps only that
+owned group, never unrelated children. A leader exiting does not prove its
+writers have stopped. Unexpected surviving descendants make collection fail,
+even when their leader returned zero and subsequent cleanup succeeds.
+
+The measurement deadlines remain 210 minutes for ordinary paired collection
+and 330 minutes for qualification. Their outer steps reserve two additional
+minutes for termination, reaping and report handling, not additional samples
+or measurement time. Deadline expiry remains a nonzero collection result;
+TERM is followed by bounded KILL escalation when needed. Unknown process
+states count as present, not absent.
+
+The lifecycle receipt is checkpointed outside the measurement output, because
+collectors require fresh output directories. After collection, the always-run
+publication step copies it to `collection-lifecycle.json`. A pending receipt,
+incomplete cleanup, inconsistent lifecycle or never-spawned command cannot
+authorize raw publication. Completed cleanup after a timeout or interruption
+can permit evidence retention, never a successful measurement verdict.
+Sealing independently checks that the recorded group is absent, including
+zombies, before walking the raw tree and again before publication.
+
+`bend2-perf workflow seal --source ROOT --output DESTINATION` creates an
+independent, write-finished snapshot. Publication currently requires Linux GNU
+and atomic `renameat2(RENAME_NOREPLACE)`; unsupported platforms fail closed.
+Existing destinations and overlapping source/output paths are never replaced.
+Links, special files, changed inputs and copy errors are rejected rather than
+followed, skipped or retried into apparent success.
+
+A committed `sample.json` identifies a completed measurement. Its files retain
+their original `raw/...` paths. Uncommitted samples are retained only under
+`incomplete/raw/...`, with source-to-snapshot paths and hashes in
+`snapshot-publication.json`. Original dataset, command and provenance metadata
+are copied verbatim. This diagnostic namespace cannot supply missing samples
+or make partial coverage admissible.
+
+Cleanup or copy failures publish only a bounded failure envelope, without
+partially copied raw evidence, and return nonzero. Successful snapshot
+publication says nothing about the measurement verdict. The original full
+105-pair, workload, source, uncertainty and admission checks remain authoritative;
+the final admission job also requires the measurement job itself to succeed.
+No permissions, approval, benchmark input, metric or numeric allowance changes.
+
+Local Linux correctness checks may exercise the supervisor with controlled
+child processes and the sealer with fixture files. They are not hosted
+Callgrind measurements, performance admission or a semantic compiler oracle.
+
 ## Historical single-pair calibration
 
 The historical raw calibration protocol ran on host Ubuntu 24.04, like
@@ -490,12 +593,38 @@ divisible by five. There is no adaptive stopping, retry-for-luck, best-sample
 selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
 and validation both use the predeclared method; neither trains an allowance.
 
-Every independently built variant now contains both benchmark executables:
-`analysis` (51 workloads) and `reference_locations` (three workloads). Each
-logical sample runs them in that order, in two distinct fresh processes with
-separate output directories. The fixed experiment therefore contains 1,050
-benchmark-process executions per job, without changing the 105 paired samples
-used for each workload/event comparison.
+Every independently built variant contains both benchmark executables:
+`analysis` (96 workloads) and `reference_locations` (three workloads). Within
+one side of a pair, independent library functions run through at most four
+original `iai-callgrind-runner 0.16.1` processes concurrently. The expanded
+candidate has 49 function units and still executes all 99 workloads in their
+original fresh benchmark children. All 105 pairs, five control variants,
+balanced variant order, cache settings, counters, limits and deadlines remain
+unchanged. No next side or variant starts until all current runners finish.
+
+The collector captures each frozen executable's original bincode descriptor
+through a private PATH shim, without recompiling the benchmark or replacing the
+installed runner. It partitions only function case vectors: outer slots,
+dispatch indices, configuration and every selected function's cases retain
+their original order. Main/group setup or teardown and cross-function
+comparisons are rejected; per-case setup remains in the original child.
+Measurement runners receive the original environment, not the capture PATH.
+The runtime shim stays outside retained evidence and is removed before sampling.
+
+Each function retains its descriptor, command and raw stdout/stderr. Benchmark
+stdout/stderr aggregates preserve target/function order; profiles remain in each
+benchmark's fresh `iai` home. Runner errors stop new dispatch and join every
+in-flight child before returning. The existing supervisor still owns the process
+group and deadline; incomplete output cannot acquire a `sample.json` commit
+marker. This orchestration requires fresh fixed-series qualification; a local
+frozen-binary smoke or historical serial controls do not qualify it.
+
+Semantic extraction adds 45 workloads to the original 54-workload scope.
+Qualification now requires all 99 workloads; the earlier 54-workload controls
+do not qualify this expanded scope. Ordinary source admission still compares
+every existing baseline workload and reports candidate-only workloads as
+unpaired until a later baseline contains them. No existing workload, metric,
+numeric allowance, or benchmark guard boundary changes.
 
 Evidence format v2 binds each benchmark's actual `--list` identities, executable
 hash and raw stdout/stderr to its frozen variant source. Both original harness
@@ -503,7 +632,7 @@ hashes are retained; the reference-location harness is not modified. Workload
 sets must be complete, disjoint and consistent across variants. Reports expose
 the benchmark scope and reparse both raw outputs before accepting merged counts.
 Historical v1 evidence remains explicitly analysis-only and cannot be mixed
-with v2 evidence or used to establish complete 54-workload control coverage.
+with v2 evidence or used to qualify the expanded all-benchmark scope.
 
 For each job, variant, workload and event separately, the reporter sorts the
 105 exact signed paired residuals:
@@ -539,8 +668,8 @@ reliability, whole-editor latency, or the probability of a future raw failure.
 There are no tail-confidence or zero-tail-failure claims, even when every
 observed A/A comparison passes.
 
-Control validation requires complete 3/3/105 coverage of all 54 workloads across
-both executables, enforced with `--expected-workloads 54 --require-all-benchmarks`,
+Control validation requires complete 3/3/105 coverage of all 99 workloads across
+both executables, enforced with `--expected-workloads 99 --require-all-benchmarks`,
 and all of the following:
 
 - Every source-identical `b` versus `a` workload/event comparison passes in
@@ -561,9 +690,17 @@ control-validation command exits unsuccessfully.
 
 The workflow uses native Ubuntu 24.04, Rust 1.98.1, Iai-Callgrind runner 0.16.1,
 and checksum/provenance-bound Valgrind 3.27.1, matching the raw collector.
-Each collection job has a fixed 360-minute timeout; collection itself is limited
-to 330 minutes, leaving time for failure evidence and uploads. This allows the
-full predeclared sample count rather than reducing it to fit a shorter deadline.
+Each collection job has a fixed 360-minute timeout; measurement itself remains
+limited to 330 minutes. The 332-minute collection step includes a separate
+cleanup reserve before sealed evidence and uploads. Missing pairs still fail
+coverage; the reserve neither extends measurement time nor qualifies a scope.
+
+The expanded-scope [run 39103430549](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39103430549)
+hit that 330-minute measurement limit on all six jobs, and all six raw uploads
+failed. Its official report rejects `no data.json datasets found` as
+`insufficient_evidence`. In-progress directory names are not completed-pair
+counts. This is not qualification of the 99-workload scope or a reason to
+reduce coverage, pool hosts or widen limits.
 Actions are SHA-pinned; checkouts do not persist credentials; permissions are
 read-only; only trusted manual main runs save tool/download caches, never
 benchmark object caches.
@@ -587,7 +724,7 @@ For retained artifacts, the equivalent report command is:
 bend2-perf calibration report INPUT \
   --method paired-median-105-v1 --require-control-validation \
   --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-  --expected-workloads 54 --require-all-benchmarks \
+  --expected-workloads 99 --require-all-benchmarks \
   --json-output report.json --markdown-output report.md
 ```
 
@@ -968,8 +1105,9 @@ recorder. Linux ARM64 software-clock DWARF capture requests the complete
 baseline register set, excluding hardware-only SVE VG.
 
 Before creating the cold LSP, native Instruments preparation starts a one-second
-Time Profiler run on `/usr/bin/true` to initialize Apple's tracing and
-authorization services, under the existing 300-second preparation-command bound.
+Time Profiler run attached to the already-live profiling harness PID to initialize
+Apple's tracing and authorization services, under the existing 300-second
+preparation-command bound. This avoids a throwaway target exiting during recorder startup.
 Its trace and command logs are preparation evidence, not scenario samples.
 The actual LSP capture still requires its own tracing-started notification
 within 60 seconds.

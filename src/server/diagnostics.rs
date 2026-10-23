@@ -264,7 +264,7 @@ impl Backend {
     pub(super) async fn run_diagnostics(&self, uri: Url, version: i32) {
         let span = tracing::Span::current();
         sleep(Duration::from_millis(250)).await;
-        let Some(doc) = self.document(&uri) else {
+        let Some(doc) = self.workspace.read().open_document(&uri) else {
             span.record("outcome", "document_missing");
             return;
         };
@@ -302,7 +302,9 @@ impl Backend {
                 .any(|item| item.code == Some(NumberOrString::String("holes".into())))
             {
                 let current_revision = self
-                    .document(&uri)
+                    .workspace
+                    .read()
+                    .open_document(&uri)
                     .filter(|current| Arc::ptr_eq(&current.snapshot, &doc.snapshot))
                     .map(|current| current.revision);
                 if !diagnostics_revision_is_current(current_revision, Revision(version)) {
@@ -314,7 +316,7 @@ impl Backend {
                     if normalize_path(&source_path) == root_path {
                         diagnostics.push(item);
                     } else if let Ok(source_uri) = Url::from_file_path(&source_path)
-                        && self.document(&source_uri).is_none()
+                        && !self.workspace.read().is_document_open(&source_uri)
                     {
                         imported.entry(source_uri).or_default().push(item);
                     }
@@ -595,7 +597,7 @@ impl Backend {
     // clearing lint never erases compiler/imported diagnostics.
     pub(super) async fn publish_coordinated_locked(&self, affected: HashSet<Url>) {
         for uri in affected {
-            let document = self.document(&uri);
+            let document = self.workspace.read().open_document(&uri);
             let mut combined = Vec::new();
             if let Some(document) = &document {
                 if let Some(result) = self.diagnostics.documents.read().get(&uri)
