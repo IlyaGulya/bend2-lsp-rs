@@ -1,4 +1,4 @@
-use std::{collections::BinaryHeap, iter::FusedIterator};
+use std::{cmp::Reverse, collections::BinaryHeap, iter::FusedIterator};
 
 use super::{BindingId, IndexedBinding, NameId, TextRange, compact_groups};
 
@@ -95,17 +95,7 @@ impl LocalIndex {
             heap.clear();
             *span = TextRange::new(first_visibility, visibility.len());
         }
-        // Tree pruning needs nondecreasing starts; equal-start intervals need no tie-break.
-        let mut source_indices: Vec<_> = (0..visibility.len()).collect();
-        if !visibility
-            .iter()
-            .is_sorted_by_key(|entry| entry.range.start)
-        {
-            source_indices.sort_unstable_by_key(|index| {
-                let entry = visibility[*index];
-                entry.range.start
-            });
-        }
+        let source_indices = source_order(&visibility, &name_spans);
         let mut max_end = vec![0; visibility.len()];
         build_tree(
             &visibility,
@@ -147,6 +137,37 @@ impl LocalIndex {
             depth: 1,
         }
     }
+}
+
+fn source_order(visibility: &[Visibility], name_spans: &[TextRange]) -> Vec<usize> {
+    // Tree pruning needs nondecreasing starts; equal starts need no tie-break.
+    if visibility
+        .iter()
+        .is_sorted_by_key(|entry| entry.range.start)
+    {
+        return (0..visibility.len()).collect();
+    }
+    // Each name already has a source-ordered run. Merge those runs
+    // rather than sorting every visibility interval again.
+    let mut cursors = BinaryHeap::from(
+        name_spans
+            .iter()
+            .filter(|span| span.start < span.end)
+            .map(|span| Reverse((visibility[span.start].range.start, span.start, span.end)))
+            .collect::<Vec<_>>(),
+    );
+    let mut order = Vec::with_capacity(visibility.len());
+    while let Some(mut cursor) = cursors.peek_mut() {
+        let Reverse((_, index, end)) = *cursor;
+        order.push(index);
+        let next = index + 1;
+        if next == end {
+            let _ = std::collections::binary_heap::PeekMut::pop(cursor);
+        } else {
+            *cursor = Reverse((visibility[next].range.start, next, end));
+        }
+    }
+    order
 }
 
 fn event_offset(bindings: &[IndexedBinding], event: usize) -> usize {

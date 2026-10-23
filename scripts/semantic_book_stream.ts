@@ -7,7 +7,7 @@ function* components(native:any,book:any):Generator<string> {
   yield JSON.stringify(['Book',book.order.length,book.hols]);
   for(const key of book.order){
     const declaration=book.tlds[key];
-    if(!declaration||!['Def','ADT'].includes(declaration.$))throw Error('invalid-native-declaration');
+    if(!declaration||(declaration.$!=='Def'&&declaration.$!=='ADT'))throw Error('invalid-native-declaration');
     yield JSON.stringify([key,declaration.$,declaration.$==='Def'?declaration.v!==null:declaration.c.length]);
     yield native.term_key(native.term_lower(declaration.T));
     if(declaration.$==='Def'){
@@ -40,7 +40,7 @@ export function validateBatch(message:any,sequence:number,request:number) {
 export function compareBatch(iterator:Generator<Chunk>,message:any) {
   for(const chunk of message.chunks){
     const expected=iterator.next();
-    if(expected.done||expected.value.some((value,index)=>value!==chunk[index]))throw Error('instrumentation-target-parity-failure');
+    if(expected.done||expected.value[0]!==chunk[0]||expected.value[1]!==chunk[1]||expected.value[2]!==chunk[2]||expected.value[3]!==chunk[3])throw Error('instrumentation-target-parity-failure');
   }
   if(message.eof&&!iterator.next().done)throw Error('instrumentation-target-parity-failure');
 }

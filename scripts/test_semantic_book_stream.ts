@@ -28,8 +28,15 @@ for(const mutation of [
   {...batch,chunks:chunks.slice(0,-1)},
   {...batch,chunks:[chunks[1],chunks[0],...chunks.slice(2)]},
   {...batch,chunks:[...chunks,chunks[0]]},
-  {...batch,chunks:chunks.map((chunk,index)=>index===2?[chunk[0],chunk[1],chunk[2]+'!',chunk[3]]:chunk)},
 ])assert.throws(()=>compareBatch(bookChunks(native,book),mutation));
+// Every tuple field is part of parity, even when the batch remains well formed.
+for(const [field,replacement] of [[0,chunks[2][0]+1],[1,chunks[2][1]+1],[2,chunks[2][2]+'!'],[3,!chunks[2][3]]] as const) {
+  const changed=chunks.map(chunk=>[...chunk]);
+  changed[2][field]=replacement;
+  const mutation={...batch,chunks:changed};
+  validateBatch(mutation,0,1);
+  assert.throws(()=>compareBatch(bookChunks(native,book),mutation),/instrumentation-target-parity-failure/);
+}
 async function nativeBookControls(root:string) {
   // The CLI selects an authenticated captured installation; a static import would bypass it.
   const native=await import(new URL(path.join(installation,'bend.ts'),'file:').href);

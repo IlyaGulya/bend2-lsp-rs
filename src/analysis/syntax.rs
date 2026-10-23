@@ -1,7 +1,7 @@
 use hashbrown::HashTable;
 use std::{
     collections::{HashMap, hash_map::RandomState},
-    hash::BuildHasher,
+    hash::{BuildHasher, Hasher},
 };
 
 use super::{InlayHint, LineIndex, SymbolKind, TextRange};
@@ -455,7 +455,7 @@ impl NameTable {
 
     fn intern_name(&mut self, source: &str, range: TextRange) -> NameId {
         let name = &source[range.start..range.end];
-        let hash = self.hasher.hash_one(name);
+        let hash = self.hash_name(name);
         if let Some(id) = self.find_hashed(source, name, hash) {
             return id;
         }
@@ -471,15 +471,22 @@ impl NameTable {
         self.token_names.push(IndexSlot::EMPTY);
     }
 
+    fn hash_name(&self, text: &str) -> u64 {
+        // One byte-string key needs no separator between composite hash fields.
+        let mut hasher = self.hasher.build_hasher();
+        hasher.write(text.as_bytes());
+        hasher.finish()
+    }
+
     fn find(&self, source: &str, text: &str) -> Option<NameId> {
-        self.find_hashed(source, text, self.hasher.hash_one(text))
+        self.find_hashed(source, text, self.hash_name(text))
     }
 
     fn find_hashed(&self, source: &str, text: &str, hash: u64) -> Option<NameId> {
         self.lookup
             .find(hash, |id| {
                 let range = self.ranges[id.0];
-                source[range.start..range.end] == *text
+                source.as_bytes()[range.start..range.end] == *text.as_bytes()
             })
             .copied()
     }

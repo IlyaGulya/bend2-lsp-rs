@@ -74,6 +74,12 @@ Neither VM is recreated and both retain their complete ordered histories.
 Credited canonical batches keep their 65,536-UTF-16-code-unit payload ceiling.
 Up to 256 small chunks share a batch to reduce round trips; individual chunk
 bounds, exact component comparison, and credit/sequence checks are unchanged.
+Comparison checks all four chunk fields directly: component, UTF-16 offset,
+complete string contents, and the final-chunk flag. No per-chunk callback or
+temporary declaration-kind list is needed. Batch validation still precedes
+comparison, and truncation/reordering/mutation checks retain their error
+precedence. This changes neither the canonical bytes nor the batching bounds,
+official lowering/keys, Base coverage, histories, GC settings or admission limits.
 Runtime archive/member authentication uses bounded streams over a private
 authenticated snapshot.
 Full native replies remain in the visible, artifact-budgeted compressed spool;

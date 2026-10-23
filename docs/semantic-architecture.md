@@ -110,6 +110,14 @@ Completion contexts retain their existing ordering rules and bypass sorting
 when already ordered. The local
 visibility tree needs nondecreasing interval starts; maximum-end augmentation
 handles overlapping intervals without end/binding tie-break keys.
+Each name's visibility intervals are already source ordered after the half-open
+shadowing sweep. When their concatenation is not ordered, a min-heap merges
+those runs into the source-order permutation used by the interval tree.
+Equal starts need no semantic tie-break; the merge uses the interval index for
+deterministic ordering. The sorted fast path avoids cursor allocation.
+The unsorted path adds a cold cursor buffer: its costs remain in the original
+cold snapshot/workspace benchmarks and require source-bound performance
+qualification, not an assumption that merging is universally faster.
 
 The server keeps its service/request split: `server/lsp.rs` delegates protocol
 requests, `server/requests/` projects indexed results, and `WorkspaceService`

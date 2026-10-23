@@ -381,6 +381,64 @@ fn resolved_names_keep_parameter_and_pattern_shadowing_local() {
     assert_eq!(snapshot.syntax.symbol_for_token(outside_token), None);
 }
 
+#[test]
+fn visible_bindings_preserve_cross_scope_shadowing_and_boundaries() {
+    use bend2_lsp::analysis::scoped_completion_items;
+
+    let source = concat!(
+        "type Maybe is Type:\n  Some{slot_shared: U32}\n  None{}\n",
+        "def alpha(slot_shared: U32, slot_left: U32, _: U32) -> U32:\n",
+        "  slot_left\n",
+        "def beta(slot_shared: U32, slot_right: U32) -> U32:\n",
+        "  slot_right\n",
+        "def choose(slot_shared: U32, slot_value: Maybe) -> U32:\n",
+        "  match slot_value:\n",
+        "    case Some{slot_shared}:\n",
+        "      slot_shared\n",
+        "    case None{}:\n",
+        "      slot_shared + 1\n",
+        "def outside() -> U32:\n  0\n",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let syntax = &snapshot.syntax;
+    for offset in 0..=source.len() {
+        // Independently select the last active binding of each name from the
+        // half-open lexical scopes, without using the visibility index.
+        let mut expected = Vec::new();
+        for binding in syntax.bindings().iter().rev() {
+            if !binding.anonymous
+                && binding.scope.contains(offset)
+                && !expected.iter().any(|(name, _)| *name == binding.name)
+            {
+                expected.push((binding.name, binding.binding_id));
+            }
+        }
+        expected.sort_unstable_by_key(|(name, _)| syntax.name_text(source, *name));
+        let mut actual: Vec<_> = syntax
+            .visible_bindings(offset)
+            .map(|binding| (binding.name, binding.binding_id))
+            .collect();
+        actual.sort_unstable_by_key(|(name, _)| syntax.name_text(source, *name));
+        assert_eq!(actual, expected, "visible bindings at byte {offset}");
+    }
+
+    let queries: [(&str, usize, &[&str]); 5] = [
+        ("  slot_left\n", 2, &["slot_left", "slot_shared"]),
+        ("  slot_right\n", 2, &["slot_right", "slot_shared"]),
+        ("      slot_shared\n", 6, &["slot_shared", "slot_value"]),
+        ("      slot_shared + 1\n", 6, &["slot_shared", "slot_value"]),
+        ("  0\n", 2, &[]),
+    ];
+    for (needle, indentation, expected) in queries {
+        let offset = source.find(needle).must_be("completion query") + indentation;
+        let labels: Vec<_> = scoped_completion_items(&snapshot, offset, "slot_")
+            .into_iter()
+            .map(|item| item.label)
+            .collect();
+        assert_eq!(labels, expected, "completion at {needle:?}");
+    }
+}
+
 fn assert_exact_output<T: std::fmt::Debug + PartialEq>(name: &str, candidate: &[T], legacy: &[T]) {
     assert_eq!(candidate.len(), legacy.len(), "{name} count");
     for (index, (actual, expected)) in candidate.iter().zip(legacy).enumerate() {
