@@ -123,6 +123,12 @@ Selected real stdio requests additionally exercise production consumers.
 Compiler-rejected and unfinished inputs use separate expectations: they do not
 count as valid differential comparisons or as skipped successful cases.
 
+Stdio range conversion uses LF-only line boundaries, matching compiler sites
+and `LineIndex`, rather than Python's broader Unicode line splitting.
+Vertical tab, form feed, NEL and Unicode line/paragraph separators stay within
+their source line. Columns still count UTF-16 code units and locations retain
+UTF-8 byte offsets, including non-BMP characters.
+
 This is not an oracle for the production multi-error recovery patches. That
 separate task, `bend2-lsp-rs-rbt.54`, must compare production-patched and pristine
 compiler diagnostics along real repair chains: after repairing error A, the

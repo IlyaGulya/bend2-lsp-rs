@@ -97,6 +97,11 @@ class ComparatorTests(unittest.TestCase):
             with self.subTest(mutation=mutation),self.assertRaises(ToolFailure):
                 semantic_structure(changed)
 
+    def test_stdio_offsets_keep_non_lf_separators_on_the_same_line(self):
+        from semantic_stdio import byte_offset
+        source='# \v\f\x85\u2028\u2029 text\n\U0001d11etarget'
+        self.assertEqual(byte_offset(source,{'line':1,'character':2}),22)
+
     def test_compact_layout_fingerprint_preserves_complete_semantic_identity(self):
         from semantic_conformance import _layout_fingerprint
         text='import lib as Alias\r\ndef x(x: Type):\r\n  Alias.target(x)\r\n'

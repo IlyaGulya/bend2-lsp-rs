@@ -33,6 +33,11 @@ Warm queries must not rescan source, reparse imports or headers, or rebuild a
 whole-workspace representation. Loading and preparing a view is cold work,
 measured separately from ready-view queries.
 
+Folding queries reuse `LineIndex`'s cold ASCII-line bits when classifying
+blank lines. ASCII code slices use byte checks, including vertical tab;
+non-ASCII lines retain Unicode whitespace classification. This adds no
+snapshot fields, source pass or allocation and preserves folding boundaries.
+
 Cold reachability transitions also publish a compact membership flag on each
 interned file entry. Dependency queries read that indexed flag instead of hashing
 each `FileId` again. Cold graph mutation keeps the reachability set authoritative;

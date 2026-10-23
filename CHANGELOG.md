@@ -19,6 +19,11 @@
   immediate navigation uses the current compiler's `Base` module instead of
   a stale or missing one.
 
+### Security
+
+- Update Tokio to 1.53.3, which addresses an I/O-safety flaw in its Unix
+  `AsyncFd` constructors ([RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)).
+
 ### Optional lint integration
 
 - Add off-by-default saved-file diagnostics from a user-installed standalone
@@ -68,6 +73,13 @@
   queries reuse the indexed flag without repeatedly hashing file identities;
   preserve terminal frontiers, cycles, retirement and reimport behavior.
   Performance qualification remains subject to the original source-bound gates.
+- Reuse the existing ASCII-line index for code-folding whitespace checks instead
+  of decoding ASCII as Unicode. Preserve vertical-tab and Unicode blank lines,
+  CRLF, comment boundaries and folding order without new snapshot storage.
+  The candidate still requires the unchanged source-bound performance gates.
+- Keep real-stdio conformance range checks on LF-delimited source lines when
+  comments contain Unicode whitespace. Preserve UTF-16 columns and UTF-8 byte
+  targets instead of treating non-LF separators as additional source lines.
 - Skip impossible keyword suggestions when the completion prefix is longer than
   every keyword. Derive the bound from the keyword list; keep declaration,
   case-insensitive subsequence and Unicode matching behavior unchanged.

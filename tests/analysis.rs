@@ -198,6 +198,31 @@ fn folding_handles_empty_documents_and_unclosed_syntax_at_eof() {
         ]
     );
 }
+
+#[test]
+fn folding_keeps_ascii_and_unicode_whitespace_out_of_block_boundaries() {
+    let source = concat!(
+        "outer\r\n  child\r\n",
+        "\u{000b}\r\n\u{000c}\r\n\u{0085}\r\n",
+        "\u{00a0}\r\n\u{2028}\r\n",
+        "    grandchild\r\n  sibling\r\nnext",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+
+    assert_eq!(
+        folding_ranges(&snapshot),
+        vec![
+            FoldingRange {
+                start_line: 0,
+                end_line: 8,
+            },
+            FoldingRange {
+                start_line: 1,
+                end_line: 7,
+            },
+        ]
+    );
+}
 #[test]
 fn syntax_index_lexes_once_and_reuses_names_imports_calls_and_context() {
     use bend2_lsp::analysis::{TokenKind, completion_items, identifier_ranges, signature_help};

@@ -331,10 +331,15 @@ pub fn folding_ranges(snapshot: &DocumentSnapshot) -> Vec<FoldingRange> {
     let mut previous = None;
 
     for (index, (code_range, indent)) in syntax.folding_lines().enumerate() {
-        if source[code_range.start..code_range.end]
-            .chars()
-            .all(char::is_whitespace)
-        {
+        let code = &source[code_range.start..code_range.end];
+        let blank = if snapshot.line_index.is_ascii_line(index) {
+            // char::is_whitespace includes vertical tab; is_ascii_whitespace does not.
+            code.bytes()
+                .all(|byte| matches!(byte, b' ' | b'\t'..=b'\r'))
+        } else {
+            code.chars().all(char::is_whitespace)
+        };
+        if blank {
             continue;
         }
         if let Some((last_line, last_indent)) = previous {

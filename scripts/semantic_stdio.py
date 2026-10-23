@@ -48,10 +48,15 @@ def position(text,offset):
 
 
 def byte_offset(text,point):
-    lines=text.splitlines(keepends=True)
+    # Match the LF-only line boundaries used by compiler sites and LineIndex.
+    lines=text.split('\n')
     line=point['line']
-    if line>len(lines):raise ToolFailure('stdio-position-outside-source')
-    prefix=''.join(lines[:line]);tail=lines[line] if line<len(lines) else ''
+    line_count=len(lines)-(lines[-1]=='')
+    if line>line_count:raise ToolFailure('stdio-position-outside-source')
+    prefix='\n'.join(lines[:line])
+    if 0<line<len(lines):prefix+='\n'
+    tail=lines[line] if line<len(lines) else ''
+    if line+1<len(lines):tail+='\n'
     raw=tail.encode('utf-16-le')[:point['character']*2]
     try:return len(prefix.encode())+len(raw.decode('utf-16-le').encode())
     except UnicodeError as error:raise ToolFailure('stdio-split-surrogate') from error
