@@ -60,6 +60,10 @@
 - Hash indexed names as single keyed byte strings and avoid rechecking their
   already-validated UTF-8 boundaries. Preserve randomized hashing, exact
   spelling and full-hash collision checks; performance gates are unchanged.
+- Skip module-completion declaration walks when a query is longer than every
+  eligible declaration name. Prepare the bound during cold symbol registration;
+  preserve existing matching and snapshot isolation, with cold/memory costs
+  retained in the unchanged performance gates.
 - Skip impossible keyword suggestions when the completion prefix is longer than
   every keyword. Derive the bound from the keyword list; keep declaration,
   case-insensitive subsequence and Unicode matching behavior unchanged.

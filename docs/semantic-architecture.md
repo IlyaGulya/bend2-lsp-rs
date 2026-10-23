@@ -103,6 +103,15 @@ for this projection. The existing initial
 workspace, capture, view-build and update benchmarks retain those costs and
 trade-offs; no query worker, readiness barrier or semantic cache is added.
 
+The cold symbol-registration pass also records the maximum non-constructor
+declaration-name byte length in each immutable snapshot. Module completion
+skips its declaration traversal only when the query exceeds that bound: the
+existing per-label matcher already rejects every such candidate. Exact-length,
+case-insensitive subsequence, ordering and keyword behavior remain unchanged.
+The extra `usize` per index and max update stay charged to the original cold
+snapshot/workspace and retained-memory workloads; no query cache or additional
+source pass is introduced.
+
 Scanner delimiter matches are built in opening-token order; unclosed openings
 are excluded without sorting completed pairs. A cached stack-top token supplies
 delimiter contexts without dereferencing the pair vector for every token.

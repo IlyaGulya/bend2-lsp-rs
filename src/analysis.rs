@@ -733,6 +733,9 @@ fn collect_module_completions(
     prefix: &str,
     ascii_prefix: bool,
 ) -> Vec<Completion> {
+    if prefix.len() > snapshot.syntax.max_module_completion_bytes() {
+        return Vec::new();
+    }
     if ascii_prefix {
         collect_module_completions_for_query::<true>(snapshot, prefix)
     } else {

@@ -949,6 +949,53 @@ fn module_completion_preserves_ascii_case_underscores_repeated_letters_and_unico
 }
 
 #[test]
+fn module_completion_preserves_length_boundaries_and_snapshot_isolation() {
+    use bend2_lsp::analysis::{completion_items, module_completion_items};
+
+    let snapshots: Vec<_> = [(1, "ab"), (2, "long_module_name"), (3, "xyz")]
+        .into_iter()
+        .map(|(revision, name)| {
+            (
+                name,
+                DocumentSnapshot::new(Revision(revision), format!("def {name}() -> U32:\n  0\n")),
+            )
+        })
+        .collect();
+    for (name, snapshot) in &snapshots {
+        for query in [name.to_string(), name.to_ascii_uppercase()] {
+            let labels: Vec<_> = module_completion_items(snapshot, &query)
+                .into_iter()
+                .map(|item| item.label)
+                .collect();
+            assert_eq!(labels, [*name], "exact-length query {query:?}");
+        }
+        for query in [format!("{name}_"), "π".repeat(name.len() + 1)] {
+            assert_eq!(module_completion_items(snapshot, &query), []);
+        }
+    }
+    let type_only = DocumentSnapshot::new(
+        Revision(4),
+        "type T is Data:\n  LongConstructor{}\n".to_owned(),
+    );
+    assert_eq!(module_completion_items(&type_only, "LongConstructor"), []);
+    assert_eq!(
+        module_completion_items(&type_only, "T")
+            .into_iter()
+            .map(|item| item.label)
+            .collect::<Vec<_>>(),
+        ["T"]
+    );
+    let empty = DocumentSnapshot::new(Revision(5), String::new());
+    assert_eq!(
+        completion_items(&empty, "return")
+            .into_iter()
+            .map(|item| item.label)
+            .collect::<Vec<_>>(),
+        ["return"]
+    );
+}
+
+#[test]
 fn duplicate_constructor_declarations_have_no_arbitrary_standalone_target() {
     let source = "type A is Data:\n  C{}\ntype B is Data:\n  C{}\ndef use() -> A: C{}\n";
     let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());

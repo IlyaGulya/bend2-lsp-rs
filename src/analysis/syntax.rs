@@ -512,6 +512,7 @@ pub struct SyntaxIndex {
     names: NameTable,
     imports: Box<[IndexedImport]>,
     symbols: Box<[IndexedSymbol]>,
+    max_module_completion_bytes: usize,
     bindings: Box<[IndexedBinding]>,
     local_index: locals::LocalIndex,
     completion_code_end: usize,
@@ -578,7 +579,8 @@ impl SyntaxIndex {
             delimiter_context,
             ..
         } = scan;
-        let mut symbol_by_name = standalone_symbol_table(&facts.symbols, names.ranges.len());
+        let (mut symbol_by_name, max_module_completion_bytes) =
+            standalone_symbol_table(&facts.symbols, names.ranges.len());
         let constructor_targets = standalone_constructor_targets(&facts.constructors);
         let constructor_index = constructor_index(std::mem::take(&mut facts.constructors));
         let auxiliary = AuxiliaryIndex::new(diagnostics, constructor_index);
@@ -622,6 +624,7 @@ impl SyntaxIndex {
             names,
             imports: facts.imports.into_boxed_slice(),
             symbols: facts.symbols.into_boxed_slice(),
+            max_module_completion_bytes,
             bindings: facts.bindings.into_boxed_slice(),
             local_index,
             completion_code_end,
@@ -690,6 +693,10 @@ impl SyntaxIndex {
     #[must_use]
     pub fn symbols(&self) -> &[IndexedSymbol] {
         &self.symbols
+    }
+
+    pub(crate) fn max_module_completion_bytes(&self) -> usize {
+        self.max_module_completion_bytes
     }
 
     #[must_use]
@@ -1473,17 +1480,24 @@ fn resolve_standalone_references(
     }
 }
 
-fn standalone_symbol_table(symbols: &[IndexedSymbol], name_count: usize) -> Box<[IndexSlot]> {
+fn standalone_symbol_table(
+    symbols: &[IndexedSymbol],
+    name_count: usize,
+) -> (Box<[IndexSlot]>, usize) {
     if symbols.is_empty() {
-        return Box::new([]);
+        return (Box::new([]), 0);
     }
     let mut targets = vec![IndexSlot::EMPTY; name_count].into_boxed_slice();
+    let mut max_name_bytes = 0;
     for symbol in symbols {
-        if symbol.kind != SymbolKind::Constructor && targets[symbol.name.0].value().is_none() {
-            targets[symbol.name.0] = IndexSlot::some(symbol.id.0);
+        if symbol.kind != SymbolKind::Constructor {
+            max_name_bytes = max_name_bytes.max(symbol.name_range.end - symbol.name_range.start);
+            if targets[symbol.name.0].value().is_none() {
+                targets[symbol.name.0] = IndexSlot::some(symbol.id.0);
+            }
         }
     }
-    targets
+    (targets, max_name_bytes)
 }
 
 fn standalone_constructor_targets(
