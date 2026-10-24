@@ -415,8 +415,8 @@ impl NameFacts {
     }
 }
 
-/// Construction-only interner. Randomized hashing and the open-addressed table
-/// exist only while the scanner and parser intern names.
+/// Construction-only interner. Per-name hashes support table growth while
+/// scanning and parsing; the completed table and seed move into the snapshot.
 #[derive(Debug)]
 struct NameTableBuilder {
     ranges: Vec<TextRange>,
@@ -427,14 +427,14 @@ struct NameTableBuilder {
     token_names: Vec<IndexSlot>,
 }
 
-/// Frozen name index. Ids, ranges, facts and token names keep construction
-/// order; `order` holds the same ids sorted by their source bytes, so lookups
-/// compare stored ranges and never hash.
+/// Frozen keyed name index. Source ranges and stable ids retain construction
+/// order; complete spelling checks distinguish even full-hash collisions.
 #[derive(Debug)]
 struct NameTable {
     ranges: Vec<TextRange>,
     facts: Vec<NameFacts>,
-    order: Vec<NameId>,
+    lookup: HashTable<NameId>,
+    hasher: RandomState,
     token_names: Vec<IndexSlot>,
 }
 
@@ -468,7 +468,7 @@ impl NameTableBuilder {
 
     fn intern_name(&mut self, source: &str, range: TextRange) -> NameId {
         let name = &source[range.start..range.end];
-        let hash = self.hash_name(name);
+        let hash = hash_name(&self.hasher, name);
         if let Some(id) = self.find_hashed(source, name, hash) {
             return id;
         }
@@ -484,15 +484,8 @@ impl NameTableBuilder {
         self.token_names.push(IndexSlot::EMPTY);
     }
 
-    fn hash_name(&self, text: &str) -> u64 {
-        // One byte-string key needs no separator between composite hash fields.
-        let mut hasher = self.hasher.build_hasher();
-        hasher.write(text.as_bytes());
-        hasher.finish()
-    }
-
     fn find(&self, source: &str, text: &str) -> Option<NameId> {
-        self.find_hashed(source, text, self.hash_name(text))
+        self.find_hashed(source, text, hash_name(&self.hasher, text))
     }
 
     fn find_hashed(&self, source: &str, text: &str, hash: u64) -> Option<NameId> {
@@ -516,52 +509,35 @@ impl NameTableBuilder {
             .map(NameId)
     }
 
-    /// Consumes the construction state into the frozen index. Ranges, facts and
-    /// token names move without copying; the randomized table and hasher are
-    /// dropped, and `hashes` is consumed by the order collection so std can
-    /// reuse its buffer where `u64` and `NameId` share a layout.
-    fn finish(self, source: &str) -> NameTable {
+    /// Moves the completed table without copying names, rebuilding buckets or
+    /// sorting ids. The growth-only hash buffer is no longer needed.
+    fn finish(self) -> NameTable {
         let Self {
             ranges,
             facts,
-            hashes,
+            lookup,
+            hasher,
             token_names,
             ..
         } = self;
-        let mut order = hashes
-            .into_iter()
-            .enumerate()
-            .map(|(id, _)| NameId(id))
-            .collect::<Vec<NameId>>();
-        let bytes = source.as_bytes();
-        order.sort_unstable_by(|left, right| {
-            let left = ranges[left.0];
-            let right = ranges[right.0];
-            bytes[left.start..left.end].cmp(&bytes[right.start..right.end])
-        });
         NameTable {
             ranges,
             facts,
-            order,
+            lookup,
+            hasher,
             token_names,
         }
     }
 }
 
 impl NameTable {
-    /// Frozen lookup: the stored source ranges are compared directly, so a
-    /// query hashes nothing and no construction table is retained.
     fn find(&self, source: &str, text: &str) -> Option<NameId> {
-        let bytes = source.as_bytes();
-        let needle = text.as_bytes();
-        let position = self
-            .order
-            .binary_search_by(|id| {
+        self.lookup
+            .find(hash_name(&self.hasher, text), |id| {
                 let range = self.ranges[id.0];
-                bytes[range.start..range.end].cmp(needle)
+                source.as_bytes()[range.start..range.end] == *text.as_bytes()
             })
-            .ok()?;
-        Some(self.order[position])
+            .copied()
     }
 
     fn range(&self, id: NameId) -> TextRange {
@@ -575,6 +551,13 @@ impl NameTable {
             .and_then(IndexSlot::value)
             .map(NameId)
     }
+}
+
+fn hash_name(state: &RandomState, text: &str) -> u64 {
+    // One byte-string key needs no separator between composite hash fields.
+    let mut hasher = state.build_hasher();
+    hasher.write(text.as_bytes());
+    hasher.finish()
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -653,7 +636,7 @@ impl SyntaxIndex {
         } = scan;
         // Interning is complete once the parser has run: the builder is consumed
         // into the frozen name index that serves every later lookup.
-        let names = names.finish(source);
+        let names = names.finish();
         let (mut symbol_by_name, max_module_completion_bytes) =
             standalone_symbol_table(&facts.symbols, names.ranges.len());
         let constructor_targets = standalone_constructor_targets(&facts.constructors);
@@ -1612,7 +1595,7 @@ mod name_table_tests {
         let mut builder = NameTableBuilder::new();
         let ids = ranges.map(|range| builder.intern_name(source, range));
         assert_eq!(builder.intern_name(source, ranges[1]), ids[1]);
-        let names = builder.finish(source);
+        let names = builder.finish();
         for (id, name) in ids
             .iter()
             .zip(["zeta", "alpha", "beta", "alpha_gamma", "Zed", "_under"])

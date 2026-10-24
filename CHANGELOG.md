@@ -62,11 +62,11 @@
 - Compare every native canonical chunk field directly without a per-chunk
   callback. Keep full string equality, mutation/truncation detection, Base
   coverage, batching bounds and the original resource/performance gates.
-- Keep randomized, collision-checked name interning in cold parsing, then consume
-  the builder into an immutable byte-ordered name index. Preserve existing IDs
-  and source ranges; warm lookups no longer hash, and snapshots do not retain
-  the construction-only hash table. Cold sorting and allocation costs remain
-  included in the unchanged source-bound performance gates.
+- Retain randomized, collision-checked name lookup in immutable snapshots after
+  rejecting the byte-ordered lookup experiment's warm instruction regressions.
+  Move the completed cold table and seed without rebuilding or sorting names;
+  release growth-only hashes and preserve IDs, source ranges and spelling checks.
+  Keep the original source-bound cold/warm and memory qualification.
 - Find analysis-comment boundaries in bulk and check ASCII once per comment,
   preserving LF-only line boundaries, Unicode trivia, CRLF and EOF. Keep the
   formatter's scanner separate.
@@ -78,8 +78,6 @@
   eligible declaration name. Prepare the bound during cold symbol registration;
   preserve existing matching and snapshot isolation, with cold/memory costs
   retained in the unchanged performance gates.
-  Classify each matching declaration kind once while keeping constructors out
-  of unqualified module suggestions.
 - Prepare per-file reachability membership during cold graph updates. Dependency
   queries reuse the indexed flag without repeatedly hashing file identities;
   preserve terminal frontiers, cycles, retirement and reimport behavior.
