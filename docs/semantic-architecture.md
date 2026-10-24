@@ -7,6 +7,11 @@ frontend. It constructs immutable compact file facts: declaration sites, scopes,
 bindings, structural ranges, and occurrence roles. Temporary parser structures
 are released after construction. The formatter keeps its independent scanner.
 
+The analysis scanner finds each comment's LF boundary in bulk and checks the
+bounded comment slice for ASCII once. Unicode line/paragraph separators stay
+inside the comment; CRLF, EOF, token ranges and the packed line-ASCII bits keep
+their original meaning.
+
 File facts do not commit nonlocal references to a universal target. A semantic
 view resolves them in an entry context, using ordered imports and declaration
 registration, input snapshot identities, and the compiler/Base provenance.
@@ -27,6 +32,13 @@ The projected iterator retains exact sizing, reverse iteration, cloning and
 fused exhaustion, but is no longer a slice iterator with `as_slice`.
 This is a storage/projection boundary, not a second resolver or deferred
 semantic scan.
+
+The token-to-reference map is also the authoritative source of standalone token
+targets. Cold call linking and warm `symbol_for_token` project the selected
+reference's resolved target instead of retaining a duplicate token-to-symbol
+array. Synthetic references remain excluded, and reference bucketing remaps the
+same token map before publication. Warm lookup adds an indexed reference read,
+not a semantic scan; the unchanged cold/warm gates retain that trade-off.
 
 The workspace owns views; feature handlers consume captured immutable views.
 Warm queries must not rescan source, reparse imports or headers, or rebuild a
@@ -58,11 +70,15 @@ rehashing all keys. Cold grouped indexes reuse the final span cursors rather
 than allocating separate per-group counts.
 
 Snapshot-local name interning stores source ranges and `NameId` values, not
-copied strings. One per-table randomized hash feeds the raw name table directly;
-lookups still compare the complete source spelling, including when full hashes
-collide. Cached hashes support table growth without rescanning names. The hash
-seed and lookup layout are acceleration details, excluded from logical snapshot
-equality. Cold construction and warm lookup remain independently measured.
+copied strings. A construction-only `NameTableBuilder` uses randomized hashing
+and complete spelling checks, including full-hash collisions. Once scanning
+and parsing finish, it is consumed into an immutable `NameTable`: existing IDs,
+ranges, facts and token names keep their construction order, while a separate
+order sorts those IDs by their source bytes. Warm lookups binary-search that
+order without hashing. The cold hash table and seed are not retained.
+The order collection consumes the old hash buffer; allocation reuse depends on
+the standard library and target layout. Cold sorting, retained memory and warm
+lookup costs remain separately subject to the unchanged performance gates.
 
 The parser's active binding slots and saved undo slots reuse the one-word
 `IndexSlot` representation. Scope IDs remain positions in the immutable scope

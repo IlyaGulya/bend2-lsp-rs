@@ -415,13 +415,26 @@ impl NameFacts {
     }
 }
 
+/// Construction-only interner. Randomized hashing and the open-addressed table
+/// exist only while the scanner and parser intern names.
 #[derive(Debug)]
-struct NameTable {
+struct NameTableBuilder {
     ranges: Vec<TextRange>,
     facts: Vec<NameFacts>,
     lookup: HashTable<NameId>,
     hashes: Vec<u64>,
     hasher: RandomState,
+    token_names: Vec<IndexSlot>,
+}
+
+/// Frozen name index. Ids, ranges, facts and token names keep construction
+/// order; `order` holds the same ids sorted by their source bytes, so lookups
+/// compare stored ranges and never hash.
+#[derive(Debug)]
+struct NameTable {
+    ranges: Vec<TextRange>,
+    facts: Vec<NameFacts>,
+    order: Vec<NameId>,
     token_names: Vec<IndexSlot>,
 }
 
@@ -435,7 +448,7 @@ impl PartialEq for NameTable {
 
 impl Eq for NameTable {}
 
-impl NameTable {
+impl NameTableBuilder {
     fn new() -> Self {
         Self {
             ranges: Vec::new(),
@@ -502,6 +515,66 @@ impl NameTable {
             .and_then(IndexSlot::value)
             .map(NameId)
     }
+
+    /// Consumes the construction state into the frozen index. Ranges, facts and
+    /// token names move without copying; the randomized table and hasher are
+    /// dropped, and `hashes` is consumed by the order collection so std can
+    /// reuse its buffer where `u64` and `NameId` share a layout.
+    fn finish(self, source: &str) -> NameTable {
+        let Self {
+            ranges,
+            facts,
+            hashes,
+            token_names,
+            ..
+        } = self;
+        let mut order = hashes
+            .into_iter()
+            .enumerate()
+            .map(|(id, _)| NameId(id))
+            .collect::<Vec<NameId>>();
+        let bytes = source.as_bytes();
+        order.sort_unstable_by(|left, right| {
+            let left = ranges[left.0];
+            let right = ranges[right.0];
+            bytes[left.start..left.end].cmp(&bytes[right.start..right.end])
+        });
+        NameTable {
+            ranges,
+            facts,
+            order,
+            token_names,
+        }
+    }
+}
+
+impl NameTable {
+    /// Frozen lookup: the stored source ranges are compared directly, so a
+    /// query hashes nothing and no construction table is retained.
+    fn find(&self, source: &str, text: &str) -> Option<NameId> {
+        let bytes = source.as_bytes();
+        let needle = text.as_bytes();
+        let position = self
+            .order
+            .binary_search_by(|id| {
+                let range = self.ranges[id.0];
+                bytes[range.start..range.end].cmp(needle)
+            })
+            .ok()?;
+        Some(self.order[position])
+    }
+
+    fn range(&self, id: NameId) -> TextRange {
+        self.ranges[id.0]
+    }
+
+    fn for_token(&self, id: TokenId) -> Option<NameId> {
+        self.token_names
+            .get(id.0)
+            .copied()
+            .and_then(IndexSlot::value)
+            .map(NameId)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -540,7 +613,6 @@ pub struct SyntaxIndex {
     delimiter_pairs: Box<[DelimiterPair]>,
     delimiter_context: Box<[IndexSlot]>,
     symbol_by_name: Box<[IndexSlot]>,
-    token_symbols: Box<[IndexSlot]>,
     completion: completion::CompletionIndex,
 }
 
@@ -579,6 +651,9 @@ impl SyntaxIndex {
             delimiter_context,
             ..
         } = scan;
+        // Interning is complete once the parser has run: the builder is consumed
+        // into the frozen name index that serves every later lookup.
+        let names = names.finish(source);
         let (mut symbol_by_name, max_module_completion_bytes) =
             standalone_symbol_table(&facts.symbols, names.ranges.len());
         let constructor_targets = standalone_constructor_targets(&facts.constructors);
@@ -586,9 +661,9 @@ impl SyntaxIndex {
         let auxiliary = AuxiliaryIndex::new(diagnostics, constructor_index);
         resolve_standalone_references(&mut facts, &symbol_by_name, &constructor_targets);
         let local_index = locals::LocalIndex::build(&facts.bindings, names.ranges.len());
-        let (token_symbols, token_references) =
+        let token_references =
             reference_token_index(source, &mut tokens, &names, &facts, &local_index);
-        let parameter_hint_count = resolve_calls(&mut facts.calls, &token_symbols, &facts.symbols);
+        let parameter_hint_count = resolve_calls(&mut facts, &token_references);
         let calls = index_calls(
             facts.calls,
             &facts.references,
@@ -652,7 +727,6 @@ impl SyntaxIndex {
             delimiter_pairs: delimiter_pairs.into_boxed_slice(),
             delimiter_context: delimiter_context.into_boxed_slice(),
             symbol_by_name,
-            token_symbols: token_symbols.into_boxed_slice(),
             completion: completion::CompletionIndex::default(),
         };
         index.completion = completion::CompletionIndex::build(
@@ -936,11 +1010,7 @@ impl SyntaxIndex {
 
     #[must_use]
     pub fn symbol_for_token(&self, token: TokenId) -> Option<SymbolId> {
-        self.token_symbols
-            .get(token.0)
-            .copied()
-            .and_then(IndexSlot::value)
-            .map(SymbolId)
+        self.reference_for_token(token)?.reference.resolved
     }
 
     #[must_use]
@@ -1140,7 +1210,7 @@ impl SyntaxIndex {
 struct ScanOutput {
     tokens: Vec<Token>,
     semantic_token_count: usize,
-    names: NameTable,
+    names: NameTableBuilder,
     diagnostics: Vec<SyntaxDiagnostic>,
     delimiter_pairs: Vec<DelimiterPair>,
     delimiter_context: Vec<IndexSlot>,
@@ -1221,17 +1291,15 @@ fn constructor_index(entries: Vec<IndexedConstructor>) -> Option<ConstructorInde
     })
 }
 
-fn resolve_calls(
-    calls: &mut [CallSite],
-    token_symbols: &[IndexSlot],
-    symbols: &[IndexedSymbol],
-) -> usize {
+fn resolve_calls(facts: &mut parser::FileFacts, token_references: &[IndexSlot]) -> usize {
     let mut hint_count = 0;
-    for call in calls {
-        call.callee = token_symbols[call.callee_token.0].value().map(SymbolId);
+    for call in &mut facts.calls {
+        call.callee = token_references[call.callee_token.0]
+            .value()
+            .and_then(|index| facts.references[index].reference.resolved);
         if let Some(symbol) = call
             .callee
-            .and_then(|id| symbols.get(id.0))
+            .and_then(|id| facts.symbols.get(id.0))
             .filter(|symbol| symbol.kind == SymbolKind::Function)
         {
             hint_count += (call.argument_indices.end - call.argument_indices.start)
@@ -1286,8 +1354,7 @@ fn reference_token_index(
     names: &NameTable,
     facts: &parser::FileFacts,
     local_index: &locals::LocalIndex,
-) -> (Vec<IndexSlot>, Vec<IndexSlot>) {
-    let mut symbols = vec![IndexSlot::EMPTY; tokens.len()];
+) -> Vec<IndexSlot> {
     let mut occurrences = vec![IndexSlot::EMPTY; tokens.len()];
     for (index, reference) in facts.references.iter().enumerate() {
         if reference.synthetic {
@@ -1322,8 +1389,6 @@ fn reference_token_index(
                 .first()
                 .is_some_and(u8::is_ascii_lowercase);
         for segment in &facts.segments[reference.segment_span.start..reference.segment_span.end] {
-            symbols[segment.token.0] =
-                IndexSlot::from_option(reference.reference.resolved.map(|id| id.0));
             occurrences[segment.token.0] = IndexSlot::some(index);
             let token_type = resolved_type.unwrap_or_else(|| {
                 if recovery_call && segment.token == reference.reference.token {
@@ -1341,7 +1406,7 @@ fn reference_token_index(
             token.flags = token.flags.with_semantic_type(Some(token_type));
         }
     }
-    (symbols, occurrences)
+    occurrences
 }
 
 fn completion_bindings_at_eof(
@@ -1515,12 +1580,12 @@ fn standalone_constructor_targets(
 
 #[cfg(test)]
 mod name_table_tests {
-    use super::{NameTable, TextRange};
+    use super::{NameTableBuilder, TextRange};
 
     #[test]
     fn full_hash_collisions_keep_distinct_names_and_reject_absent_names() {
         let source = "alpha beta";
-        let mut names = NameTable::new();
+        let mut names = NameTableBuilder::new();
         let alpha = names.intern_name(source, TextRange::new(0, 5));
         let beta = names.intern_name(source, TextRange::new(6, 10));
         names.lookup.clear();
@@ -1531,5 +1596,31 @@ mod name_table_tests {
         assert_eq!(names.find_hashed(source, "alpha", 42), Some(alpha));
         assert_eq!(names.find_hashed(source, "beta", 42), Some(beta));
         assert_eq!(names.find_hashed(source, "gamma", 42), None);
+    }
+
+    #[test]
+    fn frozen_lookup_preserves_ids_ranges_and_absent_names() {
+        let source = "zeta alpha beta alpha_gamma Zed _under";
+        let ranges = [
+            TextRange::new(0, 4),
+            TextRange::new(5, 10),
+            TextRange::new(11, 15),
+            TextRange::new(16, 27),
+            TextRange::new(28, 31),
+            TextRange::new(32, 38),
+        ];
+        let mut builder = NameTableBuilder::new();
+        let ids = ranges.map(|range| builder.intern_name(source, range));
+        assert_eq!(builder.intern_name(source, ranges[1]), ids[1]);
+        let names = builder.finish(source);
+        for (id, name) in ids
+            .iter()
+            .zip(["zeta", "alpha", "beta", "alpha_gamma", "Zed", "_under"])
+        {
+            assert_eq!(names.find(source, name), Some(*id));
+            assert_eq!(names.range(*id), ranges[id.0]);
+        }
+        assert_eq!(names.find(source, "gamma"), None);
+        assert_eq!(names.find(source, ""), None);
     }
 }

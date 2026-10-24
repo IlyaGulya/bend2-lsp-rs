@@ -759,13 +759,17 @@ fn collect_module_completions_for_query<const ASCII_PREFIX: bool>(
     let mut items = Vec::new();
     for symbol in syntax.symbols() {
         let name = &source[symbol.name_range.start..symbol.name_range.end];
-        if completion_matches(name, prefix, ASCII_PREFIX) && symbol.kind != SymbolKind::Constructor
-        {
-            items.push(completion(
-                name.to_owned(),
-                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                symbol.kind,
-            ));
+        if completion_matches(name, prefix, ASCII_PREFIX) {
+            let kind = match symbol.kind {
+                SymbolKind::Function => CompletionKind::Function,
+                SymbolKind::Struct => CompletionKind::Struct,
+                SymbolKind::Constructor => continue,
+            };
+            items.push(Completion {
+                label: name.to_owned(),
+                detail: source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                kind,
+            });
         }
     }
     items

@@ -1,8 +1,8 @@
 use super::{
     BindingId, CallSite, DeclarationKind, DeclarationSite, IndexSlot, IndexedBinding,
     IndexedConstructor, IndexedImport, IndexedReference, IndexedScope, IndexedSymbol, LineIndex,
-    NameId, NameSegment, NameTable, Reference, ReferenceKind, ReferenceRole, ScopeId, SymbolId,
-    SymbolKind, SyntaxLine, TextRange, Token, TokenId, TokenKind,
+    NameId, NameSegment, NameTableBuilder, Reference, ReferenceKind, ReferenceRole, ScopeId,
+    SymbolId, SymbolKind, SyntaxLine, TextRange, Token, TokenId, TokenKind,
 };
 use std::{cell::Cell, collections::HashSet};
 
@@ -222,7 +222,7 @@ struct ParserToken {
 fn significant_tokens(
     source: &str,
     tokens: &[Token],
-    names: &NameTable,
+    names: &NameTableBuilder,
 ) -> (Vec<ParserToken>, usize) {
     let bytes = source.as_bytes();
     let mut significant = Vec::with_capacity(tokens.len());
@@ -274,7 +274,7 @@ struct Parser<'a> {
     tokens: &'a mut [Token],
     lines: &'a [SyntaxLine],
     line_index: &'a LineIndex,
-    names: &'a mut NameTable,
+    names: &'a mut NameTableBuilder,
     significant: Vec<ParserToken>,
     position: usize,
     limit: usize,
@@ -303,7 +303,7 @@ pub(super) fn parse(
     tokens: &mut [Token],
     lines: &[SyntaxLine],
     line_index: &LineIndex,
-    names: &mut NameTable,
+    names: &mut NameTableBuilder,
 ) -> FileFacts {
     let (significant, identifier_count) = significant_tokens(source, tokens, names);
     let limit = significant.len();

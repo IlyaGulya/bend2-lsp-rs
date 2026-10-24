@@ -1,6 +1,6 @@
 use super::{
-    DelimiterPair, DiagnosticKind, IndexSlot, NameId, NameTable, ScanOutput, SyntaxDiagnostic,
-    TextRange, Token, TokenFlags, TokenId, TokenKind,
+    DelimiterPair, DiagnosticKind, IndexSlot, NameId, NameTableBuilder, ScanOutput,
+    SyntaxDiagnostic, TextRange, Token, TokenFlags, TokenId, TokenKind,
 };
 
 pub(super) struct Scanner<'a> {
@@ -9,7 +9,7 @@ pub(super) struct Scanner<'a> {
     offset: usize,
     tokens: Vec<Token>,
     semantic_token_count: usize,
-    names: NameTable,
+    names: NameTableBuilder,
     diagnostics: Vec<SyntaxDiagnostic>,
     delimiters: Vec<(char, usize)>,
     delimiter_pairs: Vec<DelimiterPair>,
@@ -33,7 +33,7 @@ impl<'a> Scanner<'a> {
             offset: 0,
             tokens: Vec::new(),
             semantic_token_count: 0,
-            names: NameTable::new(),
+            names: NameTableBuilder::new(),
             diagnostics: Vec::new(),
             delimiters: Vec::new(),
             delimiter_pairs: Vec::new(),
@@ -109,12 +109,13 @@ impl<'a> Scanner<'a> {
 
     fn comment(&mut self) {
         let start = self.offset;
-        while self.offset < self.bytes.len() && self.bytes[self.offset] != b'\n' {
-            if !self.bytes[self.offset].is_ascii() {
-                self.mark_non_ascii();
-            }
-            self.offset += 1;
+        let end = self.source[start..]
+            .find('\n')
+            .map_or(self.bytes.len(), |width| start + width);
+        if !self.bytes[start..end].is_ascii() {
+            self.mark_non_ascii();
         }
+        self.offset = end;
         self.push_token(
             start,
             self.offset,
