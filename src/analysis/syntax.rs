@@ -2,6 +2,7 @@ use hashbrown::HashTable;
 use std::{
     collections::{HashMap, hash_map::RandomState},
     hash::{BuildHasher, Hasher},
+    ops::Deref,
 };
 
 use super::{InlayHint, LineIndex, SymbolKind, TextRange};
@@ -415,20 +416,10 @@ impl NameFacts {
     }
 }
 
-/// Construction-only interner. Per-name hashes support table growth while
-/// scanning and parsing; the completed table and seed move into the snapshot.
-#[derive(Debug)]
-struct NameTableBuilder {
-    ranges: Vec<TextRange>,
-    facts: Vec<NameFacts>,
-    lookup: HashTable<NameId>,
-    hashes: Vec<u64>,
-    hasher: RandomState,
-    token_names: Vec<IndexSlot>,
-}
-
-/// Frozen keyed name index. Source ranges and stable ids retain construction
-/// order; complete spelling checks distinguish even full-hash collisions.
+/// Keyed name index shared by construction and frozen snapshots. Source ranges
+/// and stable ids retain construction order; complete spelling checks
+/// distinguish even full-hash collisions. No mutating method is exposed here, so
+/// a published table cannot gain names; growth lives in `NameTableBuilder`.
 #[derive(Debug)]
 struct NameTable {
     ranges: Vec<TextRange>,
@@ -448,42 +439,7 @@ impl PartialEq for NameTable {
 
 impl Eq for NameTable {}
 
-impl NameTableBuilder {
-    fn new() -> Self {
-        Self {
-            ranges: Vec::new(),
-            facts: Vec::new(),
-            lookup: HashTable::new(),
-            hashes: Vec::new(),
-            hasher: RandomState::new(),
-            token_names: Vec::new(),
-        }
-    }
-
-    fn intern(&mut self, source: &str, range: TextRange, _token: TokenId) -> NameId {
-        let id = self.intern_name(source, range);
-        self.token_names.push(IndexSlot::some(id.0));
-        id
-    }
-
-    fn intern_name(&mut self, source: &str, range: TextRange) -> NameId {
-        let name = &source[range.start..range.end];
-        let hash = hash_name(&self.hasher, name);
-        if let Some(id) = self.find_hashed(source, name, hash) {
-            return id;
-        }
-        let id = NameId(self.ranges.len());
-        self.ranges.push(range);
-        self.facts.push(NameFacts::new(name));
-        self.hashes.push(hash);
-        self.lookup.insert_unique(hash, id, |id| self.hashes[id.0]);
-        id
-    }
-
-    fn append_non_name(&mut self) {
-        self.token_names.push(IndexSlot::EMPTY);
-    }
-
+impl NameTable {
     fn find(&self, source: &str, text: &str) -> Option<NameId> {
         self.find_hashed(source, text, hash_name(&self.hasher, text))
     }
@@ -508,48 +464,69 @@ impl NameTableBuilder {
             .and_then(IndexSlot::value)
             .map(NameId)
     }
+}
 
-    /// Moves the completed table without copying names, rebuilding buckets or
-    /// sorting ids. The growth-only hash buffer is no longer needed.
-    fn finish(self) -> NameTable {
-        let Self {
-            ranges,
-            facts,
-            lookup,
-            hasher,
-            token_names,
-            ..
-        } = self;
-        NameTable {
-            ranges,
-            facts,
-            lookup,
-            hasher,
-            token_names,
-        }
+/// Construction-only wrapper over the shared table. Per-name hashes support
+/// bucket growth while scanning and parsing, then are dropped at `finish`.
+/// Reads delegate through `Deref`, so construction and snapshot share one
+/// probe, range and token-slot implementation.
+#[derive(Debug)]
+struct NameTableBuilder {
+    table: NameTable,
+    hashes: Vec<u64>,
+}
+
+impl Deref for NameTableBuilder {
+    type Target = NameTable;
+
+    fn deref(&self) -> &Self::Target {
+        &self.table
     }
 }
 
-impl NameTable {
-    fn find(&self, source: &str, text: &str) -> Option<NameId> {
-        self.lookup
-            .find(hash_name(&self.hasher, text), |id| {
-                let range = self.ranges[id.0];
-                source.as_bytes()[range.start..range.end] == *text.as_bytes()
-            })
-            .copied()
+impl NameTableBuilder {
+    fn new() -> Self {
+        Self {
+            table: NameTable {
+                ranges: Vec::new(),
+                facts: Vec::new(),
+                lookup: HashTable::new(),
+                hasher: RandomState::new(),
+                token_names: Vec::new(),
+            },
+            hashes: Vec::new(),
+        }
     }
 
-    fn range(&self, id: NameId) -> TextRange {
-        self.ranges[id.0]
+    fn intern(&mut self, source: &str, range: TextRange, _token: TokenId) -> NameId {
+        let id = self.intern_name(source, range);
+        self.table.token_names.push(IndexSlot::some(id.0));
+        id
     }
 
-    fn for_token(&self, id: TokenId) -> Option<NameId> {
-        self.token_names
-            .get(id.0)
-            .copied()
-            .and_then(IndexSlot::value)
-            .map(NameId)
+    fn intern_name(&mut self, source: &str, range: TextRange) -> NameId {
+        let name = &source[range.start..range.end];
+        let hash = hash_name(&self.table.hasher, name);
+        if let Some(id) = self.table.find_hashed(source, name, hash) {
+            return id;
+        }
+        let id = NameId(self.table.ranges.len());
+        self.table.ranges.push(range);
+        self.table.facts.push(NameFacts::new(name));
+        self.hashes.push(hash);
+        let hashes = &self.hashes;
+        self.table.lookup.insert_unique(hash, id, |id| hashes[id.0]);
+        id
+    }
+
+    fn append_non_name(&mut self) {
+        self.table.token_names.push(IndexSlot::EMPTY);
+    }
+
+    /// Moves the completed table without copying names, rebuilding buckets or
+    /// sorting ids. The growth-only hash buffer is dropped here.
+    fn finish(self) -> NameTable {
+        self.table
     }
 }
 
@@ -1578,11 +1555,28 @@ mod name_table_tests {
         let mut names = NameTableBuilder::new();
         let alpha = names.intern_name(source, TextRange::new(0, 5));
         let beta = names.intern_name(source, TextRange::new(6, 10));
-        names.lookup.clear();
+        names.table.lookup.clear();
         for id in [alpha, beta] {
             names.hashes[id.0] = 42;
-            names.lookup.insert_unique(42, id, |_| 42);
+            names.table.lookup.insert_unique(42, id, |_| 42);
         }
+        assert_eq!(names.find_hashed(source, "alpha", 42), Some(alpha));
+        assert_eq!(names.find_hashed(source, "beta", 42), Some(beta));
+        assert_eq!(names.find_hashed(source, "gamma", 42), None);
+    }
+
+    #[test]
+    fn frozen_lookup_separates_full_hash_collisions() {
+        let source = "alpha beta";
+        let mut builder = NameTableBuilder::new();
+        let alpha = builder.intern_name(source, TextRange::new(0, 5));
+        let beta = builder.intern_name(source, TextRange::new(6, 10));
+        builder.table.lookup.clear();
+        for id in [alpha, beta] {
+            builder.hashes[id.0] = 42;
+            builder.table.lookup.insert_unique(42, id, |_| 42);
+        }
+        let names = builder.finish();
         assert_eq!(names.find_hashed(source, "alpha", 42), Some(alpha));
         assert_eq!(names.find_hashed(source, "beta", 42), Some(beta));
         assert_eq!(names.find_hashed(source, "gamma", 42), None);

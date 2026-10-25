@@ -70,13 +70,17 @@ rehashing all keys. Cold grouped indexes reuse the final span cursors rather
 than allocating separate per-group counts.
 
 Snapshot-local name interning stores source ranges and `NameId` values, not
-copied strings. A construction-only `NameTableBuilder` uses randomized hashing
-and complete spelling checks, including full-hash collisions. Once scanning
-and parsing finish, its completed table and original seed move into an immutable
-`NameTable` without rebuilding buckets. IDs, ranges, facts and token names keep
+copied strings. A single shared `NameTable` owns the ranges, facts, hash table,
+randomized seed and token-name slots, and defines the one spelling-verified
+probe, range and token-slot read path. A construction-only `NameTableBuilder`
+wraps that core and adds only the per-name hashes needed for bucket growth;
+reads delegate through `Deref`, and only the wrapper can intern names. Once
+scanning and parsing finish, the wrapper moves the completed core into the
+snapshot without copying names or rebuilding buckets, and the growth-only hash
+buffer is released at that boundary. Complete spelling checks, including
+full-hash collisions, are unchanged. IDs, ranges, facts and token names keep
 their construction order. Warm lookups hash only the query spelling and compare
 the indexed source ranges; they never scan the full document.
-The per-name hashes needed for cold table growth are released at this boundary.
 A byte-ordered lookup experiment was rejected after the complete 105-pair
 qualification exposed warm instruction regressions. Cold construction, retained
 memory and warm queries remain subject to the unchanged performance gates.

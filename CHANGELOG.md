@@ -70,6 +70,10 @@
   Move the completed cold table and seed without rebuilding or sorting names;
   release growth-only hashes and preserve IDs, source ranges and spelling checks.
   Keep the original source-bound cold/warm and memory qualification.
+- Share one source-backed name-table core between cold construction and immutable
+  snapshots, instead of maintaining duplicate lookup and token-slot readers.
+  Keep growth-only hashes construction-local, randomized full-spelling collision
+  checks and stable IDs; compiled-code and memory trade-offs remain gated.
 - Find analysis-comment boundaries in bulk and check ASCII once per comment,
   preserving LF-only line boundaries, Unicode trivia, CRLF and EOF. Keep the
   formatter's scanner separate.
