@@ -1021,6 +1021,43 @@ fn module_completion_preserves_length_boundaries_and_snapshot_isolation() {
 }
 
 #[test]
+fn completion_keeps_declarations_between_constructor_groups_including_recovery() {
+    use bend2_lsp::analysis::{
+        module_completion_items, qualified_completion_items, scoped_completion_items,
+    };
+
+    let source = concat!(
+        "type Ns.First is Data:\n  Ns.HiddenA{}\n  Ns.HiddenB{}\n",
+        "def Ns.middle() -> U32:\n  0\n",
+        "type Ns.Empty is Data:\n",
+        "type Ns.Last is Data:\n  Ns.Unfinished{field:",
+    );
+    let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
+    let expected = ["Ns.First", "Ns.middle", "Ns.Empty", "Ns.Last"];
+    assert_eq!(
+        module_completion_items(&snapshot, "Ns.")
+            .into_iter()
+            .map(|item| item.label)
+            .collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!(
+        scoped_completion_items(&snapshot, source.len(), "Ns.")
+            .into_iter()
+            .map(|item| item.label)
+            .collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!(
+        qualified_completion_items(&snapshot, "Ns", "")
+            .into_iter()
+            .map(|item| item.label)
+            .collect::<Vec<_>>(),
+        ["First", "middle", "Empty", "Last"]
+    );
+}
+
+#[test]
 fn duplicate_constructor_declarations_have_no_arbitrary_standalone_target() {
     let source = "type A is Data:\n  C{}\ntype B is Data:\n  C{}\ndef use() -> A: C{}\n";
     let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());

@@ -81,6 +81,14 @@ A byte-ordered lookup experiment was rejected after the complete 105-pair
 qualification exposed warm instruction regressions. Cold construction, retained
 memory and warm queries remain subject to the unchanged performance gates.
 
+Module, scoped and qualified completion visit declaration slices between the
+constructor IDs already stored in the cold constructor index. Constructor IDs
+retain declaration order, including recovered declarations. The warm traversal
+does not inspect every symbol's kind to exclude constructors, build another
+index, copy symbols, or allocate an intermediate collection. Matching, local
+shadowing, written declaration order and completion payloads stay unchanged;
+the original cold/warm and memory gates still decide performance admission.
+
 The parser's active binding slots and saved undo slots reuse the one-word
 `IndexSlot` representation. Scope IDs remain positions in the immutable scope
 array; scope records retain parents and recovery uncertainty. Definitions, laws,

@@ -756,6 +756,27 @@ impl SyntaxIndex {
         self.max_module_completion_bytes
     }
 
+    // Constructor IDs are ordered by declaration, just like `symbols`.
+    // Visit the intervening slices without testing every symbol's kind again.
+    pub(crate) fn module_symbol_chunks(&self) -> impl Iterator<Item = &[IndexedSymbol]> {
+        let constructors = self
+            .auxiliary
+            .data
+            .as_deref()
+            .and_then(|data| data.constructors.as_ref())
+            .map_or(&[][..], |index| index.entries.as_ref());
+        let mut start = 0;
+        constructors
+            .iter()
+            .map(|constructor| constructor.symbol.0)
+            .chain(std::iter::once(self.symbols.len()))
+            .map(move |end| {
+                let symbols = &self.symbols[start..end];
+                start = end + 1;
+                symbols
+            })
+    }
+
     #[must_use]
     pub fn declaration_sites(&self) -> &[DeclarationSite] {
         &self.sites

@@ -581,20 +581,21 @@ pub fn scoped_completion_items(
         }));
         items.sort_unstable_by(|left, right| left.label.cmp(&right.label));
     }
-    for symbol in syntax.symbols() {
-        let name = &source[symbol.name_range.start..symbol.name_range.end];
-        if symbol.kind != SymbolKind::Constructor
-            && completion_matches(name, prefix, ascii_prefix)
-            && (local_names.is_empty()
-                || local_names
-                    .binary_search_by_key(&symbol.name.0, |name| name.0)
-                    .is_err())
-        {
-            items.push(completion(
-                name.to_owned(),
-                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                symbol.kind,
-            ));
+    for symbols in syntax.module_symbol_chunks() {
+        for symbol in symbols {
+            let name = &source[symbol.name_range.start..symbol.name_range.end];
+            if completion_matches(name, prefix, ascii_prefix)
+                && (local_names.is_empty()
+                    || local_names
+                        .binary_search_by_key(&symbol.name.0, |name| name.0)
+                        .is_err())
+            {
+                items.push(completion(
+                    name.to_owned(),
+                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                    symbol.kind,
+                ));
+            }
         }
     }
     append_keyword_completions(&mut items, prefix, ascii_prefix);
@@ -757,15 +758,16 @@ fn collect_module_completions_for_query<const ASCII_PREFIX: bool>(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
-    for symbol in syntax.symbols() {
-        let name = &source[symbol.name_range.start..symbol.name_range.end];
-        if completion_matches(name, prefix, ASCII_PREFIX) && symbol.kind != SymbolKind::Constructor
-        {
-            items.push(completion(
-                name.to_owned(),
-                source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                symbol.kind,
-            ));
+    for symbols in syntax.module_symbol_chunks() {
+        for symbol in symbols {
+            let name = &source[symbol.name_range.start..symbol.name_range.end];
+            if completion_matches(name, prefix, ASCII_PREFIX) {
+                items.push(completion(
+                    name.to_owned(),
+                    source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
+                    symbol.kind,
+                ));
+            }
         }
     }
     items
@@ -780,23 +782,26 @@ pub fn qualified_completion_items(
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
     let ascii_prefix = prefix.is_ascii();
-    syntax
-        .symbols()
-        .iter()
-        .filter(|symbol| symbol.kind != SymbolKind::Constructor)
-        .filter_map(|symbol| {
+    let mut items = Vec::new();
+    for symbols in syntax.module_symbol_chunks() {
+        for symbol in symbols {
             let name = &source[symbol.name_range.start..symbol.name_range.end];
-            let label = name.strip_prefix(qualifier)?.strip_prefix('.')?;
-            completion_matches(label, prefix, ascii_prefix).then(|| {
-                let label = label.to_owned();
-                completion(
-                    label,
+            let Some(label) = name
+                .strip_prefix(qualifier)
+                .and_then(|name| name.strip_prefix('.'))
+            else {
+                continue;
+            };
+            if completion_matches(label, prefix, ascii_prefix) {
+                items.push(completion(
+                    label.to_owned(),
                     source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
                     symbol.kind,
-                )
-            })
-        })
-        .collect()
+                ));
+            }
+        }
+    }
+    items
 }
 
 fn completion(label: String, detail: String, symbol_kind: SymbolKind) -> Completion {
