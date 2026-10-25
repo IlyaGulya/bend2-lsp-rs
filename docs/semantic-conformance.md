@@ -235,6 +235,9 @@ After closing and reaping that instance, cleanup may start one separate
 shutdown-only verifier within the remaining original shutdown reserve. Its
 resources are also counted. Reports preserve the original work/shutdown
 observer errors; successful cleanup cannot turn failed work into success.
+Helper reaping uses a bounded subprocess wait rather than sleeping for a full
+RSS sampling interval after each kill. The wait uses only the remaining original
+deadline; an expired deadline or an unreaped helper still fails cleanup.
 The supervisor also bounds output/report sizes and kills/reaps process groups,
 including children whose group leader has already exited. Reports distinguish
 setup, startup, comparison, normalization, stdio, and shutdown costs.

@@ -56,6 +56,9 @@
 
 ### Under the hood
 
+- Reap terminated macOS process observers without waiting for another fixed RSS
+  sampling interval. Keep the original shutdown deadline and report cleanup
+  failures rather than hiding them after a work-stage timeout.
 - Merge already source-ordered per-name visibility ranges when constructing
   the cold local-binding index. Keep half-open scope and shadowing behavior;
   retain all original cold/warm benchmarks and performance admission limits.

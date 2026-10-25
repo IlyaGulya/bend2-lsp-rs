@@ -293,12 +293,12 @@ class ProcessObserver:
                     stream.close()
                 except OSError as error:
                     errors.append(f"cannot close observer pipe: {error}")
-        while self._process.poll() is None:
-            remaining = deadline-time.monotonic()
-            if remaining <= 0:
-                errors.append("observer cleanup deadline exceeded before helper was reaped")
-                break
-            time.sleep(min(_POLL_SECONDS, remaining))
+        try:
+            # Reap promptly after SIGKILL instead of charging a full sampling
+            # interval to each helper's shutdown. Keep the original deadline.
+            self._process.wait(timeout=max(0, deadline-time.monotonic()))
+        except subprocess.TimeoutExpired:
+            errors.append("observer cleanup deadline exceeded before helper was reaped")
         if time.monotonic() > deadline and not errors:
             errors.append("observer cleanup exceeded the original deadline")
         if errors:
