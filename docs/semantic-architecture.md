@@ -100,6 +100,14 @@ Scoped and qualified completion retain their direct filtered symbol traversal.
 The source-bound cold/warm and memory gates still decide whether to keep this
 specialization; source-level branch removal is not performance admission.
 
+Module completion derives each result's kind in the same match that excludes
+constructor declarations, instead of comparing the declaration kind twice.
+Prefix matches use `str::starts_with`'s existing length check; the explicit
+byte-length guard remains on the subsequence fallback. Result strings, allocation
+order, Unicode/ASCII matching and declaration order are unchanged. This removes
+duplicate predicates, not a source scan, result allocation or semantic index.
+Only the original source-bound performance qualification establishes a saving.
+
 The parser's active binding slots and saved undo slots reuse the one-word
 `IndexSlot` representation. Scope IDs remain positions in the immutable scope
 array; scope records retain parents and recovery uncertainty. Definitions, laws,

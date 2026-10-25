@@ -56,6 +56,9 @@
 
 ### Under the hood
 
+- Avoid repeating prefix-length and declaration-kind checks when materializing
+  indexed completions. Keep labels, details, matching, ordering and constructor
+  exclusion unchanged; retain the original cold/warm performance gates.
 - Reap terminated macOS process observers without waiting for another fixed RSS
   sampling interval. Keep the original shutdown deadline and report cleanup
   failures rather than hiding them after a work-stage timeout.
