@@ -304,6 +304,15 @@ impl PhysicalAliases {
         false
     }
 }
+
+/// One physical source path, owned by every logical identity that aliases it.
+/// Aliases end with the last owning entry, but the generation stays monotonic
+/// so a re-registered source cannot revive a view captured before retirement.
+#[derive(Default)]
+struct PhysicalFile {
+    aliases: Option<PhysicalAliases>,
+    generation: u64,
+}
 struct ImportWatchDependents {
     first: FileId,
     others: HashSet<FileId>,
@@ -336,7 +345,7 @@ impl ImportWatchDependents {
 
 struct FileEntry {
     uri: Arc<Url>,
-    path: Option<PathBuf>,
+    path: Option<Arc<Path>>,
     physical_path: Option<PathBuf>,
     physical_uri: Arc<Url>,
     language_id: String,
@@ -386,7 +395,8 @@ struct CompilerDocument {
 pub struct WorkspaceDb {
     entries: Vec<FileEntry>,
     by_uri: HashMap<Arc<Url>, FileId>,
-    by_path: HashMap<PathBuf, FileId>,
+    // Keys share ownership with `FileEntry::path`; aliases own their own key.
+    by_path: HashMap<Arc<Path>, FileId>,
     compiler_documents: Option<HashMap<FileId, CompilerDocument>>,
     // User file identities stay interned; graph liveness governs their payloads.
     reachable: HashSet<FileId>,
@@ -395,8 +405,7 @@ pub struct WorkspaceDb {
     semantic_views: HashMap<FileId, Arc<SemanticView>>,
     semantic_dependents: HashMap<FileId, HashSet<FileId>>,
     dirty_semantic_roots: HashSet<FileId>,
-    physical_files: HashMap<PathBuf, PhysicalAliases>,
-    physical_generations: HashMap<PathBuf, u64>,
+    physical_files: HashMap<PathBuf, PhysicalFile>,
     semantic_physical_dependents: HashMap<PathBuf, HashSet<FileId>>,
     semantic_library_path: Option<PathBuf>,
     semantic_base_importers: HashSet<FileId>,
@@ -677,22 +686,22 @@ impl WorkspaceDb {
         if let Some((path, _)) = prepared.and_then(|paths| paths.get_key_value(&candidate)) {
             return Some(path.as_path());
         }
-        if let Some((path, id)) = self.by_path.get_key_value(&candidate)
+        if let Some((path, id)) = self.by_path.get_key_value(candidate.as_path())
             && self.is_needed(*id)
             && self.entries[id.0].snapshot().is_some()
         {
-            return Some(path.as_path());
+            return Some(path.as_ref());
         }
         if candidate.extension().is_none() {
             let candidate = candidate.with_extension("bend");
             if let Some((path, _)) = prepared.and_then(|paths| paths.get_key_value(&candidate)) {
                 return Some(path.as_path());
             }
-            if let Some((path, id)) = self.by_path.get_key_value(&candidate)
+            if let Some((path, id)) = self.by_path.get_key_value(candidate.as_path())
                 && self.is_needed(*id)
                 && self.entries[id.0].snapshot().is_some()
             {
-                return Some(path.as_path());
+                return Some(path.as_ref());
             }
         }
         None
@@ -995,7 +1004,7 @@ impl WorkspaceDb {
             } else {
                 destinations.insert(destination.clone(), *id);
             }
-            if let Some(other) = self.by_path.get(&destination)
+            if let Some(other) = self.by_path.get(destination.as_path())
                 && !moving.contains(other)
                 && let (Some(source), Some(target)) = (
                     entry.open_snapshot.as_ref(),
@@ -1030,17 +1039,17 @@ impl WorkspaceDb {
                 {
                     return None;
                 }
-                let old = entry.path.as_ref()?;
+                let old = entry.path.as_deref()?;
                 let new = renamed_path(old, renames);
-                (new != *old).then_some((id, old.clone(), new))
+                (new.as_path() != old).then_some((id, old.to_path_buf(), new))
             })
             .collect();
         for (id, old, _) in &moves {
             self.release_retired_payload(*id);
             self.invalidate_semantic_file(*id);
             self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
-            if self.by_path.get(old) == Some(id) {
-                self.by_path.remove(old);
+            if self.by_path.get(old.as_path()) == Some(id) {
+                self.by_path.remove(old.as_path());
             }
             self.by_uri.remove(self.entries[id.0].uri.as_ref());
         }
@@ -1051,7 +1060,7 @@ impl WorkspaceDb {
             };
             let destination = self
                 .by_path
-                .get(&path)
+                .get(path.as_path())
                 .copied()
                 .filter(|other| *other != id);
             let canonical = destination
@@ -1067,9 +1076,10 @@ impl WorkspaceDb {
                 merged.push((retired, canonical));
             }
             let uri = Arc::new(uri);
+            let path = Arc::<Path>::from(path);
             self.entries[canonical.0].uri = Arc::clone(&uri);
-            self.entries[canonical.0].path = Some(path.clone());
-            self.update_physical_path(canonical, physical_paths.get(&path).cloned());
+            self.entries[canonical.0].path = Some(Arc::clone(&path));
+            self.update_physical_path(canonical, physical_paths.get(path.as_ref()).cloned());
             self.refresh_import_watch_paths(canonical);
             self.refresh_semantic_root(canonical);
             self.by_path.insert(path, canonical);
@@ -1174,7 +1184,7 @@ impl WorkspaceDb {
             }
             nodes.push(SourceGraphNode {
                 id,
-                path: entry.path.clone()?,
+                path: entry.path.as_deref()?.to_path_buf(),
                 snapshot,
                 imports,
             });
@@ -1334,7 +1344,7 @@ impl WorkspaceDb {
         imports: Vec<PreparedImportTarget>,
     ) -> Option<(FileId, bool)> {
         let path = normalize_path(path);
-        let id = *self.by_path.get(&path)?;
+        let id = *self.by_path.get(path.as_path())?;
         if !self.is_needed(id) {
             return None;
         }
@@ -1353,7 +1363,8 @@ impl WorkspaceDb {
     }
 
     pub(crate) fn document_path(&self, uri: &Url) -> Option<PathBuf> {
-        self.entries.get(self.by_uri.get(uri)?.0)?.path.clone()
+        let entry = self.entries.get(self.by_uri.get(uri)?.0)?;
+        entry.path.as_deref().map(Path::to_path_buf)
     }
 
     pub(crate) fn indexed_paths(&self) -> impl Iterator<Item = (&Path, bool)> {
@@ -1390,7 +1401,7 @@ impl WorkspaceDb {
             if entry.snapshot().is_none()
                 && let Some(path) = &entry.path
             {
-                paths.push(path.clone());
+                paths.push(path.to_path_buf());
             }
             pending.extend(entry.imports.iter().map(|edge| edge.target));
         }
@@ -1413,8 +1424,8 @@ impl WorkspaceDb {
             if self.entries[id.0].snapshot().is_none()
                 && let Some(path) = self.entries[id.0].path.clone()
             {
-                let text = std::fs::read_to_string(&path).ok();
-                self.sync_disk_path(&path, text);
+                let text = std::fs::read_to_string(path.as_ref()).ok();
+                self.sync_disk_path(path.as_ref(), text);
             }
             pending.extend(self.entries[id.0].imports.iter().map(|edge| edge.target));
         }
@@ -1635,13 +1646,28 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn file_id_by_path(&self, path: &Path) -> Option<FileId> {
-        self.by_path.get(&normalize_path(path)).copied()
+        let path = normalize_path(path);
+        self.by_path.get(path.as_path()).copied()
+    }
+
+    /// Path-index key that reuses the owning entry's buffer when both spell the
+    /// same path. Lookup aliases still own their distinct keys.
+    pub(in crate::workspace) fn shared_path_key(&self, file: FileId, path: PathBuf) -> Arc<Path> {
+        let entry = self.entries.get(file.0);
+        let Some(shared) = entry.and_then(|entry| entry.path.as_ref()) else {
+            return Arc::<Path>::from(path);
+        };
+        if &**shared == path.as_path() {
+            Arc::clone(shared)
+        } else {
+            Arc::<Path>::from(path)
+        }
     }
 
     fn intern(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
         if let Some(&id) = self.by_uri.get(&uri)
             && self.entries[id.0].uri.as_ref() == &uri
-            && self.entries[id.0].path == path
+            && self.entries[id.0].path.as_deref() == path.as_deref()
         {
             return id;
         }
@@ -1653,28 +1679,30 @@ impl WorkspaceDb {
             .filter(|id| self.entries[id.0].uri.as_ref() == &uri)
             .or_else(|| {
                 path.as_ref()
-                    .and_then(|path| self.by_path.get(path).copied())
+                    .and_then(|path| self.by_path.get(path.as_path()).copied())
                     .filter(|id| self.entries[id.0].uri.as_ref() == &uri)
             });
         if let Some(id) = existing {
-            if self.entries[id.0].path != path {
+            if self.entries[id.0].path.as_deref() != path.as_deref() {
                 self.invalidate_semantic_file(id);
             }
             let entry = &mut self.entries[id.0];
-            let refresh_uri = entry.physical_path.is_none() && entry.path != path;
+            let refresh_uri =
+                entry.physical_path.is_none() && entry.path.as_deref() != path.as_deref();
             if let Some(path) = path {
-                if entry.path.as_ref() != Some(&path)
+                if entry.path.as_deref() != Some(path.as_path())
                     && let Some(old_path) = entry.path.take()
-                    && self.by_path.get(&old_path) == Some(&id)
+                    && self.by_path.get(old_path.as_ref()) == Some(&id)
                 {
-                    self.by_path.remove(&old_path);
+                    self.by_path.remove(old_path.as_ref());
                 }
-                entry.path = Some(path.clone());
+                let path = Arc::<Path>::from(path);
+                entry.path = Some(Arc::clone(&path));
                 self.by_path.insert(path, id);
             } else if let Some(old_path) = entry.path.take()
-                && self.by_path.get(&old_path) == Some(&id)
+                && self.by_path.get(old_path.as_ref()) == Some(&id)
             {
-                self.by_path.remove(&old_path);
+                self.by_path.remove(old_path.as_ref());
             }
             if refresh_uri {
                 entry.physical_uri = physical_source_uri(&entry.uri, entry.path.as_deref());
@@ -1689,6 +1717,7 @@ impl WorkspaceDb {
         let id = FileId(self.entries.len());
         let uri = Arc::new(uri);
         let physical_uri = physical_source_uri(&uri, path.as_deref());
+        let path = path.map(Arc::<Path>::from);
         self.entries.push(FileEntry {
             uri: Arc::clone(&uri),
             path: path.clone(),
@@ -2903,6 +2932,45 @@ mod tests {
                 "{header}"
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn physical_source_generation_survives_retirement_and_reregistration() -> io::Result<()> {
+        let directory = tempfile::tempdir()?;
+        let physical = directory.path().join("1physical.bend");
+        let alias = directory.path().join("dep.bend");
+        fs::write(&physical, "def value() -> U32:\n  0\n")?;
+        std::os::unix::fs::symlink(&physical, &alias)?;
+        let main = directory.path().join("main.bend");
+        let uri = Url::from_file_path(&main).map_err(|()| io::Error::other("entry URI"))?;
+        let mut database = WorkspaceDb::default();
+        let root = database.set_open_document(
+            Document::new(
+                uri,
+                "bend".into(),
+                Revision(1),
+                "import ./dep.bend as D\ndef main() -> U32:\n  D.value()\n".into(),
+            ),
+            Some(main),
+        );
+        let physical = fs::canonicalize(physical)?;
+        assert_eq!(database.physical_generation(&physical), 1);
+        let view = database
+            .capture_semantic_view(root, None)
+            .ok_or_else(|| io::Error::other("captured entry view"))?
+            .build();
+        let target = database
+            .file_id_by_path(&alias)
+            .ok_or_else(|| io::Error::other("imported alias"))?;
+        // The captured view records this physical path's generation even though
+        // the non-namespace file is not a semantic view file. Retiring the last
+        // alias must keep the generation monotonic so re-registering the same
+        // source cannot revive the stale capture.
+        database.update_physical_path(target, None);
+        database.update_physical_path(target, Some(physical.clone()));
+        assert!(database.physical_generation(&physical) > 1);
+        assert!(!database.validate_semantic_view(&view, None));
         Ok(())
     }
 }

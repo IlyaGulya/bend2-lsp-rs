@@ -147,6 +147,22 @@ for this projection. The existing initial
 workspace, capture, view-build and update benchmarks retain those costs and
 trade-offs; no query worker, readiness barrier or semantic cache is added.
 
+A file entry's logical path is likewise one shared `Arc<Path>` owner: its
+`by_path` lookup key reuses that buffer, while import aliases keep distinct
+keys and buffer contents. Re-keying an entry (rebinding, rename or disk
+synchronization) replaces the owner and removes the previous key, so path
+lookups and alias spellings are unchanged. Physical sources also keep their
+aliases and monotonic generation in one path-keyed index; retiring the last
+alias clears only alias ownership, so a re-registered source cannot revive a
+view captured before retirement. Teardown drops one buffer instead of two per
+path, and the existing workspace, capture, view-build, update, rename and
+orphan-release benchmarks retain the remaining costs; no path interning cache,
+retention heuristic or query change is introduced.
+The merged generation tombstone retains a larger value than a standalone
+generation counter, while shared logical paths add reference-counting metadata.
+Fewer path buffers and one fewer map do not prove lower retained memory for
+every churn pattern; original memory/resource and cold/warm gates still apply.
+
 The cold symbol-registration pass also records the maximum non-constructor
 declaration-name byte length in each immutable snapshot. Module completion
 skips its declaration traversal only when the query exceeds that bound: the

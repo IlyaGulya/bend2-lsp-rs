@@ -1,5 +1,5 @@
 use super::{FileId, WorkspaceDb};
-use crate::workspace::{PhysicalAliases, physical_source_uri};
+use crate::workspace::{PhysicalAliases, PhysicalFile, physical_source_uri};
 use std::path::{Path, PathBuf};
 
 impl WorkspaceDb {
@@ -19,25 +19,31 @@ impl WorkspaceDb {
         };
         self.invalidate_semantic_file(file);
         if let Some(previous) = self.entries[file.0].physical_path.take()
-            && self
-                .physical_files
-                .get_mut(&previous)
-                .is_some_and(|files| files.remove(file))
+            && let Some(physical) = self.physical_files.get_mut(&previous)
         {
-            self.physical_files.remove(&previous);
+            let last_alias = physical
+                .aliases
+                .as_mut()
+                .is_some_and(|aliases| aliases.remove(file));
+            // The path keeps its generation after the last alias retires.
+            if last_alias {
+                physical.aliases = None;
+            }
         }
         self.entries[file.0].physical_path.clone_from(&path);
         if let Some(uri) = physical_uri {
             self.entries[file.0].physical_uri = uri;
         }
         if let Some(path) = path {
-            self.physical_files
-                .entry(path)
-                .and_modify(|files| files.others.push(file))
-                .or_insert_with(|| PhysicalAliases {
+            let physical = self.physical_files.entry(path).or_default();
+            if let Some(aliases) = physical.aliases.as_mut() {
+                aliases.others.push(file);
+            } else {
+                physical.aliases = Some(PhysicalAliases {
                     first: file,
                     others: Vec::new(),
                 });
+            }
             self.invalidate_physical_file(file);
         }
     }
@@ -46,10 +52,16 @@ impl WorkspaceDb {
         let Some(path) = self.entries[file.0].physical_path.as_deref() else {
             return;
         };
-        if let Some(generation) = self.physical_generations.get_mut(path) {
-            *generation = generation.wrapping_add(1);
+        if let Some(physical) = self.physical_files.get_mut(path) {
+            physical.generation = physical.generation.wrapping_add(1);
         } else {
-            self.physical_generations.insert(path.to_path_buf(), 1);
+            self.physical_files.insert(
+                path.to_path_buf(),
+                PhysicalFile {
+                    aliases: None,
+                    generation: 1,
+                },
+            );
         }
         if let Some(roots) = self.semantic_physical_dependents.remove(path) {
             for root in roots {
@@ -58,10 +70,19 @@ impl WorkspaceDb {
         }
     }
 
+    pub(in crate::workspace) fn physical_generation(&self, path: &Path) -> u64 {
+        self.physical_files
+            .get(path)
+            .map_or(0, |physical| physical.generation)
+    }
+
+    pub(in crate::workspace) fn physical_aliases(&self, path: &Path) -> Option<&PhysicalAliases> {
+        self.physical_files.get(path)?.aliases.as_ref()
+    }
+
     pub(super) fn physical_overlay_conflict(&self, path: &Path) -> bool {
         let mut snapshots = self
-            .physical_files
-            .get(path)
+            .physical_aliases(path)
             .into_iter()
             .flat_map(PhysicalAliases::iter)
             .filter_map(|file| self.entries[file.0].open_snapshot.as_ref());
@@ -82,8 +103,7 @@ impl WorkspaceDb {
             return (file, true);
         }
         (
-            self.physical_files
-                .get(path)
+            self.physical_aliases(path)
                 .into_iter()
                 .flat_map(PhysicalAliases::iter)
                 .copied()
@@ -91,8 +111,8 @@ impl WorkspaceDb {
                 .min_by(|left, right| {
                     let left = &self.entries[left.0];
                     let right = &self.entries[right.0];
-                    (left.path.as_ref() != Some(path))
-                        .cmp(&(right.path.as_ref() != Some(path)))
+                    (left.path.as_deref() != Some(path.as_path()))
+                        .cmp(&(right.path.as_deref() != Some(path.as_path())))
                         .then_with(|| left.uri.as_str().cmp(right.uri.as_str()))
                 })
                 .unwrap_or(file),

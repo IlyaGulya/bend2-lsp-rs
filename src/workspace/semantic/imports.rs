@@ -21,13 +21,13 @@ impl WorkspaceDb {
                 entry.uri.as_ref() == &uri && entry.open_snapshot.is_some()
             })
             .or_else(|| {
-                self.by_path.get(&path).copied().filter(|file| {
+                self.by_path.get(path.as_path()).copied().filter(|file| {
                     let entry = &self.entries[file.0];
-                    entry.path.as_ref() == Some(&path) && entry.open_snapshot.is_some()
+                    entry.path.as_deref() == Some(path.as_path()) && entry.open_snapshot.is_some()
                 })
             });
         self.detach_import_display(&path, &physical_path);
-        let existing = self.physical_files.get(&physical_path).and_then(|files| {
+        let existing = self.physical_aliases(&physical_path).and_then(|files| {
             files.iter().copied().min_by_key(|file| {
                 let entry = &self.entries[file.0];
                 (
@@ -47,8 +47,14 @@ impl WorkspaceDb {
                     && entry.disk_generation == 0
             }) {
                 self.update_physical_path(pending, Some(physical_path.clone()));
-                self.by_path.entry(path).or_insert(pending);
-                self.by_path.entry(physical_path).or_insert(pending);
+                let same_key = physical_path.as_path() == path.as_path();
+                let index_path = self.shared_path_key(pending, path);
+                self.by_path.entry(index_path).or_insert(pending);
+                if !same_key {
+                    self.by_path
+                        .entry(Arc::<Path>::from(physical_path))
+                        .or_insert(pending);
+                }
                 return Some(pending);
             }
             let target = self.allocate_file(uri.clone(), Some(path.clone()));
@@ -63,9 +69,15 @@ impl WorkspaceDb {
         } else {
             Arc::new(uri)
         };
+        let same_key = physical_path.as_path() == path.as_path();
+        let index_path = self.shared_path_key(target, path);
         self.by_uri.insert(uri, lookup_target);
-        self.by_path.insert(path, lookup_target);
-        self.by_path.entry(physical_path).or_insert(target);
+        self.by_path.insert(index_path, lookup_target);
+        if !same_key {
+            self.by_path
+                .entry(Arc::<Path>::from(physical_path))
+                .or_insert(target);
+        }
         Some(target)
     }
 
@@ -88,7 +100,8 @@ impl WorkspaceDb {
                 &mut self.entries[previous.0].uri,
                 Arc::clone(&canonical_uri),
             );
-            self.entries[previous.0].path = Some(physical.clone());
+            let physical = Arc::<Path>::from(physical);
+            self.entries[previous.0].path = Some(Arc::clone(&physical));
             if self.by_uri.get(old_uri.as_ref()) == Some(&previous) {
                 self.by_uri.remove(old_uri.as_ref());
             }

@@ -16,7 +16,7 @@ impl WorkspaceDb {
             .flat_map(|files| files.iter().copied())
             .collect();
         let mut targets = std::collections::HashSet::new();
-        if let Some(file) = self.by_path.get(&path) {
+        if let Some(file) = self.by_path.get(path.as_path()) {
             targets.insert(*file);
         }
         for source in &sources {
@@ -44,7 +44,7 @@ impl WorkspaceDb {
             let physical = self.entries[target.0]
                 .physical_path
                 .as_ref()
-                .and_then(|path| self.physical_files.get(path));
+                .and_then(|path| self.physical_aliases(path));
             for file in std::iter::once(target)
                 .chain(physical.into_iter().flat_map(|files| files.iter().copied()))
             {
@@ -67,8 +67,8 @@ impl WorkspaceDb {
         expected: &Arc<DocumentSnapshot>,
     ) -> Option<bool> {
         let path = self.entries.get(file.0)?.path.clone()?;
-        let physical = crate::workspace::canonical_source_path(&path);
-        let imports = crate::workspace::resolve_import_targets(&path, &physical, expected);
+        let physical = crate::workspace::canonical_source_path(path.as_ref());
+        let imports = crate::workspace::resolve_import_targets(path.as_ref(), &physical, expected);
         self.refresh_imports_prepared(file, expected, &physical, imports)
     }
 

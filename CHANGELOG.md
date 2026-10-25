@@ -56,6 +56,12 @@
 
 ### Under the hood
 
+- Share one logical path buffer between a workspace entry and its path-lookup
+  key, and keep each physical source's generation in the same path-keyed index
+  as its aliases instead of a second map. Preserve logical/physical URI
+  identity, alias and rename re-keying, import frontiers, retirement and
+  reimport, and monotonic physical generations; workspace benchmarks and
+  performance admission are unchanged.
 - Reap terminated macOS process observers without waiting for another fixed RSS
   sampling interval. Keep the original shutdown deadline and report cleanup
   failures rather than hiding them after a work-stage timeout.

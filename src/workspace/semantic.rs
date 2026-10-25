@@ -427,10 +427,9 @@ impl WorkspaceDb {
                     .and_then(std::path::Path::to_str)
                     .is_some_and(super::is_hub_import_path);
             if let Some(path) = &entry.physical_path {
-                physical.generations.insert(
-                    path.clone(),
-                    self.physical_generations.get(path).copied().unwrap_or(0),
-                );
+                physical
+                    .generations
+                    .insert(path.clone(), self.physical_generation(path));
                 if *physical
                     .overlays
                     .entry(path.as_path())
@@ -445,7 +444,10 @@ impl WorkspaceDb {
             files.push(CapturedFile {
                 id,
                 document: entry.document(),
-                path: entry.physical_path.clone().or_else(|| entry.path.clone()),
+                path: entry
+                    .physical_path
+                    .clone()
+                    .or_else(|| entry.path.as_deref().map(std::path::Path::to_path_buf)),
                 physical_uri: entry.physical_uri.clone(),
                 generation: entry.semantic_generation,
                 disk_generation: entry.disk_generation,
@@ -505,10 +507,9 @@ impl WorkspaceDb {
                     .physical_path
                     .as_deref()
                     .or(self.entries[target.0].path.as_deref())?;
-                physical.generations.insert(
-                    path.to_path_buf(),
-                    self.physical_generations.get(path).copied().unwrap_or(0),
-                );
+                physical
+                    .generations
+                    .insert(path.to_path_buf(), self.physical_generation(path));
                 if !super::valid_import_namespace_path(
                     path,
                     top?,
@@ -552,9 +553,7 @@ impl WorkspaceDb {
                 .input
                 .physical_generations
                 .iter()
-                .all(|(path, generation)| {
-                    self.physical_generations.get(path).copied().unwrap_or(0) == *generation
-                })
+                .all(|(path, generation)| self.physical_generation(path) == *generation)
             && view.input.files.iter().all(|file| {
                 let Some(entry) = self.entries.get(file.id.0) else {
                     return false;
@@ -667,7 +666,7 @@ impl WorkspaceDb {
             }
             if let Some(path) = entry.physical_path.as_ref()
                 && physical.insert(path)
-                && let Some(aliases) = self.physical_files.get(path)
+                && let Some(aliases) = self.physical_aliases(path)
             {
                 pending.extend(aliases.iter().copied());
             }
