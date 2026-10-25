@@ -40,6 +40,15 @@ array. Synthetic references remain excluded, and reference bucketing remaps the
 same token map before publication. Warm lookup adds an indexed reference read,
 not a semantic scan; the unchanged cold/warm gates retain that trade-off.
 
+Cold reference publication consumes its existing destination-to-source
+permutation with an in-place cycle scatter. It publishes the inverse source
+lookup during that traversal, then remaps token and name lookups with the same
+completed inverse. Fixed points need no record copy; moved records are assigned
+once rather than repeatedly swapped, with one saved record per cycle. Existing
+scratch slots hold visited markers, so no extra record arena or retained index is
+added. Stable group/source order and unresolved targets are unchanged. Cold
+construction, warm queries and memory remain subject to the original gates.
+
 The workspace owns views; feature handlers consume captured immutable views.
 Warm queries must not rescan source, reparse imports or headers, or rebuild a
 whole-workspace representation. Loading and preparing a view is cold work,

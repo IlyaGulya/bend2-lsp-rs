@@ -1453,8 +1453,34 @@ fn index_references(
             Some(reference.full_name.0)
         });
     let mut source_indices = vec![0; references.len()];
-    for (destination, &source) in order.iter().enumerate() {
-        source_indices[source] = destination;
+    // Scatter each record once from its source slot into its grouped destination
+    // and publish the inverse permutation in the same traversal. Consuming the
+    // grouping permutation this way avoids a duplicate wide-record arena, the
+    // extra source -> destination buffer copy, and the three-record swaps per
+    // moved element. `usize::MAX` marks an already-scattered destination.
+    for start in 0..order.len() {
+        let source = order[start];
+        if source == usize::MAX {
+            continue;
+        }
+        if source == start {
+            source_indices[start] = start;
+            order[start] = usize::MAX;
+            continue;
+        }
+        let displaced = references[start];
+        let mut destination = start;
+        loop {
+            let origin = order[destination];
+            order[destination] = usize::MAX;
+            source_indices[origin] = destination;
+            if origin == start {
+                references[destination] = displaced;
+                break;
+            }
+            references[destination] = references[origin];
+            destination = origin;
+        }
     }
     for slot in &mut token_references {
         if let Some(source) = slot.value() {
@@ -1463,16 +1489,6 @@ fn index_references(
     }
     for index in &mut by_name_indices {
         *index = source_indices[*index];
-    }
-    // Consume a source -> destination permutation with swaps; do not allocate a
-    // second wide-record arena. Keep the immutable inverse for source traversals.
-    order.copy_from_slice(&source_indices);
-    for source in 0..order.len() {
-        while order[source] != source {
-            let destination = order[source];
-            references.swap(source, destination);
-            order.swap(source, destination);
-        }
     }
     ReferenceIndex {
         references,

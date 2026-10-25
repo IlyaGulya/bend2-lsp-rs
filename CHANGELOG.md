@@ -56,6 +56,9 @@
 
 ### Under the hood
 
+- Group cold reference records with an in-place scatter instead of repeated
+  wide-record swaps and a permutation-buffer copy. Preserve source, target,
+  name and token lookup order without adding retained storage or warm-query work.
 - Reap terminated macOS process observers without waiting for another fixed RSS
   sampling interval. Keep the original shutdown deadline and report cleanup
   failures rather than hiding them after a work-stage timeout.
