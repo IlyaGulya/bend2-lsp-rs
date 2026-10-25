@@ -81,10 +81,10 @@
   eligible declaration name. Prepare the bound during cold symbol registration;
   preserve existing matching and snapshot isolation, with cold/memory costs
   retained in the unchanged performance gates.
-- Reuse indexed constructor positions when visiting module declarations for
-  completion, instead of filtering every symbol again. Preserve scoped
-  shadowing, qualified names, declaration order and incomplete-input behavior
-  without another stored index; retain the original performance gates.
+- Select module-completion constructor exclusion once from the existing snapshot
+  index, retaining the general path for complete and recovered constructors.
+  Remove the rejected constructor-chunk traversal, keep its order/recovery test,
+  and retain all original performance gates without additional stored metadata.
 - Prepare per-file reachability membership during cold graph updates. Dependency
   queries reuse the indexed flag without repeatedly hashing file identities;
   preserve terminal frontiers, cycles, retirement and reimport behavior.

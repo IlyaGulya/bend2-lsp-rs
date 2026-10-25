@@ -1058,6 +1058,27 @@ fn completion_keeps_declarations_between_constructor_groups_including_recovery()
 }
 
 #[test]
+fn module_completion_keeps_same_spelling_functions_when_constructors_change() {
+    use bend2_lsp::analysis::{CompletionKind, module_completion_items};
+
+    let function = "def C() -> U32:\n  0\n";
+    let with_constructor = "type T is Data:\n  C{}\ndef C() -> U32:\n  0\n";
+    for (revision, source) in [(0, function), (1, with_constructor), (2, function)] {
+        let snapshot = DocumentSnapshot::new(Revision(revision), source.to_owned());
+        for prefix in ["C", "c"] {
+            let items = module_completion_items(&snapshot, prefix);
+            assert_eq!(
+                items
+                    .iter()
+                    .map(|item| (item.label.as_str(), item.kind))
+                    .collect::<Vec<_>>(),
+                [("C", CompletionKind::Function)]
+            );
+        }
+    }
+}
+
+#[test]
 fn duplicate_constructor_declarations_have_no_arbitrary_standalone_target() {
     let source = "type A is Data:\n  C{}\ntype B is Data:\n  C{}\ndef use() -> A: C{}\n";
     let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());
