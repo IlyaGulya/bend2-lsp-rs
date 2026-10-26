@@ -75,7 +75,7 @@ mod tests {
             .into_iter()
             .map(|document| document.uri)
             .collect();
-        assert_eq!(diagnostic_roots, [root_uri.clone()]);
+        assert_eq!(diagnostic_roots.as_slice(), std::slice::from_ref(&root_uri));
 
         let missing_uri = file_uri(&temp.path().join("missing.bend"))?;
         assert!(
