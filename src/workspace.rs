@@ -1564,6 +1564,16 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn dependents(&self, changed: FileId) -> Vec<Document> {
+        self.collect_dependents::<false>(changed)
+    }
+
+    /// Diagnostic roots only; closed intermediates still lead to open dependents.
+    #[must_use]
+    pub(crate) fn open_dependents(&self, changed: FileId) -> Vec<Document> {
+        self.collect_dependents::<true>(changed)
+    }
+
+    fn collect_dependents<const OPEN_ONLY: bool>(&self, changed: FileId) -> Vec<Document> {
         let is_reachable = |id: FileId| {
             self.entries
                 .get(id.0)
@@ -1581,7 +1591,11 @@ impl WorkspaceDb {
             return Vec::new();
         }
         let mut pending = Vec::new();
-        let mut documents = Vec::with_capacity(capacity.max(4).min(dependent_bound));
+        let mut documents = if OPEN_ONLY {
+            Vec::new()
+        } else {
+            Vec::with_capacity(capacity.max(4).min(dependent_bound))
+        };
         // Reverse edges are unique. Terminal frontiers need no visited set
         // or allocated traversal stack.
         for dependent in &self.entries[changed.0].reverse_imports {
@@ -1589,7 +1603,9 @@ impl WorkspaceDb {
                 continue;
             }
             let entry = &self.entries[dependent.0];
-            if let Some(document) = entry.document() {
+            if (!OPEN_ONLY || entry.open_snapshot.is_some())
+                && let Some(document) = entry.document()
+            {
                 documents.push(document);
             }
             if !entry.reverse_imports.is_empty() {
@@ -1614,7 +1630,9 @@ impl WorkspaceDb {
                     continue;
                 }
                 let entry = &self.entries[dependent.0];
-                if let Some(document) = entry.document() {
+                if (!OPEN_ONLY || entry.open_snapshot.is_some())
+                    && let Some(document) = entry.document()
+                {
                     documents.push(document);
                 }
                 if !entry.reverse_imports.is_empty() {

@@ -56,6 +56,12 @@
 
 ### Under the hood
 
+- Schedule dependency-triggered diagnostics only for open documents, while
+  traversing closed intermediate imports without cloning their documents.
+  Prepare required entry views in bounded batches with per-root capture and
+  provenance validation, stop between builds on shutdown, and skip reverse-import
+  traversal when every semantic root already has a current view. Keep the
+  original correctness, lifecycle and performance admission gates.
 - Group cold reference records with an in-place scatter instead of repeated
   wide-record swaps and a permutation-buffer copy. Preserve source, target,
   name and token lookup order without adding retained storage or warm-query work.

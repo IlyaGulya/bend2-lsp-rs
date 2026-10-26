@@ -19,7 +19,7 @@ use crate::{
     analysis::{self, ReferenceRole},
     workspace::{
         Document, FileId, SemanticBase, SemanticEntity, SemanticEntityId, SemanticOccurrence,
-        SemanticSite, SemanticTarget, SemanticView,
+        SemanticSite, SemanticTarget, SemanticView, SemanticViewInput,
     },
 };
 
@@ -37,6 +37,10 @@ enum SemanticPreparation<'a> {
     Open,
     Entries(&'a [FileId]),
 }
+
+/// Bound roots per staging task and publication guard while amortizing dispatch.
+/// Shutdown can stop between individual builds within the batch.
+const SEMANTIC_PREPARATION_BATCH: usize = 32;
 
 impl Backend {
     fn semantic_base(&self) -> Option<SemanticBase> {
@@ -83,28 +87,51 @@ impl Backend {
                 return;
             }
             let mut published = false;
-            for root in roots {
+            for chunk in roots.chunks(SEMANTIC_PREPARATION_BATCH) {
+                if self.workspace.staging.is_closed() {
+                    return;
+                }
                 let base = self.semantic_base();
                 let load_base = base.is_none();
-                let input = self.workspace.read().capture_semantic_view(root, base);
-                let Some(mut input) = input else {
-                    continue;
-                };
-                if load_base && input.requires_base() {
-                    self.load_prelude_module().await;
-                    if let Some(base) = self.semantic_base() {
-                        let refreshed = self
-                            .workspace
-                            .read()
-                            .capture_semantic_view(root, Some(base));
-                        let Some(refreshed) = refreshed else {
-                            continue;
-                        };
-                        input = refreshed;
+                let mut inputs = Vec::with_capacity(chunk.len());
+                for root in chunk {
+                    if self.workspace.staging.is_closed() {
+                        return;
+                    }
+                    // One short capture guard per root: chunking changes only
+                    // how many staging and publication round trips are paid.
+                    let input = self
+                        .workspace
+                        .read()
+                        .capture_semantic_view(*root, base.clone());
+                    if let Some(input) = input {
+                        inputs.push(input);
                     }
                 }
-                let Some(view) = run_staging(self.workspace.staging.clone(), move || {
-                    Arc::new(input.build())
+                if inputs.is_empty() {
+                    continue;
+                }
+                if load_base && inputs.iter().any(SemanticViewInput::requires_base) {
+                    self.load_prelude_module().await;
+                    if let Some(base) = self.semantic_base() {
+                        inputs = chunk
+                            .iter()
+                            .take_while(|_| !self.workspace.staging.is_closed())
+                            .filter_map(|root| {
+                                self.workspace
+                                    .read()
+                                    .capture_semantic_view(*root, Some(base.clone()))
+                            })
+                            .collect();
+                    }
+                }
+                let staging = self.workspace.staging.clone();
+                let Some(views) = run_staging(staging.clone(), move || {
+                    inputs
+                        .into_iter()
+                        .take_while(|_| !staging.is_closed())
+                        .map(|input| Arc::new(input.build()))
+                        .collect::<Vec<_>>()
                 })
                 .await
                 else {
@@ -112,9 +139,11 @@ impl Backend {
                 };
                 let _update = self.workspace.updates.write().await;
                 let current_base = self.semantic_base();
-                published |= self
-                    .workspace
-                    .publish_semantic_view(view, current_base.as_ref());
+                for view in views {
+                    published |= self
+                        .workspace
+                        .publish_semantic_view(view, current_base.as_ref());
+                }
             }
             // A superseding revision or closed epoch invalidates the captured
             // inputs. Its owner prepares the replacement after committing.
@@ -126,6 +155,12 @@ impl Backend {
 
     fn missing_semantic_reference_roots(&self, file: FileId) -> Vec<FileId> {
         let database = self.workspace.read();
+        // Dirty roots are exactly the semantic roots without a current view, so
+        // an empty dirty set proves nothing is missing without walking the
+        // reverse-import closure of a settled workspace.
+        if database.semantic_views_ready_for(None) {
+            return Vec::new();
+        }
         database
             .semantic_entry_roots_for_file(file)
             .into_iter()

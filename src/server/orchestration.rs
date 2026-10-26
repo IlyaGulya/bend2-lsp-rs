@@ -732,6 +732,9 @@ impl Backend {
         )
     }
 
+    /// Dependents that can publish diagnostics: only open overlays own a
+    /// diagnostics task. `run_diagnostics` rejects a closed document after its
+    /// revision delay, so scheduling one would allocate and wake a late no-op.
     #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "dependents", file_id = tracing::field::Empty, result_count = tracing::field::Empty))]
     pub(super) async fn dependent_documents(&self, changed: &Url) -> Vec<Document> {
         let span = tracing::Span::current();
@@ -752,7 +755,7 @@ impl Backend {
                     });
                     let documents = id.map_or_else(Vec::new, |id| {
                         tracing::Span::current().record("file_id", tracing::field::debug(&id));
-                        database.dependents(id)
+                        database.open_dependents(id)
                     });
                     tracing::Span::current().record("result_count", documents.len());
                     documents

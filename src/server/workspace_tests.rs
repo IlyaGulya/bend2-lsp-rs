@@ -70,6 +70,12 @@ mod tests {
             .map(|path| file_uri(path))
             .collect::<std::io::Result<_>>()?;
         assert_eq!(dependents, expected);
+        let diagnostic_roots: Vec<Url> = database
+            .open_dependents(shared)
+            .into_iter()
+            .map(|document| document.uri)
+            .collect();
+        assert_eq!(diagnostic_roots, [root_uri.clone()]);
 
         let missing_uri = file_uri(&temp.path().join("missing.bend"))?;
         assert!(
