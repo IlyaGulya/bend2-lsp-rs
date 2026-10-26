@@ -103,7 +103,7 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
     let SemanticViewInput {
         serial,
         root,
-        files: mut captured,
+        files: captured,
         file_indices,
         library,
         base,
@@ -150,32 +150,6 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
             .cloned()
             .map(|path| SemanticIssue::ConflictingOverlays { path }),
     );
-    // The view owns one Document per captured file; the capture keeps only the
-    // shared URI and snapshot identity afterwards.
-    for file in &mut captured {
-        let id = file.id;
-        let physical_uri = Arc::clone(&file.physical_uri);
-        let Some(document) = &mut file.document else {
-            continue;
-        };
-        view.document_indices.insert(id, view.documents.len());
-        view.by_uri.insert(Arc::clone(&document.uri), id);
-        view.by_physical_uri.insert(Arc::clone(&physical_uri), id);
-        view.physical_uris.insert(id, physical_uri);
-        view.documents.push(Document::with_snapshot(
-            document.uri.as_ref().clone(),
-            std::mem::take(&mut document.language_id),
-            Arc::clone(&document.snapshot),
-        ));
-    }
-    if let (Some(base), Some(file)) = (&view.capture.base, view.capture.base_file) {
-        view.document_indices.insert(file, view.documents.len());
-        let uri = Arc::new(base.document.uri.clone());
-        view.by_uri.insert(Arc::clone(&uri), file);
-        view.by_physical_uri.insert(Arc::clone(&uri), file);
-        view.physical_uris.insert(file, uri);
-        view.documents.push(base.document.clone());
-    }
     let mut builder = Builder {
         view,
         files: BuildFiles {
@@ -189,6 +163,7 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         pending: Vec::new(),
         call_count: 0,
     };
+    builder.install_documents();
     let contexts = builder.load_order();
     builder.reserve_indexes(&contexts);
     for context in contexts {
@@ -206,6 +181,41 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
 }
 
 impl Builder {
+    fn install_documents(&mut self) {
+        // The view owns one Document per captured file; the capture keeps only
+        // the shared URI and snapshot identity afterwards.
+        for file in &mut self.files.files {
+            let Some(document) = &mut file.document else {
+                continue;
+            };
+            let id = file.id;
+            let physical_uri = Arc::clone(&file.physical_uri);
+            self.view
+                .document_indices
+                .insert(id, self.view.documents.len());
+            self.view.by_uri.insert(Arc::clone(&document.uri), id);
+            self.view
+                .by_physical_uri
+                .insert(Arc::clone(&physical_uri), id);
+            self.view.physical_uris.insert(id, physical_uri);
+            self.view.documents.push(Document::with_snapshot(
+                document.uri.as_ref().clone(),
+                std::mem::take(&mut document.language_id),
+                Arc::clone(&document.snapshot),
+            ));
+        }
+        if let (Some(base), Some(file)) = (&self.view.capture.base, self.view.capture.base_file) {
+            self.view
+                .document_indices
+                .insert(file, self.view.documents.len());
+            let uri = Arc::new(base.document.uri.clone());
+            self.view.by_uri.insert(Arc::clone(&uri), file);
+            self.view.by_physical_uri.insert(Arc::clone(&uri), file);
+            self.view.physical_uris.insert(file, uri);
+            self.view.documents.push(base.document.clone());
+        }
+    }
+
     fn reserve_indexes(&mut self, contexts: &[FileContext]) {
         let mut declarations = 0;
         let mut bindings = 0;
