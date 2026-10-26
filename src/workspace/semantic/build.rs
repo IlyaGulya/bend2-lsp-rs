@@ -5,13 +5,25 @@ use std::{
 };
 
 use super::{
-    FileId, SemanticBindingId, SemanticCall, SemanticDeclaration, SemanticEntity, SemanticEntityId,
-    SemanticFileContext, SemanticIssue, SemanticOccurrence, SemanticSite, SemanticTarget,
-    SemanticView, SemanticViewInput,
+    CapturedFile, Document, FileId, SemanticBindingId, SemanticCall, SemanticCapture,
+    SemanticDeclaration, SemanticEntity, SemanticEntityId, SemanticFileContext, SemanticIssue,
+    SemanticOccurrence, SemanticSite, SemanticTarget, SemanticView, SemanticViewInput,
 };
 use crate::analysis::{
     DeclarationKind, DeclarationSite, DocumentSnapshot, ReferenceRole, SymbolId, TextRange,
 };
+
+/// Captured files and their lookup index; both are dropped once build completes.
+struct BuildFiles {
+    files: Vec<CapturedFile>,
+    indices: HashMap<FileId, usize>,
+}
+
+impl BuildFiles {
+    fn file(&self, id: FileId) -> Option<&CapturedFile> {
+        self.files.get(*self.indices.get(&id)?)
+    }
+}
 
 struct FileContext {
     file: FileId,
@@ -24,27 +36,28 @@ struct FileContext {
 
 impl FileContext {
     fn new(
-        input: &SemanticViewInput,
+        files: &BuildFiles,
+        capture: &SemanticCapture,
         file: FileId,
         namespace: String,
         aliases: HashMap<String, String>,
         base: bool,
     ) -> Self {
-        let captured = input.file(file);
+        let captured = files.file(file);
         let generation = captured.map_or_else(
-            || input.base.as_ref().map_or(0, |base| base.generation),
+            || capture.base.as_ref().map_or(0, |base| base.generation),
             |entry| {
                 entry
                     .path
-                    .as_ref()
-                    .and_then(|path| input.physical_generations.get(path))
+                    .as_deref()
+                    .and_then(|path| capture.physical_generations.get(path))
                     .copied()
                     .unwrap_or(entry.generation)
             },
         );
         let conflicted = captured
-            .and_then(|entry| entry.path.as_ref())
-            .is_some_and(|path| input.conflicting_paths.contains(path));
+            .and_then(|entry| entry.path.as_deref())
+            .is_some_and(|path| capture.conflicting_paths.contains(path));
         Self {
             file,
             generation,
@@ -76,6 +89,7 @@ struct PendingOccurrence {
 
 struct Builder {
     view: SemanticView,
+    files: BuildFiles,
     names: HashMap<String, SemanticTarget>,
     constructors: HashMap<String, SemanticTarget>,
     top_levels: HashMap<String, SemanticTarget>,
@@ -86,8 +100,28 @@ struct Builder {
 }
 
 pub(super) fn build(input: SemanticViewInput) -> SemanticView {
+    let SemanticViewInput {
+        serial,
+        root,
+        files: mut captured,
+        file_indices,
+        library,
+        base,
+        base_file,
+        physical_generations,
+        conflicting_paths,
+    } = input;
     let mut view = SemanticView {
-        input,
+        capture: SemanticCapture {
+            serial,
+            root,
+            files: Vec::new().into_boxed_slice(),
+            library,
+            base,
+            base_file,
+            physical_generations,
+            conflicting_paths,
+        },
         documents: Vec::new(),
         document_indices: HashMap::new(),
         entities: Vec::new(),
@@ -110,33 +144,44 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         parameter_hints: HashMap::new(),
     };
     view.issues.extend(
-        view.input
+        view.capture
             .conflicting_paths
             .iter()
             .cloned()
             .map(|path| SemanticIssue::ConflictingOverlays { path }),
     );
-    for file in &view.input.files {
-        if let Some(document) = &file.document {
-            view.document_indices.insert(file.id, view.documents.len());
-            view.by_uri.insert(document.uri.clone(), file.id);
-            view.by_physical_uri
-                .insert(file.physical_uri.clone(), file.id);
-            view.physical_uris
-                .insert(file.id, file.physical_uri.clone());
-            view.documents.push(document.clone());
-        }
+    // The view owns one Document per captured file; the capture keeps only the
+    // shared URI and snapshot identity afterwards.
+    for file in &mut captured {
+        let id = file.id;
+        let physical_uri = Arc::clone(&file.physical_uri);
+        let Some(document) = &mut file.document else {
+            continue;
+        };
+        view.document_indices.insert(id, view.documents.len());
+        view.by_uri.insert(Arc::clone(&document.uri), id);
+        view.by_physical_uri.insert(Arc::clone(&physical_uri), id);
+        view.physical_uris.insert(id, physical_uri);
+        view.documents.push(Document::with_snapshot(
+            document.uri.as_ref().clone(),
+            std::mem::take(&mut document.language_id),
+            Arc::clone(&document.snapshot),
+        ));
     }
-    if let (Some(base), Some(file)) = (&view.input.base, view.input.base_file) {
+    if let (Some(base), Some(file)) = (&view.capture.base, view.capture.base_file) {
         view.document_indices.insert(file, view.documents.len());
-        view.by_uri.insert(base.document.uri.clone(), file);
-        let physical_uri = Arc::new(base.document.uri.clone());
-        view.by_physical_uri.insert(physical_uri.clone(), file);
-        view.physical_uris.insert(file, physical_uri);
+        let uri = Arc::new(base.document.uri.clone());
+        view.by_uri.insert(Arc::clone(&uri), file);
+        view.by_physical_uri.insert(Arc::clone(&uri), file);
+        view.physical_uris.insert(file, uri);
         view.documents.push(base.document.clone());
     }
     let mut builder = Builder {
         view,
+        files: BuildFiles {
+            files: captured,
+            indices: file_indices,
+        },
         names: HashMap::new(),
         constructors: HashMap::new(),
         top_levels: HashMap::new(),
@@ -194,10 +239,9 @@ impl Builder {
             Enter(FileId, String, bool),
             Finish(FileContext),
         }
-        let root = self.view.input.root;
+        let root = self.view.capture.root;
         let top = self
-            .view
-            .input
+            .files
             .file(root)
             .and_then(|file| file.path.as_deref())
             .and_then(Path::parent)
@@ -260,7 +304,7 @@ impl Builder {
             }
             let path = import.path_text(&document.text);
             if path == "Base" && import.alias.is_none() {
-                if let Some(base_file) = self.view.input.base_file {
+                if let Some(base_file) = self.view.capture.base_file {
                     children.push((base_file, String::new(), true));
                 } else {
                     self.view.issues.push(SemanticIssue::MissingImport {
@@ -270,7 +314,7 @@ impl Builder {
                 }
                 continue;
             }
-            let edge = self.view.input.file(file).and_then(|entry| {
+            let edge = self.files.file(file).and_then(|entry| {
                 entry
                     .semantic_imports
                     .iter()
@@ -284,8 +328,7 @@ impl Builder {
                 continue;
             };
             if self
-                .view
-                .input
+                .files
                 .file(edge.target)
                 .and_then(|entry| entry.document.as_ref())
                 .is_none()
@@ -297,13 +340,12 @@ impl Builder {
                 continue;
             }
             let target_path = self
-                .view
-                .input
+                .files
                 .file(edge.target)
                 .and_then(|entry| entry.path.as_deref());
             let namespace_root = target_path.and_then(|path| {
                 self.view
-                    .input
+                    .capture
                     .library
                     .as_deref()
                     .filter(|library| path.starts_with(library))
@@ -332,7 +374,14 @@ impl Builder {
             children.push((edge.target, namespace, false));
         }
         Some(FileLoad {
-            context: FileContext::new(&self.view.input, file, namespace, aliases, base),
+            context: FileContext::new(
+                &self.files,
+                &self.view.capture,
+                file,
+                namespace,
+                aliases,
+                base,
+            ),
             children,
         })
     }
@@ -669,6 +718,12 @@ impl Builder {
         self.view.names = self.names;
         self.view.namespace_indices = namespace_index(&self.view.entities);
         self.view.parameter_hints = parameter_hint_index(&self.view);
+        self.view.capture.files = self
+            .files
+            .files
+            .into_iter()
+            .map(CapturedFile::into_receipt)
+            .collect();
         self.view
     }
 }

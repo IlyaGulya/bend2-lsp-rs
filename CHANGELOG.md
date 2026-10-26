@@ -62,6 +62,11 @@
   provenance validation, stop between builds on shutdown, and skip reverse-import
   traversal when every semantic root already has a current view. Keep the
   original correctness, lifecycle and performance admission gates.
+- Retain compact snapshot identity and generation receipts after building an
+  entry view instead of keeping its complete build input. Share immutable URI
+  and physical-path ownership and release build-only lookup/import tables.
+  Preserve provenance validation, invalidation and the borrowed occurrence and
+  reference query APIs; retained-memory and cold/warm costs remain gated.
 - Group cold reference records with an in-place scatter instead of repeated
   wide-record swaps and a permutation-buffer copy. Preserve source, target,
   name and token lookup order without adding retained storage or warm-query work.

@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    path::Path,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -7,7 +8,7 @@ use std::{
 };
 
 use super::{Document, FileId, ImportEdge, WorkspaceDb};
-use crate::analysis::{DeclarationKind, ReferenceRole, SymbolId, TextRange};
+use crate::analysis::{DeclarationKind, DocumentSnapshot, ReferenceRole, SymbolId, TextRange};
 
 mod build;
 mod completion;
@@ -18,10 +19,18 @@ mod watch;
 
 #[derive(Default)]
 struct PhysicalCapture<'a> {
-    generations: HashMap<std::path::PathBuf, u64>,
+    generations: HashMap<Arc<Path>, u64>,
     conflicts: std::collections::HashSet<std::path::PathBuf>,
-    selected: HashMap<&'a std::path::Path, FileId>,
-    overlays: HashMap<&'a std::path::Path, bool>,
+    selected: HashMap<&'a Path, FileId>,
+    overlays: HashMap<&'a Path, bool>,
+}
+
+impl PhysicalCapture<'_> {
+    fn shared_path(&self, path: &Path) -> Arc<Path> {
+        self.generations
+            .get_key_value(path)
+            .map_or_else(|| Arc::from(path), |(shared, _)| Arc::clone(shared))
+    }
 }
 
 static NEXT_VIEW: AtomicU64 = AtomicU64::new(1);
@@ -127,16 +136,74 @@ pub enum SemanticIssue {
     ConflictingOverlays { path: std::path::PathBuf },
 }
 
+/// Document identity shared with the workspace entry; the text and syntax stay
+/// behind the snapshot `Arc` and are never copied into a captured file.
 #[derive(Clone)]
+struct CapturedDocument {
+    uri: Arc<url::Url>,
+    language_id: String,
+    snapshot: Arc<DocumentSnapshot>,
+}
+
+/// One file captured for cold build; the build-only fields are dropped once the
+/// view is published.
 struct CapturedFile {
     id: FileId,
-    document: Option<Document>,
-    path: Option<std::path::PathBuf>,
+    document: Option<CapturedDocument>,
+    // Shared with the matching `physical_generations` key: one path per file.
+    path: Option<Arc<Path>>,
     physical_uri: Arc<url::Url>,
     generation: u64,
     disk_generation: u64,
     imports: Box<[ImportEdge]>,
     semantic_imports: Box<[ImportEdge]>,
+}
+
+impl CapturedFile {
+    /// Keep only the facts a published view validates, reports and invalidates on.
+    /// `physical_uri`, `semantic_imports` and the document `language_id` belong to
+    /// the cold build, which hands the text and syntax to the view's `documents`.
+    fn into_receipt(self) -> CapturedFileReceipt {
+        CapturedFileReceipt {
+            id: self.id,
+            document: self.document.map(|document| CapturedIdentity {
+                uri: document.uri,
+                snapshot: document.snapshot,
+            }),
+            path: self.path,
+            generation: self.generation,
+            disk_generation: self.disk_generation,
+            imports: self.imports,
+        }
+    }
+}
+
+/// The one captured URI and snapshot `Arc` a published view keeps per input file.
+struct CapturedIdentity {
+    uri: Arc<url::Url>,
+    snapshot: Arc<DocumentSnapshot>,
+}
+
+/// Retained per-file capture facts of a built view.
+struct CapturedFileReceipt {
+    id: FileId,
+    document: Option<CapturedIdentity>,
+    path: Option<Arc<Path>>,
+    generation: u64,
+    disk_generation: u64,
+    imports: Box<[ImportEdge]>,
+}
+
+/// The capture facts a published view keeps after cold build consumed everything else.
+struct SemanticCapture {
+    serial: u64,
+    root: FileId,
+    files: Box<[CapturedFileReceipt]>,
+    library: Option<std::path::PathBuf>,
+    base: Option<SemanticBase>,
+    base_file: Option<FileId>,
+    physical_generations: HashMap<Arc<Path>, u64>,
+    conflicting_paths: std::collections::HashSet<std::path::PathBuf>,
 }
 
 /// Captured under the workspace read lock; `build` performs no I/O or parsing.
@@ -148,7 +215,7 @@ pub struct SemanticViewInput {
     library: Option<std::path::PathBuf>,
     base: Option<SemanticBase>,
     base_file: Option<FileId>,
-    physical_generations: HashMap<std::path::PathBuf, u64>,
+    physical_generations: HashMap<Arc<Path>, u64>,
     conflicting_paths: std::collections::HashSet<std::path::PathBuf>,
 }
 
@@ -163,26 +230,33 @@ impl SemanticViewInput {
         self.files
             .iter()
             .filter_map(|file| file.document.as_ref())
-            .any(|document| {
-                document.syntax.imports().iter().any(|import| {
-                    import.valid_syntax
-                        && import.alias.is_none()
-                        && import.path_text(&document.text) == "Base"
-                })
-            })
+            .any(|document| imports_base(&document.snapshot))
     }
+}
 
-    fn file(&self, id: FileId) -> Option<&CapturedFile> {
-        self.files.get(*self.file_indices.get(&id)?)
+impl SemanticCapture {
+    #[must_use]
+    fn requires_base(&self) -> bool {
+        self.files
+            .iter()
+            .filter_map(|file| file.document.as_ref())
+            .any(|document| imports_base(&document.snapshot))
     }
+}
+
+/// An unaliased `Base` import decides whether a view owns the compiler prelude.
+fn imports_base(document: &DocumentSnapshot) -> bool {
+    document.syntax.imports().iter().any(|import| {
+        import.valid_syntax && import.alias.is_none() && import.path_text(&document.text) == "Base"
+    })
 }
 
 /// An immutable entry-qualified Book. All text and syntax facts remain in Arcs.
 pub struct SemanticView {
-    input: SemanticViewInput,
+    capture: SemanticCapture,
     documents: Vec<Document>,
     document_indices: HashMap<FileId, usize>,
-    by_uri: HashMap<url::Url, FileId>,
+    by_uri: HashMap<Arc<url::Url>, FileId>,
     physical_uris: HashMap<FileId, Arc<url::Url>>,
     by_physical_uri: HashMap<Arc<url::Url>, FileId>,
     targets_by_site: HashMap<SemanticSite, SemanticTarget>,
@@ -205,12 +279,12 @@ pub struct SemanticView {
 impl SemanticView {
     #[must_use]
     pub const fn serial(&self) -> u64 {
-        self.input.serial
+        self.capture.serial
     }
 
     #[must_use]
     pub const fn root(&self) -> FileId {
-        self.input.root
+        self.capture.root
     }
 
     #[must_use]
@@ -374,13 +448,13 @@ impl SemanticView {
             "schema": 1,
             "view": self.serial(),
             "rootUri": self.root_uri().map(url::Url::as_str),
-            "inputs": self.input.files.iter().map(|file| serde_json::json!({
+            "inputs": self.capture.files.iter().map(|file| serde_json::json!({
                 "file": file.id.0, "generation": file.generation,
                 "uri": file.document.as_ref().map(|document| document.uri.as_str()),
                 "physicalUri": self.physical_uri(file.id).map(url::Url::as_str),
-                "revision": file.document.as_ref().map(|document| document.revision.0),
+                "revision": file.document.as_ref().map(|document| document.snapshot.revision.0),
             })).collect::<Vec<_>>(),
-            "base": self.input.base.as_ref().map(|base| serde_json::json!({
+            "base": self.capture.base.as_ref().map(|base| serde_json::json!({
                 "uri": base.document.uri.as_str(), "generation": base.generation,
                 "provenance": &*base.provenance,
             })),
@@ -402,7 +476,7 @@ impl WorkspaceDb {
             .physical_path
             .as_deref()
             .or(self.entries[root.0].path.as_deref())
-            .and_then(std::path::Path::parent);
+            .and_then(Path::parent);
         let mut files = Vec::new();
         let mut pending = vec![root];
         let mut seen = std::collections::HashSet::new();
@@ -424,28 +498,38 @@ impl WorkspaceDb {
                     .as_deref()
                     .zip(self.semantic_library_path.as_deref())
                     .and_then(|(path, library)| path.strip_prefix(library).ok())
-                    .and_then(std::path::Path::to_str)
+                    .and_then(Path::to_str)
                     .is_some_and(super::is_hub_import_path);
-            if let Some(path) = &entry.physical_path {
+            let physical_path = if let Some(path) = entry.physical_path.as_deref() {
+                let shared = physical.shared_path(path);
                 physical.generations.insert(
-                    path.clone(),
+                    Arc::clone(&shared),
                     self.physical_generations.get(path).copied().unwrap_or(0),
                 );
                 if *physical
                     .overlays
-                    .entry(path.as_path())
+                    .entry(path)
                     .or_insert_with(|| self.physical_overlay_conflict(path))
                 {
-                    physical.conflicts.insert(path.clone());
+                    physical.conflicts.insert(shared.to_path_buf());
                 }
-            }
+                Some(shared)
+            } else {
+                None
+            };
             let semantic_imports =
                 self.capture_semantic_imports(&entry.imports, top, source_is_hub, &mut physical);
             pending.extend(semantic_imports.iter().rev().map(|edge| edge.target));
+            let path = physical_path
+                .or_else(|| entry.path.as_deref().map(|path| physical.shared_path(path)));
             files.push(CapturedFile {
                 id,
-                document: entry.document(),
-                path: entry.physical_path.clone().or_else(|| entry.path.clone()),
+                document: entry.snapshot().map(|snapshot| CapturedDocument {
+                    uri: Arc::clone(&entry.uri),
+                    language_id: entry.language_id.clone(),
+                    snapshot: Arc::clone(snapshot),
+                }),
+                path,
                 physical_uri: entry.physical_uri.clone(),
                 generation: entry.semantic_generation,
                 disk_generation: entry.disk_generation,
@@ -484,7 +568,7 @@ impl WorkspaceDb {
     fn capture_semantic_imports<'a>(
         &'a self,
         imports: &[ImportEdge],
-        top: Option<&std::path::Path>,
+        top: Option<&Path>,
         source_is_hub: bool,
         physical: &mut PhysicalCapture<'a>,
     ) -> Box<[ImportEdge]> {
@@ -505,8 +589,9 @@ impl WorkspaceDb {
                     .physical_path
                     .as_deref()
                     .or(self.entries[target.0].path.as_deref())?;
+                let shared = physical.shared_path(path);
                 physical.generations.insert(
-                    path.to_path_buf(),
+                    shared,
                     self.physical_generations.get(path).copied().unwrap_or(0),
                 );
                 if !super::valid_import_namespace_path(
@@ -530,9 +615,9 @@ impl WorkspaceDb {
         if !self.is_needed(view.root()) {
             return false;
         }
-        let base_matches = match (&view.input.base, base) {
+        let base_matches = match (&view.capture.base, base) {
             (None, None) => true,
-            (None, Some(_)) => !view.input.requires_base(),
+            (None, Some(_)) => !view.capture.requires_base(),
             (Some(captured), Some(current)) => {
                 captured.generation == current.generation
                     && captured.provenance == current.provenance
@@ -542,20 +627,20 @@ impl WorkspaceDb {
             _ => false,
         };
         let library = &self.semantic_library_path;
-        let library_matches = *library == view.input.library
+        let library_matches = *library == view.capture.library
             || !view
-                .input
-                .library_affected(view.input.library.as_deref(), library.as_deref());
+                .capture
+                .library_affected(view.capture.library.as_deref(), library.as_deref());
         base_matches
             && library_matches
             && view
-                .input
+                .capture
                 .physical_generations
                 .iter()
                 .all(|(path, generation)| {
-                    self.physical_generations.get(path).copied().unwrap_or(0) == *generation
+                    self.physical_generations.get(&**path).copied().unwrap_or(0) == *generation
                 })
-            && view.input.files.iter().all(|file| {
+            && view.capture.files.iter().all(|file| {
                 let Some(entry) = self.entries.get(file.id.0) else {
                     return false;
                 };
@@ -580,21 +665,21 @@ impl WorkspaceDb {
             return false;
         }
         self.remove_semantic_view(view.root());
-        for file in &view.input.files {
+        for file in &view.capture.files {
             self.semantic_dependents
                 .entry(file.id)
                 .or_default()
                 .insert(view.root());
         }
-        if let Some(file) = view.input.base_file {
+        if let Some(file) = view.capture.base_file {
             self.semantic_dependents
                 .entry(file)
                 .or_default()
                 .insert(view.root());
         }
-        for path in view.input.physical_generations.keys() {
+        for path in view.capture.physical_generations.keys() {
             self.semantic_physical_dependents
-                .entry(path.clone())
+                .entry(path.to_path_buf())
                 .or_default()
                 .insert(view.root());
         }
@@ -709,7 +794,7 @@ impl WorkspaceDb {
         let affected: Vec<_> = self
             .semantic_views
             .iter()
-            .filter_map(|(root, view)| view.input.requires_base().then_some(*root))
+            .filter_map(|(root, view)| view.capture.requires_base().then_some(*root))
             .collect();
         for root in affected {
             self.remove_semantic_view(root);
@@ -735,22 +820,22 @@ impl WorkspaceDb {
     pub(super) fn remove_semantic_view(&mut self, root: FileId) {
         self.refresh_semantic_root(root);
         if let Some(view) = self.semantic_views.remove(&root) {
-            for file in &view.input.files {
+            for file in &view.capture.files {
                 self.remove_semantic_dependent(file.id, root);
             }
-            if let Some(file) = view.input.base_file {
+            if let Some(file) = view.capture.base_file {
                 self.remove_semantic_dependent(file, root);
             }
-            for path in view.input.physical_generations.keys() {
+            for path in view.capture.physical_generations.keys() {
                 if self
                     .semantic_physical_dependents
-                    .get_mut(path)
+                    .get_mut(&**path)
                     .is_some_and(|roots| {
                         roots.remove(&root);
                         roots.is_empty()
                     })
                 {
-                    self.semantic_physical_dependents.remove(path);
+                    self.semantic_physical_dependents.remove(&**path);
                 }
             }
         }
