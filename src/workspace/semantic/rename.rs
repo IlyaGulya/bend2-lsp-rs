@@ -23,7 +23,7 @@ impl SemanticView {
         {
             return None;
         }
-        if !self.input.conflicting_paths.is_empty() {
+        if !self.capture.conflicting_paths.is_empty() {
             return None;
         }
         let document = self.document(file)?;
@@ -247,7 +247,7 @@ impl SemanticView {
     /// Cross-entry conflicts must additionally be checked with `rename_conflicts`.
     #[must_use]
     pub fn rename_is_safe(&self, target: SemanticTarget, new_name: &str) -> bool {
-        if !self.input.conflicting_paths.is_empty() {
+        if !self.capture.conflicting_paths.is_empty() {
             return false;
         }
         if self.references(target).iter().any(|occurrence| {

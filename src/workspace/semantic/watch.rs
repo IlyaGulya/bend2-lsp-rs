@@ -1,4 +1,4 @@
-use super::{Document, FileId, SemanticViewInput, WorkspaceDb};
+use super::{Document, FileId, SemanticCapture, WorkspaceDb};
 use crate::{analysis::DocumentSnapshot, workspace::PreparedImportTarget};
 use std::{
     path::{Path, PathBuf},
@@ -189,7 +189,7 @@ impl WorkspaceDb {
             .semantic_views
             .iter()
             .filter_map(|(root, view)| {
-                view.input
+                view.capture
                     .library_affected(previous.as_deref(), self.semantic_library_path.as_deref())
                     .then_some(*root)
             })
@@ -200,7 +200,7 @@ impl WorkspaceDb {
     }
 }
 
-impl SemanticViewInput {
+impl SemanticCapture {
     pub(super) fn library_affected(&self, previous: Option<&Path>, next: Option<&Path>) -> bool {
         self.physical_generations.keys().any(|path| {
             previous.is_some_and(|root| path.starts_with(root))
@@ -210,9 +210,11 @@ impl SemanticViewInput {
                 previous.is_some_and(|root| path.starts_with(root))
                     || next.is_some_and(|root| path.starts_with(root))
             }) || file.document.as_ref().is_some_and(|document| {
-                document.syntax.imports().iter().any(|import| {
+                document.snapshot.syntax.imports().iter().any(|import| {
                     import.valid_syntax
-                        && crate::workspace::is_hub_import_path(import.path_text(&document.text))
+                        && crate::workspace::is_hub_import_path(
+                            import.path_text(&document.snapshot.text),
+                        )
                 })
             })
         })
