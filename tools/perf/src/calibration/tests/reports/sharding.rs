@@ -52,6 +52,10 @@ fn extended_job(logical: &str, role: &str) -> ToolResult<Value> {
             }
         }
     }
+    let analysis_profiles = job["variants"]["a"]["benchmarks"]["analysis"]["workloads"]
+        .as_array()
+        .ok_or("analysis workloads missing")?
+        .len();
     for sample in job["samples"].as_array_mut().ok_or("samples missing")? {
         let controls = matches!(
             sample["variant"].as_str(),
@@ -69,6 +73,7 @@ fn extended_job(logical: &str, role: &str) -> ToolResult<Value> {
                 }));
             }
         }
+        sample["benchmarks"]["analysis"]["verified_callgrind_profiles"] = json!(analysis_profiles);
     }
     Ok(job)
 }
@@ -127,7 +132,8 @@ fn shard_dataset(
             .as_object_mut()
             .ok_or("benchmarks missing")?;
         benchmarks.retain(|benchmark, _| !selected[benchmark.as_str()].is_empty());
-        for evidence in benchmarks.values_mut() {
+        for (benchmark, evidence) in benchmarks {
+            evidence["verified_callgrind_profiles"] = json!(selected[benchmark.as_str()].len());
             evidence["execution"] = json!({"collection": "collection.json"});
         }
     }
