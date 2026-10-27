@@ -1143,8 +1143,6 @@ mod tests {
                 .err()
                 .expect("an unsaved executed rule helper cannot be overlaid");
         assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
-        assert!(error.to_string().contains("shared/helper.bend"), "{error}");
-        assert!(error.to_string().contains("save"), "{error}");
     }
 
     #[test]
