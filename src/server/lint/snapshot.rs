@@ -35,6 +35,12 @@ struct Captured {
     aliases: BTreeMap<PathBuf, PathBuf>,
 }
 
+#[derive(Clone, Copy)]
+struct CachedSources<'a> {
+    documents: &'a BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
+    previously_open: &'a BTreeSet<PathBuf>,
+}
+
 // The analyzer compiles the rule program from disk: every file reachable from
 // a rule file by a local import is executed code. Keep its bytes, the lexical
 // spellings that reached it, and the targets that do not exist yet, so the
@@ -220,7 +226,7 @@ fn rule_closure(rule_paths: &HashSet<PathBuf>) -> io::Result<RuleClosure> {
     while let Some(path) = pending.pop() {
         let identity = input_identity(&path);
         let key = identity.clone().unwrap_or_else(|| path.clone());
-        insert_alias(&mut closure.aliases, path.clone(), key.clone())?;
+        insert_alias(&mut closure.aliases, &path, &key)?;
         if !visited.insert(key) {
             continue;
         }
@@ -305,7 +311,7 @@ fn merge_rule_metadata(
     missing: &BTreeMap<PathBuf, Option<PathBuf>>,
 ) -> io::Result<()> {
     for (original, identity) in aliases {
-        insert_alias(&mut captured.aliases, original.clone(), identity.clone())?;
+        insert_alias(&mut captured.aliases, original, identity)?;
     }
     for (path, identity) in missing {
         if captured.missing.contains_key(path) {
@@ -370,14 +376,14 @@ fn read_source(path: &Path, bytes: &mut usize) -> io::Result<(PathBuf, String)> 
 
 fn insert_alias(
     aliases: &mut BTreeMap<PathBuf, PathBuf>,
-    original: PathBuf,
-    canonical: PathBuf,
+    original: &Path,
+    canonical: &Path,
 ) -> io::Result<()> {
     // Resolver paths and document URIs can spell the same lexical path
     // differently (`.`/`..` segments). Store both ends normalized so alias
     // lookup, coverage, and later input_identity validation agree.
-    let original = normalize_path(&original);
-    let canonical = normalize_path(&canonical);
+    let original = normalize_path(original);
+    let canonical = normalize_path(canonical);
     // Distinct lexical aliases can resolve to one canonical source, so the
     // source count budget does not bound this map. Every original path is
     // retained (ordinary, virtual, or symlinked), and the existing entry
@@ -462,7 +468,6 @@ fn in_project(root: &Path, canonical_root: Option<&Path>, files: &Identities, pa
 fn seeds(
     root: &Path,
     canonical_root: Option<&Path>,
-    config: &serde_json::Value,
     files: &Identities,
     config_path: &Path,
     rule_paths: &HashSet<PathBuf>,
@@ -474,7 +479,6 @@ fn seeds(
         .filter(|path| is_bend(path.as_path()))
         .cloned()
         .collect();
-    pending.extend(config_entries(config, root));
     // Open buffers inside the project participate even when the file is new and
     // has never been saved, including paths below directories that do not exist.
     pending.extend(
@@ -502,10 +506,7 @@ fn build_sources(
     rule_inputs: &Identities,
     open: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     mut pending: Vec<PathBuf>,
-    cache: Option<(
-        &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
-        &BTreeSet<PathBuf>,
-    )>,
+    cache: Option<CachedSources<'_>>,
 ) -> io::Result<Captured> {
     let mut captured = Captured {
         sources: BTreeMap::new(),
@@ -527,7 +528,7 @@ fn build_sources(
         // aliases of one source both remain fenced. Symlinked parent
         // directories are included. This also applies on the with_overlays
         // cache path, which resolves the same original path.
-        insert_alias(&mut captured.aliases, path.clone(), key.clone())?;
+        insert_alias(&mut captured.aliases, &path, &key)?;
         if !visited.insert(key.clone()) {
             continue;
         }
@@ -545,11 +546,11 @@ fn build_sources(
             captured.sources.insert(key, snapshot.clone());
             continue;
         }
-        let cached = cache.and_then(|(sources, previous_open)| {
-            if previous_open.contains(&key) {
+        let cached = cache.and_then(|cache| {
+            if cache.previously_open.contains(&key) {
                 None
             } else {
-                sources.get(&key)
+                cache.documents.get(&key)
             }
         });
         if let Some(snapshot) = cached {
@@ -724,13 +725,13 @@ impl ProjectSnapshot {
         let mut pending = seeds(
             &root,
             canonical_root.as_deref(),
-            &config,
             &files.identities,
             &config_path,
             &files.rule_paths,
             &rule.identities,
             &open,
         );
+        pending.extend(config_entries(&config, &root));
         // Every executed rule input is a checked source (never an overlay), so
         // findings about a rule or helper resolve instead of being rejected.
         pending.extend(rule.identities.keys().cloned());
@@ -741,11 +742,14 @@ impl ProjectSnapshot {
             &rule.identities,
             &open,
             pending,
-            Some((&rule.snapshots, &already_open)),
+            Some(CachedSources {
+                documents: &rule.snapshots,
+                previously_open: &already_open,
+            }),
         )?;
         for (original, identity) in open_aliases {
             if captured.sources.contains_key(&identity) {
-                insert_alias(&mut captured.aliases, original, identity)?;
+                insert_alias(&mut captured.aliases, &original, &identity)?;
             }
         }
         merge_rule_metadata(&mut captured, &rule.aliases, &rule.missing)?;
@@ -795,13 +799,13 @@ impl ProjectSnapshot {
         let mut pending = seeds(
             &self.root,
             self.canonical_root.as_deref(),
-            &config,
             &self.files,
             &self.config_path,
             &self.rule_paths,
             &self.rule_inputs,
             &open,
         );
+        pending.extend(config_entries(&config, &self.root));
         pending.extend(self.rule_inputs.keys().cloned());
         let mut captured = build_sources(
             &self.config_path,
@@ -809,11 +813,14 @@ impl ProjectSnapshot {
             &self.rule_inputs,
             &open,
             pending,
-            Some((&self.sources, &self.open_sources)),
+            Some(CachedSources {
+                documents: &self.sources,
+                previously_open: &self.open_sources,
+            }),
         )?;
         for (original, identity) in open_aliases {
             if captured.sources.contains_key(&identity) {
-                insert_alias(&mut captured.aliases, original, identity)?;
+                insert_alias(&mut captured.aliases, &original, &identity)?;
             }
         }
         merge_rule_metadata(&mut captured, &self.rule_aliases, &self.rule_missing)?;

@@ -698,7 +698,7 @@ impl Backend {
                     let task = tokio::spawn(async move {
                         let reporter = backend.clone();
                         super::state::supervise(backend.run_preparation(prepared), move || {
-                            reporter.diagnostics.report_fatal()
+                            reporter.diagnostics.report_fatal();
                         })
                         .await;
                     });
@@ -832,7 +832,7 @@ impl Backend {
             let _task = self.diagnostics.lint.task.read();
             if !unchanged
                 || self.diagnostics.lint.epoch.load(Ordering::SeqCst) != epoch
-                || !self.diagnostics_snapshot_current(&uri, &document.snapshot)
+                || !self.diagnostics_snapshot_current(uri, &document.snapshot)
                 || !self.lint_result_current(&result)
             {
                 None
@@ -852,7 +852,7 @@ impl Backend {
         };
         let Some(affected) = affected else {
             self.finish_lint_control(
-                &uri,
+                uri,
                 LintPhase::Skipped,
                 "Project inputs changed during analysis; the next check will re-read them",
                 epoch,
@@ -997,14 +997,14 @@ mod tests {
     fn retain(
         backend: &Backend,
         uri: &Url,
-        snapshot: Arc<snapshot::ProjectSnapshot>,
+        snapshot: &Arc<snapshot::ProjectSnapshot>,
         revisions: Vec<(FileId, u64)>,
     ) {
         let epoch = backend.diagnostics.lint.epoch.load(Ordering::SeqCst);
         retain_entry(
             backend,
             uri,
-            entry(backend, epoch, &snapshot, revisions, no_findings()),
+            entry(backend, epoch, snapshot, revisions, no_findings()),
         );
     }
 
@@ -1134,7 +1134,7 @@ mod tests {
             fence(&backend, &project.main_uri)?,
             fence(&backend, &project.dep_uri)?,
         ];
-        retain(&backend, &project.main_uri, snapshot, revisions);
+        retain(&backend, &project.main_uri, &snapshot, revisions);
         assert!(
             backend.current_lint_result(&project.main_uri).is_none(),
             "captured dependency text outlived the newer generation it was paired with"
@@ -1157,7 +1157,7 @@ mod tests {
             &captured,
         )?);
         let revisions = vec![fence(&backend, &project.main_uri)?];
-        retain(&backend, &project.main_uri, snapshot, revisions);
+        retain(&backend, &project.main_uri, &snapshot, revisions);
         let extra = project
             .main
             .parent()
@@ -1217,7 +1217,7 @@ mod tests {
             &captured,
         )?);
         let revisions = vec![fence(&backend, &project.main_uri)?];
-        retain(&backend, &project.main_uri, snapshot, revisions);
+        retain(&backend, &project.main_uri, &snapshot, revisions);
         let other = tempfile::tempdir()?;
         let other_path = other.path().join("other.bend");
         fs::write(&other_path, NEW_INPUT)?;

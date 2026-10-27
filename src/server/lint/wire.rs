@@ -166,10 +166,7 @@ impl Findings {
                 break;
             }
         }
-        Some(bounded(
-            notice.replace('\n', " ").replace('\r', " "),
-            NOTICE_LIMIT,
-        ))
+        Some(bounded(notice.replace(['\n', '\r'], " "), NOTICE_LIMIT))
     }
 }
 

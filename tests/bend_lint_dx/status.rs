@@ -303,7 +303,7 @@ fn dirty_document_run_analyzes_unsaved_inputs_without_save_guidance() {
     assert_eq!(packet["params"]["version"], 2);
     let root = fs::canonicalize(&session.root).must_be("canonical source");
     assert_eq!(
-        session.overlay_input()[root.to_string_lossy().as_ref()],
+        session.overlay_text(&root),
         edited,
         "the run analyzes the unsaved text"
     );

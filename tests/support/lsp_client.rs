@@ -146,11 +146,6 @@ impl LspClient {
         self.notify("initialized", json!({}));
     }
 
-    pub fn respond(&mut self, request: &Value, result: Value) {
-        let id = request["id"].clone();
-        self.send(&json!({"jsonrpc":"2.0", "id":id, "result":result}));
-    }
-
     pub fn close_stdin(&mut self) {
         self.stdin.take();
     }

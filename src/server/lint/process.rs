@@ -359,11 +359,13 @@ struct PrepareChecks {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct PrepareTimings {
-    setup_ms: u64,
-    checker_ms: u64,
-    run_ms: u64,
+    #[serde(rename = "setupMs")]
+    setup: u64,
+    #[serde(rename = "checkerMs")]
+    checker: u64,
+    #[serde(rename = "runMs")]
+    run: u64,
 }
 
 fn bounded(mut text: String, limit: usize) -> String {
@@ -426,12 +428,12 @@ impl PrepareReport {
         let cache_dir = bounded(cache.dir.clone(), DETAIL_LIMIT);
         let built = cache.built;
         let cached = cache.checks.cached;
-        let checked = cache.checks.checked;
-        let setup = timings.setup_ms;
-        let checker = timings.checker_ms;
-        let run = timings.run_ms;
+        let completed = cache.checks.checked;
+        let setup = timings.setup;
+        let checker = timings.checker;
+        let run = timings.run;
         let mut description = format!(
-            "bend-lint {bend_lint} prepared: backend {backend}, runtime {runtime}, platform {platform}, program {program}, cache {cache_dir} built={built} checks(cached={cached}, checked={checked}), setup {setup} ms, checker {checker} ms, run {run} ms"
+            "bend-lint {bend_lint} prepared: backend {backend}, runtime {runtime}, platform {platform}, program {program}, cache {cache_dir} built={built} checks(cached={cached}, checked={completed}), setup {setup} ms, checker {checker} ms, run {run} ms"
         );
         let notes = bounded(self.notes.join("; "), DETAIL_LIMIT);
         if !notes.is_empty() {

@@ -224,6 +224,21 @@ impl Session {
         .must_be("overlay stdin is one JSON object")
     }
 
+    fn overlay_text(&self, path: &Path) -> String {
+        let identity = fs::canonicalize(path).must_be("captured source identity");
+        let input = self.overlay_input();
+        input
+            .as_object()
+            .must_be("overlay path map")
+            .iter()
+            .find_map(|(path, text)| {
+                (fs::canonicalize(path).ok().as_ref() == Some(&identity))
+                    .then(|| text.as_str().must_be("overlay source text"))
+            })
+            .must_be("overlay map includes the requested source identity")
+            .to_owned()
+    }
+
     fn status(&mut self) -> Value {
         self.client.request(
             "workspace/executeCommand",
@@ -239,7 +254,11 @@ impl Session {
                 message["method"] == "window/workDoneProgress/create"
             })
             .must_be("the server creates a work-done progress token");
-        self.client.respond(&request, Value::Null);
+        self.client.send(&json!({
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": Value::Null,
+        }));
         request
     }
 
@@ -473,7 +492,7 @@ fn enabled_open_analyzes_overlays_in_the_nearest_project_without_fixing_disk() {
     // The overlay view holds every captured non-rule source exactly.
     let overlays = session.overlay_input();
     let root = fs::canonicalize(&session.root).must_be("canonical source");
-    assert_eq!(overlays[root.to_string_lossy().as_ref()], SOURCE);
+    assert_eq!(session.overlay_text(&root), SOURCE);
     let config =
         fs::canonicalize(session.project().join("bend-lint.json")).must_be("canonical config");
     assert!(
@@ -717,7 +736,7 @@ fn unsaved_changes_are_analyzed_from_overlays_and_never_from_old_disk_text() {
     session.wait_calls(calls + 1);
     let root = fs::canonicalize(&session.root).must_be("canonical source");
     assert_eq!(
-        session.overlay_input()[root.to_string_lossy().as_ref()],
+        session.overlay_text(&root),
         edited,
         "the analyzer receives the unsaved text, not the old disk copy"
     );
@@ -731,10 +750,7 @@ fn unsaved_changes_are_analyzed_from_overlays_and_never_from_old_disk_text() {
     session.save();
     session.wait_calls(calls + 1);
     let root = fs::canonicalize(&session.root).must_be("canonical source");
-    assert_eq!(
-        session.overlay_input()[root.to_string_lossy().as_ref()],
-        edited
-    );
+    assert_eq!(session.overlay_text(&root), edited);
     assert_eq!(
         fs::read_to_string(&session.root).must_be("still unchanged disk"),
         SOURCE
@@ -854,14 +870,10 @@ fn unsaved_imported_dependency_is_analyzed_without_saving() {
         })
         .must_be("the root is checked with its unsaved imported dependency");
     // Every captured source is in the immutable overlay view with its exact text.
-    let overlays = session.overlay_input();
     let root = fs::canonicalize(&session.root).must_be("canonical source");
     let captured_dependency = fs::canonicalize(&dependency_path).must_be("canonical dependency");
-    assert_eq!(overlays[root.to_string_lossy().as_ref()], source);
-    assert_eq!(
-        overlays[captured_dependency.to_string_lossy().as_ref()],
-        dirty_dependency
-    );
+    assert_eq!(session.overlay_text(&root), source);
+    assert_eq!(session.overlay_text(&captured_dependency), dirty_dependency);
     assert_eq!(
         fs::read_to_string(&dependency_path).must_be("unsaved dependency stays on disk"),
         saved_dependency
@@ -1337,12 +1349,29 @@ fn imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_er
                     })
         })
         .must_be("selected imported diagnostic before lint");
+    let baseline = json!(
+        baseline["params"]["diagnostics"]
+            .as_array()
+            .must_be("imported compiler baseline")
+            .iter()
+            .filter(|item| item["source"] != "bend-lint")
+            .cloned()
+            .collect::<Vec<_>>()
+    );
     session.save();
     session.lint();
     let merged = session
         .client
         .receive_matching(TIMEOUT, |message| {
-            message["params"]["uri"] == dependency_uri && has_lint(message)
+            message["params"]["uri"] == dependency_uri
+                && has_lint(message)
+                && message["params"]["diagnostics"]
+                    .as_array()
+                    .is_some_and(|items| {
+                        items
+                            .iter()
+                            .any(|item| item["message"] == "selected imported rejection")
+                    })
         })
         .must_be("imported compiler and lint union");
     let selected: Vec<_> = merged["params"]["diagnostics"]
@@ -1352,14 +1381,14 @@ fn imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_er
         .filter(|item| item["source"] != "bend-lint")
         .cloned()
         .collect();
-    assert_eq!(json!(selected), baseline["params"]["diagnostics"]);
+    assert_eq!(json!(selected), baseline);
     session.configure(false, false, 10_000);
     let cleared = session
         .client
         .receive_matching(TIMEOUT, |message| {
             message["method"] == "textDocument/publishDiagnostics"
                 && message["params"]["uri"] == dependency_uri
-                && message["params"]["diagnostics"] == baseline["params"]["diagnostics"]
+                && message["params"]["diagnostics"] == baseline
         })
         .must_be("disable clears only imported lint findings");
     assert!(!has_lint(&cleared));
@@ -1390,10 +1419,7 @@ fn editing_saved_document_refreshes_lint_from_the_overlay() {
         .must_be("the unsaved edit is checked and its finding disappears");
     assert!(!has_lint(&cleared));
     let root = fs::canonicalize(&session.root).must_be("canonical source");
-    assert_eq!(
-        session.overlay_input()[root.to_string_lossy().as_ref()],
-        edited
-    );
+    assert_eq!(session.overlay_text(&root), edited);
     assert_eq!(
         fs::read_to_string(&session.root).must_be("unchanged disk"),
         SOURCE
