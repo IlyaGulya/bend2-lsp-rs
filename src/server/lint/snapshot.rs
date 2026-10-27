@@ -823,3 +823,141 @@ fn file_url(path: &Path) -> Option<Url> {
     #[cfg(not(windows))]
     Url::from_file_path(path).ok()
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn write(path: &Path, text: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("create project directory");
+        }
+        fs::write(path, text).expect("write project source");
+    }
+
+    fn document(path: &Path, text: &str) -> Document {
+        Document::new(
+            Url::from_file_path(path).expect("file URI"),
+            "bend".into(),
+            Revision(1),
+            text.into(),
+        )
+    }
+
+    struct Fixture {
+        directory: tempfile::TempDir,
+        project: PathBuf,
+        root: PathBuf,
+    }
+
+    // A rule program is compiled from disk, so every file reachable from these
+    // rule imports is executable trusted code rather than a linted source.
+    fn fixture(rule: &str) -> Fixture {
+        let directory = tempfile::tempdir().expect("rule project");
+        let project = directory.path().join("project");
+        write(&project.join("bend-lint.json"), "{\"rules\":{}}");
+        write(&project.join("main.bend"), "def main: U32\n  0\n");
+        write(&project.join(RULES_DIRECTORY).join("style.bend"), rule);
+        let root = project.join("main.bend");
+        Fixture {
+            directory,
+            project,
+            root,
+        }
+    }
+
+    #[test]
+    fn an_unsaved_rule_helper_outside_the_rules_directory_is_rejected() {
+        let fixture = fixture(
+            "import ../shared/helper.bend as Helper\n\ndef positive: U32\n  Helper.value\n",
+        );
+        let helper = fixture.project.join("shared/helper.bend");
+        write(&helper, "def value: U32\n  1\n");
+        let error = ProjectSnapshot::capture(
+            &fixture.root,
+            &[document(&helper, "def value: U32\n  2\n")],
+        )
+        .err()
+        .expect("an unsaved executed rule helper cannot be overlaid");
+        assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+        assert!(error.to_string().contains("shared/helper.bend"), "{error}");
+        assert!(error.to_string().contains("save"), "{error}");
+    }
+
+    #[test]
+    fn a_saved_rule_helper_never_becomes_a_source_only_overlay() {
+        let fixture = fixture(
+            "import ../shared/helper.bend as Helper\n\ndef positive: U32\n  Helper.value\n",
+        );
+        let helper = fixture.project.join("shared/helper.bend");
+        write(&helper, "def value: U32\n  1\n");
+        let unsaved_root = "def main: U32\n  1\n";
+        let snapshot = ProjectSnapshot::capture(
+            &fixture.root,
+            &[
+                document(&helper, "def value: U32\n  1\n"),
+                document(&fixture.root, unsaved_root),
+            ],
+        )
+        .expect("a saved rule helper and an ordinary unsaved source");
+        let helper = input_identity(&helper).expect("helper identity");
+        assert!(!snapshot.overlays.contains_key(&helper));
+        assert_eq!(snapshot.sources[&helper].text, "def value: U32\n  1\n");
+        let root = input_identity(&fixture.root).expect("root identity");
+        assert_eq!(snapshot.overlays[&root].text, unsaved_root);
+    }
+
+    #[test]
+    fn saved_rule_helper_changes_invalidate_preparation() {
+        let fixture = fixture(
+            "import ../shared/helper.bend as Local\nimport ../../external/helper.bend as External\n\ndef positive: U32\n  Local.value\n",
+        );
+        let local = fixture.project.join("shared/helper.bend");
+        let external = fixture.directory.path().join("external/helper.bend");
+        write(&local, "def value: U32\n  1\n");
+        write(&external, "def external: U32\n  1\n");
+        let first = ProjectSnapshot::capture(&fixture.root, &[]).expect("capture rule inputs");
+        assert!(input_identity(&local).is_some() && input_identity(&external).is_some());
+        write(
+            &fixture.directory.path().join("external/helper.bend"),
+            "def external: U32\n  2\n",
+        );
+        assert!(
+            !first.unchanged(),
+            "a saved external rule helper change must invalidate the captured project"
+        );
+        let second = ProjectSnapshot::capture(&fixture.root, &[]).expect("recapture rule inputs");
+        assert_ne!(first.config_digest(), second.config_digest());
+        write(&fixture.project.join("shared/helper.bend"), "def value: U32\n  2\n");
+        let third = ProjectSnapshot::capture(&fixture.root, &[]).expect("recapture rule inputs");
+        assert_ne!(second.config_digest(), third.config_digest());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_closed_import_keeps_the_project_root_spelling() {
+        use std::os::unix::fs::symlink;
+
+        let directory = tempfile::tempdir().expect("symlink project");
+        let real = directory.path().join("real");
+        let project = real.join("project");
+        write(&project.join("bend-lint.json"), "{\"rules\":{}}");
+        write(
+            &project.join("main.bend"),
+            "import dep.bend as Dep\ndef main: U32\n  Dep.value\n",
+        );
+        write(&project.join("dep.bend"), "def value: U32\n  1\n");
+        let link = directory.path().join("link");
+        symlink(&real, &link).expect("create symlinked root");
+        let lexical = link.join("project");
+        let snapshot = ProjectSnapshot::capture(&lexical.join("main.bend"), &[])
+            .expect("capture through the symlinked root");
+        let dependency =
+            input_identity(&project.join("dep.bend")).expect("dependency identity");
+        assert_eq!(
+            snapshot.uris.get(&dependency),
+            Some(&Url::from_file_path(lexical.join("dep.bend")).expect("logical file URI")),
+            "closed imported findings must use the client's logical project spelling"
+        );
+    }
+}
