@@ -598,14 +598,14 @@ mod tests {
             ("first".to_owned(), Some("large".to_owned())),
         ]);
         let (_temporary, directory) = evidence(&original)?;
-        let plan = plan(
+        let selected_plan = plan(
             &directory,
             &expected,
             &selected,
             Path::new("/frozen/analysis"),
         )?;
-        assert_eq!(plan.functions.len(), 1);
-        let function = &plan.functions[0];
+        assert_eq!(selected_plan.functions.len(), 1);
+        let function = &selected_plan.functions[0];
         assert_eq!(function.label, "group1-function1");
         let actual = decode(&function.bytes)?;
         let mut wanted = original.clone();

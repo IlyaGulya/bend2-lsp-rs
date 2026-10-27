@@ -814,7 +814,10 @@ fn group_scope(
                     "physical shards must not overlap workloads",
                 )?;
                 require(
-                    union[benchmark].insert(identity),
+                    union
+                        .get_mut(benchmark)
+                        .ok_or("benchmark union missing")?
+                        .insert(identity),
                     "physical shards must not duplicate selected units",
                 )?;
             }

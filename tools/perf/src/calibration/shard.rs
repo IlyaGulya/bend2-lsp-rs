@@ -48,7 +48,7 @@ pub(super) fn selection(full: &Selection, count: u64, index: u64) -> ToolResult<
                 .into_iter()
                 .enumerate()
                 .filter(|(position, _)| u64::try_from(*position).is_ok_and(|p| p % count == index))
-                .flat_map(|(_, cases)| cases)
+                .flat_map(|(_, (_, cases))| cases)
                 .collect();
             (*benchmark, selected)
         })

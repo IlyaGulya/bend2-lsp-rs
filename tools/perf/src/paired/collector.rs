@@ -270,8 +270,7 @@ fn collect_job(collection: &Collection, data: &mut Value) -> ToolResult<()> {
 
 fn full_selection(
     build: &collect::Build,
-) -> std::collections::BTreeMap<&'static str, std::collections::BTreeSet<crate::callgrind::Identity>>
-{
+) -> std::collections::BTreeMap<&'static str, BTreeSet<callgrind::Identity>> {
     BENCHMARKS
         .into_iter()
         .map(|benchmark| (benchmark, build.benchmarks[benchmark].identities.clone()))
