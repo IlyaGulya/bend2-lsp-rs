@@ -156,7 +156,8 @@ impl Backend {
             return Vec::new();
         }
         let uri = &params.text_document.uri;
-        let Some(result) = self.current_lint_result(uri) else {
+        let contributors = self.current_lint_contributors(uri);
+        if contributors.is_empty() {
             return params
                 .context
                 .diagnostics
@@ -171,9 +172,12 @@ impl Backend {
                     )
                 })
                 .collect();
-        };
-        let snapshot = result.snapshot.clone();
+        }
         let documents = self.workspace_documents();
+        let snapshots: Vec<_> = contributors
+            .iter()
+            .map(|result| result.snapshot.clone())
+            .collect();
         let Ok(permit) = self
             .diagnostics
             .lint
@@ -187,57 +191,70 @@ impl Backend {
         let fresh = super::super::state::blocking_result(
             tokio::task::spawn_blocking(move || {
                 let _permit = permit;
-                snapshot.unchanged() && snapshot.open_documents_current(&documents)
+                snapshots
+                    .iter()
+                    .map(|snapshot| {
+                        snapshot.unchanged() && snapshot.open_documents_current(&documents)
+                    })
+                    .collect::<Vec<_>>()
             })
             .await,
         );
-        let current = self
-            .current_lint_result(uri)
-            .is_some_and(|current| Arc::ptr_eq(&current, &result));
-        let mut actions = Vec::new();
-        for finding in &result.findings.actionable {
-            if finding.uri != *uri
-                || finding.diagnostic.range.end < params.range.start
-                || params.range.end < finding.diagnostic.range.start
-            {
-                continue;
-            }
-            for fix in &finding.fixes {
-                let title = format!(
-                    "Dangerous bend-lint fix (may change behavior): {}",
-                    fix.title
-                );
-                let edit = if !fresh || !current {
-                    Err(RECHECK_REASON)
-                } else if !result.config.dangerous_code_actions {
-                    Err(
-                        "Enable bend.lint.dangerousCodeActions to opt into fixes that may change program behavior.",
-                    )
-                } else {
-                    versioned_fix(self, &result, fix)
-                };
-                match edit {
-                    Ok(edit) if requested(params, DANGEROUS_KIND) => {
-                        actions.push(CodeActionOrCommand::CodeAction(CodeAction {
-                            title,
-                            kind: Some(CodeActionKind::new(DANGEROUS_KIND)),
-                            diagnostics: Some(vec![finding.diagnostic.clone()]),
-                            edit: Some(edit),
-                            is_preferred: Some(false),
-                            ..Default::default()
-                        }));
-                    }
-                    Err(reason) => {
-                        if let Some(action) = self.unavailable_lint_action(
-                            params,
-                            title,
-                            finding.diagnostic.clone(),
-                            reason,
-                        ) {
-                            actions.push(action);
+        let current = self.current_lint_contributors(uri);
+        let mut actions: Vec<CodeActionOrCommand> = Vec::new();
+        for (result, fresh) in contributors.iter().zip(fresh) {
+            // Each fix is offered by the authority that produced it: its own
+            // captured snapshot, config, and diagnostic.
+            let still_current = current
+                .iter()
+                .any(|candidate| Arc::ptr_eq(candidate, result));
+            for finding in &result.findings.actionable {
+                if finding.uri != *uri
+                    || finding.diagnostic.range.end < params.range.start
+                    || params.range.end < finding.diagnostic.range.start
+                {
+                    continue;
+                }
+                for fix in &finding.fixes {
+                    let title = format!(
+                        "Dangerous bend-lint fix (may change behavior): {}",
+                        fix.title
+                    );
+                    let edit = if !fresh || !still_current {
+                        Err(RECHECK_REASON)
+                    } else if !result.config.dangerous_code_actions {
+                        Err(
+                            "Enable bend.lint.dangerousCodeActions to opt into fixes that may change program behavior.",
+                        )
+                    } else {
+                        versioned_fix(self, result, fix)
+                    };
+                    let action = match edit {
+                        Ok(edit) if requested(params, DANGEROUS_KIND) => {
+                            Some(CodeActionOrCommand::CodeAction(CodeAction {
+                                title,
+                                kind: Some(CodeActionKind::new(DANGEROUS_KIND)),
+                                diagnostics: Some(vec![finding.diagnostic.clone()]),
+                                edit: Some(edit),
+                                is_preferred: Some(false),
+                                ..Default::default()
+                            }))
                         }
+                        Err(reason) => {
+                            self.unavailable_lint_action(
+                                params,
+                                title,
+                                finding.diagnostic.clone(),
+                                reason,
+                            )
+                        }
+                        Ok(_) => None,
+                    };
+                    if let Some(action) = action
+                        && !actions.contains(&action)
+                    {
+                        actions.push(action);
                     }
-                    Ok(_) => {}
                 }
             }
         }

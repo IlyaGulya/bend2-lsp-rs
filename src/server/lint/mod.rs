@@ -329,19 +329,35 @@ impl Backend {
     }
 
     pub(super) fn current_lint_result(&self, uri: &Url) -> Option<Arc<LintResult>> {
-        let result = self.diagnostics.lint.results.read().get(uri)?;
-        self.lint_result_current(&result).then_some(result)
+        self.current_lint_contributors(uri).into_iter().next()
+    }
+
+    // Every current entry that indexes this document, newest first. Status and
+    // partial semantics use the first (primary) entry; diagnostics, fixes, and
+    // invalidation must consider all of them.
+    fn current_lint_contributors(&self, uri: &Url) -> Vec<Arc<LintResult>> {
+        let contributors = self.diagnostics.lint.results.read().contributors(uri);
+        if contributors.is_empty() {
+            return contributors;
+        }
+        let documents = self.workspace_documents();
+        contributors
+            .into_iter()
+            .filter(|result| self.lint_result_current_in(result, &documents))
+            .collect()
     }
 
     // Publication and retained-result use share this fence: the immutable
     // captured view must still be the current complete open-input view, not
     // only the root document or the generations sampled with the capture.
     fn lint_result_current(&self, result: &LintResult) -> bool {
+        self.lint_result_current_in(result, &self.workspace_documents())
+    }
+
+    fn lint_result_current_in(&self, result: &LintResult, documents: &[Document]) -> bool {
         *self.diagnostics.lint.config.read() == result.config
             && self.lint_revisions_current(&result.revisions)
-            && result
-                .snapshot
-                .open_documents_current(&self.workspace_documents())
+            && result.snapshot.open_documents_current(documents)
     }
 
     fn lint_revisions_current(&self, revisions: &[(FileId, u64)]) -> bool {
@@ -398,9 +414,18 @@ impl Backend {
     }
 
     pub(super) fn lint_diagnostics(&self, uri: &Url) -> Vec<tower_lsp::lsp_types::Diagnostic> {
-        self.current_lint_result(uri)
-            .and_then(|result| result.findings.by_uri.get(uri).cloned())
-            .unwrap_or_default()
+        let mut combined = Vec::new();
+        for result in self.current_lint_contributors(uri) {
+            let Some(items) = result.findings.by_uri.get(uri) else {
+                continue;
+            };
+            for item in items {
+                if !combined.contains(item) {
+                    combined.push(item.clone());
+                }
+            }
+        }
+        combined
     }
 
     pub(super) fn lint_tool_identity(&self, config: &LintConfig, uri: &Url) -> String {

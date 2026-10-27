@@ -6,15 +6,32 @@ use std::{
 };
 use url::Url;
 
+// One current entry that indexes a document view. `entry` is the run's root
+// URI; it is the deterministic tie-break when epochs are equal.
+struct Contributor {
+    entry: Url,
+    result: Arc<LintResult>,
+}
+
 #[derive(Default)]
 pub(super) struct LintResults {
     entries: HashMap<Url, Arc<LintResult>>,
-    documents: HashMap<Url, Arc<LintResult>>,
+    // Every document a run contributes to: its own root and each reported
+    // target. Keeping all contributors is what lets a newer empty own report
+    // coexist with a still-current imported finding from another run.
+    contributors: HashMap<Url, Vec<Contributor>>,
 }
 
 impl LintResults {
-    pub(super) fn get(&self, uri: &Url) -> Option<Arc<LintResult>> {
-        self.documents.get(uri).cloned()
+    // Newest first, then entry identity. This is the only ordering a union
+    // consumer sees, so output never depends on HashMap iteration order.
+    pub(super) fn contributors(&self, uri: &Url) -> Vec<Arc<LintResult>> {
+        self.contributors.get(uri).map_or_else(Vec::new, |contributors| {
+            contributors
+                .iter()
+                .map(|contributor| contributor.result.clone())
+                .collect()
+        })
     }
 
     pub(super) fn snapshot_for(&self, path: &Path) -> Option<Arc<ProjectSnapshot>> {
@@ -38,9 +55,9 @@ impl LintResults {
     }
 
     pub(super) fn clear(&mut self) -> HashSet<Url> {
-        let affected = self.documents.keys().cloned().collect();
+        let affected = self.contributors.keys().cloned().collect();
         self.entries.clear();
-        self.documents.clear();
+        self.contributors.clear();
         affected
     }
 
@@ -77,17 +94,26 @@ impl LintResults {
     }
 
     fn rebuild(&mut self) {
-        self.documents.clear();
+        self.contributors.clear();
         for (entry, result) in &self.entries {
             for uri in std::iter::once(entry).chain(result.findings.by_uri.keys()) {
-                let slot = self
-                    .documents
+                self.contributors
                     .entry(uri.clone())
-                    .or_insert_with(|| result.clone());
-                if slot.epoch < result.epoch {
-                    *slot = result.clone();
-                }
+                    .or_default()
+                    .push(Contributor {
+                        entry: entry.clone(),
+                        result: result.clone(),
+                    });
             }
+        }
+        for contributors in self.contributors.values_mut() {
+            contributors.sort_by(|left, right| {
+                right
+                    .result
+                    .epoch
+                    .cmp(&left.result.epoch)
+                    .then_with(|| left.entry.cmp(&right.entry))
+            });
         }
     }
 }
