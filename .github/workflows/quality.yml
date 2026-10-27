@@ -260,3 +260,45 @@ jobs:
         run: python3 scripts/bootstrap_bend.py --version 2.0.36 --target aarch64-apple-darwin --destination "$RUNNER_TEMP/bend-2.0.36" --github-env "$GITHUB_ENV"
       - name: Preserve genuine 2.0.36 stdio and LAW coverage
         run: cargo test --locked --test native_compiler_diagnostics --test native_law_ranges
+  console-readiness-diagnostic:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    runs-on: windows-11-arm
+    timeout-minutes: 15
+    env:
+      BEND_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare pinned native Rust and isolated console evidence
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.98.1-aarch64-pc-windows-msvc --profile minimal
+          if ($LASTEXITCODE -ne 0) { throw 'Native Rust installation failed' }
+          $compilerHost = rustc +1.98.1-aarch64-pc-windows-msvc -vV | Where-Object { $_ -like 'host: *' }
+          if ($compilerHost -ne 'host: aarch64-pc-windows-msvc') { throw 'Wrong Rust host' }
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP/console-readiness" | Out-Null
+      - name: Exercise the actual console contract with retained startup stages
+        shell: bash
+        env:
+          TEMP: ${{ runner.temp }}/console-readiness
+          TMP: ${{ runner.temp }}/console-readiness
+        run: |
+          cargo +1.98.1-aarch64-pc-windows-msvc test --locked -p bend2-perf \
+            profiling::sessions::tests::collector_interrupt_reaches_a_console_ignoring_ctrl_c \
+            -- --exact --nocapture 2>&1 | tee "$RUNNER_TEMP/console-contract.log"
+      - name: Preserve owned console startup evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: console-readiness-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/console-contract.log
+            ${{ runner.temp }}/console-readiness/**/console-startup.log
+            ${{ runner.temp }}/console-readiness/**/profiler.stdout.log
+            ${{ runner.temp }}/console-readiness/**/profiler.stderr.log
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7

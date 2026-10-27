@@ -1718,15 +1718,32 @@ mod tests {
         // Exercise the actual console APIs with an owned waiting process, not
         // a fabricated profiler trace or an assertion about a command string.
         const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
+function Mark([string]$phase) {
+  [IO.File]::AppendAllText($journal, "$([DateTime]::UtcNow.ToString('O')) $phase`n")
+}
+Mark 'script-enter'
 Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; using System.Threading; public static class IgnoringConsole { public delegate bool HandlerRoutine(uint ctrl); public static readonly ManualResetEvent Stopped = new ManualResetEvent(false); public static readonly HandlerRoutine Stop = delegate(uint ctrl) { if (ctrl != 1) return false; Stopped.Set(); return true; }; [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Ignore(IntPtr handler, bool add); [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Register(HandlerRoutine handler, bool add); }'
+Mark 'compiled'
 if (![IgnoringConsole]::Ignore([IntPtr]::Zero,$true)) { throw 'Could not ignore CTRL_C' }
+Mark 'ctrl-c-ignored'
 if (![IgnoringConsole]::Register([IgnoringConsole]::Stop,$true)) { throw 'Could not register CTRL_BREAK handler' }
+Mark "handler-registered stderr-redirected=$([Console]::IsErrorRedirected)"
 [Console]::Error.WriteLine('console.fixture.ready')
+Mark 'ready-emitted'
 [void][IgnoringConsole]::Stopped.WaitOne()
 "#;
-        let directory = tempfile::tempdir()?;
-        let mut session = super::Session::new("samply", "cpu", directory.path());
-        let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
+        let directory = tempfile::tempdir()?.keep();
+        eprintln!("Console startup evidence: {}", directory.display());
+        let journal = directory.join("console-startup.log");
+        let script = format!(
+            "$journal = '{}'\n{SCRIPT}",
+            journal
+                .to_str()
+                .ok_or("Non-UTF-8 console journal path")?
+                .replace('\'', "''")
+        );
+        let mut session = super::Session::new("samply", "cpu", &directory);
+        let args = ["-NoProfile", "-NonInteractive", "-Command", &script].map(str::to_owned);
         session.spawn("powershell.exe", &args)?;
         session.wait_ready_text("console.fixture.ready\n")?;
         let pid = session
