@@ -1,4 +1,4 @@
-use super::{LintConfig, config::installed_identity};
+use super::LintConfig;
 use crate::server::{lsp::Backend, state::State};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -22,7 +22,8 @@ pub(in crate::server) const STATUS_KIND: &str = "source.bend2Lint.status";
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum LintPhase {
     Disabled,
-    WaitingForSave,
+    Waiting,
+    Preparing,
     Running,
     Ready,
     Skipped,
@@ -33,7 +34,8 @@ impl LintPhase {
     fn as_str(self) -> &'static str {
         match self {
             Self::Disabled => "disabled",
-            Self::WaitingForSave => "waitingForSave",
+            Self::Waiting => "waiting",
+            Self::Preparing => "preparing",
             Self::Running => "running",
             Self::Ready => "ready",
             Self::Skipped => "skipped",
@@ -97,7 +99,7 @@ impl LintControl {
     pub(super) fn invalidate(&self, reason: impl Into<String>) {
         let reason = reason.into();
         for status in self.states.write().values_mut() {
-            status.phase = LintPhase::WaitingForSave;
+            status.phase = LintPhase::Waiting;
             status.reason.clone_from(&reason);
         }
     }
@@ -105,8 +107,8 @@ impl LintControl {
     pub(super) fn invalidate_running(&self, reason: impl Into<String>) {
         let reason = reason.into();
         for status in self.states.write().values_mut() {
-            if status.phase == LintPhase::Running {
-                status.phase = LintPhase::WaitingForSave;
+            if matches!(status.phase, LintPhase::Preparing | LintPhase::Running) {
+                status.phase = LintPhase::Waiting;
                 status.reason.clone_from(&reason);
             }
         }
@@ -139,8 +141,8 @@ impl LintControl {
             };
         }
         self.states.read().get(uri).cloned().unwrap_or_else(|| Status {
-            phase: LintPhase::WaitingForSave,
-            reason: "No current analysis. Save this document or choose Run bend-lint on the saved document.".into(),
+            phase: LintPhase::Waiting,
+            reason: "No current analysis. The next check analyzes the current open inputs.".into(),
         })
     }
 }
@@ -149,11 +151,17 @@ impl Backend {
     fn lint_status(&self, uri: &Url) -> Value {
         let config = self.diagnostics.lint.config.read().clone();
         let mut status = self.diagnostics.lint.control.status(uri, &config);
-        if status.phase == LintPhase::Ready && self.current_lint_result(uri).is_none() {
-            status.phase = LintPhase::WaitingForSave;
+        let result = self.current_lint_result(uri);
+        let (partial, skipped) = result.as_ref().map_or((false, 0), |entry| {
+            (
+                !entry.findings.skipped.is_empty(),
+                entry.findings.skipped.len(),
+            )
+        });
+        if status.phase == LintPhase::Ready && result.is_none() {
+            status.phase = LintPhase::Waiting;
             status.reason =
-                "The previous result is no longer current. Save the project inputs or run again."
-                    .into();
+                "The previous result is no longer current. The next check will refresh it.".into();
         }
         let project_config = uri.to_file_path().ok().and_then(|path| {
             path.parent()?
@@ -166,11 +174,12 @@ impl Backend {
             "state":status.phase.as_str(), "reason":status.reason, "document":uri,
             "executable":config.path, "arguments":config.arguments,
             "projectConfig":project_config,
-            "toolIdentity":installed_identity(&config),
+            "toolIdentity":self.lint_tool_identity(&config, uri),
             "serverExecutable":std::env::current_exe().ok(),
             "serverVersion":env!("CARGO_PKG_VERSION"),
             "compilerExecutable":compiler.path, "compilerArguments":compiler.arguments,
             "dangerousCodeActions":config.dangerous_code_actions,
+            "partial":partial, "skippedChecks":skipped,
         })
     }
 
@@ -205,8 +214,11 @@ impl Backend {
         }
         if params.command == RUN_COMMAND {
             if self.diagnostics.lint.config.read().enabled {
+                // An explicit run is also the retry gesture after a failed
+                // analyzer preparation.
+                self.diagnostics.lint.reset_failed_preparation();
                 let _document_read = self.document_read(&uri).await;
-                self.schedule_lint(uri.clone()).await;
+                self.schedule_lint([uri.clone()], false).await;
             } else {
                 let status = self.lint_status(&uri);
                 self.client
@@ -254,7 +266,7 @@ impl Backend {
             return Vec::new();
         }
         [
-            (RUN_KIND, RUN_COMMAND, "Run bend-lint on saved document"),
+            (RUN_KIND, RUN_COMMAND, "Run bend-lint on the open document"),
             (STATUS_KIND, STATUS_COMMAND, "Show bend-lint status"),
         ]
         .into_iter()
@@ -283,11 +295,12 @@ impl Backend {
         .collect()
     }
 
-    pub(super) async fn begin_lint_progress(&self, uri: &Url, epoch: u64) {
+    pub(super) async fn begin_lint_progress(&self, uri: &Url) -> Option<u64> {
         if !self.registration.read().lint.work_done_progress {
-            return;
+            return None;
         }
-        let token = NumberOrString::String(format!("bend-lint-{epoch}"));
+        let id = self.diagnostics.lint.next_progress();
+        let token = NumberOrString::String(format!("bend-lint-{id}"));
         if self
             .client
             .send_request::<WorkDoneProgressCreate>(WorkDoneProgressCreateParams {
@@ -296,20 +309,20 @@ impl Backend {
             .await
             .is_err()
         {
-            return;
+            return None;
         }
         self.diagnostics
             .lint
             .control
             .progress
             .write()
-            .insert(epoch, token.clone());
+            .insert(id, token.clone());
         self.client
             .send_notification::<Progress>(ProgressParams {
                 token,
                 value: ProgressParamsValue::WorkDone(WorkDoneProgress::Begin(
                     WorkDoneProgressBegin {
-                        title: "Checking saved Bend project".into(),
+                        title: "Checking Bend project (including unsaved buffers)".into(),
                         cancellable: Some(false),
                         message: Some(uri.to_string()),
                         percentage: None,
@@ -317,17 +330,45 @@ impl Backend {
                 )),
             })
             .await;
+        Some(id)
     }
 
-    pub(super) async fn end_lint_progress(&self, epoch: u64, reason: &str) {
+    pub(super) async fn end_lint_progress(&self, id: Option<u64>, reason: &str) {
+        let Some(id) = id else {
+            return;
+        };
         let token = self
             .diagnostics
             .lint
             .control
             .progress
             .write()
-            .remove(&epoch);
+            .remove(&id);
         if let Some(token) = token {
+            self.client
+                .send_notification::<Progress>(ProgressParams {
+                    token,
+                    value: ProgressParamsValue::WorkDone(WorkDoneProgress::End(
+                        WorkDoneProgressEnd {
+                            message: Some(reason.into()),
+                        },
+                    )),
+                })
+                .await;
+        }
+    }
+
+    pub(super) async fn end_all_lint_progress(&self, reason: &str) {
+        let tokens: Vec<_> = self
+            .diagnostics
+            .lint
+            .control
+            .progress
+            .write()
+            .drain()
+            .map(|(_, token)| token)
+            .collect();
+        for token in tokens {
             self.client
                 .send_notification::<Progress>(ProgressParams {
                     token,
@@ -369,7 +410,6 @@ impl Backend {
             };
             (current, notify)
         };
-        self.end_lint_progress(epoch, reason).await;
         if current && matches!(phase, LintPhase::Skipped | LintPhase::Failed) {
             let message = format!("bend-lint {} for {uri}: {reason}", phase.as_str());
             self.client

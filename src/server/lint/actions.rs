@@ -15,7 +15,7 @@ use tower_lsp::lsp_types::{
 pub(in crate::server) const DANGEROUS_KIND: &str = "quickfix.bend-lint.dangerous";
 const EXPLAIN_KIND: &str = "quickfix.bend-lint.explain";
 const RECHECK_REASON: &str =
-    "This bend-lint result is no longer current. Save and recheck the file before applying a fix.";
+    "This bend-lint result is no longer current. Recheck the file before applying a fix.";
 
 fn requested(params: &CodeActionParams, action_kind: &str) -> bool {
     params.context.trigger_kind == Some(CodeActionTriggerKind::INVOKED)
@@ -46,12 +46,12 @@ fn versioned_fix(
     }
     let mut edits = BTreeMap::<PathBuf, (Document, Vec<(usize, usize, TextEdit)>)>::new();
     for edit in &fix.edits {
-        let (path, saved) = result
-            .saved
+        let (path, checked) = result
+            .snapshot
             .source(&edit.path)
             .ok_or("This fix targets a file outside the checked project inputs.")?;
         let uri = result
-            .saved
+            .snapshot
             .uris
             .get(&path)
             .ok_or("This fix targets a file without a supported document URI.")?;
@@ -59,18 +59,16 @@ fn versioned_fix(
         // unversioned edit that could overwrite a later disk/editor change.
         let document = backend
             .document(uri)
-            .ok_or("Open and save every file targeted by this fix before applying it.")?;
-        if document.text != saved.text {
+            .ok_or("Open every file targeted by this fix before applying it.")?;
+        if document.text != checked.text {
             return Err(
-                "Save and recheck every file targeted by this fix; a target has unsaved changes.",
+                "The open buffer changed after analysis; recheck before applying this fix.",
             );
         }
         if !backend.diagnostics_snapshot_current(uri, &document.snapshot) {
-            return Err(
-                "A target document is no longer current. Save and recheck before applying this fix.",
-            );
+            return Err("A target document is no longer current. Recheck before applying this fix.");
         }
-        let (start, end) = offsets(saved, edit.range)
+        let (start, end) = offsets(checked, edit.range)
             .ok_or("This bend-lint fix has an invalid UTF-16 edit range.")?;
         edits
             .entry(path)
@@ -174,8 +172,7 @@ impl Backend {
                 })
                 .collect();
         };
-        let saved = result.saved.clone();
-        let documents = self.workspace_documents();
+        let snapshot = result.snapshot.clone();
         let Ok(permit) = self
             .diagnostics
             .lint
@@ -189,7 +186,7 @@ impl Backend {
         let fresh = super::super::state::blocking_result(
             tokio::task::spawn_blocking(move || {
                 let _permit = permit;
-                saved.unchanged() && saved.documents_saved(&documents)
+                snapshot.unchanged()
             })
             .await,
         );

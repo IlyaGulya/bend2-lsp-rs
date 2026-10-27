@@ -262,60 +262,66 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_open", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let invalidation = self.invalidate_lint_inputs([&params.text_document.uri]);
-        let operation = async {
-            let _operation = self.workspace.document_operation().await;
-            let item = params.text_document;
-            let uri = item.uri;
-            let version = item.version;
-            let path = self.document_path(&uri);
-            let Some(needs_prelude) = self
-                .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
-                .await
-            else {
-                return;
-            };
-            if needs_prelude {
-                self.load_prelude_module().await;
-            }
-            let dependents = self.dependent_documents(&uri).await;
-            self.schedule_diagnostics(uri, version).await;
-            for document in dependents {
-                let revision = document.revision.0;
-                self.schedule_diagnostics(document.uri, revision).await;
-            }
+        let _operation = self.workspace.document_operation().await;
+        let item = params.text_document;
+        let uri = item.uri;
+        let version = item.version;
+        let path = self.document_path(&uri);
+        let Some(needs_prelude) = self
+            .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
+            .await
+        else {
+            return;
         };
-        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
+        if needs_prelude {
+            self.load_prelude_module().await;
+        }
+        let dependents = self.dependent_documents(&uri).await;
+        let mut lint = vec![uri.clone()];
+        self.schedule_diagnostics(uri, version).await;
+        for document in dependents {
+            let revision = document.revision.0;
+            lint.push(document.uri.clone());
+            self.schedule_diagnostics(document.uri, revision).await;
+        }
+        self.schedule_lint(lint, true).await;
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        let invalidation = self.invalidate_lint_inputs([&params.text_document.uri]);
-        let operation = async {
-            let _operation = self.workspace.document_operation().await;
-            let uri = params.text_document.uri.clone();
-            let version = params.text_document.version;
-            if !self.change_workspace_document(params).await {
-                return;
-            }
-            if self.document(&uri).is_some_and(|document| {
-                analysis::imports(&document)
-                    .iter()
-                    .any(|import| import.path_text(&document.text) == "Base")
-            }) {
-                self.load_prelude_module().await;
-            }
-            let dependents = self.dependent_documents(&uri).await;
-            self.schedule_diagnostics(uri, version).await;
-            for document in dependents {
-                let revision = document.revision.0;
-                self.schedule_diagnostics(document.uri, revision).await;
-            }
-        };
-        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
+        let _operation = self.workspace.document_operation().await;
+        let uri = params.text_document.uri.clone();
+        let version = params.text_document.version;
+        if !self.change_workspace_document(params).await {
+            return;
+        }
+        if self.document(&uri).is_some_and(|document| {
+            analysis::imports(&document)
+                .iter()
+                .any(|import| import.path_text(&document.text) == "Base")
+        }) {
+            self.load_prelude_module().await;
+        }
+        let dependents = self.dependent_documents(&uri).await;
+        let mut lint = vec![uri.clone()];
+        self.schedule_diagnostics(uri, version).await;
+        for document in dependents {
+            let revision = document.revision.0;
+            lint.push(document.uri.clone());
+            self.schedule_diagnostics(document.uri, revision).await;
+        }
+        self.schedule_lint(lint, true).await;
     }
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        let _read = self.document_read(&params.text_document.uri).await;
-        self.schedule_lint(params.text_document.uri).await;
+        let uri = params.text_document.uri;
+        let _read = self.document_read(&uri).await;
+        if !self.lint_scheduling_enabled() {
+            return;
+        }
+        let mut lint = vec![uri.clone()];
+        for document in self.dependent_documents(&uri).await {
+            lint.push(document.uri);
+        }
+        self.schedule_lint(lint, false).await;
     }
 
     #[tracing::instrument(
@@ -345,6 +351,7 @@ impl LanguageServer for Backend {
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_close", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let invalidation = self.close_lint(&params.text_document.uri);
+        let reschedule = invalidation.affected();
         let operation = async {
             let _operation = self.workspace.document_operation().await;
             let uri = params.text_document.uri;
@@ -388,6 +395,9 @@ impl LanguageServer for Backend {
             }
         };
         tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
+        // A closed buffer no longer contributes editor text, so same-project
+        // entries that were invalidated above are rechecked from saved inputs.
+        self.schedule_lint(reschedule, true).await;
     }
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "range_formatting", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn range_formatting(

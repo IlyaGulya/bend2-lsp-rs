@@ -1,4 +1,4 @@
-use super::{LintResult, saved::SavedProject};
+use super::{LintResult, snapshot::ProjectSnapshot};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -13,20 +13,16 @@ pub(super) struct LintResults {
 }
 
 impl LintResults {
-    pub(super) fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
     pub(super) fn get(&self, uri: &Url) -> Option<Arc<LintResult>> {
         self.documents.get(uri).cloned()
     }
 
-    pub(super) fn saved_for(&self, path: &Path) -> Option<Arc<SavedProject>> {
+    pub(super) fn snapshot_for(&self, path: &Path) -> Option<Arc<ProjectSnapshot>> {
         self.entries
             .values()
-            .filter(|result| path.starts_with(&result.saved.root))
-            .max_by_key(|result| result.saved.root.as_os_str().len())
-            .map(|result| result.saved.clone())
+            .filter(|result| path.starts_with(&result.snapshot.root))
+            .max_by_key(|result| result.snapshot.root.as_os_str().len())
+            .map(|result| result.snapshot.clone())
     }
 
     pub(super) fn clear(&mut self) -> HashSet<Url> {

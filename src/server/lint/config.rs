@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::path::Path;
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub(in crate::server) struct LintConfig {
     pub(super) enabled: bool,
@@ -100,34 +100,4 @@ impl LintConfig {
         }
         Ok(config)
     }
-}
-
-pub(super) fn installed_identity(config: &LintConfig) -> String {
-    use std::io::Read;
-    let installed = std::iter::once(&config.path)
-        .chain(&config.arguments)
-        .map(Path::new)
-        .filter(|path| path.is_absolute() && path.file_name().is_some_and(|name| name == "seam.ts"))
-        .find_map(|script| {
-            let package = script.parent()?.parent()?.parent()?.join("package.json");
-            let mut text = String::new();
-            std::fs::File::open(package)
-                .ok()?
-                .take(64 * 1024)
-                .read_to_string(&mut text)
-                .ok()?;
-            let metadata: serde_json::Value = serde_json::from_str(&text).ok()?;
-            (metadata["name"] == "bend-lint").then(|| {
-                serde_json::json!({
-                    "version":metadata["version"], "bendRelease":metadata["bendRelease"],
-                    "bendWindows":metadata["bendWindows"],
-                })
-            })
-        });
-    installed.map_or_else(
-        || "Tool/compiler versions unknown: upstream JSON contains no version identity".into(),
-        |metadata| {
-            format!("Installed bend-lint package metadata (not executable attestation): {metadata}")
-        },
-    )
 }
