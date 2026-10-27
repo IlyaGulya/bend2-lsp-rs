@@ -201,6 +201,7 @@ jobs:
         id: genuine-lint
         env:
           BEND2_LINT_TEST_FAILURE_DIR: ${{ runner.temp }}/bend-lint-failure
+          BEND2_LINT_REQUIRE_NATIVE: '1'
         run: cargo test --locked --test bend_lint_e2e -- --ignored --nocapture
       - name: Verify genuine Windows ARM native rule program
         if: matrix.target == 'aarch64-pc-windows-msvc'

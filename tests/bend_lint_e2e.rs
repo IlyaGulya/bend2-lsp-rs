@@ -8,9 +8,11 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     env, fs,
-    io::Write,
+    io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::LazyLock,
+    thread,
     time::{Duration, Instant},
 };
 use support::Must;
@@ -19,6 +21,11 @@ use tower_lsp::lsp_types::TextEdit;
 use url::Url;
 
 const ANALYZER_TIMEOUT_MS: u64 = 120_000;
+
+// Prepared at most once per test binary, with the failure cached too: upstream
+// has no cross-process single-flight for its built rule program.
+static GENUINE_ANALYZER: LazyLock<Result<(PathBuf, Vec<String>), String>> =
+    LazyLock::new(setup_genuine_analyzer);
 
 // This is intentionally opt-in: unlike protocol fixtures it executes real,
 // trusted project rules and may populate upstream's pinned Bend/BendHub cache.
@@ -707,24 +714,145 @@ fn retain_failed_analyzer(
 }
 
 fn configured_analyzer() -> (PathBuf, Vec<String>) {
-    let executable = PathBuf::from(
-        env::var_os("BEND2_LINT_TEST_PATH")
-            .must_be("set BEND2_LINT_TEST_PATH to the genuine installed analyzer or Bun"),
-    );
-    assert!(
-        executable.is_absolute(),
-        "use an explicit absolute executable"
-    );
+    match &*GENUINE_ANALYZER {
+        Ok(analyzer) => analyzer.clone(),
+        Err(error) => panic!("genuine analyzer preparation failed: {error}"),
+    }
+}
+
+fn setup_genuine_analyzer() -> Result<(PathBuf, Vec<String>), String> {
+    let executable = env::var_os("BEND2_LINT_TEST_PATH").ok_or_else(|| {
+        "set BEND2_LINT_TEST_PATH to the genuine installed analyzer or Bun".to_owned()
+    })?;
+    let executable = PathBuf::from(executable);
+    if !executable.is_absolute() {
+        return Err("use an explicit absolute executable".to_owned());
+    }
     let arguments: Vec<String> = env::var("BEND2_LINT_TEST_ARGUMENTS").map_or_else(
-        |_| Vec::new(),
-        |value| serde_json::from_str(&value).must_be("JSON analyzer argument array"),
+        |_| Ok(Vec::new()),
+        |value| {
+            serde_json::from_str(&value)
+                .map_err(|error| format!("BEND2_LINT_TEST_ARGUMENTS must be a JSON array: {error}"))
+        },
+    )?;
+    if arguments
+        .iter()
+        .any(|argument| argument.starts_with("--fix"))
+    {
+        return Err("BEND2_LINT_TEST_ARGUMENTS must not enable fixes".to_owned());
+    }
+    prepare_genuine_analyzer(&executable, &arguments)?;
+    Ok((executable, arguments))
+}
+
+// A trusted temporary project with a standard 0.2.1 rule selects the one shared
+// standard-rule program; preparation builds/downloads it at most once here.
+const PREPARE_TIMEOUT: Duration = Duration::from_secs(600);
+
+fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(), String> {
+    let directory = tempfile::tempdir()
+        .map_err(|error| format!("could not create the preparation workspace: {error}"))?;
+    let project = directory.path();
+    fs::write(
+        project.join("bend-lint.json"),
+        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{}}}",
+    )
+    .map_err(|error| format!("could not write the preparation config: {error}"))?;
+    let report_path = project.join("report.json");
+    let mut child = Command::new(executable)
+        .args(arguments)
+        .args(["prepare", "--json", "--report"])
+        .arg(&report_path)
+        .current_dir(project)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("could not start the genuine analyzer: {error}"))?;
+    let stdout_pipe = child
+        .stdout
+        .take()
+        .ok_or_else(|| "genuine analyzer preparation has no stdout".to_owned())?;
+    let stderr_pipe = child
+        .stderr
+        .take()
+        .ok_or_else(|| "genuine analyzer preparation has no stderr".to_owned())?;
+    let stdout_reader = thread::spawn(move || drain(stdout_pipe));
+    let stderr_reader = thread::spawn(move || drain(stderr_pipe));
+    let started = Instant::now();
+    let deadline = started + PREPARE_TIMEOUT;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "genuine analyzer preparation exceeded {}s",
+                    PREPARE_TIMEOUT.as_secs()
+                ));
+            }
+            Ok(None) => thread::sleep(Duration::from_millis(100)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("could not await genuine analyzer preparation: {error}"));
+            }
+        }
+    };
+    let stdout = stdout_reader
+        .join()
+        .map_err(|_| "genuine analyzer stdout reader panicked".to_owned())?;
+    let stderr = stderr_reader
+        .join()
+        .map_err(|_| "genuine analyzer stderr reader panicked".to_owned())?;
+    eprintln!(
+        "genuine analyzer prepare completed after {:.3}s with {status}; stderr:\n{}",
+        started.elapsed().as_secs_f64(),
+        String::from_utf8_lossy(&stderr)
     );
-    assert!(
-        !arguments
-            .iter()
-            .any(|argument| argument.starts_with("--fix"))
+    if !status.success() {
+        return Err(format!(
+            "genuine analyzer preparation failed with {status}: {}",
+            String::from_utf8_lossy(&stderr)
+        ));
+    }
+    if !stdout.is_empty() {
+        return Err("genuine analyzer prepare wrote unexpected stdout; the 0.2.1 contract writes only its report".to_owned());
+    }
+    let metadata = fs::metadata(&report_path)
+        .map_err(|error| format!("genuine analyzer prepare did not write its report: {error}"))?;
+    if metadata.len() > 1024 * 1024 {
+        return Err("genuine analyzer preparation report exceeds the 1 MiB limit".to_owned());
+    }
+    let bytes = fs::read(&report_path)
+        .map_err(|error| format!("could not read the preparation report: {error}"))?;
+    let report: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("preparation report is not JSON: {error}"))?;
+    if report["bendLint"] != "0.2.1" || report["exitCode"] != 0 {
+        return Err(format!("unsupported preparation report identity: {report}"));
+    }
+    let backend = report["backend"]
+        .as_str()
+        .ok_or_else(|| format!("preparation report omits its backend: {report}"))?;
+    eprintln!(
+        "genuine analyzer backend: {backend}; runtime: {}; platform: {}",
+        report["runtime"], report["platform"]
     );
-    (executable, arguments)
+    let require_native = env::var("BEND2_LINT_REQUIRE_NATIVE")
+        .is_ok_and(|value| value == "1" || value == "true");
+    if require_native && backend != "native" {
+        return Err(format!(
+            "genuine analyzer prepared the '{backend}' rule backend, but this job requires native rules; install a supported Clang"
+        ));
+    }
+    Ok(())
+}
+
+fn drain(mut pipe: impl Read) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    let _ = pipe.read_to_end(&mut bytes);
+    bytes
 }
 
 fn genuine_report(executable: &Path, arguments: &[String], root: &Path) -> Value {
