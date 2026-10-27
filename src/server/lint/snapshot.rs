@@ -31,6 +31,7 @@ struct Captured {
     sources: BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     open: BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     missing: BTreeMap<PathBuf, Option<PathBuf>>,
+    aliases: BTreeMap<PathBuf, PathBuf>,
 }
 
 // Immutable analysis view for one project. `sources` is exactly what the
@@ -49,6 +50,7 @@ pub(super) struct ProjectSnapshot {
     config_path: PathBuf,
     missing_paths: BTreeMap<PathBuf, Option<PathBuf>>,
     open_sources: BTreeSet<PathBuf>,
+    source_aliases: BTreeMap<PathBuf, PathBuf>,
 }
 
 impl DiskFiles {
@@ -215,8 +217,14 @@ fn read_source(path: &Path, bytes: &mut usize) -> io::Result<(PathBuf, String)> 
     Ok((canonical, text))
 }
 
-fn open_snapshots(documents: &[Document]) -> BTreeMap<PathBuf, Arc<DocumentSnapshot>> {
+fn open_snapshots(
+    documents: &[Document],
+) -> (
+    BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
+    BTreeMap<PathBuf, PathBuf>,
+) {
     let mut open = BTreeMap::new();
+    let mut aliases = BTreeMap::new();
     for document in documents {
         let Ok(path) = document.uri.to_file_path() else {
             continue;
@@ -224,9 +232,12 @@ fn open_snapshots(documents: &[Document]) -> BTreeMap<PathBuf, Arc<DocumentSnaps
         let Some(identity) = input_identity(&path) else {
             continue;
         };
+        if path != identity && path.exists() {
+            aliases.insert(path, identity.clone());
+        }
         open.insert(identity, document.snapshot.clone());
     }
-    open
+    (open, aliases)
 }
 
 fn ensure_trusted_inputs_saved(
@@ -325,6 +336,7 @@ fn build_sources(
         sources: BTreeMap::new(),
         open: BTreeMap::new(),
         missing: BTreeMap::new(),
+        aliases: BTreeMap::new(),
     };
     let mut visited = HashSet::new();
     let mut bytes = 0usize;
@@ -336,6 +348,14 @@ fn build_sources(
         };
         if !visited.insert(key.clone()) {
             continue;
+        }
+        // Imports and open buffers can name a source through a symlink. Retain
+        // that original -> canonical edge, including symlinked parent
+        // directories, so retargeting it fences results even when the old
+        // canonical target's bytes are unchanged. This also applies on the
+        // with_overlays cache path, which resolves the same original path.
+        if path != key && path.exists() {
+            captured.aliases.insert(path.clone(), key.clone());
         }
         if let Some(snapshot) = open
             .get(&key)
@@ -492,7 +512,7 @@ impl ProjectSnapshot {
         let config_text = read_text(&config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
-        let open = open_snapshots(documents);
+        let (open, open_aliases) = open_snapshots(documents);
         ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &open)?;
         let pending = seeds(
             &root,
@@ -503,13 +523,18 @@ impl ProjectSnapshot {
             &files.rule_paths,
             &open,
         );
-        let captured = build_sources(
+        let mut captured = build_sources(
             &config_path,
             &files.rule_paths,
             &open,
             pending,
             None,
         )?;
+        let open_aliases: BTreeMap<PathBuf, PathBuf> = open_aliases
+            .into_iter()
+            .filter(|(_, identity)| captured.sources.contains_key(identity))
+            .collect();
+        captured.aliases.extend(open_aliases);
         let overlays = overlay_map(&captured, &config_path, &files.rule_paths)?;
         let uris = source_uris(documents, &captured.sources);
         let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
@@ -525,13 +550,14 @@ impl ProjectSnapshot {
             config_path,
             missing_paths: captured.missing,
             open_sources,
+            source_aliases: captured.aliases,
         })
     }
 
     // Rebuild the analysis view for new editor text while reusing captured disk
     // sources. Callers must have verified `unchanged()` first.
     pub(super) fn with_overlays(&self, documents: &[Document]) -> io::Result<Self> {
-        let open = open_snapshots(documents);
+        let (open, open_aliases) = open_snapshots(documents);
         ensure_trusted_inputs_saved(&self.config_path, &self.rule_paths, &open)?;
         let config_text = read_text(&self.config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
@@ -545,13 +571,18 @@ impl ProjectSnapshot {
             &self.rule_paths,
             &open,
         );
-        let captured = build_sources(
+        let mut captured = build_sources(
             &self.config_path,
             &self.rule_paths,
             &open,
             pending,
             Some((&self.sources, &self.open_sources)),
         )?;
+        let open_aliases: BTreeMap<PathBuf, PathBuf> = open_aliases
+            .into_iter()
+            .filter(|(_, identity)| captured.sources.contains_key(identity))
+            .collect();
+        captured.aliases.extend(open_aliases);
         let overlays = overlay_map(&captured, &self.config_path, &self.rule_paths)?;
         let uris = source_uris(documents, &captured.sources);
         let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
@@ -567,6 +598,7 @@ impl ProjectSnapshot {
             config_path: self.config_path.clone(),
             missing_paths: captured.missing,
             open_sources,
+            source_aliases: captured.aliases,
         })
     }
 
@@ -609,6 +641,15 @@ impl ProjectSnapshot {
             .iter()
             .any(|(path, identity)| path.exists() || input_identity(path) != *identity)
         {
+            return false;
+        }
+        // Import and open-buffer aliases, including symlinked parent
+        // directories, must still resolve to the file the analysis captured.
+        // A retarget is an input change even when the old target's bytes are
+        // unchanged, so it fences results and fixes like any other edit.
+        if !self.source_aliases.iter().all(|(alias, expected)| {
+            fs::canonicalize(alias).is_ok_and(|actual| actual == *expected)
+        }) {
             return false;
         }
         for (path, snapshot) in &self.sources {
