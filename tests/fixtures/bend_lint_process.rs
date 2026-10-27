@@ -35,6 +35,10 @@ fn prepare(arguments: &[String], control: &Path) -> io::Result<ExitCode> {
         .open(control.join("prepares"))?;
     writeln!(attempts, "{}", arguments.join("\t"))?;
     fs::write(control.join("prepare-arguments"), arguments.join("\n"))?;
+    fs::write(
+        control.join("prepare-cwd"),
+        env::current_dir()?.to_string_lossy().as_bytes(),
+    )?;
     if control.join("prepare-block").exists() {
         let listener = hold_socket(&control.join("prepare-address"))?;
         let deadline = Instant::now() + Duration::from_secs(30);
@@ -49,6 +53,15 @@ fn prepare(arguments: &[String], control: &Path) -> io::Result<ExitCode> {
     if control.join("prepare-fail").exists() {
         eprintln!("bend-lint: fixture prepare failure");
         return Ok(ExitCode::FAILURE);
+    }
+    if let Ok(error) = fs::read(control.join("prepare-error")) {
+        io::stdout().write_all(&error)?;
+        eprintln!("bend-lint: fixture prepare rejected the project");
+        return Ok(ExitCode::from(2));
+    }
+    if control.join("prepare-no-report").exists() {
+        eprintln!("bend-lint: prepared /fixture/rules.js");
+        return Ok(ExitCode::SUCCESS);
     }
     let report = arguments
         .iter()
