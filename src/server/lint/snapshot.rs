@@ -861,6 +861,23 @@ impl ProjectSnapshot {
         project_root(file).is_some_and(|root| root == self.root) && self.unchanged()
     }
 
+    pub(super) fn entry_path(&self, path: &Path) -> io::Result<&Path> {
+        self.sources
+            .get_key_value(path)
+            .or_else(|| {
+                self.source_aliases
+                    .get(path)
+                    .and_then(|identity| self.sources.get_key_value(identity))
+            })
+            .map(|(identity, _)| identity.as_path())
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Lint entry is absent from the captured project source view",
+                )
+            })
+    }
+
     pub(super) fn config_digest(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         for (path, identity) in &self.files {

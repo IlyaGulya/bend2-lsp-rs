@@ -359,6 +359,47 @@ fn virtual_nonexistent_import_analyses_without_creating_disk_files() {
 
 #[test]
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn virtual_nonexistent_entry_analyses_without_creating_disk_files() {
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("virtual genuine entry workspace");
+    let project = directory.path().join("virtual entry 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "rules":{UNNEEDED_PLUS:{}}
+        }))
+        .must_be("serialize genuine virtual entry config"),
+    )
+    .must_be("enable genuine semantic rule");
+    let entry = project.join("new/main.bend");
+    let document = uri(&entry);
+    let source = "import Base\n\ndef main(+x: U32) -> U32:\n  x\n";
+    let mut client = configured_client(&project, &executable, &arguments);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":source
+        }}),
+    );
+    let packet = wait_for_root_packet(&mut client, &document, 1, |packet| {
+        has_code(packet, UNNEEDED_PLUS)
+    });
+    assert_eq!(
+        finding(&packet["params"]["diagnostics"], UNNEEDED_PLUS)["range"],
+        json!({
+            "start":{"line":2,"character":10},
+            "end":{"line":2,"character":11}
+        })
+    );
+    assert!(!project.join("new").exists());
+    assert!(!entry.exists());
+    client.finish();
+}
+
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
     let (executable, arguments) = configured_analyzer();
     let directory = tempdir().must_be("genuine UTF-16 workspace");

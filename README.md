@@ -266,8 +266,9 @@ enable execution, apply edits, or bypass the separate dangerous-fix consent.
 
 The native quality matrix requires the portable lifecycle suite and genuine analyzer
 E2Es on all six OS/CPU targets. The genuine suite exercises unsaved entry text,
-type-aware changes in dirty imports, new imported files that do not exist on disk,
-CRLF/non-BMP UTF-16 ranges, partial checks, and structured configuration errors.
+type-aware changes in dirty imports, new entry/imported files below directories
+that do not exist on disk, CRLF/non-BMP UTF-16 ranges, partial checks, and
+structured configuration errors.
 It compares diagnostics and explicit versioned edits with the real CLI, rejects
 automatic dangerous actions, and verifies that analysis never writes buffers to disk.
 It also retains the saved-entry, import-ordering, multi-entry, and consecutive

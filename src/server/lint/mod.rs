@@ -652,6 +652,9 @@ impl Backend {
         );
         self.client.log_message(MessageType::INFO, format!(
             "bend-lint: executing {} {:?}; external rule/compiler execution was explicitly enabled. {description}. The analyzer's pinned Bend is independent of the selected LSP compiler.", config.path, config.arguments)).await;
+        // A virtual entry below a missing directory must use the captured
+        // identity, just like its overlay key, not the editor's filesystem alias.
+        let entry = snapshot.entry_path(&file)?;
         let permit = self
             .diagnostics
             .lint
@@ -663,7 +666,7 @@ impl Backend {
         let output = process::run(
             &config,
             &snapshot.root,
-            &file,
+            entry,
             &snapshot.overlays,
             self.compiler.reapers.clone(),
             permit,

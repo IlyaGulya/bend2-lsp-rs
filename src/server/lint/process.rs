@@ -308,8 +308,14 @@ pub(super) async fn run(
     permit: OwnedSemaphorePermit,
 ) -> io::Result<std::process::Output> {
     let input = overlay_input(overlays)?;
+    // Upstream resolves argv paths and overlay keys through the same resolver.
+    let entry = if file.to_str().is_some() {
+        OsString::from(overlay_key(file)?)
+    } else {
+        file.as_os_str().to_owned()
+    };
     let arguments = vec![
-        file.as_os_str().to_owned(),
+        entry,
         OsString::from("--json"),
         OsString::from("--overlays"),
         OsString::from("--jobs"),

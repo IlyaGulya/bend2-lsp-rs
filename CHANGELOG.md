@@ -4,9 +4,10 @@
 
 ### Live lint diagnostics
 
-- Check unsaved Bend buffers, their edited imports, and named files not yet on
-  disk with the optional standalone bend-lint provider. External tool and project
-  rule execution still require explicit opt-in.
+- Check unsaved Bend buffers, their edited imports, and named entry/imported files
+  not yet on disk, including paths below missing parent directories, with the
+  optional standalone bend-lint provider. External tool and project rule execution
+  still require explicit opt-in.
 - Prepare the rule runner separately from ordinary checks. Typing does not restart
   a cold build, and short per-check deadlines do not interrupt preparation.
 - Target standalone bend-lint 0.2.1, Bun 1.4.4, and matching rules/API 0.2.1.0.
