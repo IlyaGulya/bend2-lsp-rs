@@ -15,7 +15,7 @@ fn disabled_session(dependencies: &[(&str, &str)]) -> Session {
     }
     fs::write(
         control.join("response.json"),
-        "{\"ok\":true,\"findings\":[],\"suppressed\":[]}",
+        "{\"ok\":true,\"findings\":[],\"suppressed\":[],\"skipped\":[]}",
     )
     .must_be("initialize analyzer response");
     fs::write(control.join("exit-code"), "0").must_be("initialize analyzer exit");

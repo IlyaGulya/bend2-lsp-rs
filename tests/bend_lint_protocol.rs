@@ -99,7 +99,7 @@ impl Session {
         }
         fs::write(
             control.join("response.json"),
-            "{\"ok\":true,\"findings\":[],\"suppressed\":[]}",
+            "{\"ok\":true,\"findings\":[],\"suppressed\":[],\"skipped\":[]}",
         )
         .must_be("initialize process output");
         fs::write(control.join("exit-code"), "0").must_be("initialize exit code");
@@ -170,6 +170,7 @@ impl Session {
         let mut response = json!({"ok":ok});
         response["findings"] = Value::Array(findings);
         response["suppressed"] = Value::Array(suppressed);
+        response["skipped"] = Value::Array(Vec::new());
         fs::write(
             self.control.join("response.json"),
             serde_json::to_vec(&response).must_be("serialize upstream response"),
@@ -580,7 +581,7 @@ fn malformed_output_and_process_failure_preserve_selected_compiler_errors() {
     for (output, status) in [
         ("not json", "0"),
         ("{}", "2"),
-        ("{\"ok\":true,\"findings\":[],\"suppressed\":[]}", "1"),
+        ("{\"ok\":true,\"findings\":[],\"suppressed\":[],\"skipped\":[]}", "1"),
     ] {
         let mut session = Session::new(SOURCE, &[]);
         fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR)
