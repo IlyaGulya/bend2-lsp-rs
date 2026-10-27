@@ -854,7 +854,22 @@ mod tests {
         })
     }
 
-    fn backend() -> Backend {
+    // A retained result only exists after the provider is opted in with a
+    // configured executable. The test binary is that absolute executable; no
+    // check is scheduled here, so it is never invoked.
+    fn lint_config() -> Result<LintConfig, Box<dyn Error>> {
+        let path = std::env::current_exe()?
+            .into_os_string()
+            .into_string()
+            .map_err(|_| io::Error::other("the test executable path is not UTF-8"))?;
+        Ok(LintConfig {
+            enabled: true,
+            path,
+            ..LintConfig::default()
+        })
+    }
+
+    fn backend() -> Result<Backend, Box<dyn Error>> {
         let workspace = Arc::new(WorkspaceService {
             staging: Arc::new(Semaphore::new(1)),
             ..WorkspaceService::default()
@@ -867,7 +882,9 @@ mod tests {
                 Arc::new(CompilerReapers::default()),
             )
         });
-        service.inner().clone()
+        let backend = service.inner().clone();
+        *backend.diagnostics.lint.config.write() = lint_config()?;
+        Ok(backend)
     }
 
     async fn open(
@@ -904,12 +921,13 @@ mod tests {
         revisions: Vec<(FileId, u64)>,
     ) {
         let epoch = backend.diagnostics.lint.epoch.load(Ordering::SeqCst);
+        let config = backend.diagnostics.lint.config.read().clone();
         backend.diagnostics.lint.results.write().insert(
             uri.clone(),
             Arc::new(LintResult {
                 epoch,
                 revisions,
-                config: LintConfig::default(),
+                config,
                 snapshot,
                 findings: wire::Findings {
                     by_uri: HashMap::new(),
@@ -927,7 +945,7 @@ mod tests {
     async fn captured_text_cannot_be_retained_under_a_newer_dependency_generation()
     -> Result<(), Box<dyn Error>> {
         let project = project()?;
-        let backend = backend();
+        let backend = backend()?;
         open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
         open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
         let captured = backend.workspace_documents();
@@ -955,7 +973,7 @@ mod tests {
     async fn newly_opened_covered_input_invalidates_a_retained_result()
     -> Result<(), Box<dyn Error>> {
         let project = project()?;
-        let backend = backend();
+        let backend = backend()?;
         open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
         let captured = backend.workspace_documents();
         let snapshot = Arc::new(snapshot::ProjectSnapshot::capture(
@@ -985,7 +1003,7 @@ mod tests {
     async fn unrelated_open_inputs_keep_a_retained_result_current()
     -> Result<(), Box<dyn Error>> {
         let project = project()?;
-        let backend = backend();
+        let backend = backend()?;
         open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
         let captured = backend.workspace_documents();
         let snapshot = Arc::new(snapshot::ProjectSnapshot::capture(
