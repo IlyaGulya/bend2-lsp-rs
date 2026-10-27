@@ -153,7 +153,7 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
     );
     // The still-noncanonical path is an independent finding. Its arrival at
     // revision 2 proves lint completed, rather than observing an interim clear.
-    let after_lsp = wait_for_saved_diagnostics(&mut client, &document, started, 2);
+    let after_lsp = wait_for_lint_diagnostics(&mut client, &document, started, 2);
     let after_cli = genuine_report(&executable, &arguments, &root);
     for findings in [&after_cli["findings"], &after_lsp["params"]["diagnostics"]] {
         assert!(
@@ -166,6 +166,75 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
         );
         finding(findings, CANONICAL_PATH);
     }
+    client.finish();
+}
+
+// The analyzer is the published 0.2.1 CLI with its matching 0.2.1.0 rule
+// package, so an unsaved buffer must reach analysis instead of the saved copy.
+// The saved source is formatted and still carries an unneeded unary plus; only
+// the unsaved buffer removes the plus and introduces four-space indentation.
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn unsaved_change_republishes_genuine_findings_without_touching_disk() {
+    const UNNEEDED_PLUS: &str = "bend-lint-rules/language/unneeded_plus";
+    const FORMAT: &str = "bend-lint-rules/layout/format";
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("real unsaved overlay workspace");
+    let project = directory.path().join("unsaved overlay 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    let saved = "import Base\n\ndef f(+x: Nat, y: Nat) -> Nat:\n  Nat.add(x, y)\n";
+    let unsaved = "import Base\n\ndef f(x: Nat, y: Nat) -> Nat:\n    Nat.add(x, y)\n";
+    let root = project.join("main.bend");
+    fs::write(&root, saved).must_be("write genuine saved source");
+    fs::write(
+        project.join("bend-lint.json"),
+        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
+    )
+    .must_be("enable matching 0.2.1 genuine upstream rules");
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&root);
+    let saved_packet = saved_diagnostics(&mut client, &document, saved, started);
+    assert_eq!(saved_packet["params"]["version"], 1);
+    let saved_findings = &saved_packet["params"]["diagnostics"];
+    finding(saved_findings, UNNEEDED_PLUS);
+    assert!(
+        saved_findings
+            .as_array()
+            .must_be("saved diagnostics")
+            .iter()
+            .all(|finding| finding["code"] != FORMAT),
+        "the saved source is already formatted: {saved_findings}"
+    );
+    // The editor sends the exact unsaved buffer, leaving the stale saved copy on
+    // disk. Analysis must observe the unsaved text, not the saved text.
+    client.notify(
+        "textDocument/didChange",
+        json!({
+            "textDocument":{"uri":document,"version":2},
+            "contentChanges":[{"text":unsaved}]
+        }),
+    );
+    let unsaved_packet = wait_for_lint_diagnostics(&mut client, &document, started, 2);
+    let findings = &unsaved_packet["params"]["diagnostics"];
+    assert_eq!(
+        finding(findings, FORMAT)["range"]["start"],
+        json!({"line":3,"character":2}),
+        "the unsaved indentation, not the formatted saved copy, was analyzed"
+    );
+    assert!(
+        findings
+            .as_array()
+            .must_be("unsaved diagnostics")
+            .iter()
+            .all(|finding| finding["code"] != UNNEEDED_PLUS),
+        "removing the unary plus in the unsaved buffer must remove its saved-only finding: {findings}"
+    );
+    assert_eq!(
+        fs::read_to_string(&root).must_be("disk source remains untouched"),
+        saved,
+        "unsaved analysis must never write overlay text to disk"
+    );
     client.finish();
 }
 
@@ -342,12 +411,12 @@ fn saved_diagnostics(
         "textDocument/didSave",
         json!({"textDocument":{"uri":document}}),
     );
-    let packet = wait_for_saved_diagnostics(client, document, started, 1);
+    let packet = wait_for_lint_diagnostics(client, document, started, 1);
     assert_eq!(packet["params"]["version"], 1);
     packet
 }
 
-fn wait_for_saved_diagnostics(
+fn wait_for_lint_diagnostics(
     client: &mut LspClient,
     document: &str,
     started: Instant,
