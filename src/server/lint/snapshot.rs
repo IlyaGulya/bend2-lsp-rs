@@ -217,12 +217,29 @@ fn read_source(path: &Path, bytes: &mut usize) -> io::Result<(PathBuf, String)> 
     Ok((canonical, text))
 }
 
+fn insert_alias(
+    aliases: &mut BTreeMap<PathBuf, PathBuf>,
+    original: PathBuf,
+    canonical: PathBuf,
+) -> io::Result<()> {
+    // Distinct lexical aliases can resolve to one canonical source, so the
+    // source count budget does not bound this map. Fail clearly instead of
+    // silently dropping edges that fence retargeted inputs.
+    if !aliases.contains_key(&original) && aliases.len() >= FILE_LIMIT {
+        return Err(io::Error::other(
+            "bend-lint snapshot exceeds 4096 source aliases",
+        ));
+    }
+    aliases.insert(original, canonical);
+    Ok(())
+}
+
 fn open_snapshots(
     documents: &[Document],
-) -> (
+) -> io::Result<(
     BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     BTreeMap<PathBuf, PathBuf>,
-) {
+)> {
     let mut open = BTreeMap::new();
     let mut aliases = BTreeMap::new();
     for document in documents {
@@ -233,11 +250,11 @@ fn open_snapshots(
             continue;
         };
         if path != identity && path.exists() {
-            aliases.insert(path, identity.clone());
+            insert_alias(&mut aliases, path, identity.clone())?;
         }
         open.insert(identity, document.snapshot.clone());
     }
-    (open, aliases)
+    Ok((open, aliases))
 }
 
 fn ensure_trusted_inputs_saved(
@@ -355,7 +372,7 @@ fn build_sources(
         // canonical target's bytes are unchanged. This also applies on the
         // with_overlays cache path, which resolves the same original path.
         if path != key && path.exists() {
-            captured.aliases.insert(path.clone(), key.clone());
+            insert_alias(&mut captured.aliases, path.clone(), key.clone())?;
         }
         if let Some(snapshot) = open
             .get(&key)
@@ -512,7 +529,7 @@ impl ProjectSnapshot {
         let config_text = read_text(&config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
-        let (open, open_aliases) = open_snapshots(documents);
+        let (open, open_aliases) = open_snapshots(documents)?;
         ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &open)?;
         let pending = seeds(
             &root,
@@ -530,11 +547,11 @@ impl ProjectSnapshot {
             pending,
             None,
         )?;
-        let open_aliases: BTreeMap<PathBuf, PathBuf> = open_aliases
-            .into_iter()
-            .filter(|(_, identity)| captured.sources.contains_key(identity))
-            .collect();
-        captured.aliases.extend(open_aliases);
+        for (original, identity) in open_aliases {
+            if captured.sources.contains_key(&identity) {
+                insert_alias(&mut captured.aliases, original, identity)?;
+            }
+        }
         let overlays = overlay_map(&captured, &config_path, &files.rule_paths)?;
         let uris = source_uris(documents, &captured.sources);
         let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
@@ -557,7 +574,7 @@ impl ProjectSnapshot {
     // Rebuild the analysis view for new editor text while reusing captured disk
     // sources. Callers must have verified `unchanged()` first.
     pub(super) fn with_overlays(&self, documents: &[Document]) -> io::Result<Self> {
-        let (open, open_aliases) = open_snapshots(documents);
+        let (open, open_aliases) = open_snapshots(documents)?;
         ensure_trusted_inputs_saved(&self.config_path, &self.rule_paths, &open)?;
         let config_text = read_text(&self.config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
@@ -578,11 +595,11 @@ impl ProjectSnapshot {
             pending,
             Some((&self.sources, &self.open_sources)),
         )?;
-        let open_aliases: BTreeMap<PathBuf, PathBuf> = open_aliases
-            .into_iter()
-            .filter(|(_, identity)| captured.sources.contains_key(identity))
-            .collect();
-        captured.aliases.extend(open_aliases);
+        for (original, identity) in open_aliases {
+            if captured.sources.contains_key(&identity) {
+                insert_alias(&mut captured.aliases, original, identity)?;
+            }
+        }
         let overlays = overlay_map(&captured, &self.config_path, &self.rule_paths)?;
         let uris = source_uris(documents, &captured.sources);
         let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
