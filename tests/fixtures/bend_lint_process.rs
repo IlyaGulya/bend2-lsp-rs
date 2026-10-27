@@ -157,10 +157,11 @@ fn run() -> io::Result<ExitCode> {
     io::stdin().read_to_end(&mut overlays)?;
     fs::write(control.join("stdin"), &overlays)?;
     fs::write(control.join("stdin-eof"), b"eof")?;
-    let listener = hold_socket(&control.join("address"))?;
     // Capture the response when this invocation starts: a test that changes the
     // response while a check is blocked must affect the next invocation only.
     let output = fs::read(response_file(control, &arguments))?;
+    // The start barrier certifies this invocation's report has been captured.
+    let listener = hold_socket(&control.join("address"))?;
     // The child owns a distinct socket: killing only the immediate analyzer
     // process must not look like successful process-tree cleanup.
     let mut descendant = if control.join("spawn-descendant").exists() {

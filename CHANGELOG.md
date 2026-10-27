@@ -52,6 +52,12 @@
   without adding an audit exception.
 - Synchronize manual lint E2Es with completed analyzer runs, rather than buffered
   automatic publications, before checking cross-entry fixes and save rechecks.
+- Capture canned analyzer reports before signalling test readiness, and prepare the
+  next report before reopening a document. Keep close/reopen epoch checks free of
+  concurrent fixture-file rewrites.
+- Compile the Windows console-control fixture in bounded setup before starting
+  the owned collector. Keep its readiness and CTRL_BREAK finalization deadlines
+  unchanged, without charging cold C# compilation to collector startup.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve

@@ -1130,17 +1130,19 @@ fn close_and_reopen_cannot_accept_previous_save_completion() {
     session.open(SOURCE);
     session.save();
     let address = session.wait_file("address");
+    // The old invocation now owns its stale report. Finish preparing the new
+    // report before reopening, so its reader cannot race a truncated rewrite.
+    session.response(
+        vec![finding(&session.root, "fresh/result", range(0, 1, 6))],
+        vec![],
+        true,
+    );
     session.client.notify(
         "textDocument/didClose",
         json!({"textDocument":{"uri":session.document}}),
     );
     session.open(SOURCE);
     // The reopened document starts a fresh epoch; only it may publish.
-    session.response(
-        vec![finding(&session.root, "fresh/result", range(0, 1, 6))],
-        vec![],
-        true,
-    );
     session.release();
     socket_closed(&address);
     let packet = session

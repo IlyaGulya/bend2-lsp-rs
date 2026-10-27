@@ -1718,16 +1718,48 @@ mod tests {
         // Exercise the actual console APIs with an owned waiting process, not
         // a fabricated profiler trace or an assertion about a command string.
         const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; using System.Threading; public static class IgnoringConsole { public delegate bool HandlerRoutine(uint ctrl); public static readonly ManualResetEvent Stopped = new ManualResetEvent(false); public static readonly HandlerRoutine Stop = delegate(uint ctrl) { if (ctrl != 1) return false; Stopped.Set(); return true; }; [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Ignore(IntPtr handler, bool add); [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Register(HandlerRoutine handler, bool add); }'
-if (![IgnoringConsole]::Ignore([IntPtr]::Zero,$true)) { throw 'Could not ignore CTRL_C' }
-if (![IgnoringConsole]::Register([IgnoringConsole]::Stop,$true)) { throw 'Could not register CTRL_BREAK handler' }
-[Console]::Error.WriteLine('console.fixture.ready')
-[void][IgnoringConsole]::Stopped.WaitOne()
+Add-Type -OutputAssembly $env:BEND_PERF_CONSOLE_FIXTURE -OutputType ConsoleApplication -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+public static class IgnoringConsole {
+    public delegate bool HandlerRoutine(uint ctrl);
+    public static readonly ManualResetEvent Stopped = new ManualResetEvent(false);
+    public static readonly HandlerRoutine Stop = delegate(uint ctrl) {
+        if (ctrl != 1) return false;
+        Stopped.Set();
+        return true;
+    };
+    [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)]
+    public static extern bool Ignore(IntPtr handler, bool add);
+    [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)]
+    public static extern bool Register(HandlerRoutine handler, bool add);
+    public static void Main() {
+        if (!Ignore(IntPtr.Zero, true)) throw new Exception("Could not ignore CTRL_C");
+        if (!Register(Stop, true)) throw new Exception("Could not register CTRL_BREAK handler");
+        Console.Error.WriteLine("console.fixture.ready");
+        Stopped.WaitOne();
+    }
+}
+'@
 "#;
         let directory = tempfile::tempdir()?;
+        let executable = directory.path().join("ignoring-console.exe");
+        let executable = executable
+            .to_str()
+            .ok_or("Console fixture path is not UTF-8")?;
         let mut session = super::Session::new("samply", "cpu", directory.path());
         let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
-        session.spawn("powershell.exe", &args)?;
+        // Compile the fixture as bounded setup, not inside the collector's
+        // unchanged readiness deadline. Real collectors are installed binaries.
+        session.command_env_mode_timeout(
+            "powershell.exe",
+            &args,
+            &[("BEND_PERF_CONSOLE_FIXTURE", executable)],
+            super::CommandMode::Active,
+            super::Duration::from_secs(60),
+        )?;
+        session.spawn(executable, &[])?;
         session.wait_ready_text("console.fixture.ready\n")?;
         let pid = session
             .child
