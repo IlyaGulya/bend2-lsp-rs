@@ -194,26 +194,78 @@ fn position_offset(snapshot: &DocumentSnapshot, position: Position) -> Option<us
         .then_some(offset)
 }
 
+// bend-lint 0.2.1 places offsets with Text.Walk, which starts a new line only
+// at `\n`; a `\r` before it therefore counts as one UTF-16 line unit. LSP CRLF
+// line content excludes that `\r`, so its line length is one unit shorter. The
+// only representable equivalent of the upstream position at the LF is the
+// line's content end; every other unmatched position stays invalid. Edits keep
+// the strict rule below because moving an edit boundary off the CR would change
+// what bytes the user applies. (Minimal upstream fix: do not add a column for
+// `\r` when the next character is `\n`.)
+fn diagnostic_offset(snapshot: &DocumentSnapshot, position: Position) -> Option<usize> {
+    if let Some(offset) = position_offset(snapshot, position) {
+        return Some(offset);
+    }
+    let line = usize::try_from(position.line).ok()?;
+    let content = snapshot.line_index.line_range(&snapshot.text, line)?;
+    let (_, end_character) = snapshot
+        .line_index
+        .position(&snapshot.text, content.end);
+    let crlf = snapshot
+        .text
+        .as_bytes()
+        .get(content.end..)
+        .is_some_and(|rest| rest.starts_with(b"\r\n"));
+    (crlf && position.character == end_character.checked_add(1)?).then_some(content.end)
+}
+
 pub(super) fn offsets(snapshot: &DocumentSnapshot, range: Range) -> Option<(usize, usize)> {
     let start = position_offset(snapshot, range.start)?;
     let end = position_offset(snapshot, range.end)?;
     (start <= end).then_some((start, end))
 }
 
-fn finding_target(snapshot: &ProjectSnapshot, finding: &Finding) -> io::Result<Url> {
+// A published diagnostic must carry LSP-valid positions even when bend-lint
+// measured a CRLF boundary with its own line-unit rule. Fix edits keep the
+// strict offsets above so applying a fix never changes the bytes a client is
+// told to replace.
+pub(super) fn normalized_range(snapshot: &DocumentSnapshot, range: &Range) -> Option<Range> {
+    let start = diagnostic_offset(snapshot, range.start)?;
+    let end = diagnostic_offset(snapshot, range.end)?;
+    if start > end {
+        return None;
+    }
+    let (start_line, start_character) = snapshot.line_index.position(&snapshot.text, start);
+    let (end_line, end_character) = snapshot.line_index.position(&snapshot.text, end);
+    Some(Range {
+        start: Position {
+            line: start_line,
+            character: start_character,
+        },
+        end: Position {
+            line: end_line,
+            character: end_character,
+        },
+    })
+}
+
+fn finding_target(
+    snapshot: &ProjectSnapshot,
+    finding: &Finding,
+) -> io::Result<(Url, Range)> {
     let (path, source) = snapshot.source(&finding.path).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
             "bend-lint finding path is not a captured source file",
         )
     })?;
-    if offsets(source, finding.range).is_none() {
-        return Err(io::Error::new(
+    let range = normalized_range(source, &finding.range).ok_or_else(|| {
+        io::Error::new(
             io::ErrorKind::InvalidData,
             "bend-lint finding has an invalid UTF-16 range",
-        ));
-    }
-    snapshot.uris.get(&path).cloned().map_or_else(
+        )
+    })?;
+    let uri = snapshot.uris.get(&path).cloned().map_or_else(
         || {
             Url::from_file_path(&path).map_err(|()| {
                 io::Error::new(
@@ -223,7 +275,8 @@ fn finding_target(snapshot: &ProjectSnapshot, finding: &Finding) -> io::Result<U
             })
         },
         Ok,
-    )
+    )?;
+    Ok((uri, range))
 }
 
 fn bounded(mut text: String, limit: usize) -> String {
@@ -380,7 +433,7 @@ fn finding_diagnostic(
     snapshot: &ProjectSnapshot,
     finding: Finding,
 ) -> io::Result<(Url, Diagnostic, Vec<Fix>)> {
-    let uri = finding_target(snapshot, &finding)?;
+    let (uri, range) = finding_target(snapshot, &finding)?;
     let code_description = finding
         .docs
         .as_deref()
@@ -396,7 +449,7 @@ fn finding_diagnostic(
         })
         .transpose()?;
     let diagnostic = Diagnostic {
-        range: finding.range,
+        range,
         severity: Some(severity(&finding.severity)?),
         code: Some(NumberOrString::String(finding.code)),
         code_description,
