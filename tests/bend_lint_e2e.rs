@@ -284,8 +284,8 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn virtual_nonexistent_import_analyses_without_creating_disk_files() {
     let (executable, arguments) = configured_analyzer();
-    let (mut main_source, dep_source, _) = unused_result_sources();
-    main_source = main_source.replace("dep.bend", "new/dep.bend");
+    let (main_source, dep_source, _) = unused_result_sources();
+    let main_source = main_source.replace("dep.bend", "new/dep.bend");
     let directory = tempdir().must_be("virtual genuine import workspace");
     let project = directory.path().join("virtual import 🦀");
     fs::create_dir(&project).must_be("create genuine project");
@@ -531,7 +531,6 @@ fn genuine_structured_project_errors_are_attributable_without_diagnostics() {
         "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{\"unknownOption\":1}}}",
     )
     .must_be("write genuinely invalid rule options");
-    let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&main);
     client.notify(
