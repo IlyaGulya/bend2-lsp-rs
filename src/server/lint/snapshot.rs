@@ -1,5 +1,5 @@
 use crate::{
-    analysis::{DocumentSnapshot, Revision},
+    analysis::{self, DocumentSnapshot, Revision},
     workspace::{Document, normalize_path, resolve_import_targets},
 };
 use sha2::{Digest, Sha256};
@@ -35,6 +35,18 @@ struct Captured {
     aliases: BTreeMap<PathBuf, PathBuf>,
 }
 
+// The analyzer compiles the rule program from disk: every file reachable from
+// a rule file by a local import is executed code. Keep its bytes, the lexical
+// spellings that reached it, and the targets that do not exist yet, so the
+// same alias/creation fences as captured sources apply to rule inputs too.
+#[derive(Default)]
+struct RuleClosure {
+    identities: Identities,
+    aliases: BTreeMap<PathBuf, PathBuf>,
+    missing: BTreeMap<PathBuf, Option<PathBuf>>,
+    snapshots: BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
+}
+
 // Immutable analysis view for one project. `sources` is exactly what the
 // analyzer sees: open buffers and new named files replace the saved text, and
 // every other captured source is sent as an overlay too so the analyzer cannot
@@ -49,6 +61,8 @@ pub(super) struct ProjectSnapshot {
     aliases: BTreeMap<PathBuf, PathBuf>,
     rule_paths: HashSet<PathBuf>,
     rule_inputs: Identities,
+    rule_aliases: BTreeMap<PathBuf, PathBuf>,
+    rule_missing: BTreeMap<PathBuf, Option<PathBuf>>,
     config_path: PathBuf,
     missing_paths: BTreeMap<PathBuf, Option<PathBuf>>,
     open_sources: BTreeSet<PathBuf>,
@@ -181,12 +195,20 @@ fn trusted_input(
     path == config_path || rule_paths.contains(path) || rule_inputs.contains_key(path)
 }
 
-// The analyzer builds its rule program from the recursive relative-import
-// closure of the rule files, with no project fence. Capture that closure cold
-// from disk with the same import resolver the analysis view uses, bounded by
-// the existing snapshot budgets; warm queries only reuse it.
-fn rule_closure(rule_paths: &HashSet<PathBuf>) -> io::Result<Identities> {
-    let mut inputs = Identities::new();
+// The analyzer builds its rule program from the import closure of the rule
+// files with no project fence, and Bend executes absolute and bare local
+// imports as readily as `./`/`../` ones. Classify imports the way the compiler
+// does, skip only `Base` and BendHub packages (pinned external context), and
+// capture the closure cold from disk with the existing snapshot budgets; warm
+// queries only reuse it.
+//
+// This closure is the LSP's trusted read-set and tool-role classification, not
+// an extension of the analyzer's own build-cache key. Upstream's `getClosure`
+// key only follows `./`/`../` spellings, so a saved bare or absolute helper
+// still restarts our preparation and invalidates retained results, but whether
+// the producer rebuilds that spelling is its cache-key gap, tracked separately.
+fn rule_closure(rule_paths: &HashSet<PathBuf>) -> io::Result<RuleClosure> {
+    let mut closure = RuleClosure::default();
     let mut pending: Vec<PathBuf> = rule_paths
         .iter()
         .filter(|path| is_bend(path.as_path()))
@@ -195,35 +217,103 @@ fn rule_closure(rule_paths: &HashSet<PathBuf>) -> io::Result<Identities> {
     let mut visited = HashSet::new();
     let mut bytes = 0;
     while let Some(path) = pending.pop() {
-        let identity = input_identity(&path).unwrap_or_else(|| normalize_path(&path));
-        if !visited.insert(identity.clone()) {
+        let identity = input_identity(&path);
+        let key = identity.clone().unwrap_or_else(|| path.clone());
+        insert_alias(&mut closure.aliases, path.clone(), key.clone())?;
+        if !visited.insert(key) {
             continue;
         }
-        if !identity.exists() {
-            // An import without a target fails the analyzer build as before;
-            // a target that appears later changes the captured project tree.
+        if !path.exists() {
+            if closure.missing.len() >= FILE_LIMIT {
+                return Err(io::Error::other(
+                    "bend-lint rule inputs exceed 4096 missing files",
+                ));
+            }
+            closure.missing.insert(path, identity);
             continue;
         }
-        if inputs.len() >= FILE_LIMIT {
+        if closure.identities.len() >= FILE_LIMIT {
             return Err(io::Error::other("bend-lint rule inputs exceed 4096 files"));
         }
-        let (canonical, text) = read_source(&identity, &mut bytes)?;
-        let snapshot = DocumentSnapshot::new(Revision::UNVERSIONED, text);
+        let (canonical, text) = read_source(&path, &mut bytes)?;
+        let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text));
         let digest: [u8; 32] = Sha256::digest(snapshot.text.as_bytes()).into();
-        inputs.insert(canonical.clone(), digest);
-        // Only relative imports are part of the local build closure; absolute,
-        // Base, and BendHub imports are pinned tool/package context.
-        pending.extend(
-            resolve_import_targets(&canonical, &snapshot)
-                .into_iter()
-                .filter(|(path, _)| {
-                    let text = &snapshot.text[path.start..path.end];
-                    text.starts_with("./") || text.starts_with("../")
-                })
-                .map(|(_, target)| target),
-        );
+        closure.identities.insert(canonical.clone(), digest);
+        closure.snapshots.insert(canonical.clone(), snapshot.clone());
+        // Only Bend sources execute imports; every other closure file is a leaf
+        // effect input whose bytes still key the prepared program.
+        if is_bend(&canonical) {
+            pending.extend(analysis::imports(&snapshot).iter().filter_map(|import| {
+                rule_target(&canonical, import.path_text(&snapshot.text))
+            }));
+        }
     }
-    Ok(inputs)
+    Ok(closure)
+}
+
+// Mirrors the workspace/compiler import classification: `Base` and BendHub
+// package references (hash or `name@version` package) are pinned external
+// context; every other spelling names a local file, including absolute and
+// bare relative paths.
+fn external_import(imported: &str) -> bool {
+    if imported == "Base" {
+        return true;
+    }
+    if imported.starts_with("./") || imported.starts_with("../") {
+        return false;
+    }
+    let Some((package, _)) = imported.split_once('/') else {
+        return false;
+    };
+    let hash = package.strip_prefix("0x").unwrap_or("");
+    package.strip_prefix("0x").is_some_and(|hash| {
+        hash.len() == 32
+            && hash
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    }) || !hash.is_empty()
+        && hash
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        || package.contains('@')
+}
+
+fn rule_target(source: &Path, imported: &str) -> Option<PathBuf> {
+    // Bend writes effect imports quoted; upstream strips the quotes before it
+    // resolves the path, so the same spelling reaches the same file here.
+    let imported = imported.trim_matches('"');
+    if external_import(imported) {
+        return None;
+    }
+    let path = Path::new(imported);
+    if path.is_absolute() {
+        return Some(normalize_path(path));
+    }
+    source
+        .parent()
+        .map(|parent| normalize_path(&parent.join(imported)))
+}
+
+fn merge_rule_metadata(
+    captured: &mut Captured,
+    aliases: &BTreeMap<PathBuf, PathBuf>,
+    missing: &BTreeMap<PathBuf, Option<PathBuf>>,
+) -> io::Result<()> {
+    for (original, identity) in aliases {
+        insert_alias(&mut captured.aliases, original.clone(), identity.clone())?;
+    }
+    for (path, identity) in missing {
+        if captured.missing.contains_key(path) {
+            continue;
+        }
+        if captured.missing.len() >= FILE_LIMIT {
+            return Err(io::Error::other(
+                "bend-lint snapshot exceeds 4096 missing inputs",
+            ));
+        }
+        captured.missing.insert(path.clone(), identity.clone());
+    }
+    Ok(())
 }
 
 fn read_text(path: &Path, limit: usize) -> io::Result<String> {
@@ -628,33 +718,38 @@ impl ProjectSnapshot {
         let config_text = read_text(&config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
-        let rule_inputs = rule_closure(&files.rule_paths)?;
+        let rule = rule_closure(&files.rule_paths)?;
         let (open, open_aliases) = open_snapshots(documents);
-        ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &rule_inputs, &open)?;
-        let pending = seeds(
+        ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &rule.identities, &open)?;
+        let mut pending = seeds(
             &root,
             canonical_root.as_deref(),
             &config,
             &files.identities,
             &config_path,
             &files.rule_paths,
-            &rule_inputs,
+            &rule.identities,
             &open,
         );
+        // Every executed rule input is a checked source (never an overlay), so
+        // findings about a rule or helper resolve instead of being rejected.
+        pending.extend(rule.identities.keys().cloned());
+        let already_open = BTreeSet::new();
         let mut captured = build_sources(
             &config_path,
             &files.rule_paths,
-            &rule_inputs,
+            &rule.identities,
             &open,
             pending,
-            None,
+            Some((&rule.snapshots, &already_open)),
         )?;
         for (original, identity) in open_aliases {
             if captured.sources.contains_key(&identity) {
                 insert_alias(&mut captured.aliases, original, identity)?;
             }
         }
-        let overlays = overlay_map(&captured, &config_path, &files.rule_paths, &rule_inputs)?;
+        merge_rule_metadata(&mut captured, &rule.aliases, &rule.missing)?;
+        let overlays = overlay_map(&captured, &config_path, &files.rule_paths, &rule.identities)?;
         let uris = source_uris(
             documents,
             &captured.sources,
@@ -672,7 +767,9 @@ impl ProjectSnapshot {
             files: files.identities,
             aliases: files.aliases,
             rule_paths: files.rule_paths,
-            rule_inputs,
+            rule_inputs: rule.identities,
+            rule_aliases: rule.aliases,
+            rule_missing: rule.missing,
             config_path,
             missing_paths: captured.missing,
             open_sources,
@@ -695,7 +792,7 @@ impl ProjectSnapshot {
         let config_text = read_text(&self.config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
-        let pending = seeds(
+        let mut pending = seeds(
             &self.root,
             self.canonical_root.as_deref(),
             &config,
@@ -705,6 +802,7 @@ impl ProjectSnapshot {
             &self.rule_inputs,
             &open,
         );
+        pending.extend(self.rule_inputs.keys().cloned());
         let mut captured = build_sources(
             &self.config_path,
             &self.rule_paths,
@@ -718,6 +816,7 @@ impl ProjectSnapshot {
                 insert_alias(&mut captured.aliases, original, identity)?;
             }
         }
+        merge_rule_metadata(&mut captured, &self.rule_aliases, &self.rule_missing)?;
         let overlays = overlay_map(
             &captured,
             &self.config_path,
@@ -742,6 +841,8 @@ impl ProjectSnapshot {
             aliases: self.aliases.clone(),
             rule_paths: self.rule_paths.clone(),
             rule_inputs: self.rule_inputs.clone(),
+            rule_aliases: self.rule_aliases.clone(),
+            rule_missing: self.rule_missing.clone(),
             config_path: self.config_path.clone(),
             missing_paths: captured.missing,
             open_sources,
@@ -768,7 +869,10 @@ impl ProjectSnapshot {
             hasher.update(identity);
         }
         // Preparation compiles the analyzer's rule program from disk; every
-        // file in that closure is therefore a preparation input.
+        // file in that closure is therefore a preparation input. For `./`/`../`
+        // helpers this also matches the analyzer's build-cache key; bare and
+        // absolute spellings are local executable inputs here even though the
+        // producer's key omits them.
         for (path, identity) in &self.rule_inputs {
             hasher.update(path.as_os_str().as_encoded_bytes());
             hasher.update([0]);
@@ -797,6 +901,8 @@ impl ProjectSnapshot {
             || self.aliases.keys().any(|alias| path.starts_with(alias))
             || self.source_aliases.contains_key(path)
             || self.source_aliases.contains_key(&normalized)
+            || self.rule_inputs.contains_key(path)
+            || self.rule_inputs.contains_key(&normalized)
     }
 
     pub(super) fn unchanged(&self) -> bool {
@@ -1112,6 +1218,7 @@ mod tests {
             "closed imported findings must use the client's logical project spelling"
         );
     }
+
     #[test]
     fn an_absolute_local_rule_helper_is_a_fenced_executed_input() {
         let fixture = fixture("def positive: U32\n  0\n");
