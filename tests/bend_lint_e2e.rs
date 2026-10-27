@@ -261,6 +261,14 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
             .all(|finding| finding["code"] != UNUSED_RESULT),
         "the unsaved scalar import genuinely changes the semantic result: {overlay_report}"
     );
+    assert!(
+        overlay_report["skipped"]
+            .as_array()
+            .must_be("genuine skipped entries")
+            .is_empty(),
+        "the scalar witness must check cleanly rather than skip: {overlay_report}"
+    );
+    finding(&overlay_report["findings"], UNNEEDED_PLUS);
     finding(&overlay_report["findings"], FORMAT);
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
@@ -287,7 +295,9 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
         }}),
     );
     let updated = wait_for_root_packet(&mut client, &document, 1, |packet| {
-        has_code(packet, FORMAT) && !has_code(packet, UNUSED_RESULT)
+        has_code(packet, UNNEEDED_PLUS)
+            && has_code(packet, FORMAT)
+            && !has_code(packet, UNUSED_RESULT)
     });
     assert!(!has_code(&updated, UNUSED_RESULT));
     assert_eq!(
@@ -446,11 +456,12 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
         "def main(+x: U32) -> U32:\n",
         "  x\n",
     );
+    let saved_dep = "import Base\n\ndef value() -> U32:\n  1\n";
     let broken_dep = "def broken(:\n";
     let main = project.join("main.bend");
     let dep = project.join("dep.bend");
     fs::write(&main, main_source).must_be("write saved entry");
-    fs::write(&dep, "def value: U32\n  1\n").must_be("write saved dependency");
+    fs::write(&dep, saved_dep).must_be("write valid saved dependency");
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
@@ -529,7 +540,7 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
     assert!(notice["params"]["message"].is_string());
     assert_eq!(
         fs::read_to_string(&dep).must_be("disk dependency unchanged"),
-        "def value: U32\n  1\n"
+        saved_dep
     );
     client.finish();
 }
