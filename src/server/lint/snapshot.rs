@@ -1112,7 +1112,6 @@ mod tests {
             "closed imported findings must use the client's logical project spelling"
         );
     }
-}
     #[test]
     fn an_absolute_local_rule_helper_is_a_fenced_executed_input() {
         let fixture = fixture("def positive: U32\n  0\n");
