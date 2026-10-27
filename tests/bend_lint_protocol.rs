@@ -85,13 +85,13 @@ struct Session {
 
 impl Session {
     fn new(source: &str, dependencies: &[(&str, &str)]) -> Self {
-        Self::with_server_capabilities(source, dependencies, json!({}))
+        Self::with_server_capabilities(source, dependencies, &json!({}))
     }
 
     fn with_server_capabilities(
         source: &str,
         dependencies: &[(&str, &str)],
-        capabilities: Value,
+        capabilities: &Value,
     ) -> Self {
         let directory = tempdir().must_be("lint protocol workspace");
         let project = directory.path().join("project with spaces 🦀");
@@ -371,10 +371,10 @@ impl Session {
     }
 
     fn actions(&mut self, diagnostics: Value, trigger: u8) -> Vec<Value> {
-        self.actions_at(diagnostics, trigger, range(0, 0, 24))
+        self.actions_at(diagnostics, trigger, &range(0, 0, 24))
     }
 
-    fn actions_at(&mut self, diagnostics: Value, trigger: u8, span: Value) -> Vec<Value> {
+    fn actions_at(&mut self, diagnostics: Value, trigger: u8, span: &Value) -> Vec<Value> {
         let mut params = json!({
             "textDocument":{"uri":self.document},"range":span,
             "context":{"triggerKind":trigger,"only":["quickfix.bend-lint.dangerous"]}
@@ -971,8 +971,11 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
 
 #[test]
 fn superseding_preparation_keeps_the_newest_progress_token_until_completion() {
-    let mut session =
-        Session::with_server_capabilities(SOURCE, &[], json!({"window":{"workDoneProgress":true}}));
+    let mut session = Session::with_server_capabilities(
+        SOURCE,
+        &[],
+        &json!({"window":{"workDoneProgress":true}}),
+    );
     fs::write(session.control.join("prepare-block"), "").must_be("block preparation");
     session.standard_response();
     session.configure(true, false, 10_000);
@@ -1402,12 +1405,21 @@ fn editing_saved_document_refreshes_lint_from_the_overlay() {
     session.configure(true, false, 10_000);
     session.open(SOURCE);
     session.lint();
+    let calls = session.calls();
     // The unsaved edit removes the only finding; that is a real check result,
     // not an interim clear while waiting for a save.
     session.response(vec![], vec![], true);
     let edited = "def main(x: U32) -> U32:\n  x\n";
     session.change(2, edited);
-    session.wait_calls(2);
+    session.wait_calls(calls + 1);
+    let deadline = Instant::now() + TIMEOUT;
+    while session.status()["state"] != "ready" {
+        assert!(
+            Instant::now() < deadline,
+            "automatic unsaved check completes"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
     let cleared = session
         .client
         .receive_matching(TIMEOUT, |message| {

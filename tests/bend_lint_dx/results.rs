@@ -13,10 +13,10 @@ fn saving_another_entry_preserves_the_previous_documents_fix() {
     // entry must return its own finding again, not the sibling target's.
     let responses = session.control.join("responses");
     fs::create_dir(&responses).must_be("create per-target responses");
-    target_response(&responses.join("main.bend.json"), vec![original], true);
+    target_response(&responses.join("main.bend.json"), &[original], true);
     target_response(
         &responses.join("other.bend.json"),
-        vec![finding(&other, "test/other", range(0, 9, 10))],
+        &[finding(&other, "test/other", range(0, 9, 10))],
         true,
     );
     session.configure(true, true, 10_000);
@@ -142,7 +142,7 @@ fn an_empty_entry_report_clears_an_older_imported_lint_finding() {
     fs::create_dir(&responses).must_be("create per-target responses");
     target_response(
         &responses.join("other.bend.json"),
-        vec![finding(&session.root, "test/imported", range(0, 9, 10))],
+        &[finding(&session.root, "test/imported", range(0, 9, 10))],
         true,
     );
     session.client.notify(
@@ -163,8 +163,8 @@ fn an_empty_entry_report_clears_an_older_imported_lint_finding() {
     {}
     // Phase two: both entries report cleanly, so the project-scoped refresh of
     // either entry cannot resurrect the older imported finding.
-    target_response(&responses.join("main.bend.json"), vec![], true);
-    target_response(&responses.join("other.bend.json"), vec![], true);
+    target_response(&responses.join("main.bend.json"), &[], true);
+    target_response(&responses.join("other.bend.json"), &[], true);
     session.save();
     let cleared = session.client.receive_matching(TIMEOUT, |message| {
         message["method"] == "textDocument/publishDiagnostics"
@@ -318,7 +318,7 @@ fn previously_missing_external_imports_fence_old_fixes() {
     }
 }
 
-fn target_response(path: &Path, findings: Vec<Value>, ok: bool) {
+fn target_response(path: &Path, findings: &[Value], ok: bool) {
     let response = json!({"ok":ok,"findings":findings,"suppressed":[],"skipped":[]});
     fs::write(
         path,
@@ -339,8 +339,8 @@ fn editing_an_independent_open_document_refreshes_a_fenced_result() {
     // must never fabricate findings for the retained document.
     let responses = session.control.join("responses");
     fs::create_dir(&responses).must_be("create per-target responses");
-    target_response(&responses.join("main.bend.json"), vec![original], true);
-    target_response(&responses.join("other.bend.json"), vec![], true);
+    target_response(&responses.join("main.bend.json"), &[original], true);
+    target_response(&responses.join("other.bend.json"), &[], true);
     session.configure(true, true, 10_000);
     session.open(SOURCE);
     session.client.notify(
@@ -503,7 +503,7 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
     let diagnostics = session.lint()["params"]["diagnostics"].clone();
     assert_eq!(
         session
-            .actions_at(diagnostics.clone(), 1, range(3, 0, 24))
+            .actions_at(diagnostics.clone(), 1, &range(3, 0, 24))
             .len(),
         1,
         "the retained external-import result offers its versioned fix"
@@ -515,7 +515,7 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
     fs::rename(&replacement, &link).must_be("atomically retarget the external alias");
     assert!(
         session
-            .actions_at(diagnostics, 1, range(3, 0, 24))
+            .actions_at(diagnostics, 1, &range(3, 0, 24))
             .is_empty(),
         "retargeting a captured external alias must fence the stale fix"
     );
@@ -555,7 +555,7 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
             .actions_at(
                 refreshed["params"]["diagnostics"].clone(),
                 1,
-                range(3, 0, 24)
+                &range(3, 0, 24)
             )
             .len(),
         1,

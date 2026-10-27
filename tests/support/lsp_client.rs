@@ -128,10 +128,12 @@ impl LspClient {
     /// # Panics
     /// Panics if initialization fails or the server returns no capabilities.
     pub fn initialize(&mut self, root: &Path) {
-        self.initialize_with_capabilities(root, json!({}));
+        self.initialize_with_capabilities(root, &json!({}));
     }
 
-    pub fn initialize_with_capabilities(&mut self, root: &Path, capabilities: Value) {
+    /// # Panics
+    /// Panics if initialization fails or the server returns no capabilities.
+    pub fn initialize_with_capabilities(&mut self, root: &Path, capabilities: &Value) {
         let root_uri = Url::from_directory_path(root).must_be("workspace URI");
         let response = self.request(
             "initialize",
