@@ -128,7 +128,9 @@ def extract_package(data: bytes, destination: Path) -> None:
 
 def package_identity(package: Path) -> dict:
     metadata = json.loads((package / "package.json").read_text(encoding="utf-8"))
-    if metadata["name"] != "bend-lint" or metadata["version"] != "0.2.1":
+    if not isinstance(metadata, dict):
+        raise ValueError("unexpected standalone linter metadata")
+    if metadata.get("name") != "bend-lint" or metadata.get("version") != "0.2.1":
         raise ValueError("unexpected standalone linter identity")
     if (
         metadata.get("engines", {}).get("bun") != "1.4.4"
