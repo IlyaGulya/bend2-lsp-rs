@@ -8,15 +8,16 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     env, fs,
-    io::{Read, Write},
+    io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::LazyLock,
-    thread,
     time::{Duration, Instant},
 };
 use support::Must;
 use tempfile::tempdir;
+use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tower_lsp::lsp_types::TextEdit;
 use url::Url;
 
@@ -770,53 +771,9 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
     )
     .map_err(|error| format!("could not write the preparation config: {error}"))?;
     let report_path = project.join("report.json");
-    let mut child = Command::new(executable)
-        .args(arguments)
-        .args(["prepare", "--json", "--report"])
-        .arg(&report_path)
-        .current_dir(project)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("could not start the genuine analyzer: {error}"))?;
-    let stdout_pipe = child
-        .stdout
-        .take()
-        .ok_or_else(|| "genuine analyzer preparation has no stdout".to_owned())?;
-    let stderr_pipe = child
-        .stderr
-        .take()
-        .ok_or_else(|| "genuine analyzer preparation has no stderr".to_owned())?;
-    let stdout_reader = thread::spawn(move || drain(stdout_pipe));
-    let stderr_reader = thread::spawn(move || drain(stderr_pipe));
     let started = Instant::now();
-    let deadline = started + PREPARE_TIMEOUT;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() >= deadline => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(format!(
-                    "genuine analyzer preparation exceeded {}s",
-                    PREPARE_TIMEOUT.as_secs()
-                ));
-            }
-            Ok(None) => thread::sleep(Duration::from_millis(100)),
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(format!("could not await genuine analyzer preparation: {error}"));
-            }
-        }
-    };
-    let stdout = stdout_reader
-        .join()
-        .map_err(|_| "genuine analyzer stdout reader panicked".to_owned())?;
-    let stderr = stderr_reader
-        .join()
-        .map_err(|_| "genuine analyzer stderr reader panicked".to_owned())?;
+    let (status, stdout, stderr) =
+        run_prepare_contained(executable, arguments, project, &report_path)?;
     eprintln!(
         "genuine analyzer prepare completed after {:.3}s with {status}; stderr:\n{}",
         started.elapsed().as_secs_f64(),
@@ -860,10 +817,89 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
     Ok(())
 }
 
-fn drain(mut pipe: impl Read) -> Vec<u8> {
+const SETUP_STREAM_LIMIT: u64 = 8 * 1024 * 1024;
+
+async fn read_setup_pipe(pipe: impl AsyncRead + Unpin) -> std::io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
-    let _ = pipe.read_to_end(&mut bytes);
-    bytes
+    pipe.take(SETUP_STREAM_LIMIT + 1)
+        .read_to_end(&mut bytes)
+        .await?;
+    if u64::try_from(bytes.len()).map_err(std::io::Error::other)? > SETUP_STREAM_LIMIT {
+        return Err(std::io::Error::other(
+            "genuine analyzer preparation output exceeds the 8 MiB limit",
+        ));
+    }
+    Ok(bytes)
+}
+
+// One bounded preparation with the repository's process-tree containment: the
+// timeout kills and reaps the analyzer and its native compiler descendants, and
+// both pipes are drained to completion before the result is reported.
+fn run_prepare_contained(
+    executable: &Path,
+    arguments: &[String],
+    project: &Path,
+    report: &Path,
+) -> Result<(std::process::ExitStatus, Vec<u8>, Vec<u8>), String> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| format!("could not start the contained preparation runtime: {error}"))?;
+    runtime.block_on(async {
+        let mut command = CommandWrap::with_new(executable, |command| {
+            command
+                .args(arguments)
+                .args(["prepare", "--json", "--report"])
+                .arg(report)
+                .current_dir(project)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+        });
+        command.wrap(KillOnDrop);
+        #[cfg(unix)]
+        command.wrap(process_wrap::tokio::ProcessGroup::leader());
+        #[cfg(windows)]
+        command.wrap(process_wrap::tokio::JobObject);
+        let mut child = command
+            .spawn()
+            .map_err(|error| format!("could not start the genuine analyzer: {error}"))?;
+        let (Some(stdout), Some(stderr)) = (child.stdout().take(), child.stderr().take()) else {
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+            return Err("genuine analyzer preparation did not expose both pipes".to_owned());
+        };
+        let stdout = tokio::spawn(read_setup_pipe(stdout));
+        let stderr = tokio::spawn(read_setup_pipe(stderr));
+        match tokio::time::timeout(PREPARE_TIMEOUT, child.wait()).await {
+            Ok(status) => {
+                let status = status.map_err(|error| {
+                    format!("could not await the genuine analyzer preparation: {error}")
+                })?;
+                let stdout = stdout
+                    .await
+                    .map_err(|error| format!("stdout drain task failed: {error}"))?
+                    .map_err(|error| format!("could not drain preparation stdout: {error}"))?;
+                let stderr = stderr
+                    .await
+                    .map_err(|error| format!("stderr drain task failed: {error}"))?
+                    .map_err(|error| format!("could not drain preparation stderr: {error}"))?;
+                Ok((status, stdout, stderr))
+            }
+            Err(_) => {
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                // The contained tree is gone, so the drains reach EOF; wait for
+                // them so no pipe reader outlives the preparation attempt.
+                let _ = stdout.await;
+                let _ = stderr.await;
+                Err(format!(
+                    "genuine analyzer preparation exceeded {}s; its process tree is being killed and reaped",
+                    PREPARE_TIMEOUT.as_secs()
+                ))
+            }
+        }
+    })
 }
 
 fn genuine_report(executable: &Path, arguments: &[String], root: &Path) -> Value {
