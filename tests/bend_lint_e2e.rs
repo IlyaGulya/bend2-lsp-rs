@@ -6,7 +6,9 @@ use bend2_lsp::analysis::LineIndex;
 use lsp_client::LspClient;
 use serde_json::{Value, json};
 use std::{
+    collections::BTreeMap,
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -166,6 +168,415 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
         );
         finding(findings, CANONICAL_PATH);
     }
+    client.finish();
+}
+
+const UNNEEDED_PLUS: &str = "bend-lint-rules/language/unneeded_plus";
+const UNUSED_RESULT: &str = "bend-lint-rules/performance/unused_result";
+const FORMAT: &str = "bend-lint-rules/layout/format";
+
+fn unused_result_sources() -> (&'static str, &'static str, &'static str) {
+    let main = concat!(
+        "import Base\n",
+        "import dep.bend as Dep\n",
+        "\n",
+        "def f(n: Nat, acc: U32) -> U32:\n",
+        "  match n:\n",
+        "    case 0n:\n",
+        "      acc\n",
+        "    case 1n+m:\n",
+        "      xs = Dep.build(3n, [])\n",
+        "      f(m, acc)\n",
+        "\n",
+        "def g(+x: Nat, y: Nat) -> Nat:\n",
+        "  Nat.add(x, y)\n",
+    );
+    let dep = concat!(
+        "import Base\n",
+        "\n",
+        "def build(n: Nat, acc: List<&2, U32>) -> List<&2, U32>:\n",
+        "  match n:\n",
+        "    case 0n:\n",
+        "      acc\n",
+        "    case 1n+m:\n",
+        "      build(m, 1 <> acc)\n",
+    );
+    let scalar = concat!(
+        "import Base\n",
+        "\n",
+        "def build(n: Nat, acc: List<&2, U32>) -> U32:\n",
+        "  n\n",
+    );
+    (main, dep, scalar)
+}
+
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
+    let (executable, arguments) = configured_analyzer();
+    let (main_source, dep_source, scalar_dep) = unused_result_sources();
+    let directory = tempdir().must_be("genuine imported-type workspace");
+    let project = directory.path().join("imported types 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    let main = project.join("main.bend");
+    let dep = project.join("dep.bend");
+    fs::write(&main, main_source).must_be("write saved entry");
+    fs::write(&dep, dep_source).must_be("write saved integral dependency");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{}}
+        }))
+        .must_be("serialize genuine semantic rule config"),
+    )
+    .must_be("enable genuine semantic rules");
+    let disk_report = genuine_report(&executable, &arguments, &main);
+    let disk_unused = finding(&disk_report["findings"], UNUSED_RESULT);
+    let disk_range = disk_unused["range"].clone();
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&main);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":main_source
+        }}),
+    );
+    let baseline = wait_for_lint_diagnostics(&mut client, &document, started, 1);
+    assert_eq!(
+        finding(&baseline["params"]["diagnostics"], UNUSED_RESULT)["range"],
+        disk_range,
+        "the live saved analysis matches its genuine CLI report"
+    );
+    // Only the imported buffer is dirty: its type changes from a built list to
+    // a scalar, so the semantic rule must stop reporting the unused binding.
+    let dep_document = uri(&dep);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":dep_document,"languageId":"bend","version":1,"text":scalar_dep
+        }}),
+    );
+    let updated = wait_for_root_packet(&mut client, &document, 1, |packet| {
+        has_code(packet, UNNEEDED_PLUS) && !has_code(packet, UNUSED_RESULT)
+    });
+    assert!(!has_code(&updated, UNUSED_RESULT));
+    let mut overlays = BTreeMap::new();
+    overlays.insert(canonical(&dep), scalar_dep.to_owned());
+    let overlay_report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
+    assert!(
+        overlay_report["findings"]
+            .as_array()
+            .must_be("genuine overlay findings")
+            .iter()
+            .all(|finding| finding["code"] != UNUSED_RESULT),
+        "the unsaved scalar import genuinely changes the semantic result: {overlay_report}"
+    );
+    assert_eq!(
+        fs::read_to_string(&dep).must_be("disk dependency unchanged"),
+        dep_source
+    );
+    client.finish();
+}
+
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn virtual_nonexistent_import_analyses_without_creating_disk_files() {
+    let (executable, arguments) = configured_analyzer();
+    let (mut main_source, dep_source, _) = unused_result_sources();
+    main_source = main_source.replace("dep.bend", "new/dep.bend");
+    let directory = tempdir().must_be("virtual genuine import workspace");
+    let project = directory.path().join("virtual import 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    let main = project.join("main.bend");
+    fs::write(&main, &main_source).must_be("write saved entry");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{}}
+        }))
+        .must_be("serialize genuine virtual rule config"),
+    )
+    .must_be("enable genuine semantic rules");
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&main);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":main_source
+        }}),
+    );
+    // The imported file exists only in editor memory, under a directory that
+    // does not exist on disk.
+    let virtual_dep = project.join("new/dep.bend");
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":uri(&virtual_dep),"languageId":"bend","version":1,"text":dep_source
+        }}),
+    );
+    let packet = wait_for_root_packet(&mut client, &document, 1, |packet| {
+        has_code(packet, UNUSED_RESULT)
+    });
+    assert_eq!(
+        finding(&packet["params"]["diagnostics"], UNUSED_RESULT)["range"]["start"],
+        json!({"line":8,"character":6})
+    );
+    assert!(
+        !project.join("new").exists(),
+        "a virtual import must not create its missing directory"
+    );
+    assert!(!virtual_dep.exists());
+    client.finish();
+}
+
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("genuine UTF-16 workspace");
+    let project = directory.path().join("unicode ranges 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    let canonical_source = "import Base\r\n\r\ndef main() -> String:\r\n  \"😀\" ++ \"x\"\r\n";
+    let unsaved = "import Base\r\n\r\ndef main() -> String:\r\n  \"😀\"++\"x\"\r\n";
+    let main = project.join("main.bend");
+    fs::write(&main, canonical_source).must_be("write canonical CRLF entry");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "rules":{FORMAT:{"endOfLine":"crlf"}}
+        }))
+        .must_be("serialize genuine format config"),
+    )
+    .must_be("enable genuine format rule");
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&main);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":canonical_source
+        }}),
+    );
+    client.notify(
+        "textDocument/didChange",
+        json!({"textDocument":{"uri":document,"version":2},
+        "contentChanges":[{"text":unsaved}]}),
+    );
+    let packet = wait_for_lint_diagnostics(&mut client, &document, started, 2);
+    let format = finding(&packet["params"]["diagnostics"], FORMAT);
+    assert_eq!(
+        format["range"]["start"],
+        json!({"line":3,"character":6}),
+        "the character after the non-BMP emoji is a UTF-16 offset"
+    );
+    assert_eq!(format["codeDescription"]["href"], rule_docs(FORMAT));
+    let mut overlays = BTreeMap::new();
+    overlays.insert(canonical(&main), unsaved.to_owned());
+    let report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
+    let reported = finding(&report["findings"], FORMAT);
+    assert_eq!(format["range"], reported["range"]);
+    assert_eq!(format["message"], reported["message"]);
+    assert_eq!(reported["docs"], rule_docs(FORMAT));
+    let actions = client.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument":{"uri":document},"range":format["range"],
+            "context":{"diagnostics":[format],"triggerKind":1,
+                "only":["quickfix.bend-lint.dangerous"]}
+        }),
+    )["result"]
+        .as_array()
+        .must_be("genuine versioned actions")
+        .clone();
+    assert_eq!(actions.len(), 1);
+    let changes = actions[0]["edit"]["documentChanges"]
+        .as_array()
+        .must_be("versioned genuine changes");
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0]["textDocument"]["version"], 2);
+    let fixes = reported["fixes"].as_array().must_be("reported genuine fixes");
+    let edits = fixes[0]["edits"].as_array().must_be("reported genuine edits");
+    assert_eq!(changes[0]["edits"].as_array().must_be("offered edits").len(), edits.len());
+    for (offered, expected) in changes[0]["edits"].as_array().must_be("offered edits")
+        .iter()
+        .zip(edits)
+    {
+        assert_eq!(offered["range"], expected["range"]);
+        assert_eq!(offered["newText"], expected["text"]);
+    }
+    assert_eq!(
+        fs::read_to_string(&main).must_be("disk remains canonical CRLF"),
+        canonical_source
+    );
+    client.finish();
+}
+
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("genuine skipped workspace");
+    let project = directory.path().join("skipped checks 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    let main_source = concat!(
+        "import Base\n",
+        "import dep.bend as Dep\n",
+        "\n",
+        "def main(+x: U32) -> U32:\n",
+        "  x\n",
+    );
+    let broken_dep = "def broken(:\n";
+    let main = project.join("main.bend");
+    let dep = project.join("dep.bend");
+    fs::write(&main, main_source).must_be("write saved entry");
+    fs::write(&dep, "def value: U32\n  1\n").must_be("write saved dependency");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "rules":{UNNEEDED_PLUS:{}}
+        }))
+        .must_be("serialize genuine skip rule config"),
+    )
+    .must_be("enable genuine rule");
+    let mut overlays = BTreeMap::new();
+    overlays.insert(canonical(&dep), broken_dep.to_owned());
+    let report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
+    let skipped = report["skipped"].as_array().must_be("genuine skipped reasons");
+    assert!(
+        skipped.iter().any(|skip| {
+            skip["reason"] == "unloaded"
+                && skip["message"]
+                    .as_str()
+                    .is_some_and(|message| message.contains("Bend does not load"))
+        }),
+        "the real analyzer reports the unloaded input: {report}"
+    );
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&main);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":main_source
+        }}),
+    );
+    wait_for_lint_diagnostics(&mut client, &document, started, 1);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":uri(&dep),"languageId":"bend","version":1,"text":broken_dep
+        }}),
+    );
+    let deadline = Instant::now() + Duration::from_secs(150);
+    let status = loop {
+        let response = client.request(
+            "workspace/executeCommand",
+            json!({"command":"bend2.lint.status","arguments":[{"uri":document}]}),
+        );
+        let status = response["result"].clone();
+        if status["partial"] == true {
+            break status;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the genuine partial result did not arrive: {status}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    assert_eq!(status["state"], "ready", "{status}");
+    assert!(
+        status["skippedChecks"]
+            .as_u64()
+            .must_be("skipped count")
+            >= 1
+    );
+    assert!(
+        status["reason"]
+            .as_str()
+            .must_be("partial reason")
+            .contains("skipped check")
+    );
+    let notice = client
+        .receive_matching(Duration::from_secs(10), |message| {
+            message["method"] == "window/logMessage"
+                && message["params"]["message"].as_str().is_some_and(|text| {
+                    text.contains("partially checked") && text.contains("unloaded")
+                })
+        })
+        .must_be("the real skip reasons are logged operationally");
+    assert!(notice["params"]["message"].is_string());
+    assert_eq!(
+        fs::read_to_string(&dep).must_be("disk dependency unchanged"),
+        "def value: U32\n  1\n"
+    );
+    client.finish();
+}
+
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn genuine_structured_project_errors_are_attributable_without_diagnostics() {
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("genuine error workspace");
+    let project = directory.path().join("structured errors 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    let main = project.join("main.bend");
+    fs::write(&main, "import Base\n\ndef main() -> U32:\n  1\n").must_be("write saved entry");
+    fs::write(
+        project.join("bend-lint.json"),
+        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{\"unknownOption\":1}}}",
+    )
+    .must_be("write genuinely invalid rule options");
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&main);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,
+            "text":"import Base\n\ndef main() -> U32:\n  1\n"
+        }}),
+    );
+    let failure = client
+        .receive_matching(Duration::from_secs(150), |message| {
+            matches!(
+                message["method"].as_str(),
+                Some("window/logMessage" | "window/showMessage")
+            ) && message["params"]["message"].as_str().is_some_and(|text| {
+                text.contains("bend-lint.json")
+                    && (text.contains("fail") || text.contains("reject") || text.contains("error"))
+            })
+        })
+        .must_be("the genuine structured error is attributable");
+    assert!(
+        failure["params"]["message"]
+            .as_str()
+            .must_be("structured error message")
+            .contains("unknownOption"),
+        "the upstream message is preserved: {failure}"
+    );
+    let status = client.request(
+        "workspace/executeCommand",
+        json!({"command":"bend2.lint.status","arguments":[{"uri":document}]}),
+    )["result"]
+        .clone();
+    assert_eq!(status["state"], "failed", "{status}");
+    assert!(
+        client
+            .receive_matching(Duration::from_millis(350), |message| {
+                lint_packet(message, &document)
+            })
+            .is_none(),
+        "fatal analyzer errors never become source diagnostics"
+    );
+    assert_eq!(
+        fs::read_to_string(&main).must_be("disk entry unchanged"),
+        "import Base\n\ndef main() -> U32:\n  1\n"
+    );
     client.finish();
 }
 
@@ -334,6 +745,82 @@ fn genuine_report(executable: &Path, arguments: &[String], root: &Path) -> Value
     assert!(report["suppressed"].is_array());
     report
 }
+
+fn genuine_overlay_report(
+    executable: &Path,
+    arguments: &[String],
+    project: &Path,
+    entry: &Path,
+    overlays: &BTreeMap<PathBuf, String>,
+) -> Value {
+    let mut child = Command::new(executable)
+        .args(arguments)
+        .arg(entry)
+        .args(["--json", "--overlays", "--jobs", "1"])
+        .current_dir(project)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .must_be("spawn genuine overlay CLI");
+    let input = serde_json::to_vec(overlays).must_be("serialize genuine overlay view");
+    child
+        .stdin
+        .take()
+        .must_be("genuine overlay stdin")
+        .write_all(&input)
+        .must_be("write the complete genuine overlay view");
+    let output = child.wait_with_output().must_be("genuine overlay CLI");
+    assert!(
+        output.status.success(),
+        "real overlay analyzer failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).must_be("genuine overlay CLI JSON envelope");
+    assert_eq!(report["ok"], true);
+    report
+}
+
+fn rule_docs(code: &str) -> String {
+    format!("https://github.com/MattCozendey/bend-lint/blob/main/{code}.bend")
+}
+
+fn canonical(path: &Path) -> PathBuf {
+    fs::canonicalize(path).must_be("canonical genuine source path")
+}
+
+fn lint_sources(packet: &Value) -> Vec<&Value> {
+    packet["params"]["diagnostics"]
+        .as_array()
+        .must_be("published diagnostics")
+        .iter()
+        .filter(|diagnostic| diagnostic["source"] == "bend-lint")
+        .collect()
+}
+
+fn has_code(packet: &Value, code: &str) -> bool {
+    lint_sources(packet)
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == code)
+}
+
+fn wait_for_root_packet(
+    client: &mut LspClient,
+    document: &str,
+    version: i32,
+    predicate: impl Fn(&Value) -> bool,
+) -> Value {
+    client
+        .receive_matching(Duration::from_secs(150), |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == document
+                && message["params"]["version"] == version
+                && predicate(message)
+        })
+        .must_be("genuine root analysis publication")
+}
+
 
 fn finding<'a>(findings: &'a Value, code: &str) -> &'a Value {
     findings
