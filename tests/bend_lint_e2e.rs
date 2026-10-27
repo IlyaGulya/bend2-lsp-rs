@@ -234,6 +234,21 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
     let disk_report = genuine_report(&executable, &arguments, &main);
     let disk_unused = finding(&disk_report["findings"], UNUSED_RESULT);
     let disk_range = disk_unused["range"].clone();
+    // The genuine overlay CLI is the authority for the unsaved result: only the
+    // imported type changes, so the semantic finding must disappear while the
+    // syntax finding stays.
+    let mut overlays = BTreeMap::new();
+    overlays.insert(canonical(&dep), scalar_dep.to_owned());
+    let overlay_report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
+    assert!(
+        overlay_report["findings"]
+            .as_array()
+            .must_be("genuine overlay findings")
+            .iter()
+            .all(|finding| finding["code"] != UNUSED_RESULT),
+        "the unsaved scalar import genuinely changes the semantic result: {overlay_report}"
+    );
+    finding(&overlay_report["findings"], UNNEEDED_PLUS);
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&main);
@@ -262,17 +277,6 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
         has_code(packet, UNNEEDED_PLUS) && !has_code(packet, UNUSED_RESULT)
     });
     assert!(!has_code(&updated, UNUSED_RESULT));
-    let mut overlays = BTreeMap::new();
-    overlays.insert(canonical(&dep), scalar_dep.to_owned());
-    let overlay_report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
-    assert!(
-        overlay_report["findings"]
-            .as_array()
-            .must_be("genuine overlay findings")
-            .iter()
-            .all(|finding| finding["code"] != UNUSED_RESULT),
-        "the unsaved scalar import genuinely changes the semantic result: {overlay_report}"
-    );
     assert_eq!(
         fs::read_to_string(&dep).must_be("disk dependency unchanged"),
         dep_source

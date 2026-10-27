@@ -428,3 +428,50 @@ fn editing_an_independent_open_document_refreshes_a_fenced_result() {
     );
     session.finish();
 }
+
+#[test]
+fn closing_an_unrelated_buffer_during_preparation_reschedules_the_pending_entry() {
+    let mut session = Session::new(SOURCE, &[("other.bend", SOURCE)]);
+    let other_uri = uri(&session.project().join("other.bend"));
+    fs::write(session.control.join("prepare-block"), "").must_be("block preparation");
+    session.standard_response();
+    // Open the unrelated buffer while analysis is disabled, so no check starts
+    // for it and the only pending work belongs to the retained entry.
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":other_uri,"languageId":"bend","version":1,"text":SOURCE
+        }}),
+    );
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    let prepare_address = session.wait_file("prepare-address");
+    assert_eq!(session.prepares(), 1);
+    assert_eq!(session.calls(), 0, "the entry waits for preparation");
+    // Closing the unrelated buffer must not abort the pending project work.
+    session.client.notify(
+        "textDocument/didClose",
+        json!({"textDocument":{"uri":other_uri}}),
+    );
+    fs::write(session.control.join("prepare-release"), "").must_be("release preparation");
+    let packet = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .must_be("an unrelated close must not lose the pending entry's check");
+    assert_eq!(packet["params"]["version"], 1);
+    assert!(session.calls() >= 1);
+    let arguments = session.wait_file("arguments");
+    assert!(
+        arguments
+            .lines()
+            .next()
+            .is_some_and(|target| target.contains("main.bend")),
+        "only the retained entry is checked: {arguments}"
+    );
+    socket_closed(&prepare_address);
+    session.finish();
+}
