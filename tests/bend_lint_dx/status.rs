@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn explicit_run_checks_saved_document_without_save_and_reports_selected_identity() {
+fn explicit_run_checks_open_document_and_reports_prepared_identity() {
     let mut session = Session::new(SOURCE, &[]);
     session.configure(true, false, 2_000);
     session.standard_response();
@@ -13,7 +13,7 @@ fn explicit_run_checks_saved_document_without_save_and_reports_selected_identity
     );
     assert!(
         run.get("error").is_none(),
-        "explicit saved-document run must be supported: {run}"
+        "explicit open-document run must be supported: {run}"
     );
     let diagnostics = session.lint();
     assert_eq!(
@@ -34,6 +34,22 @@ fn explicit_run_checks_saved_document_without_save_and_reports_selected_identity
         status["result"]["serverExecutable"]
             .as_str()
             .is_some_and(|path| !path.is_empty())
+    );
+    assert_eq!(status["result"]["partial"], false);
+    assert_eq!(status["result"]["skippedChecks"], 0);
+    assert!(
+        status["result"]["toolIdentity"]
+            .as_str()
+            .must_be("prepared identity")
+            .contains("bend-lint 0.2.1 prepared"),
+        "status reports the real preparation identity: {status}"
+    );
+    assert!(
+        status["result"]["toolIdentity"]
+            .as_str()
+            .is_some_and(|identity| identity.contains("backend native")
+                && identity.contains("runtime bun 1.4.4")),
+        "preparation identity carries the fixture's actual report: {status}"
     );
     session.finish();
 }
@@ -137,6 +153,78 @@ fn explicit_source_actions_offer_run_and_status_but_not_during_automatic_request
 }
 
 #[test]
+fn partial_checks_are_distinct_from_complete_and_keep_valid_findings() {
+    let mut session = Session::new(SOURCE, &[("dep.bend", SOURCE)]);
+    session.response_with_skips(
+        vec![finding(
+            &session.root,
+            "language/unneeded_plus",
+            range(0, 9, 10),
+        )],
+        vec![],
+        vec![json!({
+            "path":"dep.bend",
+            "reason":"unchecked",
+            "rules":["performance/append_in_loop"],
+            "message":"bend-lint: Bend's check of dep.bend fails, so the rules that need its facts did not run on it: performance/append_in_loop"
+        })],
+        true,
+    );
+    session.configure(true, false, 2_000);
+    session.open(SOURCE);
+    let packet = session.lint();
+    let diagnostics = packet["params"]["diagnostics"]
+        .as_array()
+        .must_be("lint diagnostics");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|item| item["code"] == "language/unneeded_plus"),
+        "findings from checked inputs are retained: {packet}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|item| item["code"] == "language/unneeded_plus"
+                || item["source"] != "bend-lint"),
+        "a skipped check never becomes a fabricated diagnostic: {packet}"
+    );
+    let notice = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "window/logMessage"
+                && message["params"]["message"].as_str().is_some_and(|text| {
+                    text.contains("partially checked 1 input(s)")
+                        && text.contains("dep.bend")
+                        && text.contains("unchecked")
+                        && text.contains("performance/append_in_loop")
+                        && text.contains("Bend's check of dep.bend fails")
+                })
+        })
+        .must_be("skipped reasons are exposed operationally");
+    assert!(notice["params"]["message"].is_string());
+    let status = command(&mut session, "bend2.lint.status");
+    assert_eq!(status["state"], "ready", "{status}");
+    assert_eq!(status["partial"], true, "{status}");
+    assert_eq!(status["skippedChecks"], 1, "{status}");
+    assert!(
+        status["reason"]
+            .as_str()
+            .must_be("partial ready reason")
+            .contains("1 skipped check(s)")
+            && status["reason"]
+                .as_str()
+                .is_some_and(|reason| !reason.contains("is complete")),
+        "a partial check must not describe itself as complete: {status}"
+    );
+    assert_eq!(
+        fs::read_to_string(session.project().join("dep.bend")).must_be("unchanged dependency"),
+        SOURCE
+    );
+    session.finish();
+}
+
+#[test]
 fn missing_project_config_is_visible_as_skipped_without_source_diagnostics() {
     let mut session = Session::new(SOURCE, &[]);
     fs::remove_file(session.project().join("bend-lint.json")).must_be("remove project config");
@@ -202,25 +290,51 @@ fn running_failure_and_recovery_are_observable_without_operational_source_errors
 }
 
 #[test]
-fn dirty_document_run_is_skipped_with_save_guidance_and_does_not_execute() {
+fn dirty_document_run_analyzes_unsaved_inputs_without_save_guidance() {
     let mut session = Session::new(SOURCE, &[]);
     session.configure(true, false, 2_000);
+    session.standard_response();
     session.open(SOURCE);
-    session.change(2, "def main(+x: U32) -> U32:\n  0\n");
-    command(&mut session, "bend2.lint.run");
-    session
+    let edited = "def main(+x: U32) -> U32:\n  0\n";
+    session.change(2, edited);
+    let run = session.client.request_response(
+        "workspace/executeCommand",
+        json!({"command":"bend2.lint.run","arguments":[{"uri":session.document}]}),
+    );
+    assert!(
+        run.get("error").is_none(),
+        "an explicit run must accept a dirty editor buffer: {run}"
+    );
+    let packet = session
         .client
         .receive_matching(TIMEOUT, |message| {
-            message["method"] == "window/showMessage"
-                && message["params"]["message"].as_str().is_some_and(|text| {
-                    text.contains("bend-lint") && text.to_ascii_lowercase().contains("save")
-                })
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && message["params"]["version"] == 2
+                && has_lint(message)
         })
-        .must_be("dirty saved-input guidance");
+        .must_be("the dirty buffer is analyzed without saving");
+    assert_eq!(packet["params"]["version"], 2);
+    let root = fs::canonicalize(&session.root).must_be("canonical source");
+    assert_eq!(
+        session.overlay_input()[root.to_string_lossy().as_ref()],
+        edited,
+        "the run analyzes the unsaved text"
+    );
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("unchanged disk"),
+        SOURCE
+    );
     let status = command(&mut session, "bend2.lint.status");
-    assert_eq!(status["state"], "skipped", "{status}");
-    assert!(!session.control.join("calls").exists());
-    session.no_lint();
+    assert_eq!(status["state"], "ready", "{status}");
+    assert!(
+        !status["reason"]
+            .as_str()
+            .must_be("ready reason")
+            .to_ascii_lowercase()
+            .contains("save"),
+        "dirty .bend inputs are analyzed, never answered with save guidance: {status}"
+    );
     session.finish();
 }
 

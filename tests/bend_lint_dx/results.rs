@@ -234,7 +234,8 @@ fn a_disk_only_input_change_finishes_with_an_actionable_skipped_status() {
         status["result"]["reason"]
             .as_str()
             .must_be("skip reason")
-            .contains("save")
+            .contains("next check"),
+        "the reason explains that a later check re-reads the inputs: {status}"
     );
     session.no_lint();
     session.finish();

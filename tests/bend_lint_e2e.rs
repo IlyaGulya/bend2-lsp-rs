@@ -63,7 +63,7 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
     let lsp_started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&root);
-    let packet = saved_diagnostics(&mut client, &document, source, lsp_started);
+    let packet = opened_diagnostics(&mut client, &document, source, lsp_started);
     let diagnostics = &packet["params"]["diagnostics"];
     let actual = finding(diagnostics, "bend-lint-rules/language/unneeded_plus");
     assert_eq!(actual["source"], "bend-lint");
@@ -128,7 +128,7 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&root);
-    let before_lsp = saved_diagnostics(&mut client, &document, source, started);
+    let before_lsp = opened_diagnostics(&mut client, &document, source, started);
     finding(&before_lsp["params"]["diagnostics"], IMPORTS);
     let organized = organize_imports_source(&mut client, &root, source, 1)
         .must_be("organize imports action for the reported order");
@@ -400,7 +400,7 @@ fn configure_analyzer(client: &mut LspClient, executable: &Path, arguments: &[St
     );
 }
 
-fn saved_diagnostics(
+fn opened_diagnostics(
     client: &mut LspClient,
     document: &str,
     source: &str,
@@ -412,21 +412,10 @@ fn saved_diagnostics(
             "uri":document,"languageId":"bend","version":1,"text":source
         }}),
     );
-    assert!(
-        client
-            .receive_matching(Duration::from_millis(350), |message| {
-                lint_packet(message, document)
-            })
-            .is_none(),
-        "even genuine rules must wait for save"
-    );
+    // Opening schedules live analysis of the current buffer; no save is needed.
     eprintln!(
-        "[LSP +{:.3}s] didSave; analyzer timeout is {ANALYZER_TIMEOUT_MS}ms",
+        "[LSP +{:.3}s] didOpen; analyzer timeout is {ANALYZER_TIMEOUT_MS}ms",
         started.elapsed().as_secs_f64()
-    );
-    client.notify(
-        "textDocument/didSave",
-        json!({"textDocument":{"uri":document}}),
     );
     let packet = wait_for_lint_diagnostics(client, document, started, 1);
     assert_eq!(packet["params"]["version"], 1);

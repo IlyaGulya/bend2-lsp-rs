@@ -167,10 +167,20 @@ impl Session {
     }
 
     fn response(&self, findings: Vec<Value>, suppressed: Vec<Value>, ok: bool) {
+        self.response_with_skips(findings, suppressed, Vec::new(), ok);
+    }
+
+    fn response_with_skips(
+        &self,
+        findings: Vec<Value>,
+        suppressed: Vec<Value>,
+        skipped: Vec<Value>,
+        ok: bool,
+    ) {
         let mut response = json!({"ok":ok});
         response["findings"] = Value::Array(findings);
         response["suppressed"] = Value::Array(suppressed);
-        response["skipped"] = Value::Array(Vec::new());
+        response["skipped"] = Value::Array(skipped);
         fs::write(
             self.control.join("response.json"),
             serde_json::to_vec(&response).must_be("serialize upstream response"),
@@ -178,6 +188,39 @@ impl Session {
         .must_be("write analyzer response");
         fs::write(self.control.join("exit-code"), if ok { "0" } else { "1" })
             .must_be("write upstream exit contract");
+    }
+
+    fn calls(&self) -> usize {
+        fs::read_to_string(self.control.join("calls"))
+            .map_or(0, |text| text.lines().count())
+    }
+
+    fn wait_calls(&self, count: usize) {
+        let deadline = Instant::now() + TIMEOUT;
+        while self.calls() < count {
+            assert!(Instant::now() < deadline, "analyzer did not run {count} time(s)");
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn prepares(&self) -> usize {
+        fs::read_to_string(self.control.join("prepares"))
+            .map_or(0, |text| text.lines().count())
+    }
+
+    fn overlay_input(&self) -> Value {
+        serde_json::from_slice(
+            &fs::read(self.control.join("stdin")).must_be("recorded overlay stdin"),
+        )
+        .must_be("overlay stdin is one JSON object")
+    }
+
+    fn status(&mut self) -> Value {
+        self.client.request(
+            "workspace/executeCommand",
+            json!({"command":"bend2.lint.status","arguments":[{"uri":self.document}]}),
+        )["result"]
+            .clone()
     }
 
     fn standard_response(&self) {
@@ -343,17 +386,11 @@ fn explicit_path_without_enabled_consent_never_executes_project_rules() {
 }
 
 #[test]
-fn enabled_save_uses_json_in_nearest_project_without_fixing_disk() {
+fn enabled_open_analyzes_overlays_in_the_nearest_project_without_fixing_disk() {
     let mut session = Session::new(SOURCE, &[]);
     session.standard_response();
     session.configure(true, false, 10_000);
     session.open(SOURCE);
-    session.no_lint();
-    assert!(
-        !session.control.join("calls").exists(),
-        "opening is not saving"
-    );
-    session.save();
     let packet = session.lint();
     assert_eq!(packet["params"]["version"], 1);
     let items = packet["params"]["diagnostics"]
@@ -368,12 +405,55 @@ fn enabled_save_uses_json_in_nearest_project_without_fixing_disk() {
     assert_eq!(lint["range"], range(0, 9, 10));
     assert_eq!(lint["message"], "remove unneeded plus");
     let arguments = session.wait_file("arguments");
-    assert!(arguments.lines().any(|arg| arg == "--json"));
+    for flag in ["--json", "--overlays", "--jobs", "1"] {
+        assert!(
+            arguments.lines().any(|argument| argument == flag),
+            "the live check must pass {flag}: {arguments}"
+        );
+    }
     assert!(!arguments.contains("--fix"));
     let cwd = PathBuf::from(session.wait_file("cwd"));
     assert_eq!(
         fs::canonicalize(cwd).must_be("invocation cwd"),
         fs::canonicalize(session.project()).must_be("project")
+    );
+    // Preparation is a distinct invocation with its own report, not a check.
+    assert_eq!(session.prepares(), 1);
+    let prepare = session.wait_file("prepare-arguments");
+    let prepare: Vec<_> = prepare.lines().collect();
+    assert_eq!(prepare.first(), Some(&"prepare"));
+    assert!(prepare.contains(&"--json"));
+    assert!(prepare.contains(&"--report"));
+    assert!(
+        prepare
+            .last()
+            .is_some_and(|report| !report.starts_with("--")),
+        "prepare receives a real report path: {prepare:?}"
+    );
+    assert_eq!(
+        fs::canonicalize(session.wait_file("prepare-cwd").trim())
+            .must_be("preparation cwd"),
+        fs::canonicalize(session.project()).must_be("project")
+    );
+    // The overlay view holds every captured non-rule source exactly.
+    let overlays = session.overlay_input();
+    let root = fs::canonicalize(&session.root).must_be("canonical source");
+    assert_eq!(overlays[root.to_string_lossy().as_ref()], SOURCE);
+    let config =
+        fs::canonicalize(session.project().join("bend-lint.json")).must_be("canonical config");
+    assert!(
+        overlays.get(config.to_string_lossy().as_ref()).is_none(),
+        "trusted rule configuration is never an overlay"
+    );
+    assert!(session.control.join("stdin-eof").exists());
+    let calls = session.calls();
+    session.save();
+    session.wait_calls(calls + 1);
+    session.lint();
+    assert_eq!(
+        session.prepares(),
+        1,
+        "a saved check reuses the completed preparation"
     );
     assert_eq!(
         fs::read_to_string(&session.root).must_be("saved source"),
@@ -383,28 +463,245 @@ fn enabled_save_uses_json_in_nearest_project_without_fixing_disk() {
 }
 
 #[test]
-fn changes_and_unsaved_save_notifications_never_analyze_old_disk_text() {
+fn preparation_is_cached_across_typing_and_saving_but_not_configuration() {
     let mut session = Session::new(SOURCE, &[]);
     session.standard_response();
     session.configure(true, false, 10_000);
     session.open(SOURCE);
-    let edited = "# edited\ndef main(+x: U32) -> U32:\n  x\n";
-    session.change(2, edited);
+    session.lint();
+    assert_eq!(session.prepares(), 1);
+    let calls = session.calls();
+    session.change(2, "def main(x: U32) -> U32:\n  x\n");
+    session.wait_calls(calls + 1);
+    assert_eq!(
+        session.prepares(),
+        1,
+        "typing reuses the prepared analyzer and rules"
+    );
+    let calls = session.calls();
     session.save();
+    session.wait_calls(calls + 1);
+    assert_eq!(session.prepares(), 1, "saving reuses the preparation");
+    // A lint configuration change is a new preparation key; the next check
+    // prepares again before it runs.
+    session.configure(true, false, 20_000);
+    let calls = session.calls();
+    session.save();
+    session.wait_calls(calls + 1);
+    assert_eq!(
+        session.prepares(),
+        2,
+        "a changed lint configuration prepares once more"
+    );
+    session.finish();
+}
+
+#[test]
+fn preparation_failures_are_reported_without_running_a_check() {
+    for (toggle, expected) in [
+        ("prepare-fail", "fixture prepare failure"),
+        ("prepare-no-report", "did not write its report"),
+        ("prepare-stdout", "unexpected stdout"),
+    ] {
+        let mut session = Session::new(SOURCE, &[]);
+        fs::write(session.control.join(toggle), "").must_be("enable preparation failure");
+        session.standard_response();
+        session.configure(true, false, 10_000);
+        session.open(SOURCE);
+        let failure = session.failure();
+        assert!(
+            failure["params"]["message"]
+                .as_str()
+                .must_be("failure message")
+                .contains(expected),
+            "{toggle}: {failure}"
+        );
+        assert_eq!(session.prepares(), 1, "{toggle}");
+        assert_eq!(session.calls(), 0, "no check runs after {toggle}");
+        let status = session.status();
+        assert_eq!(status["state"], "failed", "{toggle}: {status}");
+        assert!(
+            status["reason"]
+                .as_str()
+                .must_be("failure reason")
+                .contains(expected),
+            "{toggle}: {status}"
+        );
+        session.no_lint();
+        session.finish();
+    }
+}
+
+#[test]
+fn an_old_preparation_report_is_rejected_before_any_check() {
+    let mut session = Session::new(SOURCE, &[]);
+    let report = json!({
+        "bendLint":"0.1.1",
+        "notes":[],
+        "runtime":"bun 1.4.3",
+        "platform":"fixture",
+        "backend":"native",
+        "program":"/fixture/rules.js",
+        "cache":{"dir":"/fixture/cache","built":true,"checks":{"cached":0,"checked":0}},
+        "timings":{"setupMs":1,"checkerMs":0,"runMs":2},
+        "exitCode":0
+    });
+    fs::write(
+        session.control.join("prepare-report.json"),
+        serde_json::to_vec(&report).must_be("serialize old report"),
+    )
+    .must_be("write old preparation report");
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    let failure = session.failure();
+    assert!(
+        failure["params"]["message"]
+            .as_str()
+            .must_be("version rejection")
+            .contains("unsupported bend-lint 0.1.1"),
+        "the 0.2.1 contract gate is explicit: {failure}"
+    );
+    assert_eq!(session.calls(), 0, "no disk-only fallback check");
     session.no_lint();
-    assert!(!session.control.join("calls").exists());
-    fs::write(&session.root, edited).must_be("editor saves current text");
+    session.finish();
+}
+
+#[test]
+fn cached_preparation_failure_is_retried_only_by_an_explicit_run() {
+    let mut session = Session::new(SOURCE, &[]);
+    fs::write(session.control.join("prepare-fail"), "").must_be("fail preparation");
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.failure();
+    assert_eq!(session.prepares(), 1);
+    assert_eq!(session.calls(), 0);
+    fs::remove_file(session.control.join("prepare-fail")).must_be("allow preparation retry");
+    // Ordinary typing is not a retry gesture: the cached failure is reused.
+    session.change(2, "def main(x: U32) -> U32:\n  x\n");
+    session.client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument":{"uri":session.document}}),
+    );
+    thread::sleep(QUIET);
+    assert_eq!(session.prepares(), 1, "typing does not retry preparation");
+    assert_eq!(session.calls(), 0);
+    assert_eq!(session.status()["state"], "failed");
+    // The explicit run is the documented retry gesture.
+    session.standard_response();
+    let run = session.client.request_response(
+        "workspace/executeCommand",
+        json!({"command":"bend2.lint.run","arguments":[{"uri":session.document}]}),
+    );
+    assert!(run.get("error").is_none(), "{run}");
+    session.lint();
+    assert_eq!(session.prepares(), 2);
+    assert_eq!(session.calls(), 1);
+    assert_eq!(session.status()["state"], "ready");
+    session.finish();
+}
+
+#[test]
+fn shutdown_reaps_a_blocked_preparation_without_running_a_check() {
+    let mut session = Session::new(SOURCE, &[]);
+    fs::write(session.control.join("prepare-block"), "").must_be("block preparation");
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    let address = session.wait_file("prepare-address");
+    assert_eq!(session.prepares(), 1);
+    assert_eq!(session.calls(), 0);
+    let status = session.status();
+    assert_eq!(status["state"], "preparing", "{status}");
+    let calls = session.calls();
+    session.client.finish();
+    socket_closed(&address);
+    assert_eq!(calls, 0);
+    drop(session.directory);
+}
+
+#[test]
+fn structured_project_rejection_never_becomes_a_source_diagnostic() {
+    let mut session = Session::new(SOURCE, &[]);
+    let rejection = json!({
+        "ok":false,
+        "errors":[{
+            "path":session.project().join("bend-lint.json"),
+            "message":"bend-lint: bend-lint.json: language/unneeded_plus is not a rule"
+        }]
+    });
+    fs::write(
+        session.control.join("response.json"),
+        serde_json::to_vec(&rejection).must_be("serialize structured rejection"),
+    )
+    .must_be("write structured rejection");
+    fs::write(session.control.join("exit-code"), "2").must_be("rejection exit");
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    let failure = session.failure();
+    let message = failure["params"]["message"].as_str().must_be("rejection message");
+    assert!(
+        message.contains("bend-lint rejected the project")
+            && message.contains("language/unneeded_plus is not a rule"),
+        "the upstream structured error is attributable: {failure}"
+    );
+    session.no_lint();
+    assert_eq!(session.status()["state"], "failed");
+    session.finish();
+}
+
+#[test]
+fn unsaved_changes_are_analyzed_from_overlays_and_never_from_old_disk_text() {
+    let mut session = Session::new(SOURCE, &[]);
+    session.standard_response();
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    session.lint();
+    let edited = "# edited\ndef main(+x: U32) -> U32:\n  x\n";
     session.response(
         vec![finding(
             &session.root,
             "language/unneeded_plus",
-            range(1, 9, 10),
+            range(1, 10, 11),
         )],
         vec![],
         true,
     );
+    let calls = session.calls();
+    session.change(2, edited);
+    let packet = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && message["params"]["version"] == 2
+                && has_lint(message)
+        })
+        .must_be("the unsaved buffer is checked without a save");
+    assert_eq!(packet["params"]["version"], 2);
+    session.wait_calls(calls + 1);
+    let root = fs::canonicalize(&session.root).must_be("canonical source");
+    assert_eq!(
+        session.overlay_input()[root.to_string_lossy().as_ref()],
+        edited,
+        "the analyzer receives the unsaved text, not the old disk copy"
+    );
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("unchanged disk"),
+        SOURCE
+    );
+    // A save notification schedules a check immediately but must still send the
+    // editor buffer, even while the disk copy is stale.
+    let calls = session.calls();
     session.save();
-    assert_eq!(session.lint()["params"]["version"], 2);
+    session.wait_calls(calls + 1);
+    let root = fs::canonicalize(&session.root).must_be("canonical source");
+    assert_eq!(
+        session.overlay_input()[root.to_string_lossy().as_ref()],
+        edited
+    );
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("still unchanged disk"),
+        SOURCE
+    );
     session.finish();
 }
 
@@ -451,35 +748,83 @@ fn delayed_lint_is_discarded_after_edit_and_requests_stay_responsive() {
     assert!(response["result"].is_array());
     session.release();
     socket_closed(&address);
-    session.no_lint();
+    let fresh = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && message["params"]["version"] == 2
+                && has_lint(message)
+        })
+        .must_be("the edited revision is checked after the superseded one is discarded");
+    assert_eq!(fresh["params"]["version"], 2);
+    assert!(
+        session
+            .client
+            .receive_matching(Duration::from_millis(250), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == session.document
+                    && message["params"]["version"] == 1
+                    && has_lint(message)
+            })
+            .is_none(),
+        "findings for the superseded revision must never publish"
+    );
     session.finish();
 }
 
 #[test]
-fn unsaved_imported_dependency_prevents_saved_root_analysis() {
+fn unsaved_imported_dependency_is_analyzed_without_saving() {
     let source = "import dep.bend as Dep\ndef main: U32\n  Dep.value\n";
-    let mut session = Session::new(source, &[("dep.bend", "def value: U32\n  1\n")]);
+    let saved_dependency = "def value: U32\n  1\n";
+    let dirty_dependency = "def value: U32\n  2\n";
+    let mut session = Session::new(source, &[("dep.bend", saved_dependency)]);
+    session.response(
+        vec![finding(&session.root, "layout/imports", range(0, 0, 6))],
+        vec![],
+        true,
+    );
     session.configure(true, false, 10_000);
     session.open(source);
-    let dependency = uri(&session.project().join("dep.bend"));
+    let dependency_path = session.project().join("dep.bend");
+    let dependency = uri(&dependency_path);
     session.client.notify(
         "textDocument/didOpen",
         json!({"textDocument":{
-        "uri":dependency,"languageId":"bend","version":1,"text":"def value: U32\n  2\n"}}),
+        "uri":dependency,"languageId":"bend","version":1,"text":dirty_dependency}}),
     );
-    session.save();
-    session.no_lint();
-    assert!(!session.control.join("calls").exists());
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .must_be("the root is checked with its unsaved imported dependency");
+    // Every captured source is in the immutable overlay view with its exact text.
+    let overlays = session.overlay_input();
+    let root = fs::canonicalize(&session.root).must_be("canonical source");
+    let captured_dependency = fs::canonicalize(&dependency_path).must_be("canonical dependency");
+    assert_eq!(overlays[root.to_string_lossy().as_ref()], source);
+    assert_eq!(
+        overlays[captured_dependency.to_string_lossy().as_ref()],
+        dirty_dependency
+    );
+    assert_eq!(
+        fs::read_to_string(&dependency_path).must_be("unsaved dependency stays on disk"),
+        saved_dependency
+    );
+    assert!(session.calls() >= 1);
     session.finish();
 }
 
 #[test]
-fn dependency_edit_invalidates_inflight_root_findings() {
+fn dependency_edit_discards_inflight_root_findings_and_rechecks() {
     let source = "import dep.bend as Dep\ndef main: U32\n  Dep.value\n";
     let dependency_source = "def value: U32\n  1\n";
     let mut session = Session::new(source, &[("dep.bend", dependency_source)]);
     session.response(
-        vec![finding(&session.root, "layout/imports", range(0, 0, 6))],
+        vec![finding(&session.root, "stale/result", range(0, 0, 6))],
         vec![],
         true,
     );
@@ -492,16 +837,43 @@ fn dependency_edit_invalidates_inflight_root_findings() {
         json!({"textDocument":{
         "uri":dependency,"languageId":"bend","version":1,"text":dependency_source}}),
     );
-    session.save();
     let address = session.wait_file("address");
+    // The blocked invocation already captured the stale response. The edit
+    // invalidates that epoch and schedules a fresh check with the new inputs.
     session.client.notify(
         "textDocument/didChange",
         json!({"textDocument":{"uri":dependency,"version":2},
         "contentChanges":[{"text":"def value: U32\n  2\n"}]}),
     );
+    session.response(
+        vec![finding(&session.root, "fresh/result", range(0, 1, 6))],
+        vec![],
+        true,
+    );
     session.release();
     socket_closed(&address);
-    session.no_lint();
+    let packet = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .must_be("the edited dependency causes a fresh root check");
+    let codes: Vec<_> = packet["params"]["diagnostics"]
+        .as_array()
+        .must_be("fresh root diagnostics")
+        .iter()
+        .filter_map(|diagnostic| diagnostic["code"].as_str())
+        .collect();
+    assert!(
+        codes.contains(&"fresh/result"),
+        "a completed check over the new inputs published: {codes:?}"
+    );
+    assert!(
+        !codes.contains(&"stale/result"),
+        "findings from the superseded inputs must never publish: {codes:?}"
+    );
     session.finish();
 }
 
@@ -510,7 +882,7 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
     let source = "import dep.bend as Dep\ndef main: U32\n  Dep.value\n";
     let mut session = Session::new(source, &[("dep.bend", "def value: U32\n  1\n")]);
     session.response(
-        vec![finding(&session.root, "layout/imports", range(0, 0, 6))],
+        vec![finding(&session.root, "stale/result", range(0, 0, 6))],
         vec![],
         true,
     );
@@ -527,6 +899,8 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
     );
     session.release();
     socket_closed(&address);
+    // A watched change invalidates finished/in-flight results but does not
+    // schedule a check by itself: an unrelated completion must stay hidden.
     session.no_lint();
     session.finish();
 }
@@ -640,7 +1014,11 @@ fn shutdown_reaps_analyzer_process_tree() {
 #[test]
 fn close_and_reopen_cannot_accept_previous_save_completion() {
     let mut session = Session::new(SOURCE, &[]);
-    session.standard_response();
+    session.response(
+        vec![finding(&session.root, "stale/result", range(0, 0, 6))],
+        vec![],
+        true,
+    );
     session.block();
     session.configure(true, false, 10_000);
     session.open(SOURCE);
@@ -651,9 +1029,33 @@ fn close_and_reopen_cannot_accept_previous_save_completion() {
         json!({"textDocument":{"uri":session.document}}),
     );
     session.open(SOURCE);
+    // The reopened document starts a fresh epoch; only it may publish.
+    session.response(
+        vec![finding(&session.root, "fresh/result", range(0, 1, 6))],
+        vec![],
+        true,
+    );
     session.release();
     socket_closed(&address);
-    session.no_lint();
+    let packet = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .must_be("the reopened document is checked");
+    let codes: Vec<_> = packet["params"]["diagnostics"]
+        .as_array()
+        .must_be("reopened diagnostics")
+        .iter()
+        .filter_map(|diagnostic| diagnostic["code"].as_str())
+        .collect();
+    assert!(codes.contains(&"fresh/result"), "{codes:?}");
+    assert!(
+        !codes.contains(&"stale/result"),
+        "the closed document's completion must not publish: {codes:?}"
+    );
     session.finish();
 }
 
@@ -874,14 +1276,18 @@ fn imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_er
 }
 
 #[test]
-fn editing_saved_document_clears_published_lint_until_next_real_save() {
+fn editing_saved_document_refreshes_lint_from_the_overlay() {
     let mut session = Session::new(SOURCE, &[]);
     session.standard_response();
     session.configure(true, false, 10_000);
     session.open(SOURCE);
-    session.save();
     session.lint();
-    session.change(2, "def main(x: U32) -> U32:\n  x\n");
+    // The unsaved edit removes the only finding; that is a real check result,
+    // not an interim clear while waiting for a save.
+    session.response(vec![], vec![], true);
+    let edited = "def main(x: U32) -> U32:\n  x\n";
+    session.change(2, edited);
+    session.wait_calls(2);
     let cleared = session
         .client
         .receive_matching(TIMEOUT, |message| {
@@ -890,13 +1296,13 @@ fn editing_saved_document_clears_published_lint_until_next_real_save() {
                 && message["params"]["version"] == 2
                 && !has_lint(message)
         })
-        .must_be("unsaved edit immediately removes disk diagnostics");
+        .must_be("the unsaved edit is checked and its finding disappears");
     assert!(!has_lint(&cleared));
-    session.no_lint();
+    let root = fs::canonicalize(&session.root).must_be("canonical source");
+    assert_eq!(session.overlay_input()[root.to_string_lossy().as_ref()], edited);
     assert_eq!(
-        session.wait_file("calls").lines().count(),
-        1,
-        "no lint on change"
+        fs::read_to_string(&session.root).must_be("unchanged disk"),
+        SOURCE
     );
     session.finish();
 }
