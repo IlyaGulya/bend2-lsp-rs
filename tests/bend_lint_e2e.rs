@@ -205,7 +205,7 @@ fn unused_result_sources() -> (&'static str, &'static str, &'static str) {
         "import Base\n",
         "\n",
         "def build(n: Nat, acc: List<&2, U32>) -> U32:\n",
-        "  n\n",
+        "  0\n",
     );
     (main, dep, scalar)
 }
@@ -232,6 +232,7 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
     )
     .must_be("enable genuine semantic rules");
     let disk_report = genuine_report(&executable, &arguments, &main);
+    assert_eq!(disk_report["skipped"], json!([]), "saved fixture must type-check");
     let disk_unused = finding(&disk_report["findings"], UNUSED_RESULT);
     let disk_range = disk_unused["range"].clone();
     // The genuine overlay CLI is the authority for the unsaved result: only the
@@ -240,6 +241,11 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
     let mut overlays = BTreeMap::new();
     overlays.insert(canonical(&dep), scalar_dep.to_owned());
     let overlay_report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
+    assert_eq!(
+        overlay_report["skipped"],
+        json!([]),
+        "the scalar overlay must pass checking, not suppress semantic rules"
+    );
     assert!(
         overlay_report["findings"]
             .as_array()
