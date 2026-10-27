@@ -13,6 +13,7 @@ use std::{
 use url::Url;
 
 const FILE_LIMIT: usize = 4096;
+const ENTRY_LIMIT: usize = 32_768;
 const BYTE_LIMIT: usize = 32 * 1024 * 1024;
 const CONFIG_NAME: &str = "bend-lint.json";
 const RULES_DIRECTORY: &str = "bend-lint-rules";
@@ -123,7 +124,7 @@ fn project_files(root: &Path) -> io::Result<DiskFiles> {
         }
         for entry in fs::read_dir(&directory)? {
             entries += 1;
-            if entries > 32_768 {
+            if entries > ENTRY_LIMIT {
                 return Err(io::Error::other(
                     "bend-lint snapshot exceeds 32768 directory entries",
                 ));
@@ -223,11 +224,12 @@ fn insert_alias(
     canonical: PathBuf,
 ) -> io::Result<()> {
     // Distinct lexical aliases can resolve to one canonical source, so the
-    // source count budget does not bound this map. Fail clearly instead of
-    // silently dropping edges that fence retargeted inputs.
-    if !aliases.contains_key(&original) && aliases.len() >= FILE_LIMIT {
+    // source count budget does not bound this map. Every original path is
+    // retained (ordinary, virtual, or symlinked), and the existing entry
+    // budget bounds it with a clear failure instead of silent truncation.
+    if !aliases.contains_key(&original) && aliases.len() >= ENTRY_LIMIT {
         return Err(io::Error::other(
-            "bend-lint snapshot exceeds 4096 source aliases",
+            "bend-lint snapshot exceeds 32768 source aliases",
         ));
     }
     aliases.insert(original, canonical);
@@ -236,10 +238,10 @@ fn insert_alias(
 
 fn open_snapshots(
     documents: &[Document],
-) -> io::Result<(
+) -> (
     BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     BTreeMap<PathBuf, PathBuf>,
-)> {
+) {
     let mut open = BTreeMap::new();
     let mut aliases = BTreeMap::new();
     for document in documents {
@@ -249,12 +251,15 @@ fn open_snapshots(
         let Some(identity) = input_identity(&path) else {
             continue;
         };
-        if path != identity && path.exists() {
-            insert_alias(&mut aliases, path, identity.clone())?;
-        }
+        // Record the original path even when it already is its own canonical
+        // target: an ordinary file can later become a symlink, and a virtual
+        // leaf's parent directory can retarget without the leaf existing.
+        // This transient map is bounded by the already-owned open documents;
+        // only mappings kept for this project count against ENTRY_LIMIT.
+        aliases.insert(path, identity.clone());
         open.insert(identity, document.snapshot.clone());
     }
-    Ok((open, aliases))
+    (open, aliases)
 }
 
 fn ensure_trusted_inputs_saved(
@@ -363,16 +368,15 @@ fn build_sources(
             Some(identity) => identity.clone(),
             None => path.clone(),
         };
+        // Retain every original path, including ordinary paths that already
+        // are canonical and virtual leaves that do not exist yet, and record
+        // before de-duplicating by canonical key so two different lexical
+        // aliases of one source both remain fenced. Symlinked parent
+        // directories are included. This also applies on the with_overlays
+        // cache path, which resolves the same original path.
+        insert_alias(&mut captured.aliases, path.clone(), key.clone())?;
         if !visited.insert(key.clone()) {
             continue;
-        }
-        // Imports and open buffers can name a source through a symlink. Retain
-        // that original -> canonical edge, including symlinked parent
-        // directories, so retargeting it fences results even when the old
-        // canonical target's bytes are unchanged. This also applies on the
-        // with_overlays cache path, which resolves the same original path.
-        if path != key && path.exists() {
-            insert_alias(&mut captured.aliases, path.clone(), key.clone())?;
         }
         if let Some(snapshot) = open
             .get(&key)
@@ -529,7 +533,7 @@ impl ProjectSnapshot {
         let config_text = read_text(&config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
-        let (open, open_aliases) = open_snapshots(documents)?;
+        let (open, open_aliases) = open_snapshots(documents);
         ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &open)?;
         let pending = seeds(
             &root,
@@ -574,7 +578,7 @@ impl ProjectSnapshot {
     // Rebuild the analysis view for new editor text while reusing captured disk
     // sources. Callers must have verified `unchanged()` first.
     pub(super) fn with_overlays(&self, documents: &[Document]) -> io::Result<Self> {
-        let (open, open_aliases) = open_snapshots(documents)?;
+        let (open, open_aliases) = open_snapshots(documents);
         ensure_trusted_inputs_saved(&self.config_path, &self.rule_paths, &open)?;
         let config_text = read_text(&self.config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
@@ -660,12 +664,13 @@ impl ProjectSnapshot {
         {
             return false;
         }
-        // Import and open-buffer aliases, including symlinked parent
+        // Import and open-buffer paths, including symlinked parent
         // directories, must still resolve to the file the analysis captured.
         // A retarget is an input change even when the old target's bytes are
-        // unchanged, so it fences results and fixes like any other edit.
+        // unchanged. Resolution goes through input_identity so virtual leaves
+        // that do not exist yet are validated through their existing ancestors.
         if !self.source_aliases.iter().all(|(alias, expected)| {
-            fs::canonicalize(alias).is_ok_and(|actual| actual == *expected)
+            input_identity(alias).is_some_and(|actual| actual == *expected)
         }) {
             return false;
         }
