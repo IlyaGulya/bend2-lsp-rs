@@ -880,33 +880,30 @@ fn run_prepare_contained(
         };
         let stdout = tokio::spawn(read_setup_pipe(stdout));
         let stderr = tokio::spawn(read_setup_pipe(stderr));
-        match tokio::time::timeout(PREPARE_TIMEOUT, child.wait()).await {
-            Ok(status) => {
-                let status = status.map_err(|error| {
-                    format!("could not await the genuine analyzer preparation: {error}")
-                })?;
-                let stdout = stdout
-                    .await
-                    .map_err(|error| format!("stdout drain task failed: {error}"))?
-                    .map_err(|error| format!("could not drain preparation stdout: {error}"))?;
-                let stderr = stderr
-                    .await
-                    .map_err(|error| format!("stderr drain task failed: {error}"))?
-                    .map_err(|error| format!("could not drain preparation stderr: {error}"))?;
-                Ok((status, stdout, stderr))
-            }
-            Err(_) => {
-                let _ = child.start_kill();
-                let _ = child.wait().await;
-                // The contained tree is gone, so the drains reach EOF; wait for
-                // them so no pipe reader outlives the preparation attempt.
-                let _ = stdout.await;
-                let _ = stderr.await;
-                Err(format!(
-                    "genuine analyzer preparation exceeded {}s; its process tree is being killed and reaped",
-                    PREPARE_TIMEOUT.as_secs()
-                ))
-            }
+        if let Ok(status) = tokio::time::timeout(PREPARE_TIMEOUT, child.wait()).await {
+            let status = status.map_err(|error| {
+                format!("could not await the genuine analyzer preparation: {error}")
+            })?;
+            let stdout = stdout
+                .await
+                .map_err(|error| format!("stdout drain task failed: {error}"))?
+                .map_err(|error| format!("could not drain preparation stdout: {error}"))?;
+            let stderr = stderr
+                .await
+                .map_err(|error| format!("stderr drain task failed: {error}"))?
+                .map_err(|error| format!("could not drain preparation stderr: {error}"))?;
+            Ok((status, stdout, stderr))
+        } else {
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+            // The contained tree is gone, so the drains reach EOF; wait for
+            // them so no pipe reader outlives the preparation attempt.
+            let _ = stdout.await;
+            let _ = stderr.await;
+            Err(format!(
+                "genuine analyzer preparation exceeded {}s; its process tree is being killed and reaped",
+                PREPARE_TIMEOUT.as_secs()
+            ))
         }
     })
 }
