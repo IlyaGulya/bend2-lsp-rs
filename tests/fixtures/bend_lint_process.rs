@@ -139,6 +139,9 @@ fn run() -> io::Result<ExitCode> {
     fs::write(control.join("stdin"), &overlays)?;
     fs::write(control.join("stdin-eof"), b"eof")?;
     let listener = hold_socket(&control.join("address"))?;
+    // Capture the response when this invocation starts: a test that changes the
+    // response while a check is blocked must affect the next invocation only.
+    let output = fs::read(control.join("response.json"))?;
     // The child owns a distinct socket: killing only the immediate analyzer
     // process must not look like successful process-tree cleanup.
     let mut descendant = if control.join("spawn-descendant").exists() {
@@ -162,9 +165,8 @@ fn run() -> io::Result<ExitCode> {
         }
         thread::sleep(Duration::from_millis(10));
     }
-    let output = fs::read(control.join("response.json"))?;
     io::stdout().write_all(&output)?;
-    eprintln!("bend-lint: fixture analyzer uses its own Bend 2.0.37");
+    eprintln!("bend-lint: fixture analyzer uses its own Bend 2.0.39");
     drop(listener);
     if let Some(child) = descendant.as_mut() {
         child.kill()?;
