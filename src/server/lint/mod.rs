@@ -914,6 +914,7 @@ mod tests {
             .map_err(|_| io::Error::other("the test executable path is not UTF-8"))?;
         Ok(LintConfig {
             enabled: true,
+            dangerous_code_actions: true,
             path,
             ..LintConfig::default()
         })
