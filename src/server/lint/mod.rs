@@ -404,7 +404,7 @@ impl Backend {
         if requested.is_empty() {
             return;
         }
-        {
+        let retired_progress = {
             let mut task = self.diagnostics.lint.task.write();
             {
                 let mut pending = self.diagnostics.lint.pending.write();
@@ -419,6 +419,14 @@ impl Backend {
             if let Some(previous) = &previous {
                 previous.abort();
             }
+            // Retire the superseded run's status and progress before its
+            // replacement exists: the replacement cannot own a token yet, so
+            // only work that is already finished can be ended here.
+            self.diagnostics
+                .lint
+                .control
+                .invalidate_running("Superseded by newer editor changes");
+            let retiring = self.take_progress();
             let backend = self.clone();
             let delay = debounce.then_some(LINT_DEBOUNCE);
             let handle = tokio::spawn(async move {
@@ -433,12 +441,9 @@ impl Backend {
                 super::state::supervise(operation, move || reporter.diagnostics.report_fatal()).await;
             });
             *task = Some(handle);
-        }
-        self.diagnostics
-            .lint
-            .control
-            .invalidate_running("Superseded by newer editor changes");
-        self.end_all_lint_progress("Superseded by newer editor changes")
+            retiring
+        };
+        self.end_lint_progress_tokens(retired_progress, "Superseded by newer editor changes")
             .await;
     }
 

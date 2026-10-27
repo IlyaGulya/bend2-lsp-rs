@@ -358,16 +358,22 @@ impl Backend {
         }
     }
 
-    pub(super) async fn end_all_lint_progress(&self, reason: &str) {
-        let tokens: Vec<_> = self
-            .diagnostics
+    pub(super) fn take_progress(&self) -> Vec<NumberOrString> {
+        self.diagnostics
             .lint
             .control
             .progress
             .write()
             .drain()
             .map(|(_, token)| token)
-            .collect();
+            .collect()
+    }
+
+    pub(super) async fn end_lint_progress_tokens(
+        &self,
+        tokens: Vec<NumberOrString>,
+        reason: &str,
+    ) {
         for token in tokens {
             self.client
                 .send_notification::<Progress>(ProgressParams {
@@ -380,6 +386,11 @@ impl Backend {
                 })
                 .await;
         }
+    }
+
+    pub(super) async fn end_all_lint_progress(&self, reason: &str) {
+        let tokens = self.take_progress();
+        self.end_lint_progress_tokens(tokens, reason).await;
     }
 
     pub(super) async fn finish_lint_control(
