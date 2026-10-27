@@ -1,6 +1,6 @@
 use std::{
     env, fs,
-    io::{self, Write},
+    io::{self, Read, Write},
     net::TcpListener,
     path::Path,
     process::{Command, ExitCode, Stdio},
@@ -12,6 +12,47 @@ fn hold_socket(path: &Path) -> io::Result<TcpListener> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     fs::write(path, listener.local_addr()?.to_string())?;
     Ok(listener)
+}
+
+// The report a successful `prepare` leaves: the 0.2.1 identity and shape the
+// server validates, with no source text.
+fn prepare_report() -> &'static str {
+    concat!(
+        "{\"bendLint\":\"0.2.1\",\"notes\":[],\"runtime\":\"bun 1.4.4\",",
+        "\"platform\":\"fixture\",\"backend\":\"native\",",
+        "\"program\":\"/fixture/rules.js\",",
+        "\"cache\":{\"dir\":\"/fixture/cache\",\"built\":true,",
+        "\"checks\":{\"cached\":0,\"checked\":0}},",
+        "\"timings\":{\"setupMs\":1,\"checkerMs\":0,\"runMs\":2},",
+        "\"exitCode\":0}\n"
+    )
+}
+
+fn prepare(arguments: &[String], control: &Path) -> io::Result<ExitCode> {
+    let mut attempts = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(control.join("prepares"))?;
+    writeln!(attempts, "{}", arguments.join("\t"))?;
+    fs::write(control.join("prepare-arguments"), arguments.join("\n"))?;
+    if control.join("prepare-fail").exists() {
+        eprintln!("bend-lint: fixture prepare failure");
+        return Ok(ExitCode::FAILURE);
+    }
+    let report = arguments
+        .iter()
+        .position(|argument| argument == "--report")
+        .and_then(|position| arguments.get(position + 1))
+        .ok_or_else(|| io::Error::other("missing --report for prepare"))?;
+    let body = fs::read(control.join("prepare-report.json"))
+        .unwrap_or_else(|_| prepare_report().as_bytes().to_vec());
+    fs::write(report, body)?;
+    if control.join("prepare-stdout").exists() {
+        println!("bend-lint: fixture prepare wrote stdout");
+    }
+    // Successful prepare writes nothing to stdout; stderr carries the identity.
+    eprintln!("bend-lint: prepared /fixture/rules.js");
+    Ok(ExitCode::SUCCESS)
 }
 
 fn run() -> io::Result<ExitCode> {
@@ -29,7 +70,7 @@ fn run() -> io::Result<ExitCode> {
         .ok_or_else(|| io::Error::other("missing fixture control directory"))?;
     let control = Path::new(&control);
     if arguments.iter().any(|arg| arg == "version") {
-        println!("bend 2.0.37");
+        println!("bend 2.0.39");
         return Ok(ExitCode::SUCCESS);
     }
     if arguments.iter().any(|arg| arg == "--help") {
@@ -38,6 +79,9 @@ fn run() -> io::Result<ExitCode> {
     }
     if arguments.iter().any(|arg| arg == "base") {
         return Ok(ExitCode::SUCCESS);
+    }
+    if arguments.iter().any(|arg| arg == "prepare") {
+        return prepare(&arguments, control);
     }
     if arguments.iter().any(|arg| arg == "--check-only") {
         if control.join("compiler-block").exists() {
@@ -64,6 +108,12 @@ fn run() -> io::Result<ExitCode> {
     writeln!(calls, "{}", arguments.join("\t"))?;
     fs::write(control.join("cwd"), env::current_dir()?.to_string_lossy().as_bytes())?;
     fs::write(control.join("arguments"), arguments.join("\n"))?;
+    // The server writes its overlay object and then closes stdin. Reading to EOF
+    // both records the real transport and proves the write side was closed.
+    let mut overlays = Vec::new();
+    io::stdin().read_to_end(&mut overlays)?;
+    fs::write(control.join("stdin"), &overlays)?;
+    fs::write(control.join("stdin-eof"), b"eof")?;
     let listener = hold_socket(&control.join("address"))?;
     // The child owns a distinct socket: killing only the immediate analyzer
     // process must not look like successful process-tree cleanup.
