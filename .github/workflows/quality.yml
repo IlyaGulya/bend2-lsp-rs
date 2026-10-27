@@ -182,7 +182,7 @@ jobs:
           retention-days: 7
       - name: Run mandatory real-compiler stdio E2Es
         run: cargo test --locked --test native_compiler_diagnostics --test native_law_ranges --test compiler_multi_error
-      - name: Run saved-lint process and publication lifecycle E2Es
+      - name: Run live and saved lint process and publication lifecycle E2Es
         run: cargo test --locked --test bend_lint_protocol
       - name: Verify notification ordering under contended lint cleanup
         run: cargo test --locked --lib notification_ordering_tests

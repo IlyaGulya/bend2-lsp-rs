@@ -194,7 +194,16 @@ fn unsaved_change_republishes_genuine_findings_without_touching_disk() {
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&root);
-    let saved_packet = saved_diagnostics(&mut client, &document, saved, started);
+    // Opening an unsaved-capable buffer schedules analysis of its current text.
+    // There is deliberately no pre-save quiet window: a warmed genuine runner may
+    // publish this version 1 packet before any didSave.
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":saved
+        }}),
+    );
+    let saved_packet = wait_for_lint_diagnostics(&mut client, &document, started, 1);
     assert_eq!(saved_packet["params"]["version"], 1);
     let saved_findings = &saved_packet["params"]["diagnostics"];
     finding(saved_findings, UNNEEDED_PLUS);
