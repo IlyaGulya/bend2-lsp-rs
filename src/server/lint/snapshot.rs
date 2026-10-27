@@ -509,7 +509,7 @@ impl ProjectSnapshot {
         )?;
         let overlays = overlay_map(&captured, &config_path, &files.rule_paths)?;
         let uris = source_uris(documents, &captured.sources);
-        let open_sources = captured.open.keys().cloned().collect();
+        let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
         Ok(Self {
             root,
             canonical_root,
@@ -551,7 +551,7 @@ impl ProjectSnapshot {
         )?;
         let overlays = overlay_map(&captured, &self.config_path, &self.rule_paths)?;
         let uris = source_uris(documents, &captured.sources);
-        let open_sources = captured.open.keys().cloned().collect();
+        let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
         Ok(Self {
             root: self.root.clone(),
             canonical_root: self.canonical_root.clone(),

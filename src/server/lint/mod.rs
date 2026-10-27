@@ -204,7 +204,7 @@ impl LintService {
         let mut state = self.preparation.write();
         if !state
             .as_ref()
-            .is_some_and(|entry| matches!(entry.phase, PreparationPhase::Failed(_)))
+            .is_some_and(|entry| matches!(&entry.phase, PreparationPhase::Failed(_)))
         {
             return;
         }
