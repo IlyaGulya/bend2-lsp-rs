@@ -49,7 +49,7 @@ fn explicit_checks_preserve_another_documents_genuine_fix() {
                 "command":"bend2.lint.run","arguments":[{"uri":document}]
             }),
         );
-        let packet = wait_for_saved_diagnostics(&mut client, document, started, 1);
+        let packet = wait_for_lint_diagnostics(&mut client, document, started, 1);
         if document == &documents[0] {
             first_format = Some(
                 finding(
@@ -117,7 +117,7 @@ fn save_formatted_source(
         "textDocument/didSave",
         json!({"textDocument":{"uri":document}}),
     );
-    let fixed = wait_for_saved_diagnostics(client, document, started, 2);
+    let fixed = wait_for_lint_diagnostics(client, document, started, 2);
     let remaining = fixed["params"]["diagnostics"]
         .as_array()
         .must_be("remaining findings");
