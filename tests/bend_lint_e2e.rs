@@ -196,7 +196,7 @@ fn unused_result_sources() -> (&'static str, &'static str, &'static str) {
         "      f(m, acc)\n",
         "\n",
         "def g(+x: Nat, y: Nat) -> Nat:\n",
-        "  Nat.add(x, y)\n",
+        "    Nat.add(x, y)\n",
     );
     let dep = concat!(
         "import Base\n",
@@ -233,7 +233,7 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
             "packages":{"bend-lint-rules":"0.2.1.0"},
-            "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{}}
+            "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{},FORMAT:{}}
         }))
         .must_be("serialize genuine semantic rule config"),
     )
@@ -261,7 +261,7 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
             .all(|finding| finding["code"] != UNUSED_RESULT),
         "the unsaved scalar import genuinely changes the semantic result: {overlay_report}"
     );
-    finding(&overlay_report["findings"], UNNEEDED_PLUS);
+    finding(&overlay_report["findings"], FORMAT);
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&main);
@@ -287,7 +287,7 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
         }}),
     );
     let updated = wait_for_root_packet(&mut client, &document, 1, |packet| {
-        has_code(packet, UNNEEDED_PLUS) && !has_code(packet, UNUSED_RESULT)
+        has_code(packet, FORMAT) && !has_code(packet, UNUSED_RESULT)
     });
     assert!(!has_code(&updated, UNUSED_RESULT));
     assert_eq!(
