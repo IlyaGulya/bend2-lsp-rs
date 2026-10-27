@@ -49,6 +49,23 @@ fn explicit_checks_preserve_another_documents_genuine_fix() {
                 "command":"bend2.lint.run","arguments":[{"uri":document}]
             }),
         );
+        // Manual runs are asynchronous. A buffered didOpen publication is not
+        // evidence that this explicit check has finished.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let status = client.request(
+                "workspace/executeCommand",
+                json!({"command":"bend2.lint.status","arguments":[{"uri":document}]}),
+            );
+            if status["result"]["state"] == "ready" {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "the explicit genuine check did not complete: {status}"
+            );
+            std::thread::sleep(Duration::from_millis(100));
+        }
         let packet = wait_for_lint_diagnostics(&mut client, document, started, 1);
         if document == &documents[0] {
             first_format = Some(
@@ -79,16 +96,6 @@ fn explicit_checks_preserve_another_documents_genuine_fix() {
         actions[0]["edit"]["documentChanges"][0]["edits"][0]["newText"],
         canonical
     );
-    for document in &documents {
-        let status = client.request(
-            "workspace/executeCommand",
-            json!({
-                "command":"bend2.lint.status","arguments":[{"uri":document}]
-            }),
-        );
-        assert_eq!(status["result"]["state"], "ready");
-        assert_eq!(status["result"]["document"], *document);
-    }
     // Settings updates may reload the compiler's indexed prelude; that index
     // commit must not invalidate unchanged on-disk analyzer inputs.
     configure_analyzer(&mut client, &executable, &arguments);

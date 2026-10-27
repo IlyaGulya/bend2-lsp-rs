@@ -50,6 +50,8 @@
 - Raise Tokio's minimum version and lock it to 1.53.3, clearing
   [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
   without adding an audit exception.
+- Synchronize manual lint E2Es with completed analyzer runs, rather than buffered
+  automatic publications, before checking cross-entry fixes and save rechecks.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
