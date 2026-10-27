@@ -220,6 +220,10 @@ fn collect_job(collection: &Collection, data: &mut Value) -> ToolResult<()> {
         .as_str()
         .ok_or("missing measurement job ID")?
         .to_owned();
+    let selections: std::collections::BTreeMap<_, _> = builds
+        .iter()
+        .map(|(variant, build)| (*variant, full_selection(build)))
+        .collect();
     for pair in 1..=u64::try_from(PAIRS)? {
         let order = if pair % 2 == 1 {
             ["a", "b"]
@@ -229,16 +233,18 @@ fn collect_job(collection: &Collection, data: &mut Value) -> ToolResult<()> {
         for (position, variant) in order.into_iter().enumerate() {
             // Each arm measures exactly the workloads its own executable declares;
             // candidate-only benchmarks are never dropped by a shared selection.
-            let selection = full_selection(&builds[variant]);
+            let selection = &selections[variant];
             let sample = collect::measure(
-                &builds[variant],
+                collect::MeasurementScope {
+                    build: &builds[variant],
+                    selected: selection,
+                },
                 &job_id,
                 pair,
                 variant,
                 position,
                 &collection.output,
                 &environment,
-                &selection,
             )?;
             data["samples"]
                 .as_array_mut()
@@ -336,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn each_arm_selects_its_own_candidate_only_workloads() -> ToolResult<()> {
+    fn each_arm_selects_its_own_candidate_only_workloads() {
         let baseline = build(
             &[("inlay_hints_warm", Some("small"))],
             &[("reference_location_order_warm", Some("small"))],
@@ -363,6 +369,5 @@ mod tests {
             baseline_selection["reference_locations"].len(),
             candidate_selection["reference_locations"].len()
         );
-        Ok(())
     }
 }

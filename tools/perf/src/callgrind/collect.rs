@@ -197,6 +197,11 @@ pub(crate) struct Build {
     pub(crate) metadata: Value,
 }
 
+pub(crate) struct MeasurementScope<'a> {
+    pub(crate) build: &'a Build,
+    pub(crate) selected: &'a BTreeMap<&'static str, BTreeSet<super::Identity>>,
+}
+
 pub(crate) fn compile(
     checkout: PathBuf,
     variant: &str,
@@ -300,15 +305,15 @@ pub(crate) fn ensure_immutable(build: &Build) -> ToolResult<()> {
 }
 
 pub(crate) fn measure(
-    build: &Build,
+    scope: MeasurementScope<'_>,
     job_id: &str,
     pair: u64,
     variant: &str,
     order: usize,
     output: &Path,
     environment: &Environment,
-    selected: &BTreeMap<&'static str, BTreeSet<super::Identity>>,
 ) -> ToolResult<Value> {
+    let MeasurementScope { build, selected } = scope;
     ensure_immutable(build)?;
     let name = format!("pair{pair:03}{}", variant.replace('_', ""));
     let raw = output.join("raw").join(name);

@@ -133,13 +133,7 @@ fn independent_build(
     Ok(build)
 }
 
-fn collect_job(
-    args: &CollectArgs,
-    source: &Path,
-    work: &Path,
-    output: &Path,
-    dataset: &mut Value,
-) -> ToolResult<()> {
+fn record_provenance(source: &Path, output: &Path, dataset: &mut Value) -> ToolResult<Environment> {
     let environment = clean_environment();
     dataset["environment"] = environment_metadata(source, output, &environment)?;
     dataset["host"] = host_metadata()?;
@@ -153,11 +147,6 @@ fn collect_job(
     } else {
         "unknown".into()
     };
-    let excluded = [work.to_owned(), output.to_owned()];
-    let original = source_manifest(source, &excluded)?;
-    write_json(&output.join("source-manifest.json"), &original)?;
-    let harness_path = source.join("benches/analysis.rs");
-    let harness = fs::read_to_string(&harness_path)?;
     let mut harness_hashes = serde_json::Map::new();
     for benchmark in BENCHMARKS {
         harness_hashes.insert(
@@ -166,6 +155,22 @@ fn collect_job(
         );
     }
     dataset["harness_sha256"] = harness_hashes.into();
+    Ok(environment)
+}
+
+fn collect_job(
+    args: &CollectArgs,
+    source: &Path,
+    work: &Path,
+    output: &Path,
+    dataset: &mut Value,
+) -> ToolResult<()> {
+    let environment = record_provenance(source, output, dataset)?;
+    let excluded = [work.to_owned(), output.to_owned()];
+    let original = source_manifest(source, &excluded)?;
+    write_json(&output.join("source-manifest.json"), &original)?;
+    let harness_path = source.join("benches/analysis.rs");
+    let harness = fs::read_to_string(&harness_path)?;
     dataset["fixture_sha256"] =
         source_manifest(&source.join("benches/fixtures"), &excluded)?["sha256"].clone();
     let generated = VARIANTS
@@ -224,14 +229,16 @@ fn collect_job(
     for pair in 1..=args.pairs {
         for (order, variant) in balanced_order(&args.job_id, pair)?.into_iter().enumerate() {
             let sample = measure(
-                &builds[variant],
+                callgrind::collect::MeasurementScope {
+                    build: &builds[variant],
+                    selected: &selected,
+                },
                 &args.job_id,
                 pair,
                 variant,
                 order,
                 output,
                 &environment,
-                &selected,
             )?;
             dataset["samples"]
                 .as_array_mut()
