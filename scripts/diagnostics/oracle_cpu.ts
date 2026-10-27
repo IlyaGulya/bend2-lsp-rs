@@ -49,16 +49,12 @@ let stopping = false;
 let mainRunning = true;
 let mainSequence = 0;
 let mainChain = Promise.resolve();
-function mainCheckpoint(restart: boolean): Promise<void> {
+function mainCheckpoint(): Promise<void> {
   const run = mainChain.then(async () => {
     if (!mainRunning) return;
     const { profile } = await post("Profiler.stop");
     mainRunning = false;
     save("main", 0, mainSequence++, JSON.stringify(profile));
-    if (restart && !stopping) {
-      await post("Profiler.start");
-      mainRunning = true;
-    }
   });
   mainChain = run.catch(error => failure("main-checkpoint", error));
   return mainChain;
@@ -94,17 +90,16 @@ function track(worker: Worker) {
     role: "pristine", threadId: entry.threadId, code }));
 }
 
-function workerCheckpoint(worker: Worker, restart: boolean): Promise<void> {
+function workerCheckpoint(worker: Worker, finish: boolean): Promise<void> {
   const entry = entries.get(worker);
   if (!entry) return Promise.resolve();
   if (entry.stopping) return entry.chain;
-  if (!restart) entry.stopping = true;
+  if (finish) entry.stopping = true;
   const run = entry.chain.then(async () => {
     if (!entry.handle) return;
     const handle = await entry.handle;
     entry.handle = null;
     save("pristine", entry.threadId, entry.sequence++, await handle.stop());
-    if (restart && !entry.stopping && !stopping) entry.handle = worker.startCpuProfile();
   });
   entry.chain = run.catch(error => failure("pristine-checkpoint", error));
   return entry.chain;
@@ -121,23 +116,52 @@ prototype.once = function (...args: Parameters<Worker["once"]>) {
 prototype.terminate = function () {
   // Preserve termination even if diagnostic collection fails. Verification rejects
   // the recorded error; the accepted pristine owner must still be able to exit.
-  return workerCheckpoint(this, false).then(() => originalTerminate.call(this));
+  return workerCheckpoint(this, true).then(() => originalTerminate.call(this));
 };
 
-const timer = setInterval(() => {
-  if (stopping) return;
-  void mainCheckpoint(true);
-  for (const worker of entries.keys()) void workerCheckpoint(worker, true);
-}, 2000);
+// Four continuously sampled VMs exceeded the unchanged full-run deadline.
+// Keep every semantic request, but expose explicit 2s-on/8s-off sampling gaps.
+let sampling = true;
+let timer = setTimeout(() => { void samplingWindow(); }, 2000);
 timer.unref();
+async function samplingWindow(): Promise<void> {
+  if (stopping) return;
+  sampling = !sampling;
+  if (sampling) {
+    const start = mainChain.then(async () => {
+      if (stopping || mainRunning) return;
+      await post("Profiler.start");
+      mainRunning = true;
+    });
+    mainChain = start.catch(error => failure("main-window-start", error));
+    const workers = [...entries].map(([worker, entry]) => {
+      const start = entry.chain.then(async () => {
+        if (stopping || entry.stopping || entry.handle) return;
+        entry.handle = worker.startCpuProfile();
+        await entry.handle;
+      });
+      entry.chain = start.catch(error => failure("pristine-window-start", error));
+      return entry.chain;
+    });
+    await Promise.all([mainChain, ...workers]);
+  } else {
+    await Promise.all([mainCheckpoint(),
+      ...[...entries.keys()].map(worker => workerCheckpoint(worker, false))]);
+  }
+  record({ event: "sampling-window", active: sampling, activeMs: 2000, pauseMs: 8000 });
+  if (!stopping) {
+    timer = setTimeout(() => { void samplingWindow(); }, sampling ? 2000 : 8000);
+    timer.unref();
+  }
+}
 
 let finalization: Promise<void> | undefined;
 function finish(): Promise<void> {
   if (finalization) return finalization;
   stopping = true;
-  clearInterval(timer);
-  finalization = Promise.all([mainCheckpoint(false),
-    ...[...entries.keys()].map(worker => workerCheckpoint(worker, false))])
+  clearTimeout(timer);
+  finalization = Promise.all([mainCheckpoint(),
+    ...[...entries.keys()].map(worker => workerCheckpoint(worker, true))])
     .then(() => {
       session.disconnect();
       record({ event: "finished" });

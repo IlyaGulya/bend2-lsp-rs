@@ -153,9 +153,10 @@ def profiles(directory, expected_pids=None, installation=None):
             "inclusive_source_microseconds_nonadditive": dict(inclusive_sources[key]),
             "installed_sources_seen": sorted(seen_sources[key])})
     return {"profiles": inventory, "attribution": attribution,
-        "sampling_interval_microseconds": 1000, "checkpoint_milliseconds": 2000,
+        "sampling_interval_microseconds": 1000, "active_window_milliseconds": 2000,
+        "pause_milliseconds": 8000,
         "worker_module_startup_covered": False,
-        "sampling_gaps": "stop/serialize/compress/restart between segments; not complete thread-lifetime sampling",
+        "sampling_gaps": "explicit 8s pauses after each 2s active window, plus stop/serialize/compress/restart; not continuous sampling",
         "scope": "weighted JS samples, including profiler perturbation; inclusive source families overlap; not phase wall time or admission"}
 
 
