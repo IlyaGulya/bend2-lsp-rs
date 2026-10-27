@@ -2,7 +2,7 @@ use super::super::lsp::Backend;
 use super::{
     LintResult,
     control::EXPLAIN_COMMAND,
-    wire::{Fix, offsets},
+    wire::{ActionableFinding, Fix, offsets},
 };
 use crate::workspace::Document;
 use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
@@ -148,6 +148,37 @@ impl Backend {
         Some(CodeActionOrCommand::CodeAction(action))
     }
 
+    // One fix is offered by the authority that produced it: the caller
+    // resolves its versioned edit from that entry's snapshot and config.
+    fn lint_action_for_fix(
+        &self,
+        params: &CodeActionParams,
+        finding: &ActionableFinding,
+        fix: &Fix,
+        edit: Result<WorkspaceEdit, &'static str>,
+    ) -> Option<CodeActionOrCommand> {
+        let title = format!(
+            "Dangerous bend-lint fix (may change behavior): {}",
+            fix.title
+        );
+        match edit {
+            Ok(edit) if requested(params, DANGEROUS_KIND) => {
+                Some(CodeActionOrCommand::CodeAction(CodeAction {
+                    title,
+                    kind: Some(CodeActionKind::new(DANGEROUS_KIND)),
+                    diagnostics: Some(vec![finding.diagnostic.clone()]),
+                    edit: Some(edit),
+                    is_preferred: Some(false),
+                    ..Default::default()
+                }))
+            }
+            Err(reason) => {
+                self.unavailable_lint_action(params, title, finding.diagnostic.clone(), reason)
+            }
+            Ok(_) => None,
+        }
+    }
+
     pub(in crate::server) async fn lint_code_actions(
         &self,
         params: &CodeActionParams,
@@ -203,8 +234,6 @@ impl Backend {
         let current = self.current_lint_contributors(uri);
         let mut actions: Vec<CodeActionOrCommand> = Vec::new();
         for (result, fresh) in contributors.iter().zip(fresh) {
-            // Each fix is offered by the authority that produced it: its own
-            // captured snapshot, config, and diagnostic.
             let still_current = current
                 .iter()
                 .any(|candidate| Arc::ptr_eq(candidate, result));
@@ -216,10 +245,6 @@ impl Backend {
                     continue;
                 }
                 for fix in &finding.fixes {
-                    let title = format!(
-                        "Dangerous bend-lint fix (may change behavior): {}",
-                        fix.title
-                    );
                     let edit = if !fresh || !still_current {
                         Err(RECHECK_REASON)
                     } else if !result.config.dangerous_code_actions {
@@ -229,27 +254,7 @@ impl Backend {
                     } else {
                         versioned_fix(self, result, fix)
                     };
-                    let action = match edit {
-                        Ok(edit) if requested(params, DANGEROUS_KIND) => {
-                            Some(CodeActionOrCommand::CodeAction(CodeAction {
-                                title,
-                                kind: Some(CodeActionKind::new(DANGEROUS_KIND)),
-                                diagnostics: Some(vec![finding.diagnostic.clone()]),
-                                edit: Some(edit),
-                                is_preferred: Some(false),
-                                ..Default::default()
-                            }))
-                        }
-                        Err(reason) => {
-                            self.unavailable_lint_action(
-                                params,
-                                title,
-                                finding.diagnostic.clone(),
-                                reason,
-                            )
-                        }
-                        Ok(_) => None,
-                    };
+                    let action = self.lint_action_for_fix(params, finding, fix, edit);
                     if let Some(action) = action
                         && !actions.contains(&action)
                     {
