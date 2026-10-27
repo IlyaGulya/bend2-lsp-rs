@@ -16,7 +16,7 @@ use super::{
 };
 use crate::workspace::{Document, FileId};
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     path::PathBuf,
     sync::{
         Arc,
@@ -41,6 +41,34 @@ pub(super) struct LintResult {
     config: LintConfig,
     snapshot: Arc<snapshot::ProjectSnapshot>,
     findings: wire::Findings,
+}
+
+// One coherent open-input read: the immutable document snapshots and their
+// revision generations are sampled under the same workspace lock, so no fence
+// is ever sampled after the capture it describes. A later change advances the
+// stamp and fences the result; publication additionally compares the complete
+// current open-input view with the captured one.
+struct LintInputs {
+    documents: Vec<Document>,
+    generations: HashMap<Url, (FileId, u64)>,
+}
+
+impl LintInputs {
+    fn fences(&self, view: &snapshot::ProjectSnapshot) -> Vec<(FileId, u64)> {
+        self.documents
+            .iter()
+            .filter_map(|document| {
+                let path = document.uri.to_file_path().ok()?;
+                if !view.covers_path(&path)
+                    && !snapshot::input_identity(&path)
+                        .is_some_and(|identity| view.covers_path(&identity))
+                {
+                    return None;
+                }
+                self.generations.get(&document.uri).copied()
+            })
+            .collect()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -302,9 +330,18 @@ impl Backend {
 
     pub(super) fn current_lint_result(&self, uri: &Url) -> Option<Arc<LintResult>> {
         let result = self.diagnostics.lint.results.read().get(uri)?;
-        (*self.diagnostics.lint.config.read() == result.config
-            && self.lint_revisions_current(&result.revisions))
-        .then_some(result)
+        self.lint_result_current(&result).then_some(result)
+    }
+
+    // Publication and retained-result use share this fence: the immutable
+    // captured view must still be the current complete open-input view, not
+    // only the root document or the generations sampled with the capture.
+    fn lint_result_current(&self, result: &LintResult) -> bool {
+        *self.diagnostics.lint.config.read() == result.config
+            && self.lint_revisions_current(&result.revisions)
+            && result
+                .snapshot
+                .open_documents_current(&self.workspace_documents())
     }
 
     fn lint_revisions_current(&self, revisions: &[(FileId, u64)]) -> bool {
@@ -317,27 +354,26 @@ impl Backend {
         })
     }
 
-    fn lint_revision_fences(
-        &self,
-        snapshot: &snapshot::ProjectSnapshot,
-        documents: &[Document],
-    ) -> Vec<(FileId, u64)> {
+    #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "open_inputs", result_count = tracing::field::Empty))]
+    fn lint_inputs(&self) -> LintInputs {
         let state = self.workspace.state.read();
-        documents
+        let documents = state.database.open_documents();
+        tracing::Span::current().record("result_count", documents.len());
+        let generations = documents
             .iter()
             .filter_map(|document| {
-                let path = document.uri.to_file_path().ok()?;
-                if !snapshot.covers_path(&path)
-                    && !snapshot::input_identity(&path)
-                        .is_some_and(|identity| snapshot.covers_path(&identity))
-                {
-                    return None;
-                }
-                let id = state.database.file_id_by_uri(&document.uri)?;
-                let sync = state.revisions.get(&id)?;
-                Some((id, revision_result(sync.status()).generation()))
+                let file = state.database.file_id_by_uri(&document.uri)?;
+                let sync = state.revisions.get(&file)?;
+                Some((
+                    document.uri.clone(),
+                    (file, revision_result(sync.status()).generation()),
+                ))
             })
-            .collect()
+            .collect();
+        LintInputs {
+            documents,
+            generations,
+        }
     }
 
     // A project snapshot overlays every open input, so a change anywhere in a
@@ -523,10 +559,11 @@ impl Backend {
             .await;
             return Ok("Analysis skipped; the document has no file path".into());
         };
-        let documents = self.workspace_documents();
         let reusable = self.diagnostics.lint.results.read().snapshot_for(&file);
+        let inputs = self.lint_inputs();
         let capture_file = file.clone();
-        let (snapshot, document, documents) = {
+        let documents = inputs.documents.clone();
+        let (snapshot, document) = {
             let permit = self
                 .diagnostics
                 .lint
@@ -545,7 +582,7 @@ impl Backend {
                             Arc::new(snapshot::ProjectSnapshot::capture(&capture_file, &documents)?)
                         }
                     };
-                    Ok::<_, std::io::Error>((snapshot, document, documents))
+                    Ok::<_, std::io::Error>((snapshot, document))
                 })
                 .await,
             )?
@@ -558,7 +595,9 @@ impl Backend {
                 "Document inputs changed during capture; the next check will re-read them",
             ));
         }
-        let revisions = self.lint_revision_fences(&snapshot, &documents);
+        // Fences are the generations sampled with the immutable capture, never
+        // a generation observed after an asynchronous capture completed.
+        let revisions = inputs.fences(&snapshot);
         let key = PreparationKey {
             root: snapshot.root.clone(),
             config: config.clone(),
@@ -758,27 +797,30 @@ impl Backend {
             },
         );
         let _publish = self.diagnostics.imported_publish.lock().await;
+        let result = LintResult {
+            epoch,
+            revisions,
+            config,
+            snapshot,
+            findings,
+        };
         let affected = {
             // Serialize the final epoch check/result store with synchronous
             // invalidation; never hold this state guard across publication.
             let _task = self.diagnostics.lint.task.read();
             if !unchanged
-                || !self.lint_revisions_current(&revisions)
                 || self.diagnostics.lint.epoch.load(Ordering::SeqCst) != epoch
                 || !self.diagnostics_snapshot_current(&uri, &document.snapshot)
+                || !self.lint_result_current(&result)
             {
                 None
             } else {
-                let affected = self.diagnostics.lint.results.write().insert(
-                    uri.clone(),
-                    Arc::new(LintResult {
-                        epoch,
-                        revisions,
-                        config,
-                        snapshot,
-                        findings,
-                    }),
-                );
+                let affected = self
+                    .diagnostics
+                    .lint
+                    .results
+                    .write()
+                    .insert(uri.clone(), Arc::new(result));
                 self.diagnostics
                     .lint
                     .control
@@ -993,6 +1035,30 @@ mod tests {
         assert!(
             backend.current_lint_result(&project.main_uri).is_none(),
             "a covered input opened after the capture left the older result current"
+        );
+        Ok(())
+    }
+
+    // Fences sampled together with the immutable capture cannot describe a
+    // generation that only exists after those snapshots were taken.
+    #[tokio::test]
+    async fn capture_time_fences_reject_a_dependency_changed_after_sampling()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend()?;
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
+        let inputs = backend.lint_inputs();
+        let snapshot = Arc::new(snapshot::ProjectSnapshot::capture(
+            &project.main,
+            &inputs.documents,
+        )?);
+        let revisions = inputs.fences(&snapshot);
+        assert!(revisions.contains(&fence(&backend, &project.dep_uri)?));
+        open(&backend, &project.dep_uri, 2, CHANGED_DEP, project.dep.clone()).await?;
+        assert!(
+            !backend.lint_revisions_current(&revisions),
+            "fences sampled with the capture described a later generation"
         );
         Ok(())
     }
