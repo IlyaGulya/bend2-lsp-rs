@@ -848,7 +848,9 @@ async fn join_lint_task(previous: Option<JoinHandle<()>>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Backend, FileId, LintConfig, LintResult, revision_result, snapshot, wire};
+    use super::{
+        Backend, DANGEROUS_KIND, FileId, LintConfig, LintResult, revision_result, snapshot, wire,
+    };
     use crate::server::{
         compiler::CompilerReapers, diagnostics::DiagnosticsService,
         workspace_service::WorkspaceService,
@@ -861,7 +863,13 @@ mod tests {
         sync::{Arc, atomic::Ordering},
     };
     use tokio::sync::Semaphore;
-    use tower_lsp::LspService;
+    use tower_lsp::{
+        LspService,
+        lsp_types::{
+            CodeAction, CodeActionOrCommand, CodeActionParams, Diagnostic, DiagnosticSeverity,
+            DocumentChanges, OneOf, Position, Range,
+        },
+    };
     use url::Url;
 
     const MAIN: &str = "import ./dep.bend as Dep\ndef main = Dep.value\n";
@@ -963,21 +971,112 @@ mod tests {
         revisions: Vec<(FileId, u64)>,
     ) {
         let epoch = backend.diagnostics.lint.epoch.load(Ordering::SeqCst);
-        let config = backend.diagnostics.lint.config.read().clone();
-        backend.diagnostics.lint.results.write().insert(
-            uri.clone(),
-            Arc::new(LintResult {
-                epoch,
-                revisions,
-                config,
-                snapshot,
-                findings: wire::Findings {
-                    by_uri: HashMap::new(),
-                    actionable: Vec::new(),
-                    skipped: Vec::new(),
-                },
-            }),
+        retain_entry(
+            backend,
+            uri,
+            entry(backend, epoch, &snapshot, revisions, no_findings()),
         );
+    }
+
+    fn diagnostic(message: &str) -> Diagnostic {
+        Diagnostic {
+            range: Range::new(Position::new(0, 0), Position::new(0, 1)),
+            severity: Some(DiagnosticSeverity::WARNING),
+            source: Some("bend-lint".into()),
+            message: message.into(),
+            ..Diagnostic::default()
+        }
+    }
+
+    fn no_findings() -> wire::Findings {
+        wire::Findings {
+            by_uri: HashMap::new(),
+            actionable: Vec::new(),
+            skipped: Vec::new(),
+        }
+    }
+
+    fn fixture(
+        backend: &Backend,
+        project: &Project,
+    ) -> Result<Arc<snapshot::ProjectSnapshot>, Box<dyn Error>> {
+        let captured = backend.workspace_documents();
+        Ok(Arc::new(snapshot::ProjectSnapshot::capture(
+            &project.main,
+            &captured,
+        )?))
+    }
+
+    fn entry(
+        backend: &Backend,
+        epoch: u64,
+        snapshot: &Arc<snapshot::ProjectSnapshot>,
+        revisions: Vec<(FileId, u64)>,
+        findings: wire::Findings,
+    ) -> Arc<LintResult> {
+        Arc::new(LintResult {
+            epoch,
+            revisions,
+            config: backend.diagnostics.lint.config.read().clone(),
+            snapshot: snapshot.clone(),
+            findings,
+        })
+    }
+
+    fn retain_entry(backend: &Backend, uri: &Url, result: Arc<LintResult>) {
+        backend
+            .diagnostics
+            .lint
+            .results
+            .write()
+            .insert(uri.clone(), result);
+    }
+
+    fn actionable(message: &str, uri: &Url) -> wire::Findings {
+        let reported = diagnostic(message);
+        let mut findings = no_findings();
+        findings
+            .by_uri
+            .insert(uri.clone(), vec![reported.clone()]);
+        findings.actionable.push(wire::ActionableFinding {
+            uri: uri.clone(),
+            diagnostic: reported,
+            fixes: vec![wire::Fix {
+                title: format!("Apply {message}"),
+                applicability: "dangerous".into(),
+                edits: vec![wire::Edit {
+                    path: "main.bend".into(),
+                    range: Range::new(Position::new(0, 0), Position::new(0, 1)),
+                    text: "def identity: U32".into(),
+                }],
+            }],
+        });
+        findings
+    }
+
+    fn dangerous_params(uri: &Url) -> Result<CodeActionParams, Box<dyn Error>> {
+        Ok(serde_json::from_value(serde_json::json!({
+            "textDocument": {"uri": uri},
+            "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}},
+            "context": {"diagnostics": [], "only": [DANGEROUS_KIND], "triggerKind": 1}
+        }))?)
+    }
+
+    fn dangerous_actions(actions: &[CodeActionOrCommand]) -> Vec<&CodeAction> {
+        actions
+            .iter()
+            .filter_map(|action| match action {
+                CodeActionOrCommand::CodeAction(action)
+                    if action
+                        .kind
+                        .as_ref()
+                        .is_some_and(|kind| kind.as_str() == DANGEROUS_KIND) =>
+                {
+                    Some(action)
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     // A dependency changes after the immutable capture but before publication.
@@ -1088,6 +1187,263 @@ mod tests {
         assert!(
             backend.current_lint_result(&project.main_uri).is_some(),
             "an unrelated project input retired a still-current result"
+        );
+        Ok(())
+    }
+
+    // Every current entry that indexes the target contributes. An empty own
+    // report at a newer epoch must not erase the sibling entry's import.
+    #[tokio::test]
+    async fn an_older_imported_contribution_survives_a_newer_empty_own_result()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend()?;
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
+        let snapshot = fixture(&backend, &project)?;
+        let revisions = vec![
+            fence(&backend, &project.main_uri)?,
+            fence(&backend, &project.dep_uri)?,
+        ];
+        let imported = diagnostic("imported rule");
+        let mut imported_findings = no_findings();
+        imported_findings
+            .by_uri
+            .insert(project.main_uri.clone(), vec![imported.clone()]);
+        retain_entry(
+            &backend,
+            &project.dep_uri,
+            entry(&backend, 1, &snapshot, revisions.clone(), imported_findings),
+        );
+        retain_entry(
+            &backend,
+            &project.main_uri,
+            entry(&backend, 2, &snapshot, revisions, no_findings()),
+        );
+        assert_eq!(
+            backend.lint_diagnostics(&project.main_uri),
+            vec![imported],
+            "a newer empty own report must not erase a current imported contribution"
+        );
+        assert!(
+            backend
+                .current_lint_result(&project.main_uri)
+                .is_some_and(|result| result.epoch == 2),
+            "status must keep the newest own entry as the primary result"
+        );
+        Ok(())
+    }
+
+    // Distinct contributions from two current entries are published together,
+    // and an identical diagnostic reported by both appears once.
+    #[tokio::test]
+    async fn distinct_contributions_from_two_entries_union_and_dedup()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend()?;
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
+        let snapshot = fixture(&backend, &project)?;
+        let revisions = vec![
+            fence(&backend, &project.main_uri)?,
+            fence(&backend, &project.dep_uri)?,
+        ];
+        let own = diagnostic("own rule");
+        let imported = diagnostic("imported rule");
+        let shared = diagnostic("shared rule");
+        let mut own_findings = no_findings();
+        own_findings.by_uri.insert(
+            project.main_uri.clone(),
+            vec![own.clone(), shared.clone()],
+        );
+        let mut imported_findings = no_findings();
+        imported_findings.by_uri.insert(
+            project.main_uri.clone(),
+            vec![imported.clone(), shared.clone()],
+        );
+        retain_entry(
+            &backend,
+            &project.dep_uri,
+            entry(&backend, 1, &snapshot, revisions.clone(), imported_findings),
+        );
+        retain_entry(
+            &backend,
+            &project.main_uri,
+            entry(&backend, 2, &snapshot, revisions, own_findings),
+        );
+        let diagnostics = backend.lint_diagnostics(&project.main_uri);
+        assert_eq!(
+            diagnostics.len(),
+            3,
+            "both current contributors must be published exactly once"
+        );
+        for expected in [&own, &imported, &shared] {
+            assert!(diagnostics.contains(expected), "missing contributor diagnostic");
+        }
+        assert_eq!(
+            diagnostics.iter().filter(|item| *item == &shared).count(),
+            1,
+            "an identical diagnostic must be deduplicated"
+        );
+        Ok(())
+    }
+
+    // Replacing one contributor with a clean report clears only that entry's
+    // contribution; the other entry's findings stay published.
+    #[tokio::test]
+    async fn replacing_a_contributor_with_an_empty_report_clears_only_its_findings()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend()?;
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
+        let snapshot = fixture(&backend, &project)?;
+        let revisions = vec![
+            fence(&backend, &project.main_uri)?,
+            fence(&backend, &project.dep_uri)?,
+        ];
+        let own = diagnostic("own rule");
+        let imported = diagnostic("imported rule");
+        let mut own_findings = no_findings();
+        own_findings
+            .by_uri
+            .insert(project.main_uri.clone(), vec![own.clone()]);
+        let mut imported_findings = no_findings();
+        imported_findings
+            .by_uri
+            .insert(project.main_uri.clone(), vec![imported.clone()]);
+        retain_entry(
+            &backend,
+            &project.dep_uri,
+            entry(&backend, 1, &snapshot, revisions.clone(), imported_findings),
+        );
+        retain_entry(
+            &backend,
+            &project.main_uri,
+            entry(&backend, 2, &snapshot, revisions.clone(), own_findings),
+        );
+        let initial = backend.lint_diagnostics(&project.main_uri);
+        assert!(initial.contains(&own) && initial.contains(&imported));
+        retain_entry(
+            &backend,
+            &project.dep_uri,
+            entry(&backend, 3, &snapshot, revisions, no_findings()),
+        );
+        assert_eq!(
+            backend.lint_diagnostics(&project.main_uri),
+            vec![own],
+            "only the replaced contributor's finding may clear"
+        );
+        Ok(())
+    }
+
+    // The imported finding's fix stays available, versioned to the analyzed
+    // document, even while the newer own entry reports nothing.
+    #[tokio::test]
+    async fn an_imported_dangerous_fix_survives_a_newer_empty_own_result()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend()?;
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
+        let snapshot = fixture(&backend, &project)?;
+        let revisions = vec![
+            fence(&backend, &project.main_uri)?,
+            fence(&backend, &project.dep_uri)?,
+        ];
+        retain_entry(
+            &backend,
+            &project.dep_uri,
+            entry(
+                &backend,
+                1,
+                &snapshot,
+                revisions.clone(),
+                actionable("imported rule", &project.main_uri),
+            ),
+        );
+        retain_entry(
+            &backend,
+            &project.main_uri,
+            entry(&backend, 2, &snapshot, revisions, no_findings()),
+        );
+        let params = dangerous_params(&project.main_uri)?;
+        let actions = backend.lint_code_actions(&params).await;
+        let dangerous = dangerous_actions(&actions);
+        let action = dangerous
+            .first()
+            .copied()
+            .ok_or_else(|| io::Error::other("the imported dangerous fix must stay available"))?;
+        assert_eq!(
+            action.diagnostics.as_ref(),
+            Some(&vec![diagnostic("imported rule")]),
+            "the action must keep the importing authority's diagnostic"
+        );
+        let changes = action
+            .edit
+            .as_ref()
+            .and_then(|edit| edit.document_changes.as_ref())
+            .ok_or_else(|| io::Error::other("the dangerous fix must carry edits"))?;
+        let DocumentChanges::Edits(edits) = changes else {
+            return Err(io::Error::other("the dangerous fix must use text edits").into());
+        };
+        let targeted = edits
+            .iter()
+            .find(|edit| edit.text_document.uri == project.main_uri)
+            .ok_or_else(|| io::Error::other("the imported fix must target the root document"))?;
+        assert_eq!(
+            targeted.text_document.version,
+            Some(1),
+            "the fix must stay versioned to the analyzed document"
+        );
+        assert_eq!(targeted.edits.len(), 1);
+        assert!(
+            matches!(&targeted.edits[0], OneOf::Left(edit) if edit.new_text == "def identity: U32")
+        );
+        Ok(())
+    }
+
+    // The same fix reported by two current entries is offered once.
+    #[tokio::test]
+    async fn identical_imported_fixes_from_two_entries_are_deduplicated()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend()?;
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
+        let snapshot = fixture(&backend, &project)?;
+        let revisions = vec![
+            fence(&backend, &project.main_uri)?,
+            fence(&backend, &project.dep_uri)?,
+        ];
+        retain_entry(
+            &backend,
+            &project.dep_uri,
+            entry(
+                &backend,
+                1,
+                &snapshot,
+                revisions.clone(),
+                actionable("shared rule", &project.main_uri),
+            ),
+        );
+        retain_entry(
+            &backend,
+            &project.main_uri,
+            entry(
+                &backend,
+                2,
+                &snapshot,
+                revisions,
+                actionable("shared rule", &project.main_uri),
+            ),
+        );
+        let params = dangerous_params(&project.main_uri)?;
+        let actions = backend.lint_code_actions(&params).await;
+        assert_eq!(
+            dangerous_actions(&actions).len(),
+            1,
+            "identical fixes from two current entries must be deduplicated"
         );
         Ok(())
     }
