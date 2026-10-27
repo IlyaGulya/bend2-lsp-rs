@@ -277,6 +277,13 @@ Each owner records its sampling policy and explicit pauses. Sparse samples and
 instrumented elapsed time are not continuous coverage or calibration evidence.
 Missing owners, final flushes or semantic observations reject a complete capture.
 
+Cross-run semantic fingerprints cover valid answers. Rejected raw replies also
+contain per-run timing metrics, so their raw hashes are evidence, not stable
+semantic identities. The unchanged full harness still checks every intended
+rejection and recovery assertion; diagnostic reference checks additionally
+require identical case identities, semantic/rejection coverage, histories and
+stdio observations.
+
 ## CI calibration and longer search
 
 `.github/workflows/semantic-fuzz.yml` is unprivileged and separate from release

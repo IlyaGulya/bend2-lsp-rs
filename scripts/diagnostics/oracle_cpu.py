@@ -164,6 +164,21 @@ def profiles(directory, expected_pids=None, installation=None):
         "scope": "weighted JS samples, including profiler perturbation; inclusive source families overlap; not phase wall time or admission"}
 
 
+def verify_reference(plan, report, reference):
+    actual_cases = [(row["id"], row["input_sha256"]) for row in report["completed"]]
+    expected_cases = [(row["id"], row["input_sha256"]) for row in reference["completed"]]
+    require(actual_cases == expected_cases, "forward case identities/order changed under profiling")
+    valid = {item["id"] for item in plan["planned"] if item["facet"] == "valid"}
+    actual = [(row["id"], row["oracle_sha256"]) for row in report["completed"] if row["id"] in valid]
+    expected = [(row["id"], row["oracle_sha256"]) for row in reference["completed"] if row["id"] in valid]
+    require(actual == expected, "valid forward semantic fingerprints changed under profiling")
+    # Rejected raw reply hashes include volatile metrics. Keep their unchanged
+    # manifest rejection/recovery assertions and compare all semantic coverage.
+    for field in ("counts", "coverage", "role_coverage", "view_coverage",
+                  "rejection_counts", "generator", "planned", "isolation", "stdio"):
+        require(report[field] == reference[field], "semantic reference changed: " + field)
+
+
 def worker(args):
     plan = json.loads(args.plan.read_text())
     original = conformance.native_worker_command
@@ -239,11 +254,7 @@ def capture(args):
         require(report["harness_sha256"] == reference["harness_sha256"], "accepted harness bytes changed")
         require(report["candidate_source_sha256"] == reference["candidate_source_sha256"], "candidate source changed")
         require(report["provenance"] == provenance, "oracle provenance changed")
-        expected_rows = [(row["id"], row["input_sha256"], row.get("oracle_sha256")) for row in reference["completed"]]
-        actual_rows = [(row["id"], row["input_sha256"], row.get("oracle_sha256")) for row in report["completed"]]
-        require(actual_rows == expected_rows, "forward oracle semantic fingerprints changed under profiling")
-        require(report["isolation"] == reference["isolation"], "reverse/ABA/fresh/repeated semantic fingerprints changed")
-        require(report["stdio"] == reference["stdio"], "real stdio consumer observations changed")
+        verify_reference(plan, report, reference)
         histories = report["metrics"]["histories"]
         pids = [histories["forward"]["pid"], histories["reverse"]["pid"], histories["fresh_pid"]]
         receipt["full_profile"] = profiles(full, pids, installation)
