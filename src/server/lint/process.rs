@@ -2,7 +2,7 @@ use super::super::compiler::{CompilerLease, CompilerReapers};
 use crate::analysis::DocumentSnapshot;
 use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, btree_map::Entry},
     ffi::OsString,
     fs, io,
     path::{Path, PathBuf},
@@ -89,33 +89,73 @@ fn overlay_key(path: &Path) -> io::Result<String> {
     }
 }
 
+struct BoundedOutput {
+    bytes: Vec<u8>,
+    limit: usize,
+    exceeded: bool,
+}
+
+impl BoundedOutput {
+    fn new(limit: usize) -> Self {
+        Self {
+            bytes: Vec::new(),
+            limit,
+            exceeded: false,
+        }
+    }
+}
+
+impl io::Write for BoundedOutput {
+    fn write(&mut self, chunk: &[u8]) -> io::Result<usize> {
+        let next = self.bytes.len().saturating_add(chunk.len());
+        if next > self.limit {
+            self.exceeded = true;
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "bend-lint overlay input exceeds the 32 MiB limit",
+            ));
+        }
+        self.bytes.extend_from_slice(chunk);
+        Ok(chunk.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 fn overlay_input(overlays: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>) -> io::Result<Vec<u8>> {
     let mut texts = BTreeMap::<String, &str>::new();
     for (path, snapshot) in overlays {
         let key = overlay_key(path)?;
-        if texts.insert(key.clone(), snapshot.text.as_str()).is_some() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("bend-lint overlay paths collide after normalization: {key}"),
-            ));
+        match texts.entry(key) {
+            Entry::Vacant(slot) => {
+                slot.insert(snapshot.text.as_str());
+            }
+            Entry::Occupied(slot) => {
+                let key = slot.key();
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("bend-lint overlay paths collide after normalization: {key}"),
+                ));
+            }
         }
     }
-    let bytes = serde_json::to_vec(&texts).map_err(|error| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("bend-lint overlay input could not be encoded: {error}"),
-        )
-    })?;
-    if bytes.len() > INPUT_LIMIT {
+    // Serialize straight into a capped writer: escaped source text is never
+    // materialized past the transport limit, and no second full copy is made.
+    let mut writer = BoundedOutput::new(INPUT_LIMIT);
+    if let Err(error) = serde_json::to_writer(&mut writer, &texts) {
+        if writer.exceeded {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "bend-lint overlay input exceeds the 32 MiB limit",
+            ));
+        }
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            format!(
-                "bend-lint overlay input exceeds the 32 MiB limit ({} bytes)",
-                bytes.len()
-            ),
+            format!("bend-lint overlay input could not be encoded: {error}"),
         ));
     }
-    Ok(bytes)
+    Ok(writer.bytes)
 }
 
 async fn write_input(stdin: Option<ChildStdin>, input: Option<Vec<u8>>) -> io::Result<()> {

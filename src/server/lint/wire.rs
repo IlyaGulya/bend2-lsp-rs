@@ -101,9 +101,9 @@ impl Skipped {
             SkippedReason::Unchecked if self.rules.is_empty() || self.entry.is_some() => {
                 Err(invalid("unchecked"))
             }
-            SkippedReason::Unentered
-                if self.rules.is_empty() || self.entry.as_deref().is_none_or(str::is_empty) =>
-            {
+            // Upstream reports an entry failure even when no rule requires
+            // every entry's findings, so its rules list is legitimately empty.
+            SkippedReason::Unentered if self.entry.as_deref().is_none_or(str::is_empty) => {
                 Err(invalid("unentered"))
             }
             _ => Ok(()),
