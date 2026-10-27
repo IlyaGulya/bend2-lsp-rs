@@ -197,6 +197,7 @@ pub(crate) struct Build {
     pub(crate) metadata: Value,
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct MeasurementScope<'a> {
     pub(crate) build: &'a Build,
     pub(crate) selected: &'a BTreeMap<&'static str, BTreeSet<super::Identity>>,
