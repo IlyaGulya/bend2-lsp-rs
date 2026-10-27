@@ -46,11 +46,15 @@ def qualify(args):
         "typescript_sha256": conformance.file_digest(Path(__file__).with_suffix(".ts")),
         "normal_resource_limits_unchanged": gate.PROFILE,
         "scope": "Additional representation differential test, not a replacement for normal conformance, full histories, quality, p95 or strict Callgrind."}
+    environment = compiler_environment()
+    if not args.correctness_only:
+        # Pass only the validated hosted marker, not runner credentials.
+        environment["GITHUB_ACTIONS"] = os.environ["GITHUB_ACTIONS"]
     try:
         with (output / "worker.log").open("w") as log:
             result = subprocess.run([runtime, str(Path(__file__).with_suffix(".ts")), str(installation),
                 str(output / "requests.json"), str(output), "correctness" if args.correctness_only else "hosted"],
-                cwd=ROOT, env=compiler_environment(), stdout=log, stderr=subprocess.STDOUT, timeout=600)
+                cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=600)
         if result.returncode != 0:
             raise ValueError("native differential failed; inspect worker.log")
         report = gate.bounded_json(output / "corpus-equivalence.json", gate.PROFILE["report_bytes"])
