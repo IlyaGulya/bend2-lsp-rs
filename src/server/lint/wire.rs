@@ -230,6 +230,9 @@ pub(super) fn offsets(snapshot: &DocumentSnapshot, range: Range) -> Option<(usiz
 // strict offsets above so applying a fix never changes the bytes a client is
 // told to replace.
 pub(super) fn normalized_range(snapshot: &DocumentSnapshot, range: &Range) -> Option<Range> {
+    if range.start > range.end {
+        return None;
+    }
     let start = diagnostic_offset(snapshot, range.start)?;
     let end = diagnostic_offset(snapshot, range.end)?;
     if start > end {

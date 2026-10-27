@@ -523,6 +523,9 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
         .is_some()
     {}
     let calls = session.calls();
+    let mut current = finding(&session.root, "test/retargeted", range(3, 9, 10));
+    current["fixes"] = json!([fix(&session.root, range(3, 9, 10), "")]);
+    session.response(vec![current], vec![], true);
     session.client.notify(
         "textDocument/didOpen",
         json!({"textDocument":{
@@ -535,6 +538,9 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
             message["method"] == "textDocument/publishDiagnostics"
                 && message["params"]["uri"] == session.document
                 && has_lint(message)
+                && message["params"]["diagnostics"].as_array().is_some_and(|items| {
+                    items.iter().any(|item| item["code"] == "test/retargeted")
+                })
         })
         .must_be("the retargeted external import is rechecked");
     assert!(session.calls() > calls, "the recheck runs the real process");

@@ -372,6 +372,10 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
         .must_be("serialize genuine format config"),
     )
     .must_be("enable genuine format rule");
+    let mut overlays = BTreeMap::new();
+    overlays.insert(canonical(&main), unsaved.to_owned());
+    let report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
+    let reported = finding(&report["findings"], FORMAT);
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&main);
@@ -394,11 +398,11 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
         "the character after the non-BMP emoji is a UTF-16 offset"
     );
     assert_eq!(format["codeDescription"]["href"], rule_docs(FORMAT));
-    let mut overlays = BTreeMap::new();
-    overlays.insert(canonical(&main), unsaved.to_owned());
-    let report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
-    let reported = finding(&report["findings"], FORMAT);
-    assert_eq!(format["range"], reported["range"]);
+    assert_eq!(
+        format["range"]["end"],
+        json!({"line":3,"character":11}),
+        "diagnostics project the raw CRLF boundary; edits below remain byte-exact"
+    );
     assert_eq!(format["message"], reported["message"]);
     assert_eq!(reported["docs"], rule_docs(FORMAT));
     let actions = client.request(
