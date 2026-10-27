@@ -1,6 +1,6 @@
 use crate::{
     analysis::{DocumentSnapshot, Revision},
-    workspace::{Document, resolve_import_targets},
+    workspace::{Document, normalize_path, resolve_import_targets},
 };
 use sha2::{Digest, Sha256};
 use std::{
@@ -223,6 +223,11 @@ fn insert_alias(
     original: PathBuf,
     canonical: PathBuf,
 ) -> io::Result<()> {
+    // Resolver paths and document URIs can spell the same lexical path
+    // differently (`.`/`..` segments). Store both ends normalized so alias
+    // lookup, coverage, and later input_identity validation agree.
+    let original = normalize_path(&original);
+    let canonical = normalize_path(&canonical);
     // Distinct lexical aliases can resolve to one canonical source, so the
     // source count budget does not bound this map. Every original path is
     // retained (ordinary, virtual, or symlinked), and the existing entry
@@ -641,6 +646,10 @@ impl ProjectSnapshot {
     }
 
     pub(super) fn covers_path(&self, path: &Path) -> bool {
+        // Original source mappings stay coverage even after their canonical
+        // target changed: a retargeted external alias, or its newly resolved
+        // target, must still refresh the retained project result.
+        let normalized = normalize_path(path);
         path.starts_with(&self.root)
             || self
                 .canonical_root
@@ -654,6 +663,8 @@ impl ProjectSnapshot {
                 .values()
                 .any(|identity| identity.as_deref() == Some(path))
             || self.aliases.keys().any(|alias| path.starts_with(alias))
+            || self.source_aliases.contains_key(path)
+            || self.source_aliases.contains_key(&normalized)
     }
 
     pub(super) fn unchanged(&self) -> bool {
