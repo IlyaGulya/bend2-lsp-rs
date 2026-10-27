@@ -123,6 +123,7 @@ impl io::Write for BoundedOutput {
         Ok(())
     }
 }
+
 fn overlay_input(overlays: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>) -> io::Result<Vec<u8>> {
     let mut texts = BTreeMap::<String, &str>::new();
     for (path, snapshot) in overlays {
@@ -226,7 +227,11 @@ async fn communicate(
         .stderr()
         .take()
         .ok_or_else(|| io::Error::other("missing bend-lint stderr"))?;
-    let write = write_input(stdin, input);
+    // Wrapping the write in Ok keeps BrokenPipe available for deferred
+    // structured-error handling, while `try_join` still returns an early
+    // collect error (for example an output-size cap) without waiting for a
+    // writer blocked on a child that is no longer reading stdin.
+    let write = async move { Ok::<_, io::Error>(write_input(stdin, input).await) };
     let collect = async {
         let (status, stdout, stderr) =
             tokio::try_join!(child.wait(), read_pipe(stdout), read_pipe(stderr))?;
@@ -236,8 +241,7 @@ async fn communicate(
             stderr,
         })
     };
-    let (written, collected) = tokio::join!(write, collect);
-    let output = collected?;
+    let (written, output) = tokio::try_join!(write, collect)?;
     match written {
         Ok(()) => Ok(output),
         // A child may legitimately reject the project before consuming the
