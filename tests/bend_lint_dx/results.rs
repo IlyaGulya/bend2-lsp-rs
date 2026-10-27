@@ -481,25 +481,26 @@ fn closing_an_unrelated_buffer_during_preparation_reschedules_the_pending_entry(
 fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix() {
     use std::os::unix::fs::symlink;
 
-    let source = "import ../ext/link.bend as Ext\n\ndef main(+x: U32) -> U32:\n  x\n";
+    let source = "import ../ext/link.bend as Ext\nimport ../ext/same.bend as Same\n\ndef main(+x: U32) -> U32:\n  x\n";
     let mut session = Session::new(source, &[]);
     let ext = session.directory.path().join("ext");
     fs::create_dir(&ext).must_be("create external import directory");
     let first = ext.join("real1.bend");
     let second = ext.join("real2.bend");
     let link = ext.join("link.bend");
-    let bytes = "def value: U32\n  1\n";
+    let bytes = "import Base\n\ndef value() -> U32:\n  1\n";
     fs::write(&first, bytes).must_be("write original external target");
     fs::write(&second, bytes).must_be("write replacement external target");
     symlink(&first, &link).must_be("create external import alias");
-    let mut original = finding(&session.root, "test/original", range(2, 9, 10));
-    original["fixes"] = json!([fix(&session.root, range(2, 9, 10), "")]);
+    symlink(&first, ext.join("same.bend")).must_be("create second alias of the same source");
+    let mut original = finding(&session.root, "test/original", range(3, 9, 10));
+    original["fixes"] = json!([fix(&session.root, range(3, 9, 10), "")]);
     session.response(vec![original], vec![], true);
     session.configure(true, true, 10_000);
     session.open(source);
     let diagnostics = session.lint()["params"]["diagnostics"].clone();
     assert_eq!(
-        session.actions_at(diagnostics.clone(), 1, range(2, 0, 24)).len(),
+        session.actions_at(diagnostics.clone(), 1, range(3, 0, 24)).len(),
         1,
         "the retained external-import result offers its versioned fix"
     );
@@ -509,7 +510,7 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
     symlink(&second, &replacement).must_be("create replacement alias");
     fs::rename(&replacement, &link).must_be("atomically retarget the external alias");
     assert!(
-        session.actions_at(diagnostics, 1, range(2, 0, 24)).is_empty(),
+        session.actions_at(diagnostics, 1, range(3, 0, 24)).is_empty(),
         "retargeting a captured external alias must fence the stale fix"
     );
     while session
@@ -522,11 +523,12 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
         .is_some()
     {}
     let calls = session.calls();
-    let run = session.client.request_response(
-        "workspace/executeCommand",
-        json!({"command":"bend2.lint.run","arguments":[{"uri":session.document}]}),
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":uri(&link),"languageId":"bend","version":1,"text":bytes
+        }}),
     );
-    assert!(run.get("error").is_none(), "{run}");
     let refreshed = session
         .client
         .receive_matching(TIMEOUT, |message| {
@@ -537,7 +539,7 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
         .must_be("the retargeted external import is rechecked");
     assert!(session.calls() > calls, "the recheck runs the real process");
     assert_eq!(
-        session.actions_at(refreshed["params"]["diagnostics"].clone(), 1, range(2, 0, 24)).len(),
+        session.actions_at(refreshed["params"]["diagnostics"].clone(), 1, range(3, 0, 24)).len(),
         1,
         "the fresh result over the new alias offers its fix again"
     );

@@ -448,3 +448,72 @@ pub(super) fn parse(
         skipped,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        process::{ExitStatus, Output},
+    };
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
+
+    fn project(text: &str) -> (tempfile::TempDir, ProjectSnapshot, PathBuf) {
+        let directory = tempfile::tempdir().expect("range workspace");
+        let path = directory.path().join("main.bend");
+        fs::write(&path, text).expect("write range source");
+        fs::write(directory.path().join("bend-lint.json"), "{\"rules\":{}}")
+            .expect("write project configuration");
+        let snapshot = ProjectSnapshot::capture(&path, &[]).expect("capture range source");
+        (directory, snapshot, path)
+    }
+
+    fn report(path: &Path, range: Range) -> Output {
+        Output {
+            status: ExitStatus::from_raw(0),
+            stdout: serde_json::to_vec(&serde_json::json!({
+                "ok":true, "suppressed":[], "skipped":[],
+                "findings":[{
+                    "code":"test/range", "severity":"warning", "message":"Range boundary",
+                    "path":path, "range":range, "fixes":[]
+                }]
+            }))
+            .expect("serialize range report"),
+            stderr: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn crlf_diagnostics_are_projected_but_edits_keep_exact_boundaries() {
+        let (_directory, snapshot, path) = project("  \"😀\"++\"x\"\r\n");
+        let upstream = Range::new(Position::new(0, 6), Position::new(0, 12));
+        let findings = parse(&report(&path, upstream), &snapshot)
+            .expect("the raw CRLF source position has an LSP display equivalent");
+        let diagnostic = findings.by_uri.values().flatten().next().expect("range diagnostic");
+        assert_eq!(
+            diagnostic.range,
+            Range::new(Position::new(0, 6), Position::new(0, 11))
+        );
+        let (_, source) = snapshot.source(path.to_str().expect("UTF-8 path")).expect("source");
+        assert_eq!(offsets(source, upstream), None, "an edit must not move off the CR");
+    }
+
+    #[test]
+    fn malformed_ranges_remain_rejected_after_crlf_projection() {
+        let (_directory, snapshot, path) = project("  \"😀\"++\"x\"\r\n");
+        for range in [
+            Range::new(Position::new(0, 6), Position::new(0, 13)),
+            Range::new(Position::new(0, 4), Position::new(0, 8)),
+            Range::new(Position::new(0, 12), Position::new(0, 11)),
+        ] {
+            assert!(parse(&report(&path, range), &snapshot).is_err(), "{range:?}");
+        }
+        let (_directory, snapshot, path) = project("  \"😀\"++\"x\"\n");
+        let past_end = Range::new(Position::new(0, 6), Position::new(0, 12));
+        assert!(parse(&report(&path, past_end), &snapshot).is_err());
+    }
+}
