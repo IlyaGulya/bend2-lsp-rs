@@ -75,9 +75,11 @@ def profiles(directory, expected_pids=None, installation=None):
     require(started and started == finished, "a profiler owner did not flush within the original shutdown grace")
     if expected_pids is not None:
         require(started == set(expected_pids), "profile PID set differs from full forward/reverse/fresh histories")
+    sampling = next(event["sampling"] for event in events if event["event"] == "start")
     for event in events:
         if event["event"] == "start":
             require(event["bun"] == "1.4.0" and event["revision"] == REVISION, "runtime version/revision drift")
+            require(event["sampling"] == sampling, "profile owners used different sampling policies")
     counts = Counter()
     self_samples = defaultdict(Counter)
     inclusive_sources = defaultdict(Counter)
@@ -153,10 +155,11 @@ def profiles(directory, expected_pids=None, installation=None):
             "inclusive_source_microseconds_nonadditive": dict(inclusive_sources[key]),
             "installed_sources_seen": sorted(seen_sources[key])})
     return {"profiles": inventory, "attribution": attribution,
-        "sampling_interval_microseconds": 1000, "active_window_milliseconds": 2000,
-        "pause_milliseconds": 8000,
+        "sampling_interval_microseconds": sampling["intervalMicroseconds"],
+        "active_window_milliseconds": sampling["activeMilliseconds"],
+        "pause_milliseconds": sampling["pauseMilliseconds"],
         "worker_module_startup_covered": False,
-        "sampling_gaps": "explicit 8s pauses after each 2s active window, plus stop/serialize/compress/restart; not continuous sampling",
+        "sampling_gaps": "explicit pauses recorded by each owner, plus stop/serialize/compress/restart; not continuous sampling",
         "scope": "weighted JS samples, including profiler perturbation; inclusive source families overlap; not phase wall time or admission"}
 
 

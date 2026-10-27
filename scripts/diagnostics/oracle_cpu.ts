@@ -8,6 +8,7 @@ import { gzipSync } from "node:zlib";
 
 const root = import.meta.dir;
 const directory = path.join(root, "profiles");
+const SAMPLING = { intervalMicroseconds: 1000, activeMilliseconds: 1000, pauseMilliseconds: 19000 };
 fs.mkdirSync(directory, { recursive: true });
 const events = path.join(root, "capture-events.jsonl");
 const record = (value: object) => fs.appendFileSync(events,
@@ -31,6 +32,7 @@ function save(role: string, threadId: number, sequence: number, json: string) {
 
 record({ event: "start", bun: Bun.version, revision: Bun.revision,
   argv: process.argv, execArgv: process.execArgv,
+  sampling: SAMPLING,
   environment: Object.fromEntries(Object.entries(process.env).filter(([key]) =>
     ["PATH", "SYSTEMROOT", "TMPDIR", "TMP", "TEMP", "HOME", "BEND_LIB", "BEND_HUB"].includes(key))) });
 
@@ -42,7 +44,7 @@ function post(method: string, params: object = {}): Promise<any> {
   return promise;
 }
 await post("Profiler.enable");
-await post("Profiler.setSamplingInterval", { interval: 1000 });
+await post("Profiler.setSamplingInterval", { interval: SAMPLING.intervalMicroseconds });
 await post("Profiler.start");
 
 let stopping = false;
@@ -120,9 +122,9 @@ prototype.terminate = function () {
 };
 
 // Four continuously sampled VMs exceeded the unchanged full-run deadline.
-// Keep every semantic request, but expose explicit 2s-on/8s-off sampling gaps.
+// Keep every semantic request; expose sparse windows rather than extend its budget.
 let sampling = true;
-let timer = setTimeout(() => { void samplingWindow(); }, 2000);
+let timer = setTimeout(() => { void samplingWindow(); }, SAMPLING.activeMilliseconds);
 timer.unref();
 async function samplingWindow(): Promise<void> {
   if (stopping) return;
@@ -148,9 +150,10 @@ async function samplingWindow(): Promise<void> {
     await Promise.all([mainCheckpoint(),
       ...[...entries.keys()].map(worker => workerCheckpoint(worker, false))]);
   }
-  record({ event: "sampling-window", active: sampling, activeMs: 2000, pauseMs: 8000 });
+  record({ event: "sampling-window", active: sampling, ...SAMPLING });
   if (!stopping) {
-    timer = setTimeout(() => { void samplingWindow(); }, sampling ? 2000 : 8000);
+    timer = setTimeout(() => { void samplingWindow(); },
+      sampling ? SAMPLING.activeMilliseconds : SAMPLING.pauseMilliseconds);
     timer.unref();
   }
 }
