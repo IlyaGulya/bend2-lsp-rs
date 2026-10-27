@@ -1,7 +1,7 @@
 use super::{LintResult, snapshot::ProjectSnapshot};
 use std::{
     collections::{HashMap, HashSet},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 use url::Url;
@@ -23,6 +23,18 @@ impl LintResults {
             .filter(|result| path.starts_with(&result.snapshot.root))
             .max_by_key(|result| result.snapshot.root.as_os_str().len())
             .map(|result| result.snapshot.clone())
+    }
+
+    pub(super) fn covering(&self, paths: &[PathBuf]) -> Vec<Url> {
+        self.entries
+            .iter()
+            .filter(|(_, result)| {
+                paths
+                    .iter()
+                    .any(|path| result.snapshot.covers_path(path))
+            })
+            .map(|(uri, _)| uri.clone())
+            .collect()
     }
 
     pub(super) fn clear(&mut self) -> HashSet<Url> {

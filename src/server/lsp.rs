@@ -284,7 +284,8 @@ impl LanguageServer for Backend {
             lint.push(document.uri.clone());
             self.schedule_diagnostics(document.uri, revision).await;
         }
-        self.schedule_lint(lint, true).await;
+        self.schedule_lint(self.lint_affected_documents(lint), true)
+            .await;
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -309,7 +310,8 @@ impl LanguageServer for Backend {
             lint.push(document.uri.clone());
             self.schedule_diagnostics(document.uri, revision).await;
         }
-        self.schedule_lint(lint, true).await;
+        self.schedule_lint(self.lint_affected_documents(lint), true)
+            .await;
     }
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let uri = params.text_document.uri;
@@ -321,7 +323,8 @@ impl LanguageServer for Backend {
         for document in self.dependent_documents(&uri).await {
             lint.push(document.uri);
         }
-        self.schedule_lint(lint, false).await;
+        self.schedule_lint(self.lint_affected_documents(lint), false)
+            .await;
     }
 
     #[tracing::instrument(

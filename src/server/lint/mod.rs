@@ -320,6 +320,22 @@ impl Backend {
             .collect()
     }
 
+    // A project snapshot overlays every open input, so a change anywhere in a
+    // checked project invalidates every retained entry in it. Refresh them
+    // together; import dependents alone would leave independent entries with a
+    // stale view whose fixes never become available again.
+    pub(super) fn lint_affected_documents(&self, uris: impl IntoIterator<Item = Url>) -> Vec<Url> {
+        let mut requested: BTreeSet<Url> = uris.into_iter().collect();
+        let identities: Vec<PathBuf> = requested
+            .iter()
+            .filter_map(|uri| uri.to_file_path().ok())
+            .flat_map(|path| [Some(path.clone()), snapshot::input_identity(&path)])
+            .flatten()
+            .collect();
+        requested.extend(self.diagnostics.lint.results.read().covering(&identities));
+        requested.into_iter().collect()
+    }
+
     pub(super) fn lint_scheduling_enabled(&self) -> bool {
         self.diagnostics.lint.config.read().enabled
             && !self.diagnostics.lint.closed.load(Ordering::SeqCst)
