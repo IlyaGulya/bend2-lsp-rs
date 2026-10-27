@@ -170,6 +170,17 @@
   Batch small canonical components within the existing payload bound; preserve
   complete Base comparison and all history and stdio checks. Resource
   qualification remains provisional.
+- Generate native canonical keys with a non-mutating copy-on-write source-field
+  projection and native JSON serialization. Preserve official lowering, every
+  other own field/order, shared compiler terms and complete Base parity.
+- Adopt the maintainer-approved provisional semantic v8 budget: p95 at most
+  120 seconds and a uniform 240-second hard bound, including 512-project support.
+  Keep memory, GC/JIT, compiler, coverage and other resource limits unchanged;
+  require fresh complete calibration instead of rescoring historical failures.
+- Shard each of the six logical Callgrind controls across four physical runners.
+  Preserve all 105 balanced pairs per workload on one host, all nine counters,
+  the frozen baseline and positive-control sensitivity. Reject incomplete,
+  overlapping or identity-mismatched shard sets and retain physical provenance.
 - Isolate the semantic projection tool from the server's benchmark-only
   dependencies during required release preparation. Preserve its protocol,
   workspace lint policy, release optimization settings, and setup/run budgets.

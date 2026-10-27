@@ -470,6 +470,39 @@ jobs:
             --baseline-revision "$BASE_SHA" --candidate-revision "$CANDIDATE_SHA" \
             --commands-file "$PERF_ROOT/commands.txt" --binary-dir "$TIMING_BIN_DIR" \
             --output "$PERF_ROOT/provenance.json"
+      - name: Record exact server binary sizes for bounded owner review
+        run: |
+          python=python3
+          if [[ "$RUNNER_OS" == Windows ]]; then python=python; fi
+          "$python" - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          binaries = {}
+          for arm, filename, revision in (
+              ("baseline", "main", os.environ["BASE_SHA"]),
+              ("candidate", "candidate", os.environ["CANDIDATE_SHA"]),
+          ):
+              path = Path(os.environ["TIMING_BIN_DIR"]) / (filename + os.environ["EXE_SUFFIX"])
+              with path.open("rb") as stream:
+                  digest = hashlib.file_digest(stream, "sha256").hexdigest()
+              binaries[arm] = {
+                  "source_revision": revision,
+                  "bytes": path.stat().st_size,
+                  "sha256": digest,
+              }
+          report = {
+              "schema": 1,
+              "target": os.environ["PERF_TARGET"],
+              "scope": "Server binary identity and size; not a new performance metric or allowance.",
+              "binaries": binaries,
+          }
+          (Path(os.environ["PERF_ROOT"]) / "server-binary-sizes.json").write_text(
+              json.dumps(report, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
       - name: Measure alternating baseline and candidate LSP latency on this runner
         id: latency
         run: |

@@ -36,7 +36,7 @@ from semantic_observer import ObserverError, ProcessObserver
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / "scripts/semantic_gate_profile.json"
 PROFILE = json.loads(PROFILE_PATH.read_text())
-if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v7-overlapped-candidate-rpc" or PROFILE.get("workers") != 2:
+if PROFILE.get("schema") != 1 or PROFILE.get("name") != "semantic-pr-v8-full-reference-budget" or PROFILE.get("workers") != 2:
     raise ValueError("unsupported semantic supervisor profile; review profile and runner together")
 INTERRUPTED = None
 
@@ -845,6 +845,11 @@ def calibration_report(paths):
     for field in ("workload_digest", "supervisor_profile_sha256", "candidate_sha256"):
         if len({row.get(field) for row in runs}) != 1 or not runs[0].get(field):
             raise ValueError(f"calibration changes or omits {field}")
+    # Internal consistency alone would rescore historical evidence under the
+    # current thresholds; the shared identity must be this exact profile.
+    current_profile = sha256(PROFILE_PATH.read_bytes())
+    if any(row["supervisor_profile_sha256"] != current_profile for row in runs):
+        raise ValueError("calibration evidence was not produced under the current supervisor profile")
     if any(row.get("schema") != 1 or row["status"] != "pass" or row.get("mode") != "pr" for row in runs):
         raise ValueError("calibration includes failed/incomplete or non-PR runs")
     if not runs[0].get("provenance") or any(row.get("provenance") != runs[0]["provenance"] for row in runs):

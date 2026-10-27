@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "name": "semantic-pr-v7-overlapped-candidate-rpc",
+  "name": "semantic-pr-v8-full-reference-budget",
   "runner": "ubuntu-24.04",
   "candidate_build_profile": {
     "name": "release",
@@ -17,8 +17,8 @@
   "seed": 5301,
   "generated_projects": 256,
   "workers": 2,
-  "hard_seconds": 120,
-  "success_p95_target_seconds": 60,
+  "hard_seconds": 240,
+  "success_p95_target_seconds": 120,
   "setup_target_seconds": 300,
   "shutdown_seconds": 2,
   "rss_bytes": 1073741824,

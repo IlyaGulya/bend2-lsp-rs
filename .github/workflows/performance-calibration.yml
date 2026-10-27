@@ -26,20 +26,35 @@ jobs:
     timeout-minutes: 360
     strategy:
       fail-fast: false
+      # Complete preplanned inventory: 6 logical jobs x 4 deterministic shards of
+      # whole frozen function units. Every workload series still comes from
+      # exactly one physical runner; case indices are never filtered or reindexed.
       matrix:
         include:
-          - job: discovery-01
-            role: discovery
-          - job: discovery-02
-            role: discovery
-          - job: discovery-03
-            role: discovery
-          - job: validation-01
-            role: validation
-          - job: validation-02
-            role: validation
-          - job: validation-03
-            role: validation
+          - { job: discovery-01, role: discovery, shard: 0 }
+          - { job: discovery-01, role: discovery, shard: 1 }
+          - { job: discovery-01, role: discovery, shard: 2 }
+          - { job: discovery-01, role: discovery, shard: 3 }
+          - { job: discovery-02, role: discovery, shard: 0 }
+          - { job: discovery-02, role: discovery, shard: 1 }
+          - { job: discovery-02, role: discovery, shard: 2 }
+          - { job: discovery-02, role: discovery, shard: 3 }
+          - { job: discovery-03, role: discovery, shard: 0 }
+          - { job: discovery-03, role: discovery, shard: 1 }
+          - { job: discovery-03, role: discovery, shard: 2 }
+          - { job: discovery-03, role: discovery, shard: 3 }
+          - { job: validation-01, role: validation, shard: 0 }
+          - { job: validation-01, role: validation, shard: 1 }
+          - { job: validation-01, role: validation, shard: 2 }
+          - { job: validation-01, role: validation, shard: 3 }
+          - { job: validation-02, role: validation, shard: 0 }
+          - { job: validation-02, role: validation, shard: 1 }
+          - { job: validation-02, role: validation, shard: 2 }
+          - { job: validation-02, role: validation, shard: 3 }
+          - { job: validation-03, role: validation, shard: 0 }
+          - { job: validation-03, role: validation, shard: 1 }
+          - { job: validation-03, role: validation, shard: 2 }
+          - { job: validation-03, role: validation, shard: 3 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -96,27 +111,32 @@ jobs:
       - name: Check Rust calibration contracts
         run: |
           cargo test --locked --release -p bend2-perf --bin bend2-perf calibration:: --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Collect exactly 105 balanced independent-build pairs
-        # Keep the 330-minute measurement budget; reserve separate cleanup time.
+      - name: Collect exactly 105 balanced independent-build pairs for this shard
+        # Keep the original 330-minute measurement budget and 360-minute job bound.
         timeout-minutes: 332
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
           CALIBRATION_ROLE: ${{ matrix.role }}
+          CALIBRATION_SHARD_INDEX: ${{ matrix.shard }}
+          CALIBRATION_SHARD_COUNT: 4
+          CALIBRATION_PHYSICAL_JOB: ${{ matrix.job }}-shard-${{ matrix.shard }}
         run: |
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow supervise \
             --timeout-seconds 19800 \
             --receipt "$RUNNER_TEMP/calibration-collection-lifecycle.json" -- \
             "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
             --source "$GITHUB_WORKSPACE" \
-            --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
-            --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
-            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 105
+            --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_PHYSICAL_JOB" \
+            --output-dir "target/performance-calibration/$CALIBRATION_JOB/shard-$CALIBRATION_SHARD_INDEX" \
+            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 105 \
+            --shard-index "$CALIBRATION_SHARD_INDEX" --shard-count "$CALIBRATION_SHARD_COUNT"
       - name: Preserve installed profiler provenance
         if: always() && steps.valgrind.outcome == 'success'
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
+          CALIBRATION_SHARD_INDEX: ${{ matrix.shard }}
         run: |
-          output="target/performance-calibration/$CALIBRATION_JOB"
+          output="target/performance-calibration/$CALIBRATION_JOB/shard-$CALIBRATION_SHARD_INDEX"
           mkdir -p "$output"
           "$VALGRIND_INSTALL_ROOT/bin/valgrind" --version > "$output/valgrind-version.txt"
           cp "$VALGRIND_INSTALL_ROOT/provenance.json" "$output/valgrind-provenance.json"
@@ -124,20 +144,22 @@ jobs:
         if: always()
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
+          CALIBRATION_SHARD_INDEX: ${{ matrix.shard }}
         run: |
+          output="target/performance-calibration/$CALIBRATION_JOB/shard-$CALIBRATION_SHARD_INDEX"
           if [[ -f "$RUNNER_TEMP/calibration-collection-lifecycle.json" ]]; then
-            mkdir -p "target/performance-calibration/$CALIBRATION_JOB"
+            mkdir -p "$output"
             cp "$RUNNER_TEMP/calibration-collection-lifecycle.json" \
-              "target/performance-calibration/$CALIBRATION_JOB/collection-lifecycle.json"
+              "$output/collection-lifecycle.json"
           fi
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow seal \
-            --source "target/performance-calibration/$CALIBRATION_JOB" \
+            --source "$output" \
             --output "$RUNNER_TEMP/calibration-artifact"
       - name: Preserve every collected result and failure diagnostic
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
+          name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/calibration-artifact/
           if-no-files-found: error
           retention-days: 14
@@ -191,7 +213,7 @@ jobs:
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
             --method paired-median-105-v1 \
             --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-            --expected-workloads 99 --require-all-benchmarks \
+            --expected-shards 4 --expected-workloads 99 --require-all-benchmarks \
             --require-control-validation \
             --json-output target/performance-calibration-report/report.json \
             --markdown-output target/performance-calibration-report/report.md

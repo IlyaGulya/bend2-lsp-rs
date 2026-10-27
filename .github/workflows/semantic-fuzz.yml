@@ -60,7 +60,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -94,8 +94,8 @@ jobs:
           done
       - name: Measure startup and fixed 128 256 512 project scaling independently
         # Scaling is supporting evidence, not a substitute for any complete run.
-        # All three sizes retain the fixed 120s supervisor bound: there is no
-        # separately reviewed 2x-workload allowance for the 512-project phase.
+        # All three sizes use the approved uniform 240s supervisor bound.
+        # No phase is skipped and larger workloads receive no automatic allowance.
         env:
           SEMANTIC_CALIBRATION_JOB: ${{ matrix.job }}
         run: python3 scripts/semantic_gate.py scaling --output "target/semantic-calibration/$SEMANTIC_CALIBRATION_JOB/scaling"

@@ -583,31 +583,37 @@ manually dispatched. Passing controls qualify the measurement method; they do
 not automatically admit a candidate, change a baseline or rewrite historical
 raw verdicts. Ordinary admission separately measures the original sources.
 
-The fixed experiment has three discovery jobs (`discovery-01` through
-`discovery-03`) and three independently assigned validation jobs
-(`validation-01` through `validation-03`), each collecting exactly 105 pairs.
-Every pair measures the existing five variants (`a`, `b`, `layout`, `extra_work`,
-`extra_alloc`) in the collector's balanced five-position order, with a fresh
-process and isolated output for every measurement. The odd sample count is
-divisible by five. There is no adaptive stopping, retry-for-luck, best-sample
-selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
-and validation both use the predeclared method; neither trains an allowance.
+The fixed experiment has three logical discovery jobs (`discovery-01` through
+`discovery-03`) and three independently assigned logical validation jobs
+(`validation-01` through `validation-03`). Each logical job uses four physical
+workload shards, for 24 collection jobs. Every workload retains exactly 105
+pairs on one physical runner and one independently built variant set.
+Each pair measures the existing five variants (`a`, `b`, `layout`, `extra_work`,
+`extra_alloc`) in the balanced five-position order, with a fresh process and
+isolated output for every measurement. There is no adaptive stopping,
+retry-for-luck, best-sample selection, outlier deletion, or pooling of one
+workload's samples across hosts/builds. Neither role trains an allowance.
 
-Every independently built variant contains both benchmark executables:
+Every independently built variant declares both benchmark executables:
 `analysis` (96 workloads) and `reference_locations` (three workloads). Within
-one side of a pair, independent library functions run through at most four
-original `iai-callgrind-runner 0.16.1` processes concurrently. The expanded
-candidate has 49 function units and still executes all 99 workloads in their
-original fresh benchmark children. All 105 pairs, five control variants,
-balanced variant order, cache settings, counters, limits and deadlines remain
-unchanged. No next side or variant starts until all current runners finish.
+each executable, sorted frozen function identities are assigned by position
+modulo four. Every selected function keeps its complete original case vector,
+including all parameter IDs. The assignment is identical across all five variants;
+the complete preplanned manifest and exact selected identities are retained.
+A physical shard measures only whole assigned functions. Within one side of a
+pair, independent selected functions still run through at most four original
+`iai-callgrind-runner 0.16.1` processes. All 99 workloads, 105 pairs per workload,
+five variants, balanced order, cache settings, counters, limits and deadlines
+remain required across the complete logical job. No next side or variant starts
+until all current runners in that shard finish.
 
 The collector captures each frozen executable's original bincode descriptor
 through a private PATH shim, without recompiling the benchmark or replacing the
-installed runner. It partitions only function case vectors: outer slots,
-dispatch indices, configuration and every selected function's cases retain
-their original order. Main/group setup or teardown and cross-function
-comparisons are rejected; per-case setup remains in the original child.
+installed runner. Capture validates the complete original `--list` manifest
+before selecting whole shard-owned functions. Outer slots, original dispatch
+indices, configuration, argv and every original case payload/order remain
+unchanged; case vectors are never compacted or renumbered. Main/group setup or teardown and
+cross-function comparisons are rejected; per-case setup remains in the original child.
 Measurement runners receive the original environment, not the capture PATH.
 The runtime shim stays outside retained evidence and is removed before sampling.
 
@@ -669,8 +675,14 @@ There are no tail-confidence or zero-tail-failure claims, even when every
 observed A/A comparison passes.
 
 Control validation requires complete 3/3/105 coverage of all 99 workloads across
-both executables, enforced with `--expected-workloads 99 --require-all-benchmarks`,
-and all of the following:
+both executables, enforced with `--expected-workloads 99 --require-all-benchmarks`
+and `--expected-shards 4`. Each logical job must contain every shard exactly once,
+with disjoint/exhaustive deterministic selection and one physical host per
+workload series. Source, full-manifest digest, method, role, variant sources,
+scope/profile and run/attempt must match; physical runner and evidence identities
+remain explicit instead of being silently pooled. Missing, overlapping, duplicate,
+unknown, shuffled, stale or mixed-identity shards reject the logical job.
+All of the following are still required:
 
 - Every source-identical `b` versus `a` workload/event comparison passes in
   every discovery and validation job independently.
@@ -706,11 +718,11 @@ read-only; only trusted manual main runs save tool/download caches, never
 benchmark object caches.
 There is no privileged PR-code execution, environment approval, release or
 nightly schedule. The always-run report job downloads only this run and
-attempt's six collection artifacts and checks full coverage even after
-collection or download failure. Raw results, failure diagnostics, profiler
-provenance and reports are retained for 14 days. Existing Rust control contracts
-remain mandatory. The obsolete prospective-only workflow has been replaced by
-this single qualified control workflow.
+attempt's 24 job-and-shard-qualified artifacts and checks full logical coverage
+even after collection or download failure. Raw results, per-shard provenance,
+failure diagnostics and reports are retained for 14 days. Existing Rust control
+contracts remain mandatory. Legacy unsharded evidence remains readable, but it
+cannot satisfy a report requesting four shards or turn old partial coverage green.
 
 A maintainer can dispatch the controls on a reviewed source revision:
 
@@ -724,7 +736,7 @@ For retained artifacts, the equivalent report command is:
 bend2-perf calibration report INPUT \
   --method paired-median-105-v1 --require-control-validation \
   --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-  --expected-workloads 99 --require-all-benchmarks \
+  --expected-workloads 99 --require-all-benchmarks --expected-shards 4 \
   --json-output report.json --markdown-output report.md
 ```
 
@@ -1624,4 +1636,44 @@ measured 26.8% less peak live heap and 19.6% less allocation traffic; it does
 not isolate the later editor completion features. Quality passed locally
 (184 tests, one skip) and in hosted run 37815011492.
 Instruction, cache, baseline, retry, and benchmark policies remain unchanged.
+
+## Maintainer-approved semantic qualification contract
+
+The maintainer explicitly accepted the bounded trade-off recorded in the
+[35-row acceptance report](https://github.com/IlyaGulya/bend2-lsp-rs/pull/62#issuecomment-6445993215)
+for application source `a2eaa2255e5baa3e012e9796e4d1cd51bee72334` against
+`8ba06b117e8453959baa2157f857fa2e055fc887`. The original
+[comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40449759671)
+remains a numerical regression: one Ir, 25 I1mr and nine ILmr rows. The report
+retains all 105 pairs, authoritative counts/bounds, actual seven-round LSP-process
+observations, higher cold/readiness costs, memory observations and causal limits.
+It does not claim that cache pressure is free or that editors universally improve.
+
+This approval is not an automatic waiver. Infrastructure-only qualification
+changes must prove unchanged application and benchmark SUT inputs; the complete
+Rust infrastructure fingerprint may change and must be reported honestly.
+A fresh ordinary comparison still uses the frozen baseline, original workloads,
+all nine counters, `paired-median-105-v1` and unchanged numeric allowances.
+Only the existing explicitly requested, protected exact-source/run owner review
+can admit a valid regression after its bounded acceptance report is published.
+Additional failed rows or larger unapproved bounds require a new decision.
+Missing, inconclusive, corrupt or incomplete evidence never becomes reviewable.
+No prior environment approval can authorize a later run or attempt.
+
+The maintainer separately approved semantic profile
+`semantic-pr-v8-full-reference-budget`: successful-run p95 at most 120 seconds
+and a uniform 240-second hard supervisor bound, including the fixed
+128/256/512-project support phases. Setup, shutdown reserve, aggregate RSS,
+artifact/output limits, corpus, compiler/Base bytes, GC/JIT policy, parity,
+histories and isolation remain unchanged. The outer calibration job has enough
+orchestration headroom for these measured bounds; it does not enlarge them.
+The profile remains provisional until fresh 20-run/five-VM evidence and every
+supporting phase pass the original completeness and identity checks.
+
+The earlier [v7 calibration](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40506476317)
+remains failed under its then-current 60-second p95 target and 120-second hard
+bound. Its 20 successful normal runs and five failed 512-project support phases
+cannot be rescored or mixed with v8 reports. Neither this runtime decision nor
+the bounded application-cost decision waives complete control qualification,
+quality, source identity, review protection, or any release/publication gate.
 

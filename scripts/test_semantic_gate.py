@@ -686,13 +686,17 @@ class WorkspaceBuildTests(unittest.TestCase):
                     path.write_text(contents)
 
 
+HISTORICAL_V7_PROFILE_SHA256 = "e349f8281b2333ffb389c7274c68f773d44107d686364a948cf0ee0cf0c70673"
+
+
 class CalibrationTests(unittest.TestCase):
     def complete_evidence(self, directory):
         paths = []
         for job_index in range(5):
             root = Path(directory)/f"job-{job_index}"
             common = {"schema":1, "status":"pass", "provenance":{"pin":"fixed-tool"},
-                "candidate_sha256":"fixed-candidate", "supervisor_profile_sha256":"fixed-profile",
+                "candidate_sha256":"fixed-candidate",
+                "supervisor_profile_sha256":gate.sha256(gate.PROFILE_PATH.read_bytes()),
                 "environment":{"source_sha256":"fixed-source","ci":{"GITHUB_SHA":"same-revision",
                     "GITHUB_RUN_ID":"one-run","GITHUB_RUN_ATTEMPT":"1","GITHUB_JOB":"calibration",
                     "SEMANTIC_CALIBRATION_JOB":f"job-{job_index}"}}}
@@ -726,6 +730,20 @@ class CalibrationTests(unittest.TestCase):
                 paths.append(path)
         return paths
 
+    def set_elapsed(self, paths, indices, seconds):
+        for index in indices:
+            report = json.loads(paths[index].read_text())
+            report["elapsed_seconds"] = seconds
+            report["stages"]["semantic"]["elapsed_seconds"] = seconds
+            gate.write_json(paths[index], report)
+
+    def rebind_profile(self, root, digest):
+        for path in Path(root).rglob("*.json"):
+            report = json.loads(path.read_text())
+            if "supervisor_profile_sha256" in report:
+                report["supervisor_profile_sha256"] = digest
+                gate.write_json(path, report)
+
     def test_local_or_insufficient_ci_evidence_cannot_calibrate(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/"run.json"
@@ -750,6 +768,45 @@ class CalibrationTests(unittest.TestCase):
             for phase in ("runtime_install","cold_setup","warm_setup","startup_supervised",
                     "scaling_128","scaling_256","scaling_512","gate_semantic"):
                 self.assertIn(phase,report["stage_distributions"])
+
+    def test_calibration_admission_uses_the_profile_p95_and_hard_boundaries(self):
+        target, hard = gate.PROFILE["success_p95_target_seconds"], gate.PROFILE["hard_seconds"]
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.complete_evidence(directory)
+            self.set_elapsed(paths, range(20), target-1)
+            self.assertTrue(gate.calibration_report(paths)["targets_met"])
+            # Nearest-rank p95 of 20 runs is the second-largest measurement.
+            self.set_elapsed(paths, (0,1), target+1)
+            report = gate.calibration_report(paths)
+            self.assertEqual((report["p95_seconds"],report["max_seconds"]), (target+1,target+1))
+            self.assertFalse(report["targets_met"])
+            self.set_elapsed(paths, (0,1), target-1)
+            self.set_elapsed(paths, (2,), hard+1)
+            report = gate.calibration_report(paths)
+            self.assertEqual(report["p95_seconds"], target-1)
+            self.assertEqual(report["max_seconds"], hard+1)
+            self.assertFalse(report["targets_met"])
+
+    def test_self_consistent_historical_profile_evidence_is_rejected_not_rescored(self):
+        # Every run and support report agrees on the real v7 digest and the
+        # measured p95 fits the current targets; only the profile identity is old.
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.complete_evidence(directory)
+            self.set_elapsed(paths, range(20), 90)
+            for job_index in range(5):
+                self.rebind_profile(Path(directory)/f"job-{job_index}", HISTORICAL_V7_PROFILE_SHA256)
+            with self.assertRaisesRegex(ValueError, "not produced under the current supervisor profile"):
+                gate.calibration_report(paths)
+
+    def test_supporting_evidence_bound_to_another_profile_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.complete_evidence(directory)
+            support = Path(directory)/"job-0/scaling/scaling-fixture/projects-512/attempt-fixture/scaling-report.json"
+            report = json.loads(support.read_text())
+            report["supervisor_profile_sha256"] = HISTORICAL_V7_PROFILE_SHA256
+            gate.write_json(support, report)
+            with self.assertRaisesRegex(ValueError, "supervisor_profile_sha256 mismatch"):
+                gate.calibration_report(paths)
 
     def test_twenty_runs_cannot_substitute_for_four_distinct_runs_per_job(self):
         with tempfile.TemporaryDirectory() as directory:

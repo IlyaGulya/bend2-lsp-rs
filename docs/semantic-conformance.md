@@ -203,18 +203,20 @@ than blessing candidate output as compiler truth.
 
 ## Resource and performance contracts
 
-The PR profile `semantic-pr-v7-overlapped-candidate-rpc` is **provisional**,
+The PR profile `semantic-pr-v8-full-reference-budget` is **provisional**,
 not calibrated evidence. Its two case-worker pairs use bounded reply retention
-and ordinary native heaps with idle collection; corpus, seed, release settings,
-limits, and admission
-targets remain unchanged:
+and ordinary native heaps with idle collection. Relative to the earlier
+provisional profile, only the measured-run admission budget changed: the
+successful-run p95 target is 120 s and the hard measured-run deadline is 240 s,
+which also bounds every 128/256/512-project scaling measurement. Corpus, seed,
+release settings, and all other limits remain unchanged:
 
 | Constraint | Initial profile |
 | --- | ---: |
 | Generated projects | 256 |
 | Worker concurrency (independent pristine/instrumented pairs) | 2 |
-| Successful-run p95 target | 60 s |
-| Hard measured-run deadline | 120 s |
+| Successful-run p95 target | 120 s |
+| Hard measured-run deadline, including 128/256/512 scaling | 240 s |
 | Setup target, measured separately | 300 s |
 | Aggregate process-tree RSS ceiling | 1 GiB |
 | RSS sample interval | 20 ms |
@@ -264,14 +266,18 @@ permission to accept a Callgrind regression. See [performance policy](performanc
 
 The branch-scoped `semantic-oracle-profile.yml` workflow first runs the unchanged
 `./scripts/quality`, then captures the instrumented and pristine VMs through
-`scripts/diagnostics/oracle_cpu.py`. Profiling is hosted-only. Its separately
-approved 240-second diagnostic deadline allows for profiler overhead; it does
-not change the normal resource, p95 or Callgrind admission contracts above.
+`scripts/diagnostics/oracle_cpu.py`. Profiling is hosted-only. The capture keeps
+its own explicitly declared 240-second diagnostic deadline for profiler
+overhead; that value currently coincides with the v8 measured-run hard deadline,
+but it remains a diagnostic-only declaration and never supplies admission
+evidence or relaxes the normal resource, p95 or Callgrind contracts above.
 
 `capture-manifest.json` records both `original_resource_limits` and
-`diagnostic_resource_limits`, and always declares `performance_admission: false`.
-Only diagnostic elapsed time differs; memory, output, artifact and shutdown
-limits remain unchanged. Complete corpus, both histories, Base/pristine parity,
+`diagnostic_resource_limits`, which are identical under the v8 budget, and always
+declares `performance_admission: false`.
+Memory, output, artifact and shutdown limits remain unchanged. The earlier v7
+120-to-240-second diagnostic allowance is historical, not a rescore of its failures.
+Complete corpus, both histories, Base/pristine parity,
 fresh/ABA/repeated isolation and real stdio must match the authenticated reference.
 Each owner records its sampling policy and explicit pauses. Sparse samples and
 instrumented elapsed time are not continuous coverage or calibration evidence.
@@ -331,8 +337,9 @@ SHA; unrelated labeling does not start calibration. Scheduled long search stays
 main-only and unprivileged.
 
 Each job collects four sequential complete runs, cold/warm setup, startup-only,
-and fixed 128/256/512-project scaling evidence. Scaling currently retains the
-same hard 120-second ceiling; a larger workload receives no automatic allowance.
+and fixed 128/256/512-project scaling evidence. Scaling retains the same hard
+240-second ceiling for each measurement; a larger workload receives no automatic
+allowance and no phase is skipped.
 The aggregate report requires at least 20 runs from five jobs, with at least four
 distinct sequential measurements per job. Gate-generated measurement IDs and
 per-job run ordinals reject copied reports and skewed allocations such as
@@ -342,9 +349,12 @@ observed p95; it does not automatically change policy.
 
 The `6ee0f23` [CI cohort](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39208885161)
 completed all 20 normal runs with 627 exact semantic comparisons each. Its
-descriptive p95 was 114.771427 s, not an admitted result against the 60 s target.
-Four supporting jobs timed out at 512 projects; one timed out at 256 and did not
-attempt 512. The official aggregate rejected the incomplete supporting evidence.
+descriptive p95 was 114.771427 s, not an admitted result against the historical
+60 s target. Four supporting jobs timed out at 512 projects; one timed out at 256
+and did not attempt 512. The official aggregate rejected the incomplete
+supporting evidence. That cohort remains historical v7 evidence measured under
+its then-current 120 s hard and 60 s p95 limits; it is not rescored under the v8
+budget, and every failed job remains failed.
 
 Do not label the profile calibrated until that real CI evidence exists and is
 accepted. Updating a compiler pin requires reviewing the source/instrumentation

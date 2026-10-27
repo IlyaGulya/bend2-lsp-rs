@@ -136,6 +136,7 @@ fn capture(directory: &Path, arguments: &[String], input: &mut impl Read) -> Too
 pub(crate) fn plan(
     directory: &Path,
     expected: &BTreeSet<Identity>,
+    selected: &BTreeSet<Identity>,
     executable: &Path,
 ) -> ToolResult<DescriptorPlan> {
     let argv = bounded_read(&mut File::open(directory.join("argv.json"))?)?;
@@ -159,9 +160,13 @@ pub(crate) fn plan(
         !expected.is_empty(),
         "iai expected workload set must be nonempty",
     )?;
+    require(
+        !selected.is_empty() && selected.is_subset(expected),
+        "iai selected workload set must be a nonempty subset of the frozen manifest",
+    )?;
 
     let mut seen = BTreeSet::new();
-    let mut selected = Vec::new();
+    let mut partitioned = Vec::new();
     for (group_index, group) in descriptor.groups.iter_mut().enumerate() {
         require(
             !group.has_setup && !group.has_teardown,
@@ -193,7 +198,7 @@ pub(crate) fn plan(
             }
             // Move case payloads out once. The unmodified outer structure retains
             // every group/function index, config, default tool and command-line arg.
-            selected.push((
+            partitioned.push((
                 group_index,
                 function_index,
                 identities,
@@ -206,12 +211,21 @@ pub(crate) fn plan(
         "iai descriptor workload set does not match frozen --list",
     )?;
 
-    let mut functions = Vec::with_capacity(selected.len());
-    for (group_index, function_index, identities, benches) in selected {
+    let mut functions = Vec::with_capacity(partitioned.len());
+    for (group_index, function_index, identities, benches) in partitioned {
+        if identities.is_disjoint(selected) {
+            continue;
+        }
+        // Whole original function units only: iai enumerates and dispatches cases
+        // by their original index, so filtering a case vector would reindex it.
+        require(
+            identities.is_subset(selected),
+            "iai function unit is partially selected; physical shards must own whole functions",
+        )?;
         descriptor.groups[group_index].library_benchmarks[function_index].benches = benches;
         let bytes = bincode::serialize(&descriptor)?;
         // Drop only the selected payload after encoding; the next function's cases
-        // are still owned by `selected`, not deep-cloned from the original suite.
+        // are still owned by `partitioned`, not deep-cloned from the original suite.
         descriptor.groups[group_index].library_benchmarks[function_index]
             .benches
             .clear();
@@ -221,6 +235,14 @@ pub(crate) fn plan(
             identities,
         });
     }
+    let emitted: BTreeSet<_> = functions
+        .iter()
+        .flat_map(|function| function.identities.iter().cloned())
+        .collect();
+    require(
+        &emitted == selected,
+        "iai descriptor does not cover the selected workload set",
+    )?;
     Ok(DescriptorPlan {
         runner_arguments: arguments.into_iter().map(OsString::from).collect(),
         functions,
@@ -330,7 +352,12 @@ mod tests {
         let (_temporary, directory) = evidence(&original)?;
         let original_bytes = fs::read(directory.join("descriptor.bin"))?;
         let original_argv = fs::read(directory.join("argv.json"))?;
-        let plan = plan(&directory, &expected, Path::new("/frozen/analysis"))?;
+        let plan = plan(
+            &directory,
+            &expected,
+            &expected,
+            Path::new("/frozen/analysis"),
+        )?;
         assert_eq!(
             plan.runner_arguments,
             arguments(original_bytes.len())
@@ -373,10 +400,12 @@ mod tests {
                 _ => descriptor.groups[0].compare_by_id = Some(true),
             }
             let (_temporary, directory) = evidence(&descriptor)?;
+            let expected = identities(&descriptor);
             assert!(
                 plan(
                     &directory,
-                    &identities(&descriptor),
+                    &expected,
+                    &expected,
                     Path::new("/frozen/analysis")
                 )
                 .is_err()
@@ -403,11 +432,35 @@ mod tests {
                 _ => benches[0].function_name = "mixed".into(),
             }
             let (_temporary, directory) = evidence(&descriptor)?;
-            assert!(plan(&directory, &expected, Path::new("/frozen/analysis")).is_err());
+            assert!(
+                plan(
+                    &directory,
+                    &expected,
+                    &expected,
+                    Path::new("/frozen/analysis")
+                )
+                .is_err()
+            );
         }
         let (_temporary, directory) = evidence(&original)?;
-        assert!(plan(&directory, &BTreeSet::new(), Path::new("/frozen/analysis")).is_err());
-        assert!(plan(&directory, &expected, Path::new("/another/executable")).is_err());
+        assert!(
+            plan(
+                &directory,
+                &BTreeSet::new(),
+                &expected,
+                Path::new("/frozen/analysis")
+            )
+            .is_err()
+        );
+        assert!(
+            plan(
+                &directory,
+                &expected,
+                &expected,
+                Path::new("/another/executable")
+            )
+            .is_err()
+        );
         Ok(())
     }
 
@@ -500,15 +553,94 @@ mod tests {
             directory.join("argv.json"),
             serde_json::to_vec(&arguments(trailing.len()))?,
         )?;
-        assert!(plan(&directory, &expected, Path::new("/frozen/analysis")).is_err());
+        assert!(
+            plan(
+                &directory,
+                &expected,
+                &expected,
+                Path::new("/frozen/analysis")
+            )
+            .is_err()
+        );
         fs::write(directory.join("descriptor.bin"), &bytes)?;
         fs::write(
             directory.join("argv.json"),
             serde_json::to_vec(&arguments(bytes.len() + 1))?,
         )?;
-        assert!(plan(&directory, &expected, Path::new("/frozen/analysis")).is_err());
+        assert!(
+            plan(
+                &directory,
+                &expected,
+                &expected,
+                Path::new("/frozen/analysis")
+            )
+            .is_err()
+        );
         fs::write(directory.join("argv.json"), b"[] trailing")?;
-        assert!(plan(&directory, &expected, Path::new("/frozen/analysis")).is_err());
+        assert!(
+            plan(
+                &directory,
+                &expected,
+                &expected,
+                Path::new("/frozen/analysis")
+            )
+            .is_err()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn shard_selection_keeps_whole_function_cases_and_frozen_indices() -> ToolResult<()> {
+        let original = fixture();
+        let expected = identities(&original);
+        let selected = BTreeSet::from([
+            ("first".to_owned(), Some("small".to_owned())),
+            ("first".to_owned(), Some("large".to_owned())),
+        ]);
+        let (_temporary, directory) = evidence(&original)?;
+        let plan = plan(
+            &directory,
+            &expected,
+            &selected,
+            Path::new("/frozen/analysis"),
+        )?;
+        assert_eq!(plan.functions.len(), 1);
+        let function = &plan.functions[0];
+        assert_eq!(function.label, "group1-function1");
+        let actual = decode(&function.bytes)?;
+        let mut wanted = original.clone();
+        for (index, entry) in wanted.groups[1].library_benchmarks.iter_mut().enumerate() {
+            if index != 1 {
+                entry.benches.clear();
+            }
+        }
+        assert_eq!(actual, wanted);
+        assert_eq!(actual.groups[1].library_benchmarks[1].benches.len(), 2);
+        assert_eq!(function.identities, selected);
+        // A single case of a multi-case original function may never be sharded.
+        let partial = BTreeSet::from([("first".to_owned(), Some("large".to_owned()))]);
+        assert!(
+            plan(
+                &directory,
+                &expected,
+                &partial,
+                Path::new("/frozen/analysis")
+            )
+            .err()
+            .ok_or("partial unit must fail")?
+            .to_string()
+            .contains("partially selected")
+        );
+        let unknown = BTreeSet::from([("first".to_owned(), Some("missing".to_owned()))]);
+        assert!(
+            plan(
+                &directory,
+                &expected,
+                &unknown,
+                Path::new("/frozen/analysis")
+            )
+            .is_err()
+        );
         Ok(())
     }
 }

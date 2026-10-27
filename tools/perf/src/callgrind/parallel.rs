@@ -1,6 +1,6 @@
 //! Collect independent functions without changing frozen benchmark children.
 use super::{
-    BENCHMARKS,
+    BENCHMARKS, Identity,
     collect::{Build, Environment, run_logged},
     descriptor::{self, CAPTURE_DIRECTORY},
     require,
@@ -12,7 +12,7 @@ use crate::{
 };
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     env,
     ffi::{OsStr, OsString},
     fs::{self, File},
@@ -78,6 +78,7 @@ fn create_capture_runner(path: &Path, executable: &Path) -> ToolResult<()> {
 fn capture(
     context: &CaptureContext<'_>,
     benchmark: &'static str,
+    selected: &BTreeSet<Identity>,
     jobs: &mut Vec<RunnerJob>,
 ) -> ToolResult<CapturedBenchmark> {
     let directory = context.raw.join(benchmark);
@@ -119,6 +120,7 @@ fn capture(
     let plan = descriptor::plan(
         &descriptor_directory,
         &compiled.identities,
+        selected,
         &compiled.executable,
     )?;
     let mut indices = Vec::with_capacity(plan.functions.len());
@@ -164,6 +166,7 @@ pub(crate) fn measure(
     baseline: &str,
     raw: &Path,
     environment: &Environment,
+    selected: &BTreeMap<&'static str, BTreeSet<Identity>>,
 ) -> ToolResult<BTreeMap<&'static str, Value>> {
     let tool = env::current_exe()?;
     let original_runner = resolve_runner(environment, &build.checkout)?;
@@ -184,7 +187,15 @@ pub(crate) fn measure(
     let mut jobs = Vec::new();
     let mut captures = Vec::with_capacity(BENCHMARKS.len());
     for benchmark in BENCHMARKS {
-        captures.push(capture(&context, benchmark, &mut jobs)?);
+        if selected[benchmark].is_empty() {
+            continue;
+        }
+        captures.push(capture(
+            &context,
+            benchmark,
+            &selected[benchmark],
+            &mut jobs,
+        )?);
     }
     shim.close()?;
     let collection = json!({"parallelism":runner::MAX_PARALLELISM,"original_runner":original_runner,"original_runner_sha256":runner_sha256,"functions":jobs.len()});

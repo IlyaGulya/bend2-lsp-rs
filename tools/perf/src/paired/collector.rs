@@ -227,6 +227,9 @@ fn collect_job(collection: &Collection, data: &mut Value) -> ToolResult<()> {
             ["b", "a"]
         };
         for (position, variant) in order.into_iter().enumerate() {
+            // Each arm measures exactly the workloads its own executable declares;
+            // candidate-only benchmarks are never dropped by a shared selection.
+            let selection = full_selection(&builds[variant]);
             let sample = collect::measure(
                 &builds[variant],
                 &job_id,
@@ -235,6 +238,7 @@ fn collect_job(collection: &Collection, data: &mut Value) -> ToolResult<()> {
                 position,
                 &collection.output,
                 &environment,
+                &selection,
             )?;
             data["samples"]
                 .as_array_mut()
@@ -264,6 +268,16 @@ fn collect_job(collection: &Collection, data: &mut Value) -> ToolResult<()> {
     Ok(())
 }
 
+fn full_selection(
+    build: &collect::Build,
+) -> std::collections::BTreeMap<&'static str, std::collections::BTreeSet<crate::callgrind::Identity>>
+{
+    BENCHMARKS
+        .into_iter()
+        .map(|benchmark| (benchmark, build.benchmarks[benchmark].identities.clone()))
+        .collect()
+}
+
 pub(super) fn collect(args: &CollectArgs) -> ToolResult<()> {
     let collection = match prepare(args) {
         Ok(collection) => collection,
@@ -282,4 +296,74 @@ pub(super) fn collect(args: &CollectArgs) -> ToolResult<()> {
         return Err(error);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::callgrind::collect::{BenchmarkBuild, Build};
+    use serde_json::json;
+    use std::{
+        collections::{BTreeMap, BTreeSet},
+        path::PathBuf,
+    };
+
+    fn benchmark(rows: &[(&str, Option<&str>)]) -> BenchmarkBuild {
+        BenchmarkBuild {
+            executable: PathBuf::from("/isolated/benchmark"),
+            identities: rows
+                .iter()
+                .map(|(name, id)| ((*name).to_owned(), id.map(str::to_owned)))
+                .collect::<BTreeSet<_>>(),
+            metadata: json!({}),
+        }
+    }
+
+    fn build(analysis: &[(&str, Option<&str>)], reference: &[(&str, Option<&str>)]) -> Build {
+        let mut benchmarks = BTreeMap::new();
+        benchmarks.insert("analysis", benchmark(analysis));
+        benchmarks.insert("reference_locations", benchmark(reference));
+        let identities = benchmarks
+            .values()
+            .flat_map(|benchmark| benchmark.identities.iter().cloned())
+            .collect();
+        Build {
+            checkout: PathBuf::from("/checkout"),
+            manifest: json!({}),
+            benchmarks,
+            identities,
+            metadata: json!({}),
+        }
+    }
+
+    #[test]
+    fn each_arm_selects_its_own_candidate_only_workloads() -> ToolResult<()> {
+        let baseline = build(
+            &[("inlay_hints_warm", Some("small"))],
+            &[("reference_location_order_warm", Some("small"))],
+        );
+        let candidate = build(
+            &[
+                ("inlay_hints_warm", Some("small")),
+                ("candidate_only", None),
+                ("candidate_only", Some("extra")),
+            ],
+            &[("reference_location_order_warm", Some("small"))],
+        );
+        let baseline_selection = full_selection(&baseline);
+        let candidate_selection = full_selection(&candidate);
+        assert_eq!(baseline_selection["analysis"].len(), 1);
+        assert_eq!(candidate_selection["analysis"].len(), 3);
+        assert!(candidate_selection["analysis"].contains(&("candidate_only".to_owned(), None)));
+        assert!(
+            candidate_selection["analysis"]
+                .contains(&("candidate_only".to_owned(), Some("extra".to_owned())))
+        );
+        assert!(!baseline_selection["analysis"].contains(&("candidate_only".to_owned(), None)));
+        assert_eq!(
+            baseline_selection["reference_locations"].len(),
+            candidate_selection["reference_locations"].len()
+        );
+        Ok(())
+    }
 }

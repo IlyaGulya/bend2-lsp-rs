@@ -1,10 +1,15 @@
 //! Calibration collection and proposal-only reporting, `format_version = 1`.
 //!
 //! `collect --source DIR --work-dir DIR --output-dir DIR --job-id ID
-//! --role discovery|validation [--pairs 5]` requires hosted CI.
+//! --role discovery|validation [--pairs 5] [--shard-index I --shard-count N]`
+//! requires hosted CI. One logical job may be split across deterministic
+//! physical shards that own whole frozen `function_name` units and all of their
+//! case IDs; every workload series of a logical job still comes from exactly one
+//! physical runner.
 //! `report INPUT --json-output FILE --markdown-output FILE
 //! [--expected-discovery-jobs N] [--expected-validation-jobs N]
-//! [--expected-pairs N]` validates retained evidence without measurements.
+//! [--expected-pairs N] [--expected-shards N]` validates retained evidence
+//! without measurements, recomposing complete shard sets before comparing.
 //!
 //! Collection retains independent source manifests, toolchain/cache comparability,
 //! host metadata, per-variant source/binary hashes and nm probe records, complete
@@ -18,6 +23,7 @@
 mod collector;
 mod repeated;
 mod report;
+mod shard;
 #[cfg(test)]
 mod tests;
 
@@ -60,6 +66,12 @@ struct CollectArgs {
     role: String,
     #[arg(long, default_value = "5", value_parser = positive_integer)]
     pairs: u64,
+    /// Deterministic physical shard of the frozen workload manifest (default 0).
+    #[arg(long, default_value = "0", value_parser = nonnegative_integer)]
+    shard_index: u64,
+    /// Number of deterministic physical shards for this logical job (1 = unsharded).
+    #[arg(long, default_value = "1", value_parser = shard_count)]
+    shard_count: u64,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
@@ -85,6 +97,9 @@ struct ReportArgs {
     expected_validation_jobs: Option<u64>,
     #[arg(long, value_parser = positive_integer)]
     expected_pairs: Option<u64>,
+    /// Require this many complete physical shards in every logical job.
+    #[arg(long, value_parser = positive_integer)]
+    expected_shards: Option<u64>,
     /// Require this many unique executed workloads in every job.
     #[arg(long, value_parser = positive_integer)]
     expected_workloads: Option<u64>,
@@ -100,6 +115,18 @@ fn positive_integer(value: &str) -> Result<u64, String> {
     let number = value.parse::<u64>().map_err(|error| error.to_string())?;
     if number == 0 {
         return Err("expected a positive integer".into());
+    }
+    Ok(number)
+}
+
+fn nonnegative_integer(value: &str) -> Result<u64, String> {
+    value.parse::<u64>().map_err(|error| error.to_string())
+}
+
+fn shard_count(value: &str) -> Result<u64, String> {
+    let number = positive_integer(value)?;
+    if number > shard::MAX_COUNT {
+        return Err(format!("expected at most {} shards", shard::MAX_COUNT));
     }
     Ok(number)
 }
