@@ -355,48 +355,49 @@ impl Backend {
     pub(super) async fn schedule_lint(&self, uris: impl IntoIterator<Item = Url>, debounce: bool) {
         // Keep the default-disabled provider out of the typing hot path: no
         // document clones or dependent lookups before this check.
-        let config = self.diagnostics.lint.config.read().clone();
-        if !config.enabled || self.diagnostics.lint.closed.load(Ordering::SeqCst) {
+        let enabled = self.diagnostics.lint.config.read().enabled;
+        if !enabled || self.diagnostics.lint.closed.load(Ordering::SeqCst) {
             return;
         }
         let mut requested = BTreeSet::new();
         for uri in uris {
-            if self.document(&uri).is_some_and(Self::supported) {
+            if self.document(&uri).as_ref().is_some_and(Self::supported) {
                 requested.insert(uri);
             }
         }
         if requested.is_empty() {
             return;
         }
-        let mut task = self.diagnostics.lint.task.write();
         {
-            let mut pending = self.diagnostics.lint.pending.write();
-            pending.extend(requested);
-            if let Some(active) = self.diagnostics.lint.active.write().take() {
-                // Superseding a running check must not lose its entry.
-                pending.insert(active);
-            }
-        }
-        let epoch = self.diagnostics.lint.next_epoch();
-        let previous = task.take();
-        if let Some(previous) = &previous {
-            previous.abort();
-        }
-        let backend = self.clone();
-        let delay = debounce.then_some(LINT_DEBOUNCE);
-        let handle = tokio::spawn(async move {
-            let reporter = backend.clone();
-            let operation = async move {
-                join_lint_task(previous).await;
-                if let Some(delay) = delay {
-                    tokio::time::sleep(delay).await;
+            let mut task = self.diagnostics.lint.task.write();
+            {
+                let mut pending = self.diagnostics.lint.pending.write();
+                pending.extend(requested);
+                if let Some(active) = self.diagnostics.lint.active.write().take() {
+                    // Superseding a running check must not lose its entry.
+                    pending.insert(active);
                 }
-                backend.run_scheduled_lint(epoch).await;
-            };
-            super::state::supervise(operation, move || reporter.diagnostics.report_fatal()).await;
-        });
-        *task = Some(handle);
-        drop(task);
+            }
+            let epoch = self.diagnostics.lint.next_epoch();
+            let previous = task.take();
+            if let Some(previous) = &previous {
+                previous.abort();
+            }
+            let backend = self.clone();
+            let delay = debounce.then_some(LINT_DEBOUNCE);
+            let handle = tokio::spawn(async move {
+                let reporter = backend.clone();
+                let operation = async move {
+                    join_lint_task(previous).await;
+                    if let Some(delay) = delay {
+                        tokio::time::sleep(delay).await;
+                    }
+                    backend.run_scheduled_lint(epoch).await;
+                };
+                super::state::supervise(operation, move || reporter.diagnostics.report_fatal()).await;
+            });
+            *task = Some(handle);
+        }
         self.diagnostics
             .lint
             .control

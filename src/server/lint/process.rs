@@ -294,7 +294,7 @@ async fn execute(
         .ok_or_else(|| io::Error::other("missing bend-lint child"))?;
     let stdin = child.stdin().take();
     tokio::select! {
-        result = tokio::time::timeout(timeout, communicate(child, stdin, input)) => {
+        result = tokio::time::timeout(timeout, communicate(child.as_mut(), stdin, input)) => {
             result.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "bend-lint timed out; process tree is being killed and reaped"))?
         }
         () = reapers.stopped() => Err(io::Error::new(io::ErrorKind::Interrupted, "bend-lint stopped")),
