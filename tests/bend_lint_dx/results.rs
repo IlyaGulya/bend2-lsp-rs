@@ -9,7 +9,16 @@ fn saving_another_entry_preserves_the_previous_documents_fix() {
     let other_uri = uri(&other);
     let mut original = finding(&session.root, "test/original", range(0, 9, 10));
     original["fixes"] = json!([fix(&session.root, range(0, 9, 10), "")]);
-    session.response(vec![original], vec![], true);
+    // Each target keeps its own report. A project-scoped refresh of the first
+    // entry must return its own finding again, not the sibling target's.
+    let responses = session.control.join("responses");
+    fs::create_dir(&responses).must_be("create per-target responses");
+    target_response(&responses.join("main.bend.json"), vec![original], true);
+    target_response(
+        &responses.join("other.bend.json"),
+        vec![finding(&other, "test/other", range(0, 9, 10))],
+        true,
+    );
     session.configure(true, true, 10_000);
     session.open(SOURCE);
     session.client.notify(
@@ -29,11 +38,6 @@ fn saving_another_entry_preserves_the_previous_documents_fix() {
         .must_be("second document is indexed before either saved check");
     session.save();
     let original_diagnostics = session.lint()["params"]["diagnostics"].clone();
-    session.response(
-        vec![finding(&other, "test/other", range(0, 9, 10))],
-        vec![],
-        true,
-    );
     session.client.notify(
         "textDocument/didSave",
         json!({"textDocument":{"uri":other_uri}}),
@@ -133,9 +137,12 @@ fn an_empty_entry_report_clears_an_older_imported_lint_finding() {
         "textDocument/documentSymbol",
         json!({"textDocument":{"uri":other_uri}}),
     );
-    session.response(
+    // Phase one: the sibling entry reports an imported finding for the root.
+    let responses = session.control.join("responses");
+    fs::create_dir(&responses).must_be("create per-target responses");
+    target_response(
+        &responses.join("other.bend.json"),
         vec![finding(&session.root, "test/imported", range(0, 9, 10))],
-        vec![],
         true,
     );
     session.client.notify(
@@ -143,7 +150,21 @@ fn an_empty_entry_report_clears_an_older_imported_lint_finding() {
         json!({"textDocument":{"uri":other_uri}}),
     );
     session.lint();
-    session.response(vec![], vec![], true);
+    // Drain any earlier empty root publication so the observed clear below is
+    // the phase-two refresh, not a raced interim packet.
+    while session
+        .client
+        .receive_matching(Duration::from_millis(150), |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && !has_lint(message)
+        })
+        .is_some()
+    {}
+    // Phase two: both entries report cleanly, so the project-scoped refresh of
+    // either entry cannot resurrect the older imported finding.
+    target_response(&responses.join("main.bend.json"), vec![], true);
+    target_response(&responses.join("other.bend.json"), vec![], true);
     session.save();
     let cleared = session.client.receive_matching(TIMEOUT, |message| {
         message["method"] == "textDocument/publishDiagnostics"
