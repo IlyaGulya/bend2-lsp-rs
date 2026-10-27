@@ -569,7 +569,6 @@ fn a_type_and_constructor_with_the_same_spelling_keep_distinct_targets() {
     let view = view(&db, root, None);
     let type_use = view
         .occurrences(root)
-        .iter()
         .find(|occurrence| {
             occurrence.role == ReferenceRole::Type
                 && view
@@ -582,7 +581,6 @@ fn a_type_and_constructor_with_the_same_spelling_keep_distinct_targets() {
         .must_be("type occurrence");
     let constructor_use = view
         .occurrences(root)
-        .iter()
         .find(|occurrence| occurrence.role == ReferenceRole::Constructor)
         .must_be("constructor occurrence");
     let SemanticTarget::Global(type_id) = type_use.target else {
@@ -1197,7 +1195,6 @@ fn bare_completion_prefers_a_type_over_its_same_spelling_constructor() {
     );
     let constructor = view
         .occurrences(root)
-        .iter()
         .find(|occurrence| occurrence.role == ReferenceRole::Constructor)
         .must_be("constructor use");
     assert_ne!(constructor.target, candidates[0].target);

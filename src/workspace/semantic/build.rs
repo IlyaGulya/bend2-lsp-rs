@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    ops::Range,
     path::{Component, Path},
     sync::Arc,
 };
@@ -134,8 +135,9 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         namespace_indices: HashMap::new(),
         contexts: HashMap::new(),
         declarations: Vec::new(),
-        occurrences: HashMap::new(),
-        references: HashMap::new(),
+        occurrences: Vec::new().into_boxed_slice(),
+        occurrence_indices: HashMap::new(),
+        reference_ranges: HashMap::new(),
         calls: Vec::new(),
         incoming: HashMap::new(),
         outgoing: HashMap::new(),
@@ -228,7 +230,7 @@ impl Builder {
                 references += count;
                 if count != 0 {
                     self.view
-                        .occurrences
+                        .occurrence_indices
                         .insert(context.file, Vec::with_capacity(count));
                 }
             }
@@ -654,8 +656,9 @@ impl Builder {
 
     fn finish(mut self) -> SemanticView {
         self.view.calls.reserve(self.call_count);
-        let mut occurrences = std::mem::take(&mut self.view.occurrences);
-        let mut references: HashMap<SemanticTarget, Vec<SemanticOccurrence>> = HashMap::new();
+        let mut occurrence_indices = std::mem::take(&mut self.view.occurrence_indices);
+        let mut occurrences = Vec::with_capacity(self.pending.len());
+        let mut reference_ranges: HashMap<SemanticTarget, Range<usize>> = HashMap::new();
         let mut incoming: HashMap<SemanticTarget, Vec<usize>> = HashMap::new();
         let mut outgoing: HashMap<SemanticEntityId, Vec<usize>> = HashMap::new();
         for pending in self.pending {
@@ -689,10 +692,7 @@ impl Builder {
                 occurrence.target,
                 SemanticTarget::Global(_) | SemanticTarget::Local(_)
             ) {
-                references
-                    .entry(occurrence.target)
-                    .or_default()
-                    .push(occurrence);
+                reference_ranges.entry(occurrence.target).or_default().end += 1;
             }
             if !occurrence.in_type
                 && matches!(
@@ -713,16 +713,27 @@ impl Builder {
                     outgoing.entry(caller).or_default().push(index);
                 }
             }
-            occurrences
+            occurrence_indices
                 .entry(occurrence.site.file)
                 .or_default()
-                .push(occurrence);
+                .push(occurrences.len());
+            occurrences.push(occurrence);
         }
-        for entries in occurrences.values_mut() {
-            entries.sort_by_key(|entry| (entry.full_range.start, !entry.synthetic));
+        let source_indices = group_occurrences(&mut occurrences, &mut reference_ranges);
+        for indices in occurrence_indices.values_mut() {
+            if !source_indices.is_empty() {
+                for index in &mut *indices {
+                    *index = source_indices[*index];
+                }
+            }
+            indices.sort_by_key(|index| {
+                let occurrence = &occurrences[*index];
+                (occurrence.full_range.start, !occurrence.synthetic)
+            });
         }
-        self.view.occurrences = compact_index(occurrences);
-        self.view.references = compact_index(references);
+        self.view.occurrences = occurrences.into_boxed_slice();
+        self.view.occurrence_indices = compact_index(occurrence_indices);
+        self.view.reference_ranges = reference_ranges;
         self.view.incoming = compact_index(incoming);
         self.view.outgoing = compact_index(outgoing);
         self.view.names = self.names;
@@ -736,6 +747,65 @@ impl Builder {
             .collect();
         self.view
     }
+}
+
+/// Keep reference slices contiguous without retaining a second wide-record copy.
+/// The returned source-to-arena permutation is empty when grouping is unnecessary.
+fn group_occurrences(
+    occurrences: &mut [SemanticOccurrence],
+    reference_ranges: &mut HashMap<SemanticTarget, Range<usize>>,
+) -> Vec<usize> {
+    let resolved_count: usize = reference_ranges.values().map(|range| range.end).sum();
+    let group_count = reference_ranges.len() + usize::from(resolved_count < occurrences.len());
+    if group_count <= 1 {
+        return Vec::new();
+    }
+    let mut total = 0;
+    for range in reference_ranges.values_mut() {
+        let count = range.end;
+        *range = total..total;
+        total += count;
+    }
+    // Unresolved and ambiguous records share an unexposed final group.
+    let mut unresolved = total..total;
+    let mut order = vec![0; occurrences.len()];
+    for (source, occurrence) in occurrences.iter().enumerate() {
+        let range = match occurrence.target {
+            SemanticTarget::Global(_) | SemanticTarget::Local(_) => {
+                reference_ranges.entry(occurrence.target).or_default()
+            }
+            SemanticTarget::Unresolved | SemanticTarget::Ambiguous => &mut unresolved,
+        };
+        order[range.end] = source;
+        range.end += 1;
+    }
+    let mut source_indices = vec![0; occurrences.len()];
+    // Mirror the syntax index's stable inverse scatter: each record moves once.
+    for start in 0..order.len() {
+        let source = order[start];
+        if source == usize::MAX {
+            continue;
+        }
+        if source == start {
+            source_indices[start] = start;
+            order[start] = usize::MAX;
+            continue;
+        }
+        let displaced = occurrences[start];
+        let mut destination = start;
+        loop {
+            let origin = order[destination];
+            order[destination] = usize::MAX;
+            source_indices[origin] = destination;
+            if origin == start {
+                occurrences[destination] = displaced;
+                break;
+            }
+            occurrences[destination] = occurrences[origin];
+            destination = origin;
+        }
+    }
+    source_indices
 }
 
 // Compact each payload without allocating replacement tables and rehashing keys.

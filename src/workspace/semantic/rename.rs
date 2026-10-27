@@ -251,11 +251,7 @@ impl SemanticView {
             return false;
         }
         if self.references(target).iter().any(|occurrence| {
-            let entries = self.occurrences(occurrence.site.file);
-            let first = entries
-                .partition_point(|entry| entry.full_range.start < occurrence.full_range.start);
-            entries[first..]
-                .iter()
+            self.occurrences_from(occurrence.site.file, occurrence.full_range.start)
                 .take_while(|entry| entry.full_range.start == occurrence.full_range.start)
                 .any(|entry| entry.site.range == occurrence.site.range && entry.target != target)
         }) {

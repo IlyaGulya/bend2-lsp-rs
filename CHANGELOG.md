@@ -65,8 +65,14 @@
 - Retain compact snapshot identity and generation receipts after building an
   entry view instead of keeping its complete build input. Share immutable URI
   and physical-path ownership and release build-only lookup/import tables.
-  Preserve provenance validation, invalidation and the borrowed occurrence and
-  reference query APIs; retained-memory and cold/warm costs remain gated.
+  Preserve provenance validation and invalidation; queries continue borrowing
+  entry-owned facts, and retained-memory and cold/warm costs remain gated.
+- Store semantic occurrence records once per entry view, with compact file
+  indexes and contiguous target ranges instead of duplicate reference records.
+  `SemanticView::occurrences` now returns a borrowed exact-size iterator;
+  `references` retains its borrowed slice and original within-target order.
+  Compiler resolution and the LSP protocol are unchanged; retained memory and
+  cold/warm query costs remain subject to the original performance gates.
 - Group cold reference records with an in-place scatter instead of repeated
   wide-record swaps and a permutation-buffer copy. Preserve source, target,
   name and token lookup order without adding retained storage or warm-query work.

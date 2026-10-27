@@ -73,10 +73,21 @@ filling a law does not rescan its declaring file. File generations and overlay
 conflicts are prepared once per immutable file context. Registration borrows
 the shared snapshot rather than cloning document URI/language metadata for
 each declaration. These construction-local facts do not add warm-query work.
-Final occurrence, reference and call buckets shrink their payloads in place and
-retain their original hash tables instead of allocating replacement tables and
-rehashing all keys. Cold grouped indexes reuse the final span cursors rather
-than allocating separate per-group counts.
+
+Each entry view owns one contiguous arena of semantic occurrence records.
+Resolved targets have contiguous ranges into that arena, preserving the
+original within-target reference order and the borrowed slice returned by
+`references`. File indexes store only arena positions in source order;
+`occurrences` returns a borrowed exact-size iterator, and bounded same-position
+queries partition those indexes. Unresolved and ambiguous occurrences remain
+available to file queries without becoming resolved references.
+
+This deduplicates records within one entry view, not across entry contexts.
+Base's immutable snapshot is shared, but its derived semantic facts still
+belong to the entry view that resolved them. File-index and call buckets shrink
+their payloads in place and retain their original hash tables rather than
+allocating replacement tables and rehashing all keys. Cold grouped indexes
+reuse final span cursors rather than allocating separate per-group counts.
 
 Snapshot-local name interning stores source ranges and `NameId` values, not
 copied strings. A single shared `NameTable` owns the ranges, facts, hash table,

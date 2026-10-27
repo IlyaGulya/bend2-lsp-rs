@@ -1,5 +1,7 @@
 use std::{
     collections::HashMap,
+    iter::FusedIterator,
+    ops::Range,
     path::Path,
     sync::{
         Arc,
@@ -35,7 +37,7 @@ impl PhysicalCapture<'_> {
 
 static NEXT_VIEW: AtomicU64 = AtomicU64::new(1);
 
-/// A compiler prelude is shared by all entry views, never copied into them.
+/// Entry views share the compiler prelude's immutable document snapshot.
 #[derive(Clone)]
 pub struct SemanticBase {
     pub document: Document,
@@ -266,8 +268,10 @@ pub struct SemanticView {
     namespace_indices: HashMap<String, Box<[usize]>>,
     contexts: HashMap<FileId, SemanticFileContext>,
     declarations: Vec<SemanticDeclaration>,
-    occurrences: HashMap<FileId, Vec<SemanticOccurrence>>,
-    references: HashMap<SemanticTarget, Vec<SemanticOccurrence>>,
+    // One target-grouped record arena; file traversal keeps only source-order indices.
+    occurrences: Box<[SemanticOccurrence]>,
+    occurrence_indices: HashMap<FileId, Vec<usize>>,
+    reference_ranges: HashMap<SemanticTarget, Range<usize>>,
     calls: Vec<SemanticCall>,
     incoming: HashMap<SemanticTarget, Vec<usize>>,
     outgoing: HashMap<SemanticEntityId, Vec<usize>>,
@@ -358,18 +362,53 @@ impl SemanticView {
             .flatten()
     }
 
-    #[must_use]
-    pub fn occurrences(&self, file: FileId) -> &[SemanticOccurrence] {
-        self.occurrences.get(&file).map_or(&[], AsRef::as_ref)
+    /// Borrow occurrences in source order, with synthetic records first at equal starts.
+    pub fn occurrences(
+        &self,
+        file: FileId,
+    ) -> impl ExactSizeIterator<Item = &SemanticOccurrence> + DoubleEndedIterator + Clone + FusedIterator
+    {
+        let indices = self
+            .occurrence_indices
+            .get(&file)
+            .map_or(&[][..], Vec::as_slice);
+        self.indexed_occurrences(indices)
+    }
+
+    /// Borrow the source-ordered suffix beginning at the inclusive start offset.
+    pub(crate) fn occurrences_from(
+        &self,
+        file: FileId,
+        start: usize,
+    ) -> impl ExactSizeIterator<Item = &SemanticOccurrence> + DoubleEndedIterator + Clone + FusedIterator
+    {
+        let indices = self
+            .occurrence_indices
+            .get(&file)
+            .map_or(&[][..], Vec::as_slice);
+        let begin =
+            indices.partition_point(|index| self.occurrences[*index].full_range.start < start);
+        self.indexed_occurrences(&indices[begin..])
+    }
+
+    fn indexed_occurrences<'a>(
+        &'a self,
+        indices: &'a [usize],
+    ) -> impl ExactSizeIterator<Item = &'a SemanticOccurrence>
+    + DoubleEndedIterator
+    + Clone
+    + FusedIterator
+    + 'a {
+        indices.iter().map(move |index| &self.occurrences[*index])
     }
 
     #[must_use]
     pub fn resolve_at(&self, file: FileId, offset: usize) -> Option<&SemanticOccurrence> {
-        let entries = self.occurrences(file);
-        let index = entries
-            .partition_point(|entry| entry.full_range.start <= offset)
+        let indices = self.occurrence_indices.get(&file)?;
+        let index = indices
+            .partition_point(|index| self.occurrences[*index].full_range.start <= offset)
             .checked_sub(1)?;
-        let entry = &entries[index];
+        let entry = &self.occurrences[indices[index]];
         (entry.full_range.contains(offset) || entry.site.range.end == offset).then_some(entry)
     }
 
@@ -382,9 +421,12 @@ impl SemanticView {
         }
     }
 
+    /// Borrow resolved references in their original build order.
     #[must_use]
     pub fn references(&self, target: SemanticTarget) -> &[SemanticOccurrence] {
-        self.references.get(&target).map_or(&[], AsRef::as_ref)
+        self.reference_ranges
+            .get(&target)
+            .map_or(&[], |range| &self.occurrences[range.clone()])
     }
 
     #[must_use]

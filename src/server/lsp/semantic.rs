@@ -843,11 +843,7 @@ impl Backend {
         let annotation = document.syntax.binding_type_range(&document.text, symbol)?;
         let view = self.semantic_view(&document.uri)?;
         let file = view.file_id(&document.uri)?;
-        let occurrences = view.occurrences(file);
-        let begin = occurrences
-            .partition_point(|occurrence| occurrence.full_range.start < annotation.start);
-        occurrences[begin..]
-            .iter()
+        view.occurrences_from(file, annotation.start)
             .take_while(|occurrence| occurrence.full_range.start < annotation.end)
             .find_map(|occurrence| {
                 let SemanticTarget::Global(id) = occurrence.target else {
@@ -910,7 +906,6 @@ impl Backend {
             }).collect::<Result<Vec<_>>>()?;
         let occurrences: Vec<_> = view
             .occurrences(file)
-            .iter()
             .map(|occurrence| {
                 json!({
                     "range": super::super::adapters::range(document, occurrence.site.range),
@@ -935,7 +930,7 @@ impl Backend {
             "document": { "uri": uri, "version": document.revision.0,
                 "contentHash": format!("fnv1a64:{:016x}", document.content_hash()) },
             "declarations": declarations, "occurrences": occurrences,
-            "complete": metadata_complete && view.issues().is_empty() && view.occurrences(file).iter().all(|occurrence|
+            "complete": metadata_complete && view.issues().is_empty() && view.occurrences(file).all(|occurrence|
                 !occurrence.uncertain && !matches!(occurrence.target, SemanticTarget::Unresolved | SemanticTarget::Ambiguous)),
         }))
     }
