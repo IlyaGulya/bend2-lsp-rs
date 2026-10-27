@@ -16,7 +16,7 @@ use std::{
 };
 use support::Must;
 use tempfile::tempdir;
-use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
+use process_wrap::tokio::{CommandWrap, KillOnDrop};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tower_lsp::lsp_types::TextEdit;
 use url::Url;
@@ -762,7 +762,7 @@ fn setup_genuine_analyzer() -> Result<(PathBuf, Vec<String>), String> {
 const PREPARE_TIMEOUT: Duration = Duration::from_secs(600);
 
 fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(), String> {
-    let directory = tempfile::tempdir()
+    let directory = tempdir()
         .map_err(|error| format!("could not create the preparation workspace: {error}"))?;
     let project = directory.path();
     fs::write(
