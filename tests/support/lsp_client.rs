@@ -128,18 +128,27 @@ impl LspClient {
     /// # Panics
     /// Panics if initialization fails or the server returns no capabilities.
     pub fn initialize(&mut self, root: &Path) {
+        self.initialize_with_capabilities(root, json!({}));
+    }
+
+    pub fn initialize_with_capabilities(&mut self, root: &Path, capabilities: Value) {
         let root_uri = Url::from_directory_path(root).must_be("workspace URI");
         let response = self.request(
             "initialize",
             json!({
                 "processId":null,
                 "rootUri":root_uri,
-                "capabilities":{},
+                "capabilities":capabilities,
                 "workspaceFolders":[{"uri":root_uri,"name":"test"}]
             }),
         );
         assert!(response["result"]["capabilities"].is_object());
         self.notify("initialized", json!({}));
+    }
+
+    pub fn respond(&mut self, request: &Value, result: Value) {
+        let id = request["id"].clone();
+        self.send(&json!({"jsonrpc":"2.0", "id":id, "result":result}));
     }
 
     pub fn close_stdin(&mut self) {

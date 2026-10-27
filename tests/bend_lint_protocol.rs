@@ -85,6 +85,14 @@ struct Session {
 
 impl Session {
     fn new(source: &str, dependencies: &[(&str, &str)]) -> Self {
+        Self::with_server_capabilities(source, dependencies, json!({}))
+    }
+
+    fn with_server_capabilities(
+        source: &str,
+        dependencies: &[(&str, &str)],
+        capabilities: Value,
+    ) -> Self {
         let directory = tempdir().must_be("lint protocol workspace");
         let project = directory.path().join("project with spaces 🦀");
         let control = directory.path().join("control");
@@ -114,7 +122,7 @@ impl Session {
             .env("BEND_LINT_FIXTURE_CONTROL", &control)
             .env_remove("BEND_LIB");
         let mut client = LspClient::spawn(command);
-        client.initialize(&project);
+        client.initialize_with_capabilities(&project, capabilities);
         client.notify(
             "workspace/didChangeConfiguration",
             json!({"settings":{"bend2-lsp":{"compilerPath":executable()}}}),
@@ -221,6 +229,29 @@ impl Session {
             json!({"command":"bend2.lint.status","arguments":[{"uri":self.document}]}),
         )["result"]
             .clone()
+    }
+
+    fn acknowledge_progress_create(&mut self) -> Value {
+        let request = self
+            .client
+            .receive_matching(TIMEOUT, |message| {
+                message["method"] == "window/workDoneProgress/create"
+            })
+            .must_be("the server creates a work-done progress token");
+        self.client.respond(&request, Value::Null);
+        request
+    }
+
+    fn progress(&mut self, kind: &str, token: &Value) -> Value {
+        let kind = kind.to_owned();
+        let token = token.clone();
+        self.client
+            .receive_matching(TIMEOUT, move |message| {
+                message["method"] == "$/progress"
+                    && message["params"]["token"] == token
+                    && message["params"]["value"]["kind"] == kind
+            })
+            .must_be("matching work-done progress notification")
     }
 
     fn standard_response(&self) {
@@ -902,6 +933,63 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
     // A watched change invalidates finished/in-flight results but does not
     // schedule a check by itself: an unrelated completion must stay hidden.
     session.no_lint();
+    session.finish();
+}
+
+#[test]
+fn superseding_preparation_keeps_the_newest_progress_token_until_completion() {
+    let mut session = Session::with_server_capabilities(
+        SOURCE,
+        &[],
+        json!({"window":{"workDoneProgress":true}}),
+    );
+    fs::write(session.control.join("prepare-block"), "").must_be("block preparation");
+    session.standard_response();
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
+    let first_create = session.acknowledge_progress_create();
+    let first = first_create["params"]["token"].clone();
+    session.progress("begin", &first);
+    let prepare_address = session.wait_file("prepare-address");
+    // An immediate save supersedes the preparation-blocked run.
+    session.save();
+    let second_create = session.acknowledge_progress_create();
+    let second = second_create["params"]["token"].clone();
+    assert_ne!(first, second, "each run owns a distinct progress token");
+    session.progress("begin", &second);
+    let premature = session.client.receive_matching(QUIET, |message| {
+        message["method"] == "$/progress"
+            && message["params"]["token"] == second
+            && message["params"]["value"]["kind"] == "end"
+    });
+    assert!(
+        premature.is_none(),
+        "the replacement token must not end before its check completes: {premature:?}"
+    );
+    fs::write(session.control.join("prepare-release"), "").must_be("release preparation");
+    session.lint();
+    let end = session.progress("end", &second);
+    let message = end["params"]["value"]["message"]
+        .as_str()
+        .must_be("replacement completion message");
+    assert!(
+        !message.contains("Superseded"),
+        "the newest run ends with its own completion: {message}"
+    );
+    assert_eq!(
+        message,
+        session.status()["reason"].as_str().must_be("ready reason"),
+        "the newest End carries the completed run's reason"
+    );
+    let first_end = session.progress("end", &first);
+    assert!(
+        first_end["params"]["value"]["message"]
+            .as_str()
+            .must_be("superseded message")
+            .contains("Superseded"),
+        "the superseded run's token is closed separately"
+    );
+    socket_closed(&prepare_address);
     session.finish();
 }
 
