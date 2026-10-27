@@ -66,7 +66,9 @@ fn versioned_fix(
             );
         }
         if !backend.diagnostics_snapshot_current(uri, &document.snapshot) {
-            return Err("A target document is no longer current. Recheck before applying this fix.");
+            return Err(
+                "A target document is no longer current. Recheck before applying this fix.",
+            );
         }
         let (start, end) = offsets(checked, edit.range)
             .ok_or("This bend-lint fix has an invalid UTF-16 edit range.")?;

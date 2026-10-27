@@ -117,7 +117,8 @@ impl DiskFiles {
         if self.bytes > BYTE_LIMIT {
             return Err(io::Error::other("bend-lint snapshot exceeds 32 MiB"));
         }
-        self.identities.insert(path.clone(), hasher.finalize().into());
+        self.identities
+            .insert(path.clone(), hasher.finalize().into());
         Ok(path)
     }
 }
@@ -239,13 +240,17 @@ fn rule_closure(rule_paths: &HashSet<PathBuf>) -> io::Result<RuleClosure> {
         let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text));
         let digest: [u8; 32] = Sha256::digest(snapshot.text.as_bytes()).into();
         closure.identities.insert(canonical.clone(), digest);
-        closure.snapshots.insert(canonical.clone(), snapshot.clone());
+        closure
+            .snapshots
+            .insert(canonical.clone(), snapshot.clone());
         // Only Bend sources execute imports; every other closure file is a leaf
         // effect input whose bytes still key the prepared program.
         if is_bend(&canonical) {
-            pending.extend(analysis::imports(&snapshot).iter().filter_map(|import| {
-                rule_target(&canonical, import.path_text(&snapshot.text))
-            }));
+            pending.extend(
+                analysis::imports(&snapshot)
+                    .iter()
+                    .filter_map(|import| rule_target(&canonical, import.path_text(&snapshot.text))),
+            );
         }
     }
     Ok(closure)
@@ -329,8 +334,8 @@ fn read_text(path: &Path, limit: usize) -> io::Result<String> {
             "bend-lint source text exceeds the 32 MiB snapshot limit",
         ));
     }
-    let mut reader = fs::File::open(path)?
-        .take(u64::try_from(limit).map_err(io::Error::other)? + 1);
+    let mut reader =
+        fs::File::open(path)?.take(u64::try_from(limit).map_err(io::Error::other)? + 1);
     let mut text = String::with_capacity(size);
     reader.read_to_string(&mut text)?;
     if text.len() != size {
@@ -350,9 +355,9 @@ fn read_source(path: &Path, bytes: &mut usize) -> io::Result<(PathBuf, String)> 
         ));
     }
     let size = usize::try_from(metadata.len()).map_err(io::Error::other)?;
-    let remaining = BYTE_LIMIT
-        .checked_sub(*bytes)
-        .ok_or(io::Error::other("bend-lint snapshot exceeds 32 MiB of source text"))?;
+    let remaining = BYTE_LIMIT.checked_sub(*bytes).ok_or(io::Error::other(
+        "bend-lint snapshot exceeds 32 MiB of source text",
+    ))?;
     if size > remaining {
         return Err(io::Error::other(
             "bend-lint snapshot exceeds 32 MiB of source text",
@@ -448,12 +453,7 @@ fn config_entries(config: &serde_json::Value, root: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-fn in_project(
-    root: &Path,
-    canonical_root: Option<&Path>,
-    files: &Identities,
-    path: &Path,
-) -> bool {
+fn in_project(root: &Path, canonical_root: Option<&Path>, files: &Identities, path: &Path) -> bool {
     path.starts_with(root)
         || canonical_root.is_some_and(|root| path.starts_with(root))
         || files.contains_key(path)
@@ -1031,8 +1031,8 @@ fn file_identity(path: &Path) -> io::Result<[u8; 32]> {
     if size > BYTE_LIMIT {
         return Err(io::Error::other("bend-lint snapshot exceeds 32 MiB"));
     }
-    let mut reader = fs::File::open(path)?
-        .take(u64::try_from(BYTE_LIMIT).map_err(io::Error::other)? + 1);
+    let mut reader =
+        fs::File::open(path)?.take(u64::try_from(BYTE_LIMIT).map_err(io::Error::other)? + 1);
     let mut hasher = Sha256::new();
     let mut buffer = [0; 8192];
     loop {
@@ -1131,12 +1131,10 @@ mod tests {
         );
         let helper = fixture.project.join("shared/helper.bend");
         write(&helper, "def value: U32\n  1\n");
-        let error = ProjectSnapshot::capture(
-            &fixture.root,
-            &[document(&helper, "def value: U32\n  2\n")],
-        )
-        .err()
-        .expect("an unsaved executed rule helper cannot be overlaid");
+        let error =
+            ProjectSnapshot::capture(&fixture.root, &[document(&helper, "def value: U32\n  2\n")])
+                .err()
+                .expect("an unsaved executed rule helper cannot be overlaid");
         assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
         assert!(error.to_string().contains("shared/helper.bend"), "{error}");
         assert!(error.to_string().contains("save"), "{error}");
@@ -1186,7 +1184,10 @@ mod tests {
         );
         let second = ProjectSnapshot::capture(&fixture.root, &[]).expect("recapture rule inputs");
         assert_ne!(first.config_digest(), second.config_digest());
-        write(&fixture.project.join("shared/helper.bend"), "def value: U32\n  2\n");
+        write(
+            &fixture.project.join("shared/helper.bend"),
+            "def value: U32\n  2\n",
+        );
         let third = ProjectSnapshot::capture(&fixture.root, &[]).expect("recapture rule inputs");
         assert_ne!(second.config_digest(), third.config_digest());
     }
@@ -1210,8 +1211,7 @@ mod tests {
         let lexical = link.join("project");
         let snapshot = ProjectSnapshot::capture(&lexical.join("main.bend"), &[])
             .expect("capture through the symlinked root");
-        let dependency =
-            input_identity(&project.join("dep.bend")).expect("dependency identity");
+        let dependency = input_identity(&project.join("dep.bend")).expect("dependency identity");
         assert_eq!(
             snapshot.uris.get(&dependency),
             Some(&Url::from_file_path(lexical.join("dep.bend")).expect("logical file URI")),
@@ -1240,12 +1240,10 @@ mod tests {
             "an executed helper must resolve as a checked source so its findings are accepted"
         );
         assert!(snapshot.covers_path(&input_identity(&helper).expect("helper identity")));
-        let error = ProjectSnapshot::capture(
-            &fixture.root,
-            &[document(&helper, "def value: U32\n  2\n")],
-        )
-        .err()
-        .expect("an unsaved executed helper cannot be overlaid");
+        let error =
+            ProjectSnapshot::capture(&fixture.root, &[document(&helper, "def value: U32\n  2\n")])
+                .err()
+                .expect("an unsaved executed helper cannot be overlaid");
         assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
         write(&helper, "def value: U32\n  3\n");
         assert!(
@@ -1258,9 +1256,8 @@ mod tests {
 
     #[test]
     fn a_bare_import_of_an_external_rule_helper_is_fenced() {
-        let fixture = fixture(
-            "import ../../external/step.bend as Step\n\ndef positive: U32\n  Step.value\n",
-        );
+        let fixture =
+            fixture("import ../../external/step.bend as Step\n\ndef positive: U32\n  Step.value\n");
         let external = fixture.directory.path().join("external");
         write(
             &external.join("step.bend"),
@@ -1268,12 +1265,10 @@ mod tests {
         );
         let leaf = external.join("leaf.bend");
         write(&leaf, "def value: U32\n  1\n");
-        let error = ProjectSnapshot::capture(
-            &fixture.root,
-            &[document(&leaf, "def value: U32\n  2\n")],
-        )
-        .err()
-        .expect("a bare-imported helper is compiled from disk, never overlaid");
+        let error =
+            ProjectSnapshot::capture(&fixture.root, &[document(&leaf, "def value: U32\n  2\n")])
+                .err()
+                .expect("a bare-imported helper is compiled from disk, never overlaid");
         assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
         let first = ProjectSnapshot::capture(&fixture.root, &[]).expect("capture bare closure");
         write(&leaf, "def value: U32\n  3\n");
@@ -1338,11 +1333,13 @@ mod tests {
         );
         let snapshot =
             ProjectSnapshot::capture(&fixture.root, &[]).expect("hub and Base rule imports");
-        let phantom = fixture.project.join(
-            "bend-lint-rules/rules-package@1.2.3.4/layout/format.bend",
-        );
+        let phantom = fixture
+            .project
+            .join("bend-lint-rules/rules-package@1.2.3.4/layout/format.bend");
         assert!(
-            snapshot.source(phantom.to_str().expect("UTF-8 phantom path")).is_none(),
+            snapshot
+                .source(phantom.to_str().expect("UTF-8 phantom path"))
+                .is_none(),
             "a Hub package body is pinned external context, never a local rule input"
         );
     }
@@ -1353,7 +1350,8 @@ mod tests {
         let helper = fixture.project.join("shared/helper.bend");
         write(&helper, "def value: U32\n  1\n");
         let rule = fixture.project.join(RULES_DIRECTORY).join("style.bend");
-        let rule_text = "import ../shared/helper.bend as Helper\n\ndef positive: U32\n  Helper.value\n";
+        let rule_text =
+            "import ../shared/helper.bend as Helper\n\ndef positive: U32\n  Helper.value\n";
         write(&rule, rule_text);
         let snapshot = ProjectSnapshot::capture(
             &rule,

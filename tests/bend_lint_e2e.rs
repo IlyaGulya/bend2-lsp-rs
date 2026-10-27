@@ -4,6 +4,7 @@ mod support;
 
 use bend2_lsp::analysis::LineIndex;
 use lsp_client::LspClient;
+use process_wrap::tokio::{CommandWrap, KillOnDrop};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -16,7 +17,6 @@ use std::{
 };
 use support::Must;
 use tempfile::tempdir;
-use process_wrap::tokio::{CommandWrap, KillOnDrop};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tower_lsp::lsp_types::TextEdit;
 use url::Url;
@@ -240,14 +240,19 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
     )
     .must_be("enable genuine semantic rules");
     let disk_report = genuine_report(&executable, &arguments, &main);
-    assert_eq!(disk_report["skipped"], json!([]), "saved fixture must type-check");
+    assert_eq!(
+        disk_report["skipped"],
+        json!([]),
+        "saved fixture must type-check"
+    );
     let disk_unused = finding(&disk_report["findings"], UNUSED_RESULT);
     let disk_range = disk_unused["range"].clone();
     // Only the imported type changes. The costly unused-result finding must
     // disappear while an independent checker-backed finding remains.
     let mut overlays = BTreeMap::new();
     overlays.insert(canonical(&dep), scalar_dep.to_owned());
-    let overlay_report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
+    let overlay_report =
+        genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
     assert_eq!(
         overlay_report["skipped"],
         json!([]),
@@ -422,10 +427,22 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
         .must_be("versioned genuine changes");
     assert_eq!(changes.len(), 1);
     assert_eq!(changes[0]["textDocument"]["version"], 2);
-    let fixes = reported["fixes"].as_array().must_be("reported genuine fixes");
-    let edits = fixes[0]["edits"].as_array().must_be("reported genuine edits");
-    assert_eq!(changes[0]["edits"].as_array().must_be("offered edits").len(), edits.len());
-    for (offered, expected) in changes[0]["edits"].as_array().must_be("offered edits")
+    let fixes = reported["fixes"]
+        .as_array()
+        .must_be("reported genuine fixes");
+    let edits = fixes[0]["edits"]
+        .as_array()
+        .must_be("reported genuine edits");
+    assert_eq!(
+        changes[0]["edits"]
+            .as_array()
+            .must_be("offered edits")
+            .len(),
+        edits.len()
+    );
+    for (offered, expected) in changes[0]["edits"]
+        .as_array()
+        .must_be("offered edits")
         .iter()
         .zip(edits)
     {
@@ -471,7 +488,9 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
     let mut overlays = BTreeMap::new();
     overlays.insert(canonical(&dep), broken_dep.to_owned());
     let report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
-    let skipped = report["skipped"].as_array().must_be("genuine skipped reasons");
+    let skipped = report["skipped"]
+        .as_array()
+        .must_be("genuine skipped reasons");
     assert!(
         skipped.iter().any(|skip| {
             skip["reason"] == "unloaded"
@@ -514,12 +533,7 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
         std::thread::sleep(Duration::from_millis(100));
     };
     assert_eq!(status["state"], "ready", "{status}");
-    assert!(
-        status["skippedChecks"]
-            .as_u64()
-            .must_be("skipped count")
-            >= 1
-    );
+    assert!(status["skippedChecks"].as_u64().must_be("skipped count") >= 1);
     assert!(
         status["reason"]
             .as_str()
@@ -570,9 +584,9 @@ fn genuine_structured_project_errors_are_attributable_without_diagnostics() {
             matches!(
                 message["method"].as_str(),
                 Some("window/logMessage" | "window/showMessage")
-            ) && message["params"]["message"].as_str().is_some_and(|text| {
-                text.contains("bend-lint.json")
-            })
+            ) && message["params"]["message"]
+                .as_str()
+                .is_some_and(|text| text.contains("bend-lint.json"))
         })
         .must_be("the genuine structured error is attributable");
     assert!(
@@ -802,8 +816,8 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
         "genuine analyzer backend: {backend}; runtime: {}; platform: {}",
         report["runtime"], report["platform"]
     );
-    let require_native = env::var("BEND2_LINT_REQUIRE_NATIVE")
-        .is_ok_and(|value| value == "1" || value == "true");
+    let require_native =
+        env::var("BEND2_LINT_REQUIRE_NATIVE").is_ok_and(|value| value == "1" || value == "true");
     if require_native && backend != "native" {
         return Err(format!(
             "genuine analyzer prepared the '{backend}' rule backend, but this job requires native rules; install a supported Clang"
@@ -1000,7 +1014,6 @@ fn wait_for_root_packet(
         .must_be("genuine root analysis publication")
 }
 
-
 fn finding<'a>(findings: &'a Value, code: &str) -> &'a Value {
     findings
         .as_array()
@@ -1094,13 +1107,7 @@ fn wait_for_lint_diagnostics(
     started: Instant,
     version: i32,
 ) -> Value {
-    wait_for_lint_diagnostics_within(
-        client,
-        document,
-        started,
-        version,
-        Duration::from_secs(150),
-    )
+    wait_for_lint_diagnostics_within(client, document, started, version, Duration::from_secs(150))
 }
 
 fn wait_for_lint_diagnostics_within(

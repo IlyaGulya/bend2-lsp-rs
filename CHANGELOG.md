@@ -2,48 +2,42 @@
 
 ## Unreleased
 
-### Optional lint integration
+### Live lint diagnostics
 
-- Add off-by-default saved-file diagnostics from a user-installed standalone
-  bend-lint executable. Explicit opt-in trusts both the tool and project rules;
-  upstream may fetch its own pinned compiler/dependencies and build rule programs.
-- Merge lexical, selected-compiler, imported, and lint diagnostics without late
-  publications erasing other providers. Preserve compiler source identifiers and
-  related information; reject obsolete revisions and clear only retired results.
-- Keep unsaved editor buffers out of disk-based lint results. Cancel stale jobs,
-  bound output/work, and contain analyzer descendants on Unix and Windows.
-- Reject in-flight lint results and requested fixes after source/configuration
-  symlink retargeting, including changes in parent directories.
-- Keep Linux lint diagnostics working for UTF-8 aliases to non-UTF-8 filenames;
-  retain lossless file URIs without serializing native paths into JSON metadata.
-- Offer separately enabled, explicitly requested **dangerous** lint Code Actions
-  with saved-content, UTF-16, overlap, and version checks for every touched file.
-  Never run automatic fixes, safe fix-all, or a replacement formatter.
-- Require real-stdio process/publication regressions and genuine standalone
-  analyzer diagnostics and explicit-action E2Es on all six native CI targets.
-  Pin the npm package and Bun archives and retain runtime identity evidence.
-  The standalone JSON contract targets bend-lint 0.1.1 at upstream
-  `05fb8942eb297088b022d91d6d4187bccdb11d71`, not the older bundled PR #1389 tool.
-- Synchronize import-completion fixtures with their indexed unsaved candidates,
-  without making production queries wait for unrelated pending builds.
-- Acknowledge prior stdio document mutations before releasing held analyzer
-  output, so tests cannot mistake pre-mutation results for stale publication.
-- Make optional lint checks discoverable through explicit Run and Status Code
-  Actions, with progress on supporting clients and actionable skip/failure messages.
-  Report the effective server, analyzer, project configuration, and compiler.
-- Explain unavailable lint fixes without offering unsafe or partial edits.
-  Preserve explicit opt-in and document-version checks for dangerous fixes.
-- Retain results and fixes from separately checked entries, sharing unchanged
-  project snapshots. Unrelated dirty projects no longer block saved-file checks.
-- Clear old imported lint findings after a successful empty check. Fence fixes
-  after newly opened source aliases or previously missing imports change inputs,
-  and finish discarded checks with a useful status instead of leaving them running.
-- Keep saved-file lint results when background compiler indexes refresh without
-  changing the checked files. Leave unrelated Quick Fix and Organize Imports menus
-  unchanged while the optional analyzer is disabled.
-- Update the verified standalone analyzer to bend-lint 0.1.1 with matching
-  `bend-lint-rules` 0.1.1.0 fixtures. Custom rules must use the matching API;
-  upstream renamed `Lint.Value.Text` to `Lint.Value.Chars`.
+- Check unsaved Bend buffers, their edited imports, and named files not yet on
+  disk with the optional standalone bend-lint provider. External tool and project
+  rule execution still require explicit opt-in.
+- Prepare the rule runner separately from ordinary checks. Typing does not restart
+  a cold build, and short per-check deadlines do not interrupt preparation.
+- Target standalone bend-lint 0.2.1, Bun 1.4.4, and matching rules/API 0.2.1.0.
+  It uses its own pinned compiler: Bend 2.0.39 on Unix and an upstream Windows fork.
+- Show rule documentation links and explain partial checking, skipped rules, and
+  configuration/setup failures through lint status and editor messages instead of
+  inventing source ranges or document-wide error-count banners.
+- Keep compiler, lexical, imported, and lint diagnostics merged. Reject obsolete
+  results after edits, close, configuration changes, or source alias retargeting.
+  Unrelated projects and unchanged indexed inputs retain their valid results.
+- Offer explicitly requested **dangerous** Code Actions for matching open buffer
+  versions, including unsaved text. Validate UTF-16 ranges and overlapping edits,
+  and reject an entire stale or unverifiable multi-file fix. Never apply automatic
+  fixes, expose a safe fix-all, or replace the independent formatter.
+- Keep lint highlights valid on CRLF files and after non-BMP characters without
+  relaxing the exact source boundaries required for dangerous edits.
+- Keep Run and Status Code Actions discoverable, with progress on supporting
+  clients and actionable preparation/failure messages. Repeated identical failures
+  do not repeatedly interrupt editing with popups.
+- Bound snapshots, overlay input, and analyzer output; contain and reap subprocess
+  trees on cancellation, timeout, disable, and shutdown. Preserve filesystem alias
+  and missing-import guards without serializing lossy native paths.
+- Exercise the published analyzer through the actual stdio LSP and retain native
+  runtime/package identity evidence on the existing six-target CI matrix.
+- Report the upstream 0.2.1 limitation for overlay-only files listed in config
+  `entries` honestly; never write editor buffers to disk or drop configured entries
+  to conceal that failure.
+- Fence local custom-rule helpers as trusted saved code, including aliases and
+  missing dependencies. Upstream 0.2.1 still omits bare/absolute helper imports
+  from its compiled-rule cache key; use `./` or `../` in custom rules until
+  [upstream issue #7](https://github.com/MattCozendey/bend-lint/issues/7) is fixed.
 
 ### Bug Fixes
 

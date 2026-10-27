@@ -499,7 +499,8 @@ impl Backend {
                     }
                     backend.run_scheduled_lint(epoch).await;
                 };
-                super::state::supervise(operation, move || reporter.diagnostics.report_fatal()).await;
+                super::state::supervise(operation, move || reporter.diagnostics.report_fatal())
+                    .await;
             });
             *task = Some(handle);
             retiring
@@ -559,8 +560,7 @@ impl Backend {
                     LintPhase::Failed
                 };
                 let message = error.to_string();
-                self.finish_lint_control(&uri, phase, &message, epoch)
-                    .await;
+                self.finish_lint_control(&uri, phase, &message, epoch).await;
                 message
             }
         };
@@ -600,13 +600,14 @@ impl Backend {
             super::state::blocking_result(
                 tokio::task::spawn_blocking(move || {
                     let _permit = permit;
-                    let snapshot = match reusable.filter(|snapshot| snapshot.refreshable(&capture_file))
-                    {
-                        Some(snapshot) => Arc::new(snapshot.with_overlays(&documents)?),
-                        None => {
-                            Arc::new(snapshot::ProjectSnapshot::capture(&capture_file, &documents)?)
-                        }
-                    };
+                    let snapshot =
+                        match reusable.filter(|snapshot| snapshot.refreshable(&capture_file)) {
+                            Some(snapshot) => Arc::new(snapshot.with_overlays(&documents)?),
+                            None => Arc::new(snapshot::ProjectSnapshot::capture(
+                                &capture_file,
+                                &documents,
+                            )?),
+                        };
                     Ok::<_, std::io::Error>((snapshot, document))
                 })
                 .await,
@@ -672,11 +673,7 @@ impl Backend {
             .await
     }
 
-    async fn ensure_prepared(
-        &self,
-        key: PreparationKey,
-        epoch: u64,
-    ) -> std::io::Result<String> {
+    async fn ensure_prepared(&self, key: PreparationKey, epoch: u64) -> std::io::Result<String> {
         loop {
             let mut receiver = self.diagnostics.lint.preparation_changed.subscribe();
             {
@@ -854,7 +851,13 @@ impl Backend {
             }
         };
         let Some(affected) = affected else {
-            self.finish_lint_control(&uri, LintPhase::Skipped, "Project inputs changed during analysis; the next check will re-read them", epoch).await;
+            self.finish_lint_control(
+                &uri,
+                LintPhase::Skipped,
+                "Project inputs changed during analysis; the next check will re-read them",
+                epoch,
+            )
+            .await;
             return Ok("Analysis skipped; inputs changed during analysis".into());
         };
         self.publish_coordinated_locked(affected).await;
@@ -917,7 +920,8 @@ mod tests {
         fs::write(&main, MAIN)?;
         fs::write(&dep, DEP)?;
         fs::write(directory.path().join("bend-lint.json"), "{\"rules\":{}}")?;
-        let main_uri = Url::from_file_path(&main).map_err(|()| io::Error::other("main file URI"))?;
+        let main_uri =
+            Url::from_file_path(&main).map_err(|()| io::Error::other("main file URI"))?;
         let dep_uri =
             Url::from_file_path(&dep).map_err(|()| io::Error::other("dependency file URI"))?;
         Ok(Project {
@@ -1061,9 +1065,7 @@ mod tests {
     fn actionable(message: &str, uri: &Url) -> wire::Findings {
         let reported = diagnostic(message);
         let mut findings = no_findings();
-        findings
-            .by_uri
-            .insert(uri.clone(), vec![reported.clone()]);
+        findings.by_uri.insert(uri.clone(), vec![reported.clone()]);
         findings.actionable.push(wire::ActionableFinding {
             uri: uri.clone(),
             diagnostic: reported,
@@ -1120,7 +1122,14 @@ mod tests {
             &project.main,
             &captured,
         )?);
-        open(&backend, &project.dep_uri, 2, CHANGED_DEP, project.dep.clone()).await?;
+        open(
+            &backend,
+            &project.dep_uri,
+            2,
+            CHANGED_DEP,
+            project.dep.clone(),
+        )
+        .await?;
         let revisions = vec![
             fence(&backend, &project.main_uri)?,
             fence(&backend, &project.dep_uri)?,
@@ -1137,8 +1146,8 @@ mod tests {
     // fence list entirely. Its unsaved text was never analyzed, so the retained
     // entry is not current.
     #[tokio::test]
-    async fn newly_opened_covered_input_invalidates_a_retained_result()
-    -> Result<(), Box<dyn Error>> {
+    async fn newly_opened_covered_input_invalidates_a_retained_result() -> Result<(), Box<dyn Error>>
+    {
         let project = project()?;
         let backend = backend()?;
         open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
@@ -1180,7 +1189,14 @@ mod tests {
         )?);
         let revisions = inputs.fences(&snapshot);
         assert!(revisions.contains(&fence(&backend, &project.dep_uri)?));
-        open(&backend, &project.dep_uri, 2, CHANGED_DEP, project.dep.clone()).await?;
+        open(
+            &backend,
+            &project.dep_uri,
+            2,
+            CHANGED_DEP,
+            project.dep.clone(),
+        )
+        .await?;
         assert!(
             !backend.lint_revisions_current(&revisions),
             "fences sampled with the capture described a later generation"
@@ -1191,8 +1207,7 @@ mod tests {
     // Currentness is scoped to the captured project view: other projects and
     // refreshed unrelated inputs must not retire a valid result.
     #[tokio::test]
-    async fn unrelated_open_inputs_keep_a_retained_result_current()
-    -> Result<(), Box<dyn Error>> {
+    async fn unrelated_open_inputs_keep_a_retained_result_current() -> Result<(), Box<dyn Error>> {
         let project = project()?;
         let backend = backend()?;
         open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
@@ -1263,8 +1278,8 @@ mod tests {
     // Distinct contributions from two current entries are published together,
     // and an identical diagnostic reported by both appears once.
     #[tokio::test]
-    async fn distinct_contributions_from_two_entries_union_and_dedup()
-    -> Result<(), Box<dyn Error>> {
+    async fn distinct_contributions_from_two_entries_union_and_dedup() -> Result<(), Box<dyn Error>>
+    {
         let project = project()?;
         let backend = backend()?;
         open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
@@ -1278,10 +1293,9 @@ mod tests {
         let imported = diagnostic("imported rule");
         let shared = diagnostic("shared rule");
         let mut own_findings = no_findings();
-        own_findings.by_uri.insert(
-            project.main_uri.clone(),
-            vec![own.clone(), shared.clone()],
-        );
+        own_findings
+            .by_uri
+            .insert(project.main_uri.clone(), vec![own.clone(), shared.clone()]);
         let mut imported_findings = no_findings();
         imported_findings.by_uri.insert(
             project.main_uri.clone(),
@@ -1304,7 +1318,10 @@ mod tests {
             "both current contributors must be published exactly once"
         );
         for expected in [&own, &imported, &shared] {
-            assert!(diagnostics.contains(expected), "missing contributor diagnostic");
+            assert!(
+                diagnostics.contains(expected),
+                "missing contributor diagnostic"
+            );
         }
         assert_eq!(
             diagnostics.iter().filter(|item| *item == &shared).count(),

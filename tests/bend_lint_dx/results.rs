@@ -414,7 +414,9 @@ fn editing_an_independent_open_document_refreshes_a_fenced_result() {
         })
         .must_be("editing an independent open document must refresh a fenced visible result");
     assert_eq!(
-        session.actions(refreshed["params"]["diagnostics"].clone(), 1).len(),
+        session
+            .actions(refreshed["params"]["diagnostics"].clone(), 1)
+            .len(),
         1,
         "the refreshed result keeps its versioned dangerous fix available"
     );
@@ -500,7 +502,9 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
     session.open(source);
     let diagnostics = session.lint()["params"]["diagnostics"].clone();
     assert_eq!(
-        session.actions_at(diagnostics.clone(), 1, range(3, 0, 24)).len(),
+        session
+            .actions_at(diagnostics.clone(), 1, range(3, 0, 24))
+            .len(),
         1,
         "the retained external-import result offers its versioned fix"
     );
@@ -510,7 +514,9 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
     symlink(&second, &replacement).must_be("create replacement alias");
     fs::rename(&replacement, &link).must_be("atomically retarget the external alias");
     assert!(
-        session.actions_at(diagnostics, 1, range(3, 0, 24)).is_empty(),
+        session
+            .actions_at(diagnostics, 1, range(3, 0, 24))
+            .is_empty(),
         "retargeting a captured external alias must fence the stale fix"
     );
     while session
@@ -538,14 +544,20 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
             message["method"] == "textDocument/publishDiagnostics"
                 && message["params"]["uri"] == session.document
                 && has_lint(message)
-                && message["params"]["diagnostics"].as_array().is_some_and(|items| {
-                    items.iter().any(|item| item["code"] == "test/retargeted")
-                })
+                && message["params"]["diagnostics"]
+                    .as_array()
+                    .is_some_and(|items| items.iter().any(|item| item["code"] == "test/retargeted"))
         })
         .must_be("the retargeted external import is rechecked");
     assert!(session.calls() > calls, "the recheck runs the real process");
     assert_eq!(
-        session.actions_at(refreshed["params"]["diagnostics"].clone(), 1, range(3, 0, 24)).len(),
+        session
+            .actions_at(
+                refreshed["params"]["diagnostics"].clone(),
+                1,
+                range(3, 0, 24)
+            )
+            .len(),
         1,
         "the fresh result over the new alias offers its fix again"
     );

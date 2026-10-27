@@ -208,9 +208,7 @@ fn diagnostic_offset(snapshot: &DocumentSnapshot, position: Position) -> Option<
     }
     let line = usize::try_from(position.line).ok()?;
     let content = snapshot.line_index.line_range(&snapshot.text, line)?;
-    let (_, end_character) = snapshot
-        .line_index
-        .position(&snapshot.text, content.end);
+    let (_, end_character) = snapshot.line_index.position(&snapshot.text, content.end);
     let crlf = snapshot
         .text
         .as_bytes()
@@ -252,10 +250,7 @@ pub(super) fn normalized_range(snapshot: &DocumentSnapshot, range: &Range) -> Op
     })
 }
 
-fn finding_target(
-    snapshot: &ProjectSnapshot,
-    finding: &Finding,
-) -> io::Result<(Url, Range)> {
+fn finding_target(snapshot: &ProjectSnapshot, finding: &Finding) -> io::Result<(Url, Range)> {
     let (path, source) = snapshot.source(&finding.path).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
@@ -395,7 +390,11 @@ fn accepted_report(
             ));
         }
     }
-    if report.errors.as_ref().is_some_and(|errors| !errors.is_empty()) {
+    if report
+        .errors
+        .as_ref()
+        .is_some_and(|errors| !errors.is_empty())
+    {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "bend-lint reported structured errors with a successful exit status",
@@ -508,15 +507,15 @@ pub(super) fn parse(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
     use std::{
         fs,
         path::{Path, PathBuf},
         process::{ExitStatus, Output},
     };
-    #[cfg(unix)]
-    use std::os::unix::process::ExitStatusExt;
-    #[cfg(windows)]
-    use std::os::windows::process::ExitStatusExt;
 
     fn project(text: &str) -> (tempfile::TempDir, ProjectSnapshot, PathBuf) {
         let directory = tempfile::tempdir().expect("range workspace");
@@ -549,13 +548,24 @@ mod tests {
         let upstream = Range::new(Position::new(0, 6), Position::new(0, 12));
         let findings = parse(&report(&path, upstream), &snapshot)
             .expect("the raw CRLF source position has an LSP display equivalent");
-        let diagnostic = findings.by_uri.values().flatten().next().expect("range diagnostic");
+        let diagnostic = findings
+            .by_uri
+            .values()
+            .flatten()
+            .next()
+            .expect("range diagnostic");
         assert_eq!(
             diagnostic.range,
             Range::new(Position::new(0, 6), Position::new(0, 11))
         );
-        let (_, source) = snapshot.source(path.to_str().expect("UTF-8 path")).expect("source");
-        assert_eq!(offsets(source, upstream), None, "an edit must not move off the CR");
+        let (_, source) = snapshot
+            .source(path.to_str().expect("UTF-8 path"))
+            .expect("source");
+        assert_eq!(
+            offsets(source, upstream),
+            None,
+            "an edit must not move off the CR"
+        );
     }
 
     #[test]
@@ -566,7 +576,10 @@ mod tests {
             Range::new(Position::new(0, 4), Position::new(0, 8)),
             Range::new(Position::new(0, 12), Position::new(0, 11)),
         ] {
-            assert!(parse(&report(&path, range), &snapshot).is_err(), "{range:?}");
+            assert!(
+                parse(&report(&path, range), &snapshot).is_err(),
+                "{range:?}"
+            );
         }
         let (_directory, snapshot, path) = project("  \"😀\"++\"x\"\n");
         let past_end = Range::new(Position::new(0, 6), Position::new(0, 12));

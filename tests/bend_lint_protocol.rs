@@ -199,21 +199,22 @@ impl Session {
     }
 
     fn calls(&self) -> usize {
-        fs::read_to_string(self.control.join("calls"))
-            .map_or(0, |text| text.lines().count())
+        fs::read_to_string(self.control.join("calls")).map_or(0, |text| text.lines().count())
     }
 
     fn wait_calls(&self, count: usize) {
         let deadline = Instant::now() + TIMEOUT;
         while self.calls() < count {
-            assert!(Instant::now() < deadline, "analyzer did not run {count} time(s)");
+            assert!(
+                Instant::now() < deadline,
+                "analyzer did not run {count} time(s)"
+            );
             thread::sleep(Duration::from_millis(10));
         }
     }
 
     fn prepares(&self) -> usize {
-        fs::read_to_string(self.control.join("prepares"))
-            .map_or(0, |text| text.lines().count())
+        fs::read_to_string(self.control.join("prepares")).map_or(0, |text| text.lines().count())
     }
 
     fn overlay_input(&self) -> Value {
@@ -466,8 +467,7 @@ fn enabled_open_analyzes_overlays_in_the_nearest_project_without_fixing_disk() {
         "prepare receives a real report path: {prepare:?}"
     );
     assert_eq!(
-        fs::canonicalize(session.wait_file("prepare-cwd").trim())
-            .must_be("preparation cwd"),
+        fs::canonicalize(session.wait_file("prepare-cwd").trim()).must_be("preparation cwd"),
         fs::canonicalize(session.project()).must_be("project")
     );
     // The overlay view holds every captured non-rule source exactly.
@@ -672,7 +672,9 @@ fn structured_project_rejection_never_becomes_a_source_diagnostic() {
     session.configure(true, false, 10_000);
     session.open(SOURCE);
     let failure = session.failure();
-    let message = failure["params"]["message"].as_str().must_be("rejection message");
+    let message = failure["params"]["message"]
+        .as_str()
+        .must_be("rejection message");
     assert!(
         message.contains("bend-lint rejected the project")
             && message.contains("language/unneeded_plus is not a rule"),
@@ -750,15 +752,30 @@ fn compiler_and_lint_publish_as_one_union_and_disabling_only_clears_lint() {
     session.open(SOURCE);
     session.compiler(1);
     session.save();
-    let packet = session.lint();
-    assert!(
-        packet["params"]["diagnostics"]
-            .as_array()
-            .must_be("merged diagnostics")
-            .iter()
-            .any(|item| item["message"] == "selected compiler rejection"
-                && item["source"] != "bend-lint")
-    );
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+                && message["params"]["diagnostics"]
+                    .as_array()
+                    .is_some_and(|items| {
+                        items.iter().any(|item| {
+                            item["message"] == "selected compiler rejection"
+                                && item["source"] != "bend-lint"
+                        })
+                    })
+        })
+        .must_be("compiler and lint results eventually coexist");
+    while session
+        .client
+        .receive_matching(Duration::from_millis(150), |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+        })
+        .is_some()
+    {}
     session.configure(false, false, 10_000);
     let cleared = session.compiler(1);
     assert!(!has_lint(&cleared));
@@ -942,11 +959,8 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
 
 #[test]
 fn superseding_preparation_keeps_the_newest_progress_token_until_completion() {
-    let mut session = Session::with_server_capabilities(
-        SOURCE,
-        &[],
-        json!({"window":{"workDoneProgress":true}}),
-    );
+    let mut session =
+        Session::with_server_capabilities(SOURCE, &[], json!({"window":{"workDoneProgress":true}}));
     fs::write(session.control.join("prepare-block"), "").must_be("block preparation");
     session.standard_response();
     session.configure(true, false, 10_000);
@@ -1029,7 +1043,10 @@ fn malformed_output_and_process_failure_preserve_selected_compiler_errors() {
     for (output, status) in [
         ("not json", "0"),
         ("{}", "2"),
-        ("{\"ok\":true,\"findings\":[],\"suppressed\":[],\"skipped\":[]}", "1"),
+        (
+            "{\"ok\":true,\"findings\":[],\"suppressed\":[],\"skipped\":[]}",
+            "1",
+        ),
     ] {
         let mut session = Session::new(SOURCE, &[]);
         fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR)
@@ -1373,7 +1390,10 @@ fn editing_saved_document_refreshes_lint_from_the_overlay() {
         .must_be("the unsaved edit is checked and its finding disappears");
     assert!(!has_lint(&cleared));
     let root = fs::canonicalize(&session.root).must_be("canonical source");
-    assert_eq!(session.overlay_input()[root.to_string_lossy().as_ref()], edited);
+    assert_eq!(
+        session.overlay_input()[root.to_string_lossy().as_ref()],
+        edited
+    );
     assert_eq!(
         fs::read_to_string(&session.root).must_be("unchanged disk"),
         SOURCE
@@ -1582,14 +1602,17 @@ fn retargeting_project_symlink_discards_inflight_findings() {
         true,
     );
     session.block();
-    session.configure(true, false, 10_000);
-    session.open(SOURCE);
     session.client.notify(
         "textDocument/didOpen",
         json!({"textDocument":{
             "uri":uri(&target),"languageId":"bend","version":1,"text":second}}),
     );
-    session.save();
+    session.client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument":{"uri":uri(&target)}}),
+    );
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
     let address = session.wait_file("address");
     fs::remove_file(&alias).must_be("remove old source alias");
     symlink(&target, &alias).must_be("retarget source alias without changing either source");
@@ -1669,14 +1692,17 @@ fn retargeting_project_directory_symlink_discards_inflight_findings() {
         true,
     );
     session.block();
-    session.configure(true, false, 10_000);
-    session.open(SOURCE);
     session.client.notify(
         "textDocument/didOpen",
         json!({"textDocument":{
             "uri":uri(&target),"languageId":"bend","version":1,"text":second}}),
     );
-    session.save();
+    session.client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument":{"uri":uri(&target)}}),
+    );
+    session.configure(true, false, 10_000);
+    session.open(SOURCE);
     let address = session.wait_file("address");
     fs::remove_file(&alias).must_be("remove old directory alias");
     symlink(&target_directory, &alias).must_be("retarget directory alias");

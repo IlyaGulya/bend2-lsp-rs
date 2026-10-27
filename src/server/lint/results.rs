@@ -26,12 +26,14 @@ impl LintResults {
     // Newest first, then entry identity. This is the only ordering a union
     // consumer sees, so output never depends on HashMap iteration order.
     pub(super) fn contributors(&self, uri: &Url) -> Vec<Arc<LintResult>> {
-        self.contributors.get(uri).map_or_else(Vec::new, |contributors| {
-            contributors
-                .iter()
-                .map(|contributor| contributor.result.clone())
-                .collect()
-        })
+        self.contributors
+            .get(uri)
+            .map_or_else(Vec::new, |contributors| {
+                contributors
+                    .iter()
+                    .map(|contributor| contributor.result.clone())
+                    .collect()
+            })
     }
 
     pub(super) fn snapshot_for(&self, path: &Path) -> Option<Arc<ProjectSnapshot>> {
@@ -45,11 +47,7 @@ impl LintResults {
     pub(super) fn covering(&self, paths: &[PathBuf]) -> Vec<Url> {
         self.entries
             .iter()
-            .filter(|(_, result)| {
-                paths
-                    .iter()
-                    .any(|path| result.snapshot.covers_path(path))
-            })
+            .filter(|(_, result)| paths.iter().any(|path| result.snapshot.covers_path(path)))
             .map(|(uri, _)| uri.clone())
             .collect()
     }

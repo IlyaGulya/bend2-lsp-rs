@@ -140,10 +140,15 @@ impl LintControl {
                     "External analysis is disabled. Set bend.lint.enabled to true and select an absolute bend.lint.path; this explicitly permits external tool execution.".into()),
             };
         }
-        self.states.read().get(uri).cloned().unwrap_or_else(|| Status {
-            phase: LintPhase::Waiting,
-            reason: "No current analysis. The next check analyzes the current open inputs.".into(),
-        })
+        self.states
+            .read()
+            .get(uri)
+            .cloned()
+            .unwrap_or_else(|| Status {
+                phase: LintPhase::Waiting,
+                reason: "No current analysis. The next check analyzes the current open inputs."
+                    .into(),
+            })
     }
 }
 
@@ -337,13 +342,7 @@ impl Backend {
         let Some(id) = id else {
             return;
         };
-        let token = self
-            .diagnostics
-            .lint
-            .control
-            .progress
-            .write()
-            .remove(&id);
+        let token = self.diagnostics.lint.control.progress.write().remove(&id);
         if let Some(token) = token {
             self.client
                 .send_notification::<Progress>(ProgressParams {
@@ -369,11 +368,7 @@ impl Backend {
             .collect()
     }
 
-    pub(super) async fn end_lint_progress_tokens(
-        &self,
-        tokens: Vec<NumberOrString>,
-        reason: &str,
-    ) {
+    pub(super) async fn end_lint_progress_tokens(&self, tokens: Vec<NumberOrString>, reason: &str) {
         for token in tokens {
             self.client
                 .send_notification::<Progress>(ProgressParams {

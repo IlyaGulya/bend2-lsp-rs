@@ -257,9 +257,7 @@ async fn communicate(
         }
         Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Err(io::Error::new(
             error.kind(),
-            format!(
-                "bend-lint closed stdin before receiving the complete overlay input: {error}"
-            ),
+            format!("bend-lint closed stdin before receiving the complete overlay input: {error}"),
         )),
         Err(error) => Err(io::Error::new(
             error.kind(),
@@ -401,7 +399,8 @@ impl PrepareReport {
             || self.program.trim().is_empty()
         {
             return Err(invalid(
-                "bend-lint preparation report omits its runtime, platform or program identity".into(),
+                "bend-lint preparation report omits its runtime, platform or program identity"
+                    .into(),
             ));
         }
         let exit_code = self.exit_code;
