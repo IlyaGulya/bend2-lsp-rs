@@ -48,6 +48,7 @@ pub(super) struct ProjectSnapshot {
     files: Identities,
     aliases: BTreeMap<PathBuf, PathBuf>,
     rule_paths: HashSet<PathBuf>,
+    rule_inputs: Identities,
     config_path: PathBuf,
     missing_paths: BTreeMap<PathBuf, Option<PathBuf>>,
     open_sources: BTreeSet<PathBuf>,
@@ -167,8 +168,62 @@ fn is_bend(path: &Path) -> bool {
         .is_some_and(|extension| extension == "bend")
 }
 
-fn trusted_input(config_path: &Path, rule_paths: &HashSet<PathBuf>, path: &Path) -> bool {
-    path == config_path || rule_paths.contains(path)
+fn trusted_input(
+    config_path: &Path,
+    rule_paths: &HashSet<PathBuf>,
+    rule_inputs: &Identities,
+    path: &Path,
+) -> bool {
+    // Configuration and rule files are compiled from disk by the analyzer.
+    // Helpers imported by a rule are part of that compiled program even when
+    // they live outside `bend-lint-rules/` or outside the project, so they are
+    // trusted saved inputs too and can never be replaced by an editor overlay.
+    path == config_path || rule_paths.contains(path) || rule_inputs.contains_key(path)
+}
+
+// The analyzer builds its rule program from the recursive relative-import
+// closure of the rule files, with no project fence. Capture that closure cold
+// from disk with the same import resolver the analysis view uses, bounded by
+// the existing snapshot budgets; warm queries only reuse it.
+fn rule_closure(rule_paths: &HashSet<PathBuf>) -> io::Result<Identities> {
+    let mut inputs = Identities::new();
+    let mut pending: Vec<PathBuf> = rule_paths
+        .iter()
+        .filter(|path| is_bend(path.as_path()))
+        .cloned()
+        .collect();
+    let mut visited = HashSet::new();
+    let mut bytes = 0;
+    while let Some(path) = pending.pop() {
+        let identity = input_identity(&path).unwrap_or_else(|| normalize_path(&path));
+        if !visited.insert(identity.clone()) {
+            continue;
+        }
+        if !identity.exists() {
+            // An import without a target fails the analyzer build as before;
+            // a target that appears later changes the captured project tree.
+            continue;
+        }
+        if inputs.len() >= FILE_LIMIT {
+            return Err(io::Error::other("bend-lint rule inputs exceed 4096 files"));
+        }
+        let (canonical, text) = read_source(&identity, &mut bytes)?;
+        let snapshot = DocumentSnapshot::new(Revision::UNVERSIONED, text);
+        let digest: [u8; 32] = Sha256::digest(snapshot.text.as_bytes()).into();
+        inputs.insert(canonical.clone(), digest);
+        // Only relative imports are part of the local build closure; absolute,
+        // Base, and BendHub imports are pinned tool/package context.
+        pending.extend(
+            resolve_import_targets(&canonical, &snapshot)
+                .into_iter()
+                .filter(|(path, _)| {
+                    let text = &snapshot.text[path.start..path.end];
+                    text.starts_with("./") || text.starts_with("../")
+                })
+                .map(|(_, target)| target),
+        );
+    }
+    Ok(inputs)
 }
 
 fn read_text(path: &Path, limit: usize) -> io::Result<String> {
@@ -270,20 +325,21 @@ fn open_snapshots(
 fn ensure_trusted_inputs_saved(
     config_path: &Path,
     rule_paths: &HashSet<PathBuf>,
+    rule_inputs: &Identities,
     open: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
 ) -> io::Result<()> {
     // Configuration and rule files stay trusted saved inputs: an unsaved rule
     // buffer must not silently replace the rules the analyzer loads from disk.
-    if let Some((path, _)) = open
-        .iter()
-        .find(|(path, snapshot)| {
-            trusted_input(config_path, rule_paths, path) && !disk_matches(path, &snapshot.text)
-        })
-    {
+    // Imported rule helpers are compiled from disk too, so they are gated here
+    // rather than sent as overlays the rule program never reads.
+    if let Some((path, _)) = open.iter().find(|(path, snapshot)| {
+        trusted_input(config_path, rule_paths, rule_inputs, path)
+            && !disk_matches(path, &snapshot.text)
+    }) {
         return Err(io::Error::new(
             io::ErrorKind::WouldBlock,
             format!(
-                "bend-lint skipped: save {} before checking this project; configuration and rule files are trusted saved inputs",
+                "bend-lint skipped: save {} before checking this project; configuration, rule files, and imported rule helpers are trusted saved inputs",
                 path.display()
             ),
         ));
@@ -320,6 +376,7 @@ fn seeds(
     files: &Identities,
     config_path: &Path,
     rule_paths: &HashSet<PathBuf>,
+    rule_inputs: &Identities,
     open: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
 ) -> Vec<PathBuf> {
     let mut pending: Vec<PathBuf> = files
@@ -334,7 +391,7 @@ fn seeds(
         open.keys()
             .filter(|path| {
                 let path = path.as_path();
-                !trusted_input(config_path, rule_paths, path)
+                !trusted_input(config_path, rule_paths, rule_inputs, path)
                     && in_project(root, canonical_root, files, path)
             })
             .cloned(),
@@ -352,6 +409,7 @@ fn imports(path: &Path, snapshot: &DocumentSnapshot) -> Vec<PathBuf> {
 fn build_sources(
     config_path: &Path,
     rule_paths: &HashSet<PathBuf>,
+    rule_inputs: &Identities,
     open: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     mut pending: Vec<PathBuf>,
     cache: Option<(
@@ -385,7 +443,7 @@ fn build_sources(
         }
         if let Some(snapshot) = open
             .get(&key)
-            .filter(|_| !trusted_input(config_path, rule_paths, &key))
+            .filter(|_| !trusted_input(config_path, rule_paths, rule_inputs, &key))
         {
             if captured.sources.len() >= FILE_LIMIT {
                 return Err(io::Error::other(
@@ -429,7 +487,7 @@ fn build_sources(
         }
         if let Some(snapshot) = open
             .get(&canonical)
-            .filter(|_| !trusted_input(config_path, rule_paths, &canonical))
+            .filter(|_| !trusted_input(config_path, rule_paths, rule_inputs, &canonical))
         {
             if captured.sources.len() >= FILE_LIMIT {
                 return Err(io::Error::other(
@@ -457,10 +515,11 @@ fn overlay_map(
     captured: &Captured,
     config_path: &Path,
     rule_paths: &HashSet<PathBuf>,
+    rule_inputs: &Identities,
 ) -> io::Result<BTreeMap<PathBuf, Arc<DocumentSnapshot>>> {
     let mut overlays = BTreeMap::new();
     for (path, snapshot) in &captured.sources {
-        if trusted_input(config_path, rule_paths, path) {
+        if trusted_input(config_path, rule_paths, rule_inputs, path) {
             continue;
         }
         // Oversized JSON keys and lossy native path strings are never used. A
@@ -472,7 +531,7 @@ fn overlay_map(
         }
     }
     for (path, snapshot) in &captured.open {
-        if path.to_str().is_some() || trusted_input(config_path, rule_paths, path) {
+        if path.to_str().is_some() || trusted_input(config_path, rule_paths, rule_inputs, path) {
             continue;
         }
         if !disk_matches(path, &snapshot.text) {
@@ -488,13 +547,44 @@ fn overlay_map(
     Ok(overlays)
 }
 
+// Findings for a closed import must name the same logical document the
+// compiler and the editor use. Captured source keys are canonical, so a
+// symlinked project root would otherwise publish `/private/var/...` while the
+// client and compiler spell the same file `/var/...`. Prefer the project-root
+// spelling, then any captured lexical alias (an external helper reached
+// through a relative or symlinked import), and keep the canonical file URI as
+// the lossless fallback.
+fn logical_uri(
+    path: &Path,
+    root: &Path,
+    canonical_root: Option<&Path>,
+    aliases: &BTreeMap<PathBuf, PathBuf>,
+) -> Option<Url> {
+    // A native non-UTF-8 source key still has no representable URI, exactly as
+    // before; logical spellings never lossily rewrite its native path.
+    path.to_str()?;
+    if let Some(relative) = canonical_root.and_then(|canonical| path.strip_prefix(canonical).ok())
+        && let Some(uri) = file_url(&normalize_path(&root.join(relative)))
+    {
+        return Some(uri);
+    }
+    aliases
+        .iter()
+        .find(|(original, identity)| *identity == path && file_url(original).is_some())
+        .and_then(|(original, _)| file_url(original))
+        .or_else(|| file_url(path))
+}
+
 fn source_uris(
     documents: &[Document],
     sources: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
+    root: &Path,
+    canonical_root: Option<&Path>,
+    aliases: &BTreeMap<PathBuf, PathBuf>,
 ) -> BTreeMap<PathBuf, Url> {
     let mut uris = BTreeMap::new();
     for path in sources.keys() {
-        if let Some(uri) = file_url(path) {
+        if let Some(uri) = logical_uri(path, root, canonical_root, aliases) {
             uris.insert(path.clone(), uri);
         }
     }
@@ -538,8 +628,9 @@ impl ProjectSnapshot {
         let config_text = read_text(&config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
+        let rule_inputs = rule_closure(&files.rule_paths)?;
         let (open, open_aliases) = open_snapshots(documents);
-        ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &open)?;
+        ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &rule_inputs, &open)?;
         let pending = seeds(
             &root,
             canonical_root.as_deref(),
@@ -547,11 +638,13 @@ impl ProjectSnapshot {
             &files.identities,
             &config_path,
             &files.rule_paths,
+            &rule_inputs,
             &open,
         );
         let mut captured = build_sources(
             &config_path,
             &files.rule_paths,
+            &rule_inputs,
             &open,
             pending,
             None,
@@ -561,8 +654,14 @@ impl ProjectSnapshot {
                 insert_alias(&mut captured.aliases, original, identity)?;
             }
         }
-        let overlays = overlay_map(&captured, &config_path, &files.rule_paths)?;
-        let uris = source_uris(documents, &captured.sources);
+        let overlays = overlay_map(&captured, &config_path, &files.rule_paths, &rule_inputs)?;
+        let uris = source_uris(
+            documents,
+            &captured.sources,
+            &root,
+            canonical_root.as_deref(),
+            &captured.aliases,
+        );
         let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
         Ok(Self {
             root,
@@ -573,6 +672,7 @@ impl ProjectSnapshot {
             files: files.identities,
             aliases: files.aliases,
             rule_paths: files.rule_paths,
+            rule_inputs,
             config_path,
             missing_paths: captured.missing,
             open_sources,
@@ -584,7 +684,14 @@ impl ProjectSnapshot {
     // sources. Callers must have verified `unchanged()` first.
     pub(super) fn with_overlays(&self, documents: &[Document]) -> io::Result<Self> {
         let (open, open_aliases) = open_snapshots(documents);
-        ensure_trusted_inputs_saved(&self.config_path, &self.rule_paths, &open)?;
+        // `unchanged()` verified this closure is still the saved rule program,
+        // so a warm rebuild reuses it instead of re-reading helper files.
+        ensure_trusted_inputs_saved(
+            &self.config_path,
+            &self.rule_paths,
+            &self.rule_inputs,
+            &open,
+        )?;
         let config_text = read_text(&self.config_path, BYTE_LIMIT)?;
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
@@ -595,11 +702,13 @@ impl ProjectSnapshot {
             &self.files,
             &self.config_path,
             &self.rule_paths,
+            &self.rule_inputs,
             &open,
         );
         let mut captured = build_sources(
             &self.config_path,
             &self.rule_paths,
+            &self.rule_inputs,
             &open,
             pending,
             Some((&self.sources, &self.open_sources)),
@@ -609,8 +718,19 @@ impl ProjectSnapshot {
                 insert_alias(&mut captured.aliases, original, identity)?;
             }
         }
-        let overlays = overlay_map(&captured, &self.config_path, &self.rule_paths)?;
-        let uris = source_uris(documents, &captured.sources);
+        let overlays = overlay_map(
+            &captured,
+            &self.config_path,
+            &self.rule_paths,
+            &self.rule_inputs,
+        )?;
+        let uris = source_uris(
+            documents,
+            &captured.sources,
+            &self.root,
+            self.canonical_root.as_deref(),
+            &captured.aliases,
+        );
         let open_sources: BTreeSet<PathBuf> = captured.open.keys().cloned().collect();
         Ok(Self {
             root: self.root.clone(),
@@ -621,6 +741,7 @@ impl ProjectSnapshot {
             files: self.files.clone(),
             aliases: self.aliases.clone(),
             rule_paths: self.rule_paths.clone(),
+            rule_inputs: self.rule_inputs.clone(),
             config_path: self.config_path.clone(),
             missing_paths: captured.missing,
             open_sources,
@@ -635,9 +756,20 @@ impl ProjectSnapshot {
     pub(super) fn config_digest(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         for (path, identity) in &self.files {
-            if !trusted_input(&self.config_path, &self.rule_paths, path) {
+            // Rule inputs are hashed from the compiled closure below so a saved
+            // helper outside the project tree changes the preparation key too.
+            if !trusted_input(&self.config_path, &self.rule_paths, &self.rule_inputs, path)
+                || self.rule_inputs.contains_key(path)
+            {
                 continue;
             }
+            hasher.update(path.as_os_str().as_encoded_bytes());
+            hasher.update([0]);
+            hasher.update(identity);
+        }
+        // Preparation compiles the analyzer's rule program from disk; every
+        // file in that closure is therefore a preparation input.
+        for (path, identity) in &self.rule_inputs {
             hasher.update(path.as_os_str().as_encoded_bytes());
             hasher.update([0]);
             hasher.update(identity);
@@ -697,11 +829,30 @@ impl ProjectSnapshot {
                 return false;
             }
         }
-        // Overlaid sources are the immutable analysis view, so their saved disk
-        // text may legitimately differ; every other input is compared exactly.
+        // The compiled rule closure is a preparation input even when a helper
+        // is not captured as a linted source; a saved helper must restart
+        // preparation rather than rebuild inside the next check's timeout.
+        // In-project rule inputs reuse the tree walk digests already read.
         let Ok(tree) = project_files(&self.root) else {
             return false;
         };
+        for (path, expected) in &self.rule_inputs {
+            if let Some(identity) = tree.identities.get(path) {
+                if identity != expected {
+                    return false;
+                }
+                continue;
+            }
+            if self.sources.contains_key(path) && !self.open_sources.contains(path) {
+                // The captured-source loop above already compared exact bytes.
+                continue;
+            }
+            if !file_identity(path).is_ok_and(|identity| identity == *expected) {
+                return false;
+            }
+        }
+        // Overlaid sources are the immutable analysis view, so their saved disk
+        // text may legitimately differ; every other input is compared exactly.
         // Equal canonical bytes do not prove that a source/configuration alias
         // still names the same file, including aliases in parent directories.
         tree.identities == self.files
@@ -823,6 +974,7 @@ fn file_url(path: &Path) -> Option<Url> {
     #[cfg(not(windows))]
     Url::from_file_path(path).ok()
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
