@@ -803,3 +803,208 @@ async fn join_lint_task(previous: Option<JoinHandle<()>>) {
         std::panic::resume_unwind(error.into_panic());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Backend, FileId, LintConfig, LintResult, revision_result, snapshot, wire};
+    use crate::server::{
+        compiler::CompilerReapers, diagnostics::DiagnosticsService,
+        workspace_service::WorkspaceService,
+    };
+    use std::{
+        collections::HashMap,
+        error::Error,
+        fs, io,
+        path::PathBuf,
+        sync::{Arc, atomic::Ordering},
+    };
+    use tokio::sync::Semaphore;
+    use tower_lsp::LspService;
+    use url::Url;
+
+    const MAIN: &str = "import ./dep.bend as Dep\ndef main = Dep.value\n";
+    const DEP: &str = "def value = 1\n";
+    const CHANGED_DEP: &str = "def value = 2\n";
+    const NEW_INPUT: &str = "def extra = 2\n";
+
+    struct Project {
+        _directory: tempfile::TempDir,
+        main: PathBuf,
+        dep: PathBuf,
+        main_uri: Url,
+        dep_uri: Url,
+    }
+
+    fn project() -> Result<Project, Box<dyn Error>> {
+        let directory = tempfile::tempdir()?;
+        let main = directory.path().join("main.bend");
+        let dep = directory.path().join("dep.bend");
+        fs::write(&main, MAIN)?;
+        fs::write(&dep, DEP)?;
+        fs::write(directory.path().join("bend-lint.json"), "{\"rules\":{}}")?;
+        let main_uri = Url::from_file_path(&main).map_err(|()| io::Error::other("main file URI"))?;
+        let dep_uri =
+            Url::from_file_path(&dep).map_err(|()| io::Error::other("dependency file URI"))?;
+        Ok(Project {
+            _directory: directory,
+            main,
+            dep,
+            main_uri,
+            dep_uri,
+        })
+    }
+
+    fn backend() -> Backend {
+        let workspace = Arc::new(WorkspaceService {
+            staging: Arc::new(Semaphore::new(1)),
+            ..WorkspaceService::default()
+        });
+        let (service, _socket) = LspService::new(|client| {
+            Backend::new(
+                client,
+                workspace,
+                Arc::new(DiagnosticsService::default()),
+                Arc::new(CompilerReapers::default()),
+            )
+        });
+        service.inner().clone()
+    }
+
+    async fn open(
+        backend: &Backend,
+        uri: &Url,
+        version: i32,
+        text: &str,
+        path: PathBuf,
+    ) -> Result<(), Box<dyn Error>> {
+        backend
+            .open_workspace_text(uri.clone(), "bend".into(), version, text.into(), Some(path))
+            .await
+            .ok_or_else(|| io::Error::other("the open document should commit"))?;
+        Ok(())
+    }
+
+    fn fence(backend: &Backend, uri: &Url) -> Result<(FileId, u64), Box<dyn Error>> {
+        let state = backend.workspace.state.read();
+        let file = state
+            .database
+            .file_id_by_uri(uri)
+            .ok_or_else(|| io::Error::other("open input identity"))?;
+        let sync = state
+            .revisions
+            .get(&file)
+            .ok_or_else(|| io::Error::other("open input revision"))?;
+        Ok((file, revision_result(sync.status()).generation()))
+    }
+
+    fn retain(
+        backend: &Backend,
+        uri: &Url,
+        snapshot: Arc<snapshot::ProjectSnapshot>,
+        revisions: Vec<(FileId, u64)>,
+    ) {
+        let epoch = backend.diagnostics.lint.epoch.load(Ordering::SeqCst);
+        backend.diagnostics.lint.results.write().insert(
+            uri.clone(),
+            Arc::new(LintResult {
+                epoch,
+                revisions,
+                config: LintConfig::default(),
+                snapshot,
+                findings: wire::Findings {
+                    by_uri: HashMap::new(),
+                    actionable: Vec::new(),
+                    skipped: Vec::new(),
+                },
+            }),
+        );
+    }
+
+    // A dependency changes after the immutable capture but before publication.
+    // Sampling generations after the capture pairs older text with the newer
+    // generation, so the retained entry must still be rejected.
+    #[tokio::test]
+    async fn captured_text_cannot_be_retained_under_a_newer_dependency_generation()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend();
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        open(&backend, &project.dep_uri, 1, DEP, project.dep.clone()).await?;
+        let captured = backend.workspace_documents();
+        let snapshot = Arc::new(snapshot::ProjectSnapshot::capture(
+            &project.main,
+            &captured,
+        )?);
+        open(&backend, &project.dep_uri, 2, CHANGED_DEP, project.dep.clone()).await?;
+        let revisions = vec![
+            fence(&backend, &project.main_uri)?,
+            fence(&backend, &project.dep_uri)?,
+        ];
+        retain(&backend, &project.main_uri, snapshot, revisions);
+        assert!(
+            backend.current_lint_result(&project.main_uri).is_none(),
+            "captured dependency text outlived the newer generation it was paired with"
+        );
+        Ok(())
+    }
+
+    // A covered input opens after the capture and is absent from the captured
+    // fence list entirely. Its unsaved text was never analyzed, so the retained
+    // entry is not current.
+    #[tokio::test]
+    async fn newly_opened_covered_input_invalidates_a_retained_result()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend();
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        let captured = backend.workspace_documents();
+        let snapshot = Arc::new(snapshot::ProjectSnapshot::capture(
+            &project.main,
+            &captured,
+        )?);
+        let revisions = vec![fence(&backend, &project.main_uri)?];
+        retain(&backend, &project.main_uri, snapshot, revisions);
+        let extra = project
+            .main
+            .parent()
+            .ok_or_else(|| io::Error::other("project root"))?
+            .join("extra.bend");
+        let extra_uri =
+            Url::from_file_path(&extra).map_err(|()| io::Error::other("new input URI"))?;
+        open(&backend, &extra_uri, 1, NEW_INPUT, extra).await?;
+        assert!(
+            backend.current_lint_result(&project.main_uri).is_none(),
+            "a covered input opened after the capture left the older result current"
+        );
+        Ok(())
+    }
+
+    // Currentness is scoped to the captured project view: other projects and
+    // refreshed unrelated inputs must not retire a valid result.
+    #[tokio::test]
+    async fn unrelated_open_inputs_keep_a_retained_result_current()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend();
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        let captured = backend.workspace_documents();
+        let snapshot = Arc::new(snapshot::ProjectSnapshot::capture(
+            &project.main,
+            &captured,
+        )?);
+        let revisions = vec![fence(&backend, &project.main_uri)?];
+        retain(&backend, &project.main_uri, snapshot, revisions);
+        let other = tempfile::tempdir()?;
+        let other_path = other.path().join("other.bend");
+        fs::write(&other_path, NEW_INPUT)?;
+        let other_uri =
+            Url::from_file_path(&other_path).map_err(|()| io::Error::other("other file URI"))?;
+        open(&backend, &other_uri, 1, NEW_INPUT, other_path.clone()).await?;
+        open(&backend, &other_uri, 2, NEW_INPUT, other_path).await?;
+        assert!(
+            backend.current_lint_result(&project.main_uri).is_some(),
+            "an unrelated project input retired a still-current result"
+        );
+        Ok(())
+    }
+}
