@@ -35,6 +35,17 @@ fn prepare(arguments: &[String], control: &Path) -> io::Result<ExitCode> {
         .open(control.join("prepares"))?;
     writeln!(attempts, "{}", arguments.join("\t"))?;
     fs::write(control.join("prepare-arguments"), arguments.join("\n"))?;
+    if control.join("prepare-block").exists() {
+        let listener = hold_socket(&control.join("prepare-address"))?;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while !control.join("prepare-release").exists() {
+            if Instant::now() >= deadline {
+                return Err(io::Error::other("prepare fixture gate deadline exceeded"));
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        drop(listener);
+    }
     if control.join("prepare-fail").exists() {
         eprintln!("bend-lint: fixture prepare failure");
         return Ok(ExitCode::FAILURE);
