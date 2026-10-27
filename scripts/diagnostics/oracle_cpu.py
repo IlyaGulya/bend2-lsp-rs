@@ -31,7 +31,7 @@ const message = Promise.withResolvers();
 const online = Promise.withResolvers();
 const worker = new Worker(`
   const { parentPort } = require("node:worker_threads");
-  parentPort.once("message", () => {
+  parentPort.on("message", () => {
     function preflightWorkerBurn() {
       const end = performance.now() + 300;
       let value = 1;
