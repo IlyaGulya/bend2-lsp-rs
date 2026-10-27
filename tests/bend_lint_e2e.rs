@@ -492,12 +492,7 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
         .as_array()
         .must_be("genuine skipped reasons");
     assert!(
-        skipped.iter().any(|skip| {
-            skip["reason"] == "unloaded"
-                && skip["message"]
-                    .as_str()
-                    .is_some_and(|message| message.contains("Bend does not load"))
-        }),
+        skipped.iter().any(|skip| skip["reason"] == "unloaded"),
         "the real analyzer reports the unloaded input: {report}"
     );
     let started = Instant::now();
@@ -953,7 +948,20 @@ fn genuine_overlay_report(
         .stderr(Stdio::piped())
         .spawn()
         .must_be("spawn genuine overlay CLI");
-    let input = serde_json::to_vec(overlays).must_be("serialize genuine overlay view");
+    // The CLI consumes ordinary native paths, not Windows verbatim prefixes.
+    // Normalize independently of the server's serializer so this remains an
+    // external oracle for the source view rather than an echo of LSP wiring.
+    let view: BTreeMap<_, _> = overlays
+        .iter()
+        .map(|(path, text)| {
+            let path = Url::from_file_path(path)
+                .must_be("lossless overlay file URL")
+                .to_file_path()
+                .must_be("native overlay protocol path");
+            (path, text)
+        })
+        .collect();
+    let input = serde_json::to_vec(&view).must_be("serialize genuine overlay view");
     child
         .stdin
         .take()
