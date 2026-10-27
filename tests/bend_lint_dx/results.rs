@@ -296,3 +296,114 @@ fn previously_missing_external_imports_fence_old_fixes() {
         session.finish();
     }
 }
+
+fn target_response(path: &Path, findings: Vec<Value>, ok: bool) {
+    let response = json!({"ok":ok,"findings":findings,"suppressed":[],"skipped":[]});
+    fs::write(
+        path,
+        serde_json::to_vec(&response).must_be("serialize target-specific response"),
+    )
+    .must_be("write target-specific response");
+}
+
+#[test]
+fn editing_an_independent_open_document_refreshes_a_fenced_result() {
+    let mut session = Session::new(SOURCE, &[("other.bend", SOURCE)]);
+    let other = session.project().join("other.bend");
+    let other_uri = uri(&other);
+    let other_source = SOURCE;
+    let mut original = finding(&session.root, "test/original", range(0, 9, 10));
+    original["fixes"] = json!([fix(&session.root, range(0, 9, 10), "")]);
+    // Each target has its own canned report: a check of the independent entry
+    // must never fabricate findings for the retained document.
+    let responses = session.control.join("responses");
+    fs::create_dir(&responses).must_be("create per-target responses");
+    target_response(&responses.join("main.bend.json"), vec![original], true);
+    target_response(&responses.join("other.bend.json"), vec![], true);
+    session.configure(true, true, 10_000);
+    session.open(SOURCE);
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":other_uri,"languageId":"bend","version":1,"text":other_source
+        }}),
+    );
+    // Let the debounced open checks finish, then check the retained document
+    // explicitly: its immutable project snapshot now includes both open inputs.
+    thread::sleep(Duration::from_millis(700));
+    while session
+        .client
+        .receive_matching(Duration::from_millis(150), |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .is_some()
+    {}
+    let run = session.client.request_response(
+        "workspace/executeCommand",
+        json!({"command":"bend2.lint.run","arguments":[{"uri":session.document}]}),
+    );
+    assert!(run.get("error").is_none(), "{run}");
+    let baseline = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .must_be("the retained document publishes its actionable result");
+    let diagnostics = baseline["params"]["diagnostics"].clone();
+    assert_eq!(
+        session.actions(diagnostics, 1).len(),
+        1,
+        "the retained result offers its versioned dangerous fix"
+    );
+    while session
+        .client
+        .receive_matching(Duration::from_millis(150), |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .is_some()
+    {}
+    // Edit only the independent document. The retained snapshot fenced this
+    // document's revision too, so its visible result must be rechecked rather
+    // than silently left stale with unavailable fixes.
+    session.client.notify(
+        "textDocument/didChange",
+        json!({"textDocument":{"uri":other_uri,"version":2},
+        "contentChanges":[{"text":format!("# other edit\n{other_source}")}]}),
+    );
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == other_uri
+                && message["params"]["version"] == 2
+        })
+        .must_be("the edited independent document is checked");
+    let refreshed = session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == session.document
+                && has_lint(message)
+        })
+        .must_be("editing an independent open document must refresh a fenced visible result");
+    assert_eq!(
+        session.actions(refreshed["params"]["diagnostics"].clone(), 1).len(),
+        1,
+        "the refreshed result keeps its versioned dangerous fix available"
+    );
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("unchanged retained document"),
+        SOURCE
+    );
+    assert_eq!(
+        fs::read_to_string(&other).must_be("unsaved independent edit stays off disk"),
+        SOURCE
+    );
+    session.finish();
+}

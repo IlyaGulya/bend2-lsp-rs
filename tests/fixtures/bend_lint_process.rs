@@ -79,6 +79,25 @@ fn prepare(arguments: &[String], control: &Path) -> io::Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
+fn response_file(control: &Path, arguments: &[String]) -> std::path::PathBuf {
+    // A test can control each target's canned report independently, so a check
+    // of document B never fabricates findings for document A.
+    if let Some(target) = arguments
+        .iter()
+        .find(|argument| argument.ends_with(".bend"))
+        && let Some(name) = Path::new(target).file_name()
+    {
+        let candidate = control
+            .join("responses")
+            .join(name)
+            .with_extension("bend.json");
+        if candidate.is_file() {
+            return candidate;
+        }
+    }
+    control.join("response.json")
+}
+
 fn run() -> io::Result<ExitCode> {
     let arguments: Vec<_> = env::args().skip(1).collect();
     if arguments.first().is_some_and(|arg| arg == "--descendant") {
@@ -141,7 +160,7 @@ fn run() -> io::Result<ExitCode> {
     let listener = hold_socket(&control.join("address"))?;
     // Capture the response when this invocation starts: a test that changes the
     // response while a check is blocked must affect the next invocation only.
-    let output = fs::read(control.join("response.json"))?;
+    let output = fs::read(response_file(control, &arguments))?;
     // The child owns a distinct socket: killing only the immediate analyzer
     // process must not look like successful process-tree cleanup.
     let mut descendant = if control.join("spawn-descendant").exists() {
