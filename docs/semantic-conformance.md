@@ -284,6 +284,38 @@ rejection and recovery assertion; diagnostic reference checks additionally
 require identical case identities, semantic/rejection coverage, histories and
 stdio observations.
 
+## Canonical-key representation qualification
+
+The oracle still calls the official `term_lower` for every type, body and
+constructor in each fresh Book, including Base. `canonicalTermKey` projects
+source fields with copy-on-write and uses native JSON serialization without a
+per-property replacer. Only paths needing exclusion are copied; already-clean
+objects are reused read-only. It preserves every other own field and property
+order, including fields unknown to a term-tag whitelist. It never edits shared
+leaves or source annotations and does not cache keys across Books.
+The projection is defined for pinned plain native term data, not arbitrary
+JavaScript objects with getters or custom `toJSON` hooks.
+
+`test_semantic_book_stream.ts` compares exact bytes with the official `term_key`
+over native constructors, generated terms and Base-loaded Books, and checks source
+and alias preservation. Additional `scripts/diagnostics/canonical_key.py`
+qualification checks every current PR-corpus view against both the plain and
+instrumented compiler modules. It preserves intended rejection observations and
+compares all module observations, not hashes containing runtime timings.
+
+```sh
+python3 scripts/semantic_install.py --download-runtime --native-contracts
+python3 scripts/diagnostics/canonical_key.py --correctness-only \
+  --output target/canonical-key-local
+```
+
+The branch-scoped `semantic-canonical-key.yml` workflow additionally records
+alternating native/candidate canonicalization costs on hosted Linux. Each arm
+includes official lowering and the existing idle-heap policy. These are
+component-level observations, not a new admission threshold, full-runtime p95
+qualification or permission to change the original quality/Callgrind gates.
+Local performance measurement remains forbidden.
+
 ## CI calibration and longer search
 
 `.github/workflows/semantic-fuzz.yml` is unprivileged and separate from release

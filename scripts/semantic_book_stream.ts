@@ -3,18 +3,54 @@ export const CHUNK_CHARS=16384;
 export const BATCH_CHUNKS=256;
 export const BATCH_CHARS=65536;
 export type Chunk=[number,number,string,boolean];
+// Lowered leaves may alias a live Book. Copy only paths that contain a source
+// field; native JSON handles ordering, escaping and scalar formatting unchanged.
+function withoutSources(value:unknown):unknown {
+  if(value===null||typeof value!=='object')return value;
+  if(Array.isArray(value)){
+    const values:readonly unknown[]=value;
+    let copy:unknown[]|undefined;
+    for(let index=0;index<values.length;index++){
+      const child=values[index];
+      if(child===null||typeof child!=='object')continue;
+      const clean=withoutSources(child);
+      if(clean!==child){copy??=values.slice();copy[index]=clean;}
+    }
+    return copy??value;
+  }
+  // Object shape is native data; own string properties remain unknown until read.
+  const fields=value as Record<string,unknown>;
+  let copy:Record<string,unknown>|undefined;
+  for(const key in fields){
+    if(!Object.hasOwn(fields,key))continue;
+    const child=fields[key];
+    if(key==='s'){
+      if(child!==undefined){copy??={...value};copy.s=undefined;}
+      continue;
+    }
+    if(child===null||typeof child!=='object')continue;
+    const clean=withoutSources(child);
+    if(clean!==child){copy??={...value};copy[key]=clean;}
+  }
+  return copy??value;
+}
+export function canonicalTermKey(lowered:unknown):string {
+  const key=JSON.stringify(withoutSources(lowered));
+  if(typeof key!=='string')throw Error('invalid-native-canonical-key');
+  return key;
+}
 function* components(native:any,book:any):Generator<string> {
   yield JSON.stringify(['Book',book.order.length,book.hols]);
   for(const key of book.order){
     const declaration=book.tlds[key];
     if(!declaration||(declaration.$!=='Def'&&declaration.$!=='ADT'))throw Error('invalid-native-declaration');
     yield JSON.stringify([key,declaration.$,declaration.$==='Def'?declaration.v!==null:declaration.c.length]);
-    yield native.term_key(native.term_lower(declaration.T));
+    yield canonicalTermKey(native.term_lower(declaration.T));
     if(declaration.$==='Def'){
-      if(declaration.v!==null)yield native.term_key(native.term_lower(declaration.v));
+      if(declaration.v!==null)yield canonicalTermKey(native.term_lower(declaration.v));
     }else for(const constructor of declaration.c){
       yield constructor.k;
-      yield native.term_key(native.term_lower(constructor.T));
+      yield canonicalTermKey(native.term_lower(constructor.T));
     }
   }
 }
