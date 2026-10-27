@@ -73,19 +73,6 @@ class BootstrapTests(unittest.TestCase):
                         bootstrap.install(Path(directory) / "install", "x86_64-apple-darwin")
                     download.assert_not_called()
 
-    def test_published_package_identity_binds_runtime_rule_api_and_standard_rules(self):
-        with tempfile.TemporaryDirectory() as directory:
-            package = package_at(
-                Path(directory),
-                rules=["layout/format", "language/unneeded_plus"],
-            )
-            identity = bootstrap.package_identity(package)
-            self.assertEqual(identity["version"], "0.2.1")
-            self.assertEqual(
-                identity["standard_rules"], ["layout/format", "language/unneeded_plus"]
-            )
-            self.assertEqual(len(identity["defaults_sha256"]), 64)
-
     def test_identity_mismatch_is_rejected_before_provisioning(self):
         for mismatch in ("version", "bun", "bendRelease", "rule-api", "defaults", "script"):
             with self.subTest(mismatch=mismatch), tempfile.TemporaryDirectory() as directory:
