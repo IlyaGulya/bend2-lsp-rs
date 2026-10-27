@@ -24,8 +24,8 @@ const ANALYZER_TIMEOUT_MS: u64 = 120_000;
 // For Bun, BEND2_LINT_TEST_ARGUMENTS is a JSON string array containing the
 // installed or officially shipped src/linter/seam.ts path, not the raw checkout,
 // bunx or a package manager. Shipping preserves the published rule API identity.
-// The tested upstream schema is standalone 0.1.1 at revision
-// 05fb8942eb297088b022d91d6d4187bccdb11d71, not the older PR1389 CLI.
+// The tested upstream schema is standalone 0.2.1 at revision
+// 8eaa9b84a74b8e1c54c55d396a585d26bd1d41e0, with rule API 0.2.1.0.
 #[test]
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
@@ -40,7 +40,7 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
     fs::write(&root, source).must_be("write genuine Bend source");
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.1.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
     )
     .must_be("enable genuine upstream rules");
     let report = match std::panic::catch_unwind(|| genuine_report(&executable, &arguments, &root)) {
@@ -117,7 +117,7 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.1.1.0"},
+            "packages":{"bend-lint-rules":"0.2.1.0"},
             "rules":{IMPORTS:{},CANONICAL_PATH:{}}
         }))
         .must_be("serialize real import rules"),

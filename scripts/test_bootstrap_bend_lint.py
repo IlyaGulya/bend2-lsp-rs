@@ -2,6 +2,7 @@
 """Consumer-visible safety boundaries for the native bend-lint E2E bootstrap."""
 
 import io
+import json
 from pathlib import Path
 import tarfile
 import tempfile
@@ -71,6 +72,74 @@ class BootstrapTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         bootstrap.install(Path(directory) / "install", "x86_64-apple-darwin")
                     download.assert_not_called()
+
+    def test_published_package_identity_binds_runtime_rule_api_and_standard_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = package_at(
+                Path(directory),
+                rules=["layout/format", "language/unneeded_plus"],
+            )
+            identity = bootstrap.package_identity(package)
+            self.assertEqual(identity["version"], "0.2.1")
+            self.assertEqual(
+                identity["standard_rules"], ["layout/format", "language/unneeded_plus"]
+            )
+            self.assertEqual(len(identity["defaults_sha256"]), 64)
+
+    def test_identity_mismatch_is_rejected_before_provisioning(self):
+        for mismatch in ("version", "bun", "bendRelease", "rule-api", "defaults", "script"):
+            with self.subTest(mismatch=mismatch), tempfile.TemporaryDirectory() as directory:
+                package = package_at(
+                    Path(directory),
+                    rules=[] if mismatch == "defaults" else ["layout/format"],
+                )
+                if mismatch == "version":
+                    write_metadata(package, version="0.1.1")
+                elif mismatch == "bun":
+                    write_metadata(package, bun="1.4.3")
+                elif mismatch == "bendRelease":
+                    write_metadata(package, bend_release="bendlang/bend/v2.0.37")
+                elif mismatch == "rule-api":
+                    (package / "src/linter/cli.bend").write_text(
+                        "import bend-lint-api@0.1.1.0/linter/lint.bend\n", encoding="utf-8"
+                    )
+                elif mismatch == "script":
+                    (package / "src/linter/seam.ts").unlink()
+                with self.assertRaises(ValueError):
+                    bootstrap.package_identity(package)
+
+
+def write_metadata(
+    package: Path,
+    version: str = "0.2.1",
+    bun: str = "1.4.4",
+    bend_release: str = "bendlang/bend/v2.0.39",
+):
+    package.mkdir(parents=True, exist_ok=True)
+    (package / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "bend-lint",
+                "version": version,
+                "engines": {"bun": bun},
+                "bendRelease": bend_release,
+                "bendWindows": "MattCozendey/bend/" + "0" * 40,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def package_at(root: Path, rules):
+    package = root / "package"
+    write_metadata(package)
+    (package / "src/linter").mkdir(parents=True, exist_ok=True)
+    (package / "src/linter/seam.ts").write_text("entry\n", encoding="utf-8")
+    (package / "src/linter/defaults.json").write_text(json.dumps(rules), encoding="utf-8")
+    (package / "src/linter/cli.bend").write_text(
+        "import bend-lint-api@0.2.1.0/linter/lint.bend as Lint\n", encoding="utf-8"
+    )
+    return package
 
 
 if __name__ == "__main__":
