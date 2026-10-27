@@ -173,6 +173,7 @@ impl Backend {
                 .collect();
         };
         let snapshot = result.snapshot.clone();
+        let documents = self.workspace_documents();
         let Ok(permit) = self
             .diagnostics
             .lint
@@ -186,7 +187,7 @@ impl Backend {
         let fresh = super::super::state::blocking_result(
             tokio::task::spawn_blocking(move || {
                 let _permit = permit;
-                snapshot.unchanged()
+                snapshot.unchanged() && snapshot.open_documents_current(&documents)
             })
             .await,
         );

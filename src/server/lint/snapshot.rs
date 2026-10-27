@@ -204,7 +204,7 @@ fn read_source(path: &Path, bytes: &mut usize) -> io::Result<(PathBuf, String)> 
     let size = usize::try_from(metadata.len()).map_err(io::Error::other)?;
     let remaining = BYTE_LIMIT
         .checked_sub(*bytes)
-        .ok_or_else(|| io::Error::other("bend-lint snapshot exceeds 32 MiB of source text"))?;
+        .ok_or(io::Error::other("bend-lint snapshot exceeds 32 MiB of source text"))?;
     if size > remaining {
         return Err(io::Error::other(
             "bend-lint snapshot exceeds 32 MiB of source text",
@@ -330,7 +330,10 @@ fn build_sources(
     let mut bytes = 0usize;
     while let Some(path) = pending.pop() {
         let identity = input_identity(&path);
-        let key = identity.clone().unwrap_or_else(|| path.clone());
+        let key = match &identity {
+            Some(identity) => identity.clone(),
+            None => path.clone(),
+        };
         if !visited.insert(key.clone()) {
             continue;
         }
@@ -630,6 +633,31 @@ impl ProjectSnapshot {
         tree.identities == self.files
             && tree.rule_paths == self.rule_paths
             && tree.aliases == self.aliases
+    }
+
+    // A retained result may be offered as a fix only while every covered open
+    // buffer still matches the immutable analysis view it was computed from.
+    pub(super) fn open_documents_current(&self, documents: &[Document]) -> bool {
+        documents.iter().all(|document| {
+            let Ok(path) = document.uri.to_file_path() else {
+                return true;
+            };
+            let identity = input_identity(&path);
+            let covered = self.covers_path(&path)
+                || identity
+                    .as_ref()
+                    .is_some_and(|identity| self.covers_path(identity));
+            if !covered {
+                return true;
+            }
+            let Some(identity) = identity else {
+                return false;
+            };
+            self.sources.get(&identity).map_or_else(
+                || disk_matches(&path, &document.text),
+                |source| source.text == document.text,
+            )
+        })
     }
 
     pub(super) fn source(&self, path: &str) -> Option<(PathBuf, &Arc<DocumentSnapshot>)> {
