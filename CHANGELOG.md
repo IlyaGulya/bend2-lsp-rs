@@ -46,6 +46,9 @@
 
 ### Under the hood
 
+- Raise Tokio's minimum version and lock it to 1.53.3, clearing
+  [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
+  without adding an audit exception.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
