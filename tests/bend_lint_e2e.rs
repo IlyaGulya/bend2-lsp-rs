@@ -215,7 +215,15 @@ fn unsaved_change_republishes_genuine_findings_without_touching_disk() {
             "contentChanges":[{"text":unsaved}]
         }),
     );
-    let unsaved_packet = wait_for_lint_diagnostics(&mut client, &document, started, 2);
+    // The saved run above already primed the genuine CLI, rules and compiler.
+    // This is a warm-path publication requirement, not a cold-build allowance.
+    let unsaved_packet = wait_for_lint_diagnostics_within(
+        &mut client,
+        &document,
+        started,
+        2,
+        Duration::from_secs(10),
+    );
     let findings = &unsaved_packet["params"]["diagnostics"];
     assert_eq!(
         finding(findings, FORMAT)["range"]["start"],
@@ -422,8 +430,24 @@ fn wait_for_lint_diagnostics(
     started: Instant,
     version: i32,
 ) -> Value {
+    wait_for_lint_diagnostics_within(
+        client,
+        document,
+        started,
+        version,
+        Duration::from_secs(150),
+    )
+}
+
+fn wait_for_lint_diagnostics_within(
+    client: &mut LspClient,
+    document: &str,
+    started: Instant,
+    version: i32,
+    allowance: Duration,
+) -> Value {
     let waiting = Instant::now();
-    let deadline = waiting + Duration::from_secs(150);
+    let deadline = waiting + allowance;
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
@@ -448,8 +472,9 @@ fn wait_for_lint_diagnostics(
     }
     panic!(
         "real analyzer finding did not arrive through stdio LSP after {:.3}s \
-         (configured analyzer timeout: {ANALYZER_TIMEOUT_MS}ms; LSP exit status: {:?}); \
-         see timestamped window/logMessage and publishDiagnostics messages above",
+         (allowed {allowance:?}; configured analyzer timeout: {ANALYZER_TIMEOUT_MS}ms; \
+         LSP exit status: {:?}); see timestamped window/logMessage and \
+         publishDiagnostics messages above",
         waiting.elapsed().as_secs_f64(),
         client.try_wait()
     );
