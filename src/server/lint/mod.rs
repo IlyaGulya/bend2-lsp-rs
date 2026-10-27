@@ -84,12 +84,20 @@ pub(super) struct LintService {
 pub(super) struct LintInvalidation {
     previous: Option<JoinHandle<()>>,
     affected: HashSet<Url>,
+    interrupted: Vec<Url>,
     warning: Option<String>,
 }
 
 impl LintInvalidation {
-    pub(super) fn affected(&self) -> Vec<Url> {
-        self.affected.iter().cloned().collect()
+    // A selective invalidation aborts the scheduler: results matched by the
+    // caller are gone, and work that was queued or running around them is
+    // handed back so the caller can re-schedule it instead of losing it.
+    pub(super) fn reschedule(&self) -> Vec<Url> {
+        self.affected
+            .iter()
+            .cloned()
+            .chain(self.interrupted.iter().cloned())
+            .collect()
     }
 }
 
@@ -152,6 +160,7 @@ impl LintService {
         LintInvalidation {
             previous,
             affected: self.take_results(),
+            interrupted: Vec::new(),
             warning,
         }
     }
@@ -162,8 +171,18 @@ impl LintService {
     ) -> LintInvalidation {
         let mut task = self.task.write();
         self.next_epoch();
-        self.pending.write().clear();
-        self.active.write().take();
+        // Hand back every request the aborted scheduler owned. Clearing them
+        // here dropped work whenever the selective invalidation matched no
+        // finished result, so a pending or preparing entry was never re-run.
+        let interrupted: Vec<Url> = {
+            let mut pending = self.pending.write();
+            let mut interrupted: Vec<Url> = pending.iter().cloned().collect();
+            pending.clear();
+            if let Some(active) = self.active.write().take() {
+                interrupted.push(active);
+            }
+            interrupted
+        };
         let previous = task.take();
         if let Some(previous) = &previous {
             previous.abort();
@@ -184,6 +203,7 @@ impl LintService {
         LintInvalidation {
             previous,
             affected,
+            interrupted,
             warning: None,
         }
     }

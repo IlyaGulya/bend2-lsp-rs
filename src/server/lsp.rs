@@ -354,7 +354,7 @@ impl LanguageServer for Backend {
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_close", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let invalidation = self.close_lint(&params.text_document.uri);
-        let reschedule = invalidation.affected();
+        let reschedule = invalidation.reschedule();
         let operation = async {
             let _operation = self.workspace.document_operation().await;
             let uri = params.text_document.uri;
