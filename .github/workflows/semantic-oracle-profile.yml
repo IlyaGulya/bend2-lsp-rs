@@ -48,7 +48,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/12710147809/zip > "$RUNNER_TEMP/reference-semantic-gate.zip"
-      - name: Capture both VMs under original semantic resource limits
+      - name: Capture both VMs under the separate 240-second diagnostic deadline
         run: |
           python3 scripts/diagnostics/oracle_cpu.py \
             --reference "$RUNNER_TEMP/reference-semantic-gate.zip" \

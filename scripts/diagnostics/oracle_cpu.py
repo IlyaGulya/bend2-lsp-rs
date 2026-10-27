@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hosted-only diagnostic; unchanged full oracle protocol and gate resource limits."""
+"""Hosted-only profiling; separate diagnostic deadline, unchanged semantic gates."""
 import argparse
 from collections import Counter, defaultdict
 import gzip
@@ -25,6 +25,7 @@ INSTALLATION = "7bdd49a7f3815db40b49cb0007dc1ddad128911f2353ac7d188919122460a096
 RUNTIME_SHA = "33d56b070be6a9e3da0ab013038b43d1645d0534ca811ecdba4472599117eb4b"
 REVISION = "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
 COUNTS = {"planned": 634, "compared": 627, "matched": 627, "intended_invalid": 5, "recovery": 2}
+DIAGNOSTIC_HARD_SECONDS = 240
 PREFLIGHT = r'''
 import { Worker } from "node:worker_threads";
 const message = Promise.withResolvers();
@@ -196,13 +197,15 @@ def capture(args):
     output = args.output.resolve()
     require(not output.exists(), "capture output must be fresh")
     output.mkdir(parents=True)
+    diagnostic_limits = {**gate.PROFILE, "hard_seconds": DIAGNOSTIC_HARD_SECONDS}
     receipt = {"diagnostic_only": True, "performance_admission": False,
         "accepted_core_source": REFERENCE_SOURCE, "source_fingerprint": SOURCE_FINGERPRINT,
         "provenance": provenance, "runtime_sha256": RUNTIME_SHA,
         "driver_sha256": conformance.file_digest(__file__),
         "preload_sha256": conformance.file_digest(Path(__file__).with_suffix(".ts")),
         "environment": gate.environment(), "reference_gate_zip_sha256": REFERENCE_ZIP_SHA,
-        "original_resource_limits": gate.PROFILE, "stages": {}, "status": "incomplete"}
+        "original_resource_limits": gate.PROFILE, "diagnostic_resource_limits": diagnostic_limits,
+        "stages": {}, "status": "incomplete"}
     try:
         preflight = output / "preflight"
         preflight.mkdir()
@@ -218,7 +221,7 @@ def capture(args):
         preload = full / "oracle_cpu.ts"
         shutil.copyfile(Path(__file__).with_suffix(".ts"), preload)
         began = time.monotonic()
-        deadline = began + gate.PROFILE["hard_seconds"]
+        deadline = began + DIAGNOSTIC_HARD_SECONDS
         plan = conformance.make_plan("pr", gate.PROFILE["seed"], gate.PROFILE["generated_projects"])
         for field in ("manifest_sha256", "pin_sha256", "profile_sha256", "corpus_sha256"):
             require(plan[field] == reference[field], "plan identity drift: " + field)
@@ -227,9 +230,9 @@ def capture(args):
         stage = gate.supervise([sys.executable, str(Path(__file__).resolve()), "--worker", "--plan", str(plan_path),
             "--preload", str(preload), "--output", str(full), "--deadline-seconds",
             str(max(0.001, deadline - time.monotonic() - gate.PROFILE["shutdown_seconds"]))],
-            deadline=deadline, output_path=full / "worker.log", artifact_dir=full)
+            deadline=deadline, output_path=full / "worker.log", artifact_dir=full, limits=diagnostic_limits)
         receipt["stages"]["full"] = stage
-        require(stage["status"] == "pass", "complete original-budget capture failed: " + str(stage["error"]))
+        require(stage["status"] == "pass", "complete diagnostic-budget capture failed: " + str(stage["error"]))
         report = gate.bounded_json(full / "worker-report.json", gate.PROFILE["report_bytes"])
         gate.validate_report(plan, report)
         require(all(report["counts"][key] == value for key, value in COUNTS.items()), "incomplete corpus")
@@ -244,11 +247,12 @@ def capture(args):
         histories = report["metrics"]["histories"]
         pids = [histories["forward"]["pid"], histories["reverse"]["pid"], histories["fresh_pid"]]
         receipt["full_profile"] = profiles(full, pids, installation)
-        require(time.monotonic() <= deadline, "capture validation exceeded original hard deadline")
+        require(time.monotonic() <= deadline, "capture validation exceeded diagnostic hard deadline")
         installed_after = {path.name: conformance.file_digest(path) for path in installation.iterdir() if path.is_file()}
         require(installed_before == installed_after, "accepted installation bytes changed")
         require(conformance.install(runtime, check=True)[1] == provenance, "post-capture installation authentication failed")
         receipt.update(status="complete", counts=report["counts"],
+            capture_elapsed_seconds=time.monotonic() - began,
             forward_and_reverse_fingerprints_equal_reference=True,
             isolation_and_stdio_equal_reference=True, installed_files_sha256=installed_after,
             candidate_sha256=report["candidate_sha256"], lsp_sha256=report["lsp_sha256"],

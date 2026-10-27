@@ -260,6 +260,23 @@ selection, and missing-row policy are unchanged. New workloads cover metadata,
 entry views, and indexed warm queries. Local timing or an ARM smoke run is not
 permission to accept a Callgrind regression. See [performance policy](performance-policy.md).
 
+## Diagnostic CPU profiles
+
+The branch-scoped `semantic-oracle-profile.yml` workflow first runs the unchanged
+`./scripts/quality`, then captures the instrumented and pristine VMs through
+`scripts/diagnostics/oracle_cpu.py`. Profiling is hosted-only. Its separately
+approved 240-second diagnostic deadline allows for profiler overhead; it does
+not change the normal resource, p95 or Callgrind admission contracts above.
+
+`capture-manifest.json` records both `original_resource_limits` and
+`diagnostic_resource_limits`, and always declares `performance_admission: false`.
+Only diagnostic elapsed time differs; memory, output, artifact and shutdown
+limits remain unchanged. Complete corpus, both histories, Base/pristine parity,
+fresh/ABA/repeated isolation and real stdio must match the authenticated reference.
+Each owner records its sampling policy and explicit pauses. Sparse samples and
+instrumented elapsed time are not continuous coverage or calibration evidence.
+Missing owners, final flushes or semantic observations reject a complete capture.
+
 ## CI calibration and longer search
 
 `.github/workflows/semantic-fuzz.yml` is unprivileged and separate from release
