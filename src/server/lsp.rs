@@ -277,15 +277,23 @@ impl LanguageServer for Backend {
             self.load_prelude_module().await;
         }
         let dependents = self.dependent_documents(&uri).await;
-        let mut lint = vec![uri.clone()];
+        let lint_enabled = self.lint_scheduling_enabled();
+        let mut lint = Vec::new();
+        if lint_enabled {
+            lint.push(uri.clone());
+        }
         self.schedule_diagnostics(uri, version).await;
         for document in dependents {
             let revision = document.revision.0;
-            lint.push(document.uri.clone());
+            if lint_enabled {
+                lint.push(document.uri.clone());
+            }
             self.schedule_diagnostics(document.uri, revision).await;
         }
-        self.schedule_lint(self.lint_affected_documents(lint), true)
-            .await;
+        if lint_enabled {
+            self.schedule_lint(self.lint_affected_documents(lint), true)
+                .await;
+        }
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -303,15 +311,23 @@ impl LanguageServer for Backend {
             self.load_prelude_module().await;
         }
         let dependents = self.dependent_documents(&uri).await;
-        let mut lint = vec![uri.clone()];
+        let lint_enabled = self.lint_scheduling_enabled();
+        let mut lint = Vec::new();
+        if lint_enabled {
+            lint.push(uri.clone());
+        }
         self.schedule_diagnostics(uri, version).await;
         for document in dependents {
             let revision = document.revision.0;
-            lint.push(document.uri.clone());
+            if lint_enabled {
+                lint.push(document.uri.clone());
+            }
             self.schedule_diagnostics(document.uri, revision).await;
         }
-        self.schedule_lint(self.lint_affected_documents(lint), true)
-            .await;
+        if lint_enabled {
+            self.schedule_lint(self.lint_affected_documents(lint), true)
+                .await;
+        }
     }
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let uri = params.text_document.uri;

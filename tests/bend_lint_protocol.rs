@@ -351,8 +351,12 @@ impl Session {
     }
 
     fn actions(&mut self, diagnostics: Value, trigger: u8) -> Vec<Value> {
+        self.actions_at(diagnostics, trigger, range(0, 0, 24))
+    }
+
+    fn actions_at(&mut self, diagnostics: Value, trigger: u8, span: Value) -> Vec<Value> {
         let mut params = json!({
-            "textDocument":{"uri":self.document},"range":range(0, 0, 24),
+            "textDocument":{"uri":self.document},"range":span,
             "context":{"triggerKind":trigger,"only":["quickfix.bend-lint.dangerous"]}
         });
         params["context"]["diagnostics"] = diagnostics;

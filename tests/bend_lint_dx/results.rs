@@ -492,14 +492,14 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
     fs::write(&first, bytes).must_be("write original external target");
     fs::write(&second, bytes).must_be("write replacement external target");
     symlink(&first, &link).must_be("create external import alias");
-    let mut original = finding(&session.root, "test/original", range(1, 9, 10));
-    original["fixes"] = json!([fix(&session.root, range(1, 9, 10), "")]);
+    let mut original = finding(&session.root, "test/original", range(2, 9, 10));
+    original["fixes"] = json!([fix(&session.root, range(2, 9, 10), "")]);
     session.response(vec![original], vec![], true);
     session.configure(true, true, 10_000);
     session.open(source);
     let diagnostics = session.lint()["params"]["diagnostics"].clone();
     assert_eq!(
-        session.actions(diagnostics.clone(), 1).len(),
+        session.actions_at(diagnostics.clone(), 1, range(2, 0, 24)).len(),
         1,
         "the retained external-import result offers its versioned fix"
     );
@@ -509,7 +509,7 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
     symlink(&second, &replacement).must_be("create replacement alias");
     fs::rename(&replacement, &link).must_be("atomically retarget the external alias");
     assert!(
-        session.actions(diagnostics, 1).is_empty(),
+        session.actions_at(diagnostics, 1, range(2, 0, 24)).is_empty(),
         "retargeting a captured external alias must fence the stale fix"
     );
     while session
@@ -537,7 +537,7 @@ fn retargeting_an_external_import_symlink_fences_and_rechecks_the_retained_fix()
         .must_be("the retargeted external import is rechecked");
     assert!(session.calls() > calls, "the recheck runs the real process");
     assert_eq!(
-        session.actions(refreshed["params"]["diagnostics"].clone(), 1).len(),
+        session.actions_at(refreshed["params"]["diagnostics"].clone(), 1, range(2, 0, 24)).len(),
         1,
         "the fresh result over the new alias offers its fix again"
     );
