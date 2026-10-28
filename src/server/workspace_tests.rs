@@ -100,7 +100,7 @@ mod tests {
             .ok_or_else(|| std::io::Error::other("open dependency snapshot"))?;
         assert_eq!(cached.text, unsaved);
         let source_graph = database
-            .source_graph(root_id)
+            .source_graph_for(root_id, None)
             .ok_or_else(|| std::io::Error::other("root source graph"))?;
         let overlay = source_graph
             .nodes
@@ -119,7 +119,7 @@ mod tests {
             .ok_or_else(|| std::io::Error::other("disk dependency snapshot"))?;
         assert_eq!(cached.text, disk_text);
         let source_graph = database
-            .source_graph(root_id)
+            .source_graph_for(root_id, None)
             .ok_or_else(|| std::io::Error::other("root graph after closing overlay"))?;
         let disk_source = source_graph
             .nodes
@@ -422,7 +422,7 @@ mod tests {
         assert!(dependency_payload.upgrade().is_none());
         assert_eq!(fs::read_to_string(&generated_path)?, generated_source);
         assert!(database.is_compiler_document(&generated_uri));
-        assert!(database.source_graph(id).is_none());
+        assert!(database.source_graph_for(id, None).is_none());
         assert!(database.indexed_documents().is_empty());
         drop(retained);
         let canonical_source = "def value: U32\n  4\n";

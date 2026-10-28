@@ -400,6 +400,17 @@ fn has_lint(message: &Value) -> bool {
             .is_some_and(|items| items.iter().any(|item| item["source"] == "bend-lint"))
 }
 
+fn has_lint_code(message: &Value, code: &str) -> bool {
+    message["method"] == "textDocument/publishDiagnostics"
+        && message["params"]["diagnostics"]
+            .as_array()
+            .is_some_and(|items| {
+                items
+                    .iter()
+                    .any(|item| item["source"] == "bend-lint" && item["code"] == code)
+            })
+}
+
 fn socket_closed(address: &str) {
     let address: SocketAddr = address.trim().parse().must_be("fixture socket address");
     let deadline = Instant::now() + TIMEOUT;
@@ -955,6 +966,11 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
     session.open(source);
     session.save();
     let address = session.wait_file("address");
+    session.response(
+        vec![finding(&session.root, "fresh/result", range(0, 0, 6))],
+        vec![],
+        true,
+    );
     let dependency = session.project().join("dep.bend");
     fs::write(&dependency, "def value: U32\n  2\n").must_be("external dependency edit");
     session.client.notify(
@@ -963,9 +979,17 @@ fn watched_dependency_change_invalidates_inflight_root_findings() {
     );
     session.release();
     socket_closed(&address);
-    // A watched change invalidates finished/in-flight results but does not
-    // schedule a check by itself: an unrelated completion must stay hidden.
-    session.no_lint();
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| has_lint_code(message, "fresh/result"))
+        .must_be("a watched dependency change automatically rechecks the entry");
+    assert!(
+        session
+            .client
+            .receive_matching(QUIET, |message| has_lint_code(message, "stale/result"))
+            .is_none(),
+        "findings captured before the watched change must never publish"
+    );
     session.finish();
 }
 
@@ -1450,9 +1474,14 @@ fn config_file_change_invalidates_pending_project_results() {
     session.open(SOURCE);
     session.save();
     let address = session.wait_file("address");
+    session.response(
+        vec![finding(&session.root, "fresh/config", range(0, 9, 10))],
+        vec![],
+        true,
+    );
     let config = session.project().join("bend-lint.json");
-    fs::write(&config, "{\"rules\":{\"language/unneeded_plus\":\"off\"}}")
-        .must_be("change project rules");
+    fs::write(&config, "{\"rules\":{},\"entries\":[\"main.bend\"]}")
+        .must_be("change saved project configuration");
     session.client.notify(
         "workspace/didChangeWatchedFiles",
         json!({
@@ -1461,7 +1490,19 @@ fn config_file_change_invalidates_pending_project_results() {
     );
     session.release();
     socket_closed(&address);
-    session.no_lint();
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| has_lint_code(message, "fresh/config"))
+        .must_be("a watched configuration change automatically rechecks the entry");
+    assert!(
+        session
+            .client
+            .receive_matching(QUIET, |message| {
+                has_lint_code(message, "language/unneeded_plus")
+            })
+            .is_none(),
+        "findings captured before the configuration change must never publish"
+    );
     session.finish();
 }
 
@@ -1760,3 +1801,15 @@ mod dx_status;
 
 #[path = "bend_lint_dx/actions.rs"]
 mod dx_actions;
+
+#[path = "bend_lint_protocol/lifecycle.rs"]
+mod lifecycle;
+
+#[path = "bend_lint_protocol/projects.rs"]
+mod projects;
+
+#[path = "bend_lint_protocol/aliases.rs"]
+mod aliases;
+
+#[path = "bend_lint_protocol/compiler_aliases.rs"]
+mod compiler_aliases;

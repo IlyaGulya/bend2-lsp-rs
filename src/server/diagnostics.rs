@@ -19,7 +19,7 @@ use tokio::{
     task::{JoinError, JoinHandle},
     time::sleep,
 };
-use tower_lsp::lsp_types::{Diagnostic, NumberOrString};
+use tower_lsp::lsp_types::{Diagnostic, MessageType, NumberOrString};
 use tracing::Instrument;
 use url::Url;
 
@@ -47,7 +47,16 @@ pub(super) struct DocumentDiagnostics {
 
 struct DiagnosticsContext {
     epoch: u64,
+    root: Option<RootView>,
     sources: Vec<SourceIdentity>,
+}
+
+/// Requested editor spelling that owns the graph root. Its own buffer and LSP
+/// version stream publish that root's result; other spellings of the same file
+/// only supply the representative text and revision stream for dependencies.
+struct RootView {
+    id: FileId,
+    uri: Url,
 }
 
 struct SourceIdentity {
@@ -279,9 +288,7 @@ impl Backend {
             return;
         };
 
-        if let Some(path) = self.document_path(&uri)
-            && let Some(source_graph) = self.compiler_source_graph(uri.clone()).await
-        {
+        if let Some((path, source_graph)) = self.compiler_input_graph(&uri, &span).await {
             let root_matches = source_graph
                 .root_node()
                 .and_then(|root| root.snapshot.as_ref())
@@ -291,7 +298,7 @@ impl Backend {
                 return;
             }
             let Some(captured_context) =
-                self.capture_diagnostics_context(context_epoch, &source_graph)
+                self.capture_diagnostics_context(context_epoch, &source_graph, &uri)
             else {
                 return;
             };
@@ -333,6 +340,7 @@ impl Backend {
         let context = context.unwrap_or_else(|| {
             Arc::new(DiagnosticsContext {
                 epoch: context_epoch,
+                root: None,
                 sources: Vec::new(),
             })
         });
@@ -354,6 +362,38 @@ impl Backend {
         );
         self.publish_coordinated_locked(HashSet::from([uri])).await;
         span.record("outcome", "published");
+    }
+
+    async fn compiler_input_graph(
+        &self,
+        uri: &Url,
+        span: &tracing::Span,
+    ) -> Option<(PathBuf, SourceGraph)> {
+        let path = self.document_path(uri)?;
+        if let Some(graph) = self.compiler_source_graph(uri.clone()).await {
+            return Some((path, graph));
+        }
+        // Conflicting open views are a workspace ambiguity, not a source error.
+        if let Some(reason) = self.compiler_ambiguity(uri).await {
+            span.record("outcome", "ambiguous_views");
+            self.client.log_message(MessageType::WARNING, reason).await;
+        }
+        None
+    }
+
+    // Only invoked after a source graph failed closed, so an ordinary missing
+    // or compiler-owned source never produces an ambiguity message.
+    async fn compiler_ambiguity(&self, uri: &Url) -> Option<String> {
+        let workspace = self.workspace.clone();
+        let uri = uri.clone();
+        super::state::blocking_result(
+            tokio::task::spawn_blocking(move || {
+                let database = workspace.read();
+                let root = database.file_id_by_uri(&uri)?;
+                database.source_view_ambiguity(root)
+            })
+            .await,
+        )
     }
 
     async fn lexical_errors(
@@ -418,13 +458,10 @@ impl Backend {
         }
         let affected = {
             let state = self.workspace.state.read();
-            let Some(file) = state.database.file_id_by_uri(&root_uri) else {
+            let Some(status) = state.revision_status(&root_uri) else {
                 return;
             };
-            let Some(sync) = state.revisions.get(&file) else {
-                return;
-            };
-            if super::state::revision_result(sync.status()).desired() != Some(Revision(version))
+            if status.desired() != Some(Revision(version))
                 || state
                     .database
                     .open_document(&root_uri)
@@ -493,6 +530,7 @@ impl Backend {
         &self,
         epoch: u64,
         graph: &SourceGraph,
+        root_uri: &Url,
     ) -> Option<Arc<DiagnosticsContext>> {
         let database = self.workspace.read();
         if graph
@@ -502,8 +540,22 @@ impl Backend {
         {
             return None;
         }
+        // The root's analyzed text is the requested spelling's own buffer, not
+        // whatever alias currently supplies the representative text. Capture
+        // that spelling as identity so publication can validate it directly.
+        let root_snapshot = graph.root_node().and_then(|node| node.snapshot.as_ref())?;
+        if !database
+            .open_document(root_uri)
+            .is_some_and(|document| Arc::ptr_eq(root_snapshot, &document.snapshot))
+        {
+            return None;
+        }
         Some(Arc::new(DiagnosticsContext {
             epoch,
+            root: Some(RootView {
+                id: graph.root,
+                uri: root_uri.clone(),
+            }),
             sources: graph
                 .nodes
                 .iter()
@@ -529,21 +581,35 @@ impl Backend {
             return false;
         }
         context.sources.iter().all(|source| {
-            let same = match (&source.snapshot, state.database.source_snapshot(source.id)) {
-                (Some(expected), Some(actual)) => Arc::ptr_eq(expected, actual),
-                (None, None) => true,
-                _ => false,
-            };
-            same && state.database.disk_generation(source.id) == source.disk_generation
-                && state.revisions.get(&source.id).is_none_or(|sync| {
-                    let desired = super::state::revision_result(sync.status()).desired();
-                    let expected = source
+            let expected_revision = source
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.revision)
+                .filter(|revision| *revision != Revision::UNVERSIONED);
+            let root_view = context.root.as_ref().filter(|view| view.id == source.id);
+            let current = if let Some(root) = root_view {
+                // The root publishes the requested spelling's own buffer and
+                // version stream; another alias legitimately supplies the
+                // representative text and revision for dependencies only.
+                let open = state.database.open_document(&root.uri);
+                let same = open.as_ref().is_some_and(|doc| {
+                    source
                         .snapshot
                         .as_ref()
-                        .map(|snapshot| snapshot.revision)
-                        .filter(|revision| *revision != Revision::UNVERSIONED);
-                    desired == expected
-                })
+                        .is_some_and(|s| Arc::ptr_eq(s, &doc.snapshot))
+                });
+                let revision = state.revision_status(&root.uri);
+                same && revision.is_some_and(|s| s.desired() == expected_revision)
+            } else {
+                let same = match (&source.snapshot, state.database.source_snapshot(source.id)) {
+                    (Some(expected), Some(actual)) => Arc::ptr_eq(expected, actual),
+                    (None, None) => true,
+                    _ => false,
+                };
+                let revision = state.file_revision_status(source.id);
+                same && revision.is_none_or(|s| s.desired() == expected_revision)
+            };
+            current && state.database.disk_generation(source.id) == source.disk_generation
         })
     }
     pub(super) fn diagnostics_snapshot_current(
@@ -552,13 +618,10 @@ impl Backend {
         snapshot: &Arc<crate::analysis::DocumentSnapshot>,
     ) -> bool {
         let state = self.workspace.state.read();
-        let Some(file) = state.database.file_id_by_uri(uri) else {
+        let Some(status) = state.revision_status(uri) else {
             return false;
         };
-        let Some(sync) = state.revisions.get(&file) else {
-            return false;
-        };
-        super::state::revision_result(sync.status()).desired() == Some(snapshot.revision)
+        status.desired() == Some(snapshot.revision)
             && state
                 .database
                 .open_document(uri)

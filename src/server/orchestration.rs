@@ -213,14 +213,14 @@ impl Backend {
         let span = tracing::Span::current();
         let sync = {
             let state = self.workspace.state.read();
-            let revisions = &state.revisions;
-            let database = &state.database;
-            let Some(id) = database.file_id_by_uri(uri) else {
+            let Some(id) = state.database.file_id_by_uri(uri) else {
                 span.record("outcome", "untracked");
                 return;
             };
             span.record("file_id", tracing::field::debug(&id));
-            revisions.get(&id).cloned()
+            // Revisions are per editor spelling: wait for this URI's own
+            // version stream, not another spelling of the same file.
+            state.revision_sync(uri).cloned()
         };
         let Some(sync) = sync else {
             span.record("outcome", "untracked");
@@ -283,24 +283,33 @@ impl Backend {
         {
             return Vec::new();
         }
-        let dependencies = if let Some(uri) = uri {
-            let database = &state.database;
-            let Some(root) = database.file_id_by_uri(uri) else {
-                return Vec::new();
-            };
-            Some(database.dependencies(root))
-        } else {
-            None
+        let Some(uri) = uri else {
+            return revisions
+                .values()
+                .filter_map(|sync| {
+                    let status = revision_result(sync.status());
+                    status
+                        .is_pending()
+                        .then(|| (sync.subscribe(), status.generation()))
+                })
+                .collect();
         };
-        revisions
+        let database = &state.database;
+        let Some(root) = database.file_id_by_uri(uri) else {
+            return Vec::new();
+        };
+        // One file can be open under several spellings; every relevant open
+        // view gates the read on its own revision stream.
+        database
+            .dependencies(root)
             .iter()
-            .filter_map(|(id, sync)| {
-                let state = revision_result(sync.status());
-                (state.is_pending()
-                    && dependencies
-                        .as_ref()
-                        .is_none_or(|dependencies| dependencies.contains(id)))
-                .then(|| (sync.subscribe(), state.generation()))
+            .flat_map(|id| database.open_view_ids(*id))
+            .filter_map(|view| {
+                let sync = revisions.get(&view)?;
+                let status = revision_result(sync.status());
+                status
+                    .is_pending()
+                    .then(|| (sync.subscribe(), status.generation()))
             })
             .collect()
     }
@@ -752,7 +761,12 @@ impl Backend {
                     let database = workspace_db.read();
                     let root = database.file_id_by_uri(&uri)?;
                     tracing::Span::current().record("file_id", tracing::field::debug(&root));
-                    database.source_graph(root)
+                    // The requested editor spelling supplies the root text and
+                    // its own indexed imports; other nodes keep their own
+                    // generation-fenced representative text. An ambiguous
+                    // (conflicting-text) spelling fails closed here rather
+                    // than checking one buffer against another's closure.
+                    database.source_graph_for(root, Some(&uri))
                 })
             })
             .await,

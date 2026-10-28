@@ -4,6 +4,7 @@ use super::compiler::CompilerConfig;
 use super::diagnostics::{
     diagnostics_revision_is_current, publish_if_current, replace_imported_diagnostics_if_current,
 };
+use super::lint::LintChange;
 #[cfg(test)]
 use super::orchestration::run_staging;
 #[cfg(test)]
@@ -12,7 +13,7 @@ use crate::analysis;
 #[cfg(test)]
 use crate::analysis::Revision;
 use crate::workspace::normalize_path;
-use std::{path::PathBuf, sync::Arc};
+use std::{future::Future, path::PathBuf, sync::Arc};
 use tower_lsp::{
     Client, LanguageServer,
     jsonrpc::Result,
@@ -37,6 +38,7 @@ use tower_lsp::{
     },
 };
 use tracing::Instrument;
+use url::Url;
 
 #[derive(Clone)]
 pub(super) struct Backend {
@@ -155,7 +157,6 @@ impl LanguageServer for Backend {
         fields(method = "did_change_workspace_folders")
     )]
     async fn did_change_workspace_folders(&self, params: DidChangeWorkspaceFoldersParams) {
-        let invalidation = self.invalidate_lint();
         let operation = async {
             self.diagnostics.invalidate_context();
             let _operation = self.workspace.file_operations.write().await;
@@ -199,8 +200,10 @@ impl LanguageServer for Backend {
                 let revision = document.revision.0;
                 self.schedule_diagnostics(document.uri, revision).await;
             }
+            true
         };
-        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
+        self.apply_lint_change(LintChange::Workspace, operation)
+            .await;
     }
 
     #[tracing::instrument(
@@ -209,7 +212,7 @@ impl LanguageServer for Backend {
         fields(method = "did_change_configuration")
     )]
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
-        let invalidation = self.configure_lint(&params.settings);
+        let change = LintChange::settings(&params.settings);
         let operation = async {
             self.diagnostics.invalidate_context();
             let _operation = self.workspace.document_operation().await;
@@ -244,8 +247,9 @@ impl LanguageServer for Backend {
                 let revision = document.revision.0;
                 self.schedule_diagnostics(document.uri, revision).await;
             }
+            true
         };
-        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
+        self.apply_lint_change(change, operation).await;
     }
 
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "shutdown"))]
@@ -262,85 +266,96 @@ impl LanguageServer for Backend {
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_open", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let _operation = self.workspace.document_operation().await;
         let item = params.text_document;
         let uri = item.uri;
         let version = item.version;
-        let path = self.document_path(&uri);
-        let Some(needs_prelude) = self
-            .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
-            .await
-        else {
-            return;
-        };
-        if needs_prelude {
-            self.load_prelude_module().await;
-        }
-        let dependents = self.dependent_documents(&uri).await;
-        let lint_enabled = self.lint_scheduling_enabled();
-        let mut lint = Vec::new();
-        if lint_enabled {
-            lint.push(uri.clone());
-        }
-        self.schedule_diagnostics(uri, version).await;
-        for document in dependents {
-            let revision = document.revision.0;
-            if lint_enabled {
-                lint.push(document.uri.clone());
+        let enabled = self.lint_scheduling_enabled();
+        let change = enabled.then(|| LintChange::Open {
+            uri: uri.clone(),
+            revision: version,
+        });
+        let operation = async {
+            let _operation = self.workspace.document_operation().await;
+            let path = self.document_path(&uri);
+            let Some(needs_prelude) = self
+                .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
+                .await
+            else {
+                return (false, None);
+            };
+            // Lint can be enabled while this open is still staged. Sampling
+            // right after the commit keeps the steady disabled path free of an
+            // identity clone and of any lint plan; enablement that arrives
+            // later is enumerated by Settings, which now sees this committed
+            // document.
+            let deferred = (!enabled && self.lint_scheduling_enabled()).then(|| LintChange::Open {
+                uri: uri.clone(),
+                revision: version,
+            });
+            if needs_prelude {
+                self.load_prelude_module().await;
             }
-            self.schedule_diagnostics(document.uri, revision).await;
-        }
-        if lint_enabled {
-            self.schedule_lint(self.lint_affected_documents(lint), true)
-                .await;
-        }
+            let dependents = self.dependent_documents(&uri).await;
+            self.schedule_diagnostics(uri, version).await;
+            for document in dependents {
+                let revision = document.revision.0;
+                self.schedule_diagnostics(document.uri, revision).await;
+            }
+            (true, deferred)
+        };
+        self.apply_document_lint_change(change, operation).await;
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_change", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        let _operation = self.workspace.document_operation().await;
         let uri = params.text_document.uri.clone();
         let version = params.text_document.version;
-        if !self.change_workspace_document(params).await {
-            return;
-        }
-        if self.document(&uri).is_some_and(|document| {
-            analysis::imports(&document)
-                .iter()
-                .any(|import| import.path_text(&document.text) == "Base")
-        }) {
-            self.load_prelude_module().await;
-        }
-        let dependents = self.dependent_documents(&uri).await;
-        let lint_enabled = self.lint_scheduling_enabled();
-        let mut lint = Vec::new();
-        if lint_enabled {
-            lint.push(uri.clone());
-        }
-        self.schedule_diagnostics(uri, version).await;
-        for document in dependents {
-            let revision = document.revision.0;
-            if lint_enabled {
-                lint.push(document.uri.clone());
+        let enabled = self.lint_scheduling_enabled();
+        let change = enabled.then(|| LintChange::Change {
+            uri: uri.clone(),
+            revision: version,
+        });
+        let operation = async {
+            let _operation = self.workspace.document_operation().await;
+            if !self.change_workspace_document(params).await {
+                return (false, None);
             }
-            self.schedule_diagnostics(document.uri, revision).await;
-        }
-        if lint_enabled {
-            self.schedule_lint(self.lint_affected_documents(lint), true)
-                .await;
-        }
+            // Same reconciliation as didOpen: a rejected or superseded change
+            // returns before this sample, so it never fences newer work.
+            let deferred =
+                (!enabled && self.lint_scheduling_enabled()).then(|| LintChange::Change {
+                    uri: uri.clone(),
+                    revision: version,
+                });
+            if self.document(&uri).is_some_and(|document| {
+                analysis::imports(&document)
+                    .iter()
+                    .any(|import| import.path_text(&document.text) == "Base")
+            }) {
+                self.load_prelude_module().await;
+            }
+            let dependents = self.dependent_documents(&uri).await;
+            self.schedule_diagnostics(uri, version).await;
+            for document in dependents {
+                let revision = document.revision.0;
+                self.schedule_diagnostics(document.uri, revision).await;
+            }
+            (true, deferred)
+        };
+        self.apply_document_lint_change(change, operation).await;
     }
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let uri = params.text_document.uri;
-        let _read = self.document_read(&uri).await;
         if !self.lint_scheduling_enabled() {
+            // A disabled analyzer must not let saves overtake pending opens.
+            let _read = self.document_read(&uri).await;
             return;
         }
-        let mut lint = vec![uri.clone()];
-        for document in self.dependent_documents(&uri).await {
-            lint.push(document.uri);
-        }
-        self.schedule_lint(self.lint_affected_documents(lint), false)
-            .await;
+        let change = LintChange::Save { uri: uri.clone() };
+        self.apply_lint_change(change, async {
+            let _read = self.document_read(&uri).await;
+            self.document(&uri).is_some()
+        })
+        .await;
     }
 
     #[tracing::instrument(
@@ -349,33 +364,35 @@ impl LanguageServer for Backend {
         fields(method = "did_change_watched_files")
     )]
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        let invalidation = self.invalidate_lint();
+        let events: Vec<_> = params
+            .changes
+            .into_iter()
+            .filter_map(|event| {
+                let path = event.uri.to_file_path().ok()?;
+                Some((event.uri, normalize_path(&path)))
+            })
+            .collect();
+        let change = LintChange::Watched(events.iter().map(|(_, path)| path.clone()).collect());
         let operation = async {
             let _operation = self.workspace.document_operation().await;
-            let events = params
-                .changes
-                .into_iter()
-                .filter_map(|event| {
-                    let path = event.uri.to_file_path().ok()?;
-                    Some((event.uri, normalize_path(&path)))
-                })
-                .collect();
             for (uri, version) in self.sync_watched_files(events).await {
                 self.schedule_diagnostics(uri, version).await;
             }
+            true
         };
-        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
+        self.apply_lint_change(change, operation).await;
     }
 
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_close", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        let invalidation = self.close_lint(&params.text_document.uri);
-        let reschedule = invalidation.reschedule();
+        let change = LintChange::Close {
+            uri: params.text_document.uri.clone(),
+        };
         let operation = async {
             let _operation = self.workspace.document_operation().await;
             let uri = params.text_document.uri;
             let Some(closed) = self.workspace.begin_close(&uri) else {
-                return;
+                return false;
             };
             // Queue close before later workspace queries without delaying diagnostic
             // cleanup behind an unrelated staged disk read.
@@ -384,13 +401,13 @@ impl LanguageServer for Backend {
                 self.cancel_diagnostics(&uri, closed).await;
             });
             if !self.close_workspace_document(uri.clone(), closed).await {
-                return;
+                return false;
             }
             // Keep close cleanup before any reopened document can commit. A stale
             // epoch must not clear newer diagnostics or imported contributions.
             let _workspace_view = self.workspace.updates.read().await;
             if !self.workspace.is_closed(closed) {
-                return;
+                return false;
             }
             self.remove_import_diagnostics(&uri).await;
             let publish_span = tracing::info_span!(
@@ -406,17 +423,15 @@ impl LanguageServer for Backend {
             publish_span.record("outcome", "published");
             let dependents = self.dependent_documents(&uri).await;
             if !self.workspace.is_closed(closed) {
-                return;
+                return false;
             }
             for document in dependents {
                 let revision = document.revision.0;
                 self.schedule_diagnostics(document.uri, revision).await;
             }
+            true
         };
-        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
-        // A closed buffer no longer contributes editor text, so same-project
-        // entries that were invalidated above are rechecked from saved inputs.
-        self.schedule_lint(reschedule, true).await;
+        self.apply_lint_change(change, operation).await;
     }
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "range_formatting", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn range_formatting(
@@ -587,12 +602,28 @@ impl LanguageServer for Backend {
         fields(method = "workspace/didRenameFiles")
     )]
     async fn did_rename_files(&self, params: RenameFilesParams) {
-        let invalidation = self.invalidate_lint();
+        let paths = params
+            .files
+            .iter()
+            .filter_map(|file| {
+                let old = Url::parse(file.old_uri.as_str())
+                    .ok()?
+                    .to_file_path()
+                    .ok()?;
+                let new = Url::parse(file.new_uri.as_str())
+                    .ok()?
+                    .to_file_path()
+                    .ok()?;
+                Some((normalize_path(&old), normalize_path(&new)))
+            })
+            .collect();
         let operation = async {
             let _operation = self.workspace.file_operations.write().await;
             self.handle_did_rename_files(params).await;
+            true
         };
-        tokio::join!(biased; operation, self.finish_lint_invalidation(invalidation));
+        self.apply_lint_change(LintChange::Rename(paths), operation)
+            .await;
     }
     #[tracing::instrument(name = "lsp.request", skip_all, fields(method = "goto_type_definition", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn goto_type_definition(
@@ -600,6 +631,31 @@ impl LanguageServer for Backend {
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
         self.handle_goto_type_definition(params).await
+    }
+}
+
+impl Backend {
+    // Lint can be enabled while a document mutation is still pending, while the
+    // default-disabled path runs that mutation without a lint plan. The
+    // mutation samples enablement again after it commits so an applied document
+    // is routed through the one coordinator lifecycle instead of waiting for a
+    // save or edit that may never come. Lint that was already enabled is fenced
+    // before the mutation; a rejected or superseded mutation never reaches the
+    // sample, so this entry cannot fence newer work.
+    async fn apply_document_lint_change<F>(&self, change: Option<LintChange>, operation: F) -> bool
+    where
+        F: Future<Output = (bool, Option<LintChange>)>,
+    {
+        let Some(change) = change else {
+            let (applied, deferred) = operation.await;
+            if applied && let Some(deferred) = deferred {
+                self.apply_lint_change(deferred, std::future::ready(true))
+                    .await;
+            }
+            return applied;
+        };
+        self.apply_lint_change(change, async move { operation.await.0 })
+            .await
     }
 }
 
@@ -799,6 +855,7 @@ mod notification_ordering_tests {
     use serde_json::{Value, json};
     use std::{
         error::Error,
+        fs,
         future::{Future, poll_fn},
         io,
         pin::Pin,
@@ -976,6 +1033,86 @@ mod notification_ordering_tests {
             result.is_none(),
             "closed document must not remain hoverable"
         );
+        backend.cancel_all_diagnostics().await;
+        Ok(())
+    }
+
+    // Lint is disabled when didOpen arrives, so the mutation must run without a
+    // lint plan. A concurrent settings notification then enables lint while the
+    // document is still staged. Once the open applies, the coordinator has to
+    // reconcile the committed document with the current enablement; otherwise
+    // the inputs stay unscheduled until a save or edit that may never happen.
+    #[tokio::test]
+    async fn enabling_lint_during_a_pending_open_checks_the_committed_document()
+    -> Result<(), Box<dyn Error>> {
+        let backend = backend();
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("main.bend");
+        fs::write(&path, OLD)?;
+        fs::write(directory.path().join("bend-lint.json"), "{\"rules\":{}}")?;
+        // An existing but unrunnable analyzer file satisfies the opt-in path
+        // validation and fails preparation deterministically, so this regression
+        // observes scheduling without executing project code.
+        let analyzer = directory.path().join("bend-lint-stub");
+        fs::write(&analyzer, b"")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&analyzer, fs::Permissions::from_mode(0o755))?;
+        }
+        let uri = Url::from_file_path(&path)
+            .map_err(|()| io::Error::other("the document path is not a file URI"))?;
+
+        let staging = backend.workspace.staging.acquire().await?;
+        let mut open = backend.did_open(serde_json::from_value(json!({
+            "textDocument": {
+                "uri": uri,
+                "languageId": "bend",
+                "version": 1,
+                "text": NEW
+            }
+        }))?);
+        assert!(first_poll(open.as_mut()).await.is_pending());
+        backend
+            .did_change_configuration(serde_json::from_value(json!({
+                "settings": {
+                    "bend": {
+                        "lint": {
+                            "enabled": true,
+                            "path": analyzer,
+                            "arguments": [],
+                            "dangerousCodeActions": false,
+                            "timeoutMs": 10_000
+                        }
+                    }
+                }
+            }))?)
+            .await;
+        drop(staging);
+        tokio::time::timeout(Duration::from_secs(5), open).await?;
+
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let status = backend
+                .execute_command(serde_json::from_value(json!({
+                    "command": "bend2.lint.status",
+                    "arguments": [{"uri": uri}]
+                }))?)
+                .await?
+                .unwrap_or(Value::Null);
+            let state = status["state"].as_str().unwrap_or_default();
+            if matches!(state, "failed" | "skipped") {
+                break;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return Err(io::Error::other(format!(
+                    "enabling bend.lint while didOpen was still pending must check the committed \
+                     document; lint status stayed {state:?}"
+                ))
+                .into());
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
         backend.cancel_all_diagnostics().await;
         Ok(())
     }

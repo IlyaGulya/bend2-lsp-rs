@@ -10,6 +10,8 @@
   still require explicit opt-in.
 - Prepare the rule runner separately from ordinary checks. Typing does not restart
   a cold build, and short per-check deadlines do not interrupt preparation.
+  Switching projects reuses their prepared runners, and editing one project no
+  longer cancels checks in another.
 - Target standalone bend-lint 0.2.1, Bun 1.4.4, and matching rules/API 0.2.1.0.
   It uses its own pinned compiler: Bend 2.0.39 on Unix and an upstream Windows fork.
 - Show rule documentation links and explain partial checking, skipped rules, and
@@ -18,10 +20,16 @@
 - Keep compiler, lexical, imported, and lint diagnostics merged. Reject obsolete
   results after edits, close, configuration changes, or source alias retargeting.
   Unrelated projects and unchanged indexed inputs retain their valid results.
+- Automatically check already-open files when lint is enabled, and recheck affected
+  entries after saved configuration or watched dependency changes.
+- Preserve independent buffers and versions for equivalent editor URI spellings.
+  Show lint findings in every matching buffer; identify conflicting buffers before
+  executing project rules, without blocking unrelated projects.
 - Offer explicitly requested **dangerous** Code Actions for matching open buffer
   versions, including unsaved text. Validate UTF-16 ranges and overlapping edits,
-  and reject an entire stale or unverifiable multi-file fix. Never apply automatic
-  fixes, expose a safe fix-all, or replace the independent formatter.
+  and refuse fixes for ambiguous physical-file aliases. Reject stale or unverifiable
+  multi-file edits as a whole. Never apply automatic fixes, expose a safe fix-all,
+  or replace the independent formatter.
 - Keep lint highlights valid on CRLF files and after non-BMP characters without
   relaxing the exact source boundaries required for dangerous edits.
 - Keep Run and Status Code Actions discoverable, with progress on supporting
@@ -44,9 +52,14 @@
 
 - Keep `import Base` first when organizing imports, preventing repeated bend-lint
   import-order warnings after applying the action.
+- Keep compiler errors visible in each matching open URI spelling, using that
+  buffer's own document version rather than another spelling's revision.
 
 ### Under the hood
 
+- Coordinate lint work and cancellation per project, with one immutable input view
+  per revision across entry checks. Keep exact source and document-version fences
+  when disk inputs change during analysis.
 - Raise Tokio's minimum version and lock it to 1.53.3, clearing
   [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
   without adding an audit exception.

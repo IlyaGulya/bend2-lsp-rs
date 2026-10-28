@@ -1,4 +1,5 @@
-use super::LintConfig;
+use super::project::ProjectKey;
+use super::{LintChange, LintConfig};
 use crate::server::{lsp::Backend, state::State};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -48,13 +49,24 @@ impl LintPhase {
 struct Status {
     phase: LintPhase,
     reason: String,
+    // Project revision that recorded this status. A late cleanup from an
+    // older plan may only downgrade statuses it actually retired.
+    revision: u64,
 }
 
 pub(super) struct LintControl {
     states: State<HashMap<Url, Status>>,
     configuration_reason: State<Option<String>>,
-    progress: State<HashMap<u64, NumberOrString>>,
+    progress: State<HashMap<u64, LintProgress>>,
     notified_problems: State<HashMap<Url, Status>>,
+}
+
+// A progress token belongs to one project revision so retiring that revision
+// ends exactly its tokens and never a newer run's.
+struct LintProgress {
+    token: NumberOrString,
+    project: ProjectKey,
+    revision: u64,
 }
 
 impl Default for LintControl {
@@ -75,13 +87,20 @@ impl LintControl {
         *self.configuration_reason.write() = reason;
     }
 
-    pub(super) fn record(&self, uri: &Url, phase: LintPhase, reason: impl Into<String>) -> bool {
+    pub(super) fn record(
+        &self,
+        uri: &Url,
+        phase: LintPhase,
+        reason: impl Into<String>,
+        revision: u64,
+    ) -> bool {
         if phase == LintPhase::Ready {
             self.notified_problems.write().remove(uri);
         }
         let status = Status {
             phase,
             reason: reason.into(),
+            revision,
         };
         let mut entries = self.states.write();
         if entries.get(uri) == Some(&status) {
@@ -104,17 +123,31 @@ impl LintControl {
         }
     }
 
-    pub(super) fn invalidate_running(&self, reason: impl Into<String>) {
+    pub(super) fn invalidate_selected<'a>(
+        &self,
+        retired: impl IntoIterator<Item = (&'a Url, u64)>,
+        reason: impl Into<String>,
+    ) {
         let reason = reason.into();
-        for status in self.states.write().values_mut() {
-            if matches!(status.phase, LintPhase::Preparing | LintPhase::Running) {
+        let mut entries = self.states.write();
+        for (uri, retired_revision) in retired {
+            if let Some(status) = entries.get_mut(uri)
+                && status.revision <= retired_revision
+                && matches!(status.phase, LintPhase::Preparing | LintPhase::Running)
+            {
                 status.phase = LintPhase::Waiting;
                 status.reason.clone_from(&reason);
             }
         }
     }
 
-    fn should_notify_problem(&self, uri: &Url, phase: LintPhase, reason: &str) -> bool {
+    fn should_notify_problem(
+        &self,
+        uri: &Url,
+        phase: LintPhase,
+        reason: &str,
+        revision: u64,
+    ) -> bool {
         let mut problems = self.notified_problems.write();
         if problems
             .get(uri)
@@ -127,6 +160,7 @@ impl LintControl {
             Status {
                 phase,
                 reason: reason.into(),
+                revision,
             },
         );
         true
@@ -138,6 +172,7 @@ impl LintControl {
                 phase: LintPhase::Disabled,
                 reason: self.configuration_reason.read().clone().unwrap_or_else(||
                     "External analysis is disabled. Set bend.lint.enabled to true and select an absolute bend.lint.path; this explicitly permits external tool execution.".into()),
+                revision: 0,
             };
         }
         self.states
@@ -148,7 +183,26 @@ impl LintControl {
                 phase: LintPhase::Waiting,
                 reason: "No current analysis. The next check analyzes the current open inputs."
                     .into(),
+                revision: 0,
             })
+    }
+
+    // Drain only one retired project revision's tokens. A token registered by a
+    // newer run of the same project is left alone.
+    pub(super) fn take_project_revision_progress(
+        &self,
+        project: &ProjectKey,
+        revision: u64,
+    ) -> Vec<NumberOrString> {
+        let mut progress = self.progress.write();
+        let ids: Vec<u64> = progress
+            .iter()
+            .filter(|(_, entry)| entry.project == *project && entry.revision == revision)
+            .map(|(id, _)| *id)
+            .collect();
+        ids.into_iter()
+            .filter_map(|id| progress.remove(&id).map(|entry| entry.token))
+            .collect()
     }
 }
 
@@ -220,10 +274,13 @@ impl Backend {
         if params.command == RUN_COMMAND {
             if self.diagnostics.lint.config.read().enabled {
                 // An explicit run is also the retry gesture after a failed
-                // analyzer preparation.
-                self.diagnostics.lint.reset_failed_preparation();
-                let _document_read = self.document_read(&uri).await;
-                self.schedule_lint([uri.clone()], false).await;
+                // analyzer preparation; the coordinator resets that project's
+                // failure and schedules it without touching other projects.
+                self.apply_lint_change(LintChange::Run { uri: uri.clone() }, async {
+                    let _document_read = self.document_read(&uri).await;
+                    true
+                })
+                .await;
             } else {
                 let status = self.lint_status(&uri);
                 self.client
@@ -300,7 +357,12 @@ impl Backend {
         .collect()
     }
 
-    pub(super) async fn begin_lint_progress(&self, uri: &Url) -> Option<u64> {
+    pub(super) async fn begin_lint_progress(
+        &self,
+        uri: &Url,
+        project: &ProjectKey,
+        revision: u64,
+    ) -> Option<u64> {
         if !self.registration.read().lint.work_done_progress {
             return None;
         }
@@ -316,12 +378,14 @@ impl Backend {
         {
             return None;
         }
-        self.diagnostics
-            .lint
-            .control
-            .progress
-            .write()
-            .insert(id, token.clone());
+        self.diagnostics.lint.control.progress.write().insert(
+            id,
+            LintProgress {
+                token: token.clone(),
+                project: project.clone(),
+                revision,
+            },
+        );
         self.client
             .send_notification::<Progress>(ProgressParams {
                 token,
@@ -342,7 +406,14 @@ impl Backend {
         let Some(id) = id else {
             return;
         };
-        let token = self.diagnostics.lint.control.progress.write().remove(&id);
+        let token = self
+            .diagnostics
+            .lint
+            .control
+            .progress
+            .write()
+            .remove(&id)
+            .map(|entry| entry.token);
         if let Some(token) = token {
             self.client
                 .send_notification::<Progress>(ProgressParams {
@@ -364,7 +435,7 @@ impl Backend {
             .progress
             .write()
             .drain()
-            .map(|(_, token)| token)
+            .map(|(_, entry)| entry.token)
             .collect()
     }
 
@@ -393,24 +464,27 @@ impl Backend {
         uri: &Url,
         phase: LintPhase,
         reason: &str,
-        epoch: u64,
+        project: &ProjectKey,
+        revision: u64,
     ) {
         let (current, notify) = {
-            let _task = self.diagnostics.lint.task.read();
-            let current = self
-                .diagnostics
-                .lint
-                .epoch
-                .load(std::sync::atomic::Ordering::SeqCst)
-                == epoch;
+            // A project's revision fence serializes this write with a later
+            // synchronous fence, so a stale run never rewrites fresh status.
+            let projects = self.diagnostics.lint.projects.read();
+            let current = projects
+                .get(project)
+                .is_some_and(|state| state.revision == revision);
             let notify = if current {
-                self.diagnostics.lint.control.record(uri, phase, reason);
+                self.diagnostics
+                    .lint
+                    .control
+                    .record(uri, phase, reason, revision);
                 matches!(phase, LintPhase::Skipped | LintPhase::Failed)
                     && self
                         .diagnostics
                         .lint
                         .control
-                        .should_notify_problem(uri, phase, reason)
+                        .should_notify_problem(uri, phase, reason, revision)
             } else {
                 false
             };

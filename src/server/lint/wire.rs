@@ -247,7 +247,7 @@ pub(super) fn normalized_range(snapshot: &DocumentSnapshot, range: &Range) -> Op
     })
 }
 
-fn finding_target(snapshot: &ProjectSnapshot, finding: &Finding) -> io::Result<(Url, Range)> {
+fn finding_targets(snapshot: &ProjectSnapshot, finding: &Finding) -> io::Result<(Vec<Url>, Range)> {
     let (path, source) = snapshot.source(&finding.path).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
@@ -260,18 +260,17 @@ fn finding_target(snapshot: &ProjectSnapshot, finding: &Finding) -> io::Result<(
             "bend-lint finding has an invalid UTF-16 range",
         )
     })?;
-    let uri = snapshot.uris.get(&path).cloned().map_or_else(
-        || {
-            Url::from_file_path(&path).map_err(|()| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "bend-lint finding path is not a file URI",
-                )
-            })
-        },
-        Ok,
-    )?;
-    Ok((uri, range))
+    let uris = snapshot.uris.get(&path).cloned().unwrap_or_default();
+    if !uris.is_empty() {
+        return Ok((uris, range));
+    }
+    let uri = Url::from_file_path(&path).map_err(|()| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "bend-lint finding path is not a file URI",
+        )
+    })?;
+    Ok((vec![uri], range))
 }
 
 fn bounded(mut text: String, limit: usize) -> String {
@@ -431,8 +430,8 @@ fn accepted_report(
 fn finding_diagnostic(
     snapshot: &ProjectSnapshot,
     finding: Finding,
-) -> io::Result<(Url, Diagnostic, Vec<Fix>)> {
-    let (uri, range) = finding_target(snapshot, &finding)?;
+) -> io::Result<(Vec<Url>, Diagnostic, Vec<Fix>)> {
+    let (uris, range) = finding_targets(snapshot, &finding)?;
     let code_description = finding
         .docs
         .as_deref()
@@ -459,7 +458,7 @@ fn finding_diagnostic(
         ),
         ..Diagnostic::default()
     };
-    Ok((uri, diagnostic, finding.fixes))
+    Ok((uris, diagnostic, finding.fixes))
 }
 
 pub(super) fn parse(
@@ -483,16 +482,20 @@ pub(super) fn parse(
                 "bend-lint returned more than 4096 fixes or edits",
             ));
         }
-        let (uri, diagnostic, fixes) = finding_diagnostic(snapshot, finding)?;
-        by_uri
-            .entry(uri.clone())
-            .or_default()
-            .push(diagnostic.clone());
-        actionable.push(ActionableFinding {
-            uri,
-            diagnostic,
-            fixes,
-        });
+        let (uris, diagnostic, fixes) = finding_diagnostic(snapshot, finding)?;
+        // One packet per current editor spelling; each publication reads that
+        // view's own document version.
+        for uri in uris {
+            by_uri
+                .entry(uri.clone())
+                .or_default()
+                .push(diagnostic.clone());
+            actionable.push(ActionableFinding {
+                uri,
+                diagnostic: diagnostic.clone(),
+                fixes: fixes.clone(),
+            });
+        }
     }
     Ok(Findings {
         by_uri,

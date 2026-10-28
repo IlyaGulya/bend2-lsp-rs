@@ -1,6 +1,6 @@
-use super::{LintResult, snapshot::ProjectSnapshot};
+use super::{LintResult, ProjectKey, snapshot};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -36,7 +36,7 @@ impl LintResults {
             })
     }
 
-    pub(super) fn snapshot_for(&self, path: &Path) -> Option<Arc<ProjectSnapshot>> {
+    pub(super) fn snapshot_for(&self, path: &Path) -> Option<Arc<snapshot::ProjectSnapshot>> {
         self.entries
             .values()
             .filter(|result| path.starts_with(&result.snapshot.root))
@@ -44,12 +44,40 @@ impl LintResults {
             .map(|result| result.snapshot.clone())
     }
 
-    pub(super) fn covering(&self, paths: &[PathBuf]) -> Vec<Url> {
+    pub(super) fn entries_of(&self, project: &ProjectKey) -> Vec<Url> {
         self.entries
             .iter()
-            .filter(|(_, result)| paths.iter().any(|path| result.snapshot.covers_path(path)))
+            .filter(|(_, result)| &result.project == project)
             .map(|(uri, _)| uri.clone())
             .collect()
+    }
+
+    pub(super) fn projects_covering(&self, paths: &[PathBuf]) -> Vec<ProjectKey> {
+        let mut projects: BTreeSet<ProjectKey> = BTreeSet::new();
+        for result in self.entries.values() {
+            if paths.iter().any(|path| {
+                result.snapshot.covers_path(path)
+                    || snapshot::input_identity(path)
+                        .is_some_and(|identity| result.snapshot.covers_path(&identity))
+            }) {
+                projects.insert(result.project.clone());
+            }
+        }
+        projects.into_iter().collect()
+    }
+
+    pub(super) fn affected_of(&self, project: &ProjectKey) -> HashSet<Url> {
+        self.entries
+            .iter()
+            .filter(|(_, result)| &result.project == project)
+            .flat_map(|(uri, result)| {
+                std::iter::once(uri.clone()).chain(result.findings.by_uri.keys().cloned())
+            })
+            .collect()
+    }
+
+    pub(super) fn affected_keys(&self) -> HashSet<Url> {
+        self.contributors.keys().cloned().collect()
     }
 
     pub(super) fn clear(&mut self) -> HashSet<Url> {
@@ -69,14 +97,40 @@ impl LintResults {
         affected
     }
 
-    pub(super) fn invalidate(
+    // Drop only entries a plan's retired revision owned. A result produced
+    // under a newer project revision belongs to a newer run and must survive
+    // the older plan's late cleanup.
+    pub(super) fn remove_project_revision(
         &mut self,
-        mut affected: impl FnMut(&Url, &LintResult) -> bool,
+        project: &ProjectKey,
+        retired_revision: u64,
     ) -> HashSet<Url> {
         let mut changed = HashSet::new();
         let mut removed = false;
         self.entries.retain(|uri, result| {
-            if affected(uri, result) {
+            if &result.project == project && result.revision <= retired_revision {
+                removed = true;
+                changed.insert(uri.clone());
+                changed.extend(result.findings.by_uri.keys().cloned());
+                false
+            } else {
+                true
+            }
+        });
+        if removed {
+            self.rebuild();
+        }
+        changed
+    }
+
+    // Drop entries produced under a configuration other than the current one.
+    // A newer run already using the new configuration therefore survives a
+    // late settings event instead of being cleared and repeated.
+    pub(super) fn remove_stale(&mut self, stale: impl Fn(&LintResult) -> bool) -> HashSet<Url> {
+        let mut changed = HashSet::new();
+        let mut removed = false;
+        self.entries.retain(|uri, result| {
+            if stale(result) {
                 removed = true;
                 changed.insert(uri.clone());
                 changed.extend(result.findings.by_uri.keys().cloned());

@@ -50,40 +50,66 @@ fn versioned_fix(
             .snapshot
             .source(&edit.path)
             .ok_or("This fix targets a file outside the checked project inputs.")?;
-        let uri = result
-            .snapshot
-            .uris
-            .get(&path)
-            .ok_or("This fix targets a file without a supported document URI.")?;
-        // Closed targets have no document version. Refuse rather than give an
-        // unversioned edit that could overwrite a later disk/editor change.
+        let (start, end) = offsets(checked, edit.range)
+            .ok_or("This bend-lint fix has an invalid UTF-16 edit range.")?;
+        let text_edit = || TextEdit {
+            range: edit.range,
+            new_text: edit.text.clone(),
+        };
+        // Validate and resolve each unique target once; repeated edits to one
+        // file reuse the already verified document and version.
+        if let Some((_, existing)) = edits.get_mut(&path) {
+            existing.push((start, end, text_edit()));
+            continue;
+        }
+        // A current physical alias that was never captured must still make the
+        // target ambiguous. If the checked target's identity cannot be
+        // verified, no alias can be ruled out: fail closed instead of editing
+        // whatever spelling happens to be captured.
+        let identity = super::snapshot::input_identity(&path).ok_or(
+            "This fix target's physical file identity cannot be verified; save it and recheck before applying this fix.",
+        )?;
+        // Resolve the CURRENT open spellings by physical identity, not by one
+        // lexical FileId: a symlinked and a canonical spelling (or an alias
+        // opened after capture) are different workspace identities but one
+        // physical source. Exactly one live target may be edited.
+        let uri = {
+            let database = backend.workspace.read();
+            let mut open = database.open_view_spellings().filter(|uri| {
+                uri.to_file_path()
+                    .ok()
+                    .and_then(|candidate| super::snapshot::input_identity(&candidate))
+                    .as_ref()
+                    == Some(&identity)
+            });
+            match (open.next(), open.next()) {
+                // Closed targets have no document version. Refuse rather than
+                // give an unversioned edit that could overwrite a later change.
+                (None, _) => {
+                    return Err("Open every file targeted by this fix before applying it.");
+                }
+                (Some(uri), None) => uri.clone(),
+                (Some(_), Some(_)) => {
+                    return Err(
+                        "This fix targets a file open under multiple URI spellings; close or unify them before applying it.",
+                    );
+                }
+            }
+        };
         let document = backend
-            .document(uri)
+            .document(&uri)
             .ok_or("Open every file targeted by this fix before applying it.")?;
         if document.text != checked.text {
             return Err(
                 "The open buffer changed after analysis; recheck before applying this fix.",
             );
         }
-        if !backend.diagnostics_snapshot_current(uri, &document.snapshot) {
+        if !backend.diagnostics_snapshot_current(&document.uri, &document.snapshot) {
             return Err(
                 "A target document is no longer current. Recheck before applying this fix.",
             );
         }
-        let (start, end) = offsets(checked, edit.range)
-            .ok_or("This bend-lint fix has an invalid UTF-16 edit range.")?;
-        edits
-            .entry(path)
-            .or_insert_with(|| (document, Vec::new()))
-            .1
-            .push((
-                start,
-                end,
-                TextEdit {
-                    range: edit.range,
-                    new_text: edit.text.clone(),
-                },
-            ));
+        edits.insert(path, (document, vec![(start, end, text_edit())]));
     }
     let mut changes = Vec::with_capacity(edits.len());
     for (_, (document, mut edits)) in edits {

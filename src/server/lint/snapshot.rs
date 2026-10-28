@@ -62,7 +62,7 @@ pub(super) struct ProjectSnapshot {
     canonical_root: Option<PathBuf>,
     pub(super) sources: BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     pub(super) overlays: BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
-    pub(super) uris: BTreeMap<PathBuf, Url>,
+    pub(super) uris: BTreeMap<PathBuf, Vec<Url>>,
     files: Identities,
     aliases: BTreeMap<PathBuf, PathBuf>,
     rule_paths: HashSet<PathBuf>,
@@ -397,14 +397,17 @@ fn insert_alias(
     Ok(())
 }
 
-fn open_snapshots(
-    documents: &[Document],
-) -> (
+type OpenSnapshots = (
     BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     BTreeMap<PathBuf, PathBuf>,
-) {
-    let mut open = BTreeMap::new();
-    let mut aliases = BTreeMap::new();
+    BTreeMap<PathBuf, BTreeSet<String>>,
+);
+
+fn open_snapshots(documents: &[Document]) -> OpenSnapshots {
+    let mut open: BTreeMap<PathBuf, Arc<DocumentSnapshot>> = BTreeMap::new();
+    let mut aliases: BTreeMap<PathBuf, PathBuf> = BTreeMap::new();
+    let mut first_uri: BTreeMap<PathBuf, String> = BTreeMap::new();
+    let mut conflicting: BTreeMap<PathBuf, BTreeSet<String>> = BTreeMap::new();
     for document in documents {
         let Ok(path) = document.uri.to_file_path() else {
             continue;
@@ -418,9 +421,49 @@ fn open_snapshots(
         // This transient map is bounded by the already-owned open documents;
         // only mappings kept for this project count against ENTRY_LIMIT.
         aliases.insert(path, identity.clone());
-        open.insert(identity, document.snapshot.clone());
+        if let Some(existing) = open.get_mut(&identity) {
+            if existing.text != document.snapshot.text {
+                let uris = conflicting.entry(identity.clone()).or_default();
+                if let Some(first) = first_uri.get(&identity) {
+                    uris.insert(first.clone());
+                }
+                uris.insert(document.uri.to_string());
+            }
+        } else {
+            first_uri.insert(identity.clone(), document.uri.to_string());
+            open.insert(identity, document.snapshot.clone());
+        }
     }
-    (open, aliases)
+    (open, aliases, conflicting)
+}
+
+// The analyzer must never check one arbitrary spelling when two open buffers
+// of one physical source disagree. Only a conflict inside the captured source
+// view is ambiguous; unrelated external buffers never disable this project.
+fn reject_conflicting_open_sources(
+    conflicting: &BTreeMap<PathBuf, BTreeSet<String>>,
+    sources: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
+) -> io::Result<()> {
+    let Some((identity, uris)) = conflicting
+        .iter()
+        .find(|(identity, _)| sources.contains_key(*identity))
+    else {
+        return Ok(());
+    };
+    let mut spellings = String::new();
+    for uri in uris {
+        if !spellings.is_empty() {
+            spellings.push_str(", ");
+        }
+        spellings.push_str(uri);
+    }
+    Err(io::Error::new(
+        io::ErrorKind::WouldBlock,
+        format!(
+            "bend-lint skipped: open buffers for {} disagree; unify or close one buffer before checking ({spellings})",
+            identity.display()
+        ),
+    ))
 }
 
 fn ensure_trusted_inputs_saved(
@@ -638,6 +681,25 @@ fn overlay_map(
     Ok(overlays)
 }
 
+// Routing coverage for an input that may not exist yet: the event can name the
+// missing path, an ancestor directory that was just created, or the resolved
+// identity of the missing input. Keys are stored capture spellings, so this
+// stays a map lookup instead of filesystem work on every routing query.
+fn missing_input_covered(
+    path: &Path,
+    normalized: &Path,
+    inputs: &BTreeMap<PathBuf, Option<PathBuf>>,
+) -> bool {
+    inputs.contains_key(path)
+        || inputs.contains_key(normalized)
+        || inputs.keys().any(|pending| pending.starts_with(path))
+        || inputs.values().any(|identity| {
+            identity
+                .as_deref()
+                .is_some_and(|identity| identity == path || identity.starts_with(path))
+        })
+}
+
 // Findings for a closed import must name the same logical document the
 // compiler and the editor use. Captured source keys are canonical, so a
 // symlinked project root would otherwise publish `/private/var/...` while the
@@ -666,19 +728,24 @@ fn logical_uri(
         .or_else(|| file_url(path))
 }
 
+// Findings must reach every editor spelling that currently holds this source.
+// Same-content aliases share the analysis but each URI receives its own
+// diagnostic packet with that view's version. Closed sources keep one logical
+// URI, exactly as before.
 fn source_uris(
     documents: &[Document],
     sources: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     root: &Path,
     canonical_root: Option<&Path>,
     aliases: &BTreeMap<PathBuf, PathBuf>,
-) -> BTreeMap<PathBuf, Url> {
-    let mut uris = BTreeMap::new();
-    for path in sources.keys() {
-        if let Some(uri) = logical_uri(path, root, canonical_root, aliases) {
-            uris.insert(path.clone(), uri);
-        }
-    }
+) -> BTreeMap<PathBuf, Vec<Url>> {
+    let mut uris: BTreeMap<PathBuf, Vec<Url>> = sources
+        .keys()
+        .filter_map(|path| {
+            logical_uri(path, root, canonical_root, aliases).map(|uri| (path.clone(), vec![uri]))
+        })
+        .collect();
+    let mut open: BTreeMap<PathBuf, BTreeSet<Url>> = BTreeMap::new();
     for document in documents {
         let Ok(path) = document.uri.to_file_path() else {
             continue;
@@ -687,8 +754,13 @@ fn source_uris(
             continue;
         };
         if sources.contains_key(&identity) {
-            uris.insert(identity, document.uri.clone());
+            open.entry(identity)
+                .or_default()
+                .insert(document.uri.clone());
         }
+    }
+    for (identity, editor_uris) in open {
+        uris.insert(identity, editor_uris.into_iter().collect());
     }
     uris
 }
@@ -720,7 +792,7 @@ impl ProjectSnapshot {
         let config: serde_json::Value =
             serde_json::from_str(&config_text).map_err(io::Error::other)?;
         let rule = rule_closure(&files.rule_paths)?;
-        let (open, open_aliases) = open_snapshots(documents);
+        let (open, open_aliases, conflicting) = open_snapshots(documents);
         ensure_trusted_inputs_saved(&config_path, &files.rule_paths, &rule.identities, &open)?;
         let mut pending = seeds(
             &root,
@@ -747,6 +819,7 @@ impl ProjectSnapshot {
                 previously_open: &already_open,
             }),
         )?;
+        reject_conflicting_open_sources(&conflicting, &captured.sources)?;
         for (original, identity) in open_aliases {
             if captured.sources.contains_key(&identity) {
                 insert_alias(&mut captured.aliases, &original, &identity)?;
@@ -784,7 +857,7 @@ impl ProjectSnapshot {
     // Rebuild the analysis view for new editor text while reusing captured disk
     // sources. Callers must have verified `unchanged()` first.
     pub(super) fn with_overlays(&self, documents: &[Document]) -> io::Result<Self> {
-        let (open, open_aliases) = open_snapshots(documents);
+        let (open, open_aliases, conflicting) = open_snapshots(documents);
         // `unchanged()` verified this closure is still the saved rule program,
         // so a warm rebuild reuses it instead of re-reading helper files.
         ensure_trusted_inputs_saved(
@@ -818,6 +891,7 @@ impl ProjectSnapshot {
                 previously_open: &self.open_sources,
             }),
         )?;
+        reject_conflicting_open_sources(&conflicting, &captured.sources)?;
         for (original, identity) in open_aliases {
             if captured.sources.contains_key(&identity) {
                 insert_alias(&mut captured.aliases, &original, &identity)?;
@@ -917,22 +991,29 @@ impl ProjectSnapshot {
                 .is_some_and(|root| path.starts_with(root))
             || self.files.contains_key(path)
             || self.sources.contains_key(path)
-            || self.missing_paths.contains_key(path)
-            || self
-                .missing_paths
-                .values()
-                .any(|identity| identity.as_deref() == Some(path))
+            || missing_input_covered(path, &normalized, &self.missing_paths)
             || self.aliases.keys().any(|alias| path.starts_with(alias))
             || self.source_aliases.contains_key(path)
             || self.source_aliases.contains_key(&normalized)
             || self.rule_inputs.contains_key(path)
             || self.rule_inputs.contains_key(&normalized)
+            // The analyzer compiles its rule program from these saved inputs
+            // too, so a watched event that creates a previously missing rule
+            // helper, or names a lexical alias of one, must route here.
+            || self.rule_aliases.contains_key(path)
+            || self.rule_aliases.contains_key(&normalized)
+            || self.rule_aliases.keys().any(|alias| path.starts_with(alias))
+            || self.rule_aliases.values().any(|identity| identity == path)
+            || missing_input_covered(path, &normalized, &self.rule_missing)
     }
 
     pub(super) fn unchanged(&self) -> bool {
+        // A missing input (source or rule helper) that now exists, or whose
+        // symlinked ancestors retarget, is an input change.
         if self
             .missing_paths
             .iter()
+            .chain(self.rule_missing.iter())
             .any(|(path, identity)| path.exists() || input_identity(path) != *identity)
         {
             return false;
@@ -942,9 +1023,15 @@ impl ProjectSnapshot {
         // A retarget is an input change even when the old target's bytes are
         // unchanged. Resolution goes through input_identity so virtual leaves
         // that do not exist yet are validated through their existing ancestors.
-        if !self.source_aliases.iter().all(|(alias, expected)| {
-            input_identity(alias).is_some_and(|actual| actual == *expected)
-        }) {
+        // Rule-program spellings are checked the same way.
+        if !self
+            .source_aliases
+            .iter()
+            .chain(self.rule_aliases.iter())
+            .all(|(alias, expected)| {
+                input_identity(alias).is_some_and(|actual| actual == *expected)
+            })
+        {
             return false;
         }
         for (path, snapshot) in &self.sources {
@@ -1236,7 +1323,9 @@ mod tests {
         let dependency = input_identity(&project.join("dep.bend")).expect("dependency identity");
         assert_eq!(
             snapshot.uris.get(&dependency),
-            Some(&Url::from_file_path(lexical.join("dep.bend")).expect("logical file URI")),
+            Some(&vec![
+                Url::from_file_path(lexical.join("dep.bend")).expect("logical file URI")
+            ]),
             "closed imported findings must use the client's logical project spelling"
         );
     }

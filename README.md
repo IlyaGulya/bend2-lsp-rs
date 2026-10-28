@@ -156,6 +156,10 @@ not native compilation. For offline operation, run the trusted project's install
 `bend-lint prepare` before starting the editor. Upstream reuses one prepared runner
 across standard-rule selections; custom rule changes can require another build.
 
+Each project keeps its own pending checks and preparation. Typing in one project
+does not cancel another project's work or discard its prepared runner. Global
+resource limits still bound preparation and checking.
+
 Send the following through `workspace/didChangeConfiguration`, together with any
 compiler overrides you already use. Use an absolute installed Bun path and an
 absolute installed script path; this also avoids Windows `.cmd` launchers:
@@ -194,9 +198,11 @@ to 8 MiB per stream; logged stderr is limited to 16 KiB. Cancellation, timeout,
 shutdown, and exit kill and reap the contained process group (Unix) or job object
 (Windows).
 
-Opening and editing supported files starts debounced analysis once lint is enabled;
-saving and the explicit Run action also request checks. For a manual check, invoke
-Code Actions and choose **Run bend-lint** (`source.bend2Lint.run`).
+Opening and editing supported files starts debounced analysis once lint is enabled.
+Enabling lint also checks already-open supported files. Saved configuration and
+watched dependency changes automatically recheck affected entries; saving and the
+explicit Run action also request checks. For a manual check, invoke Code Actions
+and choose **Run bend-lint** (`source.bend2Lint.run`).
 **Show bend-lint status** (`source.bend2Lint.status`) explains preparation,
 checking, partial results, disabled tools, and failures. It also shows the effective
 server executable/version, analyzer path/arguments, reported analyzer/runtime identity,
@@ -213,9 +219,20 @@ The analyzer receives a captured source view rather than treating old disk conte
 as the current editor text. Open buffers and their imported files participate in the
 same view; diagnostics and edits refer to those captured texts. Relevant edits
 invalidate retained results and supersede obsolete checks. Dirty buffers in unrelated
-projects do not block analysis. Closing an entry retires its results, and configuration,
-workspace, and watched-file changes invalidate the corresponding assumptions.
+projects do not block analysis. Closing a buffer retires its results and rechecks
+remaining affected entries. Configuration, workspace, and watched-file changes
+invalidate the corresponding assumptions.
 Background index refreshes alone do not invalidate unchanged source revisions.
+
+Checks for different entries in one project reuse the same immutable input view
+within a revision. A disk change during checking discards that outdated view
+rather than mixing results from independently reread inputs.
+
+Equivalent editor URI spellings keep separate buffers and document versions.
+Matching buffers receive lint findings at each spelling's own version. Conflicting
+texts for one physical source stop checks in affected projects before project
+rules run; the warning identifies the buffers to unify or close. Unrelated
+projects can continue checking.
 
 Project capture remains bounded to 4096 files, 4096 missing-input records, 4096
 directories, 32768 directory entries, 32768 source-path identity mappings, and
@@ -257,6 +274,10 @@ safe fix-all. Every touched file must be open, match the analyzed buffer revisio
 and have valid non-overlapping UTF-16 edits; an unsaved buffer can be a valid target.
 All edits carry document versions, which the client must honor. Closed, stale, or
 unverifiable multi-file targets are refused as a whole.
+
+A symlink and its target count as separate open views even when their text
+matches. Close the extra views before applying a dangerous fix; the server never
+chooses an arbitrary buffer or document version for that physical file.
 
 When an explicit fix cannot be applied safely, clients supporting disabled Code
 Actions show its reason without an edit or command. Other clients can show an
