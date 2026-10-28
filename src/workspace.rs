@@ -365,6 +365,10 @@ impl WorkspaceDb {
     }
 
     pub(crate) fn ensure_view(&mut self, uri: &Url, file: FileId) -> ViewId {
+        if let Some(id) = self.view_id(uri) {
+            self.entries[file.0].latest_view = Some(id);
+            return id;
+        }
         self.ensure_view_shared(uri, file).0
     }
 
