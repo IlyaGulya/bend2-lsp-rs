@@ -259,15 +259,11 @@ def main() -> None:
     try:
         executable = install(destination, arguments.target or native_target(), arguments.version)
     finally:
-        # A failed source build can retain evidence, but never becomes an
-        # installation or contributes BEND2_COMPILER_TEST_PATH to later tests.
-        evidence = destination.with_name(destination.name + "-evidence")
-        for candidate in (destination, evidence):
-            if (candidate / "compiler-build-identity.json").is_file():
-                if arguments.github_output:
-                    with arguments.github_output.open("a", encoding="utf-8", newline="\n") as output:
-                        output.write(f"compiler-evidence-present=true\ncompiler-evidence-path={candidate}\n")
-                break
+        # Failed source builds retain evidence in place; only successful return
+        # below exposes an installation through BEND2_COMPILER_TEST_PATH.
+        if (destination / "compiler-build-identity.json").is_file() and arguments.github_output:
+            with arguments.github_output.open("a", encoding="utf-8", newline="\n") as output:
+                output.write(f"compiler-evidence-present=true\ncompiler-evidence-path={destination}\n")
     if arguments.github_env:
         with arguments.github_env.open("a", encoding="utf-8") as environment:
             environment.write(f"BEND2_COMPILER_TEST_PATH={executable}\nBEND_NO_TELEMETRY=1\n")

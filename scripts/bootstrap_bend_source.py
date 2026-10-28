@@ -70,9 +70,6 @@ def build_windows(destination: Path, target: str) -> Path:
         raise ValueError("Windows compiler source bootstrap must run on a native Windows runner")
     if destination.exists() or destination.is_symlink():
         raise ValueError(f"installation destination must not exist: {destination}")
-    evidence = destination.with_name(destination.name + "-evidence")
-    if evidence.exists() or evidence.is_symlink():
-        raise ValueError(f"compiler evidence destination must not exist: {evidence}")
     commit = PINS["source_commit"]
     pin = PINS["source"]
     source = download(
@@ -99,7 +96,10 @@ def build_windows(destination: Path, target: str) -> Path:
         expected_host = "win32:arm64" if target == "aarch64-pc-windows-msvc" else "win32:x64"
         if runtime_host != expected_host:
             raise ValueError(f"Bun runtime host {runtime_host} does not match native target {target}")
-        distribution = root / "distribution"
+        # Keep the executable at the physical path used by its native probes.
+        # Windows can deny moving its directory after execution. A failed build
+        # stays here as evidence; only validated success returns an installation.
+        distribution = destination
         (distribution / "bin").mkdir(parents=True)
         (distribution / "bend2").mkdir()
         for name in ("base.bend", "bendtt.lean"):
@@ -173,13 +173,11 @@ def build_windows(destination: Path, target: str) -> Path:
         except BaseException as error:
             identity["validation"] = {"status": "failed", "error": str(error)}
             identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
-            # This is evidence, not an installation. The failed compiler is
-            # never exposed through BEND2_COMPILER_TEST_PATH.
-            distribution.rename(evidence)
+            # Retain the failed executable and identity at their observed paths.
+            # Failure never publishes BEND2_COMPILER_TEST_PATH to later tests.
             raise
         identity["validation"] = {"status": "passed"}
         identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
-        distribution.rename(destination)
     executable = destination / "bin/bend.exe"
     print(f"Built genuine Bend {PINS['version']} source {commit} with native {target} Bun {revision}: {executable}")
     return executable
