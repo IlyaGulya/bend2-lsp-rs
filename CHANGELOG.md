@@ -100,8 +100,9 @@
   publish the compiler path only after every integrity, native-runtime and CLI probe.
 - Keep view epochs on existing file rows instead of a separate hash table, and
   reuse resolved file identities when closing documents. Compare ASCII symbol
-  names without allocating a lowercase copy per name; preserve Unicode query
-  normalization, result order and independent editor views.
+  names without allocating a lowercase copy per name or re-normalizing the
+  query for each comparison; preserve Unicode query normalization, result order
+  and independent editor views.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
