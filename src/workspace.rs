@@ -241,6 +241,10 @@ struct FileEntry {
     // when they actually appear. An alias owns its own buffer, so no snapshot
     // is duplicated for the common single-view case.
     open_aliases: Option<Vec<AliasView>>,
+    // Latest view epoch ever allocated for this file, including a closed
+    // spelling, so staged disk-load and closed-file fences keep their revision
+    // status. The row already exists, so this needs no per-file side table.
+    latest_view: Option<ViewId>,
 }
 
 /// One editor spelling of a file: the identity it resolves to plus the view
@@ -264,9 +268,6 @@ pub struct WorkspaceDb {
     reachable: HashSet<FileId>,
     discovered: HashSet<FileId>,
     retired: Vec<FileId>,
-    // Latest view ever allocated for a file, including a closed spelling, so
-    // staged disk-load and closed-file fences keep their revision status.
-    current_view: HashMap<FileId, ViewId>,
     next_view_id: u64,
 }
 
@@ -364,30 +365,50 @@ impl WorkspaceDb {
     }
 
     pub(crate) fn ensure_view(&mut self, uri: &Url, file: FileId) -> ViewId {
-        self.ensure_view_id(uri, file)
+        self.ensure_view_shared(uri, file).0
     }
 
-    /// Identity for this spelling, allocated once and reused across
-    /// close/reopen so a stale close epoch never matches a reopened buffer.
-    fn ensure_view_id(&mut self, uri: &Url, file: FileId) -> ViewId {
-        if let Some(id) = self.view_id(uri) {
-            self.current_view.insert(file, id);
-            return id;
-        }
-        let id = ViewId(self.next_view_id);
-        self.next_view_id = self.next_view_id.wrapping_add(1);
-        if let Some(binding) = self.by_uri.get_mut(uri) {
-            binding.view = Some(id);
-        } else {
+    /// Identity and shared URI for one spelling. A spelling's epoch and its URI
+    /// key live in the same binding, so a spelling that already resolved is
+    /// read in one probe; only a first open installs a pending epoch. An epoch
+    /// is allocated once and reused across close/reopen so a stale close epoch
+    /// never matches a reopened buffer.
+    fn ensure_view_shared(&mut self, uri: &Url, file: FileId) -> (ViewId, Arc<Url>) {
+        let found = self.by_uri.get_key_value(uri);
+        let resolved = found.map(|(shared, binding)| (Arc::clone(shared), binding.view));
+        let Some((shared, view)) = resolved else {
+            let shared = Arc::new(uri.clone());
+            let id = self.next_view();
             self.by_uri.insert(
-                Arc::new(uri.clone()),
+                Arc::clone(&shared),
                 UriBinding {
                     file,
                     view: Some(id),
                 },
             );
-        }
-        self.current_view.insert(file, id);
+            self.entries[file.0].latest_view = Some(id);
+            return (id, shared);
+        };
+        // The spelling already resolved; re-inserting its binding with the same
+        // shared key only installs the pending epoch of a first open.
+        let id = view.unwrap_or_else(|| {
+            let id = self.next_view();
+            self.by_uri.insert(
+                Arc::clone(&shared),
+                UriBinding {
+                    file,
+                    view: Some(id),
+                },
+            );
+            id
+        });
+        self.entries[file.0].latest_view = Some(id);
+        (id, shared)
+    }
+
+    fn next_view(&mut self) -> ViewId {
+        let id = ViewId::from_counter(self.next_view_id);
+        self.next_view_id = self.next_view_id.wrapping_add(1);
         id
     }
 
@@ -404,7 +425,7 @@ impl WorkspaceDb {
     /// an old URI cannot reuse the moved buffer's revision stream.
     fn discard_uri_bindings(&mut self, id: FileId) {
         self.by_uri.retain(|_, binding| binding.file != id);
-        self.current_view.remove(&id);
+        self.entries[id.0].latest_view = None;
     }
 
     /// Keep a moved buffer's view epoch while its URI follows the new path.
@@ -415,14 +436,14 @@ impl WorkspaceDb {
         let view = entry.open_view.as_mut()?;
         view.uri = Arc::clone(uri);
         let view_id = view.id;
-        self.current_view.insert(id, view_id);
+        entry.latest_view = Some(view_id);
         Some(view_id)
     }
 
     /// Latest known view for a file, including a closed spelling, so staged
     /// disk-load and closed-file fences keep their revision status.
     pub(crate) fn latest_view_id(&self, id: FileId) -> Option<ViewId> {
-        self.current_view.get(&id).copied()
+        self.entries.get(id.0)?.latest_view
     }
 
     /// Every currently open editor spelling, borrowed without cloning. Callers
@@ -855,7 +876,7 @@ impl WorkspaceDb {
                     let view_id = view.id;
                     self.entries[canonical.0].open_view = Some(view);
                     self.entries[canonical.0].open_snapshot = Some(snapshot);
-                    self.current_view.insert(canonical, view_id);
+                    self.entries[canonical.0].latest_view = Some(view_id);
                     installed_view = Some(view_id);
                 }
                 if transfer_imports {
@@ -1048,8 +1069,7 @@ impl WorkspaceDb {
         let uri = document.uri;
         let id = self.intern(uri.clone(), path);
         self.release_retired_payload(id);
-        let view_id = self.ensure_view_id(&uri, id);
-        let uri = self.shared_uri(Cow::Owned(uri));
+        let (view_id, uri) = self.ensure_view_shared(&uri, id);
         let entry = &mut self.entries[id.0];
         entry.insert_view(
             OpenView {
@@ -1091,19 +1111,16 @@ impl WorkspaceDb {
             .as_ref()
             .filter(|view| view.uri.as_ref() == uri)
             .map(|view| view.id);
-        let new_view = representative.is_none().then(|| {
-            (
-                self.ensure_view_id(uri, id),
-                self.shared_uri(Cow::Borrowed(uri)),
-            )
-        });
+        let new_view = representative
+            .is_none()
+            .then(|| self.ensure_view_shared(uri, id));
         let entry = &mut self.entries[id.0];
         let was_open = entry.is_open();
         match new_view {
             None => {
                 if let Some(view_id) = representative {
                     entry.open_snapshot = Some(snapshot);
-                    self.current_view.insert(id, view_id);
+                    entry.latest_view = Some(view_id);
                 }
             }
             Some((view_id, shared_uri)) => {
@@ -1137,7 +1154,12 @@ impl WorkspaceDb {
 
     pub(crate) fn close_document_prepared(&mut self, uri: &Url) -> Option<FileId> {
         let id = self.by_uri.get(uri)?.file;
-        let compiler_owned = self.is_compiler_document(uri);
+        // The binding lookup above already yielded this spelling's file, so the
+        // compiler-ownership test reuses it instead of resolving the URI again.
+        let compiler_owned = self
+            .compiler_documents
+            .as_ref()
+            .is_some_and(|documents| documents.contains_key(&id));
         let representative = {
             let entry = self.entries.get_mut(id.0)?;
             let closed_representative = entry
@@ -1529,6 +1551,7 @@ impl WorkspaceDb {
             open_snapshot: None,
             open_view: None,
             open_aliases: None,
+            latest_view: None,
             disk_generation: 0,
             disk_snapshot: None,
             retired: false,

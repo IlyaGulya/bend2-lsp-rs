@@ -1,6 +1,6 @@
 use super::{Document, FALLBACK_LANGUAGE_ID, FileEntry};
 use crate::analysis::DocumentSnapshot;
-use std::sync::Arc;
+use std::{num::NonZeroU64, sync::Arc};
 use url::Url;
 /// Identity of one open editor view, i.e. one URI spelling of a file.
 ///
@@ -10,7 +10,20 @@ use url::Url;
 /// at version 4 and another spelling of the same file at version 11 never
 /// order against each other.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub(crate) struct ViewId(pub(super) u64);
+pub(crate) struct ViewId(pub(super) NonZeroU64);
+
+impl ViewId {
+    /// Epochs are opaque and positive. A zero-based allocation counter maps to
+    /// epoch one and up, and the non-zero niche keeps an epoch stored on a file
+    /// entry the same size as the counter itself. Exhausting the 64-bit counter
+    /// would reuse the first epoch, which no reachable session can do.
+    pub(super) const fn from_counter(counter: u64) -> Self {
+        match NonZeroU64::new(counter.wrapping_add(1)) {
+            Some(epoch) => Self(epoch),
+            None => Self(NonZeroU64::MIN),
+        }
+    }
+}
 
 /// Editor metadata for one spelling. The representative's buffer is stored
 /// beside this metadata on the file entry, never inside it, so the analysis
@@ -123,12 +136,14 @@ impl FileEntry {
             && let Some(view) = &self.open_view
         {
             documents.push(document_of(&view.uri, &view.language_id, snapshot));
-            for alias in self.open_aliases.iter().flatten() {
-                documents.push(document_of(
-                    &alias.view.uri,
-                    &alias.view.language_id,
-                    &alias.snapshot,
-                ));
+            if let Some(aliases) = &self.open_aliases {
+                for alias in aliases {
+                    documents.push(document_of(
+                        &alias.view.uri,
+                        &alias.view.language_id,
+                        &alias.snapshot,
+                    ));
+                }
             }
             return;
         }
