@@ -10,7 +10,10 @@ use std::{
 
 fn hold_socket(path: &Path) -> io::Result<TcpListener> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
-    fs::write(path, listener.local_addr()?.to_string())?;
+    // Readers treat this name as a ready signal; never expose an empty or partial address.
+    let pending = path.with_extension(format!("{}.pending", std::process::id()));
+    fs::write(&pending, listener.local_addr()?.to_string())?;
+    fs::rename(pending, path)?;
     Ok(listener)
 }
 

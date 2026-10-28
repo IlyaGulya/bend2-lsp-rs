@@ -90,6 +90,8 @@
 - Capture canned analyzer reports before signalling test readiness, and prepare the
   next report before reopening a document. Keep close/reopen epoch checks free of
   concurrent fixture-file rewrites.
+- Publish fixture socket addresses atomically, so cancellation checks never read
+  an empty or partially written address. Keep flaky-test rejection unchanged.
 - Compile the Windows console-control fixture in bounded setup before starting
   the owned collector. Keep its readiness and CTRL_BREAK finalization deadlines
   unchanged, without charging cold C# compilation to collector startup.
