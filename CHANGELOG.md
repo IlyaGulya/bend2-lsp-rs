@@ -20,8 +20,9 @@
 - Keep compiler, lexical, imported, and lint diagnostics merged. Reject obsolete
   results after edits, close, configuration changes, or source alias retargeting.
   Unrelated projects and unchanged indexed inputs retain their valid results.
-- Automatically check already-open files when lint is enabled, and recheck affected
-  entries after saved configuration or watched dependency changes.
+- Automatically check already-open files when lint is enabled. Follow configurations
+  created or removed after opening a file, including nested project configurations.
+  Recheck watched dependencies and external rule helpers changed during preparation.
 - Preserve independent buffers and versions for equivalent editor URI spellings.
   Show lint findings in every matching buffer; identify conflicting buffers before
   executing project rules, without blocking unrelated projects.
@@ -54,12 +55,30 @@
   import-order warnings after applying the action.
 - Keep compiler errors visible in each matching open URI spelling, using that
   buffer's own document version rather than another spelling's revision.
+- Keep lint checks working when entries reach the same project through directory
+  symlinks, instead of skipping an entry because its project path is spelled differently.
+- Check saved Linux entries with non-UTF-8 filenames through their UTF-8 aliases.
+  Keep diagnostics and explicit versioned fixes on the alias without changing source bytes.
+- Stop immediate preparation failures leaving lint stuck in preparation. Older attempts
+  cannot replace the identity or outcome of a newer preparation.
+- Remove outdated lint warnings and fixes immediately when watched inputs change,
+  even while cleanup is pending. Keep any newer results and fixes.
 
 ### Under the hood
 
 - Coordinate lint work and cancellation per project, with one immutable input view
   per revision across entry checks. Keep exact source and document-version fences
   when disk inputs change during analysis.
+- Separate lint lifecycle transitions, scheduling, read-set capture, saved-rule trust,
+  source overlays and editor-view selection. Share captured input tracking without
+  treating unsaved source text as executable rule code.
+- Record an unpaired CI publication baseline with 32 entries and 128 diagnostic
+  targets against optimized native executables. Validate exact current findings and
+  retain source/binary/harness/fixture identity; local correctness mode emits no timing
+  samples. Keep existing performance metrics, comparison limits and admission unchanged.
+- Remove temporary per-dependent document vectors and duplicate URI bindings.
+  Update the active buffer snapshot without rebuilding its unchanged URI/language
+  metadata; preserve independent alias buffers and revision ownership.
 - Raise Tokio's minimum version and lock it to 1.53.3, clearing
   [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
   without adding an audit exception.

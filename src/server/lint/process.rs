@@ -1,4 +1,7 @@
-use super::super::compiler::{CompilerLease, CompilerReapers};
+use super::{
+    super::compiler::{CompilerLease, CompilerReapers},
+    util::bounded,
+};
 use crate::analysis::DocumentSnapshot;
 use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
 use std::{
@@ -372,18 +375,6 @@ struct PrepareTimings {
     checker: u64,
     #[serde(rename = "runMs")]
     run: u64,
-}
-
-fn bounded(mut text: String, limit: usize) -> String {
-    if text.len() > limit {
-        let mut end = limit.saturating_sub('…'.len_utf8());
-        while !text.is_char_boundary(end) {
-            end -= 1;
-        }
-        text.truncate(end);
-        text.push('…');
-    }
-    text
 }
 
 impl PrepareReport {

@@ -22,14 +22,14 @@ impl ProjectKey {
             Self::Root(root) => paths.iter().any(|path| {
                 path.starts_with(root)
                     || normalize_path(path).starts_with(root)
-                    || snapshot::input_identity(path)
+                    || snapshot::paths::input_identity(path)
                         .is_some_and(|identity| identity.starts_with(root))
             }),
             Self::Document(uri) => paths.iter().any(|path| {
                 uri.to_file_path().is_ok_and(|opened| {
                     opened == *path
-                        || snapshot::input_identity(&opened)
-                            .zip(snapshot::input_identity(path))
+                        || snapshot::paths::input_identity(&opened)
+                            .zip(snapshot::paths::input_identity(path))
                             .is_some_and(|(opened, target)| opened == target)
                 })
             }),
@@ -50,10 +50,23 @@ pub(super) enum PreparationPhase {
     Failed(String),
 }
 
+// One preparation attempt's identity. A completion may only publish into the
+// attempt that registered it, so a replacement that reuses the same key can
+// never be mutated by an older attempt's late outcome.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) struct PreparationToken(u64);
+
+impl PreparationToken {
+    pub(super) const fn new(value: u64) -> Self {
+        Self(value)
+    }
+}
+
 // Preparation belongs to the project/analyzer configuration, never to a
 // document revision: typing reuses an in-flight or completed preparation and
 // only configuration, trust, or project identity changes can restart it.
 pub(super) struct Preparation {
+    pub(super) token: PreparationToken,
     pub(super) key: PreparationKey,
     pub(super) phase: PreparationPhase,
     pub(super) task: Option<JoinHandle<()>>,

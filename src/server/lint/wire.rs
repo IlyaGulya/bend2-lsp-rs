@@ -1,4 +1,4 @@
-use super::snapshot::ProjectSnapshot;
+use super::{snapshot::ProjectSnapshot, util::bounded};
 use crate::analysis::DocumentSnapshot;
 use serde::Deserialize;
 use std::{collections::HashMap, io};
@@ -271,18 +271,6 @@ fn finding_targets(snapshot: &ProjectSnapshot, finding: &Finding) -> io::Result<
         )
     })?;
     Ok((vec![uri], range))
-}
-
-fn bounded(mut text: String, limit: usize) -> String {
-    if text.len() > limit {
-        let mut end = limit.saturating_sub('…'.len_utf8());
-        while !text.is_char_boundary(end) {
-            end -= 1;
-        }
-        text.truncate(end);
-        text.push('…');
-    }
-    text
 }
 
 fn decode_errors(bytes: &[u8]) -> Option<Vec<ReportError>> {

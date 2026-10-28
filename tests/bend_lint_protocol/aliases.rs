@@ -166,6 +166,103 @@ fn symlinked_spellings_publish_lint_findings_at_their_own_versions() {
     session.finish();
 }
 
+// One physical project can hold several entries, and the editor may reach that
+// project through a directory symlink. The two entry spellings share one
+// project key, so both checks are planned in the same frozen revision; the view
+// captured through the first spelling must still serve the second entry instead
+// of refusing it as frozen. Each entry keeps its own editor URI and publishes
+// the finding the analyzer reported for that entry.
+#[cfg(unix)]
+#[test]
+fn directory_symlink_entries_complete_together_in_one_project_revision() {
+    use std::os::unix::fs::symlink;
+
+    let mut session = Session::new(SOURCE, &[]);
+    let project = session.project().to_path_buf();
+    let second = project.join("second.bend");
+    fs::write(&second, SOURCE).must_be("write the second project entry");
+    let alias_root = session.directory.path().join("project alias");
+    symlink(&project, &alias_root).must_be("create the directory-symlink project spelling");
+    let aliased_second = alias_root.join("second.bend");
+    let main_text = session.document.clone();
+    let second_text = uri(&aliased_second);
+    assert_ne!(main_text, second_text);
+    assert_eq!(
+        fs::canonicalize(&aliased_second).must_be("aliased entry identity"),
+        fs::canonicalize(&second).must_be("real entry identity"),
+        "both entry spellings live in one physical project"
+    );
+
+    let responses = session.control.join("responses");
+    fs::create_dir(&responses).must_be("create per-entry analyzer responses");
+    for (name, path, code) in [
+        ("main.bend.json", &session.root, "entry/main"),
+        ("second.bend.json", &second, "entry/second"),
+    ] {
+        let response = json!({
+            "ok":true,
+            "findings":[finding(path, code, range(0, 0, 3))],
+            "suppressed":[], "skipped":[]
+        });
+        fs::write(
+            responses.join(name),
+            serde_json::to_vec(&response).must_be("serialize per-entry response"),
+        )
+        .must_be("write per-entry analyzer response");
+    }
+    session.configure(true, false, 10_000);
+
+    // Both notifications reach the server before the first debounced plan runs,
+    // so both entries belong to the one project revision that captured a view
+    // through the first spelling.
+    for (text, version) in [(&main_text, 1_i64), (&second_text, 2_i64)] {
+        session.client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":text,"languageId":"bend","version":version,"text":SOURCE}}),
+        );
+    }
+    for (text, version, code) in [
+        (&main_text, 1_i64, "entry/main"),
+        (&second_text, 2_i64, "entry/second"),
+    ] {
+        let text = text.clone();
+        let code = code.to_owned();
+        let packet = session
+            .client
+            .receive_matching(TIMEOUT, |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"].as_str() == Some(text.as_str())
+                    && message["params"]["version"] == version
+                    && has_lint_code(message, &code)
+            })
+            .must_be("each entry of one physical project completes its own check");
+        assert_eq!(
+            packet["params"]["uri"].as_str(),
+            Some(text.as_str()),
+            "the finding stays on the entry spelling that requested the check"
+        );
+        assert!(
+            packet["params"]["diagnostics"]
+                .as_array()
+                .must_be("published diagnostics")
+                .iter()
+                .any(|item| item["source"] == "bend-lint" && item["code"] == code),
+            "the {code} finding is published on its entry: {packet}"
+        );
+        let status = session.client.request(
+            "workspace/executeCommand",
+            json!({"command":"bend2.lint.status","arguments":[{"uri":text}]}),
+        )["result"]
+            .clone();
+        assert_eq!(
+            status["state"], "ready",
+            "{code} completed in the shared project revision instead of a frozen-view skip: {status}"
+        );
+    }
+    session.finish();
+}
+
 // Closing the representative (also first-open) spelling must leave the other
 // open spelling as the single, unambiguous editor and index view. Its own
 // declaration and overlay text survive, and workspace symbols point at the

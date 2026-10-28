@@ -8,6 +8,9 @@ use std::{
 use crate::analysis::{self, DocumentSnapshot, Revision};
 use url::Url;
 
+pub(crate) mod views;
+use views::{OpenView, ViewId};
+
 #[derive(Clone)]
 pub struct Document {
     pub uri: Url,
@@ -45,6 +48,15 @@ impl Deref for Document {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct FileId(usize);
+
+/// Language reported for a file that has no open spelling.
+///
+/// Every open spelling carries its own language id on its view. The only paths
+/// that drop a file's last spelling (close and rename retirement) restore the
+/// plain Bend source language, so a closed file's language is exactly this
+/// value and no second copy of it needs to be stored or cloned per
+/// open/revision.
+pub(super) const FALLBACK_LANGUAGE_ID: &str = "bend";
 
 pub(crate) type DocumentImportEdits = (Document, Vec<(analysis::TextRange, String)>);
 
@@ -211,29 +223,12 @@ impl SourceGraph {
     }
 }
 
-/// Identity of one open editor view, i.e. one URI spelling of a file.
-///
-/// `FileId` remains the normalized lexical path identity shared by every
-/// spelling. A view adds the independent buffer text and LSP version stream of
-/// that spelling; revisions and close epochs are tracked per view so a buffer
-/// at version 4 and another spelling of the same file at version 11 never
-/// order against each other.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub(crate) struct ViewId(u64);
-
-struct OpenView {
-    uri: Url,
-    id: ViewId,
-    language_id: String,
-    snapshot: Arc<DocumentSnapshot>,
-}
-
 struct FileEntry {
     uri: Url,
     path: Option<PathBuf>,
-    language_id: String,
     // One open spelling is inline; additional spellings of the same file are
-    // rare and allocate their list only when they actually appear.
+    // rare and allocate their list only when they actually appear. A spelling's
+    // language lives on its view, so nothing here duplicates it.
     open_view: Option<OpenView>,
     open_aliases: Option<Vec<OpenView>>,
     disk_generation: u64,
@@ -243,136 +238,29 @@ struct FileEntry {
     reverse_imports: Vec<FileId>,
 }
 
-impl FileEntry {
-    fn snapshot(&self) -> Option<&Arc<DocumentSnapshot>> {
-        self.open_view
-            .as_ref()
-            .map(|view| &view.snapshot)
-            .or(self.disk_snapshot.as_ref())
-    }
-
-    fn is_open(&self) -> bool {
-        self.open_view.is_some()
-    }
-
-    fn view_count(&self) -> usize {
-        usize::from(self.open_view.is_some()) + self.open_aliases.as_ref().map_or(0, Vec::len)
-    }
-
-    fn view(&self, uri: &Url) -> Option<&OpenView> {
-        self.open_view
-            .as_ref()
-            .filter(|view| view.uri == *uri)
-            .or_else(|| {
-                self.open_aliases
-                    .as_ref()?
-                    .iter()
-                    .find(|view| view.uri == *uri)
-            })
-    }
-
-    fn views(&self) -> impl Iterator<Item = &OpenView> {
-        self.open_view
-            .iter()
-            .chain(self.open_aliases.iter().flat_map(|aliases| aliases.iter()))
-    }
-
-    fn view_document(view: &OpenView) -> Document {
-        Document::with_snapshot(
-            view.uri.clone(),
-            view.language_id.clone(),
-            view.snapshot.clone(),
-        )
-    }
-
-    // Every open spelling of this file. The physical representative comes
-    // first; additional spellings keep their commit order.
-    fn documents(&self) -> Vec<Document> {
-        if !self.is_open() {
-            return self.document().into_iter().collect();
-        }
-        self.views().map(Self::view_document).collect()
-    }
-
-    // The representative view is the most recently committed spelling; the
-    // import graph, compiler, and dependent refresh use its text so one file
-    // still has exactly one deterministic analysis text.
-    fn document(&self) -> Option<Document> {
-        if let Some(view) = &self.open_view {
-            return Some(Self::view_document(view));
-        }
-        Some(Document::with_snapshot(
-            self.uri.clone(),
-            self.language_id.clone(),
-            self.disk_snapshot.as_ref()?.clone(),
-        ))
-    }
-
-    // Multiple spellings that agree share one analysis text; disagreeing
-    // spellings are ambiguous and must never be resolved by picking one.
-    fn conflicting_views(entry: &FileEntry) -> Option<Vec<Url>> {
-        let mut views = entry.views();
-        let first = views.next()?;
-        let mut uris = vec![first.uri.clone()];
-        let mut conflict = false;
-        for view in views {
-            uris.push(view.uri.clone());
-            conflict = conflict || view.snapshot.text != first.snapshot.text;
-        }
-        conflict.then(|| {
-            uris.sort_unstable();
-            uris
-        })
-    }
-
-    fn take_view(&mut self, uri: &Url) -> Option<OpenView> {
-        if self.open_view.as_ref().is_some_and(|view| view.uri == *uri) {
-            return self.open_view.take();
-        }
-        let aliases = self.open_aliases.as_mut()?;
-        let position = aliases.iter().position(|view| view.uri == *uri)?;
-        Some(aliases.remove(position))
-    }
-
-    // Insert or replace one spelling and make it the representative without
-    // ever dropping another buffer.
-    fn insert_view(&mut self, view: OpenView) {
-        let _replaced = self.take_view(&view.uri);
-        if let Some(previous) = self.open_view.take() {
-            self.open_aliases
-                .get_or_insert_with(Vec::new)
-                .push(previous);
-        }
-        self.open_view = Some(view);
-    }
-
-    fn remove_view(&mut self, uri: &Url) -> Option<OpenView> {
-        let removed = self.take_view(uri)?;
-        if self.open_view.is_none()
-            && let Some(aliases) = &mut self.open_aliases
-        {
-            self.open_view = aliases.pop();
-        }
-        if self.open_aliases.as_ref().is_some_and(Vec::is_empty) {
-            self.open_aliases = None;
-        }
-        Some(removed)
-    }
+/// One editor spelling of a file: the identity it resolves to plus the view
+/// epoch ever allocated for that spelling. Kept in one map so a spelling's
+/// epoch and its file identity share one allocation and one hash lookup, and so
+/// an epoch survives close/reopen exactly as long as the spelling keeps
+/// resolving.
+#[derive(Clone, Copy, Debug)]
+struct UriBinding {
+    file: FileId,
+    view: Option<ViewId>,
 }
 
 #[derive(Default)]
 pub struct WorkspaceDb {
     entries: Vec<FileEntry>,
-    by_uri: HashMap<Url, FileId>,
+    by_uri: HashMap<Url, UriBinding>,
     by_path: HashMap<PathBuf, FileId>,
     compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
     // User file identities stay interned; graph liveness governs their payloads.
     reachable: HashSet<FileId>,
     discovered: HashSet<FileId>,
     retired: Vec<FileId>,
-    // Open-view identity is allocated once per editor URI spelling and kept
-    // across close/reopen so a stale close epoch can never match a new one.
-    view_ids: HashMap<Url, ViewId>,
+    // Latest view ever allocated for a file, including a closed spelling, so
+    // staged disk-load and closed-file fences keep their revision status.
     current_view: HashMap<FileId, ViewId>,
     next_view_id: u64,
 }
@@ -447,18 +335,18 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn open_document(&self, uri: &Url) -> Option<Document> {
-        let id = self.by_uri.get(uri)?;
+        let id = self.by_uri.get(uri)?.file;
         self.entries[id.0].view(uri).map(FileEntry::view_document)
     }
 
     pub(crate) fn is_document_open(&self, uri: &Url) -> bool {
         self.by_uri
             .get(uri)
-            .is_some_and(|id| self.entries[id.0].view(uri).is_some())
+            .is_some_and(|binding| self.entries[binding.file.0].view(uri).is_some())
     }
 
     pub(crate) fn view_id(&self, uri: &Url) -> Option<ViewId> {
-        self.view_ids.get(uri).copied()
+        self.by_uri.get(uri)?.view
     }
 
     pub(crate) fn ensure_view(&mut self, uri: &Url, file: FileId) -> ViewId {
@@ -468,13 +356,23 @@ impl WorkspaceDb {
     /// Identity for this spelling, allocated once and reused across
     /// close/reopen so a stale close epoch never matches a reopened buffer.
     fn ensure_view_id(&mut self, uri: &Url, file: FileId) -> ViewId {
-        if let Some(id) = self.view_ids.get(uri) {
-            self.current_view.insert(file, *id);
-            return *id;
+        if let Some(id) = self.view_id(uri) {
+            self.current_view.insert(file, id);
+            return id;
         }
         let id = ViewId(self.next_view_id);
         self.next_view_id = self.next_view_id.wrapping_add(1);
-        self.view_ids.insert(uri.clone(), id);
+        if let Some(binding) = self.by_uri.get_mut(uri) {
+            binding.view = Some(id);
+        } else {
+            self.by_uri.insert(
+                uri.clone(),
+                UriBinding {
+                    file,
+                    view: Some(id),
+                },
+            );
+        }
         self.current_view.insert(file, id);
         id
     }
@@ -491,31 +389,20 @@ impl WorkspaceDb {
     /// moves it. View epochs are dropped with the spellings so a later open of
     /// an old URI cannot reuse the moved buffer's revision stream.
     fn discard_uri_bindings(&mut self, id: FileId) {
-        let uris: Vec<Url> = self
-            .by_uri
-            .iter()
-            .filter(|(_, mapped)| **mapped == id)
-            .map(|(uri, _)| uri.clone())
-            .collect();
-        for uri in uris {
-            self.by_uri.remove(&uri);
-            self.view_ids.remove(&uri);
-        }
+        self.by_uri.retain(|_, binding| binding.file != id);
         self.current_view.remove(&id);
     }
 
     /// Keep a moved buffer's view epoch while its URI follows the new path.
-    fn rebind_representative_view(&mut self, id: FileId, uri: &Url) {
+    /// The caller has already detached this file's spellings, so the moved
+    /// buffer's epoch reaches its new binding through the rename's own insert.
+    fn rebind_representative_view(&mut self, id: FileId, uri: &Url) -> Option<ViewId> {
         let entry = &mut self.entries[id.0];
-        let Some(mut view) = entry.open_view.take() else {
-            return;
-        };
-        let previous = std::mem::replace(&mut view.uri, uri.clone());
+        let view = entry.open_view.as_mut()?;
+        view.uri = uri.clone();
         let view_id = view.id;
-        entry.open_view = Some(view);
-        self.view_ids.remove(&previous);
-        self.view_ids.insert(uri.clone(), view_id);
         self.current_view.insert(id, view_id);
+        Some(view_id)
     }
 
     /// Latest known view for a file, including a closed spelling, so staged
@@ -551,7 +438,7 @@ impl WorkspaceDb {
     pub(crate) fn imports_prelude(&self, uri: &Url) -> bool {
         self.by_uri
             .get(uri)
-            .and_then(|id| self.entries[id.0].snapshot())
+            .and_then(|binding| self.entries[binding.file.0].snapshot())
             .is_some_and(|snapshot| {
                 analysis::imports(snapshot)
                     .iter()
@@ -572,7 +459,7 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn cached_document(&self, uri: &Url) -> Option<Document> {
-        let entry = self.entries.get(self.by_uri.get(uri)?.0)?;
+        let entry = self.entries.get(self.by_uri.get(uri)?.file.0)?;
         // A view answers with its own buffer; any other spelling of the same
         // file falls back to the representative or the saved text.
         entry.view(uri).map_or_else(
@@ -591,7 +478,7 @@ impl WorkspaceDb {
         source: &Url,
         import_path: analysis::TextRange,
     ) -> Option<Document> {
-        let source_id = *self.by_uri.get(source)?;
+        let source_id = self.by_uri.get(source)?.file;
         let target = self.entries[source_id.0]
             .imports
             .iter()
@@ -603,6 +490,7 @@ impl WorkspaceDb {
     // One document per open editor spelling. Equivalent URI spellings of one
     // file stay separate buffers here; analysis consumers decide whether they
     // agree (share) or conflict (reject before execution).
+    #[must_use]
     pub fn open_documents(&self) -> Vec<Document> {
         let mut documents: Vec<Document> = self
             .entries
@@ -624,10 +512,10 @@ impl WorkspaceDb {
 
     pub(crate) fn available_import_targets(&self, source: &Url) -> Vec<String> {
         let mut targets = vec!["Base".into()];
-        let Some(source_path) = self
-            .file_id_by_uri(source)
-            .and_then(|id| self.entries[id.0].path.as_deref())
-        else {
+        let Some(source_id) = self.file_id_by_uri(source) else {
+            return targets;
+        };
+        let Some(source_path) = self.entries[source_id.0].path.as_deref() else {
             return targets;
         };
         self.visit_indexed_entries(|id, entry| {
@@ -644,7 +532,7 @@ impl WorkspaceDb {
                     targets.push(path.into());
                 }
             }
-            if self.file_id_by_uri(source) == Some(id)
+            if id == source_id
                 || self
                     .compiler_documents
                     .as_ref()
@@ -757,7 +645,10 @@ impl WorkspaceDb {
             };
             let document = Document::with_snapshot(
                 entry.uri.clone(),
-                entry.language_id.clone(),
+                entry.open_view.as_ref().map_or_else(
+                    || FALLBACK_LANGUAGE_ID.into(),
+                    |view| view.language_id.clone(),
+                ),
                 snapshot.clone(),
             );
             candidates.push((document, relative, items));
@@ -919,6 +810,10 @@ impl WorkspaceDb {
             let canonical = destination
                 .filter(|other| self.entries[other.0].is_open())
                 .unwrap_or(id);
+            // Epoch that must land on the destination spelling: a moved
+            // buffer's own epoch. A destination spelling that already had one
+            // keeps it when no buffer moved onto it.
+            let mut installed_view = None;
             if let Some(destination) = destination {
                 self.release_retired_payload(destination);
                 self.entries[destination.0].disk_generation =
@@ -947,12 +842,9 @@ impl WorkspaceDb {
                 {
                     view.uri = uri.clone();
                     let view_id = view.id;
-                    self.entries[canonical.0]
-                        .language_id
-                        .clone_from(&view.language_id);
                     self.entries[canonical.0].open_view = Some(view);
-                    self.view_ids.insert(uri.clone(), view_id);
                     self.current_view.insert(canonical, view_id);
+                    installed_view = Some(view_id);
                 }
                 if transfer_imports {
                     self.entries[canonical.0].imports =
@@ -960,17 +852,28 @@ impl WorkspaceDb {
                 }
                 self.entries[retired.0].disk_snapshot = None;
                 self.entries[retired.0].path = None;
-                self.entries[retired.0].language_id = "bend".into();
                 self.entries[retired.0].imports = Box::default();
                 merged.push((retired, canonical));
             }
-            if canonical == id {
-                self.rebind_representative_view(canonical, &uri);
+            if canonical == id
+                && let Some(view_id) = self.rebind_representative_view(canonical, &uri)
+            {
+                installed_view = Some(view_id);
             }
             self.entries[canonical.0].uri = uri.clone();
             self.entries[canonical.0].path = Some(path.clone());
             self.by_path.insert(path, canonical);
-            self.by_uri.insert(uri, canonical);
+            // A moved buffer carries its epoch to the new spelling; otherwise
+            // the destination spelling keeps the epoch it already had.
+            let view =
+                installed_view.or_else(|| self.by_uri.get(&uri).and_then(|binding| binding.view));
+            self.by_uri.insert(
+                uri,
+                UriBinding {
+                    file: canonical,
+                    view,
+                },
+            );
         }
         self.redirect_imports(&merged);
         self.recompute_reachable();
@@ -1135,7 +1038,6 @@ impl WorkspaceDb {
         self.release_retired_payload(id);
         let view_id = self.ensure_view_id(&uri, id);
         let entry = &mut self.entries[id.0];
-        entry.language_id.clone_from(&document.language_id);
         entry.insert_view(OpenView {
             uri,
             id: view_id,
@@ -1164,22 +1066,47 @@ impl WorkspaceDb {
         snapshot: Arc<DocumentSnapshot>,
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> Option<(FileId, bool)> {
-        let id = *self.by_uri.get(uri)?;
+        let id = self.by_uri.get(uri)?.file;
         self.release_retired_payload(id);
-        let view_id = self.ensure_view_id(uri, id);
-        let entry = self.entries.get_mut(id.0)?;
+        // A revision of the representative spelling replaces only its text: its
+        // spelling, language id, and view epoch are already installed, so the
+        // ordinary editing path never rebuilds view metadata.
+        let representative = self.entries[id.0]
+            .open_view
+            .as_ref()
+            .is_some_and(|view| view.uri == *uri);
+        let view_id = if representative {
+            None
+        } else {
+            Some(self.ensure_view_id(uri, id))
+        };
+        let entry = &mut self.entries[id.0];
         let was_open = entry.is_open();
-        let language_id = entry.view(uri).map_or_else(
-            || entry.language_id.clone(),
-            |view| view.language_id.clone(),
-        );
-        entry.language_id.clone_from(&language_id);
-        entry.insert_view(OpenView {
-            uri: uri.clone(),
-            id: view_id,
-            language_id,
-            snapshot,
-        });
+        match view_id {
+            None => {
+                let revised = entry.open_view.as_mut().map(|view| {
+                    view.snapshot = snapshot;
+                    view.id
+                });
+                if let Some(view_id) = revised {
+                    self.current_view.insert(id, view_id);
+                }
+            }
+            Some(view_id) => {
+                // Keep this spelling's own language; a spelling that was never
+                // opened inherits the representative's.
+                let language_id = entry.view(uri).or(entry.open_view.as_ref()).map_or_else(
+                    || FALLBACK_LANGUAGE_ID.into(),
+                    |view| view.language_id.clone(),
+                );
+                entry.insert_view(OpenView {
+                    uri: uri.clone(),
+                    id: view_id,
+                    language_id,
+                    snapshot,
+                });
+            }
+        }
         let imports_changed = self.refresh_imports_with_targets(id, imports);
         if !was_open {
             self.extend_reachable(id);
@@ -1192,7 +1119,7 @@ impl WorkspaceDb {
     }
 
     pub(crate) fn close_document_prepared(&mut self, uri: &Url) -> Option<FileId> {
-        let id = *self.by_uri.get(uri)?;
+        let id = self.by_uri.get(uri)?.file;
         let compiler_owned = self.is_compiler_document(uri);
         let representative = {
             let entry = self.entries.get_mut(id.0)?;
@@ -1201,9 +1128,7 @@ impl WorkspaceDb {
                 .as_ref()
                 .is_some_and(|view| view.uri == *uri);
             entry.remove_view(uri)?;
-            if let Some(view) = &entry.open_view {
-                entry.language_id = view.language_id.clone();
-            } else {
+            if entry.open_view.is_none() {
                 // Generated navigation source has independent workspace
                 // ownership. User disk snapshots and overlay imports must be
                 // loaded afresh once no spelling remains open.
@@ -1211,7 +1136,6 @@ impl WorkspaceDb {
                     entry.disk_snapshot = None;
                 }
                 entry.disk_generation = entry.disk_generation.wrapping_add(1);
-                entry.language_id = "bend".into();
             }
             closed_representative
         };
@@ -1286,7 +1210,7 @@ impl WorkspaceDb {
     }
 
     pub(crate) fn document_path(&self, uri: &Url) -> Option<PathBuf> {
-        self.entries.get(self.by_uri.get(uri)?.0)?.path.clone()
+        self.entries.get(self.by_uri.get(uri)?.file.0)?.path.clone()
     }
 
     pub(crate) fn indexed_paths(&self) -> impl Iterator<Item = (&Path, bool)> {
@@ -1532,7 +1456,7 @@ impl WorkspaceDb {
 
     #[must_use]
     pub fn file_id_by_uri(&self, uri: &Url) -> Option<FileId> {
-        self.by_uri.get(uri).copied()
+        self.by_uri.get(uri).map(|binding| binding.file)
     }
     pub(crate) fn ensure_file_id(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
         self.intern(uri, path)
@@ -1548,7 +1472,7 @@ impl WorkspaceDb {
         let existing = path
             .as_ref()
             .and_then(|path| self.by_path.get(path).copied())
-            .or_else(|| self.by_uri.get(&uri).copied());
+            .or_else(|| self.by_uri.get(&uri).map(|binding| binding.file));
         if let Some(id) = existing {
             // Every spelling keeps resolving to the one physical identity.
             // The entry's own `uri` stays the primary spelling; an open
@@ -1568,14 +1492,24 @@ impl WorkspaceDb {
             {
                 self.by_path.remove(&old_path);
             }
-            self.by_uri.insert(uri, id);
+            // A prior view epoch on this spelling must survive re-interning.
+            if let Some(binding) = self.by_uri.get_mut(&uri) {
+                binding.file = id;
+            } else {
+                self.by_uri.insert(
+                    uri,
+                    UriBinding {
+                        file: id,
+                        view: None,
+                    },
+                );
+            }
             return id;
         }
         let id = FileId(self.entries.len());
         self.entries.push(FileEntry {
             uri: uri.clone(),
             path: path.clone(),
-            language_id: "bend".into(),
             open_view: None,
             open_aliases: None,
             disk_generation: 0,
@@ -1584,7 +1518,13 @@ impl WorkspaceDb {
             imports: Box::default(),
             reverse_imports: Vec::new(),
         });
-        self.by_uri.insert(uri, id);
+        self.by_uri.insert(
+            uri,
+            UriBinding {
+                file: id,
+                view: None,
+            },
+        );
         if let Some(path) = path {
             self.by_path.insert(path, id);
         }

@@ -66,7 +66,7 @@ fn versioned_fix(
         // target ambiguous. If the checked target's identity cannot be
         // verified, no alias can be ruled out: fail closed instead of editing
         // whatever spelling happens to be captured.
-        let identity = super::snapshot::input_identity(&path).ok_or(
+        let identity = super::snapshot::paths::input_identity(&path).ok_or(
             "This fix target's physical file identity cannot be verified; save it and recheck before applying this fix.",
         )?;
         // Resolve the CURRENT open spellings by physical identity, not by one
@@ -78,7 +78,7 @@ fn versioned_fix(
             let mut open = database.open_view_spellings().filter(|uri| {
                 uri.to_file_path()
                     .ok()
-                    .and_then(|candidate| super::snapshot::input_identity(&candidate))
+                    .and_then(|candidate| super::snapshot::paths::input_identity(&candidate))
                     .as_ref()
                     == Some(&identity)
             });

@@ -1,5 +1,17 @@
 use super::*;
 
+fn completed_lint(session: &mut Session, document: &str, code: &str) -> Value {
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"] == document
+                && message["params"]["version"] == 1
+                && has_lint_code(message, code)
+        })
+        .must_be("the requested entry publishes its freshly prepared report")
+}
+
 #[test]
 fn saving_another_entry_preserves_the_previous_documents_fix() {
     let mut session = Session::new(SOURCE, &[("other.bend", SOURCE)]);
@@ -13,7 +25,11 @@ fn saving_another_entry_preserves_the_previous_documents_fix() {
     // entry must return its own finding again, not the sibling target's.
     let responses = session.control.join("responses");
     fs::create_dir(&responses).must_be("create per-target responses");
-    target_response(&responses.join("main.bend.json"), &[original], true);
+    target_response(
+        &responses.join("main.bend.json"),
+        std::slice::from_ref(&original),
+        true,
+    );
     target_response(
         &responses.join("other.bend.json"),
         &[finding(&other, "test/other", range(0, 9, 10))],
@@ -36,22 +52,35 @@ fn saving_another_entry_preserves_the_previous_documents_fix() {
                 && message["params"]["version"] == 1
         })
         .must_be("second document is indexed before either saved check");
+    let main_uri = session.document.clone();
+    completed_lint(&mut session, &main_uri, "test/original");
+    completed_lint(&mut session, &other_uri, "test/other");
+    original["code"] = json!("test/original-saved");
+    target_response(
+        &responses.join("main.bend.json"),
+        std::slice::from_ref(&original),
+        true,
+    );
+    target_response(
+        &responses.join("other.bend.json"),
+        &[finding(&other, "test/other-main-save", range(0, 9, 10))],
+        true,
+    );
     session.save();
-    let original_diagnostics = session.lint()["params"]["diagnostics"].clone();
+    let original_diagnostics =
+        completed_lint(&mut session, &main_uri, "test/original-saved")["params"]["diagnostics"]
+            .clone();
+    completed_lint(&mut session, &other_uri, "test/other-main-save");
+    target_response(
+        &responses.join("other.bend.json"),
+        &[finding(&other, "test/other-saved", range(0, 9, 10))],
+        true,
+    );
     session.client.notify(
         "textDocument/didSave",
         json!({"textDocument":{"uri":other_uri}}),
     );
-    session
-        .client
-        .receive_matching(TIMEOUT, |message| {
-            message["method"] == "textDocument/publishDiagnostics"
-                && message["params"]["uri"] == other_uri
-                && message["params"]["diagnostics"]
-                    .as_array()
-                    .is_some_and(|items| items.iter().any(|item| item["code"] == "test/other"))
-        })
-        .must_be("second entry finishes its own analysis");
+    completed_lint(&mut session, &other_uri, "test/other-saved");
     let actions = session.actions(original_diagnostics, 1);
     assert_eq!(
         actions.len(),

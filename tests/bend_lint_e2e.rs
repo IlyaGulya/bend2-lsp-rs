@@ -99,6 +99,119 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
     client.finish();
 }
 
+// Linux is the only supported target where the fixture can create a native
+// filename whose bytes are not UTF-8: macOS APFS rejects such a name with
+// EILSEQ. The editor opens a UTF-8 alias whose identity is that native entry,
+// so the genuine report and an explicit edit must stay on the alias spelling
+// without a lossy path substitution, a temporary project copy, or dropped
+// identity/byte validation.
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn genuine_entry_through_utf8_alias_of_non_utf8_filename_matches_cli() {
+    use std::{
+        ffi::OsString,
+        os::unix::{ffi::OsStringExt, fs::symlink},
+    };
+
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("non-UTF-8 entry workspace");
+    let project = directory.path().join("non-UTF-8 entry 🦀");
+    fs::create_dir(&project).must_be("create genuine project");
+    let target = project.join(OsString::from_vec(b"entry-\xff.bend".to_vec()));
+    let alias = project.join("entry.bend");
+    let source = "import Base\n\ndef f(+x: Nat, y: Nat) -> Nat:\n    Nat.add(x, y)\n";
+    let formatted = "import Base\n\ndef f(+x: Nat, y: Nat) -> Nat:\n  Nat.add(x, y)\n";
+    fs::write(&target, source).must_be("write the non-UTF-8 native entry");
+    symlink(&target, &alias).must_be("create the UTF-8 entry alias");
+    assert!(
+        target.to_str().is_none(),
+        "the physical entry name is not UTF-8"
+    );
+    assert_eq!(
+        canonical(&alias),
+        canonical(&target),
+        "the UTF-8 alias names the same physical entry"
+    );
+    let saved = fs::read(&target).must_be("read the saved native entry bytes");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "rules":{UNNEEDED_PLUS:{},FORMAT:{}}
+        }))
+        .must_be("serialize genuine alias-rule config"),
+    )
+    .must_be("enable genuine rules");
+
+    // The external oracle uses the same published overlay transport as the
+    // server: the UTF-8 alias as the entry and an overlay for that alias. It
+    // never names the physical non-UTF-8 target lossily and never copies the
+    // project; the genuine producer either accepts this lossless view or its
+    // exact failure is the upstream limitation.
+    let mut overlays = BTreeMap::new();
+    overlays.insert(alias.clone(), source.to_owned());
+    let report = genuine_overlay_report(&executable, &arguments, &project, &alias, &overlays);
+    let expected = finding(&report["findings"], UNNEEDED_PLUS);
+    assert_eq!(
+        expected["range"]["start"],
+        json!({"line":2,"character":7}),
+        "the genuine CLI reports the saved alias entry"
+    );
+    let format = finding(&report["findings"], FORMAT);
+    assert_lossless_finding_path(&format["path"], &project, &target);
+
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&alias);
+    let packet = opened_diagnostics(&mut client, &document, source, started);
+    let diagnostics = &packet["params"]["diagnostics"];
+    let actual = finding(diagnostics, UNNEEDED_PLUS);
+    assert_eq!(actual["source"], "bend-lint");
+    assert_eq!(actual["message"], expected["message"]);
+    assert_eq!(actual["range"], expected["range"]);
+    assert_eq!(actual["severity"], 4, "upstream Hint remains LSP Hint");
+    let format_actual = finding(diagnostics, FORMAT);
+    assert_eq!(format_actual["message"], format["message"]);
+    assert_eq!(format_actual["range"], format["range"]);
+    // The finding keeps the captured native identity while naming the alias
+    // spelling, without U+FFFD replacement or a copied project tree.
+    assert_lossless_finding_path(&format_actual["data"]["path"], &project, &target);
+    assert_eq!(
+        fs::read(&target).must_be("saved entry after the check"),
+        saved,
+        "the check never rewrites or copies the non-UTF-8 entry"
+    );
+
+    let response = client.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument":{"uri":document},"range":format_actual["range"],
+            "context":{"diagnostics":[format_actual],"triggerKind":1,
+                "only":["quickfix.bend-lint.dangerous"]}
+        }),
+    );
+    let actions = response["result"]
+        .as_array()
+        .must_be("explicit genuine actions");
+    assert_eq!(actions.len(), 1, "only the actual reported dangerous fix");
+    let action = &actions[0];
+    assert_eq!(action["kind"], "quickfix.bend-lint.dangerous");
+    let changes = action["edit"]["documentChanges"]
+        .as_array()
+        .must_be("versioned alias edit");
+    assert_eq!(changes.len(), 1, "the edit targets only the opened alias");
+    assert_eq!(changes[0]["textDocument"]["uri"], document);
+    assert_eq!(changes[0]["textDocument"]["version"], 1);
+    assert_eq!(changes[0]["edits"][0]["newText"], formatted);
+    assert_eq!(
+        fs::read(&target).must_be("entry after the explicit action"),
+        saved,
+        "the server never writes the alias or its non-UTF-8 target"
+    );
+    client.finish();
+}
+
 #[test]
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
@@ -1027,6 +1140,31 @@ fn rule_docs(code: &str) -> String {
 
 fn canonical(path: &Path) -> PathBuf {
     fs::canonicalize(path).must_be("canonical genuine source path")
+}
+
+// A genuine finding path may be the UTF-8 alias spelling or the native name.
+// Either must resolve to the captured physical entry: a replacement character
+// or a renamed/copied path is a lossy substitution, not coverage.
+#[cfg(target_os = "linux")]
+fn assert_lossless_finding_path(reported: &Value, project: &Path, target: &Path) {
+    let text = reported
+        .as_str()
+        .must_be("genuine finding path is a UTF-8 string");
+    assert!(
+        !text.contains('\u{FFFD}'),
+        "the finding path keeps its actual bytes: {text}"
+    );
+    let path = Path::new(text);
+    let path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        project.join(path)
+    };
+    assert_eq!(
+        fs::canonicalize(&path).must_be("finding path resolves on disk"),
+        canonical(target),
+        "the finding names the same physical non-UTF-8 entry"
+    );
 }
 
 fn lint_sources(packet: &Value) -> Vec<&Value> {

@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     analysis::Revision,
-    workspace::{FileId, ViewId, WorkspaceDb},
+    workspace::{FileId, WorkspaceDb, views::ViewId},
 };
 use std::{
     collections::HashMap,

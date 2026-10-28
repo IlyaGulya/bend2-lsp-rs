@@ -159,6 +159,8 @@ across standard-rule selections; custom rule changes can require another build.
 Each project keeps its own pending checks and preparation. Typing in one project
 does not cancel another project's work or discard its prepared runner. Global
 resource limits still bound preparation and checking.
+Fast preparation failures settle immediately; a completed worker cannot leave a
+project permanently preparing or overwrite a newer preparation attempt.
 
 Send the following through `workspace/didChangeConfiguration`, together with any
 compiler overrides you already use. Use an absolute installed Bun path and an
@@ -199,10 +201,13 @@ shutdown, and exit kill and reap the contained process group (Unix) or job objec
 (Windows).
 
 Opening and editing supported files starts debounced analysis once lint is enabled.
-Enabling lint also checks already-open supported files. Saved configuration and
-watched dependency changes automatically recheck affected entries; saving and the
-explicit Run action also request checks. For a manual check, invoke Code Actions
-and choose **Run bend-lint** (`source.bend2Lint.run`).
+Enabling lint also checks already-open supported files. Creating or removing
+`bend-lint.json`, including a nested project configuration, follows the new nearest
+configuration and rechecks affected entries without reopening buffers. Watched
+source and saved-rule changes also recheck active work, including external helpers
+changed during the first preparation. Saving and the explicit Run action request
+checks too. For a manual check, invoke Code Actions and choose **Run bend-lint**
+(`source.bend2Lint.run`).
 **Show bend-lint status** (`source.bend2Lint.status`) explains preparation,
 checking, partial results, disabled tools, and failures. It also shows the effective
 server executable/version, analyzer path/arguments, reported analyzer/runtime identity,
@@ -222,17 +227,26 @@ invalidate retained results and supersede obsolete checks. Dirty buffers in unre
 projects do not block analysis. Closing a buffer retires its results and rechecks
 remaining affected entries. Configuration, workspace, and watched-file changes
 invalidate the corresponding assumptions.
+A project fence immediately hides older lint diagnostics, fixes and ready status,
+even while asynchronous cleanup is pending; that cleanup cannot remove newer results.
 Background index refreshes alone do not invalidate unchanged source revisions.
 
-Checks for different entries in one project reuse the same immutable input view
-within a revision. A disk change during checking discards that outdated view
-rather than mixing results from independently reread inputs.
+Checks for different entries in one physical project reuse the same immutable input
+view within a revision, including entries opened through a directory symlink.
+A disk change during checking discards that outdated view rather than mixing
+results from independently reread inputs.
 
 Equivalent editor URI spellings keep separate buffers and document versions.
 Matching buffers receive lint findings at each spelling's own version. Conflicting
 texts for one physical source stop checks in affected projects before project
 rules run; the warning identifies the buffers to unify or close. Unrelated
 projects can continue checking.
+
+On Linux, a saved entry with a non-UTF-8 filename can be checked through a retained
+UTF-8 symlink spelling. That spelling and its exact overlay go to the analyzer;
+diagnostics and explicit versioned fixes stay on the editor URI, while physical
+identity and source-byte validation remain authoritative. This does not make
+arbitrary non-UTF-8 command arguments or dirty non-UTF-8 source paths supported.
 
 Project capture remains bounded to 4096 files, 4096 missing-input records, 4096
 directories, 32768 directory entries, 32768 source-path identity mappings, and
@@ -798,6 +812,18 @@ separate physical footprint, or Windows working set and separate private commit.
 CPU sampling uses pinned samply; native diagnostics use Linux perf, macOS
 Instruments, and Windows WPR/WPA. Clean latency, CPU sampling, and heap profiling
 run in separate LSP processes against shared, semantically checked scenarios.
+
+Native executable validation also records an unpaired lint-publication baseline:
+32 open entries, 128 diagnostic targets, one warmup and five full rechecks.
+The controlled analyzer isolates the LSP lifecycle from actual Bend analysis.
+Each sample waits for every entry to become ready and every target to have its
+exact current finding; the observation includes subprocess, snapshot/freshness,
+publication and client-readiness work, not isolated publisher CPU time.
+`lint-publication-baseline-<target>-<run>-<attempt>` artifacts bind the workflow run,
+source, executable, harness, fixture and dataset identities. These observations
+do not replace or change the Callgrind admission gate.
+The internal `cargo perf lint-publication --verify-only` mode exercises the same
+scenario locally without timing samples or source attestation.
 
 For an interactive CPU view, run
 `cargo perf open <downloaded-directory> --cpu --scenario discovery-10000 --target <triple>`.

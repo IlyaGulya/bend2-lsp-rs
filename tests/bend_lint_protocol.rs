@@ -1335,12 +1335,25 @@ fn later_compiler_completion_keeps_already_published_lint_findings() {
     session.configure(true, false, 10_000);
     session.open(SOURCE);
     session.wait_file("compiler-address");
-    session.save();
     session.lint();
+    session.response(
+        vec![finding(&session.root, "test/saved", range(0, 9, 10))],
+        vec![],
+        true,
+    );
+    session.save();
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["params"]["uri"] == session.document
+                && message["params"]["version"] == 1
+                && has_lint_code(message, "test/saved")
+        })
+        .must_be("the saved check publishes a new finding before the compiler is released");
     fs::write(session.control.join("compiler-release"), "").must_be("finish compiler");
     let packet = session.compiler(1);
     assert!(
-        has_lint(&packet),
+        has_lint_code(&packet, "test/saved"),
         "a late compiler must not overwrite the lint slot"
     );
     session.finish();

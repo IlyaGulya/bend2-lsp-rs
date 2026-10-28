@@ -52,14 +52,22 @@ impl LintResults {
             .collect()
     }
 
-    pub(super) fn projects_covering(&self, paths: &[PathBuf]) -> Vec<ProjectKey> {
+    // The project that owns this entry's retained result. Project membership is
+    // discovered from disk, so a retained result proves the ownership an entry
+    // had before a configuration appeared or disappeared.
+    pub(super) fn project_of(&self, uri: &Url) -> Option<&ProjectKey> {
+        self.entries.get(uri).map(|result| &result.project)
+    }
+
+    // Retained coverage for one event, using the identities the caller already
+    // resolved for this event instead of resolving them per retained entry.
+    pub(super) fn projects_covering(
+        &self,
+        spellings: &[(PathBuf, Option<PathBuf>)],
+    ) -> Vec<ProjectKey> {
         let mut projects: BTreeSet<ProjectKey> = BTreeSet::new();
         for result in self.entries.values() {
-            if paths.iter().any(|path| {
-                result.snapshot.covers_path(path)
-                    || snapshot::input_identity(path)
-                        .is_some_and(|identity| result.snapshot.covers_path(&identity))
-            }) {
+            if super::covered_by(&result.snapshot, spellings) {
                 projects.insert(result.project.clone());
             }
         }
