@@ -76,9 +76,12 @@
   targets against optimized native executables. Validate exact current findings and
   retain source/binary/harness/fixture identity; local correctness mode emits no timing
   samples. Keep existing performance metrics, comparison limits and admission unchanged.
-- Remove temporary per-dependent document vectors and duplicate URI bindings.
-  Update the active buffer snapshot without rebuilding its unchanged URI/language
-  metadata; preserve independent alias buffers and revision ownership.
+- Gather dependent documents directly into the result buffer, without per-file
+  vectors or moving owned documents through composite iterator state.
+- Keep representative snapshot lookup separate from editor-view metadata. Share
+  immutable URI values and remove duplicate URI bindings, while preserving each
+  spelling's independent buffer, language, version and close/rename ownership.
+  Updating the active buffer does not rebuild unchanged URI/language metadata.
 - Raise Tokio's minimum version and lock it to 1.53.3, clearing
   [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
   without adding an audit exception.

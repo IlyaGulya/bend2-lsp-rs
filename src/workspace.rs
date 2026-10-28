@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     ops::Deref,
     path::{Component, Path, PathBuf},
@@ -9,7 +10,7 @@ use crate::analysis::{self, DocumentSnapshot, Revision};
 use url::Url;
 
 pub(crate) mod views;
-use views::{OpenView, ViewId};
+use views::{AliasView, OpenView, ViewId};
 
 #[derive(Clone)]
 pub struct Document {
@@ -224,18 +225,22 @@ impl SourceGraph {
 }
 
 struct FileEntry {
-    uri: Url,
+    uri: Arc<Url>,
     path: Option<PathBuf>,
-    // One open spelling is inline; additional spellings of the same file are
-    // rare and allocate their list only when they actually appear. A spelling's
-    // language lives on its view, so nothing here duplicates it.
-    open_view: Option<OpenView>,
-    open_aliases: Option<Vec<OpenView>>,
-    disk_generation: u64,
+    // Analysis reads these buffer slots directly, without walking the
+    // independent editor spelling metadata below.
+    open_snapshot: Option<Arc<DocumentSnapshot>>,
     disk_snapshot: Option<Arc<DocumentSnapshot>>,
+    disk_generation: u64,
     retired: bool,
     imports: Box<[ImportEdge]>,
     reverse_imports: Vec<FileId>,
+    // Editor spelling metadata is only consulted by spelling-aware queries.
+    open_view: Option<OpenView>,
+    // Extra spellings of the same file are rare and allocate their list only
+    // when they actually appear. An alias owns its own buffer, so no snapshot
+    // is duplicated for the common single-view case.
+    open_aliases: Option<Vec<AliasView>>,
 }
 
 /// One editor spelling of a file: the identity it resolves to plus the view
@@ -252,7 +257,7 @@ struct UriBinding {
 #[derive(Default)]
 pub struct WorkspaceDb {
     entries: Vec<FileEntry>,
-    by_uri: HashMap<Url, UriBinding>,
+    by_uri: HashMap<Arc<Url>, UriBinding>,
     by_path: HashMap<PathBuf, FileId>,
     compiler_documents: Option<HashMap<FileId, tempfile::TempDir>>,
     // User file identities stay interned; graph liveness governs their payloads.
@@ -336,7 +341,7 @@ impl WorkspaceDb {
     #[must_use]
     pub fn open_document(&self, uri: &Url) -> Option<Document> {
         let id = self.by_uri.get(uri)?.file;
-        self.entries[id.0].view(uri).map(FileEntry::view_document)
+        self.entries[id.0].view(uri).map(views::ViewRef::document)
     }
 
     pub(crate) fn is_document_open(&self, uri: &Url) -> bool {
@@ -347,6 +352,15 @@ impl WorkspaceDb {
 
     pub(crate) fn view_id(&self, uri: &Url) -> Option<ViewId> {
         self.by_uri.get(uri)?.view
+    }
+
+    // URI values are immutable and shared by the binding, physical entry and
+    // matching editor spelling. Different spellings still have different keys.
+    fn shared_uri(&self, uri: Cow<'_, Url>) -> Arc<Url> {
+        if let Some((shared, _)) = self.by_uri.get_key_value(uri.as_ref()) {
+            return Arc::clone(shared);
+        }
+        Arc::new(uri.into_owned())
     }
 
     pub(crate) fn ensure_view(&mut self, uri: &Url, file: FileId) -> ViewId {
@@ -366,7 +380,7 @@ impl WorkspaceDb {
             binding.view = Some(id);
         } else {
             self.by_uri.insert(
-                uri.clone(),
+                Arc::new(uri.clone()),
                 UriBinding {
                     file,
                     view: Some(id),
@@ -396,10 +410,10 @@ impl WorkspaceDb {
     /// Keep a moved buffer's view epoch while its URI follows the new path.
     /// The caller has already detached this file's spellings, so the moved
     /// buffer's epoch reaches its new binding through the rename's own insert.
-    fn rebind_representative_view(&mut self, id: FileId, uri: &Url) -> Option<ViewId> {
+    fn rebind_representative_view(&mut self, id: FileId, uri: &Arc<Url>) -> Option<ViewId> {
         let entry = &mut self.entries[id.0];
         let view = entry.open_view.as_mut()?;
-        view.uri = uri.clone();
+        view.uri = Arc::clone(uri);
         let view_id = view.id;
         self.current_view.insert(id, view_id);
         Some(view_id)
@@ -417,7 +431,7 @@ impl WorkspaceDb {
     pub(crate) fn open_view_spellings(&self) -> impl Iterator<Item = &Url> {
         self.entries
             .iter()
-            .flat_map(|entry| entry.views().map(|view| &view.uri))
+            .flat_map(|entry| entry.views().map(|view| view.uri))
     }
 
     pub(crate) fn open_view_ids(&self, id: FileId) -> Vec<ViewId> {
@@ -462,10 +476,9 @@ impl WorkspaceDb {
         let entry = self.entries.get(self.by_uri.get(uri)?.file.0)?;
         // A view answers with its own buffer; any other spelling of the same
         // file falls back to the representative or the saved text.
-        entry.view(uri).map_or_else(
-            || entry.document(),
-            |view| Some(FileEntry::view_document(view)),
-        )
+        entry
+            .view(uri)
+            .map_or_else(|| entry.document(), |view| Some(view.document()))
     }
 
     pub(crate) fn source_snapshot(&self, id: FileId) -> Option<&Arc<DocumentSnapshot>> {
@@ -492,12 +505,10 @@ impl WorkspaceDb {
     // agree (share) or conflict (reject before execution).
     #[must_use]
     pub fn open_documents(&self) -> Vec<Document> {
-        let mut documents: Vec<Document> = self
-            .entries
-            .iter()
-            .filter(|entry| entry.is_open())
-            .flat_map(FileEntry::documents)
-            .collect();
+        let mut documents = Vec::new();
+        for entry in self.entries.iter().filter(|entry| entry.is_open()) {
+            entry.append_documents(&mut documents);
+        }
         documents.sort_unstable_by(|left, right| left.uri.cmp(&right.uri));
         documents
     }
@@ -644,11 +655,10 @@ impl WorkspaceDb {
                 return;
             };
             let document = Document::with_snapshot(
-                entry.uri.clone(),
-                entry.open_view.as_ref().map_or_else(
-                    || FALLBACK_LANGUAGE_ID.into(),
-                    |view| view.language_id.clone(),
-                ),
+                entry.uri.as_ref().clone(),
+                entry
+                    .representative_language()
+                    .map_or_else(|| FALLBACK_LANGUAGE_ID.into(), str::to_owned),
                 snapshot.clone(),
             );
             candidates.push((document, relative, items));
@@ -730,12 +740,11 @@ impl WorkspaceDb {
                     return false;
                 }
                 if entry
-                    .open_view
+                    .open_snapshot
                     .as_ref()
-                    .zip(previous_entry.open_view.as_ref())
+                    .zip(previous_entry.open_snapshot.as_ref())
                     .is_some_and(|(source, target)| {
-                        source.snapshot.revision != target.snapshot.revision
-                            || source.snapshot.text != target.snapshot.text
+                        source.revision != target.revision || source.text != target.text
                     })
                 {
                     return false;
@@ -753,10 +762,10 @@ impl WorkspaceDb {
                 if other_entry.view_count() > 1 {
                     return false;
                 }
-                if let (Some(source), Some(target)) =
-                    (entry.open_view.as_ref(), other_entry.open_view.as_ref())
-                    && (source.snapshot.revision != target.snapshot.revision
-                        || source.snapshot.text != target.snapshot.text)
+                if let (Some(source), Some(target)) = (
+                    entry.open_snapshot.as_ref(),
+                    other_entry.open_snapshot.as_ref(),
+                ) && (source.revision != target.revision || source.text != target.text)
                 {
                     return false;
                 }
@@ -802,6 +811,7 @@ impl WorkspaceDb {
             let Ok(uri) = Url::from_file_path(&path) else {
                 continue;
             };
+            let uri = self.shared_uri(Cow::Owned(uri));
             let destination = self
                 .by_path
                 .get(&path)
@@ -835,14 +845,16 @@ impl WorkspaceDb {
                 }
                 // Equal-text spellings collapse into one destination buffer;
                 // ambiguous spellings were already refused above.
-                let incoming = self.entries[retired.0].open_view.take();
+                let incoming_view = self.entries[retired.0].open_view.take();
+                let incoming_snapshot = self.entries[retired.0].open_snapshot.take();
                 self.entries[retired.0].open_aliases = None;
-                if self.entries[canonical.0].open_view.is_none()
-                    && let Some(mut view) = incoming
+                if self.entries[canonical.0].open_snapshot.is_none()
+                    && let Some((mut view, snapshot)) = incoming_view.zip(incoming_snapshot)
                 {
-                    view.uri = uri.clone();
+                    view.uri = Arc::clone(&uri);
                     let view_id = view.id;
                     self.entries[canonical.0].open_view = Some(view);
+                    self.entries[canonical.0].open_snapshot = Some(snapshot);
                     self.current_view.insert(canonical, view_id);
                     installed_view = Some(view_id);
                 }
@@ -860,7 +872,7 @@ impl WorkspaceDb {
             {
                 installed_view = Some(view_id);
             }
-            self.entries[canonical.0].uri = uri.clone();
+            self.entries[canonical.0].uri = Arc::clone(&uri);
             self.entries[canonical.0].path = Some(path.clone());
             self.by_path.insert(path, canonical);
             // A moved buffer carries its epoch to the new spelling; otherwise
@@ -1033,17 +1045,20 @@ impl WorkspaceDb {
         path: Option<PathBuf>,
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> FileId {
-        let uri = document.uri.clone();
+        let uri = document.uri;
         let id = self.intern(uri.clone(), path);
         self.release_retired_payload(id);
         let view_id = self.ensure_view_id(&uri, id);
+        let uri = self.shared_uri(Cow::Owned(uri));
         let entry = &mut self.entries[id.0];
-        entry.insert_view(OpenView {
-            uri,
-            id: view_id,
-            language_id: document.language_id,
-            snapshot: document.snapshot,
-        });
+        entry.insert_view(
+            OpenView {
+                uri,
+                id: view_id,
+                language_id: document.language_id,
+            },
+            document.snapshot,
+        );
         self.refresh_imports_with_targets(id, imports);
         self.extend_reachable(id);
         id
@@ -1074,37 +1089,39 @@ impl WorkspaceDb {
         let representative = self.entries[id.0]
             .open_view
             .as_ref()
-            .is_some_and(|view| view.uri == *uri);
-        let view_id = if representative {
-            None
-        } else {
-            Some(self.ensure_view_id(uri, id))
-        };
+            .filter(|view| view.uri.as_ref() == uri)
+            .map(|view| view.id);
+        let new_view = representative.is_none().then(|| {
+            (
+                self.ensure_view_id(uri, id),
+                self.shared_uri(Cow::Borrowed(uri)),
+            )
+        });
         let entry = &mut self.entries[id.0];
         let was_open = entry.is_open();
-        match view_id {
+        match new_view {
             None => {
-                let revised = entry.open_view.as_mut().map(|view| {
-                    view.snapshot = snapshot;
-                    view.id
-                });
-                if let Some(view_id) = revised {
+                if let Some(view_id) = representative {
+                    entry.open_snapshot = Some(snapshot);
                     self.current_view.insert(id, view_id);
                 }
             }
-            Some(view_id) => {
+            Some((view_id, shared_uri)) => {
                 // Keep this spelling's own language; a spelling that was never
                 // opened inherits the representative's.
-                let language_id = entry.view(uri).or(entry.open_view.as_ref()).map_or_else(
-                    || FALLBACK_LANGUAGE_ID.into(),
-                    |view| view.language_id.clone(),
-                );
-                entry.insert_view(OpenView {
-                    uri: uri.clone(),
-                    id: view_id,
-                    language_id,
+                let language_id = entry
+                    .view(uri)
+                    .map(|view| view.language_id.to_owned())
+                    .or_else(|| entry.representative_language().map(str::to_owned))
+                    .unwrap_or_else(|| FALLBACK_LANGUAGE_ID.into());
+                entry.insert_view(
+                    OpenView {
+                        uri: shared_uri,
+                        id: view_id,
+                        language_id,
+                    },
                     snapshot,
-                });
+                );
             }
         }
         let imports_changed = self.refresh_imports_with_targets(id, imports);
@@ -1126,9 +1143,9 @@ impl WorkspaceDb {
             let closed_representative = entry
                 .open_view
                 .as_ref()
-                .is_some_and(|view| view.uri == *uri);
+                .is_some_and(|view| view.uri.as_ref() == uri);
             entry.remove_view(uri)?;
-            if entry.open_view.is_none() {
+            if entry.open_snapshot.is_none() {
                 // Generated navigation source has independent workspace
                 // ownership. User disk snapshots and overlay imports must be
                 // loaded afresh once no spelling remains open.
@@ -1143,12 +1160,10 @@ impl WorkspaceDb {
             // Another spelling still owns this buffer. Only a changed
             // representative can change the physical import edges.
             if representative {
-                let pending = self.entries[id.0].path.clone().zip(
-                    self.entries[id.0]
-                        .open_view
-                        .as_ref()
-                        .map(|view| view.snapshot.clone()),
-                );
+                let pending = self.entries[id.0]
+                    .path
+                    .clone()
+                    .zip(self.entries[id.0].open_snapshot.clone());
                 let imports = pending.map_or_else(Vec::new, |(path, snapshot)| {
                     resolve_import_targets(&path, &snapshot)
                 });
@@ -1422,7 +1437,7 @@ impl WorkspaceDb {
                 continue;
             }
             let entry = &self.entries[dependent.0];
-            documents.extend(entry.documents());
+            entry.append_documents(&mut documents);
             if !entry.reverse_imports.is_empty() {
                 pending.push(*dependent);
             }
@@ -1445,7 +1460,7 @@ impl WorkspaceDb {
                     continue;
                 }
                 let entry = &self.entries[dependent.0];
-                documents.extend(entry.documents());
+                entry.append_documents(&mut documents);
                 if !entry.reverse_imports.is_empty() {
                     pending.push(*dependent);
                 }
@@ -1497,7 +1512,7 @@ impl WorkspaceDb {
                 binding.file = id;
             } else {
                 self.by_uri.insert(
-                    uri,
+                    Arc::new(uri),
                     UriBinding {
                         file: id,
                         view: None,
@@ -1507,9 +1522,11 @@ impl WorkspaceDb {
             return id;
         }
         let id = FileId(self.entries.len());
+        let uri = Arc::new(uri);
         self.entries.push(FileEntry {
-            uri: uri.clone(),
+            uri: Arc::clone(&uri),
             path: path.clone(),
+            open_snapshot: None,
             open_view: None,
             open_aliases: None,
             disk_generation: 0,
