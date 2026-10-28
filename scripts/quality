@@ -27,6 +27,7 @@ printf '== policy ==\n'
 python3 scripts/check-policy.py
 python3 -m unittest discover -s scripts -p test_check_policy.py
 python3 -m unittest discover -s scripts -p test_tool_versions.py
+python3 -m unittest discover -s scripts -p test_calibration_report_input.py
 printf '== workflow security ==\n'
 ./scripts/check-workflows
 printf '== Rust performance infrastructure contract tests ==\n'

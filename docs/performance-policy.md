@@ -718,11 +718,64 @@ read-only; only trusted manual main runs save tool/download caches, never
 benchmark object caches.
 There is no privileged PR-code execution, environment approval, release or
 nightly schedule. The always-run report job downloads only this run and
-attempt's 24 job-and-shard-qualified artifacts and checks full logical coverage
-even after collection or download failure. Raw results, per-shard provenance,
-failure diagnostics and reports are retained for 14 days. Existing Rust control
+attempt's 24 compact report inputs and checks full logical coverage even after
+collection or download failure. Raw results, per-shard provenance, failure
+diagnostics and reports are retained for 14 days. Existing Rust control
 contracts remain mandatory. Legacy unsharded evidence remains readable, but it
 cannot satisfy a report requesting four shards or turn old partial coverage green.
+
+### Report transport and original-evidence replay
+
+On [run 40545135794 attempt 1](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40545135794),
+all 24 physical collections and their sealed full raw artifacts succeeded. Its
+report job then asked `actions/download-artifact@v8.0.1` for all 24 raw ZIPs
+(138–233 MB each, about 4.5 GB total) and extracted them while streaming. The
+retained log shows 24 download starts and no successful completion; the action
+reported `Artifact download failed after 5 retries.` The action did not reach
+digest validation, whose failure has a different message. Because extraction is
+streamed, a partially extracted
+`performance-calibration-40545135794-1-discovery-01-shard-0/data.json` remained.
+The unchanged reporter parsed that truncated JSON, rejected it as an
+`unterminated JSON string`, and correctly wrote `insufficient_evidence`. No
+control verdict exists for that attempt, and the run remains failed. The exact
+network cause of the action's five stream retries is not in the retained log;
+the full-raw batch is the observed operating condition, not a proven root cause.
+
+The permanent workflow separates transport from the authoritative validator.
+After each full raw artifact is sealed and successfully uploaded, the collecting
+job publishes a second, separate artifact named
+`performance-calibration-report-input-RUN-ATTEMPT-JOB-shard-N`. It contains the
+original `data.json` bytes, every referenced `raw_stdout`/`raw_stderr`, every
+referenced pair `collection.json` receipt, `collection-lifecycle.json`, a copy of
+the sealed `snapshot-publication.json`, and `report-input.json`. The last file
+records the retained raw artifact's name, numeric id and server digest, the source
+run/attempt/runner/source revision,
+producer workflow revision and run, SHA-256 and size of every copied file, the
+publication-manifest digest, and a canonical input digest. The helper copies only
+this dependency closure; Callgrind profiles remain only in the full raw artifact.
+The report job downloads these compact inputs only, verifies their structure,
+closure, digests, unique shard coverage, producer revision and pinned run before
+running the unchanged Rust report. Missing, duplicate, extra, truncated or
+mismatched inputs fail closed, and the Rust report still runs to retain an honest
+diagnostic. Raw artifacts remain uploaded and failure-preserving.
+
+The unprivileged
+[`performance-calibration-report-replay`](../.github/workflows/performance-calibration-report-replay.yml)
+workflow is a diagnostic path for already-collected evidence, not a remeasurement
+or a relabel of the failed run. It is `workflow_dispatch` only, uses empty
+top-level permissions, and pins repository `IlyaGulya/bend2-lsp-rs`, run
+`40545135794` attempt `1`, exact collected source
+`12afbf96e8e5ed18462de42bdc1b265791673ff9`, and the explicit wrapper revision
+from `github.workflow_sha`; it never spoofs `GITHUB_SHA`. Six bounded export
+jobs each pin their original four shard ZIPs, download the ZIP bytes with
+`skip-decompress: true` and `digest-mismatch: error`, verify the GitHub artifact
+digest and the copied members' CRC, and copy only the same dependency closure.
+The report job checks out the exact historical source, builds the unchanged
+`bend2-perf` reporter there, verifies all 24 compact inputs, and runs the original
+method with the original 3/3/105/4/99 flags. A recovered pass is a new honest
+control verdict over the original complete data; it does not make the failed
+transport run successful. There is no generic cross-source fallback and no
+retry-to-green.
 
 A maintainer can dispatch the controls on a reviewed source revision:
 
