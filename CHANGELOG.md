@@ -92,9 +92,12 @@
   concurrent fixture-file rewrites.
 - Publish fixture socket addresses atomically, so cancellation checks never read
   an empty or partially written address. Keep flaky-test rejection unchanged.
-- Compile the Windows console-control fixture in bounded setup before starting
-  the owned collector. Keep its readiness and CTRL_BREAK finalization deadlines
-  unchanged, without charging cold C# compilation to collector startup.
+- Compile the Windows console-control fixture directly with the system .NET
+  Framework compiler, without PowerShell/Add-Type startup. Keep bounded setup,
+  collector readiness and CTRL_BREAK finalization deadlines unchanged.
+- Validate source-built Windows compilers at their final physical path instead of
+  moving the directory after execution. Retain failed artifacts for diagnostics;
+  publish the compiler path only after every integrity, native-runtime and CLI probe.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
