@@ -1717,8 +1717,7 @@ mod tests {
     fn collector_interrupt_reaches_a_console_ignoring_ctrl_c() -> super::ToolResult<()> {
         // Exercise the actual console APIs with an owned waiting process, not
         // a fabricated profiler trace or an assertion about a command string.
-        const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
-Add-Type -OutputAssembly $env:BEND_PERF_CONSOLE_FIXTURE -OutputType ConsoleApplication -TypeDefinition @'
+        const SCRIPT: &str = r#"
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -1741,21 +1740,38 @@ public static class IgnoringConsole {
         Stopped.WaitOne();
     }
 }
-'@
 "#;
         let directory = tempfile::tempdir()?;
+        let source = directory.path().join("ignoring-console.cs");
+        std::fs::write(&source, SCRIPT)?;
+        let compiler = std::path::PathBuf::from(
+            std::env::var_os("WINDIR").ok_or("Missing Windows directory")?,
+        )
+        .join("Microsoft.NET/Framework64/v4.0.30319/csc.exe");
+        let compiler = compiler
+            .to_str()
+            .ok_or("Framework compiler path is not UTF-8")?;
         let executable = directory.path().join("ignoring-console.exe");
         let executable = executable
             .to_str()
             .ok_or("Console fixture path is not UTF-8")?;
         let mut session = super::Session::new("samply", "cpu", directory.path());
-        let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
+        let args = [
+            "/nologo".to_owned(),
+            "/target:exe".to_owned(),
+            format!("/out:{executable}"),
+            source
+                .to_str()
+                .ok_or("Console fixture source path is not UTF-8")?
+                .to_owned(),
+        ];
         // Compile the fixture as bounded setup, not inside the collector's
         // unchanged readiness deadline. Real collectors are installed binaries.
+        // Invoke the Framework compiler directly, without PowerShell/Add-Type startup.
         session.command_env_mode_timeout(
-            "powershell.exe",
+            compiler,
             &args,
-            &[("BEND_PERF_CONSOLE_FIXTURE", executable)],
+            &[],
             super::CommandMode::Active,
             super::Duration::from_secs(60),
         )?;
