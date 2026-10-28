@@ -11,6 +11,8 @@ run-name: performance-calibration-report-replay / control-run-40545135794-1 / ${
 
 on:
   workflow_dispatch:
+  push:
+    branches: [diagnostic/control-report-40545135794]
 
 permissions: {}
 
