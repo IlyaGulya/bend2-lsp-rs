@@ -816,7 +816,7 @@ impl WorkspaceSymbolQuery {
         let is_empty = self.is_empty();
         syntax.symbols().iter().filter_map(move |symbol| {
             let name = syntax.name_text(source, symbol.name);
-            if !is_empty && !name.to_lowercase().contains(&self.normalized) {
+            if !is_empty && !contains_normalized(name, &self.normalized) {
                 return None;
             }
             Some(WorkspaceSymbol {
@@ -826,6 +826,26 @@ impl WorkspaceSymbolQuery {
             })
         })
     }
+}
+
+/// Match an already-lowercased query against a symbol name.
+///
+/// Case folding an ASCII name is exactly ASCII lowercasing, so the common case
+/// compares byte windows instead of allocating a lowercased copy per symbol.
+/// Non-ASCII names keep the original Unicode case folding.
+fn contains_normalized(name: &str, normalized: &str) -> bool {
+    if normalized.is_empty() {
+        return true;
+    }
+    if !name.is_ascii() {
+        return name.to_lowercase().contains(normalized);
+    }
+    if !normalized.is_ascii() {
+        return false;
+    }
+    name.as_bytes()
+        .windows(normalized.len())
+        .any(|window| window.eq_ignore_ascii_case(normalized.as_bytes()))
 }
 
 #[must_use]
