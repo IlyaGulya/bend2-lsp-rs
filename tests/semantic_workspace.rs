@@ -1174,7 +1174,7 @@ fn an_import_lookup_alias_is_not_an_open_document_until_it_is_opened_explicitly(
 }
 
 #[test]
-fn bare_completion_prefers_a_type_over_its_same_spelling_constructor() {
+fn bare_completion_keeps_type_and_constructor_namespaces_distinct() {
     let temp = tempdir().must_be("temporary workspace");
     let mut db = WorkspaceDb::default();
     let root = open(
@@ -1184,20 +1184,27 @@ fn bare_completion_prefers_a_type_over_its_same_spelling_constructor() {
     );
     let view = view(&db, root, None);
     let candidates = view.completion_candidates(root, "Thi");
-    assert_eq!(candidates.len(), 1);
-    assert_eq!(candidates[0].name, "Thing");
-    let SemanticTarget::Global(id) = candidates[0].target else {
-        panic!("type completion target expected");
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates.iter().all(|candidate| candidate.name == "Thing"));
+    let completion = |kind| {
+        candidates
+            .iter()
+            .find(|candidate| {
+                let SemanticTarget::Global(id) = candidate.target else {
+                    return false;
+                };
+                view.entity(id).is_some_and(|entity| entity.kind == kind)
+            })
+            .must_be("completion in the requested namespace")
     };
-    assert_eq!(
-        view.entity(id).must_be("type completion entity").kind,
-        bend2_lsp::analysis::DeclarationKind::Type
-    );
+    let type_completion = completion(bend2_lsp::analysis::DeclarationKind::Type);
+    let constructor_completion = completion(bend2_lsp::analysis::DeclarationKind::Constructor);
     let constructor = view
         .occurrences(root)
         .find(|occurrence| occurrence.role == ReferenceRole::Constructor)
         .must_be("constructor use");
-    assert_ne!(constructor.target, candidates[0].target);
+    assert_eq!(constructor.target, constructor_completion.target);
+    assert_ne!(constructor_completion.target, type_completion.target);
 }
 
 #[test]

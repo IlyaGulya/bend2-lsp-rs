@@ -6085,11 +6085,16 @@ mod protocol {
             }}),
         );
         let position = json!({"textDocument":{"uri":uri},"position":{"line":3,"character":3}});
-        for method in [
-            "textDocument/definition",
-            "textDocument/hover",
-            "textDocument/typeDefinition",
-        ] {
+        let definition = client.request("textDocument/definition", position.clone());
+        assert_eq!(
+            definition["result"],
+            json!({
+                "uri":uri,
+                "range":{"start":{"line":2,"character":11},"end":{"line":2,"character":17}}
+            }),
+            "an untyped local parameter shadows the global definition"
+        );
+        for method in ["textDocument/hover", "textDocument/typeDefinition"] {
             let response = client.request(method, position.clone());
             assert_eq!(
                 response["result"],
@@ -6097,7 +6102,11 @@ mod protocol {
                 "shadowed untyped parameter: {method}"
             );
         }
-        for method in ["textDocument/hover", "textDocument/typeDefinition"] {
+        for method in [
+            "textDocument/definition",
+            "textDocument/hover",
+            "textDocument/typeDefinition",
+        ] {
             let response = client.request(
                 method,
                 json!({"textDocument":{"uri":uri},"position":{"line":11,"character":3}}),
