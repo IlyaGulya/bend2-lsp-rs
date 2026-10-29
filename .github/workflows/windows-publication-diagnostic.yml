@@ -1,0 +1,62 @@
+name: windows-publication-diagnostic
+run-name: windows-publication-diagnostic / ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [diagnostic/windows-stable-publication]
+
+permissions: {}
+
+jobs:
+  provision-and-verify:
+    if: >-
+      github.repository == 'IlyaGulya/bend2-lsp-rs' &&
+      github.ref == 'refs/heads/diagnostic/windows-stable-publication'
+    permissions:
+      contents: read
+    runs-on: windows-11-arm
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      BEND_NO_TELEMETRY: '1'
+      EXPECTED_ARCH: ARM64
+      NATIVE_TARGET: aarch64-pc-windows-msvc
+      PYTHON: python
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify native Windows ARM runner
+        env:
+          ACTUAL_ARCH: ${{ runner.arch }}
+        run: test "$ACTUAL_ARCH" = "$EXPECTED_ARCH"
+      - name: Provision genuine compiler through stable in-place publication
+        id: provision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          "$PYTHON" scripts/bootstrap_bend.py --target "$NATIVE_TARGET"
+          --destination "$RUNNER_TEMP/bend-2.0.37"
+          --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
+      - name: Verify installed path, native identity, probes, Base bytes and ownership
+        if: always()
+        env:
+          PROVISION_OUTCOME: ${{ steps.provision.outcome }}
+        run: >-
+          "$PYTHON" scripts/diagnose_windows_publication.py
+          --destination "$RUNNER_TEMP/bend-2.0.37"
+          --evidence-dir "$RUNNER_TEMP/windows-publication-evidence"
+          --provision-outcome "$PROVISION_OUTCOME"
+      - name: Preserve publication, probe bytes and failure evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/bend-2.0.37
+            ${{ runner.temp }}/windows-publication-evidence
+          if-no-files-found: error
+          retention-days: 14
