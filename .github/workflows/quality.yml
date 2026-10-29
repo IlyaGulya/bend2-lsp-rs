@@ -185,6 +185,7 @@ jobs:
         with:
           name: genuine-bend-2.0.37-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
+            ${{ steps.compiler-provision.outputs.compiler-evidence-path }}/compiler-publication.json
             ${{ steps.compiler-provision.outputs.compiler-evidence-path }}/compiler-build-identity.json
             ${{ steps.compiler-provision.outputs.compiler-evidence-path }}/compiler-embedded-source.js
             ${{ runner.os == 'Windows' && format('{0}/bin', steps.compiler-provision.outputs.compiler-evidence-path) || '' }}

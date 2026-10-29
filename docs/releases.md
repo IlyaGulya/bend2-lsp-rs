@@ -112,8 +112,14 @@ source patches under the same all-or-nothing drift contract, not a replacement
 parser or checker.
 Native CI preserves the actual embedded source and full runtime identity before
 ordinary CLI initialization. Real `version` and `base --types` checks must pass
-before a source-built compiler becomes an installation. Failed initialization
-evidence is retained separately and never exported as a test compiler.
+before a source-built compiler becomes an installation. Windows publishes in
+place: the requested destination is created exclusively before the build, and
+the compiled image is never renamed or moved after it has been executed.
+Publication no longer depends on moving a directory containing an executed image.
+`compiler-publication.json` record states `pending`, `installed`, or `failed`; a
+failed build stays in that owned destination with its validation evidence and is
+never exported as a test compiler. Provisioning also asserts through a bounded
+process observation that no compiler process it started remains live.
 Download authorization is scoped to fixed first-party API requests, is not
 forwarded to asset-host redirects, and is not inherited by compiler subprocesses.
 These stdio E2Es cover independent errors at exact literal ranges, space/non-ASCII

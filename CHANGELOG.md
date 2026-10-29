@@ -56,6 +56,10 @@
 
 ### Under the hood
 
+- Publish the pinned Windows compiler at its final owned path before running
+  validation, instead of renaming an executed image afterwards. Preserve failed
+  builds and their original validation/cleanup errors as evidence, never export
+  a failed compiler, and require private-workspace cleanup before installation.
 - Publish a compact, digest-bound report input after each sealed calibration
   artifact and download only those compact inputs in the report job. A failed
   multi-gigabyte raw download can no longer feed a partially extracted
