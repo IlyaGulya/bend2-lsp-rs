@@ -83,6 +83,8 @@
   fences and compiler modules instead of copying URL payloads. Preserve each spelling's
   independent buffer, language, version and close/rename ownership. Updating the active
   buffer does not rebuild unchanged URI/language metadata or clone an unused URI.
+  Intern owned URLs without a preliminary shared-key lookup, and create a shared
+  URI key only when inserting a new spelling.
 - Raise Tokio's minimum version and lock it to 1.53.3, clearing
   [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
   without adding an audit exception.
