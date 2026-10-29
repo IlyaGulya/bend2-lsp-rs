@@ -154,7 +154,7 @@ impl WorkspaceService {
         path: Option<PathBuf>,
         revision: Revision,
         create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Arc<Url>)> {
+    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Option<Arc<Url>>)> {
         let mut state = self.state.write();
         let id = if create {
             // Resolve the binding once so interning reuses the installed URI
@@ -164,16 +164,20 @@ impl WorkspaceService {
         } else {
             state.database.file_id_by_uri(uri)?
         };
-        let document = state.database.open_document(uri);
         let path = state.database.document_path(uri);
-        // `ensure_file_id` above installed this spelling's binding, so the
-        // resolved shared URI is the allocation the staged document and the
-        // later commit reuse instead of wrapping a fresh clone.
-        let (view, shared_uri) = state.database.ensure_view_shared(uri, id);
+        let (view, shared_uri) = if create {
+            let (view, uri) = state.database.ensure_view_shared(uri, id);
+            (view, Some(uri))
+        } else {
+            (state.database.ensure_view(uri, id), None)
+        };
+        let state = &mut *state;
         let sync = state
             .revisions
             .entry(view)
-            .or_insert_with(|| Arc::new(DocumentRevisionSync::new(document)))
+            .or_insert_with(|| {
+                Arc::new(DocumentRevisionSync::new(state.database.open_document(uri)))
+            })
             .clone();
         let ticket = revision_result(sync.reserve(revision))?;
         Some((id, ticket, path, shared_uri))

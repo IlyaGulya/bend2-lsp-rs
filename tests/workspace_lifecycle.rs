@@ -549,7 +549,10 @@ fn assert_shared_root_retained(
     );
     let dependents = db.dependents(identities[STRESS_OVERLAY]);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri.as_ref(), &fixture.uris[STRESS_SHARED_ROOT]);
+    assert_eq!(
+        dependents[0].uri.as_ref(),
+        &fixture.uris[STRESS_SHARED_ROOT]
+    );
     drop(dependents);
     assert_candidate(
         db,

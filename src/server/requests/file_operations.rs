@@ -264,7 +264,7 @@ fn prepare_will_sources(sources: Vec<WillSource>) -> Result<Vec<WillSource>> {
 
 struct RenameSource {
     uri: Url,
-    old_uri: std::sync::Arc<Url>,
+    old_uri: Arc<Url>,
     path: PathBuf,
     snapshot: Option<Arc<DocumentSnapshot>>,
     open: bool,
@@ -463,7 +463,8 @@ impl Backend {
         self.workspace.load_reachable_async(&roots, None).await;
         for document in documents {
             let version = document.revision.0;
-            self.schedule_diagnostics(document.uri.as_ref().clone(), version).await;
+            self.schedule_diagnostics(document.uri.as_ref().clone(), version)
+                .await;
         }
     }
 

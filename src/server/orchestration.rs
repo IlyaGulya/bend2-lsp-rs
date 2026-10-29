@@ -126,7 +126,7 @@ impl Backend {
         path: Option<PathBuf>,
         revision: Revision,
         create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Arc<Url>)> {
+    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Option<Arc<Url>>)> {
         self.workspace.begin_revision(uri, path, revision, create)
     }
     pub(super) fn begin_document_refresh(
@@ -146,8 +146,8 @@ impl Backend {
         text: String,
         path: Option<PathBuf>,
     ) -> Option<bool> {
-        let (id, ticket, path, uri) =
-            self.begin_revision(&uri, path, Revision(version), true)?;
+        let (id, ticket, path, uri) = self.begin_revision(&uri, path, Revision(version), true)?;
+        let uri = uri?;
         tracing::Span::current().record("file_id", tracing::field::debug(&id));
         if !revision_result(ticket.wait_for_turn().await) {
             return None;
@@ -447,8 +447,7 @@ impl Backend {
     ) -> bool {
         let uri = params.text_document.uri.clone();
         let version = params.text_document.version;
-        let Some((id, ticket, path, _shared_uri)) =
-            self.begin_revision(&uri, None, Revision(version), false)
+        let Some((id, ticket, path, _)) = self.begin_revision(&uri, None, Revision(version), false)
         else {
             return false;
         };

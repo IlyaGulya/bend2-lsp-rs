@@ -6,6 +6,7 @@ use super::super::{
 use super::shared::{binding_at, declaration_token_at};
 use crate::analysis;
 use crate::workspace::Document;
+use std::sync::Arc;
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
@@ -13,7 +14,6 @@ use tower_lsp::{
         HoverContents, HoverParams, Location, MarkupContent, MarkupKind, Range,
     },
 };
-use std::sync::Arc;
 use tracing::Instrument;
 use url::Url;
 

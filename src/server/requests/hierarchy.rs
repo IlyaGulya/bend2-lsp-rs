@@ -103,10 +103,9 @@ impl Backend {
                     continue;
                 };
                 let range = adapters::range(&caller_doc, call.callee_range);
-                if let Some((_, ranges)) = calls
-                    .iter_mut()
-                    .find(|(item, _)| item.uri == *caller_doc.uri && item.name == caller_symbol.name)
-                {
+                if let Some((_, ranges)) = calls.iter_mut().find(|(item, _)| {
+                    item.uri == *caller_doc.uri && item.name == caller_symbol.name
+                }) {
                     ranges.push(range);
                 } else {
                     calls.push((

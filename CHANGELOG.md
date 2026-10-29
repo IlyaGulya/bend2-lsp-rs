@@ -79,9 +79,10 @@
 - Gather dependent documents directly into the result buffer, without per-file
   vectors or moving owned documents through composite iterator state.
 - Keep representative snapshot lookup separate from editor-view metadata. Share
-  immutable URI values and remove duplicate URI bindings, while preserving each
-  spelling's independent buffer, language, version and close/rename ownership.
-  Updating the active buffer does not rebuild unchanged URI/language metadata.
+  immutable URI allocations across returned documents, staged updates, lint revision
+  fences and compiler modules instead of copying URL payloads. Preserve each spelling's
+  independent buffer, language, version and close/rename ownership. Updating the active
+  buffer does not rebuild unchanged URI/language metadata or clone an unused URI.
 - Raise Tokio's minimum version and lock it to 1.53.3, clearing
   [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
   without adding an audit exception.
@@ -100,9 +101,8 @@
   publish the compiler path only after every integrity, native-runtime and CLI probe.
 - Keep view epochs on existing file rows instead of a separate hash table, and
   reuse resolved file identities when closing documents. Compare ASCII symbol
-  names without allocating a lowercase copy per name or re-normalizing the
-  query for each comparison; preserve Unicode query normalization, result order
-  and independent editor views.
+  names without allocating a lowercase copy per name; preserve Unicode query
+  normalization, result order and independent editor views.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
