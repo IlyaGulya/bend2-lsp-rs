@@ -59,9 +59,12 @@
 - Publish a compact, digest-bound report input after each sealed calibration
   artifact and download only those compact inputs in the report job. A failed
   multi-gigabyte raw download can no longer feed a partially extracted
-  `data.json` to the control report. Add an unprivileged, exact-source replay
-  workflow for the already-collected control run 40545135794 attempt 1; the
-  original failed run remains failed.
+  `data.json` to the control report. Preserve full raw evidence and source,
+  runner and producer provenance; recover retained data through an isolated
+  exact-source replay instead of repeating measurements.
+- Establish a real cleanup verifier before the deliberately short macOS
+  supervisor test window, instead of assuming helper startup fits its reserve.
+  Preserve the original deadlines, distinct-stage identities and reaping checks.
 - Schedule dependency-triggered diagnostics only for open documents, while
   traversing closed intermediate imports without cloning their documents.
   Prepare required entry views in bounded batches with per-root capture and

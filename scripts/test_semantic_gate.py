@@ -21,6 +21,11 @@ import bootstrap_bend
 import semantic_install as installer
 
 
+# Bound real helper preparation separately from the deliberately short
+# supervisor window; production deadlines and shutdown reserves are unchanged.
+NATIVE_OBSERVER_READINESS_SECONDS = 30
+
+
 @unittest.skipUnless(sys.platform in {"linux", "darwin"}, "explicit supported RSS platforms")
 class SupervisorTests(unittest.TestCase):
     def setUp(self):
@@ -271,10 +276,27 @@ class SupervisorTests(unittest.TestCase):
                     if self.cancellable and self.observer is not None:
                         work_observers.add(self.observer.pid)
         observers = []
-        with self.delay_first_observer(60, observers):
-            result = gate.supervise([sys.executable,"-c","print('complete')"],
-                deadline=time.monotonic()+1, output_path=self.directory/"output.log",
-                artifact_dir=self.directory, limits=self.limits, tree=ObservedTree())
+        command = gate.native_observer_command()
+        work_observer = gate.ProcessObserver(command)
+        # Reproduce slow helper startup deterministically, outside the tiny
+        # observation window rather than relying on a warm executable cache.
+        cleanup_observer = gate.ProcessObserver([sys.executable, "-c",
+            "import os,sys,time;time.sleep(.45);os.execv(sys.argv[1],sys.argv[1:])",
+            *command])
+        try:
+            # Exercise a real ready verifier, not an assumed-fast exec. Its
+            # first observation of the failed workload still happens only in
+            # shutdown, under the original reserved deadline.
+            cleanup_observer.observe(os.getpid(), (), (),
+                deadline=time.monotonic()+NATIVE_OBSERVER_READINESS_SECONDS)
+            with self.delay_first_observer(60, observers), patch.object(gate,
+                    "ProcessObserver", side_effect=[work_observer, cleanup_observer]):
+                result = gate.supervise([sys.executable,"-c","print('complete')"],
+                    deadline=time.monotonic()+1, output_path=self.directory/"output.log",
+                    artifact_dir=self.directory, limits=self.limits, tree=ObservedTree())
+        finally:
+            for observer in (work_observer, cleanup_observer):
+                observer.close(deadline=time.monotonic()+NATIVE_OBSERVER_READINESS_SECONDS)
         self.assertEqual(result["status"], "error", result)
         self.assertIn("deadline", result["error"])
         self.assertEqual(result["cleanup_errors"], [], result)
@@ -282,6 +304,7 @@ class SupervisorTests(unittest.TestCase):
         self.assertIsNotNone(result["returncode"])
         self.assertEqual(work_observers, {observers[0].pid})
         self.assertEqual(len(cleanup_observers), 1)
+        self.assertEqual(cleanup_observers, {cleanup_observer.pid})
         self.assertTrue(work_observers.isdisjoint(cleanup_observers))
         self.assertIsNotNone(observers[0].returncode)
         for pid in work_observers | cleanup_observers:

@@ -759,23 +759,26 @@ running the unchanged Rust report. Missing, duplicate, extra, truncated or
 mismatched inputs fail closed, and the Rust report still runs to retain an honest
 diagnostic. Raw artifacts remain uploaded and failure-preserving.
 
-The unprivileged
-[`performance-calibration-report-replay`](../.github/workflows/performance-calibration-report-replay.yml)
-workflow is a diagnostic path for already-collected evidence, not a remeasurement
-or a relabel of the failed run. It is `workflow_dispatch` only, uses empty
-top-level permissions, and pins repository `IlyaGulya/bend2-lsp-rs`, run
-`40545135794` attempt `1`, exact collected source
-`12afbf96e8e5ed18462de42bdc1b265791673ff9`, and the explicit wrapper revision
-from `github.workflow_sha`; it never spoofs `GITHUB_SHA`. Six bounded export
-jobs each pin their original four shard ZIPs, download the ZIP bytes with
-`skip-decompress: true` and `digest-mismatch: error`, verify the GitHub artifact
-digest and the copied members' CRC, and copy only the same dependency closure.
-The report job checks out the exact historical source, builds the unchanged
-`bend2-perf` reporter there, verifies all 24 compact inputs, and runs the original
-method with the original 3/3/105/4/99 flags. A recovered pass is a new honest
-control verdict over the original complete data; it does not make the failed
-transport run successful. There is no generic cross-source fallback and no
-retry-to-green.
+The completed, unprivileged
+[`performance-calibration-report-replay`](https://github.com/IlyaGulya/bend2-lsp-rs/blob/ca9ee1148ef77b9c2ff1bb2e726992524a4b04b9/.github/workflows/performance-calibration-report-replay.yml)
+is retained on its immutable diagnostic revision, not in the permanent workflow
+set: it pins historical artifacts with finite retention. Its
+[successful replay](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40748160733)
+uses empty top-level permissions and records the original repository, run
+`40545135794` attempt `1`, collected source
+`12afbf96e8e5ed18462de42bdc1b265791673ff9`, and actual wrapper revision
+separately; it never spoofs `GITHUB_SHA`. Six bounded export jobs each download
+their original four ZIP byte streams with `skip-decompress: true` and
+`digest-mismatch: error`. Before publishing any compact input, export verifies
+the whole GitHub artifact digest and every original member's CRC, including
+omitted profiles, without bulk extraction. The report job builds the unchanged
+historical Rust reporter, verifies all 24 compact inputs, and runs the original
+3/3/105/4/99 method. Independent replay reproduces all 748,440 raw policy
+comparisons and 7,128 repeated comparisons: all 1,782 A/A rows pass and all
+18 required held-out controls classify regression. This is new evidence over
+the original complete data, not retroactive success for the failed transport.
+The generic transport CLI remains available for future retained-evidence
+recovery; no permanently stale, hardcoded historical-run workflow is shipped.
 
 A maintainer can dispatch the controls on a reviewed source revision:
 
