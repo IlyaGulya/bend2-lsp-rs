@@ -502,6 +502,19 @@ impl Workload<'_> {
         )
     }
 
+    fn finish_latency(&mut self, uris: &BTreeMap<&str, String>) -> ToolResult<()> {
+        if self.session.faithful_latency() {
+            // Clean latency proceeds directly to shutdown with its four small documents open.
+            return Ok(());
+        }
+        self.transition("latency_close_documents", |run| {
+            for uri in uris.values() {
+                run.client.close_document(uri)?;
+            }
+            run.exact_symbols("symbols_after_latency_close", &[])
+        })
+    }
+
     fn latency(&mut self, workspace: &Path, body: &str, completion_source: &str) -> ToolResult<()> {
         let documents = latency_documents(completion_source);
         let mut uris = BTreeMap::new();
@@ -596,12 +609,7 @@ impl Workload<'_> {
             self.result["semantics"][name] =
                 json!({"validated_iterations":WARMUP + SAMPLES,"samples":SAMPLES});
         }
-        self.transition("latency_close_documents", |run| {
-            for uri in uris.values() {
-                run.client.close_document(uri)?;
-            }
-            run.exact_symbols("symbols_after_latency_close", &[])
-        })
+        self.finish_latency(&uris)
     }
 }
 
