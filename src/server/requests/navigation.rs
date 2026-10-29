@@ -272,14 +272,13 @@ impl Backend {
         let Some(selection) = self.semantic_selection(&doc, offset) else {
             return Ok(None);
         };
-        if !matches!(selection.occurrence.target, SemanticTarget::Global(_)) {
+        let target = selection.occurrence.target;
+        if !matches!(target, SemanticTarget::Global(_) | SemanticTarget::Local(_)) {
             return Ok(None);
         }
-        let location = selection
-            .view
-            .target_site(selection.occurrence.target)
-            .and_then(|site| {
-                let mut location = Self::semantic_location(&selection.view, site)?;
+        let location = selection.view.target_site(target).and_then(|site| {
+            let mut location = Self::semantic_location(&selection.view, site)?;
+            if matches!(target, SemanticTarget::Global(_)) {
                 let written = &doc.text
                     [selection.occurrence.full_range.start..selection.occurrence.full_range.end];
                 if let Some((alias, _)) = written.split_once('.') {
@@ -294,8 +293,9 @@ impl Backend {
                         location.uri = uri;
                     }
                 }
-                Some(location)
-            });
+            }
+            Some(location)
+        });
         Ok(location.map(GotoDefinitionResponse::Scalar))
     }
 

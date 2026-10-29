@@ -3,6 +3,12 @@ use std::collections::BTreeMap;
 use super::{FileId, SemanticCompletion, SemanticFileContext, SemanticTarget, SemanticView};
 use crate::analysis::DeclarationKind;
 
+#[derive(Default)]
+struct CompletionTargets {
+    value: Option<SemanticTarget>,
+    constructor: Option<SemanticTarget>,
+}
+
 impl SemanticView {
     /// Project canonical Book names into this file's written namespace. Locals
     /// remain the frontend's lexical completion contribution.
@@ -16,11 +22,17 @@ impl SemanticView {
             && let Some(namespace) = context.aliases.get(alias)
         {
             self.completion_range(context, namespace, suffix, Some(alias), &mut candidates);
-            for (name, target) in &mut candidates {
-                if self.names.get(name.as_str()).is_some_and(|global| {
-                    self.target_available(context, *global) && global != target
-                }) {
-                    *target = SemanticTarget::Ambiguous;
+            for (name, targets) in &mut candidates {
+                for target in targets
+                    .value
+                    .iter_mut()
+                    .chain(targets.constructor.iter_mut())
+                {
+                    if self.names.get(name.as_str()).is_some_and(|global| {
+                        self.target_available(context, *global) && *global != *target
+                    }) {
+                        *target = SemanticTarget::Ambiguous;
+                    }
                 }
             }
         } else {
@@ -33,10 +45,32 @@ impl SemanticView {
                 }
             }
         }
-        candidates
-            .into_iter()
-            .map(|(name, target)| SemanticCompletion { name, target })
-            .collect()
+        let capacity = candidates
+            .values()
+            .map(|targets| {
+                usize::from(targets.value.is_some()) + usize::from(targets.constructor.is_some())
+            })
+            .sum();
+        let mut completions = Vec::with_capacity(capacity);
+        for (name, targets) in candidates {
+            match (targets.value, targets.constructor) {
+                (Some(value), Some(constructor)) => {
+                    completions.push(SemanticCompletion {
+                        name: name.clone(),
+                        target: value,
+                    });
+                    completions.push(SemanticCompletion {
+                        name,
+                        target: constructor,
+                    });
+                }
+                (Some(target), None) | (None, Some(target)) => {
+                    completions.push(SemanticCompletion { name, target });
+                }
+                (None, None) => {}
+            }
+        }
+        completions
     }
 
     fn target_available(&self, context: &SemanticFileContext, target: SemanticTarget) -> bool {
@@ -54,7 +88,7 @@ impl SemanticView {
         namespace: &str,
         prefix: &str,
         alias: Option<&str>,
-        candidates: &mut BTreeMap<String, SemanticTarget>,
+        candidates: &mut BTreeMap<String, CompletionTargets>,
     ) {
         let namespace_end = usize::from(!namespace.is_empty()) + namespace.len();
         let (qualifier, query) = prefix
@@ -98,30 +132,16 @@ impl SemanticView {
             let label =
                 alias.map_or_else(|| written.to_owned(), |alias| format!("{alias}.{written}"));
             let target = SemanticTarget::Global(entity.id);
-            candidates
-                .entry(label)
-                .and_modify(|existing| {
-                    if *existing != target {
-                        let old_kind = match *existing {
-                            SemanticTarget::Global(id) => self.entity(id).map(|entity| entity.kind),
-                            _ => None,
-                        };
-                        *existing = match (old_kind, entity.kind) {
-                            (Some(DeclarationKind::Constructor), kind)
-                                if kind != DeclarationKind::Constructor =>
-                            {
-                                target
-                            }
-                            (Some(kind), DeclarationKind::Constructor)
-                                if kind != DeclarationKind::Constructor =>
-                            {
-                                *existing
-                            }
-                            _ => SemanticTarget::Ambiguous,
-                        };
-                    }
-                })
-                .or_insert(target);
+            let targets = candidates.entry(label).or_default();
+            let slot = if entity.kind == DeclarationKind::Constructor {
+                &mut targets.constructor
+            } else {
+                &mut targets.value
+            };
+            *slot = Some(match *slot {
+                Some(existing) if existing != target => SemanticTarget::Ambiguous,
+                _ => target,
+            });
         }
     }
 }

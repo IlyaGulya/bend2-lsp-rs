@@ -1,5 +1,7 @@
-use super::{FileId, SemanticBindingId, SemanticFileContext, SemanticTarget, SemanticView};
-use crate::analysis::{DeclarationKind, IndexedBinding, ReferenceRole, TextRange};
+use super::{
+    FileId, SemanticBindingId, SemanticEntityId, SemanticFileContext, SemanticTarget, SemanticView,
+};
+use crate::analysis::{DeclarationKind, IndexedBinding, ReferenceRole, SyntaxIndex, TextRange};
 
 impl SemanticView {
     /// Simulate replacing one file-local import alias using immutable name and
@@ -243,10 +245,89 @@ impl SemanticView {
         })
     }
 
-    /// Check collisions and lexical capture using the already lowered facts.
+    /// Reject spellings the pinned frontend cannot declare before any
+    /// name-availability fast path can accept them.
+    fn new_atom_is_valid(&self, target: SemanticTarget, new_name: &str) -> bool {
+        // `parse_lexeme`/`parse_name`: ASCII words joined by single dots.
+        if !is_complete_atom(new_name) {
+            return false;
+        }
+        match target {
+            // A local rename replaces its whole written atom, so the new name
+            // itself must not be a keyword or the `_` wildcard.
+            SemanticTarget::Local(_) => !is_standalone_name(new_name),
+            SemanticTarget::Global(id) => {
+                // A global rename replaces only a written terminal: a dotted
+                // atom keeps its leading words, and `parse_name` rejects a
+                // keyword (or `parse_open` drops `_`) only for a standalone
+                // atom. `Foo.def` and `Foo._` remain complete Bend names.
+                if is_standalone_name(new_name) && !self.written_atoms_stay_dotted(target) {
+                    return false;
+                }
+                !self.global_name_starts_with_alias(id, new_name)
+            }
+            SemanticTarget::Unresolved | SemanticTarget::Ambiguous => true,
+        }
+    }
+
+    /// Every written occurrence keeps a dotted prefix, so a renamed terminal
+    /// can only become a name segment, never a standalone keyword or wildcard.
+    fn written_atoms_stay_dotted(&self, target: SemanticTarget) -> bool {
+        let references = self.references(target);
+        if references.is_empty() {
+            return false;
+        }
+        for occurrence in references {
+            let Some(document) = self.document(occurrence.site.file) else {
+                return false;
+            };
+            let Some(written) = document
+                .text
+                .get(occurrence.full_range.start..occurrence.full_range.end)
+            else {
+                return false;
+            };
+            if !written.contains('.') {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// A declaration's first word may not be an import's alias: `parse_fresh`
+    /// rejects it, and `parse_reso` would route every use to the imported file.
+    fn global_name_starts_with_alias(&self, id: SemanticEntityId, new_name: &str) -> bool {
+        let Some(entity) = self.entity(id) else {
+            return false;
+        };
+        let Some(context) = self.contexts.get(&entity.declaration.file) else {
+            return false;
+        };
+        // The canonical name prefixes the namespace with ':'; the written
+        // declaration keeps only the bare dotted name.
+        let bare = entity
+            .name
+            .rsplit_once(':')
+            .map_or(entity.name.as_str(), |(_, bare)| bare);
+        let first = if bare.contains('.') {
+            // A dotted declaration keeps its leading words.
+            first_word(bare)
+        } else if new_name.contains('.') {
+            first_word(new_name)
+        } else {
+            return false;
+        };
+        context.aliases.contains_key(first)
+    }
+
+    /// Reject spellings the pinned frontend cannot declare, then check
+    /// collisions and lexical capture using the already lowered facts.
     /// Cross-entry conflicts must additionally be checked with `rename_conflicts`.
     #[must_use]
     pub fn rename_is_safe(&self, target: SemanticTarget, new_name: &str) -> bool {
+        if !self.new_atom_is_valid(target, new_name) {
+            return false;
+        }
         if !self.capture.conflicting_paths.is_empty() {
             return false;
         }
@@ -392,6 +473,31 @@ impl SemanticView {
                     .is_some_and(|other| shadows(other, binding))
             })
     }
+}
+
+/// A complete spelling that is a keyword or the `_` wildcard atom.
+fn is_standalone_name(name: &str) -> bool {
+    SyntaxIndex::is_keyword_text(name) || name == "_"
+}
+
+/// The leading dot-separated word of a complete name (`Foo` in `Foo.target`).
+fn first_word(name: &str) -> &str {
+    name.split('.').next().unwrap_or(name)
+}
+
+/// The pinned compiler's `parse_lexeme` spelling of one complete name:
+/// ASCII words joined by single dots (`Foo.target`, `x`).
+fn is_complete_atom(name: &str) -> bool {
+    name.split('.').all(|word| {
+        let mut bytes = word.bytes();
+        let Some(head) = bytes.next() else {
+            return false;
+        };
+        if !head.is_ascii_alphabetic() && head != b'_' {
+            return false;
+        }
+        bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+    })
 }
 
 fn shadows(inner: &IndexedBinding, outer: &IndexedBinding) -> bool {

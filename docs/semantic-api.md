@@ -106,6 +106,12 @@ caller's actual file, including implementations of a law declared elsewhere.
 Definition and extraction targets still identify the canonical law declaration;
 the hierarchy's opaque handle preserves that same entity and entry context.
 
+Incoming calls shared by several entry views appear once only when the physical
+caller, call ranges and complete indexed outgoing continuation agree. Different
+law implementations remain distinct even when the difference is reached through
+another callee. Equivalent results retain the requesting entry's handle when it
+is available; this does not assert equivalence of whole compiler Books.
+
 Hierarchy items contain context-qualified `data`. Clients must round-trip it
 unchanged. Continuing with a stale item returns LSP `ContentModified` rather than
 looking up a new declaration by name. Rename rejects capture or conflicting
@@ -113,6 +119,43 @@ interpretations across affected loaded contexts instead of returning partial
 edits. Clients advertising workspace `documentChanges` receive versioned edits
 for open documents; other clients receive the standard `changes` representation.
 
+Completion preserves the compiler's separate value and constructor namespaces.
+A function and constructor can therefore share a label, as with `Base`'s `Pair`
+function and a user-defined `Pair{...}` constructor. Local values shadow value
+candidates, not constructors. Case patterns still offer only constructors,
+filtered by the expected type when it is known.
+
 See [the architecture contract](semantic-architecture.md) for ownership and
 publication invariants. Compiler-backed conformance is test-only; the language
 server does not execute a second compiler to answer semantic feature queries.
+
+### Editor recovery and compiler diagnostics
+
+The editor keeps best-effort navigation and completion while a document is
+unfinished or rejected by the selected compiler. There is no separate strict
+mode. This is an intentional editor behavior, not a claim that the compiler
+accepted the recovered program.
+
+Selected-compiler errors remain visible through `textDocument/publishDiagnostics`.
+Recovery does not suppress or clear them. Diagnostic publications are
+asynchronous and versioned: an empty or not-yet-received diagnostic array is not
+proof that the current document compiled successfully.
+
+An existing file reached through an import path rejected by the compiler can
+still have an editor-only `DocumentLink` or import-path definition. Its link
+tooltip and `data.uncertain` distinguish it from a compiler-resolved import.
+Opening that file does not add a semantic import edge or establish the meaning
+of a member such as `Module.value`.
+
+Recovered declarations and occurrences retain their `uncertain` metadata in
+`bend2/semanticDocument`. Ordinary hover and definition results are best-effort;
+the standard definition response has no compiler-verification flag. Consumers
+may reject results when current-version diagnostics contain errors, but must
+not infer compiler acceptance merely from the absence of an error. Even an
+extraction response with `complete: true` does not certify compiler type or proof
+checks.
+
+Recovery does not relax rename safety: the replacement must be a valid complete
+Bend atom for its category, and capture, ambiguity and conflicting entry
+interpretations still reject the edit.
+

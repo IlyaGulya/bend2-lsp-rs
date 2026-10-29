@@ -869,4 +869,128 @@ mod navigation {
         assert_eq!(after["result"]["uri"], uri(&new));
         client.finish();
     }
+
+    #[test]
+    fn local_parameter_definition_targets_binding_over_same_name_global() {
+        let temp = tempfile::tempdir().must_be("workspace");
+        let main = uri(&temp.path().join("main.bend"));
+        let source = "# 😀\ndef target() -> U32: 1\ndef main(target: U32) -> U32:\n  target\ndef other() -> U32:\n  target\n";
+        let mut client = client(temp.path());
+        open(&mut client, &main, 1, source);
+        let global = source.find("def target").must_be("global declaration") + "def ".len();
+        let parameter = source.find("target: U32").must_be("parameter binder");
+        let body = source.find("\n  target\n").must_be("parameter use") + 3;
+        let global_use = source.rfind("  target").must_be("global use") + 2;
+        let definition = |client: &mut LspClient, offset: usize| {
+            client.request(
+                "textDocument/definition",
+                json!({"textDocument":{"uri":&main},"position":position(source, offset)}),
+            )
+        };
+        assert_eq!(
+            definition(&mut client, body)["result"],
+            json!({
+                "uri":&main,
+                "range":{
+                    "start":position(source, parameter),
+                    "end":position(source, parameter + "target".len())
+                }
+            }),
+            "parameter use must resolve to its local binder, not the same-name global"
+        );
+        assert_eq!(
+            definition(&mut client, global_use)["result"],
+            json!({
+                "uri":&main,
+                "range":{
+                    "start":position(source, global),
+                    "end":position(source, global + "target".len())
+                }
+            }),
+            "unshadowed use must keep the global declaration target"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn local_assignment_tuple_and_do_binders_definition_target_exact_binding_sites() {
+        let temp = tempfile::tempdir().must_be("workspace");
+        let main = uri(&temp.path().join("main.bend"));
+        let source = "# 😀\ndef target() -> U32: 1\ndef other() -> U32: 2\ndef assign() -> U32:\n  target = other\n  target\n\ndef destructure(pair: (U32 -> U32) & U32) -> U32:\n  (target, value) = pair\n  target(value)\n\ndef do_block(x: U32) -> U32:\n  do M<>:\n    target: U32 = x\n    return target\n";
+        let mut client = client(temp.path());
+        open(&mut client, &main, 1, source);
+        let assignment_binder = source.find("target = other").must_be("assignment binder");
+        let assignment_use = source.find("\n  target\n\n").must_be("assignment use") + 3;
+        let tuple_binder = source.find("(target, value)").must_be("tuple binder") + 1;
+        let tuple_use = source.find("  target(value)").must_be("tuple use") + 2;
+        let do_binder = source.find("target: U32 = x").must_be("do binder");
+        let do_use = source.find("return target").must_be("do use") + "return ".len();
+        for (name, use_offset, binder) in [
+            ("assignment", assignment_use, assignment_binder),
+            ("tuple destructuring", tuple_use, tuple_binder),
+            ("do binding", do_use, do_binder),
+        ] {
+            let response = client.request(
+                "textDocument/definition",
+                json!({"textDocument":{"uri":&main},"position":position(source, use_offset)}),
+            );
+            assert_eq!(
+                response["result"],
+                json!({
+                    "uri":&main,
+                    "range":{
+                        "start":position(source, binder),
+                        "end":position(source, binder + "target".len())
+                    }
+                }),
+                "{name} use must resolve to its local binder, not the same-name global"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn local_dotted_atom_shadow_definition_stays_local_while_imported_member_stays_module() {
+        let temp = tempfile::tempdir().must_be("workspace");
+        let root = temp.path();
+        let dep = root.join("dep.bend");
+        let dep_source = "def value() -> U32: 1\n";
+        fs::write(&dep, dep_source).must_be("dependency source");
+        let main = uri(&root.join("main.bend"));
+        let source = "import ./dep.bend as Dep\ndef main(Dep.value: U32) -> U32:\n  Dep.value\ndef use() -> U32:\n  Dep.value\n";
+        let mut client = client(root);
+        open(&mut client, &main, 1, source);
+        let binder = source.find("Dep.value").must_be("dotted binder");
+        let local_use = source.find("\n  Dep.value\n").must_be("shadowed use") + 3;
+        let imported_use = source.rfind("Dep.value").must_be("imported use") + "Dep.".len();
+        assert_eq!(
+            client.request(
+                "textDocument/definition",
+                json!({"textDocument":{"uri":&main},"position":position(source, local_use)}),
+            )["result"],
+            json!({
+                "uri":&main,
+                "range":{
+                    "start":position(source, binder),
+                    "end":position(source, binder + "Dep.value".len())
+                }
+            }),
+            "a dotted atom shadow must not be rewritten to the import target"
+        );
+        assert_eq!(
+            client.request(
+                "textDocument/definition",
+                json!({"textDocument":{"uri":&main},"position":position(source, imported_use)}),
+            )["result"],
+            json!({
+                "uri":uri(&dep),
+                "range":{
+                    "start":position(dep_source, "def ".len()),
+                    "end":position(dep_source, "def value".len())
+                }
+            }),
+            "an imported member must keep its module declaration target"
+        );
+        client.finish();
+    }
 }

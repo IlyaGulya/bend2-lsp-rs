@@ -5,6 +5,9 @@
 ### Features
 
 - Expose versioned `bend2/semanticDocument` metadata for written declarations, documentation, signatures, bodies, reference targets, and enclosing definitions. Extraction is scoped to an explicitly prepared entry and reports uncertain input rather than substituting a name-only target.
+- Keep useful navigation and completion while code is unfinished, without hiding
+  errors from the selected Bend compiler. Editor-only import links remain marked
+  as not compiler-resolved and do not establish the meaning of imported members.
 
 ### Bug Fixes
 
@@ -12,6 +15,17 @@
   A binding named `D` does not shadow the distinct name `D.member`; a binding
   named `D.member` does.
 - Replace the complete existing name when accepting completion in its middle.
+- Go to Definition now finds local parameters and bindings, including tuple
+  destructuring and `do` bindings, without confusing them with same-name globals.
+- Suggest constructors in ordinary expressions as well as constructor patterns.
+  Keep constructors available when a function or local value has the same name,
+  including the `Pair` function supplied by `Base`.
+- Reject Rename names that would produce invalid Bend atoms before returning
+  edits. Preserve valid dotted names, including keyword and underscore segments,
+  while retaining capture and cross-entry conflict checks.
+- Avoid repeated incoming-call entries for the same shared caller when all
+  reachable callees resolve identically. Preserve different entry-specific
+  implementations, including differences reached through another callee.
 - Build callers and callees from entry-scoped import and binding indexes, including line-broken `!(` calls and the implementation body of a `law`. Hierarchy ranges point to the implementation's actual file when a law is declared elsewhere. Reject stale hierarchy handles with `ContentModified` instead of silently resolving a replacement by name.
 - Keep physical file identity separate from editor URIs; reject conflicting open overlays and unsafe rename capture instead of returning partial edits.
 - Keep existential signature domains separate from a following braced equality; require the compiler's adjacent `!(` spelling instead of inventing a call for rejected `! (` input.

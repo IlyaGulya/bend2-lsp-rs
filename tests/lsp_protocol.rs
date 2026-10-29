@@ -829,7 +829,16 @@ mod protocol {
             .or_else(|| body["result"]["items"].as_array())
             .must_be("completion result");
         assert!(items.iter().any(|item| item["label"] == "PairFactory"));
-        assert!(!items.iter().any(|item| item["kind"] == 4));
+        let mut pairs = items.iter().filter(|item| item["label"] == "Pair");
+        let pair = pairs.next().must_be("expression completion offers Pair");
+        assert!(
+            pairs.next().is_none(),
+            "body offers the constructor once: {body}"
+        );
+        assert_eq!(
+            pair["kind"], 4,
+            "constructors are ordinary expression names too: {body}"
+        );
         client.finish();
     }
     #[test]
@@ -6981,6 +6990,249 @@ mod protocol {
         assert!(
             capture.get("result").is_none(),
             "conflicting rename must not return partial edits"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_malformed_new_atom_without_edits() {
+        let temp = tempdir().must_be("temporary rename-atom workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def foo(x: U32) -> U32:\n  x\ndef main() -> U32:\n  foo(1)\n";
+        fs::write(&path, source).must_be("write rename-atom source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request_response(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":0,"character":5},"newName":"bad name"
+            }),
+        );
+        assert_eq!(
+            response["error"]["code"], -32602,
+            "a name with a space is not one Bend atom: {response}"
+        );
+        assert!(
+            response.get("result").is_none(),
+            "malformed rename must not return a WorkspaceEdit: {response}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_incomplete_new_atoms_before_availability_checks() {
+        let temp = tempdir().must_be("temporary rename-atom workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def foo(x: U32) -> U32:\n  x\ndef main() -> U32:\n  foo(1)\n";
+        fs::write(&path, source).must_be("write rename-atom source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for new_name in [
+            "",
+            "bad\nname",
+            "1bad",
+            "bad-name",
+            "import",
+            "_",
+            "bad..name",
+        ] {
+            let response = client.request_response(
+                "textDocument/rename",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":0,"character":5},
+                    "newName":new_name
+                }),
+            );
+            assert_eq!(
+                response["error"]["code"], -32602,
+                "newName {new_name:?} is not one complete Bend atom: {response}"
+            );
+            assert!(
+                response.get("result").is_none(),
+                "malformed rename must not return a WorkspaceEdit: {response}"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_keeps_dotted_global_terminals_as_name_segments() {
+        let temp = tempdir().must_be("temporary dotted-terminal workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def Foo.target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  Foo.target(1)\n";
+        fs::write(&path, source).must_be("write dotted-terminal source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        let root = Url::from_directory_path(temp.path()).must_be("root URI");
+        client.request(
+            "initialize",
+            json!({
+                "processId":null,"rootUri":root,
+                "capabilities":{"workspace":{"workspaceEdit":{"documentChanges":true}}}
+            }),
+        );
+        client.notify("initialized", json!({}));
+        open_clean_document(&mut client, &uri, source);
+        for new_name in ["def", "_"] {
+            let renamed = client.request(
+                "textDocument/rename",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":0,"character":10},
+                    "newName":new_name
+                }),
+            );
+            assert_eq!(
+                renamed["result"],
+                json!({"documentChanges":[{
+                    "textDocument":{"uri":uri,"version":1},
+                    "edits":[
+                        {"range":{"start":{"line":0,"character":8},"end":{"line":0,"character":14}},"newText":new_name},
+                        {"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}},"newText":new_name}
+                    ]
+                }]}),
+                "a renamed terminal in Foo.target keeps its dotted prefix: {new_name:?}"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_accepts_valid_dotted_global_atoms() {
+        let temp = tempdir().must_be("temporary dotted-rename workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  target(1)\n";
+        fs::write(&path, source).must_be("write dotted-rename source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        let root = Url::from_directory_path(temp.path()).must_be("root URI");
+        client.request(
+            "initialize",
+            json!({
+                "processId":null,"rootUri":root,
+                "capabilities":{"workspace":{"workspaceEdit":{"documentChanges":true}}}
+            }),
+        );
+        client.notify("initialized", json!({}));
+        open_clean_document(&mut client, &uri, source);
+        let renamed = client.request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":0,"character":5},
+                "newName":"renamed.atom"
+            }),
+        );
+        assert_eq!(
+            renamed["result"],
+            json!({"documentChanges":[{
+                "textDocument":{"uri":uri,"version":1},
+                "edits":[
+                    {"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}},"newText":"renamed.atom"},
+                    {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}},"newText":"renamed.atom"}
+                ]
+            }]}),
+            "a whole dotted atom is a complete Bend name"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_accepts_valid_local_dotted_and_contextual_atoms() {
+        let temp = tempdir().must_be("temporary local-atom workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def main(x: U32) -> U32:\n  x\n";
+        fs::write(&path, source).must_be("write local-atom source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for new_name in ["local.atom", "as"] {
+            let renamed = client.request(
+                "textDocument/rename",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":1,"character":2},
+                    "newName":new_name
+                }),
+            );
+            assert_eq!(
+                renamed["result"],
+                json!({"changes":{(uri.as_str()):[
+                    {"range":{"start":{"line":0,"character":9},"end":{"line":0,"character":10}},"newText":new_name},
+                    {"range":{"start":{"line":1,"character":2},"end":{"line":1,"character":3}},"newText":new_name}
+                ]}}),
+                "local {new_name:?} is a complete Bend atom, including contextual keywords"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_complete_dotted_atom_conflicts() {
+        let temp = tempdir().must_be("temporary dotted-conflict workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def Foo.target(x: U32) -> U32:\n  x\ndef target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  target(1)\n";
+        fs::write(&path, source).must_be("write dotted-conflict source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request_response(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":2,"character":5},
+                "newName":"Foo.target"
+            }),
+        );
+        assert_eq!(
+            response["error"]["code"], -32602,
+            "an existing complete dotted atom must stay rejected: {response}"
+        );
+        assert!(
+            response.get("result").is_none(),
+            "conflicting rename must not return partial edits: {response}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_new_atoms_that_capture_an_import_alias_prefix() {
+        let temp = tempdir().must_be("temporary alias-capture workspace");
+        let path = temp.path().join("main.bend");
+        let source = "import ./dep.bend as D\ndef target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  target(1)\n";
+        fs::write(&path, source).must_be("write alias-capture source");
+        fs::write(
+            temp.path().join("dep.bend"),
+            "def target(x: U32) -> U32:\n  x\n",
+        )
+        .must_be("write alias-capture dependency");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request_response(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":1,"character":5},
+                "newName":"D.target"
+            }),
+        );
+        assert_eq!(
+            response["error"]["code"], -32602,
+            "a declaration cannot start with an import alias: {response}"
+        );
+        assert!(
+            response.get("result").is_none(),
+            "capturing rename must not return partial edits: {response}"
         );
         client.finish();
     }

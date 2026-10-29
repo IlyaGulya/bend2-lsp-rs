@@ -319,7 +319,7 @@ impl Backend {
         }
         if !self.semantic_rename_is_safe(&selection, &params.new_name) {
             return Err(Error::invalid_params(
-                "rename would capture a name or conflict across entry contexts",
+                "new name is invalid or rename would capture a name or conflict across entry contexts",
             ));
         }
         let mut changes = HashMap::<Url, Vec<TextEdit>>::new();

@@ -543,20 +543,19 @@ impl Backend {
             );
         }
         for candidate in view.completion_candidates(file, prefix) {
-            if syntax
-                .name_id(&document.text, &candidate.name)
-                .is_some_and(|name| syntax.binding_named_at(name, visibility_offset).is_some())
-            {
-                continue;
-            }
             let SemanticTarget::Global(id) = candidate.target else {
                 continue;
             };
             let Some(entity) = view.entity(id) else {
                 continue;
             };
-            if (pattern.is_some() && entity.kind != analysis::DeclarationKind::Constructor)
-                || (pattern.is_none() && entity.kind == analysis::DeclarationKind::Constructor)
+            if entity.kind != analysis::DeclarationKind::Constructor
+                && (pattern.is_some()
+                    || syntax
+                        .name_id(&document.text, &candidate.name)
+                        .is_some_and(|name| {
+                            syntax.binding_named_at(name, visibility_offset).is_some()
+                        }))
             {
                 continue;
             }
@@ -707,9 +706,10 @@ impl Backend {
             view: selected,
             occurrence,
         };
-        let mut result = Vec::new();
-        for view in self.semantic_reference_views(&selection) {
-            let Some(target) = Self::corresponding_target(&selection, &view) else {
+        let views = self.semantic_reference_views(&selection);
+        let mut candidates: Vec<IncomingCallCandidate<'_>> = Vec::new();
+        for view in &views {
+            let Some(target) = Self::corresponding_target(&selection, view) else {
                 continue;
             };
             let mut grouped = HashMap::<SemanticEntityId, Vec<Range>>::new();
@@ -717,46 +717,73 @@ impl Backend {
                 let Some(caller) = call.caller else {
                     continue;
                 };
-                if let Some(location) = Self::semantic_location(&view, call.site) {
+                if let Some(location) = Self::semantic_location(view, call.site) {
                     grouped.entry(caller).or_default().push(location.range);
                 }
             }
             for (caller, mut ranges) in grouped {
-                let Some(from) = Self::semantic_hierarchy_item(&view, caller) else {
+                let Some(from) = Self::semantic_hierarchy_item(view, caller) else {
                     continue;
                 };
-                ranges.sort_by_key(|range| {
-                    (
-                        range.start.line,
-                        range.start.character,
-                        range.end.line,
-                        range.end.character,
-                    )
-                });
+                ranges.sort_by_key(range_order);
                 ranges.dedup();
-                result.push(CallHierarchyIncomingCall {
-                    from,
-                    from_ranges: ranges,
-                });
+                candidates.push((
+                    view.as_ref(),
+                    caller,
+                    CallHierarchyIncomingCall {
+                        from,
+                        from_ranges: ranges,
+                    },
+                ));
             }
         }
-        result.sort_by(|left, right| {
-            left.from
-                .uri
-                .as_str()
-                .cmp(right.from.uri.as_str())
-                .then_with(|| {
-                    (
-                        left.from.selection_range.start.line,
-                        left.from.selection_range.start.character,
-                    )
-                        .cmp(&(
-                            right.from.selection_range.start.line,
-                            right.from.selection_range.start.character,
-                        ))
-                })
+        candidates.sort_by(|left, right| {
+            incoming_caller_order(&left.2).cmp(&incoming_caller_order(&right.2))
         });
-        Ok(result)
+        let prepared = selection.view.serial();
+        let mut stack = Vec::new();
+        let mut visited = HashSet::new();
+        // Compact each physical-caller run in place. The retained prefix holds
+        // one representative per complete hierarchy meaning, without allocating
+        // a separate run or cloning an entry view for every caller.
+        let mut retained = 0;
+        let mut group_start = 0;
+        for current in 0..candidates.len() {
+            if retained == 0
+                || incoming_caller_order(&candidates[group_start].2)
+                    != incoming_caller_order(&candidates[current].2)
+            {
+                group_start = retained;
+            }
+            let equivalent = (group_start..retained).find(|&index| {
+                let representative = &candidates[index];
+                let candidate = &candidates[current];
+                same_incoming_caller(&representative.2, &candidate.2)
+                    && representative.2.from_ranges == candidate.2.from_ranges
+                    && same_hierarchy_expansion(
+                        representative.0,
+                        representative.1,
+                        candidate.0,
+                        candidate.1,
+                        &mut stack,
+                        &mut visited,
+                    )
+            });
+            if let Some(representative) = equivalent {
+                if candidates[representative].0.serial() != prepared
+                    && candidates[current].0.serial() == prepared
+                {
+                    candidates.swap(representative, current);
+                }
+            } else {
+                if retained != current {
+                    candidates.swap(retained, current);
+                }
+                retained += 1;
+            }
+        }
+        candidates.truncate(retained);
+        Ok(candidates.into_iter().map(|(_, _, call)| call).collect())
     }
 
     pub(in crate::server) fn semantic_outgoing(
@@ -994,6 +1021,148 @@ const fn hierarchy_site(entity: &SemanticEntity) -> SemanticSite {
         Some(body) => body,
         None => entity.declaration,
     }
+}
+
+/// One incoming call candidate borrowing the entry view that published it.
+type IncomingCallCandidate<'a> = (
+    &'a SemanticView,
+    SemanticEntityId,
+    CallHierarchyIncomingCall,
+);
+
+fn range_order(range: &Range) -> (u32, u32, u32, u32) {
+    (
+        range.start.line,
+        range.start.character,
+        range.end.line,
+        range.end.character,
+    )
+}
+
+type IncomingCallerOrder<'a> = (&'a str, (u32, u32, u32, u32), (u32, u32, u32, u32), &'a str);
+
+fn incoming_caller_order(call: &CallHierarchyIncomingCall) -> IncomingCallerOrder<'_> {
+    let from = &call.from;
+    (
+        from.uri.as_str(),
+        range_order(&from.selection_range),
+        range_order(&from.range),
+        from.name.as_str(),
+    )
+}
+
+/// The caller presentation a client sees, independent of the opaque handle.
+fn same_incoming_caller(
+    left: &CallHierarchyIncomingCall,
+    right: &CallHierarchyIncomingCall,
+) -> bool {
+    let left = &left.from;
+    let right = &right.from;
+    left.uri == right.uri
+        && left.range == right.range
+        && left.selection_range == right.selection_range
+        && left.name == right.name
+        && left.kind == right.kind
+        && left.detail == right.detail
+}
+
+/// Compare the complete hierarchy continuation of two caller entities.
+///
+/// Callers are the same incoming call only when their physical declaration
+/// metadata agrees and every indexed call matches at every depth, so an entry
+/// that fills a claim differently is never merged away. The traversal only
+/// walks `calls_from` in its existing source order; entity pairs are visited
+/// once, which also terminates recursive call graphs.
+fn same_hierarchy_expansion(
+    left: &SemanticView,
+    left_entity: SemanticEntityId,
+    right: &SemanticView,
+    right_entity: SemanticEntityId,
+    stack: &mut Vec<(SemanticEntityId, SemanticEntityId)>,
+    visited: &mut HashSet<(SemanticEntityId, SemanticEntityId)>,
+) -> bool {
+    stack.clear();
+    visited.clear();
+    stack.push((left_entity, right_entity));
+    while let Some((left_id, right_id)) = stack.pop() {
+        if !visited.insert((left_id, right_id)) {
+            continue;
+        }
+        let (Some(left_entry), Some(right_entry)) = (left.entity(left_id), right.entity(right_id))
+        else {
+            return false;
+        };
+        if !same_hierarchy_entity(left, left_entry, right, right_entry) {
+            return false;
+        }
+        let mut left_calls = left.calls_from(left_id);
+        let mut right_calls = right.calls_from(right_id);
+        loop {
+            match (left_calls.next(), right_calls.next()) {
+                (None, None) => break,
+                (Some(left_call), Some(right_call)) => {
+                    if left_call.site != right_call.site {
+                        return false;
+                    }
+                    match (
+                        visible_hierarchy_target(left, left_call.target),
+                        visible_hierarchy_target(right, right_call.target),
+                    ) {
+                        (Some(left_target), Some(right_target)) => {
+                            stack.push((left_target, right_target));
+                        }
+                        (None, None) => {}
+                        _ => return false,
+                    }
+                }
+                _ => return false,
+            }
+        }
+    }
+    true
+}
+
+/// The physical entity facts a hierarchy item exposes for one declaration.
+fn same_hierarchy_entity(
+    left: &SemanticView,
+    left_entity: &SemanticEntity,
+    right: &SemanticView,
+    right_entity: &SemanticEntity,
+) -> bool {
+    left_entity.declaration == right_entity.declaration
+        && left_entity.signature_owner == right_entity.signature_owner
+        && left_entity.body_owner == right_entity.body_owner
+        && left_entity.kind == right_entity.kind
+        && hierarchy_declaration_text(left, left_entity)
+            == hierarchy_declaration_text(right, right_entity)
+}
+
+/// The hierarchy item's name is the declaration text, not the entry-qualified
+/// canonical name, which changes with each importing entry's namespace.
+fn hierarchy_declaration_text<'a>(
+    view: &'a SemanticView,
+    entity: &SemanticEntity,
+) -> Option<&'a str> {
+    let document = view.document(entity.declaration.file)?;
+    document
+        .text
+        .get(entity.declaration.range.start..entity.declaration.range.end)
+}
+
+/// `semantic_outgoing` only exposes global calls whose target has an item.
+fn visible_hierarchy_target(
+    view: &SemanticView,
+    target: SemanticTarget,
+) -> Option<SemanticEntityId> {
+    let SemanticTarget::Global(id) = target else {
+        return None;
+    };
+    let entity = view.entity(id)?;
+    matches!(
+        entity.kind,
+        analysis::DeclarationKind::Def | analysis::DeclarationKind::Law
+    )
+    .then_some(id)
 }
 
 fn target_json(view: &SemanticView, target: SemanticTarget) -> Value {
