@@ -1,7 +1,7 @@
 use super::super::{adapters, lsp::Backend};
 use super::shared::{binding_at, binding_ranges, declaration_token_at};
 use crate::{analysis, workspace::Document};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use tower_lsp::{
     jsonrpc::{Error, Result},
     lsp_types::{
@@ -16,7 +16,7 @@ use url::Url;
 enum RenameKind {
     Alias(analysis::IndexedImport),
     Binding(analysis::SymbolId),
-    Symbol { uri: Url, name: String },
+    Symbol { uri: Arc<Url>, name: String },
 }
 
 struct RenameTarget {
@@ -134,7 +134,7 @@ fn rename_alias(
     Ok(WorkspaceEdit {
         document_changes: Some(DocumentChanges::Edits(vec![TextDocumentEdit {
             text_document: OptionalVersionedTextDocumentIdentifier {
-                uri: document.uri.clone(),
+                uri: document.uri.as_ref().clone(),
                 version: Some(document.revision.0),
             },
             edits,
@@ -258,7 +258,7 @@ impl Backend {
                 .references(symbol.id)
                 .filter(|reference| reference.kind != analysis::ReferenceKind::Declaration)
                 .map(|reference| Location {
-                    uri: doc.uri.clone(),
+                    uri: doc.uri.as_ref().clone(),
                     range: adapters::range(&doc, reference.range),
                 })
                 .collect();
@@ -303,7 +303,7 @@ impl Backend {
                 binding_ranges(&doc, symbol, params.context.include_declaration)
                     .into_iter()
                     .map(|range| Location {
-                        uri: doc.uri.clone(),
+                        uri: doc.uri.as_ref().clone(),
                         range: adapters::range(&doc, range),
                     })
                     .collect(),
@@ -359,7 +359,7 @@ impl Backend {
         Ok(Some(
             self.symbol_references(&target_uri, &name, true)
                 .into_iter()
-                .filter(|location| location.uri == doc.uri)
+                .filter(|location| location.uri == *doc.uri)
                 .map(|location| DocumentHighlight {
                     range: location.range,
                     kind: Some(DocumentHighlightKind::TEXT),
@@ -396,7 +396,7 @@ impl Backend {
                 })
                 .collect();
             return Ok(Some(WorkspaceEdit {
-                changes: Some(HashMap::from([(doc.uri.clone(), edits)])),
+                changes: Some(HashMap::from([(doc.uri.as_ref().clone(), edits)])),
                 ..Default::default()
             }));
         }

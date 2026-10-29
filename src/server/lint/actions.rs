@@ -1,61 +1,115 @@
 use super::super::lsp::Backend;
 use super::{
     LintResult,
-    wire::{Fix, offsets},
+    control::EXPLAIN_COMMAND,
+    wire::{ActionableFinding, Fix, offsets},
 };
 use crate::workspace::Document;
 use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
 use tower_lsp::lsp_types::{
-    CodeAction, CodeActionKind, CodeActionOrCommand, CodeActionParams, CodeActionTriggerKind,
-    DocumentChanges, OneOf, OptionalVersionedTextDocumentIdentifier, TextDocumentEdit, TextEdit,
-    WorkspaceEdit,
+    CodeAction, CodeActionDisabled, CodeActionKind, CodeActionOrCommand, CodeActionParams,
+    CodeActionTriggerKind, Command, Diagnostic, DocumentChanges, OneOf,
+    OptionalVersionedTextDocumentIdentifier, TextDocumentEdit, TextEdit, WorkspaceEdit,
 };
 
 pub(in crate::server) const DANGEROUS_KIND: &str = "quickfix.bend-lint.dangerous";
+const EXPLAIN_KIND: &str = "quickfix.bend-lint.explain";
+const RECHECK_REASON: &str =
+    "This bend-lint result is no longer current. Recheck the file before applying a fix.";
 
-fn requested(params: &CodeActionParams) -> bool {
+fn requested(params: &CodeActionParams, action_kind: &str) -> bool {
     params.context.trigger_kind == Some(CodeActionTriggerKind::INVOKED)
         && params.context.only.as_ref().is_none_or(|kinds| {
             kinds.iter().any(|kind| {
                 let kind = kind.as_str();
                 kind.is_empty()
-                    || kind == DANGEROUS_KIND
-                    || DANGEROUS_KIND
+                    || kind == action_kind
+                    || action_kind
                         .strip_prefix(kind)
                         .is_some_and(|tail| tail.starts_with('.'))
             })
         })
 }
 
-fn versioned_fix(backend: &Backend, result: &LintResult, fix: &Fix) -> Option<WorkspaceEdit> {
-    if fix.applicability != "dangerous" || fix.edits.is_empty() || fix.edits.len() > 4096 {
-        return None;
+fn versioned_fix(
+    backend: &Backend,
+    result: &LintResult,
+    fix: &Fix,
+) -> Result<WorkspaceEdit, &'static str> {
+    if fix.applicability != "dangerous" {
+        return Err(
+            "This bend-lint fix uses an unsupported applicability; no edit can be applied safely.",
+        );
+    }
+    if fix.edits.is_empty() || fix.edits.len() > 4096 {
+        return Err("This bend-lint fix has an invalid or unsupported number of edits.");
     }
     let mut edits = BTreeMap::<PathBuf, (Document, Vec<(usize, usize, TextEdit)>)>::new();
     for edit in &fix.edits {
-        let (path, saved) = result.saved.source(&edit.path)?;
-        let uri = result.saved.uris.get(&path)?;
-        // Closed targets have no document version. Refuse rather than give an
-        // unversioned edit that could overwrite a later disk/editor change.
-        let document = backend.document(uri)?;
-        if document.text != saved.text
-            || !backend.diagnostics_snapshot_current(uri, &document.snapshot)
-        {
-            return None;
+        let (path, checked) = result
+            .snapshot
+            .source(&edit.path)
+            .ok_or("This fix targets a file outside the checked project inputs.")?;
+        let (start, end) = offsets(checked, edit.range)
+            .ok_or("This bend-lint fix has an invalid UTF-16 edit range.")?;
+        let text_edit = || TextEdit {
+            range: edit.range,
+            new_text: edit.text.clone(),
+        };
+        // Validate and resolve each unique target once; repeated edits to one
+        // file reuse the already verified document and version.
+        if let Some((_, existing)) = edits.get_mut(&path) {
+            existing.push((start, end, text_edit()));
+            continue;
         }
-        let (start, end) = offsets(saved, edit.range)?;
-        edits
-            .entry(path)
-            .or_insert_with(|| (document, Vec::new()))
-            .1
-            .push((
-                start,
-                end,
-                TextEdit {
-                    range: edit.range,
-                    new_text: edit.text.clone(),
-                },
-            ));
+        // A current physical alias that was never captured must still make the
+        // target ambiguous. If the checked target's identity cannot be
+        // verified, no alias can be ruled out: fail closed instead of editing
+        // whatever spelling happens to be captured.
+        let identity = super::snapshot::paths::input_identity(&path).ok_or(
+            "This fix target's physical file identity cannot be verified; save it and recheck before applying this fix.",
+        )?;
+        // Resolve the CURRENT open spellings by physical identity, not by one
+        // lexical FileId: a symlinked and a canonical spelling (or an alias
+        // opened after capture) are different workspace identities but one
+        // physical source. Exactly one live target may be edited.
+        let uri = {
+            let database = backend.workspace.read();
+            let mut open = database.open_view_spellings().filter(|uri| {
+                uri.to_file_path()
+                    .ok()
+                    .and_then(|candidate| super::snapshot::paths::input_identity(&candidate))
+                    .as_ref()
+                    == Some(&identity)
+            });
+            match (open.next(), open.next()) {
+                // Closed targets have no document version. Refuse rather than
+                // give an unversioned edit that could overwrite a later change.
+                (None, _) => {
+                    return Err("Open every file targeted by this fix before applying it.");
+                }
+                (Some(uri), None) => uri.clone(),
+                (Some(_), Some(_)) => {
+                    return Err(
+                        "This fix targets a file open under multiple URI spellings; close or unify them before applying it.",
+                    );
+                }
+            }
+        };
+        let document = backend
+            .document(&uri)
+            .ok_or("Open every file targeted by this fix before applying it.")?;
+        if document.text != checked.text {
+            return Err(
+                "The open buffer changed after analysis; recheck before applying this fix.",
+            );
+        }
+        if !backend.diagnostics_snapshot_current(&document.uri, &document.snapshot) {
+            return Err(
+                "A target document is no longer current. Recheck before applying this fix.",
+            );
+        }
+        edits.insert(path, (document, vec![(start, end, text_edit())]));
     }
     let mut changes = Vec::with_capacity(edits.len());
     for (_, (document, mut edits)) in edits {
@@ -65,12 +119,12 @@ fn versioned_fix(backend: &Backend, result: &LintResult, fix: &Fix) -> Option<Wo
             let (next, next_end, _) = &pair[1];
             next < end || (next == end && (start == end || next == next_end))
         }) {
-            return None;
+            return Err("This bend-lint fix has overlapping edits and cannot be applied safely.");
         }
         let version = document.revision.0;
         changes.push(TextDocumentEdit {
             text_document: OptionalVersionedTextDocumentIdentifier {
-                uri: document.uri,
+                uri: document.uri.as_ref().clone(),
                 version: Some(version),
             },
             edits: edits
@@ -79,28 +133,110 @@ fn versioned_fix(backend: &Backend, result: &LintResult, fix: &Fix) -> Option<Wo
                 .collect(),
         });
     }
-    Some(WorkspaceEdit {
+    Ok(WorkspaceEdit {
         document_changes: Some(DocumentChanges::Edits(changes)),
         ..Default::default()
     })
 }
 
 impl Backend {
+    fn unavailable_lint_action(
+        &self,
+        params: &CodeActionParams,
+        title: String,
+        diagnostic: Diagnostic,
+        reason: &str,
+    ) -> Option<CodeActionOrCommand> {
+        let mut action = CodeAction {
+            title,
+            diagnostics: Some(vec![diagnostic]),
+            is_preferred: Some(false),
+            ..Default::default()
+        };
+        if self.registration.read().lint.disabled_code_actions && requested(params, DANGEROUS_KIND)
+        {
+            action.kind = Some(CodeActionKind::new(DANGEROUS_KIND));
+            action.disabled = Some(CodeActionDisabled {
+                reason: reason.into(),
+            });
+        } else if requested(params, EXPLAIN_KIND) {
+            action.kind = Some(CodeActionKind::new(EXPLAIN_KIND));
+            action.title = format!("Why this bend-lint fix is unavailable: {}", action.title);
+            action.command = Some(Command {
+                title: "Explain unavailable bend-lint fix".into(),
+                command: EXPLAIN_COMMAND.into(),
+                arguments: Some(vec![serde_json::json!({
+                    "uri": params.text_document.uri,
+                    "reason": reason,
+                })]),
+            });
+        } else {
+            return None;
+        }
+        Some(CodeActionOrCommand::CodeAction(action))
+    }
+
+    // One fix is offered by the authority that produced it: the caller
+    // resolves its versioned edit from that entry's snapshot and config.
+    fn lint_action_for_fix(
+        &self,
+        params: &CodeActionParams,
+        finding: &ActionableFinding,
+        fix: &Fix,
+        edit: Result<WorkspaceEdit, &'static str>,
+    ) -> Option<CodeActionOrCommand> {
+        let title = format!(
+            "Dangerous bend-lint fix (may change behavior): {}",
+            fix.title
+        );
+        match edit {
+            Ok(edit) if requested(params, DANGEROUS_KIND) => {
+                Some(CodeActionOrCommand::CodeAction(CodeAction {
+                    title,
+                    kind: Some(CodeActionKind::new(DANGEROUS_KIND)),
+                    diagnostics: Some(vec![finding.diagnostic.clone()]),
+                    edit: Some(edit),
+                    is_preferred: Some(false),
+                    ..Default::default()
+                }))
+            }
+            Err(reason) => {
+                self.unavailable_lint_action(params, title, finding.diagnostic.clone(), reason)
+            }
+            Ok(_) => None,
+        }
+    }
+
     pub(in crate::server) async fn lint_code_actions(
         &self,
         params: &CodeActionParams,
     ) -> Vec<CodeActionOrCommand> {
-        if !requested(params) {
+        if !requested(params, DANGEROUS_KIND) && !requested(params, EXPLAIN_KIND) {
             return Vec::new();
         }
-        let Some(result) = self
-            .current_lint_result()
-            .filter(|result| result.config.dangerous_code_actions)
-        else {
-            return Vec::new();
-        };
-        let saved = result.saved.clone();
+        let uri = &params.text_document.uri;
+        let contributors = self.current_lint_contributors(uri);
+        if contributors.is_empty() {
+            return params
+                .context
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.source.as_deref() == Some("bend-lint"))
+                .filter_map(|diagnostic| {
+                    self.unavailable_lint_action(
+                        params,
+                        "Recheck bend-lint findings".into(),
+                        diagnostic.clone(),
+                        RECHECK_REASON,
+                    )
+                })
+                .collect();
+        }
         let documents = self.workspace_documents();
+        let snapshots: Vec<_> = contributors
+            .iter()
+            .map(|result| result.snapshot.clone())
+            .collect();
         let Ok(permit) = self
             .diagnostics
             .lint
@@ -114,38 +250,44 @@ impl Backend {
         let fresh = super::super::state::blocking_result(
             tokio::task::spawn_blocking(move || {
                 let _permit = permit;
-                saved.unchanged() && super::saved::SavedProject::documents_saved(&documents)
+                snapshots
+                    .iter()
+                    .map(|snapshot| {
+                        snapshot.unchanged() && snapshot.open_documents_current(&documents)
+                    })
+                    .collect::<Vec<_>>()
             })
             .await,
         );
-        if !fresh
-            || self
-                .current_lint_result()
-                .is_none_or(|current| !Arc::ptr_eq(&current, &result))
-        {
-            return Vec::new();
-        }
-        let mut actions = Vec::new();
-        for finding in &result.findings.actionable {
-            if finding.uri != params.text_document.uri
-                || finding.diagnostic.range.end < params.range.start
-                || params.range.end < finding.diagnostic.range.start
-            {
-                continue;
-            }
-            for fix in &finding.fixes {
-                if let Some(edit) = versioned_fix(self, &result, fix) {
-                    actions.push(CodeActionOrCommand::CodeAction(CodeAction {
-                        title: format!(
-                            "Dangerous bend-lint fix (may change behavior): {}",
-                            fix.title
-                        ),
-                        kind: Some(CodeActionKind::new(DANGEROUS_KIND)),
-                        diagnostics: Some(vec![finding.diagnostic.clone()]),
-                        edit: Some(edit),
-                        is_preferred: Some(false),
-                        ..Default::default()
-                    }));
+        let current = self.current_lint_contributors(uri);
+        let mut actions: Vec<CodeActionOrCommand> = Vec::new();
+        for (result, fresh) in contributors.iter().zip(fresh) {
+            let still_current = current
+                .iter()
+                .any(|candidate| Arc::ptr_eq(candidate, result));
+            for finding in &result.findings.actionable {
+                if finding.uri != *uri
+                    || finding.diagnostic.range.end < params.range.start
+                    || params.range.end < finding.diagnostic.range.start
+                {
+                    continue;
+                }
+                for fix in &finding.fixes {
+                    let edit = if !fresh || !still_current {
+                        Err(RECHECK_REASON)
+                    } else if !result.config.dangerous_code_actions {
+                        Err(
+                            "Enable bend.lint.dangerousCodeActions to opt into fixes that may change program behavior.",
+                        )
+                    } else {
+                        versioned_fix(self, result, fix)
+                    };
+                    let action = self.lint_action_for_fix(params, finding, fix, edit);
+                    if let Some(action) = action
+                        && !actions.contains(&action)
+                    {
+                        actions.push(action);
+                    }
                 }
             }
         }

@@ -792,14 +792,15 @@ pub fn identifier_ranges(snapshot: &DocumentSnapshot, name: &str) -> Vec<TextRan
 /// Normalize a case-insensitive symbol query once for all indexed documents.
 pub struct WorkspaceSymbolQuery {
     normalized: String,
+    ascii: bool,
 }
 
 impl WorkspaceSymbolQuery {
     #[must_use]
     pub fn new(query: &str) -> Self {
-        Self {
-            normalized: query.to_lowercase(),
-        }
+        let normalized = query.to_lowercase();
+        let ascii = normalized.is_ascii();
+        Self { normalized, ascii }
     }
 
     #[must_use]
@@ -814,9 +815,10 @@ impl WorkspaceSymbolQuery {
         let source = &snapshot.text;
         let syntax = &snapshot.syntax;
         let is_empty = self.is_empty();
+        let ascii_query = self.ascii;
         syntax.symbols().iter().filter_map(move |symbol| {
             let name = syntax.name_text(source, symbol.name);
-            if !is_empty && !name.to_lowercase().contains(&self.normalized) {
+            if !is_empty && !contains_normalized(name, &self.normalized, ascii_query) {
                 return None;
             }
             Some(WorkspaceSymbol {
@@ -826,6 +828,26 @@ impl WorkspaceSymbolQuery {
             })
         })
     }
+}
+
+/// Match an already-lowercased query against a symbol name.
+///
+/// Lowercasing an ASCII name is exactly ASCII case conversion, so the common case
+/// compares byte windows instead of allocating a lowercased copy per symbol.
+/// Non-ASCII names keep the original Unicode lowercasing.
+fn contains_normalized(name: &str, normalized: &str, ascii_query: bool) -> bool {
+    if normalized.is_empty() {
+        return true;
+    }
+    if !name.is_ascii() {
+        return name.to_lowercase().contains(normalized);
+    }
+    if !ascii_query {
+        return false;
+    }
+    name.as_bytes()
+        .windows(normalized.len())
+        .any(|window| window.eq_ignore_ascii_case(normalized.as_bytes()))
 }
 
 #[must_use]

@@ -585,7 +585,7 @@ fn workspace_references(fixture: LoadedWorkspace) -> Vec<(usize, analysis::TextR
     let mut references = Vec::new();
 
     for (document_index, document) in documents.iter().enumerate() {
-        if document.uri == common_uri {
+        if *document.uri == common_uri {
             references.extend(
                 document
                     .syntax
@@ -601,7 +601,7 @@ fn workspace_references(fixture: LoadedWorkspace) -> Vec<(usize, analysis::TextR
         let imports = analysis::imports(document);
         let Some(alias) = imports.iter().find_map(|import| {
             let target_document = fixture.database.import_target(&document.uri, import.path)?;
-            (target_document.uri == common_uri)
+            (*target_document.uri == common_uri)
                 .then(|| import.alias_text(&document.text))
                 .flatten()
         }) else {
@@ -668,7 +668,7 @@ fn workspace_burst_revision_invalidation(
             .database
             .dependents(id)
             .into_iter()
-            .map(|document| document.uri)
+            .map(|document| document.uri.as_ref().clone())
             .collect();
         results.push((revision, imports_changed, dependents));
     }

@@ -1,12 +1,13 @@
 use super::{
-    revision::{DocumentRevisionSync, RevisionTicket},
+    revision::{DocumentRevisionSync, RevisionStatus, RevisionTicket},
     state::{State, revision_result},
 };
 use crate::{
     analysis::Revision,
-    workspace::{FileId, WorkspaceDb},
+    workspace::{FileId, WorkspaceDb, views::ViewId},
 };
 use std::{
+    borrow::Cow,
     collections::HashMap,
     ops::Deref,
     path::PathBuf,
@@ -20,26 +21,66 @@ use url::Url;
 
 pub(super) struct WorkspaceState {
     pub(super) database: WorkspaceDb,
-    pub(super) revisions: HashMap<FileId, Arc<DocumentRevisionSync>>,
+    // One revision stream per open editor spelling. LSP versions are per URI,
+    // so two spellings of one file must not share a monotonic stream.
+    pub(super) revisions: HashMap<ViewId, Arc<DocumentRevisionSync>>,
     generation: u64,
 }
 
 #[derive(Clone, Copy)]
 pub(super) struct ClosedRevision {
     file: FileId,
+    view: ViewId,
     generation: u64,
 }
 
-impl WorkspaceState {
-    pub(super) fn generation(&self) -> u64 {
-        self.generation
-    }
+pub(super) struct PreparedRevision {
+    pub(super) file: FileId,
+    pub(super) ticket: RevisionTicket,
+    pub(super) path: Option<PathBuf>,
+    pub(super) uri: Option<Arc<Url>>,
+}
 
+impl WorkspaceState {
     pub(super) fn is_closed(&self, closed: ClosedRevision) -> bool {
-        self.revisions.get(&closed.file).is_some_and(|sync| {
+        self.revisions.get(&closed.view).is_some_and(|sync| {
             let status = revision_result(sync.status());
             status.generation() == closed.generation && status.desired().is_none()
         })
+    }
+
+    pub(super) fn revision_sync(&self, uri: &Url) -> Option<&Arc<DocumentRevisionSync>> {
+        let view = self.database.view_id(uri)?;
+        self.revisions.get(&view)
+    }
+
+    pub(super) fn revision_status(&self, uri: &Url) -> Option<RevisionStatus> {
+        Some(revision_result(self.revision_sync(uri)?.status()))
+    }
+
+    /// Raw sampled generation for a spelling, including a pending view. Fences
+    /// sample this before capture and use `revision_current` afterwards.
+    pub(super) fn revision_generation(&self, uri: &Url) -> Option<u64> {
+        Some(self.revision_status(uri)?.generation())
+    }
+
+    pub(super) fn revision_current(&self, uri: &Url, generation: u64) -> bool {
+        self.database.is_document_open(uri)
+            && self
+                .revision_status(uri)
+                .is_some_and(|status| !status.is_pending() && status.generation() == generation)
+    }
+
+    /// Status of the spelling that represents this file, falling back to its
+    /// latest closed spelling so staged disk-load and closed-file fences keep
+    /// their revision status.
+    pub(super) fn file_revision_status(&self, id: FileId) -> Option<RevisionStatus> {
+        let view = self
+            .database
+            .representative_view_id(id)
+            .or_else(|| self.database.latest_view_id(id))?;
+        let sync = self.revisions.get(&view)?;
+        Some(revision_result(sync.status()))
     }
 
     fn apply<T>(&mut self, operation: impl FnOnce(&mut WorkspaceDb) -> Option<T>) -> Option<T> {
@@ -120,35 +161,56 @@ impl WorkspaceService {
         path: Option<PathBuf>,
         revision: Revision,
         create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>)> {
+    ) -> Option<PreparedRevision> {
         let mut state = self.state.write();
         let id = if create {
-            state.database.ensure_file_id(uri.clone(), path)
+            // Resolve the binding once so interning reuses the installed URI
+            // allocation instead of wrapping a cloned Url in a fresh Arc.
+            let shared = state.database.shared_uri(Cow::Borrowed(uri));
+            state.database.ensure_file_id(shared, path)
         } else {
             state.database.file_id_by_uri(uri)?
         };
-        let document = state.database.open_document(uri);
         let path = state.database.document_path(uri);
+        let (view, shared_uri) = if create {
+            let (view, uri) = state.database.ensure_view_shared(uri, id);
+            (view, Some(uri))
+        } else {
+            (state.database.ensure_view(uri, id), None)
+        };
+        let state = &mut *state;
         let sync = state
             .revisions
-            .entry(id)
-            .or_insert_with(|| Arc::new(DocumentRevisionSync::new(document)))
+            .entry(view)
+            .or_insert_with(|| {
+                Arc::new(DocumentRevisionSync::new(state.database.open_document(uri)))
+            })
             .clone();
         let ticket = revision_result(sync.reserve(revision))?;
-        Some((id, ticket, path))
+        Some(PreparedRevision {
+            file: id,
+            ticket,
+            path,
+            uri: shared_uri,
+        })
     }
     pub(super) fn begin_refresh(&self, uri: &Url, revision: Revision) -> Option<RevisionTicket> {
         let state = self.state.write();
-        let id = state.database.file_id_by_uri(uri)?;
-        revision_result(state.revisions.get(&id)?.reserve_refresh(revision))
+        let view = state.database.view_id(uri)?;
+        revision_result(state.revisions.get(&view)?.reserve_refresh(revision))
     }
     pub(super) fn begin_close(&self, uri: &Url) -> Option<ClosedRevision> {
         let state = self.state.write();
         let file = state.database.file_id_by_uri(uri)?;
-        let sync = state.revisions.get(&file)?;
+        let view = state.database.view_id(uri)?;
+        let sync = state.revisions.get(&view)?;
         revision_result(sync.close());
         let generation = revision_result(sync.status()).generation();
-        Some(ClosedRevision { file, generation })
+        Some(ClosedRevision {
+            file,
+            view,
+            generation,
+        })
     }
 
     pub(super) fn is_closed(&self, closed: ClosedRevision) -> bool {
@@ -157,7 +219,10 @@ impl WorkspaceService {
 
     pub(super) fn commit_close(&self, closed: ClosedRevision, uri: &Url) -> Option<FileId> {
         let mut state = self.state.write();
-        if !state.is_closed(closed) || state.database.file_id_by_uri(uri) != Some(closed.file) {
+        if !state.is_closed(closed)
+            || state.database.file_id_by_uri(uri) != Some(closed.file)
+            || state.database.view_id(uri) != Some(closed.view)
+        {
             return None;
         }
         state.apply(|database| database.close_document_prepared(uri))
@@ -192,12 +257,10 @@ impl WorkspaceService {
         {
             return None;
         }
-        let (identities, result) = state.apply(operation)?;
-        for (retired, canonical) in identities {
-            if let Some(sync) = state.revisions.remove(&retired) {
-                state.revisions.entry(canonical).or_insert(sync);
-            }
-        }
+        // View epochs are re-keyed by `WorkspaceDb::rename_paths` (a moved
+        // buffer keeps its revision stream), so merged file identities need no
+        // further revision bookkeeping here.
+        let (_identities, result) = state.apply(operation)?;
         Some(result)
     }
     pub(super) fn finish_revision(&self, ticket: &RevisionTicket) -> bool {
@@ -210,6 +273,13 @@ impl WorkspaceService {
 pub(super) struct RegistrationState {
     pub(super) watch: bool,
     pub(super) type_hierarchy: bool,
+    pub(super) lint: LintClientCapabilities,
+}
+
+#[derive(Default)]
+pub(super) struct LintClientCapabilities {
+    pub(super) disabled_code_actions: bool,
+    pub(super) work_done_progress: bool,
 }
 
 #[cfg(test)]
@@ -225,9 +295,10 @@ mod tests {
         let path = temp.path().join("main.bend");
         let uri = Url::from_file_path(&path).map_err(|()| io::Error::other("file URI"))?;
         let service = WorkspaceService::default();
-        let (_, ticket, _) = service
+        let ticket = service
             .begin_revision(&uri, Some(path.clone()), Revision(1), true)
-            .ok_or_else(|| io::Error::other("reserve open"))?;
+            .ok_or_else(|| io::Error::other("reserve open"))?
+            .ticket;
         let old_source = "import ./old.bend as Old\ndef main = Old.value\n";
         let new_source = "import ./new.bend as New\ndef main = New.value\n";
         service
@@ -304,16 +375,18 @@ mod tests {
     fn queued_close_cannot_mutate_a_reopened_epoch() -> io::Result<()> {
         let service = WorkspaceService::default();
         let uri = Url::parse("file:///reopened.bend").map_err(io::Error::other)?;
-        let (_, first, _) = service
+        let first = service
             .begin_revision(&uri, None, Revision(8), true)
-            .ok_or_else(|| io::Error::other("first epoch"))?;
+            .ok_or_else(|| io::Error::other("first epoch"))?
+            .ticket;
         drop(first);
         let closed = service
             .begin_close(&uri)
             .ok_or_else(|| io::Error::other("close"))?;
-        let (_, reopened, _) = service
+        let reopened = service
             .begin_revision(&uri, None, Revision(1), true)
-            .ok_or_else(|| io::Error::other("reopen epoch"))?;
+            .ok_or_else(|| io::Error::other("reopen epoch"))?
+            .ticket;
         service
             .commit(Some(&reopened), None, |database| {
                 Some(database.set_open_document(

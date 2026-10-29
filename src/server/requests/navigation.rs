@@ -6,6 +6,7 @@ use super::super::{
 use super::shared::{binding_at, declaration_token_at};
 use crate::analysis;
 use crate::workspace::Document;
+use std::sync::Arc;
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
@@ -23,7 +24,11 @@ impl Backend {
             .available_import_targets(&document.uri)
     }
 
-    fn import_uri(&self, document: &Document, import: &analysis::IndexedImport) -> Option<Url> {
+    fn import_uri(
+        &self,
+        document: &Document,
+        import: &analysis::IndexedImport,
+    ) -> Option<Arc<Url>> {
         tracing::info_span!("navigation.module_lookup").in_scope(|| {
             if import.path_text(&document.text) == "Base" {
                 self.prelude_module(document).map(|module| module.uri)
@@ -43,12 +48,12 @@ impl Backend {
     ) -> Option<GotoDefinitionResponse> {
         let uri = self.import_uri(document, import)?;
         Some(GotoDefinitionResponse::Scalar(Location {
-            uri,
+            uri: uri.as_ref().clone(),
             range: Range::default(),
         }))
     }
 
-    fn module_uri_at(&self, document: &Document, offset: usize) -> Option<Url> {
+    fn module_uri_at(&self, document: &Document, offset: usize) -> Option<Arc<Url>> {
         let id = document.syntax.token_at_or_before(offset)?;
         let token = document.syntax.token(id)?;
         if token.kind != analysis::TokenKind::Identifier
@@ -86,7 +91,7 @@ impl Backend {
             if let Some(target) = self.import_uri(&doc, import) {
                 links.push(DocumentLink {
                     range: adapters::range(&doc, import.path),
-                    target: Some(target),
+                    target: Some(target.as_ref().clone()),
                     tooltip: Some(format!("Open {path}")),
                     data: None,
                 });
@@ -189,7 +194,7 @@ impl Backend {
         let module_uri = self.module_uri_at(&doc, offset);
         if let Some(uri) = module_uri {
             return Ok(Some(GotoDefinitionResponse::Scalar(Location {
-                uri,
+                uri: uri.as_ref().clone(),
                 range: Range::default(),
             })));
         }
@@ -205,7 +210,7 @@ impl Backend {
                 tracing::info_span!("navigation.location", scope = "local").in_scope(|| {
                     let range = adapters::range(&doc, range);
                     GotoDefinitionResponse::Scalar(Location {
-                        uri: doc.uri,
+                        uri: doc.uri.as_ref().clone(),
                         range,
                     })
                 });
@@ -222,7 +227,7 @@ impl Backend {
                 tracing::info_span!("navigation.location", scope = "prelude").in_scope(|| {
                     let range = adapters::range(&module, range);
                     GotoDefinitionResponse::Scalar(Location {
-                        uri: module.uri,
+                        uri: module.uri.as_ref().clone(),
                         range,
                     })
                 });
@@ -244,7 +249,7 @@ impl Backend {
         let response =
             tracing::info_span!("navigation.location", scope = "imported").in_scope(|| {
                 GotoDefinitionResponse::Scalar(Location {
-                    uri: target_uri,
+                    uri: target_uri.as_ref().clone(),
                     range: adapters::range(&target_text, range),
                 })
             });
@@ -287,7 +292,7 @@ impl Backend {
                 });
             return Ok(range.map(|range| {
                 GotoDefinitionResponse::Scalar(Location {
-                    uri: doc.uri.clone(),
+                    uri: doc.uri.as_ref().clone(),
                     range: adapters::range(&doc, range),
                 })
             }));
@@ -314,7 +319,7 @@ impl Backend {
             return Ok(None);
         };
         Ok(Some(GotoDefinitionResponse::Scalar(Location {
-            uri: target_uri,
+            uri: target_uri.as_ref().clone(),
             range: adapters::range(&target_text, range),
         })))
     }

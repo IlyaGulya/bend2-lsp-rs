@@ -830,3 +830,35 @@ fn module_completion_preserves_ascii_case_underscores_repeated_letters_and_unico
         Some((2, 0, 5))
     );
 }
+
+#[test]
+fn workspace_symbol_queries_preserve_substring_order_and_unicode_lowercase_queries() {
+    let snapshot = DocumentSnapshot::new(
+        Revision(1),
+        concat!(
+            "def Kelvin() -> U32:\n  0\n",
+            "def item() -> U32:\n  0\n",
+            "def CamelCase() -> U32:\n  0\n",
+            "def STRASSE() -> U32:\n  0\n",
+        )
+        .to_owned(),
+    );
+    let cases: &[(&str, &[&str])] = &[
+        ("", &["Kelvin", "item", "CamelCase", "STRASSE"]),
+        ("I", &["Kelvin", "item"]),
+        ("cAsE", &["CamelCase"]),
+        ("\u{212a}", &["Kelvin"]),
+        ("İ", &[]),
+        ("ss", &["STRASSE"]),
+        ("cmc", &[]),
+        ("longer_than_any_declaration", &[]),
+    ];
+    for &(query, expected) in cases {
+        let matcher = bend2_lsp::analysis::WorkspaceSymbolQuery::new(query);
+        let names = matcher
+            .symbols(&snapshot)
+            .map(|symbol| symbol.name)
+            .collect::<Vec<_>>();
+        assert_eq!(names, expected, "query {query:?}");
+    }
+}

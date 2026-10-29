@@ -2,35 +2,109 @@
 
 ## Unreleased
 
-### Optional lint integration
+### Live lint diagnostics
 
-- Add off-by-default saved-file diagnostics from a user-installed standalone
-  bend-lint executable. Explicit opt-in trusts both the tool and project rules;
-  upstream may fetch its own pinned compiler/dependencies and build rule programs.
-- Merge lexical, selected-compiler, imported, and lint diagnostics without late
-  publications erasing other providers. Preserve compiler source identifiers and
-  related information; reject obsolete revisions and clear only retired results.
-- Keep unsaved editor buffers out of disk-based lint results. Cancel stale jobs,
-  bound output/work, and contain analyzer descendants on Unix and Windows.
-- Reject in-flight lint results and requested fixes after source/configuration
-  symlink retargeting, including changes in parent directories.
-- Keep Linux lint diagnostics working for UTF-8 aliases to non-UTF-8 filenames;
-  retain lossless file URIs without serializing native paths into JSON metadata.
-- Offer separately enabled, explicitly requested **dangerous** lint Code Actions
-  with saved-content, UTF-16, overlap, and version checks for every touched file.
-  Never run automatic fixes, safe fix-all, or a replacement formatter.
-- Require real-stdio process/publication regressions and genuine standalone
-  analyzer diagnostics and explicit-action E2Es on all six native CI targets.
-  Pin the npm package and Bun archives and retain runtime identity evidence.
-  The standalone JSON contract targets upstream
-  `02ef84b38b8c06cbd607e270c4930e633e9dab0f`, not the older bundled PR #1389 tool.
-- Synchronize import-completion fixtures with their indexed unsaved candidates,
-  without making production queries wait for unrelated pending builds.
-- Acknowledge prior stdio document mutations before releasing held analyzer
-  output, so tests cannot mistake pre-mutation results for stale publication.
+- Check unsaved Bend buffers, their edited imports, and named entry/imported files
+  not yet on disk, including paths below missing parent directories, with the
+  optional standalone bend-lint provider. External tool and project rule execution
+  still require explicit opt-in.
+- Prepare the rule runner separately from ordinary checks. Typing does not restart
+  a cold build, and short per-check deadlines do not interrupt preparation.
+  Switching projects reuses their prepared runners, and editing one project no
+  longer cancels checks in another.
+- Target standalone bend-lint 0.2.1, Bun 1.4.4, and matching rules/API 0.2.1.0.
+  It uses its own pinned compiler: Bend 2.0.39 on Unix and an upstream Windows fork.
+- Show rule documentation links and explain partial checking, skipped rules, and
+  configuration/setup failures through lint status and editor messages instead of
+  inventing source ranges or document-wide error-count banners.
+- Keep compiler, lexical, imported, and lint diagnostics merged. Reject obsolete
+  results after edits, close, configuration changes, or source alias retargeting.
+  Unrelated projects and unchanged indexed inputs retain their valid results.
+- Automatically check already-open files when lint is enabled. Follow configurations
+  created or removed after opening a file, including nested project configurations.
+  Recheck watched dependencies and external rule helpers changed during preparation.
+- Preserve independent buffers and versions for equivalent editor URI spellings.
+  Show lint findings in every matching buffer; identify conflicting buffers before
+  executing project rules, without blocking unrelated projects.
+- Offer explicitly requested **dangerous** Code Actions for matching open buffer
+  versions, including unsaved text. Validate UTF-16 ranges and overlapping edits,
+  and refuse fixes for ambiguous physical-file aliases. Reject stale or unverifiable
+  multi-file edits as a whole. Never apply automatic fixes, expose a safe fix-all,
+  or replace the independent formatter.
+- Keep lint highlights valid on CRLF files and after non-BMP characters without
+  relaxing the exact source boundaries required for dangerous edits.
+- Keep Run and Status Code Actions discoverable, with progress on supporting
+  clients and actionable preparation/failure messages. Repeated identical failures
+  do not repeatedly interrupt editing with popups.
+- Bound snapshots, overlay input, and analyzer output; contain and reap subprocess
+  trees on cancellation, timeout, disable, and shutdown. Preserve filesystem alias
+  and missing-import guards without serializing lossy native paths.
+- Exercise the published analyzer through the actual stdio LSP and retain native
+  runtime/package identity evidence on the existing six-target CI matrix.
+- Report the upstream 0.2.1 limitation for overlay-only files listed in config
+  `entries` honestly; never write editor buffers to disk or drop configured entries
+  to conceal that failure.
+- Fence local custom-rule helpers as trusted saved code, including aliases and
+  missing dependencies. Upstream 0.2.1 still omits bare/absolute helper imports
+  from its compiled-rule cache key; use `./` or `../` in custom rules until
+  [upstream issue #7](https://github.com/MattCozendey/bend-lint/issues/7) is fixed.
+
+### Bug Fixes
+
+- Keep `import Base` first when organizing imports, preventing repeated bend-lint
+  import-order warnings after applying the action.
+- Keep compiler errors visible in each matching open URI spelling, using that
+  buffer's own document version rather than another spelling's revision.
+- Keep lint checks working when entries reach the same project through directory
+  symlinks, instead of skipping an entry because its project path is spelled differently.
+- Check saved Linux entries with non-UTF-8 filenames through their UTF-8 aliases.
+  Keep diagnostics and explicit versioned fixes on the alias without changing source bytes.
+- Stop immediate preparation failures leaving lint stuck in preparation. Older attempts
+  cannot replace the identity or outcome of a newer preparation.
+- Remove outdated lint warnings and fixes immediately when watched inputs change,
+  even while cleanup is pending. Keep any newer results and fixes.
 
 ### Under the hood
 
+- Coordinate lint work and cancellation per project, with one immutable input view
+  per revision across entry checks. Keep exact source and document-version fences
+  when disk inputs change during analysis.
+- Separate lint lifecycle transitions, scheduling, read-set capture, saved-rule trust,
+  source overlays and editor-view selection. Share captured input tracking without
+  treating unsaved source text as executable rule code.
+- Record an unpaired CI publication baseline with 32 entries and 128 diagnostic
+  targets against optimized native executables. Validate exact current findings and
+  retain source/binary/harness/fixture identity; local correctness mode emits no timing
+  samples. Keep existing performance metrics, comparison limits and admission unchanged.
+- Gather dependent documents directly into the result buffer, without per-file
+  vectors or moving owned documents through composite iterator state.
+- Keep representative snapshot lookup separate from editor-view metadata. Share
+  immutable URI allocations across returned documents, staged updates, lint revision
+  fences and compiler modules instead of copying URL payloads. Preserve each spelling's
+  independent buffer, language, version and close/rename ownership. Updating the active
+  buffer does not rebuild unchanged URI/language metadata or clone an unused URI.
+  Intern owned URLs without a preliminary shared-key lookup, and create a shared
+  URI key only when inserting a new spelling.
+- Raise Tokio's minimum version and lock it to 1.53.3, clearing
+  [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)
+  without adding an audit exception.
+- Synchronize manual lint E2Es with completed analyzer runs, rather than buffered
+  automatic publications, before checking cross-entry fixes and save rechecks.
+- Capture canned analyzer reports before signalling test readiness, and prepare the
+  next report before reopening a document. Keep close/reopen epoch checks free of
+  concurrent fixture-file rewrites.
+- Publish fixture socket addresses atomically, so cancellation checks never read
+  an empty or partially written address. Keep flaky-test rejection unchanged.
+- Compile the Windows console-control fixture directly with the system .NET
+  Framework compiler, without PowerShell/Add-Type startup. Keep bounded setup,
+  collector readiness and CTRL_BREAK finalization deadlines unchanged.
+- Validate source-built Windows compilers at their final physical path instead of
+  moving the directory after execution. Retain failed artifacts for diagnostics;
+  publish the compiler path only after every integrity, native-runtime and CLI probe.
+- Keep view epochs on existing file rows instead of a separate hash table, and
+  reuse resolved file identities when closing documents. Compare ASCII symbol
+  names without allocating a lowercase copy per name; preserve Unicode query
+  normalization, result order and independent editor views.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve

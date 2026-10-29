@@ -21,6 +21,7 @@ impl Backend {
         }
         let _workspace_read = self.document_read(&params.text_document.uri).await;
         let mut actions = self.lint_code_actions(&params).await;
+        actions.extend(self.lint_control_actions(&params));
         let uri = params.text_document.uri;
         let Some(doc) = self.document(&uri) else {
             return Ok(None);
@@ -126,7 +127,7 @@ impl Backend {
                     .chain(base);
                 for (target, path) in candidates {
                     if let Some(edits) =
-                        auto_import_edits(doc, &workspace, &target, &path, reference)
+                        auto_import_edits(doc, &workspace, target.as_ref(), &path, reference)
                     {
                         actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                             title: format!("Import {name} from {path}"),
