@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "status": "failed-attempts-preserved",
+  "logs": [
+    {
+      "source": "5d75fcf8a0d58a2124adbe24294e780e86f22be7",
+      "exit_code": 101,
+      "artifact": "artifact://6516",
+      "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/review-quality-5d75fcf8.full.log",
+      "bytes": 34078,
+      "sha256": "fabb29b816f48a194c77c581a7bd0414b44f066ee88aacf24ab45bdfc9cfc13b"
+    },
+    {
+      "source": "315abd473c4b4be334d69bff0e7b11c77bcb531e",
+      "exit_code": 101,
+      "artifact": "artifact://6519",
+      "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/review-quality-315abd47.full.log",
+      "bytes": 32927,
+      "sha256": "aca33f6dfef156390738bf55f6cb9308ab907295c34b33d6e5ef0e80e9b95378"
+    },
+    {
+      "source": "7ad6747a73b0c25fbc352034ddb813c325755042",
+      "exit_code": 100,
+      "artifact": "artifact://6522",
+      "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/review-quality-7ad6747a.full.log",
+      "bytes": 103055,
+      "sha256": "d2fb516814d520bb68622a46864fd39365f44ea0dac81f8c56ec9adbd722752a"
+    },
+    {
+      "source": "14b7c0ad4898aaf5f33fddc8b4708c6bb189a36c",
+      "exit_code": 1,
+      "artifact": "artifact://6527",
+      "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/review-quality-14b7c0ad.full.log",
+      "bytes": 107976,
+      "sha256": "8b94f5dfa4cb1d1e3aa3253312e8ec209fcffe44d2dcc3354869690ec6fcde84"
+    }
+  ],
+  "note": "Earlier unbounded-raw read receipts record a tool guard response, not log contents. These are actual bounded verbatim log payloads; no failed run was reclassified or hidden."
+}

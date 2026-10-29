@@ -1,0 +1,6 @@
+{
+  "installation": "/tmp/semantic-approved-126952f6d048/target/semantic-tools/3926f9da550d3917dd8a4c9ee8ab3fb3e3a58ba40cf9d53f5bb1ed9aaf983823",
+  "returncode": 0,
+  "stdout": "{\"exit\": 1, \"stdin_open_at_exit\": true, \"stderr\": \"EPIPE: broken pipe, write\\n syscall: \\\"write\\\",\\n   errno: -32,\\n    code: \\\"EPIPE\\\"\\n\\n      at write (unknown:1:1)\\n      at writeFast (internal:fs/streams:359:38)\\n      at emitReply (/tmp/semantic-approved-126952f6d048/target/semantic-tools/3926f9da550d3917dd8a4c9ee8ab3fb3e3a58ba40cf9d53f5bb1ed9aaf983823/worker.ts:314:22)\\nEPIPE: broken pipe, write\\n syscall: \\\"write\\\",\\n   errno: -32,\\n    code: \\\"EPIPE\\\"\\n\\n      at write (unknown:1:1)\\n      at writeFast (internal:fs/streams:359:38)\\n      at emitReply (/tmp/semantic-approved-126952f6d048/target/semantic-tools/3926f9da550d3917dd8a4c9ee8ab3fb3e3a58ba40cf9d53f5bb1ed9aaf983823/worker.ts:314:22)\\n\\nBun v1.4.0 (Linux arm64)\\n\", \"seconds\": 0.3001443708781153}\n",
+  "stderr": ""
+}

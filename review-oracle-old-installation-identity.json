@@ -1,0 +1,16 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "exec",
+    "-T",
+    "rust",
+    "sha256sum",
+    "/tmp/semantic-approved-126952f6d048/target/semantic-tools/7af86f33476100088d998ac7371411965838a41b8707bd5c601068684c2efc9b/worker.ts"
+  ],
+  "returncode": 0,
+  "stdout": "7c72862f399e2e87002c4d7912769c28e62313767c69e9f5b91bcab82883bbaf  /tmp/semantic-approved-126952f6d048/target/semantic-tools/7af86f33476100088d998ac7371411965838a41b8707bd5c601068684c2efc9b/worker.ts\n",
+  "stderr": "",
+  "expected_worker_sha256": "7c72862f399e2e87002c4d7912769c28e62313767c69e9f5b91bcab82883bbaf",
+  "native_contract_against_old_worker": "Unexpected PASS of 198106-byte frame; permanent regression must actually use a bounded OS pipe, not merely assume Node child stdio buffer size."
+}

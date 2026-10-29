@@ -1,0 +1,189 @@
+{
+  "schema": 1,
+  "source_commit": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "source_url": "https://github.com/IlyaGulya/bend2-lsp-rs/commit/b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "frozen_review_source": "c7d0b2c2a9ee88a329433ef01ce496c3892f3985",
+  "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "local_quality": {
+    "status": "pass",
+    "command": "./scripts/quality",
+    "environment": "persistent compose rust service, Linux aarch64, shared pinned Cargo target",
+    "main_tests": {
+      "passed": 489,
+      "preexisting_skipped": 2
+    },
+    "other_summaries": [
+      "     Summary [  85.618s] 489 tests run: 489 passed, 2 skipped",
+      "advisories ok, bans ok, licenses ok, sources ok"
+    ]
+  },
+  "bounded_semantic_gate": {
+    "status": "pass",
+    "counts": {
+      "compared": 627,
+      "generated": 256,
+      "intended_invalid": 5,
+      "invalid_planned": 5,
+      "matched": 627,
+      "planned": 634,
+      "recovery": 2,
+      "recovery_planned": 2,
+      "valid_planned": 627,
+      "validated": 627
+    },
+    "elapsed_seconds": 39.076911536976695,
+    "peak_process_tree_rss_bytes": 749965312,
+    "calibrated": false,
+    "mode": "pr"
+  },
+  "gate_source_fingerprint": "29a59cb935075f7b948a25a7fb22835f504352ef5f778c616b85e9a0af2a2eb2",
+  "stdio": {
+    "planned": 15,
+    "completed": 15,
+    "passed": 15
+  },
+  "compiler": "official Bend 2.0.37; selected native Linux ARM64 executable plus separately identified pinned source oracle",
+  "runtime": "Bun 1.4.0, pins unchanged",
+  "editor_contract": {
+    "strict_setting": false,
+    "recovery": "retained",
+    "genuine_compiler_errors": "versioned and visible; unsaved repair clears the corresponding version",
+    "invalid_import_editor_link": "uncertain path navigation allowed; does not create a semantic import edge",
+    "no_diagnostic_is_not_compiler_verification": true
+  },
+  "transport_regression": {
+    "old_worker": "7af86f33476100088d998ac7371411965838a41b8707bd5c601068684c2efc9b",
+    "new_worker": "3926f9da550d3917dd8a4c9ee8ab3fb3e3a58ba40cf9d53f5bb1ed9aaf983823",
+    "actual_os_pipe_capacity": 8192,
+    "before": "8192 bytes, no newline, timeout with stdin kept open",
+    "after": "two complete ~198 KB UTF-8 JSONL frames in one process with stdin kept open; full declaration/target and occurrence assertions",
+    "broken_pipe": "exit 1 on EPIPE while stdin stays open; no success reply inferred"
+  },
+  "prior_failed_attempts": [
+    {
+      "source": "5d75fcf8a0d58a2124adbe24294e780e86f22be7",
+      "failure": "Clippy too_many_lines in hierarchy test helpers"
+    },
+    {
+      "source": "315abd473c4b4be334d69bff0e7b11c77bcb531e",
+      "failure": "Clippy too_many_lines in genuine compiler diagnostic test"
+    },
+    {
+      "source": "7ad6747a73b0c25fbc352034ddb813c325755042",
+      "failure": "two obsolete local-definition and completion-namespace behavior contracts; migrated without dropping assertions"
+    },
+    {
+      "source": "14b7c0ad4898aaf5f33fddc8b4708c6bb189a36c",
+      "failure": "oracle partial JSON at real 8192-byte stdout pipe; no semantic mismatch claimed"
+    }
+  ],
+  "limitations": [
+    "Local Linux smoke and quality are not six-native-target hosted qualification.",
+    "One bounded PR conformance pass is not 20-run runtime admission.",
+    "C7 Callgrind regression counts, resource qualification and old approvals do not transfer to this source.",
+    "No performance admission, approval, merge, tag or release.",
+    "Windows issue #74 is separate and non-blocking; no causal fix is claimed."
+  ],
+  "files": [
+    {
+      "name": "final-gate-report.json.gz",
+      "bytes": 201241,
+      "sha256": "86f7254c76d080c3618f47d819afb5c950bee5120755d62255cdccb84f778636"
+    },
+    {
+      "name": "final-plan.json.gz",
+      "bytes": 107224,
+      "sha256": "b4d61996ce0f798fb869fd9a03ab2188cf25cb47af058db684d1014c1788ff6a"
+    },
+    {
+      "name": "final-worker-report.json.gz",
+      "bytes": 346807,
+      "sha256": "e4d1d00a4192a2c11c4195a2c533fe35f4371ef98134394a84c9e9efa7187318"
+    },
+    {
+      "name": "final-worker.log",
+      "bytes": 236,
+      "sha256": "4f27ee75265f992436b028b9d7b9625ec90100620881cc10399e4ef6298c84fe"
+    },
+    {
+      "name": "original-14b-oracle-failure.json.gz",
+      "bytes": 145441,
+      "sha256": "318dfd430b1ffd6940a7306e1223807d6df5bb2df24659a47b5a7f7cbeefb008"
+    },
+    {
+      "name": "review-final-base-pair-wire.json",
+      "bytes": 37109,
+      "sha256": "1c530db4d55cf15121ba280f4a3f4f1cacd5d08c5d60bbb78235fe09f92408ef"
+    },
+    {
+      "name": "review-final-hierarchy-wire.json",
+      "bytes": 63185,
+      "sha256": "cf0206135c8a845164657ad5557e048cae7a4fed119e42878609fad65ca2d276"
+    },
+    {
+      "name": "review-final-native-contracts.json",
+      "bytes": 709,
+      "sha256": "365d2a673d267a3e7002cd82f92269feb94f41a5a7b116a080b2acf3fda93605"
+    },
+    {
+      "name": "review-final-p1-wire.json",
+      "bytes": 42568,
+      "sha256": "5197e3c72a427d34061fee1b06fde4876c826930dfcfc2c92d177fe4e230a75a"
+    },
+    {
+      "name": "review-final-recovery-wire.json",
+      "bytes": 27979,
+      "sha256": "33ce8fe623b57ebab9b40eae45bf5b09c2be58a622bd3196fd4fa0fdd7f62ce7"
+    },
+    {
+      "name": "review-oracle-closed-pipe-fail-closed.json",
+      "bytes": 1014,
+      "sha256": "62b2b9d755462fa2a03d1d0cc621b1f4ba2f4f347d26c6d9c6c621e06de58278"
+    },
+    {
+      "name": "review-oracle-old-installation-identity.json",
+      "bytes": 776,
+      "sha256": "44245c825acf196fcfc802ec53f46073a49a5fd6dbe2c43274771e3e376324a1"
+    },
+    {
+      "name": "review-oracle-real-pipe-contract-green.json",
+      "bytes": 801,
+      "sha256": "05bfabbb0ab593f4c9bcc3e7e31c2d983e11f02592e6d6603e50aff04ba8ebc4"
+    },
+    {
+      "name": "review-oracle-real-pipe-contract-red.json",
+      "bytes": 1544,
+      "sha256": "9426e2c590d2832733116d5bb3cdb3765fc251f75c847f0e32659f08b9b23ad7"
+    },
+    {
+      "name": "review-quality-14b7c0ad.full.log",
+      "bytes": 107976,
+      "sha256": "8b94f5dfa4cb1d1e3aa3253312e8ec209fcffe44d2dcc3354869690ec6fcde84"
+    },
+    {
+      "name": "review-quality-315abd47.full.log",
+      "bytes": 32927,
+      "sha256": "aca33f6dfef156390738bf55f6cb9308ab907295c34b33d6e5ef0e80e9b95378"
+    },
+    {
+      "name": "review-quality-5d75fcf8.full.log",
+      "bytes": 34078,
+      "sha256": "fabb29b816f48a194c77c581a7bd0414b44f066ee88aacf24ab45bdfc9cfc13b"
+    },
+    {
+      "name": "review-quality-7ad6747a.full.log",
+      "bytes": 103055,
+      "sha256": "d2fb516814d520bb68622a46864fd39365f44ea0dac81f8c56ec9adbd722752a"
+    },
+    {
+      "name": "review-quality-b1a2d462.full.log",
+      "bytes": 106794,
+      "sha256": "1eac12564af134872513f2c2f50896e1457163925e0286476c28673674444dd6"
+    },
+    {
+      "name": "review-quality-full-log-manifest.json",
+      "bytes": 2190,
+      "sha256": "59630862a9d555c1405f61df75ae1b0e5aeb7cfb05b9c08bb84dde5098c670ae"
+    }
+  ]
+}

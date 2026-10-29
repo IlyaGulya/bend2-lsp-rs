@@ -1,0 +1,444 @@
+== policy ==
+Policy check passed: no inline lint suppressions.
+.........
+----------------------------------------------------------------------
+Ran 9 tests in 0.016s
+
+OK
+..
+----------------------------------------------------------------------
+Ran 2 tests in 0.009s
+
+OK
+.................
+----------------------------------------------------------------------
+Ran 17 tests in 0.851s
+
+OK
+== workflow security ==
+ INFO zizmor: 🌈 zizmor v1.30.1
+ INFO audit: zizmor: 🌈 completed .github/workflows/buildfetch-probe.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/cache-warm.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/installer-validation.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/nightly.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/perf-diagnostics.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/perf-full.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/performance-calibration.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/performance.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/quality.yml
+ WARN audit: zizmor: one or more inputs contains YAML anchors; see https://docs.zizmor.sh/usage/#yaml-anchors for details
+ INFO audit: zizmor: 🌈 completed .github/workflows/release-binaries.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/release.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/semantic-canonical-key.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/semantic-fuzz.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/semantic-oracle-profile.yml
+No findings to report. Good job! (2 ignored, 40 suppressed)
+== Rust performance infrastructure contract tests ==
+   Compiling bend2-perf v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/perf)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.03s
+     Running unittests src/main.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/bend2_perf-8c5d307591384b16)
+
+running 209 tests
+test calibration::tests::arbitrary_precision_and_private_number_key_preserve_real_json_types ... ok
+test calibration::tests::collected_probe_and_malformed_profiles_fail ... ok
+test calibration::tests::each_five_pair_block_balances_all_execution_positions ... ok
+test calibration::tests::executed_workload_manifest_rejects_incomplete_or_duplicate_list ... ok
+test calibration::tests::comparison_metrics_cannot_be_mistaken_for_fresh_counts ... ok
+test calibration::tests::cargo_artifact_is_required_and_cannot_escape_independent_target ... ok
+test calibration::tests::missing_duplicate_and_extra_workloads_are_rejected ... ok
+test calibration::tests::non_json_transport_duplicate_keys_and_nonfinite_numbers_fail_closed ... ok
+test calibration::tests::reference_locations_list_retains_every_real_case_and_rejects_incomplete_coverage ... ok
+test calibration::tests::collector_cli_preserves_five_pair_default_and_strict_options ... ok
+test calibration::tests::null_workload_id_is_distinct_from_named_id ... ok
+test calibration::tests::real_nm_format_reports_address_size_and_demangled_name ... ok
+test calibration::tests::missing_metrics_and_unexpected_profile_parts_fail_closed ... ok
+test calibration::tests::nested_or_stale_destinations_cannot_contaminate_source_or_output ... ok
+test calibration::tests::reference_locations_cargo_artifact_is_selected_without_analysis_substitution ... ok
+test calibration::tests::invalid_count_types_and_signs_are_rejected ... ok
+test calibration::tests::harness_newline_representations_preserve_exact_variants_and_anchor_counts ... ok
+test calibration::tests::reports::binary_addresses_host_identity_and_execution_order_are_preserved ... ok
+test calibration::tests::exact_known_anchors_reject_harness_drift_and_ambiguity ... ok
+test calibration::tests::reports::environment_rejects_host_metadata_and_allows_comparable_cache_geometry ... ok
+test calibration::tests::reports::discovery_control_failure_and_non_inlay_control_shifts_are_diagnostic ... ok
+test calibration::tests::reports::missing_and_escaping_raw_evidence_is_rejected ... ok
+test calibration::tests::reports::discovery_only_learning_retains_holdout_noise_and_ignores_controls ... ok
+test calibration::tests::reports::missing_required_signals_and_noncontiguous_pairs_fail_closed ... ok
+test calibration::tests::reports::duplicate_jobs_and_missing_split_are_rejected ... ok
+test calibration::tests::reports::learned_floor_is_inclusive_and_active_allowance_can_be_larger ... ok
+test calibration::tests::reports::multibench::v2_manifests_bind_complete_disjoint_identity_ownership ... ok
+test calibration::tests::reports::multibench::v2_evidence_rejects_missing_misattributed_and_forged_measurements ... ok
+test calibration::tests::reports::multibench::strict_cli_scope_rejects_historical_evidence_but_retains_verified_report ... ok
+test calibration::tests::reports::recursive_reader_ignores_raw_json_but_rejects_duplicate_json_keys ... ok
+test calibration::tests::reports::optional_expected_coverage_fails_missing_matrix_jobs_or_pairs ... ok
+test calibration::tests::reports::incomparable_source_fixture_harness_environment_or_workloads_fail ... ok
+test calibration::tests::reports::multibench::v2_retained_two_benchmark_evidence_is_accepted_and_scope_is_explicit ... ok
+test calibration::tests::reports::positive_controls_must_exceed_two_percent_for_every_validation_signal ... ok
+test calibration::tests::reports::multibench::historical_scope_stays_analysis_only_and_mixed_experiments_fail ... ok
+test calibration::tests::reports::multibench::strict_cli_workload_count_rejects_omission_but_retains_verified_report ... ok
+test calibration::tests::reports::malformed_counts_sources_samples_and_identities_are_rejected ... ok
+test calibration::tests::reports::sharding::canonical_manifest_dodges_newline_null_and_empty_string_collisions ... ok
+test calibration::tests::reports::sharding::cli_accepts_bounded_shards_and_rejects_out_of_range_arguments ... ok
+test calibration::tests::reports::retained_stdout_must_match_counts_execution_and_fresh_baseline ... ok
+test calibration::tests::reports::sharding::deterministic_four_whole_function_shards_are_disjoint_and_exhaustive ... ok
+test calibration::tests::reports::sharding::complete_shards_recompose_one_host_series_and_full_scope ... ok
+test calibration::tests::reports::predeclared_coverage_requires_full_seven_three_five_design ... ok
+test calibration::tests::reports::signed_distributions_nearest_rank_and_exact_relative_ratios ... ok
+test calibration::tests::reports::signed_u64_extremes_retain_exact_delta_and_ratio_without_overflow ... ok
+test calibration::tests::reports::sharding::sharded_aggregation_preserves_unsharded_comparisons_and_sensitivity ... ok
+test calibration::tests::reports::strict_controls_do_not_certify_partial_coverage_or_missed_regressions ... ok
+test calibration::tests::reports::training_ir_exceedances_are_report_only_and_never_relax_ir ... ok
+test calibration::tests::reports::zero_baseline_is_undefined_relative_but_counts_and_policy_still_apply ... ok
+test calibration::tests::reports::zero_ir_positive_controls_require_a_real_increase ... ok
+test calibration::tests::snapshot_rejects_symlinks_to_mutable_external_inputs ... ok
+test calibration::tests::stale_baseline_or_other_executable_cannot_supply_metrics ... ok
+test calibration::tests::unretained_ambiguous_small_or_unsupported_symbols_fail ... ok
+test calibration::tests::zero_is_a_real_count_not_a_missing_measurement ... ok
+test callgrind::descriptor::tests::bounds_input_and_revalidates_persisted_evidence ... ok
+test callgrind::descriptor::tests::capture_requires_fresh_evidence_and_exact_original_framing ... ok
+test callgrind::descriptor::tests::partitions_every_case_without_changing_dispatch_indices_or_configuration ... ok
+test callgrind::descriptor::tests::rejects_missing_extra_duplicate_empty_and_mixed_workloads ... ok
+test callgrind::descriptor::tests::rejects_state_and_cross_function_comparisons_at_every_scope ... ok
+test callgrind::descriptor::tests::shard_selection_keeps_whole_function_cases_and_frozen_indices ... ok
+test callgrind::runner::tests::broken_stdin_is_an_error_and_still_reaps_the_original_child ... ok
+test calibration::tests::reports::strict_controls_reject_unchanged_source_regression_and_accept_limit_boundary ... ok
+test callgrind::runner::tests::invalid_parallelism_cannot_launch_a_child ... ok
+test callgrind::runner::tests::child_failure_stops_dispatch_and_joins_every_late_writer ... ok
+test callgrind::runner::tests::spawn_failure_drains_an_already_running_child ... ok
+test dashboard::tests::aggregate_requires_expected_targets_and_exact_source_pairing ... ok
+test dashboard::tests::artifact_paths_cannot_traverse_or_turn_into_viewer_urls ... ok
+test callgrind::runner::tests::real_children_overlap_with_a_bounded_dynamic_queue ... ok
+test dashboard::tests::changed_scope_and_native_memory_timeline_are_not_regressions ... ok
+test dashboard::tests::coherent_verdict_cannot_invert_the_authoritative_metric_outcome ... ok
+test dashboard::tests::canonical_gate_bundle_merges_without_a_seventh_or_duplicate_target ... ok
+test dashboard::tests::completed_policy_pass_requires_real_retained_numeric_evidence ... ok
+test dashboard::tests::heap_report_preserves_thirteen_profiles_and_live_allocation_totals ... ok
+test dashboard::tests::historical_workflow_failure_without_job_metadata_is_not_reclassified ... ok
+test dashboard::tests::gate_regression_stays_distinct_from_failed_collection ... ok
+test dashboard::tests::latency_report_retains_actual_values_rounds_and_offline_navigation ... ok
+test calibration::tests::reports::sharding::rejects_incomplete_duplicate_shuffled_stale_or_mixed_shards ... ok
+test dashboard::tests::missing_old_policy_verdict_never_infers_a_passing_gate ... ok
+test dashboard::tests::missing_required_evidence_writes_diagnostic_surface_and_fails ... ok
+test dashboard::tests::native_profile_navigation_is_verified_and_html_escaped ... ok
+test dashboard::tests::rejected_hosted_request_remains_readable_without_target_artifacts ... ok
+test dashboard::tests::required_resident_observations_cannot_be_reported_complete ... ok
+test dashboard::tests::standalone_profile_outcome_is_derived_from_validated_retained_capture ... ok
+test dashboard::tests::tampered_measurement_is_not_reported_as_a_success ... ok
+test dashboard::tests::target_only_report_never_claims_full_matrix_coverage ... ok
+test dashboard::tests::malformed_source_or_numeric_verdict_cannot_classify_a_failed_gate_as_regression ... ok
+test dashboard::tests::verdict_inputs_are_bound_to_raw_artifact_integrity ... ok
+test doctor::tests::patched_sampler_provenance_binds_revision_patch_target_and_executable ... ok
+test hosted::tests::evidence_download_refuses_to_replace_existing_files ... ok
+test hosted::tests::native_kind_cannot_dispatch_a_cpu_collection ... ok
+test hosted::tests::request_identity_never_selects_latest_or_other_branch ... ok
+test latency::tests::definitions_and_completion_must_be_semantically_correct ... ok
+test latency::tests::hover_requires_exact_revision_and_known_signature ... ok
+test native::discovery::tests::baseline_absence_never_accepts_wrong_or_duplicate_answers ... ok
+test native::discovery::tests::cli_rejects_invalid_revisions_counts_and_timeouts ... ok
+test native::discovery::tests::cold_memory_excludes_warm_peaks_and_preserves_unavailable_values ... ok
+test native::discovery::tests::exact_deterministic_source_manifests ... ok
+test native::discovery::tests::initial_completion_checks_local_binding_and_preserves_readiness ... ok
+test native::discovery::tests::reports_native_commit_separately_from_resident_memory ... ok
+test native::discovery::tests::reports_only_completed_rounds_and_preserves_missing_readiness ... ok
+test native::memory::heap::tests::byte_peak_block_count_does_not_bound_other_instants ... ok
+test native::memory::heap::tests::raw_profile_identity_is_hashed_and_strict_json_is_required ... ok
+test native::memory::heap::tests::rejects_wrong_process_schema_symbols_and_allocation_invariants ... ok
+test native::memory::heap::tests::valid_raw_heap_profile_preserves_distinct_total_peak_and_end ... ok
+test native::memory::lifecycle::tests::dependency_lifecycle_requires_new_signature_and_exact_definition ... ok
+test native::memory::tests::allocation_job_contract_is_exactly_candidate_only_thirteen ... ok
+test native::memory::tests::cargo_dsym_sidecars_accept_materialized_binary_and_example_members ... ok
+test dashboard::tests::unrelated_collection_failure_takes_precedence_over_policy_regression ... ok
+test native::memory::tests::cargo_dsym_sidecars_reject_unknown_or_ambiguous_members ... ok
+test native::memory::tests::cargo_dsym_sidecars_reject_unmaterialized_bundle_and_member_links ... ok
+test native::memory::tests::declared_debug_build_overrides_are_preserved ... ok
+test native::memory::tests::memory_cli_has_only_original_commands ... ok
+test native::memory::tests::same_runner_provenance_cannot_mix_run_attempt_target_or_host ... ok
+test native::memory::tests::symbol_sidecars_require_recorded_identity_and_valid_structure ... ok
+test native::tests::input_identity_rejects_modified_deleted_or_misdeclared_files ... ok
+test paired::collector::tests::each_arm_selects_its_own_candidate_only_workloads ... ok
+test platform_memory::tests::linux_units_and_native_metrics_preserve_resident_semantics ... ok
+test platform_memory::tests::malformed_or_missing_resident_values_are_not_inferred ... ok
+test policy::tests::arithmetic_does_not_overflow ... ok
+test policy::tests::cache_event_boundaries ... ok
+test policy::tests::instructions_keep_two_percent_relative_limit ... ok
+test policy::tests::summary_pairs_candidate_first_and_baseline_second ... ok
+test dashboard::tests::hosted_failure_is_a_regression_only_when_every_failed_job_and_step_is_the_bound_gate ... ok
+test profiling::sessions::linux_perf_tests::startup_failure_fixture ... ok
+test native::memory::tests::cargo_dsym_sidecars_require_exact_identities_and_nonempty_components ... ok
+test profiling::sessions::linux_perf_tests::early_exit_preserves_stderr_and_reaps_collector ... ok
+test profiling::sessions::tests::cancellation_fixture ... ok
+test profiling::sessions::tests::cpu_evidence_rejects_idle_or_metadata_only_samples ... ok
+test profiling::sessions::tests::cpu_evidence_rejects_incoherent_columns ... ok
+test profiling::sessions::tests::cpu_evidence_requires_actual_target_pid ... ok
+test profiling::sessions::tests::exited_samply_banner_cannot_acknowledge_attachment ... ok
+test profiling::sessions::tests::macos_samply_elevation_requires_explicit_hosted_configuration ... ok
+test profiling::sessions::tests::native_console_readiness_requires_the_complete_crlf_banner ... ok
+test profiling::sessions::tests::notification_requires_a_complete_exact_key ... ok
+test profiling::sessions::tests::perf_ack_rejects_malformed_or_extra_frames ... ok
+test profiling::sessions::tests::perf_ack_requires_the_upstream_nul_terminated_frame ... ok
+test profiling::sessions::tests::blocked_preparation_command_is_cancelled_and_reaped ... ok
+test profiling::sessions::tests::samply_attach_requires_the_complete_pid_bound_stderr_banner ... ok
+test profiling::sessions::tests::blocked_recorder_readiness_is_cancelled_and_reaped ... ok
+test profiling::validation::tests::cpu_records_resolve_kernel_thread_attribution ... ok
+test profiling::sessions::tests::preparation_installs_cleanup_capable_signal_handler ... ok
+test profiling::validation::tests::heap_records_require_allocator_provider_pid_and_size ... ok
+test profiling::validation::tests::etl_rejects_truncated_document_after_complete_target_event ... ok
+test profiling::validation::tests::instruments_allocation_columns_require_target_address_and_positive_size ... ok
+test profiling::validation::tests::instruments_allocation_detail_rejects_ambiguous_or_metadata_targets ... ok
+test profiling::validation::tests::instruments_cpu_requires_sample_payload_and_consistent_attribution ... ok
+test profiling::validation::tests::instruments_discovers_real_allocation_detail_and_checks_pid ... ok
+test profiling::validation::tests::instruments_does_not_attribute_row_from_backtrace_process ... ok
+test profiling::validation::tests::instruments_allocation_detail_attributes_are_not_metadata_evidence ... ok
+test profiling::validation::tests::instruments_hosted_allocation_attributes_require_exact_target_scope ... ok
+test profiling::validation::tests::instruments_kperf_process_cannot_supply_row_attribution ... ok
+test profiling::validation::tests::instruments_hosted_time_samples_resolve_kperf_payloads ... ok
+test profiling::validation::tests::instruments_launched_allocations_reject_extra_or_metadata_targets ... ok
+test profiling::validation::tests::instruments_launched_allocations_bind_real_target_and_payload ... ok
+test profiling::sessions::tests::samply_stdout_banner_is_not_an_attach_ack ... ok
+test profiling::validation::tests::instruments_metadata_rows_are_not_cpu_or_allocation_evidence ... ok
+test profiling::validation::tests::instruments_rejects_dangling_and_wrong_type_attribution_references ... ok
+test profiling::validation::tests::instruments_rejects_truncated_export_after_complete_sample ... ok
+test profiling::validation::tests::instruments_resolves_process_thread_pid_and_payload_references ... ok
+test profiling::validation::tests::instruments_target_in_toc_cannot_validate_other_process_samples ... ok
+test profiling::validation::tests::instruments_toc_requires_complete_root_and_elements ... ok
+test profiling::validation::tests::native_xml_rejects_absent_or_multiple_document_roots ... ok
+test profiling::validation::tests::retained_etl_loss_evidence_cannot_be_hidden_by_valid_target_samples ... ok
+test profiling::validation::tests::retained_kernel_event_guids_and_raw_thread_schema_resolve_target_samples ... ok
+test profiling::validation::tests::retained_raw_thread_records_reject_malformed_truncated_and_unknown_versions ... ok
+test profiling::validation::tests::instruments_launched_allocations_reject_wrong_process_track ... ok
+test profiling::validation::tests::subject_thread_not_reporting_process_controls_cpu_attribution_and_reuse ... ok
+test profiling::validation::tests::valid_cpu_sample_cannot_hide_a_malformed_record_or_unrelated_source ... ok
+test profiling::validation::tests::windows_utf16_exports_decode_without_losing_events ... ok
+test profiling::viewer::tests::downloaded_paths_cannot_escape_run_or_use_windows_separators ... ok
+test profiling::viewer::tests::preserved_symbol_identity_must_match_original ... ok
+test profiling::windows::tests::complete_wpr_stop_without_losses_is_accepted ... ok
+test profiling::windows::tests::retained_wpr_loss_reports_remain_fatal ... ok
+test profiling::viewer::tests::downloaded_profile_hash_mismatch_prevents_viewing ... ok
+test profiling::validation::tests::instruments_launched_allocations_require_meaningful_fields_and_complete_xml ... ok
+test workflow::collection::unix::tests::child_nonzero_status_is_not_replaced_by_supervisor_status ... ok
+test workflow::collection::unix::tests::an_unreaped_zombie_group_is_not_absent ... ok
+test workflow::collection::unix::tests::existing_receipt_cannot_be_reused_or_overwritten ... ok
+test workflow::collection::unix::tests::pending_receipt_blocks_publication_until_interrupted_group_is_reaped ... ok
+test workflow::collection::unix::tests::signal_exit_is_preserved ... ok
+test workflow::collection::unix::tests::spawn_failure_is_truthful_and_does_not_invent_a_group ... ok
+test workflow::collection::unix::tests::successful_command_preserves_literal_arguments_and_environment ... ok
+test workflow::collection::unix::tests::leader_exit_with_term_ignoring_writer_cannot_pass ... ok
+test workflow::collection::unix::tests::uncertain_kernel_states_cannot_hide_owned_processes ... ok
+test workflow::observer::protocol::tests::eof_does_not_complete_a_request_and_bad_data_is_rejected ... ok
+test workflow::observer::protocol::tests::framing_keeps_partial_reads_and_consecutive_requests_separate ... ok
+test workflow::observer::protocol::tests::request_limit_counts_newline_and_accepts_exact_boundary ... ok
+test workflow::collection::unix::tests::cleanup_cannot_steal_an_unrelated_child_exit_status ... ok
+test workflow::observer::unsupported_tests::observer_is_explicitly_unsupported_off_macos ... ok
+test workflow::snapshot::tests::atomic_publication_refuses_a_destination_created_after_staging ... ok
+test workflow::snapshot::tests::completed_and_incomplete_evidence_have_separate_namespaces ... ok
+test workflow::observer::protocol::tests::response_limit_is_atomic_and_includes_the_terminator ... ok
+test workflow::collection::unix::tests::timeout_escalates_past_ignored_term_and_reaps_leader ... ok
+test workflow::snapshot::tests::failed_copy_discards_already_staged_raw ... ok
+test workflow::snapshot::tests::never_spawned_receipt_cannot_admit_existing_raw ... ok
+test workflow::snapshot::tests::live_owned_group_blocks_raw_even_with_completed_receipt ... ok
+test workflow::snapshot::tests::source_overlap_and_existing_destinations_are_never_modified ... ok
+test workflow::snapshot::tests::invalid_lifecycle_receipts_never_publish_raw ... ok
+test workflow::snapshot::tests::symlink_source_and_destination_are_not_followed ... ok
+test workflow::snapshot::tests::uncertain_cleanup_is_rejected_before_raw_walking ... ok
+test workflow::snapshot::tests::special_files_are_rejected_without_opening_them ... ok
+test workflow::snapshot::tests::published_files_are_independent_of_later_source_changes ... ok
+test calibration::tests::reports::repeated::repeated_cli_accepts_exact_boundary_retains_raw_failures_and_fixed_bounds ... ok
+test calibration::tests::reports::repeated::repeated_cli_writes_failure_reports_for_insufficient_or_unverified_evidence ... ok
+test calibration::tests::reports::repeated::repeated_cli_rejects_missing_roles_duplicate_jobs_and_unbalanced_positions ... ok
+test calibration::tests::reports::multibench::repeated_v2_reports_both_benchmarks_without_changing_fixed_control_math ... ok
+test calibration::tests::reports::repeated::repeated_cli_does_not_pool_jobs_or_accept_inconclusive_controls ... ok
+test calibration::tests::reports::repeated::repeated_cli_handles_zero_u64_and_cache_boundary_exactly ... ok
+test calibration::tests::reports::repeated::repeated_cli_binomial_boundary_requires_62_of_105_and_preserves_ties ... ok
+
+test result: ok. 209 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.17s
+
+     Running tests/latency_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/latency_contract-cd3ed0f49a0236c4)
+
+running 2 tests
+test collection_requires_ci_before_accessing_measurement_inputs ... ok
+test zero_samples_and_unknown_flags_are_rejected ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/native_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/native_contract-cb8d8eff65a2e399)
+
+running 4 tests
+test discovery_and_memory_refuse_local_measurements_before_touching_inputs ... ok
+test native_help_is_safe_locally_and_preserves_original_commands ... ok
+test discovery_cli_rejects_invalid_numbers_and_revision_before_ci_guard ... ok
+test lifecycle_stress_keeps_local_setup_failure_evidence ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/paired_admission.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_admission-1715427d50a0cbff)
+
+running 2 tests
+test retained_uncertainty_cannot_be_classified_as_pass_or_confirmed_regression ... ok
+test admission_requires_current_method_and_coherent_producer_outcomes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.51s
+
+     Running tests/paired_collector.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_collector-83dd01e9c48d7349)
+
+running 1 test
+test paired_collection_rejects_wrong_source_revision_before_compilation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/paired_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_contract-feab9983e1b7ef96)
+
+running 5 tests
+test paired_report_rejects_multiple_retained_files_for_one_fresh_part ... ok
+test paired_report_accepts_an_isolated_outlier_with_complete_105_sample_bounds ... ok
+test paired_report_preserves_zero_baseline_counts_without_accepting_missing_instructions ... ok
+test paired_report_requires_profile_counts_to_match_retained_stdout ... ok
+test paired_report_accepts_native_event_columns_and_zero_counters ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.04s
+
+     Running tests/paired_dashboard.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_dashboard-056c642abd6babaf)
+
+running 2 tests
+test repeated_inconclusive_bundle_remains_uncertain_without_corrupting_evidence ... ok
+test coherently_forged_repeated_pass_is_rejected_against_retained_raw_evidence ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.98s
+
+     Running tests/policy_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/policy_contract-c424ada71a91e168)
+
+running 26 tests
+test duplicate_baseline_summary_id_is_a_hard_error ... ok
+test candidate_results_for_a_different_baseline_are_ignored ... ok
+test admission_rejects_hash_matching_symlinks_outside_the_bundle ... ok
+test duplicate_candidate_id_is_a_hard_error ... ok
+test admission_environment_requires_sole_owner_user_review_without_admin_bypass ... ok
+test left_only_baseline_workload_is_missing_not_new ... ok
+test each_missing_required_metric_is_a_hard_error ... ok
+test manifest_preserves_exact_identity_and_canonical_order ... ok
+test malformed_stale_and_empty_summary_trees_fail ... ok
+test admission_rejects_coherent_outcome_forgery_even_with_refreshed_hashes ... ok
+test malformed_new_candidate_counts_are_not_excluded ... ok
+test malformed_paired_metrics_are_a_hard_error ... ok
+test manifest_schema_empty_and_duplicate_ids_are_rejected ... ok
+test missing_instruction_collection_cannot_pass_as_an_improvement ... ok
+test paired_candidate_absent_from_manifest_is_rejected ... ok
+test missing_paired_event_is_a_hard_error ... ok
+test admission_preserves_real_pass_and_each_metric_regression ... ok
+test zero_baseline_three_cache_events_pass_and_four_fail_on_summaries ... ok
+test prior_cli_flags_modes_and_help_are_preserved ... ok
+test missing_baseline_id_fails_with_canonical_id ... ok
+test regression_in_any_baseline_workload_fails ... ok
+test admission_rejects_mismatched_source_head_run_and_verdict_provenance ... ok
+test retained_verdict_uses_the_authoritative_comparison_and_preserves_cli_failures ... ok
+test admission_rejects_inconsistent_exits_and_collector_errors ... ok
+test baseline_and_candidate_workload_counts_are_authoritative ... ok
+test admission_rejects_missing_malformed_tampered_and_forged_evidence ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+     Running tests/reports_latency.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/reports_latency-3e3f081f119a9c8d)
+
+running 15 tests
+test latency_help_succeeds_without_collecting_measurements ... ok
+test descriptive_metadata_can_differ_without_affecting_pairing ... ok
+test hundredfold_regression_is_reported_without_failure ... ok
+test individually_valid_but_unpaired_dimensions_fail ... ok
+test latency_cli_requires_outputs_and_rejects_unknown_flags ... ok
+test report_uses_nearest_rank_and_median_of_round_percentiles ... ok
+test improvement_and_even_round_half_nanosecond_median ... ok
+test paired_round_deltas_retain_alternating_collection_order ... ok
+test malformed_json_and_missing_files_fail ... ok
+test large_integer_and_half_nanosecond_summaries_are_exact ... ok
+test sample_integers_outside_u64_are_rejected_on_either_side ... ok
+test unsorted_p95_uses_nearest_rank_not_maximum_or_interpolation ... ok
+test reports_reject_nonfinite_json_on_either_side ... ok
+test invalid_or_incomparable_measurements_fail_without_reports ... ok
+test environment_and_counts_are_required_and_strictly_typed ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/transport_fixture.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/transport_fixture-9097266fcdcf516f)
+portable JSON-RPC transport contracts passed
+== release integrity ==
+....................................
+----------------------------------------------------------------------
+Ran 36 tests in 0.708s
+
+OK
+Skipping obsolete nightly nightly-2026-10-01-7e28270a3b717d78b07c2b45916f37fe98cf85af: main advanced after this quality run
+Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpquritrcw/dist/bend2-lsp-x86_64-unknown-linux-gnu
+Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpquritrcw/dist/bend2-lsp-aarch64-unknown-linux-gnu
+Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpquritrcw/dist/bend2-lsp-x86_64-apple-darwin
+Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpquritrcw/dist/bend2-lsp-aarch64-apple-darwin
+Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpquritrcw/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpquritrcw/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-x86_64-unknown-linux-gnu
+Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-x86_64-unknown-linux-gnu
+Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-aarch64-unknown-linux-gnu
+Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-aarch64-unknown-linux-gnu
+Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-x86_64-apple-darwin
+Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-x86_64-apple-darwin
+Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-aarch64-apple-darwin
+Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-aarch64-apple-darwin
+Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmp8pv6qdl0/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+Published v1.2.3 at 7e28270a3b717d78b07c2b45916f37fe98cf85af with six tested native executables and SHA256SUMS
+v1.2.3 is already public at 7e28270a3b717d78b07c2b45916f37fe98cf85af; leaving all assets unchanged
+== semantic supervisor contract tests ==
+......................................................................................s.....s......ssss.............................
+----------------------------------------------------------------------
+Ran 132 tests in 7.573s
+
+OK (skipped=6)
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.006s
+
+OK
+== format ==
+== rustc ==
+    Checking tower-lsp v0.20.0 (/tmp/semantic-approved-126952f6d048/vendor/tower-lsp)
+    Checking bend2-perf v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/perf)
+    Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
+    Checking bend2-semantic-probe v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/semantic-probe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.16s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+== clippy (all targets; test panic helpers permitted) ==
+    Checking tower-lsp v0.20.0 (/tmp/semantic-approved-126952f6d048/vendor/tower-lsp)
+    Checking bend2-perf v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/perf)
+    Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
+error: this function has too many lines (115/100)
+   --> tests/editor_hierarchy.rs:226:5
+    |
+226 |     fn incoming_calls_keep_entry_specific_callee_meaning_for_one_physical_caller() {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_lines
+    = note: `-D clippy::too-many-lines` implied by `-D clippy::pedantic`
+    = help: to override `-D clippy::pedantic` add `#[allow(clippy::too_many_lines)]`
+
+error: this function has too many lines (104/100)
+   --> tests/editor_hierarchy.rs:352:5
+    |
+352 |     fn incoming_calls_keep_second_hop_callee_meaning_for_one_physical_caller() {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_lines
+
+error: this function has too many lines (101/100)
+   --> tests/editor_hierarchy.rs:466:5
+    |
+466 |     fn incoming_calls_merge_identical_recursive_contexts() {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_lines
+
+error: could not compile `bend2-lsp` (test "editor_hierarchy") due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+
+
+Wall time: 60.15 seconds
+
+Command exited with code 101

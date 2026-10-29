@@ -1,0 +1,1 @@
+{"status": "pass", "counts": {"planned": 634, "generated": 256, "valid_planned": 627, "invalid_planned": 5, "recovery_planned": 2, "validated": 627, "compared": 627, "matched": 627, "intended_invalid": 5, "recovery": 2}, "failures": 0}

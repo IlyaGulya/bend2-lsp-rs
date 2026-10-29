@@ -1,0 +1,9 @@
+{
+  "source_commit": "14b7c0ad4898aaf5f33fddc8b4708c6bb189a36c",
+  "worker_installation": "/tmp/semantic-approved-126952f6d048/target/semantic-tools/7af86f33476100088d998ac7371411965838a41b8707bd5c601068684c2efc9b",
+  "python": "/usr/bin/python3",
+  "returncode": 1,
+  "stdout": "Canonical term-key differential contracts passed over every native LTerm variant, deep source-field exclusion, escaping, generated terms and a Base-loaded Book\n",
+  "stderr": "433 |   const helper=fileURLToPath(new URL('./semantic_frame_pipe.py',import.meta.url));\n434 |   const python=process.argv[3];\n435 |   assert.ok(python&&path.isAbsolute(python),'native contracts require the invoking Python executable');\n436 |   const invoked=spawnSync(python,[helper,process.execPath,path.join(installation,'worker.ts'),...requestFiles,frames],{cwd:home,encoding:'utf8',timeout:30000,maxBuffer:4000000});\n437 |   assert.equal(invoked.error,undefined);\n438 |   assert.equal(invoked.status,0,(invoked.stderr||'')+(invoked.stdout||''));\n               ^\nAssertionError: worker-reply-timeout:8192\n\n\n1 !== 0\n\n generatedMessage: false,\n     actual: 1,\n   expected: 0,\n   operator: \"strictEqual\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at replyFrameContract (/tmp/semantic-approved-126952f6d048/scripts/test_semantic_book_stream.ts:438:10)\n\nBun v1.4.0 (Linux arm64)\n",
+  "meaning": "Corrected native transport regression against immutable old console.log emitter; must fail on the real bounded pipe, not on fixture semantics."
+}
