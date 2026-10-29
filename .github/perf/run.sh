@@ -39,6 +39,11 @@ profile() {
     --output-dir "$directory" --candidate-revision "$revision" \
     > "$PERF_ROOT/logs/$name.log" 2>&1 || code=$?
   cat "$PERF_ROOT/logs/$name.log"
+  if [[ "$code" == 0 && "$PERF_TARGET" == x86_64-unknown-linux-gnu && "$MODE" == native && "$SCENARIO" == latency ]]; then
+    run perf script --input "$directory/perf.data" --ns --show-switch-events \
+      --fields comm,pid,tid,cpu,time,event,ip,sym,dso,period \
+      > "$directory/perf-script.txt" 2> "$directory/perf-script.log" || code=$?
+  fi
   printf '%s\n' "$code" > "$PERF_ROOT/logs/$name.exit"
   if [[ "$role" == candidate ]]; then "$PERF_TOOL" workflow status "$name" "$code"; fi
   if [[ "$code" != 0 ]]; then failed=1; fi

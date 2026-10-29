@@ -472,6 +472,36 @@ impl Workload<'_> {
         self.remove_root(workspace, symbols)
     }
 
+    fn prime_latency_queries(
+        &mut self,
+        small: &Value,
+        definition: &Value,
+        completion: &Value,
+        dependency: &str,
+    ) -> ToolResult<()> {
+        latency::require_hover(
+            &self
+                .client
+                .request("textDocument/hover", small.clone(), None)?
+                .0,
+            latency::SMALL_SIGNATURE,
+            None,
+        )?;
+        latency::require_definition(
+            &self
+                .client
+                .request("textDocument/definition", definition.clone(), None)?
+                .0,
+            dependency,
+        )?;
+        latency::require_completion(
+            &self
+                .client
+                .request("textDocument/completion", completion.clone(), None)?
+                .0,
+        )
+    }
+
     fn latency(&mut self, workspace: &Path, body: &str, completion_source: &str) -> ToolResult<()> {
         let documents = latency_documents(completion_source);
         let mut uris = BTreeMap::new();
@@ -494,6 +524,9 @@ impl Workload<'_> {
         let small = latency::position(&uris["small"], 3, 4);
         let definition = latency::position(&uris["importer"], 2, 8);
         let completion = latency::position(&uris["completion"], 3, 4);
+        if self.session.faithful_latency() {
+            self.prime_latency_queries(&small, &definition, &completion, &uris["dep"])?;
+        }
         for (name, method, params) in [
             ("hover_warm", "textDocument/hover", small),
             ("definition_warm", "textDocument/definition", definition),
