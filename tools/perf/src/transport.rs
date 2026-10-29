@@ -18,6 +18,9 @@ use std::{
 
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
+#[path = "transport/io_trace.rs"]
+mod io_trace;
+
 #[cfg(target_os = "macos")]
 #[path = "transport/macos.rs"]
 pub(crate) mod macos;
@@ -130,6 +133,7 @@ pub(crate) struct LspProcess {
     shutdown: ShutdownEvidence,
     cancellation: Option<&'static AtomicBool>,
     abort_on_failure: bool,
+    io_trace: Option<io_trace::ClientTrace>,
 }
 
 fn failure(message: impl std::fmt::Display) -> io::Error {
@@ -373,6 +377,7 @@ impl LspProcess {
             shutdown: ShutdownEvidence::default(),
             cancellation: None,
             abort_on_failure: true,
+            io_trace: None,
         })
     }
 
@@ -388,6 +393,26 @@ impl LspProcess {
     /// target. It must call `abort` on failure; Drop remains the final backstop.
     pub(crate) fn defer_abort_to_owner(&mut self) {
         self.abort_on_failure = false;
+    }
+
+    pub(crate) fn enable_io_trace(&mut self) -> ToolResult<()> {
+        self.io_trace = Some(io_trace::ClientTrace::new()?);
+        Ok(())
+    }
+
+    pub(crate) fn client_io_trace(&self) -> Option<Value> {
+        self.io_trace.as_ref().map(io_trace::ClientTrace::snapshot)
+    }
+
+    fn record_write_acknowledged(
+        &mut self,
+        request_id: Option<u64>,
+        started: Option<Instant>,
+    ) -> ToolResult<()> {
+        if let (Some(trace), Some(started)) = (&mut self.io_trace, started) {
+            trace.sent(request_id, started)?;
+        }
+        Ok(())
     }
 
     fn abort_failed_operation(&mut self) {
@@ -465,7 +490,10 @@ impl LspProcess {
         if !params.is_null() {
             message["params"] = params;
         }
-        self.write_frame(frame(&message)?, Instant::now() + self.timeout)
+        let data = frame(&message)?;
+        let started = Instant::now();
+        self.write_frame(data, started + self.timeout)?;
+        self.record_write_acknowledged(None, Some(started))
     }
 
     pub(crate) fn prepare_request(
@@ -500,8 +528,11 @@ impl LspProcess {
         let deadline = started + self.timeout;
         if let Some(notification) = notification {
             self.write_frame(notification, deadline)?;
+            self.record_write_acknowledged(None, Some(started))?;
         }
+        let frame_started = self.io_trace.as_ref().map(|_| Instant::now());
         self.write_frame(prepared.frame, deadline)?;
+        self.record_write_acknowledged(Some(prepared.id), frame_started)?;
         Ok(PendingRequest {
             id: prepared.id,
             started,
@@ -538,6 +569,9 @@ impl LspProcess {
         )?;
         if elapsed == 0 {
             return Err(failure("non-positive request duration").into());
+        }
+        if let Some(trace) = &mut self.io_trace {
+            trace.received(pending.id, pending.started, received)?;
         }
         Ok((result, elapsed))
     }

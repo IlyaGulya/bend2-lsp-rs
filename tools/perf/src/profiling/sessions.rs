@@ -1356,7 +1356,12 @@ impl ScenarioSession for Session {
         if self.backend == "xctrace" && self.kind == "heap" {
             return self.launch_xctrace_target(binary, workspace);
         }
-        crate::transport::LspProcess::spawn(binary, workspace, &self.child_environment())
+        let mut client =
+            crate::transport::LspProcess::spawn(binary, workspace, &self.child_environment())?;
+        if self.faithful_latency() {
+            client.enable_io_trace()?;
+        }
+        Ok(client)
     }
 
     fn faithful_latency(&self) -> bool {

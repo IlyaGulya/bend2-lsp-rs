@@ -743,6 +743,24 @@ fn timeout_diagnostic(
     Ok(())
 }
 
+fn retain_client_evidence(
+    client: &mut LspProcess,
+    output_dir: &Path,
+    result: &mut Value,
+) -> ToolResult<()> {
+    result["shutdown"] = serde_json::to_value(client.shutdown_evidence())?;
+    result["stderr_tail"] = json!(
+        client
+            .stderr_tail()
+            .unwrap_or_else(|error| { format!("stderr unavailable: {error}") })
+    );
+    if let Some(trace) = client.client_io_trace() {
+        common::write_json(&output_dir.join("client-io.json"), &trace)?;
+        result["client_io_trace"] = json!("client-io.json");
+    }
+    Ok(())
+}
+
 pub(crate) fn execute(
     binary: &Path,
     scenario: Scenario,
@@ -833,12 +851,7 @@ pub(crate) fn execute(
         result["status"] = json!("complete");
     }
     if let Some(client) = &mut owner.client {
-        result["shutdown"] = serde_json::to_value(client.shutdown_evidence())?;
-        result["stderr_tail"] = json!(
-            client
-                .stderr_tail()
-                .unwrap_or_else(|error| { format!("stderr unavailable: {error}") })
-        );
+        retain_client_evidence(client, &output_dir, &mut result)?;
     }
     common::write_json(&output_dir.join("scenario.json"), &result)?;
     outcome?;

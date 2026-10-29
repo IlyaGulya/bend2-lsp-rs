@@ -180,6 +180,25 @@ fn fixture_status(client: &LspProcess, expected: &str) -> ToolResult<()> {
     Ok(())
 }
 
+fn pipeline_trace_receipt_order(client: &LspProcess, first: u64, second: u64) -> ToolResult<()> {
+    let trace = client.client_io_trace().ok_or("missing enabled client trace")?;
+    let events = trace["events"].as_array().ok_or("missing client trace events")?;
+    let response = |id| events.iter().find(|event| {
+        event["stage"] == "response" && event["request_id"] == id
+    }).ok_or("missing traced pipeline response");
+    let first = response(first)?;
+    let second = response(second)?;
+    let timestamp = |event: &Value, field: &str| {
+        event[field].as_u64().ok_or("missing client response timestamp")
+    };
+    // The child sends second first, but the caller consumes first first.
+    // Recording consumption time as receipt time would reverse this order.
+    assert!(timestamp(second, "frame_received_ns")? <= timestamp(first, "frame_received_ns")?);
+    assert!(timestamp(first, "response_observed_ns")? <= timestamp(second, "response_observed_ns")?);
+    assert!(timestamp(second, "frame_received_ns")? < timestamp(first, "response_observed_ns")?);
+    Ok(())
+}
+
 fn large_and_pipeline_contracts() -> ToolResult<()> {
     let (_workspace, mut client) = fixture_process("large")?;
     assert!(client.pid() > 0);
@@ -189,13 +208,15 @@ fn large_and_pipeline_contracts() -> ToolResult<()> {
     assert!(client.reader.is_none() && client.writer.is_none());
     assert!(client.child.try_wait()?.is_some_and(|status| status.success()));
     let (_workspace, mut client) = fixture_process("out-of-order")?;
+    client.enable_io_trace()?;
     let first = client.prepare_request("first", Value::Null)?;
     let second = client.prepare_request("second", Value::Null)?;
     let first = client.send_request(first, None)?;
     let second = client.send_request(second, None)?;
     assert_eq!(client.response(first)?.0, "first");
     assert_eq!(client.response(second)?.0, "second");
-    client.finish()
+    client.finish()?;
+    pipeline_trace_receipt_order(&client, first.id, second.id)
 }
 
 fn write_failure_contracts() -> ToolResult<()> {
