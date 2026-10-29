@@ -115,9 +115,7 @@ jobs:
           status=0
           timeout --signal=TERM --kill-after=30 1140 \
             cargo bench --locked --bench analysis -- \
-              --save-baseline=scope-diagnostic \
               --callgrind-args=--cache-sim=yes \
-              --callgrind-metrics=@all \
             2>&1 | tee "$PERF_ROOT/callgrind.log" || status=${PIPESTATUS[0]}
           printf 'benchmark_exit_code=%s\n' "$status"
           if [[ "$status" != 0 ]]; then
@@ -141,7 +139,7 @@ jobs:
             --arg cargo "$(cargo --version 2>/dev/null || true)" \
             --arg toolchain "$(cat rust-toolchain.toml)" \
             --arg changed_files "$(paste -sd, "$RUNNER_TEMP/changed.txt" 2>/dev/null || true)" \
-            --arg benchmark_command 'cargo bench --locked --bench analysis -- --save-baseline=scope-diagnostic --callgrind-args=--cache-sim=yes --callgrind-metrics=@all' \
+            --arg benchmark_command 'cargo bench --locked --bench analysis -- --callgrind-args=--cache-sim=yes' \
             '{sut_source_sha:$sut_source_sha, head_sha:$head_sha, repository:$repository, ref:$ref, run_id:$run_id, run_attempt:$run_attempt, runner:$runner, rustc:$rustc, valgrind:$valgrind, cargo:$cargo, toolchain:$toolchain, changed_files:$changed_files, benchmark_command:$benchmark_command}' \
             > "$PERF_ROOT/metadata.json"
           cat "$PERF_ROOT/metadata.json"
