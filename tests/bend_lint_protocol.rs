@@ -6,6 +6,7 @@ use lsp_client::LspClient;
 use serde_json::{Value, json};
 use std::{
     env, fs,
+    io::Read,
     net::{SocketAddr, TcpStream},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -109,7 +110,10 @@ impl Session {
         );
         command
             .current_dir(&project)
-            .stderr(Stdio::null())
+            .stderr(Stdio::from(
+                fs::File::create(control.join("server.stderr"))
+                    .must_be("capture diagnostic server stderr"),
+            ))
             .env("PATH", &control)
             .env("BEND_LINT_FIXTURE_CONTROL", &control)
             .env_remove("BEND_LIB");
@@ -225,13 +229,64 @@ impl Session {
         );
     }
 
-    fn wait_file(&self, name: &str) -> String {
+    fn wait_file(&mut self, name: &str) -> String {
         let deadline = Instant::now() + TIMEOUT;
         loop {
             if let Ok(text) = fs::read_to_string(self.control.join(name)) {
                 return text;
             }
-            assert!(Instant::now() < deadline, "fixture did not create {name}");
+            if Instant::now() >= deadline {
+                // Diagnostic-only: preserve the original fatal boundary and assertions.
+                // Never consume notifications while this wait can still succeed.
+                let mut messages = Vec::new();
+                for _ in 0..32 {
+                    let Some((message, received)) = self
+                        .client
+                        .receive_matching_timed(Duration::from_millis(1), |_| true)
+                    else {
+                        break;
+                    };
+                    messages.push(json!({
+                        "received_ago_ms": received.elapsed().as_millis(),
+                        "message": message,
+                    }));
+                }
+                let mut files = serde_json::Map::new();
+                for filename in [
+                    "calls",
+                    "cwd",
+                    "arguments",
+                    "address.pending",
+                    "address",
+                    "descendant-address.pending",
+                    "descendant-address",
+                    "started",
+                    "server.stderr",
+                ] {
+                    let observation = fs::File::open(self.control.join(filename))
+                        .map(|file| {
+                            let mut contents = Vec::new();
+                            let error = file.take(16_384).read_to_end(&mut contents).err();
+                            json!({
+                                "contents_utf8_lossy": String::from_utf8_lossy(&contents),
+                                "read_error": error.map(|error| error.to_string()),
+                            })
+                        })
+                        .unwrap_or_else(|error| json!({"open_error": error.to_string()}));
+                    files.insert(filename.to_owned(), observation);
+                }
+                eprintln!(
+                    "C7_WAIT_FILE_DIAGNOSTIC {}",
+                    json!({
+                        "missing": name,
+                        "control": self.control,
+                        "server_exit_status": format!("{:?}", self.client.try_wait()),
+                        "messages": messages,
+                        "files": files,
+                    })
+                );
+                panic!("fixture did not create {name}");
+            }
             thread::sleep(Duration::from_millis(10));
         }
     }

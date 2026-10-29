@@ -1,0 +1,206 @@
+# Investigation-only diagnostic for the Windows x64 failure of
+# tests/bend_lint_protocol.rs::timeout_kills_analyzer_and_its_descendant_without_blocking_compiler
+# at tests/bend_lint_protocol.rs:234 ("fixture did not create address"), observed in quality
+# run 40863668428 on windows-2022 X64.
+#
+# It checks out the immutable C7 system under test separately from the immutable diagnostic
+# producer, verifies the producer commit and BOTH file digests in workflow-owned code before
+# any producer code runs, substitutes the producer's instrumented test file inside the
+# throwaway C7 checkout, and runs the ORIGINAL cargo command exactly once with default
+# concurrency, unchanged assertions and the unchanged 500 ms timeout. The original cargo exit
+# code is preserved by the run step. This workflow never replaces, supersedes, or reinterprets
+# the quality workflow result, and it is not byte-identical-test qualification.
+name: windows-lint-startup-diagnostic
+
+run-name: windows-lint-startup-diagnostic / ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - diagnostic/c7-lint-startup-40863668428
+  workflow_dispatch:
+    inputs:
+      script_revision:
+        description: Full 40-character commit SHA on this investigation branch that provides the diagnostic script and instrumented test.
+        required: true
+        type: string
+      script_sha256:
+        description: Required SHA-256 of scripts/windows-lint-startup-diagnostic.ps1 at that commit.
+        required: true
+        type: string
+      test_sha256:
+        description: Required SHA-256 of the reviewed instrumented tests/bend_lint_protocol.rs at that commit.
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  diagnose-saved-lint-startup:
+    if: github.repository == 'IlyaGulya/bend2-lsp-rs'
+    permissions:
+      contents: read
+    runs-on: windows-2022
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      BEND_NO_TELEMETRY: '1'
+      # Diagnostic input identity: the pinned script/test digests and the C7 inventory are
+      # canonical LF bytes. Force every git invocation (including both checkouts) to
+      # preserve the index bytes instead of applying end-of-line conversion on Windows.
+      GIT_CONFIG_COUNT: '2'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      GIT_CONFIG_KEY_1: core.eol
+      GIT_CONFIG_VALUE_1: lf
+      SUT_REVISION: c7d0b2c2a9ee88a329433ef01ce496c3892f3985
+      PRODUCER_REVISION: ${{ inputs.script_revision || github.sha }}
+      # Independently pinned defaults for the push-triggered run of the reviewed producer
+      # commit. A manual dispatch must supply both digests explicitly.
+      SCRIPT_SHA256: ${{ inputs.script_sha256 || '2a2bfd187e5e8a5a9cca16b1659215fee0c4ec0d0828ef99bd4162f31e82f48f' }}
+      TEST_SHA256: ${{ inputs.test_sha256 || '9594a0e6f972739a997ba328a14cddc8cfd61a8ef6706b3cf26e6b4a7cbd201e' }}
+    steps:
+      - name: Check out immutable C7 system under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: IlyaGulya/bend2-lsp-rs
+          ref: c7d0b2c2a9ee88a329433ef01ce496c3892f3985
+          path: sut
+          persist-credentials: false
+      - name: Check out immutable diagnostic producer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: IlyaGulya/bend2-lsp-rs
+          ref: ${{ inputs.script_revision || github.sha }}
+          path: producer
+          persist-credentials: false
+      - name: Create workflow-owned diagnostic root and bootstrap envelope
+        id: bootstrap
+        run: |
+          $runId = if ($env:GITHUB_RUN_ID) { $env:GITHUB_RUN_ID } else { 'local' }
+          $attempt = if ($env:GITHUB_RUN_ATTEMPT) { $env:GITHUB_RUN_ATTEMPT } else { '1' }
+          $root = Join-Path ([IO.Path]::GetTempPath()) ("bend2-lint-startup-diagnostic-{0}-{1}" -f $runId, $attempt)
+          if ([IO.Directory]::Exists($root)) { throw "diagnostic root already exists: $root" }
+          foreach ($name in @('temp', 'observe', 'logs')) { [void][IO.Directory]::CreateDirectory((Join-Path $root $name)) }
+          $envelope = [ordered]@{
+            schema = 1
+            kind = 'windows-lint-startup-diagnostic-bootstrap'
+            workflow_owned = $true
+            diagnostic_only = $true
+            created_utc = [DateTime]::UtcNow.ToString('o')
+            root = $root
+            temp_root_for_test = (Join-Path $root 'temp')
+            runner = [ordered]@{ os = $env:RUNNER_OS; arch = $env:RUNNER_ARCH; name = $env:RUNNER_NAME; image = $env:ImageOS; image_version = $env:ImageVersion }
+            github = [ordered]@{ repository = $env:GITHUB_REPOSITORY; workflow_ref = $env:GITHUB_WORKFLOW_REF; run_id = $env:GITHUB_RUN_ID; run_attempt = $env:GITHUB_RUN_ATTEMPT; event = $env:GITHUB_EVENT_NAME; sha = $env:GITHUB_SHA; ref = $env:GITHUB_REF }
+            expected = [ordered]@{ sut_revision = $env:SUT_REVISION; producer_revision = $env:PRODUCER_REVISION; script_sha256 = $env:SCRIPT_SHA256; test_sha256 = $env:TEST_SHA256 }
+            powershell = $PSVersionTable.PSVersion.ToString()
+            statement = 'Diagnostic only. The original quality verdict is unchanged. This envelope is written before any producer code runs.'
+          }
+          [IO.File]::WriteAllText((Join-Path $root 'bootstrap.json'), (($envelope | ConvertTo-Json -Depth 8) + "`n"), [Text.UTF8Encoding]::new($false))
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value ("diag_root={0}" -f $root)
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value ("DIAG_ROOT={0}" -f $root)
+      - name: Verify producer commit and both pinned digests before executing producer code
+        id: verify_producer
+        run: |
+          $head = $null
+          $status = $null
+          $scriptHash = $null
+          $testHash = $null
+          $expectedProducer = [string]$env:PRODUCER_REVISION
+          $expectedScript = ([string]$env:SCRIPT_SHA256).ToLowerInvariant()
+          $expectedTest = ([string]$env:TEST_SHA256).ToLowerInvariant()
+          try {
+            if ($expectedProducer -notmatch '^[0-9a-fA-F]{40}$') { throw "producer revision must be a full 40-character commit SHA: $expectedProducer" }
+            if ($expectedScript -notmatch '^[0-9a-f]{64}$') { throw 'script digest must be a 64-character hex SHA-256' }
+            if ($expectedTest -notmatch '^[0-9a-f]{64}$') { throw 'test digest must be a 64-character hex SHA-256' }
+            $producerRoot = (Resolve-Path -LiteralPath ./producer).Path
+            $head = (& git -C $producerRoot rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or -not $head) { throw 'producer checkout has no resolvable HEAD' }
+            if ($head -ne $expectedProducer) { throw "producer HEAD $head is not the pinned commit $expectedProducer" }
+            $status = ((& git -C $producerRoot status --porcelain=v1 --untracked-files=no) -join "`n").Trim()
+            if ($LASTEXITCODE -ne 0) { throw 'producer worktree status could not be read' }
+            if ($status) { throw "producer worktree is not clean: $status" }
+            $scriptPath = Join-Path $producerRoot 'scripts/windows-lint-startup-diagnostic.ps1'
+            $testPath = Join-Path $producerRoot 'tests/bend_lint_protocol.rs'
+            if (-not [IO.File]::Exists($scriptPath)) { throw "producer script is missing: $scriptPath" }
+            if (-not [IO.File]::Exists($testPath)) { throw "producer test is missing: $testPath" }
+            $scriptHash = (Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $testHash = (Get-FileHash -LiteralPath $testPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($scriptHash -ne $expectedScript) { throw "producer script digest $scriptHash is not the pinned $expectedScript" }
+            if ($testHash -ne $expectedTest) { throw "instrumented test digest $testHash is not the pinned $expectedTest" }
+            $result = [ordered]@{
+              schema = 1
+              verified = $true
+              verified_utc = [DateTime]::UtcNow.ToString('o')
+              producer_revision = $head
+              worktree_clean = $true
+              script_sha256 = $scriptHash
+              test_sha256 = $testHash
+              expected_script_sha256 = $expectedScript
+              expected_test_sha256 = $expectedTest
+            }
+            [IO.File]::WriteAllText((Join-Path $env:DIAG_ROOT 'bootstrap-verification.json'), (($result | ConvertTo-Json -Depth 6) + "`n"), [Text.UTF8Encoding]::new($false))
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'verified=true'
+          } catch {
+            $failure = [ordered]@{
+              schema = 1
+              verified = $false
+              verified_utc = [DateTime]::UtcNow.ToString('o')
+              error = $_.Exception.Message
+              expected_producer_revision = $expectedProducer
+              actual_producer_revision = $head
+              expected_script_sha256 = $expectedScript
+              actual_script_sha256 = $scriptHash
+              expected_test_sha256 = $expectedTest
+              actual_test_sha256 = $testHash
+              worktree_status = $status
+              statement = 'Producer code was not executed. The original quality verdict is unchanged.'
+            }
+            [IO.File]::WriteAllText((Join-Path $env:DIAG_ROOT 'bootstrap-verification.json'), (($failure | ConvertTo-Json -Depth 6) + "`n"), [Text.UTF8Encoding]::new($false))
+            throw
+          }
+      - name: Record diagnostic root context
+        run: ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase prepare-root -Root "$env:DIAG_ROOT"
+      - name: Install pinned Rust toolchain 1.98.1
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+          $rustcHost = (& rustc -vV) | Where-Object { $_ -like 'host: *' }
+          if ($rustcHost -ne 'host: x86_64-pc-windows-msvc') { throw "unexpected rustc host: $rustcHost" }
+      - name: Verify tracked identities, pinned test digest and cold target
+        run: |
+          ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase prepare -Root "$env:DIAG_ROOT" -Sut ./sut -Producer ./producer -ScriptSha256 "$env:SCRIPT_SHA256" -ExpectedTestSha256 "$env:TEST_SHA256" -ExpectedProducerRevision "$env:PRODUCER_REVISION" 2>&1 | Tee-Object -FilePath "$env:DIAG_ROOT/logs/prepare.log"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { exit $code }
+      - name: Build the saved-lint integration test without running it
+        working-directory: sut
+        run: ../producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase build -Root "$env:DIAG_ROOT" -Sut .
+      - name: Arm the bounded observer and require readiness
+        run: |
+          ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase start -Root "$env:DIAG_ROOT" 2>&1 | Tee-Object -FilePath "$env:DIAG_ROOT/logs/start.log"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { exit $code }
+      - name: Run the saved-lint protocol tests exactly once
+        working-directory: sut
+        run: ../producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase run -Root "$env:DIAG_ROOT" -Sut . -ExpectedTestSha256 "$env:TEST_SHA256"
+      - name: Stop the observer and record its bound lifecycle
+        if: always() && steps.verify_producer.outputs.verified == 'true' && steps.bootstrap.outputs.diag_root != ''
+        run: |
+          $actual = (Get-FileHash -LiteralPath ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SCRIPT_SHA256) { throw "producer script changed before cleanup: $actual" }
+          ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase stop -Root "$env:DIAG_ROOT"
+      - name: Finalize bounded diagnostics and enforce tracked identity
+        if: always() && steps.verify_producer.outputs.verified == 'true' && steps.bootstrap.outputs.diag_root != ''
+        run: |
+          $actual = (Get-FileHash -LiteralPath ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SCRIPT_SHA256) { throw "producer script changed before finalization: $actual" }
+          ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase finalize -Root "$env:DIAG_ROOT" -Sut ./sut -Producer ./producer -ExpectedTestSha256 "$env:TEST_SHA256"
+      - name: Preserve bounded diagnostics
+        if: always() && steps.bootstrap.outputs.diag_root != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-lint-startup-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.bootstrap.outputs.diag_root }}
+          if-no-files-found: error
+          retention-days: 7
