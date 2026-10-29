@@ -5,6 +5,7 @@ use support::Must;
 
 use bend2_lsp::{analysis, workspace};
 use iai_callgrind::{library_benchmark, library_benchmark_group, main};
+use sha2::{Digest as _, Sha256};
 
 const SOURCE: &str = include_str!("fixtures/analyzer_input.bend");
 const MEDIUM_SOURCE: &str = include_str!("fixtures/analyzer_medium.bend");
@@ -1225,6 +1226,398 @@ fn semantic_shared_source_ownership(fixture: &SemanticFixture) -> (usize, usize)
     std::hint::black_box((unique_source_bytes, logical_source_bytes))
 }
 
+// Diagnostic-only scope and orphan-release rows (AC53.6/AC53.7). They live in a
+// separate group, are unpaired, and do not appear in the frozen paired workload
+// manifest. The hosted harness that runs them is
+// `.github/workflows/performance-scope-diagnostics.yml`. Every fixture is fully
+// built and asserted before the measured call; the receipt line can therefore
+// only exist when the intended cold construction or published view was real.
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut hex = String::with_capacity(64);
+    for byte in digest {
+        let _ = write!(hex, "{byte:02x}");
+    }
+    hex
+}
+
+fn record_scope_diagnostic(row: &str, facts: &str) {
+    use std::io::Write as _;
+    let Ok(path) = std::env::var("BEND2_SCOPE_DIAGNOSTIC_RECEIPT") else {
+        return;
+    };
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .must_be("scope diagnostic receipt file");
+    writeln!(file, "row={row} {facts}").must_be("scope diagnostic receipt line");
+}
+
+fn nested_scope_source(depth: usize) -> String {
+    let mut source = String::from("def nested(value: U32) -> U32:\n  ");
+    for index in 0..depth {
+        let _ = write!(source, "x{index} => ");
+    }
+    source.push_str("value\n");
+    source
+}
+
+fn verified_nested_scope_source(depth: usize, row: &str) -> String {
+    let source = nested_scope_source(depth);
+    let snapshot = analysis::DocumentSnapshot::new(analysis::Revision(0), source.clone());
+    let syntax = &snapshot.syntax;
+    assert_eq!(syntax.symbols().len(), 1, "row {row}: one declaration");
+    assert_eq!(
+        syntax.declaration_sites().len(),
+        1,
+        "row {row}: one declaration site"
+    );
+    assert!(
+        !syntax.declaration_sites()[0].uncertain,
+        "row {row}: definite declaration body"
+    );
+    assert!(
+        syntax.diagnostics().is_empty(),
+        "row {row}: no syntax diagnostics"
+    );
+    assert!(
+        syntax.scopes().len() >= depth + 1,
+        "row {row}: definition scope plus one scope per lambda"
+    );
+    assert!(
+        syntax.bindings().len() >= depth + 1,
+        "row {row}: parameter plus one binder per lambda"
+    );
+    let lexical_depth = syntax
+        .scopes()
+        .iter()
+        .map(|scope| {
+            let mut chain = 1_usize;
+            let mut parent = scope.parent;
+            while let Some(id) = parent {
+                chain += 1;
+                parent = syntax.scopes()[id.0].parent;
+            }
+            chain
+        })
+        .max()
+        .must_be("nested lexical scope chain");
+    assert_eq!(lexical_depth, depth + 1, "row {row}: nesting depth");
+    record_scope_diagnostic(
+        row,
+        &format!(
+            "kind=nested_scope depth={depth} source_bytes={} source_sha256={} scopes={} lexical_depth={lexical_depth} bindings={} symbols={}",
+            source.len(),
+            sha256_hex(source.as_bytes()),
+            syntax.scopes().len(),
+            syntax.bindings().len(),
+            syntax.symbols().len(),
+        ),
+    );
+    source
+}
+
+struct PublishedViewFixture {
+    _directory: tempfile::TempDir,
+    database: workspace::WorkspaceDb,
+    roots: Vec<workspace::FileId>,
+    root_uris: Vec<url::Url>,
+    dependency_uris: Vec<url::Url>,
+    root_snapshot: std::sync::Weak<analysis::DocumentSnapshot>,
+    dependency_snapshot: std::sync::Weak<analysis::DocumentSnapshot>,
+    retained: Option<std::sync::Arc<workspace::SemanticView>>,
+}
+
+fn dependency_source(declarations: usize) -> String {
+    let mut source = String::from("def target(value: U32) -> U32:\n  value\n");
+    for declaration in 0..declarations {
+        let _ = writeln!(
+            source,
+            "def unused_{declaration}(value: U32) -> U32:\n  value"
+        );
+    }
+    source
+}
+
+fn published_root_source(dependencies: usize) -> String {
+    let mut source = String::new();
+    for index in 0..dependencies {
+        let _ = writeln!(source, "import ./d{index:03}.bend as D{index:03}");
+    }
+    source.push_str("def main(value: U32) -> U32:\n  ");
+    for index in 0..dependencies {
+        let _ = write!(source, "D{index:03}.target!(");
+    }
+    source.push_str("value");
+    for _ in 0..dependencies {
+        source.push(')');
+    }
+    source.push('\n');
+    source
+}
+
+fn published_view_fixture(
+    row: &str,
+    dependencies: usize,
+    declarations: usize,
+    roots: usize,
+    retain_reader: bool,
+) -> PublishedViewFixture {
+    let directory = tempfile::tempdir().must_be("published view fixture directory");
+    let mut database = workspace::WorkspaceDb::default();
+    let mut dependency_uris = Vec::with_capacity(dependencies);
+    let dependency_source_text = dependency_source(declarations);
+    for index in 0..dependencies {
+        let path = directory.path().join(format!("d{index:03}.bend"));
+        fs::write(&path, &dependency_source_text).must_be("write published dependency source");
+        dependency_uris.push(url::Url::from_file_path(&path).must_be("published dependency URI"));
+    }
+    let root_source = published_root_source(dependencies);
+    let mut root_ids = Vec::with_capacity(roots);
+    let mut root_uris = Vec::with_capacity(roots);
+    let mut root_snapshot = None;
+    for index in 0..roots {
+        let path = directory.path().join(format!("entry_{index:03}.bend"));
+        let uri = url::Url::from_file_path(&path).must_be("published entry URI");
+        let root = database.set_open_document(
+            workspace::Document::new(
+                uri.clone(),
+                "bend".into(),
+                analysis::Revision(1),
+                root_source.clone(),
+            ),
+            Some(path),
+        );
+        if index == 0 {
+            let document = database
+                .cached_document(&uri)
+                .must_be("open published root document");
+            root_snapshot = Some(std::sync::Arc::downgrade(&document.snapshot));
+        }
+        root_ids.push(root);
+        root_uris.push(uri);
+    }
+    // Dependencies are real disk-loaded graph ownership, not open overlays, so
+    // closing the last root can actually orphan and release them.
+    database.load_reachable(&root_ids);
+    let dependency_snapshot = {
+        let document = database
+            .cached_document(&dependency_uris[0])
+            .must_be("loaded published dependency");
+        std::sync::Arc::downgrade(&document.snapshot)
+    };
+    let mut views = Vec::with_capacity(roots);
+    for (index, root) in root_ids.iter().copied().enumerate() {
+        let view = std::sync::Arc::new(
+            database
+                .capture_semantic_view(root, None)
+                .must_be("captured published view")
+                .build(),
+        );
+        assert!(
+            database.publish_semantic_view(std::sync::Arc::clone(&view), None),
+            "row {row}: published view {index} must validate"
+        );
+        assert!(
+            database.semantic_view(root).is_some(),
+            "row {row}: published view {index} must be reachable"
+        );
+        views.push(view);
+    }
+    let view = &views[0];
+    assert_eq!(
+        view.documents().len(),
+        dependencies + 1,
+        "row {row}: one document per dependency and entry"
+    );
+    let expected_declarations = dependencies * (declarations + 1) + 1;
+    assert_eq!(
+        view.declarations().len(),
+        expected_declarations,
+        "row {row}: every declaration site is published"
+    );
+    assert!(view.issues().is_empty(), "row {row}: published issues");
+    for other in &views[1..] {
+        assert_eq!(
+            other.documents().len(),
+            view.documents().len(),
+            "row {row}: consistent root documents"
+        );
+        assert_eq!(
+            other.declarations().len(),
+            view.declarations().len(),
+            "row {row}: consistent root declarations"
+        );
+    }
+    let documents = view.documents().len();
+    let view_declarations = view.declarations().len();
+    let entities = view.entities().len();
+    let calls = view.calls().len();
+    let source_bytes: usize = view
+        .documents()
+        .iter()
+        .map(|document| document.text.len())
+        .sum();
+    let retained = retain_reader.then_some(std::sync::Arc::clone(&views[0]));
+    record_scope_diagnostic(
+        row,
+        &format!(
+            "kind=published_view_close_release dependencies={dependencies} declarations_per_dependency={declarations} roots={roots} views_published={roots} files={} documents={documents} view_declarations={view_declarations} entities={entities} calls={calls} source_bytes={source_bytes} root_source_sha256={} dependency_source_sha256={} retained_reader={} cold_build=outside_measurement",
+            dependencies + 1,
+            sha256_hex(root_source.as_bytes()),
+            sha256_hex(dependency_source_text.as_bytes()),
+            u8::from(retain_reader),
+        ),
+    );
+    drop(views);
+    PublishedViewFixture {
+        _directory: directory,
+        database,
+        roots: root_ids,
+        root_uris,
+        dependency_uris,
+        root_snapshot: root_snapshot.must_be("root snapshot witness"),
+        dependency_snapshot,
+        retained,
+    }
+}
+
+#[library_benchmark]
+#[bench::depth_8(verified_nested_scope_source(8, "nested_depth_8"))]
+#[bench::depth_32(verified_nested_scope_source(32, "nested_depth_32"))]
+#[bench::depth_128(verified_nested_scope_source(128, "nested_depth_128"))]
+fn cold_snapshot_nested_scope(source: String) -> analysis::DocumentSnapshot {
+    std::hint::black_box(analysis::DocumentSnapshot::new(
+        analysis::Revision(0),
+        source,
+    ))
+}
+
+#[library_benchmark]
+#[bench::declarations_100(published_view_fixture("close_declarations_100", 1, 100, 1, false))]
+#[bench::declarations_1000(published_view_fixture(
+    "close_declarations_1000",
+    1,
+    1_000,
+    1,
+    false
+))]
+#[bench::declarations_10000(published_view_fixture(
+    "close_declarations_10000",
+    1,
+    10_000,
+    1,
+    false
+))]
+#[bench::files_2(published_view_fixture("close_files_2", 2, 100, 1, false))]
+#[bench::files_8(published_view_fixture("close_files_8", 8, 100, 1, false))]
+#[bench::files_32(published_view_fixture("close_files_32", 32, 100, 1, false))]
+#[bench::views_1(published_view_fixture("close_views_1", 1, 100, 1, false))]
+#[bench::views_2(published_view_fixture("close_views_2", 1, 100, 2, false))]
+#[bench::views_8(published_view_fixture("close_views_8", 1, 100, 8, false))]
+fn published_semantic_view_close_orphan_release(
+    mut fixture: PublishedViewFixture,
+) -> PublishedViewFixture {
+    for uri in &fixture.root_uris {
+        let closed = fixture
+            .database
+            .close_document(uri)
+            .must_be("close published view root");
+        assert!(
+            fixture.roots.contains(&closed),
+            "close must report the opened root identity"
+        );
+    }
+    // The close transaction marks the now-unreachable graph retired; the
+    // lifecycle boundary that releases that database ownership is the same
+    // empty reachability pass used after a real close in production.
+    fixture.database.load_reachable(&[]);
+    for root in &fixture.roots {
+        assert!(
+            fixture.database.semantic_view(*root).is_none(),
+            "closing the last root must drop the published view"
+        );
+    }
+    assert!(
+        fixture.database.indexed_documents().is_empty(),
+        "closing the last root must drop graph ownership"
+    );
+    for uri in fixture.root_uris.iter().chain(&fixture.dependency_uris) {
+        assert!(
+            fixture.database.cached_document(uri).is_none(),
+            "closed root and orphaned dependency payloads must be released"
+        );
+    }
+    assert!(
+        fixture.root_snapshot.upgrade().is_none(),
+        "closed root snapshot must be deallocated"
+    );
+    assert!(
+        fixture.dependency_snapshot.upgrade().is_none(),
+        "orphaned dependency snapshot must be deallocated"
+    );
+    assert!(fixture.retained.is_none(), "no retained reader in this row");
+    std::hint::black_box(fixture)
+}
+
+#[library_benchmark]
+#[bench::retained_10000(published_view_fixture(
+    "close_retained_reader_10000",
+    1,
+    10_000,
+    1,
+    true
+))]
+fn published_semantic_view_close_orphan_release_retained_reader(
+    mut fixture: PublishedViewFixture,
+) -> PublishedViewFixture {
+    for uri in &fixture.root_uris {
+        fixture
+            .database
+            .close_document(uri)
+            .must_be("close published view root with retained reader");
+    }
+    fixture.database.load_reachable(&[]);
+    for root in &fixture.roots {
+        assert!(
+            fixture.database.semantic_view(*root).is_none(),
+            "database view ownership must drop while a reader is retained"
+        );
+    }
+    assert!(
+        fixture.database.indexed_documents().is_empty(),
+        "database graph ownership must drop while a reader is retained"
+    );
+    for uri in fixture.root_uris.iter().chain(&fixture.dependency_uris) {
+        assert!(
+            fixture.database.cached_document(uri).is_none(),
+            "database payload ownership must drop while a reader is retained"
+        );
+    }
+    assert!(
+        fixture.root_snapshot.upgrade().is_some(),
+        "the retained reader must keep the closed root contribution alive"
+    );
+    assert!(
+        fixture.dependency_snapshot.upgrade().is_some(),
+        "the retained reader must keep the orphaned graph contribution alive"
+    );
+    let retained = fixture.retained.as_ref().must_be("retained reader");
+    assert_eq!(
+        std::sync::Arc::strong_count(retained),
+        1,
+        "the retained reader is the last owner; its teardown stays outside the measured body"
+    );
+    std::hint::black_box(fixture)
+}
+
+library_benchmark_group!(
+    name = analysis_scope_diagnostics;
+    benchmarks = cold_snapshot_nested_scope, published_semantic_view_close_orphan_release,
+        published_semantic_view_close_orphan_release_retained_reader
+);
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -1247,4 +1640,4 @@ library_benchmark_group!(
         semantic_sparse_view_reuse_warm, semantic_sparse_relevant_views_warm
 );
 
-main!(library_benchmark_groups = analysis_hot_paths);
+main!(library_benchmark_groups = analysis_scope_diagnostics, analysis_hot_paths);

@@ -1,0 +1,158 @@
+name: performance-scope-diagnostics
+
+run-name: performance-scope-diagnostics / ${{ github.sha }}
+
+# Diagnostic-only harness for AC53.6 (cold nested/deep lexical scope scaling)
+# and AC53.7 (release of actually published SemanticViews and contributions).
+# It is unpaired, has no baseline or threshold, and is never referenced by the
+# paired performance gate. Push the diagnostic branch to run it.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diag/semantic-scope-costs
+
+permissions: {}
+
+concurrency:
+  group: performance-scope-diagnostics-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scope-costs:
+    if: github.repository == 'IlyaGulya/bend2-lsp-rs' && github.ref == 'refs/heads/diag/semantic-scope-costs'
+    name: Cold nested scope and published view release Callgrind
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      PINNED_SUT_SHA: 9eb86a196b1c183a3b8798bf61a7531a91c88ff4
+      PERF_ROOT: target/scope-diagnostics
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require canonical repository, diagnostic branch and unchanged production source
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == 'IlyaGulya/bend2-lsp-rs' ]]
+          [[ "$GITHUB_REF" == 'refs/heads/diag/semantic-scope-costs' ]]
+          [[ "$(git rev-parse HEAD)" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$PINNED_SUT_SHA" HEAD
+          for path in \
+            src \
+            Cargo.toml \
+            Cargo.lock \
+            rust-toolchain.toml \
+            scripts/install-tools.sh \
+            scripts/install-valgrind.sh \
+            .github/workflows/performance.yml \
+            .github/workflows/performance-calibration.yml; do
+            if ! git diff --quiet "$PINNED_SUT_SHA" HEAD -- "$path"; then
+              printf 'Production source differs from the immutable SUT at %s\n' "$path" >&2
+              exit 1
+            fi
+          done
+          git diff --name-only "$PINNED_SUT_SHA" HEAD | tee "$RUNNER_TEMP/changed.txt"
+          if grep -Ev '^(benches/analysis\.rs|scripts/diagnostics/scope_costs_receipts\.py|\.github/workflows/performance-scope-diagnostics\.yml)$' \
+            "$RUNNER_TEMP/changed.txt"; then
+            printf 'Unexpected diagnostic harness difference; admission denied.\n' >&2
+            exit 1
+          fi
+          mkdir -p "$PERF_ROOT"
+      - name: Configure isolated pinned native profiler
+        run: printf 'VALGRIND_INSTALL_ROOT=%s/ci-valgrind\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Install and validate pinned Valgrind 3.27.1
+        run: |
+          set -euo pipefail
+          ./scripts/install-tools.sh valgrind
+          test -x "$VALGRIND_INSTALL_ROOT/bin/callgrind_annotate"
+          version="$("$VALGRIND_INSTALL_ROOT/bin/valgrind" --version)"
+          [[ "$version" == valgrind-3.27.1 ]]
+          printf '%s/bin\n' "$VALGRIND_INSTALL_ROOT" >> "$GITHUB_PATH"
+          printf '%s\n' "$version" | tee "$RUNNER_TEMP/valgrind-version.txt"
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+      - name: Configure isolated Iai runner install
+        run: |
+          printf 'CARGO_INSTALL_ROOT=%s/ci-scope-tools\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf '%s/ci-scope-tools/bin\n' "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Install and validate the matching Iai-Callgrind runner 0.16.1
+        run: |
+          set -euo pipefail
+          export CARGO_INSTALL_ROOT="$RUNNER_TEMP/ci-scope-tools"
+          export PATH="$CARGO_INSTALL_ROOT/bin:$PATH"
+          ./scripts/install-tools.sh performance
+          version="$(iai-callgrind-runner --version)"
+          [[ "$version" == 'iai-callgrind-runner 0.16.1' ]]
+          printf '%s\n' "$version" | tee "$RUNNER_TEMP/runner-version.txt"
+      - name: Measure cold nested-scope construction and published-view close/orphan release
+        # All rows of the analysis target execute, but only the diagnostic group
+        # writes fixture receipts; existing workload bodies and thresholds are
+        # unchanged and no paired classification is produced. The release rows
+        # measure close_document of every open root with a published view, then
+        # the lifecycle completion that drops retired graph ownership; view
+        # building and parsing happen only in setup.
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          mkdir -p "$PERF_ROOT"
+          export BEND2_SCOPE_DIAGNOSTIC_RECEIPT="$PWD/$PERF_ROOT/fixtures.txt"
+          : > "$BEND2_SCOPE_DIAGNOSTIC_RECEIPT"
+          status=0
+          timeout --signal=TERM --kill-after=30 1140 \
+            cargo bench --locked --bench analysis -- \
+              --save-baseline=scope-diagnostic \
+              --callgrind-args=--cache-sim=yes \
+              --callgrind-metrics=@all \
+            2>&1 | tee "$PERF_ROOT/callgrind.log" || status=${PIPESTATUS[0]}
+          printf 'benchmark_exit_code=%s\n' "$status"
+          if [[ "$status" != 0 ]]; then
+            exit "$status"
+          fi
+      - name: Record immutable source, toolchain and harness identities
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$PERF_ROOT"
+          jq -n \
+            --arg sut_source_sha "$PINNED_SUT_SHA" \
+            --arg head_sha "$(git rev-parse HEAD)" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg ref "$GITHUB_REF" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg runner "$(cat "$RUNNER_TEMP/runner-version.txt" 2>/dev/null || true)" \
+            --arg rustc "$(rustc -vV 2>/dev/null || true)" \
+            --arg valgrind "$(cat "$RUNNER_TEMP/valgrind-version.txt" 2>/dev/null || true)" \
+            --arg cargo "$(cargo --version 2>/dev/null || true)" \
+            --arg toolchain "$(cat rust-toolchain.toml)" \
+            --arg changed_files "$(paste -sd, "$RUNNER_TEMP/changed.txt" 2>/dev/null || true)" \
+            --arg benchmark_command 'cargo bench --locked --bench analysis -- --save-baseline=scope-diagnostic --callgrind-args=--cache-sim=yes --callgrind-metrics=@all' \
+            '{sut_source_sha:$sut_source_sha, head_sha:$head_sha, repository:$repository, ref:$ref, run_id:$run_id, run_attempt:$run_attempt, runner:$runner, rustc:$rustc, valgrind:$valgrind, cargo:$cargo, toolchain:$toolchain, changed_files:$changed_files, benchmark_command:$benchmark_command}' \
+            > "$PERF_ROOT/metadata.json"
+          cat "$PERF_ROOT/metadata.json"
+      - name: Validate fixture receipts and raw all-nine-counter reports
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 scripts/diagnostics/scope_costs_receipts.py \
+            --receipts "$PERF_ROOT/fixtures.txt" \
+            --iai-root target/iai \
+            --log "$PERF_ROOT/callgrind.log" \
+            --metadata "$PERF_ROOT/metadata.json" \
+            --output "$PERF_ROOT/receipts.json"
+          cat "$PERF_ROOT/receipts.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve diagnostic receipts and raw Callgrind reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-scope-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/scope-diagnostics/
+            target/iai/
+          if-no-files-found: error
+          retention-days: 14
