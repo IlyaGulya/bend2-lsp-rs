@@ -7,6 +7,7 @@ use crate::{
     workspace::{FileId, WorkspaceDb, views::ViewId},
 };
 use std::{
+    borrow::Cow,
     collections::HashMap,
     ops::Deref,
     path::PathBuf,
@@ -153,23 +154,29 @@ impl WorkspaceService {
         path: Option<PathBuf>,
         revision: Revision,
         create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>)> {
+    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Arc<Url>)> {
         let mut state = self.state.write();
         let id = if create {
-            state.database.ensure_file_id(uri.clone(), path)
+            // Resolve the binding once so interning reuses the installed URI
+            // allocation instead of wrapping a cloned Url in a fresh Arc.
+            let shared = state.database.shared_uri(Cow::Borrowed(uri));
+            state.database.ensure_file_id(shared, path)
         } else {
             state.database.file_id_by_uri(uri)?
         };
         let document = state.database.open_document(uri);
         let path = state.database.document_path(uri);
-        let view = state.database.ensure_view(uri, id);
+        // `ensure_file_id` above installed this spelling's binding, so the
+        // resolved shared URI is the allocation the staged document and the
+        // later commit reuse instead of wrapping a fresh clone.
+        let (view, shared_uri) = state.database.ensure_view_shared(uri, id);
         let sync = state
             .revisions
             .entry(view)
             .or_insert_with(|| Arc::new(DocumentRevisionSync::new(document)))
             .clone();
         let ticket = revision_result(sync.reserve(revision))?;
-        Some((id, ticket, path))
+        Some((id, ticket, path, shared_uri))
     }
     pub(super) fn begin_refresh(&self, uri: &Url, revision: Revision) -> Option<RevisionTicket> {
         let state = self.state.write();
@@ -272,7 +279,7 @@ mod tests {
         let path = temp.path().join("main.bend");
         let uri = Url::from_file_path(&path).map_err(|()| io::Error::other("file URI"))?;
         let service = WorkspaceService::default();
-        let (_, ticket, _) = service
+        let (_, ticket, _, _) = service
             .begin_revision(&uri, Some(path.clone()), Revision(1), true)
             .ok_or_else(|| io::Error::other("reserve open"))?;
         let old_source = "import ./old.bend as Old\ndef main = Old.value\n";
@@ -351,14 +358,14 @@ mod tests {
     fn queued_close_cannot_mutate_a_reopened_epoch() -> io::Result<()> {
         let service = WorkspaceService::default();
         let uri = Url::parse("file:///reopened.bend").map_err(io::Error::other)?;
-        let (_, first, _) = service
+        let (_, first, _, _) = service
             .begin_revision(&uri, None, Revision(8), true)
             .ok_or_else(|| io::Error::other("first epoch"))?;
         drop(first);
         let closed = service
             .begin_close(&uri)
             .ok_or_else(|| io::Error::other("close"))?;
-        let (_, reopened, _) = service
+        let (_, reopened, _, _) = service
             .begin_revision(&uri, None, Revision(1), true)
             .ok_or_else(|| io::Error::other("reopen epoch"))?;
         service

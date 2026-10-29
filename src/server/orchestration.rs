@@ -126,7 +126,7 @@ impl Backend {
         path: Option<PathBuf>,
         revision: Revision,
         create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>)> {
+    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Arc<Url>)> {
         self.workspace.begin_revision(uri, path, revision, create)
     }
     pub(super) fn begin_document_refresh(
@@ -146,7 +146,8 @@ impl Backend {
         text: String,
         path: Option<PathBuf>,
     ) -> Option<bool> {
-        let (id, ticket, path) = self.begin_revision(&uri, path, Revision(version), true)?;
+        let (id, ticket, path, uri) =
+            self.begin_revision(&uri, path, Revision(version), true)?;
         tracing::Span::current().record("file_id", tracing::field::debug(&id));
         if !revision_result(ticket.wait_for_turn().await) {
             return None;
@@ -446,7 +447,8 @@ impl Backend {
     ) -> bool {
         let uri = params.text_document.uri.clone();
         let version = params.text_document.version;
-        let Some((id, ticket, path)) = self.begin_revision(&uri, None, Revision(version), false)
+        let Some((id, ticket, path, _shared_uri)) =
+            self.begin_revision(&uri, None, Revision(version), false)
         else {
             return false;
         };
@@ -575,7 +577,7 @@ impl Backend {
         &self,
         source: &Document,
         alias: &str,
-    ) -> Option<(Url, Arc<DocumentSnapshot>)> {
+    ) -> Option<(Arc<Url>, Arc<DocumentSnapshot>)> {
         let import = analysis::imports(source)
             .iter()
             .find(|import| import.alias_text(&source.text) == Some(alias))?;
@@ -611,7 +613,7 @@ impl Backend {
         &self,
         document: &Document,
         name: &str,
-    ) -> (Url, Arc<DocumentSnapshot>, String) {
+    ) -> (Arc<Url>, Arc<DocumentSnapshot>, String) {
         if let Some((alias, member)) = name.split_once('.')
             && let Some((uri, snapshot)) = self.module_document(document, alias)
         {
@@ -628,7 +630,7 @@ impl Backend {
         &self,
         document: &Document,
         name: &str,
-    ) -> Option<(Url, Arc<DocumentSnapshot>, String)> {
+    ) -> Option<(Arc<Url>, Arc<DocumentSnapshot>, String)> {
         let (uri, snapshot, member) = self.symbol_source(document, name);
         if named_document_symbol(&snapshot, &member).is_some() {
             return Some((uri, snapshot, member));
@@ -681,7 +683,7 @@ impl Backend {
             let candidate_path = self
                 .document_path(&candidate.uri)
                 .map(|path| normalize_path(&path));
-            let same_target = candidate.uri == *target_uri
+            let same_target = candidate.uri.as_ref() == target_uri
                 || target_path
                     .as_ref()
                     .is_some_and(|path| candidate_path.as_ref() == Some(path));
@@ -697,7 +699,7 @@ impl Backend {
                     if include_declaration || reference.kind != analysis::ReferenceKind::Declaration
                     {
                         locations.push(Location {
-                            uri: candidate.uri.clone(),
+                            uri: candidate.uri.as_ref().clone(),
                             range: super::adapters::range(&candidate, reference.range),
                         });
                     }
@@ -730,7 +732,7 @@ impl Backend {
                     continue;
                 }
                 locations.push(Location {
-                    uri: candidate.uri.clone(),
+                    uri: candidate.uri.as_ref().clone(),
                     range: super::adapters::range(&candidate, reference.range),
                 });
             }
@@ -831,7 +833,7 @@ impl Backend {
                 path,
             });
             for document in database.dependents(id) {
-                affected.insert(document.uri.clone(), document.revision.0);
+                affected.insert(document.uri.as_ref().clone(), document.revision.0);
             }
         }
         (admitted, affected)
@@ -910,7 +912,7 @@ impl Backend {
                             continue;
                         };
                         if let Some(document) = database.open_document(&update.file.uri) {
-                            affected.insert(document.uri.clone(), document.revision.0);
+                            affected.insert(document.uri.as_ref().clone(), document.revision.0);
                         }
                         updates.push((id, imports_changed));
                     }
@@ -935,7 +937,7 @@ impl Backend {
             let database = workspace_db.read();
             for (id, _) in updates {
                 for document in database.dependents(id) {
-                    affected.insert(document.uri.clone(), document.revision.0);
+                    affected.insert(document.uri.as_ref().clone(), document.revision.0);
                 }
             }
             affected.retain(|uri, version| {
@@ -959,7 +961,7 @@ impl Backend {
         &self,
         source: &Document,
         call: &analysis::CallSite,
-    ) -> Option<(Url, Arc<DocumentSnapshot>, analysis::SymbolId)> {
+    ) -> Option<(Arc<Url>, Arc<DocumentSnapshot>, analysis::SymbolId)> {
         if let Some(callee) = call.callee {
             let symbol = source.syntax.symbol_by_id(callee)?;
             return (symbol.kind == analysis::SymbolKind::Function)

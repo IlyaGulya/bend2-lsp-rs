@@ -198,7 +198,7 @@ impl LanguageServer for Backend {
             self.workspace.start_discovery().await;
             for document in self.workspace_documents() {
                 let revision = document.revision.0;
-                self.schedule_diagnostics(document.uri, revision).await;
+                self.schedule_diagnostics(document.uri.as_ref().clone(), revision).await;
             }
             true
         };
@@ -245,7 +245,7 @@ impl LanguageServer for Backend {
             }
             for document in documents {
                 let revision = document.revision.0;
-                self.schedule_diagnostics(document.uri, revision).await;
+                self.schedule_diagnostics(document.uri.as_ref().clone(), revision).await;
             }
             true
         };
@@ -299,7 +299,7 @@ impl LanguageServer for Backend {
             self.schedule_diagnostics(uri, version).await;
             for document in dependents {
                 let revision = document.revision.0;
-                self.schedule_diagnostics(document.uri, revision).await;
+                self.schedule_diagnostics(document.uri.as_ref().clone(), revision).await;
             }
             (true, deferred)
         };
@@ -337,7 +337,7 @@ impl LanguageServer for Backend {
             self.schedule_diagnostics(uri, version).await;
             for document in dependents {
                 let revision = document.revision.0;
-                self.schedule_diagnostics(document.uri, revision).await;
+                self.schedule_diagnostics(document.uri.as_ref().clone(), revision).await;
             }
             (true, deferred)
         };
@@ -427,7 +427,7 @@ impl LanguageServer for Backend {
             }
             for document in dependents {
                 let revision = document.revision.0;
-                self.schedule_diagnostics(document.uri, revision).await;
+                self.schedule_diagnostics(document.uri.as_ref().clone(), revision).await;
             }
             true
         };

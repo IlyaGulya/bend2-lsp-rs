@@ -158,7 +158,7 @@ pub(super) fn source_uris(
         if sources.contains_key(&identity) {
             open.entry(identity)
                 .or_default()
-                .insert(document.uri.clone());
+                .insert(document.uri.as_ref().clone());
         }
     }
     for (identity, editor_uris) in open {

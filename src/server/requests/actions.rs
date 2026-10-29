@@ -127,7 +127,7 @@ impl Backend {
                     .chain(base);
                 for (target, path) in candidates {
                     if let Some(edits) =
-                        auto_import_edits(doc, &workspace, &target, &path, reference)
+                        auto_import_edits(doc, &workspace, target.as_ref(), &path, reference)
                     {
                         actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                             title: format!("Import {name} from {path}"),

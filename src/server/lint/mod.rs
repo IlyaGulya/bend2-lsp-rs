@@ -35,7 +35,7 @@ pub(super) struct LintResult {
     // Project revision that produced this entry. Cleanup may only retire
     // results from revisions an older plan actually fenced.
     revision: u64,
-    revisions: Vec<(Url, u64)>,
+    revisions: Vec<(Arc<Url>, u64)>,
     config: LintConfig,
     snapshot: Arc<snapshot::ProjectSnapshot>,
     findings: wire::Findings,
@@ -48,11 +48,11 @@ pub(super) struct LintResult {
 // current open-input view with the captured one.
 struct LintInputs {
     documents: Vec<Document>,
-    generations: HashMap<Url, u64>,
+    generations: HashMap<Arc<Url>, u64>,
 }
 
 impl LintInputs {
-    fn fences(&self, view: &snapshot::ProjectSnapshot) -> Vec<(Url, u64)> {
+    fn fences(&self, view: &snapshot::ProjectSnapshot) -> Vec<(Arc<Url>, u64)> {
         self.documents
             .iter()
             .filter_map(|document| {
@@ -64,7 +64,7 @@ impl LintInputs {
                     return None;
                 }
                 self.generations
-                    .get(&document.uri)
+                    .get(document.uri.as_ref())
                     .map(|generation| (document.uri.clone(), *generation))
             })
             .collect()
@@ -118,7 +118,7 @@ impl Backend {
             && result.snapshot.open_documents_current(documents)
     }
 
-    fn lint_revisions_current(&self, revisions: &[(Url, u64)]) -> bool {
+    fn lint_revisions_current(&self, revisions: &[(Arc<Url>, u64)]) -> bool {
         let state = self.workspace.state.read();
         revisions
             .iter()
@@ -300,21 +300,21 @@ mod tests {
         Ok(())
     }
 
-    fn fence(backend: &Backend, uri: &Url) -> Result<(Url, u64), Box<dyn Error>> {
+    fn fence(backend: &Backend, uri: &Url) -> Result<(Arc<Url>, u64), Box<dyn Error>> {
         let generation = backend
             .workspace
             .state
             .read()
             .revision_generation(uri)
             .ok_or_else(|| io::Error::other("open input revision"))?;
-        Ok((uri.clone(), generation))
+        Ok((Arc::new(uri.clone()), generation))
     }
 
     fn retain(
         backend: &Backend,
         uri: &Url,
         snapshot: &Arc<snapshot::ProjectSnapshot>,
-        revisions: Vec<(Url, u64)>,
+        revisions: Vec<(Arc<Url>, u64)>,
     ) {
         let epoch = backend.diagnostics.lint.epoch.load(Ordering::SeqCst);
         retain_entry(
@@ -357,7 +357,7 @@ mod tests {
         backend: &Backend,
         epoch: u64,
         snapshot: &Arc<snapshot::ProjectSnapshot>,
-        revisions: Vec<(Url, u64)>,
+        revisions: Vec<(Arc<Url>, u64)>,
         findings: wire::Findings,
     ) -> Arc<LintResult> {
         entry_at(backend, epoch, 0, snapshot, revisions, findings)
@@ -368,7 +368,7 @@ mod tests {
         epoch: u64,
         revision: u64,
         snapshot: &Arc<snapshot::ProjectSnapshot>,
-        revisions: Vec<(Url, u64)>,
+        revisions: Vec<(Arc<Url>, u64)>,
         findings: wire::Findings,
     ) -> Arc<LintResult> {
         Arc::new(LintResult {

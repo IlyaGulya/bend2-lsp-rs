@@ -478,7 +478,7 @@ impl Backend {
                     .workspace_documents()
                     .into_iter()
                     .filter(Self::supported)
-                    .map(|document| document.uri)
+                    .map(|document| document.uri.as_ref().clone())
                     .collect();
                 self.schedule_entries(entries, true);
             }
@@ -602,7 +602,7 @@ impl Backend {
             .into_iter()
             .filter(Self::supported)
             .filter(|document| keys.contains(&Self::project_key(&document.uri)))
-            .map(|document| document.uri)
+            .map(|document| document.uri.as_ref().clone())
             .collect()
     }
 
@@ -629,7 +629,7 @@ impl Backend {
         database
             .dependents(id)
             .into_iter()
-            .map(|document| document.uri)
+            .map(|document| document.uri.as_ref().clone())
             .collect()
     }
 
@@ -653,7 +653,12 @@ impl Backend {
         let database = self.workspace.read();
         for path in paths {
             if let Some(id) = Self::file_id_by_path(&database, path) {
-                dependents.extend(database.dependents(id).into_iter().map(|doc| doc.uri));
+                dependents.extend(
+                    database
+                        .dependents(id)
+                        .into_iter()
+                        .map(|doc| doc.uri.as_ref().clone()),
+                );
             }
         }
         dependents
@@ -714,7 +719,7 @@ impl Backend {
                 .iter()
                 .filter(|document| Self::supported(document))
             {
-                let uri = &document.uri;
+                let uri = document.uri.as_ref();
                 let current = Self::project_key(uri);
                 let mut owned: BTreeSet<ProjectKey> = BTreeSet::new();
                 for (key, state) in projects.iter() {

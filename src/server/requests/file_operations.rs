@@ -264,7 +264,7 @@ fn prepare_will_sources(sources: Vec<WillSource>) -> Result<Vec<WillSource>> {
 
 struct RenameSource {
     uri: Url,
-    old_uri: Url,
+    old_uri: std::sync::Arc<Url>,
     path: PathBuf,
     snapshot: Option<Arc<DocumentSnapshot>>,
     open: bool,
@@ -409,7 +409,7 @@ impl Backend {
                 .into_iter()
                 .map(|(document, open, edits)| TextDocumentEdit {
                     text_document: OptionalVersionedTextDocumentIdentifier {
-                        uri: document.uri.clone(),
+                        uri: document.uri.as_ref().clone(),
                         version: open.then_some(document.revision.0),
                     },
                     edits: edits
@@ -463,7 +463,7 @@ impl Backend {
         self.workspace.load_reachable_async(&roots, None).await;
         for document in documents {
             let version = document.revision.0;
-            self.schedule_diagnostics(document.uri, version).await;
+            self.schedule_diagnostics(document.uri.as_ref().clone(), version).await;
         }
     }
 
@@ -509,8 +509,8 @@ impl Backend {
             };
             let retired_uris = sources
                 .iter()
-                .filter(|source| source.old_uri != source.uri)
-                .map(|source| source.old_uri.clone())
+                .filter(|source| source.old_uri.as_ref() != &source.uri)
+                .map(|source| source.old_uri.as_ref().clone())
                 .collect();
             drop(read);
             let prepared = run_staging(self.workspace.staging.clone(), move || {

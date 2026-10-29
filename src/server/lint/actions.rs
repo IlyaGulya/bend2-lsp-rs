@@ -124,7 +124,7 @@ fn versioned_fix(
         let version = document.revision.0;
         changes.push(TextDocumentEdit {
             text_document: OptionalVersionedTextDocumentIdentifier {
-                uri: document.uri,
+                uri: document.uri.as_ref().clone(),
                 version: Some(version),
             },
             edits: edits

@@ -57,7 +57,7 @@ pub(in crate::server) struct LintService {
 
 struct LintCapture {
     document: Document,
-    revisions: Vec<(Url, u64)>,
+    revisions: Vec<(Arc<Url>, u64)>,
     snapshot: Arc<snapshot::ProjectSnapshot>,
 }
 
@@ -612,7 +612,7 @@ impl Backend {
         revision: u64,
         output: std::process::Output,
     ) -> std::io::Result<String> {
-        let uri = &capture.document.uri;
+        let uri = capture.document.uri.as_ref();
         if !output.stderr.is_empty() {
             let stderr = &output.stderr[..output.stderr.len().min(16 * 1024)];
             self.client

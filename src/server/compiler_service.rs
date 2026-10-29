@@ -19,7 +19,7 @@ use url::Url;
 
 #[derive(Clone)]
 pub(super) struct BaseModule {
-    pub(super) uri: Url,
+    pub(super) uri: Arc<Url>,
     pub(super) snapshot: Arc<DocumentSnapshot>,
 }
 impl Deref for BaseModule {
@@ -145,7 +145,7 @@ impl Backend {
                 let directory = tempfile::tempdir().ok()?;
                 let path = directory.path().join("Base.bend");
                 std::fs::write(&path, &source).ok()?;
-                let uri = Url::from_file_path(&path).ok()?;
+                let uri = Arc::new(Url::from_file_path(&path).ok()?);
                 let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source));
                 Some((BaseModule { uri, snapshot }, path, directory))
             })

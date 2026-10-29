@@ -14,7 +14,7 @@ pub(super) fn versioned_edit(document: &Document, edits: Vec<TextEdit>) -> Works
     WorkspaceEdit {
         document_changes: Some(DocumentChanges::Edits(vec![TextDocumentEdit {
             text_document: OptionalVersionedTextDocumentIdentifier {
-                uri: document.uri.clone(),
+                uri: document.uri.as_ref().clone(),
                 version: Some(document.revision.0),
             },
             edits: edits.into_iter().map(OneOf::Left).collect(),
@@ -94,7 +94,7 @@ pub(super) fn auto_import_plan(
         if (path == "Base" && import.path_text(&document.text) == "Base")
             || workspace
                 .import_target(&document.uri, import.path)
-                .is_some_and(|doc| &doc.uri == target)
+                .is_some_and(|doc| doc.uri.as_ref() == target)
         {
             already_imported = true;
             if path == "Base" && import.alias.is_none() {
@@ -316,7 +316,7 @@ fn new_import_edit(document: &Document, path: &str, alias: Option<&str>) -> Text
 
 struct ImportRecord<'a> {
     path: &'a str,
-    target: Option<Url>,
+    target: Option<std::sync::Arc<Url>>,
     alias: Option<&'a str>,
     range: TextRange,
     line_start: usize,
@@ -332,7 +332,7 @@ enum ImportIdentity<'a> {
 impl ImportRecord<'_> {
     fn identity(&self) -> ImportIdentity<'_> {
         self.target
-            .as_ref()
+            .as_deref()
             .map_or(ImportIdentity::Path(self.path), ImportIdentity::Target)
     }
 }

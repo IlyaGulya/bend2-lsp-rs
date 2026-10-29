@@ -63,7 +63,7 @@ mod tests {
         let dependents: HashSet<Url> = database
             .dependents(shared)
             .into_iter()
-            .map(|document| document.uri)
+            .map(|document| document.uri.as_ref().clone())
             .collect();
         let expected: HashSet<Url> = paths[..3]
             .iter()
@@ -170,7 +170,7 @@ mod tests {
             database
                 .dependents(old_id)
                 .iter()
-                .any(|document| document.uri == main_uri)
+                .any(|document| *document.uri == main_uri)
         );
 
         let new_source = "import ./new.bend as Dep\ndef main: U32\n  Dep.value\n";
@@ -195,7 +195,7 @@ mod tests {
             database
                 .dependents(new_id)
                 .iter()
-                .map(|document| document.uri.clone())
+                .map(|document| document.uri.as_ref().clone())
                 .collect::<HashSet<_>>(),
             HashSet::from([main_uri.clone()])
         );
@@ -208,7 +208,7 @@ mod tests {
         let target = database
             .import_target(&main_uri, import.path)
             .ok_or_else(|| std::io::Error::other("resolved new import"))?;
-        assert_eq!(target.uri, file_uri(&new_path)?);
+        assert_eq!(target.uri.as_ref(), &file_uri(&new_path)?);
 
         fs::remove_file(&old_path)?;
         let (removed_id, _) = database
@@ -292,7 +292,7 @@ mod tests {
         let target = database
             .import_target(&consumer_uri, import.path)
             .ok_or_else(|| std::io::Error::other("renamed consumer import target"))?;
-        assert_eq!(target.uri, file_uri(&new_dependency)?);
+        assert_eq!(target.uri.as_ref(), &file_uri(&new_dependency)?);
         Ok(())
     }
 
@@ -375,7 +375,7 @@ mod tests {
         let dependency_path = directory.path().join("dep.bend");
         let canonical_path = directory.path().join("canonical.bend");
         let user_path = directory.path().join("user.bend");
-        let generated_uri = file_uri(&generated_path)?;
+        let generated_uri = Arc::new(file_uri(&generated_path)?);
         let generated_source =
             "import ./canonical.bend as Canonical\ndef generated: U32\n  Canonical.value\n";
         fs::write(&generated_path, generated_source)?;
@@ -447,7 +447,7 @@ mod tests {
             .import_target(&generated_uri, canonical_import.path)
             .ok_or_else(|| std::io::Error::other("reactivated generated import navigation"))?;
         assert_eq!(canonical.text, canonical_source);
-        assert_eq!(canonical.uri, file_uri(&canonical_path)?);
+        assert_eq!(canonical.uri.as_ref(), &file_uri(&canonical_path)?);
         assert!(
             database
                 .cached_document(&file_uri(&dependency_path)?)
