@@ -191,6 +191,9 @@
   consumers, including entry-rooted target/status metadata and direct
   definition requests in the matching entry context. Reject stub contents and
   foreign or decorated Base-document URIs; retain the compiler/Base hashes.
+- Bind real-stdio coverage to the exact selected plan identities. Reject
+  self-consistent partial counts, omitted or duplicate scenarios, foreign
+  receipt IDs, and empty consumer checks instead of accepting a smaller run.
 - Shard each of the six logical Callgrind controls across four physical runners.
   Preserve all 105 balanced pairs per workload on one host, all nine counters,
   the frozen baseline and positive-control sensitivity. Reject incomplete,

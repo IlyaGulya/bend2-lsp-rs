@@ -289,9 +289,14 @@ def check_local_rename(server,item,oracle,workspace,base):
     return checked
 
 
+def selected_consumers(plan,selected_ids=None):
+    required=set(SELECTED if selected_ids is None else selected_ids)
+    return [item for item in plan['planned'] if item['variant']=='original' and (item['case_id'] in required or selected_ids is None and item['case'].get('consumer_profile'))]
+
+
 def run_stdio(plan,oracle_answers,binary,deadline,selected_ids=None):
     required=set(SELECTED if selected_ids is None else selected_ids)
-    selected=[item for item in plan['planned'] if item['variant']=='original' and (item['case_id'] in required or selected_ids is None and item['case'].get('consumer_profile'))]
+    selected=selected_consumers(plan,selected_ids)
     if not required.issubset({item['case_id'] for item in selected}):raise ToolFailure('stdio-corpus-case-missing')
     report={'planned':len(selected),'completed':0,'passed':0,'checks':[]}
     source=pinned_base_source()

@@ -538,9 +538,16 @@ def validate_report(plan, report):
                 entry[name] += row.get("facet", "valid") == "valid"
     if report.get("coverage") != coverage:
         raise ValueError("incomplete grammar-family coverage")
+    from semantic_stdio import selected_consumers
+    expected_stdio={row["id"] for row in selected_consumers(plan)}
     stdio = report["stdio"]
-    if not stdio["planned"] or not (stdio["planned"] == stdio["completed"] == stdio["passed"]):
+    if not expected_stdio or not (len(expected_stdio) == stdio["planned"] == stdio["completed"] == stdio["passed"]):
         raise ValueError("incomplete real stdio scenarios")
+    checked=stdio.get("checks",[])
+    if len(checked)!=len(expected_stdio) or {row["id"] for row in checked}!=expected_stdio:
+        raise ValueError("missing, duplicate or unexpected real stdio scenario")
+    if any(type(row.get("consumer_checks")) is not int or row["consumer_checks"]<=0 for row in checked):
+        raise ValueError("empty real stdio scenario")
     isolation = report["isolation"]
     if not all(isolation.get(check) for check in ("aba", "fresh", "repeated")):
         raise ValueError("missing worker isolation checks")

@@ -536,7 +536,7 @@ class SupervisorTests(unittest.TestCase):
 
 class ReportTests(unittest.TestCase):
     def setUp(self):
-        self.plan = {"schema":1, "planned": [{"id":"a", "input_sha256":"digest", "facet":"valid", "case":{"families":["lambda"]}}],
+        self.plan = {"schema":1, "planned": [{"id":"a", "case_id":"a", "variant":"original", "input_sha256":"digest", "facet":"valid", "case":{"families":["lambda"],"consumer_profile":"validation-fixture"}}],
             "pin_sha256":"pin", "profile_sha256":"profile", "manifest_sha256":"manifest"}
         self.report = {"schema":1, "status":"pass", "completed":[{"id":"a", "input_sha256":"digest", "oracle_sha256":"0"*64}],
             "counts":{**dict.fromkeys(("planned", "validated", "compared", "matched", "valid_planned"),1),
@@ -544,7 +544,7 @@ class ReportTests(unittest.TestCase):
             "failures":[], **{key:self.plan[key] for key in
                 ("pin_sha256", "profile_sha256", "manifest_sha256")},
             "coverage":{"lambda":{"planned":1,"validated":1,"compared":1,"matched":1}},
-            "stdio":{"planned":2,"completed":2,"passed":2},
+            "stdio":{"planned":1,"completed":1,"passed":1,"checks":[{"id":"a","consumer_checks":1}]},
             "isolation":{"aba":True,"fresh":True,"repeated":True,"reversed_views":1,
                 "reversed_history":[{"id":"a","oracle_sha256":"0"*64}]},
             "metrics":{"histories":{"workers":2,"candidate_pid":103,"fresh_pid":104,
@@ -552,8 +552,35 @@ class ReportTests(unittest.TestCase):
                 "reverse":{"pid":102,"planned":1,"completed":1,"complete":True,"cases":[{"id":"a"}]}}}}
         self.report["planned"] = copy.deepcopy(self.report["completed"])
 
-    def test_complete_report_passes(self):
-        gate.validate_report(self.plan, self.report)
+
+    def test_self_consistent_stdio_subset_cannot_omit_declared_consumer(self):
+        plan=copy.deepcopy(self.plan);report=copy.deepcopy(self.report)
+        extra={**copy.deepcopy(plan["planned"][0]),"id":"b","case_id":"b","input_sha256":"other"}
+        plan["planned"].append(extra)
+        completion={"id":"b","input_sha256":"other","oracle_sha256":"1"*64}
+        report["planned"].append(copy.deepcopy(completion));report["completed"].append(completion)
+        for field in ("planned","validated","compared","matched","valid_planned"):
+            report["counts"][field]=2
+        report["coverage"]["lambda"]={key:2 for key in ("planned","validated","compared","matched")}
+        report["isolation"].update(reversed_views=2,reversed_history=[
+            {"id":"b","oracle_sha256":"1"*64},{"id":"a","oracle_sha256":"0"*64}])
+        report["metrics"]["histories"]["forward"].update(planned=2,completed=2)
+        report["metrics"]["histories"]["reverse"].update(planned=2,completed=2,cases=[{"id":"b"},{"id":"a"}])
+        report["stdio"]={"planned":2,"completed":2,"passed":2,
+            "checks":[{"id":"a","consumer_checks":1},{"id":"b","consumer_checks":1}]}
+        gate.validate_report(plan,report)
+        report["stdio"]={"planned":1,"completed":1,"passed":1,
+            "checks":[{"id":"a","consumer_checks":1}]}
+        with self.assertRaises(ValueError):
+            gate.validate_report(plan,report)
+
+    def test_stdio_receipts_require_exact_unique_nonempty_declared_consumers(self):
+        for checked in ([],[{"id":"other","consumer_checks":1}],
+                [{"id":"a","consumer_checks":1},{"id":"a","consumer_checks":1}],
+                [{"id":"a","consumer_checks":0}]):
+            report=copy.deepcopy(self.report);report["stdio"]["checks"]=checked
+            with self.subTest(checked=checked),self.assertRaises(ValueError):
+                gate.validate_report(self.plan,report)
 
     def test_reverse_coverage_and_session_independence_fail_closed(self):
         for mutation in ("omitted","duplicate","wrong-hash","incomplete","shared-session","not-repeated"):
@@ -578,6 +605,8 @@ class ReportTests(unittest.TestCase):
         report["isolation"].update(reversed_views=2,reversed_history=history)
         report["metrics"]["histories"]["forward"].update(planned=2,completed=2)
         report["metrics"]["histories"]["reverse"].update(planned=2,completed=2,cases=[{"id":"b"},{"id":"a"}])
+        report["stdio"]={"planned":2,"completed":2,"passed":2,
+            "checks":[{"id":"a","consumer_checks":1},{"id":"b","consumer_checks":1}]}
         gate.validate_report(plan,report)
         report["isolation"]["reversed_history"].reverse()
         with self.assertRaisesRegex(ValueError,"reordered"):
@@ -625,7 +654,7 @@ class ReportTests(unittest.TestCase):
     def test_invalid_and_recovery_lanes_must_be_complete(self):
         for lane in ("invalid","recovery"):
             with self.subTest(lane=lane):
-                extra = {"id":lane, "input_sha256":"other", "facet":"compiler-error" if lane=="invalid" else "recovery", "case":{"families":[lane]}}
+                extra = {"id":lane, "case_id":lane, "variant":"original", "input_sha256":"other", "facet":"compiler-error" if lane=="invalid" else "recovery", "case":{"families":[lane]}}
                 plan = {**self.plan,"planned":[*self.plan["planned"],extra]}
                 report = copy.deepcopy(self.report)
                 report["planned"].append({"id":lane,"input_sha256":"other"})
