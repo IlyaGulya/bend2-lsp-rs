@@ -5,6 +5,7 @@ use super::{
     lsp::Backend,
     revision::{RevisionStatus, RevisionTicket, wait_for_captured_revision},
     state::revision_result,
+    workspace_service::PreparedRevision,
 };
 use crate::{
     analysis::{self, DocumentSnapshot, LineIndex, Revision},
@@ -120,15 +121,6 @@ impl Backend {
             )),
         }
     }
-    pub(super) fn begin_revision(
-        &self,
-        uri: &Url,
-        path: Option<PathBuf>,
-        revision: Revision,
-        create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Option<Arc<Url>>)> {
-        self.workspace.begin_revision(uri, path, revision, create)
-    }
     pub(super) fn begin_document_refresh(
         &self,
         uri: &Url,
@@ -146,7 +138,14 @@ impl Backend {
         text: String,
         path: Option<PathBuf>,
     ) -> Option<bool> {
-        let (id, ticket, path, uri) = self.begin_revision(&uri, path, Revision(version), true)?;
+        let PreparedRevision {
+            file: id,
+            ticket,
+            path,
+            uri,
+        } = self
+            .workspace
+            .begin_revision(&uri, path, Revision(version), true)?;
         let uri = uri?;
         tracing::Span::current().record("file_id", tracing::field::debug(&id));
         if !revision_result(ticket.wait_for_turn().await) {
@@ -447,7 +446,14 @@ impl Backend {
     ) -> bool {
         let uri = params.text_document.uri.clone();
         let version = params.text_document.version;
-        let Some((id, ticket, path, _)) = self.begin_revision(&uri, None, Revision(version), false)
+        let Some(PreparedRevision {
+            file: id,
+            ticket,
+            path,
+            ..
+        }) = self
+            .workspace
+            .begin_revision(&uri, None, Revision(version), false)
         else {
             return false;
         };

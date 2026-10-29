@@ -34,6 +34,13 @@ pub(super) struct ClosedRevision {
     generation: u64,
 }
 
+pub(super) struct PreparedRevision {
+    pub(super) file: FileId,
+    pub(super) ticket: RevisionTicket,
+    pub(super) path: Option<PathBuf>,
+    pub(super) uri: Option<Arc<Url>>,
+}
+
 impl WorkspaceState {
     pub(super) fn is_closed(&self, closed: ClosedRevision) -> bool {
         self.revisions.get(&closed.view).is_some_and(|sync| {
@@ -154,7 +161,7 @@ impl WorkspaceService {
         path: Option<PathBuf>,
         revision: Revision,
         create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>, Option<Arc<Url>>)> {
+    ) -> Option<PreparedRevision> {
         let mut state = self.state.write();
         let id = if create {
             // Resolve the binding once so interning reuses the installed URI
@@ -180,7 +187,12 @@ impl WorkspaceService {
             })
             .clone();
         let ticket = revision_result(sync.reserve(revision))?;
-        Some((id, ticket, path, shared_uri))
+        Some(PreparedRevision {
+            file: id,
+            ticket,
+            path,
+            uri: shared_uri,
+        })
     }
     pub(super) fn begin_refresh(&self, uri: &Url, revision: Revision) -> Option<RevisionTicket> {
         let state = self.state.write();
@@ -283,9 +295,10 @@ mod tests {
         let path = temp.path().join("main.bend");
         let uri = Url::from_file_path(&path).map_err(|()| io::Error::other("file URI"))?;
         let service = WorkspaceService::default();
-        let (_, ticket, _, _) = service
+        let ticket = service
             .begin_revision(&uri, Some(path.clone()), Revision(1), true)
-            .ok_or_else(|| io::Error::other("reserve open"))?;
+            .ok_or_else(|| io::Error::other("reserve open"))?
+            .ticket;
         let old_source = "import ./old.bend as Old\ndef main = Old.value\n";
         let new_source = "import ./new.bend as New\ndef main = New.value\n";
         service
@@ -362,16 +375,18 @@ mod tests {
     fn queued_close_cannot_mutate_a_reopened_epoch() -> io::Result<()> {
         let service = WorkspaceService::default();
         let uri = Url::parse("file:///reopened.bend").map_err(io::Error::other)?;
-        let (_, first, _, _) = service
+        let first = service
             .begin_revision(&uri, None, Revision(8), true)
-            .ok_or_else(|| io::Error::other("first epoch"))?;
+            .ok_or_else(|| io::Error::other("first epoch"))?
+            .ticket;
         drop(first);
         let closed = service
             .begin_close(&uri)
             .ok_or_else(|| io::Error::other("close"))?;
-        let (_, reopened, _, _) = service
+        let reopened = service
             .begin_revision(&uri, None, Revision(1), true)
-            .ok_or_else(|| io::Error::other("reopen epoch"))?;
+            .ok_or_else(|| io::Error::other("reopen epoch"))?
+            .ticket;
         service
             .commit(Some(&reopened), None, |database| {
                 Some(database.set_open_document(
