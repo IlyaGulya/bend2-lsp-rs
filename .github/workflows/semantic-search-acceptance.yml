@@ -1,0 +1,113 @@
+name: semantic-search-acceptance
+
+on:
+  push:
+    branches: [diagnostic/semantic-search-9eb86a19]
+
+permissions: {}
+
+env:
+  SUT_SOURCE_SHA: 5ccf20ae66fad581063486455e4be8278f8ba041
+
+concurrency:
+  group: semantic-search-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  search:
+    if: github.repository == 'IlyaGulya/bend2-lsp-rs' && github.ref == 'refs/heads/diagnostic/semantic-search-9eb86a19'
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SUT_SOURCE_SHA }}
+          persist-credentials: false
+      - name: Bind workflow source separately from measured source
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib,subprocess
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          if actual!=os.environ['SUT_SOURCE_SHA']:raise SystemExit('immutable source checkout mismatch')
+          output=pathlib.Path('target/semantic-fuzz');output.mkdir(parents=True)
+          (output/'qualification-source.json').write_text(json.dumps({'source_sha':actual,'workflow_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'runner':os.environ['RUNNER_NAME'],'kind':'full original scheduled SEARCH; no profile overrides'},indent=2)+'\n')
+          PY
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Provision checksum-pinned genuine Bend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/bootstrap_bend.py --target x86_64-unknown-linux-gnu --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"
+      - name: Install pinned semantic runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/semantic_gate.py install --output target/semantic-fuzz
+      - name: Prepare once outside measured search
+        run: python3 scripts/semantic_gate.py setup --output target/semantic-fuzz
+      - name: Run original full bounded deterministic search
+        run: python3 scripts/semantic_gate.py scheduled --output target/semantic-fuzz
+      - name: Preserve all seeds and original failures even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-search-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/semantic-fuzz/
+          if-no-files-found: error
+          retention-days: 14
+
+  negative-controls:
+    if: github.repository == 'IlyaGulya/bend2-lsp-rs' && github.ref == 'refs/heads/diagnostic/semantic-search-9eb86a19'
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        control: [semantic-mismatch, missing-oracle, omitted-case, hard-budget]
+    env:
+      CONTROL_KIND: ${{ matrix.control }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SUT_SOURCE_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: diagnostic
+          persist-credentials: false
+      - name: Bind immutable candidate source
+        run: |
+          test "$(git rev-parse HEAD)" = "$SUT_SOURCE_SHA"
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Provision checksum-pinned genuine Bend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/bootstrap_bend.py --target x86_64-unknown-linux-gnu --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"
+      - name: Install pinned semantic runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/semantic_gate.py install --output target/semantic-control-setup
+      - name: Prepare original candidate outside controlled failure
+        run: python3 scripts/semantic_gate.py setup --output target/semantic-control-setup
+      # This step MUST fail. No continue-on-error/retry: its original failure is
+      # retained. The next step independently verifies cause and durable evidence.
+      - name: Exercise original gate with explicit diagnostic fault
+        run: python3 diagnostic/scripts/semantic_gate_acceptance_control.py run "$CONTROL_KIND" --output "target/semantic-negative/$CONTROL_KIND"
+      - name: Verify exact rejection and owned-child cleanup
+        if: always()
+        run: python3 diagnostic/scripts/semantic_gate_acceptance_control.py verify "$CONTROL_KIND" --output "target/semantic-negative/$CONTROL_KIND"
+      - name: Preserve original red run and replayable evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-negative-${{ matrix.control }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/semantic-negative/
+            target/semantic-control-setup/
+          if-no-files-found: error
+          retention-days: 14
