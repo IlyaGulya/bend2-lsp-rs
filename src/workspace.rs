@@ -14,25 +14,34 @@ use views::{AliasView, OpenView, ViewId};
 
 #[derive(Clone)]
 pub struct Document {
-    pub uri: Url,
+    pub uri: Arc<Url>,
     pub language_id: String,
     pub snapshot: Arc<DocumentSnapshot>,
 }
 
 impl Document {
     #[must_use]
-    pub fn new(uri: Url, language_id: String, revision: Revision, text: String) -> Self {
+    pub fn new(
+        uri: impl Into<Arc<Url>>,
+        language_id: String,
+        revision: Revision,
+        text: String,
+    ) -> Self {
         Self {
-            uri,
+            uri: uri.into(),
             language_id,
             snapshot: Arc::new(DocumentSnapshot::new(revision, text)),
         }
     }
 
     #[must_use]
-    pub fn with_snapshot(uri: Url, language_id: String, snapshot: Arc<DocumentSnapshot>) -> Self {
+    pub fn with_snapshot(
+        uri: impl Into<Arc<Url>>,
+        language_id: String,
+        snapshot: Arc<DocumentSnapshot>,
+    ) -> Self {
         Self {
-            uri,
+            uri: uri.into(),
             language_id,
             snapshot,
         }
@@ -357,7 +366,7 @@ impl WorkspaceDb {
 
     // URI values are immutable and shared by the binding, physical entry and
     // matching editor spelling. Different spellings still have different keys.
-    fn shared_uri(&self, uri: Cow<'_, Url>) -> Arc<Url> {
+    pub(crate) fn shared_uri(&self, uri: Cow<'_, Url>) -> Arc<Url> {
         if let Some((shared, _)) = self.by_uri.get_key_value(uri.as_ref()) {
             return Arc::clone(shared);
         }
@@ -377,7 +386,7 @@ impl WorkspaceDb {
     /// read in one probe; only a first open installs a pending epoch. An epoch
     /// is allocated once and reused across close/reopen so a stale close epoch
     /// never matches a reopened buffer.
-    fn ensure_view_shared(&mut self, uri: &Url, file: FileId) -> (ViewId, Arc<Url>) {
+    pub(crate) fn ensure_view_shared(&mut self, uri: &Url, file: FileId) -> (ViewId, Arc<Url>) {
         let found = self.by_uri.get_key_value(uri);
         let resolved = found.map(|(shared, binding)| (Arc::clone(shared), binding.view));
         let Some((shared, view)) = resolved else {

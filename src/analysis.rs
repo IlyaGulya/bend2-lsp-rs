@@ -845,14 +845,9 @@ fn contains_normalized(name: &str, normalized: &str, ascii_query: bool) -> bool 
     if !ascii_query {
         return false;
     }
-    // The query is already lowercase; only candidate bytes need case conversion.
-    let normalized = normalized.as_bytes();
-    name.as_bytes().windows(normalized.len()).any(|window| {
-        window
-            .iter()
-            .zip(normalized)
-            .all(|(actual, expected)| actual.to_ascii_lowercase() == *expected)
-    })
+    name.as_bytes()
+        .windows(normalized.len())
+        .any(|window| window.eq_ignore_ascii_case(normalized.as_bytes()))
 }
 
 #[must_use]
