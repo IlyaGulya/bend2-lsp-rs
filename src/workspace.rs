@@ -294,6 +294,7 @@ impl WorkspaceDb {
     }
     pub(crate) fn admit_discovered_path(&mut self, path: PathBuf) -> Option<FileId> {
         let uri = Url::from_file_path(&path).ok()?;
+        let uri = self.shared_uri(Cow::Owned(uri));
         let id = self.intern(uri, Some(path));
         if self
             .compiler_documents
@@ -334,7 +335,7 @@ impl WorkspaceDb {
     /// for the lifetime of the workspace index, not just the active compiler cache.
     pub(crate) fn register_compiler_document(
         &mut self,
-        uri: impl Into<Arc<Url>>,
+        uri: Arc<Url>,
         path: PathBuf,
         snapshot: Arc<DocumentSnapshot>,
         directory: tempfile::TempDir,
@@ -1231,6 +1232,7 @@ impl WorkspaceDb {
     pub fn sync_disk_path(&mut self, path: &Path, text: Option<String>) -> Option<(FileId, bool)> {
         let path = normalize_path(path);
         let uri = Url::from_file_path(&path).ok()?;
+        let uri = self.shared_uri(Cow::Owned(uri));
         let id = self.intern(uri, Some(path.clone()));
         if !self.is_needed(id) {
             return Some((id, false));
@@ -1512,11 +1514,7 @@ impl WorkspaceDb {
     pub fn file_id_by_uri(&self, uri: &Url) -> Option<FileId> {
         self.by_uri.get(uri).map(|binding| binding.file)
     }
-    pub(crate) fn ensure_file_id(
-        &mut self,
-        uri: impl Into<Arc<Url>>,
-        path: Option<PathBuf>,
-    ) -> FileId {
+    pub(crate) fn ensure_file_id(&mut self, uri: Arc<Url>, path: Option<PathBuf>) -> FileId {
         self.intern(uri, path)
     }
 
@@ -1525,8 +1523,7 @@ impl WorkspaceDb {
         self.by_path.get(&normalize_path(path)).copied()
     }
 
-    fn intern(&mut self, uri: impl Into<Arc<Url>>, path: Option<PathBuf>) -> FileId {
-        let uri = uri.into();
+    fn intern(&mut self, uri: Arc<Url>, path: Option<PathBuf>) -> FileId {
         let path = path.map(|path| normalize_path(&path));
         let existing = path
             .as_ref()
@@ -1600,6 +1597,7 @@ impl WorkspaceDb {
         let mut imports = Vec::with_capacity(targets.len());
         for (import_path, target_path) in targets {
             if let Ok(uri) = Url::from_file_path(&target_path) {
+                let uri = self.shared_uri(Cow::Owned(uri));
                 let target = self.intern(uri, Some(target_path));
                 imports.push(ImportEdge {
                     path: import_path,
