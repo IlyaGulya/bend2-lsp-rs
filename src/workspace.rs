@@ -334,7 +334,7 @@ impl WorkspaceDb {
     /// for the lifetime of the workspace index, not just the active compiler cache.
     pub(crate) fn register_compiler_document(
         &mut self,
-        uri: Url,
+        uri: impl Into<Arc<Url>>,
         path: PathBuf,
         snapshot: Arc<DocumentSnapshot>,
         directory: tempfile::TempDir,
@@ -465,7 +465,7 @@ impl WorkspaceDb {
     pub(crate) fn open_view_spellings(&self) -> impl Iterator<Item = &Url> {
         self.entries
             .iter()
-            .flat_map(|entry| entry.views().map(|view| view.uri))
+            .flat_map(|entry| entry.views().map(|view| view.uri.as_ref()))
     }
 
     pub(crate) fn open_view_ids(&self, id: FileId) -> Vec<ViewId> {
@@ -689,7 +689,7 @@ impl WorkspaceDb {
                 return;
             };
             let document = Document::with_snapshot(
-                entry.uri.as_ref().clone(),
+                Arc::clone(&entry.uri),
                 entry
                     .representative_language()
                     .map_or_else(|| FALLBACK_LANGUAGE_ID.into(), str::to_owned),
@@ -1080,9 +1080,13 @@ impl WorkspaceDb {
         imports: Vec<(analysis::TextRange, PathBuf)>,
     ) -> FileId {
         let uri = document.uri;
-        let id = self.intern(uri.clone(), path);
+        // The document already owns the shared URI value; intern keeps that
+        // Arc for the binding and physical entry instead of rebuilding it.
+        let id = self.intern(Arc::clone(&uri), path);
         self.release_retired_payload(id);
-        let (view_id, uri) = self.ensure_view_shared(&uri, id);
+        // The binding installed by intern already carries this spelling, so a
+        // first open never clones the URL payload to allocate a new key.
+        let (view_id, uri) = self.ensure_view_shared(uri.as_ref(), id);
         let entry = &mut self.entries[id.0];
         entry.insert_view(
             OpenView {
@@ -1508,7 +1512,11 @@ impl WorkspaceDb {
     pub fn file_id_by_uri(&self, uri: &Url) -> Option<FileId> {
         self.by_uri.get(uri).map(|binding| binding.file)
     }
-    pub(crate) fn ensure_file_id(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
+    pub(crate) fn ensure_file_id(
+        &mut self,
+        uri: impl Into<Arc<Url>>,
+        path: Option<PathBuf>,
+    ) -> FileId {
         self.intern(uri, path)
     }
 
@@ -1517,12 +1525,13 @@ impl WorkspaceDb {
         self.by_path.get(&normalize_path(path)).copied()
     }
 
-    fn intern(&mut self, uri: Url, path: Option<PathBuf>) -> FileId {
+    fn intern(&mut self, uri: impl Into<Arc<Url>>, path: Option<PathBuf>) -> FileId {
+        let uri = uri.into();
         let path = path.map(|path| normalize_path(&path));
         let existing = path
             .as_ref()
             .and_then(|path| self.by_path.get(path).copied())
-            .or_else(|| self.by_uri.get(&uri).map(|binding| binding.file));
+            .or_else(|| self.by_uri.get(uri.as_ref()).map(|binding| binding.file));
         if let Some(id) = existing {
             // Every spelling keeps resolving to the one physical identity.
             // The entry's own `uri` stays the primary spelling; an open
@@ -1543,11 +1552,11 @@ impl WorkspaceDb {
                 self.by_path.remove(&old_path);
             }
             // A prior view epoch on this spelling must survive re-interning.
-            if let Some(binding) = self.by_uri.get_mut(&uri) {
+            if let Some(binding) = self.by_uri.get_mut(uri.as_ref()) {
                 binding.file = id;
             } else {
                 self.by_uri.insert(
-                    Arc::new(uri),
+                    uri,
                     UriBinding {
                         file: id,
                         view: None,
@@ -1557,7 +1566,6 @@ impl WorkspaceDb {
             return id;
         }
         let id = FileId(self.entries.len());
-        let uri = Arc::new(uri);
         self.entries.push(FileEntry {
             uri: Arc::clone(&uri),
             path: path.clone(),

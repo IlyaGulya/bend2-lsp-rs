@@ -55,7 +55,7 @@ impl AliasView {
 /// Borrowed identity of one open spelling, representative or alias.
 #[derive(Clone, Copy)]
 pub(super) struct ViewRef<'a> {
-    pub(super) uri: &'a Url,
+    pub(super) uri: &'a Arc<Url>,
     pub(super) id: ViewId,
     pub(super) language_id: &'a str,
     pub(super) snapshot: &'a Arc<DocumentSnapshot>,
@@ -67,8 +67,11 @@ impl ViewRef<'_> {
     }
 }
 
-fn document_of(uri: &Url, language_id: &str, snapshot: &Arc<DocumentSnapshot>) -> Document {
-    Document::with_snapshot(uri.clone(), language_id.to_owned(), snapshot.clone())
+// The spelling's URI value is immutable and already shared with the binding
+// and file entry, so a returned document only bumps that Arc instead of
+// cloning the URL payload into a fresh allocation.
+fn document_of(uri: &Arc<Url>, language_id: &str, snapshot: &Arc<DocumentSnapshot>) -> Document {
+    Document::with_snapshot(Arc::clone(uri), language_id.to_owned(), snapshot.clone())
 }
 
 impl FileEntry {
@@ -174,10 +177,10 @@ impl FileEntry {
     pub(super) fn conflicting_views(entry: &FileEntry) -> Option<Vec<Url>> {
         let mut views = entry.views();
         let first = views.next()?;
-        let mut uris = vec![first.uri.clone()];
+        let mut uris = vec![first.uri.as_ref().clone()];
         let mut conflict = false;
         for view in views {
-            uris.push(view.uri.clone());
+            uris.push(view.uri.as_ref().clone());
             conflict = conflict || view.snapshot.text != first.snapshot.text;
         }
         conflict.then(|| {

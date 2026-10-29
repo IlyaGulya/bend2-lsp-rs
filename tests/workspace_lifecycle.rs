@@ -145,7 +145,7 @@ fn reimport_reads_updated_disk_with_stable_dependency_identity() {
     );
     let dependents = db.dependents(id);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, uri(&root));
+    assert_eq!(dependents[0].uri.as_ref(), &uri(&root));
 }
 
 #[test]
@@ -200,7 +200,7 @@ fn reimport_during_unfinished_load_discards_retired_disk_and_import_edges() {
     assert!(weak.upgrade().is_none());
     let dependents = db.dependents(dep_id);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, uri(&root));
+    assert_eq!(dependents[0].uri.as_ref(), &uri(&root));
 }
 
 #[test]
@@ -311,7 +311,7 @@ fn closing_unsaved_dependency_overlay_reloads_fresh_disk_for_open_importer() {
     assert_eq!(db.file_id_by_path(&root), Some(root_id));
     let dependents = db.dependents(dep_id);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, uri(&root));
+    assert_eq!(dependents[0].uri.as_ref(), &uri(&root));
 }
 
 #[test]
@@ -331,7 +331,7 @@ fn dependents_preserve_terminal_frontiers_diamonds_and_cycles_across_updates() {
         let mut uris = db
             .dependents(common_id)
             .into_iter()
-            .map(|document| document.uri)
+            .map(|document| document.uri.as_ref().clone())
             .collect::<Vec<_>>();
         uris.sort_unstable();
         uris
@@ -413,7 +413,7 @@ fn assert_candidate(db: &WorkspaceDb, source: &Url, prefix: &str, expected: Opti
     let candidates = db.import_completion_candidates(source, prefix, false);
     if let Some(expected) = expected {
         assert_eq!(candidates.len(), 1, "unique candidate for {prefix}");
-        assert_eq!(&candidates[0].0.uri, expected);
+        assert_eq!(candidates[0].0.uri.as_ref(), expected);
     } else {
         assert!(candidates.is_empty(), "retired candidate for {prefix}");
     }
@@ -549,7 +549,7 @@ fn assert_shared_root_retained(
     );
     let dependents = db.dependents(identities[STRESS_OVERLAY]);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, fixture.uris[STRESS_SHARED_ROOT]);
+    assert_eq!(dependents[0].uri.as_ref(), &fixture.uris[STRESS_SHARED_ROOT]);
     drop(dependents);
     assert_candidate(
         db,
