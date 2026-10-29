@@ -1614,6 +1614,8 @@ fn published_semantic_view_close_orphan_release_retained_reader(
 
 library_benchmark_group!(
     name = analysis_scope_diagnostics;
+    config = iai_callgrind::LibraryBenchmarkConfig::default()
+        .pass_through_env("BEND2_SCOPE_DIAGNOSTIC_RECEIPT");
     benchmarks = cold_snapshot_nested_scope, published_semantic_view_close_orphan_release,
         published_semantic_view_close_orphan_release_retained_reader
 );
