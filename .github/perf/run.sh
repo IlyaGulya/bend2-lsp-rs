@@ -19,7 +19,12 @@ symbols() {
 
 profile() {
   local scenario="$1" backend="$2" binary="$3" code=0
+  local role="${4:-candidate}" revision="${5:-$CANDIDATE_SHA}"
   local name="profile-$scenario-$backend" directory="$PERF_ROOT/profiles/$scenario/$backend"
+  if [[ "$role" == baseline ]]; then
+    name="$name-baseline"
+    directory="$PERF_ROOT/baseline-profiles/$scenario/$backend"
+  fi
   local flags=("--$backend")
   if [[ "$backend" == native ]]; then
     native_kind=cpu
@@ -27,11 +32,15 @@ profile() {
     flags=(--native --native-kind "$native_kind")
   fi
   if [[ "$backend" == native-heap ]]; then flags=(--native --native-kind heap); fi
+  if [[ "$PERF_TARGET" == x86_64-unknown-linux-gnu && "$MODE" == native && "$SCENARIO" == latency ]]; then
+    flags+=(--latency-context ready-workspace)
+  fi
   run "$PERF_TOOL" collect-profile "$scenario" "${flags[@]}" --binary "$binary" \
-    --output-dir "$directory" --candidate-revision "$CANDIDATE_SHA" \
+    --output-dir "$directory" --candidate-revision "$revision" \
     > "$PERF_ROOT/logs/$name.log" 2>&1 || code=$?
   cat "$PERF_ROOT/logs/$name.log"
-  "$PERF_TOOL" workflow status "$name" "$code"
+  printf '%s\n' "$code" > "$PERF_ROOT/logs/$name.exit"
+  if [[ "$role" == candidate ]]; then "$PERF_TOOL" workflow status "$name" "$code"; fi
   if [[ "$code" != 0 ]]; then failed=1; fi
 }
 
@@ -97,6 +106,13 @@ case "${1:?Expected workflow stage}" in
       --manifest-path "$RUNNER_TEMP/perf-candidate/Cargo.toml" --target-dir "$RUNNER_TEMP/profile-candidate"
     cp "$RUNNER_TEMP/profile-candidate/release/bend2-lsp$EXE_SUFFIX" "$PROFILE_BIN_DIR/"
     symbols "$RUNNER_TEMP/profile-candidate/release" "$PROFILE_BIN_DIR"
+    if [[ "$PERF_TARGET" == x86_64-unknown-linux-gnu && "$MODE" == native && "$SCENARIO" == latency ]]; then
+      mkdir -p "$PROFILE_BIN_DIR/baseline"
+      run env CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_STRIP=none \
+        cargo build --locked --release --bin bend2-lsp \
+        --manifest-path "$RUNNER_TEMP/perf-base/Cargo.toml" --target-dir "$RUNNER_TEMP/profile-base"
+      cp "$RUNNER_TEMP/profile-base/release/bend2-lsp$EXE_SUFFIX" "$PROFILE_BIN_DIR/baseline/"
+    fi
     if [[ "$RUNNER_OS" == macOS ]] && \
       [[ "$MODE" == full || "$MODE" == verification || ( "$MODE" == native && "${NATIVE_KIND:-cpu}" == heap ) ]]; then
       mkdir -p "$PROFILE_BIN_DIR/native-heap"
@@ -137,6 +153,11 @@ case "${1:?Expected workflow stage}" in
     if [[ "$MODE" == full ]]; then scenarios=(discovery-10 discovery-1000 discovery-10000 latency); fi
     backends=("$MODE")
     if [[ "$MODE" == full || "$MODE" == verification ]]; then backends=(cpu heap native); fi
+    if [[ "$PERF_TARGET" == x86_64-unknown-linux-gnu && "$MODE" == native && "$SCENARIO" == latency ]]; then
+      pushd "$RUNNER_TEMP/perf-base"
+      profile latency native "$PROFILE_BIN_DIR/baseline/bend2-lsp$EXE_SUFFIX" baseline "$BASE_SHA"
+      popd
+    fi
     pushd "$RUNNER_TEMP/perf-candidate"
     for scenario in "${scenarios[@]}"; do
       for backend in "${backends[@]}"; do

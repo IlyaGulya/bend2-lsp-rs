@@ -1,6 +1,6 @@
 use super::{
-    Child, Command, Duration, File, Instant, OpenOptions, OsString, Path, PathBuf, ScenarioSession,
-    Stdio, ToolResult, Value, doctor, fs, json, thread, validation, windows,
+    Child, Command, Duration, File, Instant, LatencyContext, OpenOptions, OsString, Path, PathBuf,
+    ScenarioSession, Stdio, ToolResult, Value, doctor, fs, json, thread, validation, windows,
 };
 use std::io::{Read, Write};
 
@@ -27,6 +27,7 @@ pub(super) struct Session {
     backend: String,
     kind: String,
     output: PathBuf,
+    pub(super) latency_context: LatencyContext,
     child: Option<Child>,
     notifier: Option<Child>,
     control: Option<File>,
@@ -61,6 +62,7 @@ impl Session {
             backend: backend.to_owned(),
             kind: kind.to_owned(),
             output: output.to_owned(),
+            latency_context: LatencyContext::DiscoveryFirst,
             child: None,
             notifier: None,
             control: None,
@@ -466,9 +468,7 @@ impl Session {
             OFlag::O_RDWR | OFlag::O_NONBLOCK,
             Mode::empty(),
         )?);
-        self.spawn(
-            "perf",
-            &[
+        let arguments = [
                 "record".to_owned(),
                 "--pid".to_owned(),
                 pid.to_string(),
@@ -492,8 +492,21 @@ impl Session {
                     control_path.display(),
                     ack_path.display()
                 ),
-            ],
-        )?;
+        ];
+        if self.faithful_latency() {
+            let arguments = arguments
+                .into_iter()
+                .chain([
+                    "--clockid".to_owned(),
+                    "CLOCK_REALTIME".to_owned(),
+                    "--switch-events".to_owned(),
+                    "--sample-cpu".to_owned(),
+                ])
+                .collect::<Vec<_>>();
+            self.spawn("perf", &arguments)?;
+        } else {
+            self.spawn("perf", &arguments)?;
+        }
         self.control_messages.push(json!({"transport": "perf-control-fifo", "payload": "enable\n", "elapsed_ns": self.started.elapsed().as_nanos()}));
         self.control
             .as_mut()
@@ -1346,6 +1359,10 @@ impl ScenarioSession for Session {
         crate::transport::LspProcess::spawn(binary, workspace, &self.child_environment())
     }
 
+    fn faithful_latency(&self) -> bool {
+        self.latency_context == LatencyContext::ReadyWorkspace
+    }
+
     fn child_environment(&self) -> Vec<(OsString, OsString)> {
         if self.backend == "dhat" {
             vec![(
@@ -1357,6 +1374,11 @@ impl ScenarioSession for Session {
             // Trace only the scalable allocator to avoid that attach interaction.
             // This compatibility setting is not default-process memory evidence.
             vec![(OsString::from("MallocNanoZone"), OsString::from("0"))]
+        } else if self.faithful_latency() {
+            vec![(
+                OsString::from("BEND2_LSP_TRACE"),
+                self.output.join("lsp-spans.json").into_os_string(),
+            )]
         } else {
             Vec::new()
         }
@@ -1465,8 +1487,11 @@ impl ScenarioSession for Session {
     }
     fn phase(&mut self, name: &str) -> ToolResult<()> {
         crate::scenario::check_cancelled()?;
-        self.phases
-            .push(json!({"name": name, "elapsed_ns": self.started.elapsed().as_nanos()}));
+        self.phases.push(json!({
+            "name": name,
+            "elapsed_ns": self.started.elapsed().as_nanos(),
+            "unix_ns": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos()
+        }));
         #[cfg(target_os = "macos")]
         if matches!(self.backend.as_str(), "xctrace" | "dhat")
             && self.kind == "heap"

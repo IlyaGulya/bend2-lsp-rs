@@ -3,7 +3,7 @@ use crate::{
     native::discovery,
     transport::{LspProcess, REQUEST_TIMEOUT, file_uri},
 };
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -53,6 +53,12 @@ pub(crate) fn check_cancelled() -> ToolResult<()> {
 
 pub(crate) fn bind_cancellation(client: &mut LspProcess) {
     client.set_cancellation_flag(&CANCELLED);
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum LatencyContext {
+    DiscoveryFirst,
+    ReadyWorkspace,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -115,6 +121,10 @@ pub(crate) trait ScenarioSession {
 
     fn child_environment(&self) -> Vec<(OsString, OsString)> {
         Vec::new()
+    }
+
+    fn faithful_latency(&self) -> bool {
+        false
     }
 
     fn finish_before_shutdown(&self) -> bool {
@@ -181,7 +191,7 @@ fn record_phase(result: &mut Value, started: Instant, name: &str) -> ToolResult<
     result["phases"]
         .as_array_mut()
         .ok_or("Missing scenario phase array")?
-        .push(json!({"name": name, "elapsed_ns": elapsed(started)}));
+        .push(json!({"name": name, "elapsed_ns": elapsed(started), "unix_ns": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos()}));
     Ok(())
 }
 
@@ -462,19 +472,15 @@ impl Workload<'_> {
         self.remove_root(workspace, symbols)
     }
 
-    fn latency(&mut self, workspace: &Path, body: &str) -> ToolResult<()> {
-        let completion_source = latency::SMALL_SOURCE.replace("  add(1, 2)\n", "  ad\n");
-        let documents = [
-            ("small", latency::SMALL_SOURCE),
-            ("completion", completion_source.as_str()),
-            ("dep", latency::DEPENDENCY_SOURCE),
-            ("importer", latency::IMPORTER_SOURCE),
-        ];
+    fn latency(&mut self, workspace: &Path, body: &str, completion_source: &str) -> ToolResult<()> {
+        let documents = latency_documents(completion_source);
         let mut uris = BTreeMap::new();
         self.transition("latency_open_documents", |run| {
             for (name, source) in documents {
                 let path = workspace.join(format!("{name}.bend"));
-                fs::write(&path, source)?;
+                if !run.session.faithful_latency() {
+                    fs::write(&path, source)?;
+                }
                 let uri = file_uri(&path)?;
                 run.client.notify(
                     "textDocument/didOpen",
@@ -597,22 +603,80 @@ fn latency_fixture(scenario: Scenario) -> ToolResult<Option<(String, String)>> {
     }
 }
 
+const fn latency_documents(completion_source: &str) -> [(&'static str, &str); 4] {
+    [
+        ("small", latency::SMALL_SOURCE),
+        ("completion", completion_source),
+        ("dep", latency::DEPENDENCY_SOURCE),
+        ("importer", latency::IMPORTER_SOURCE),
+    ]
+}
+
+struct ScenarioInputs {
+    files: BTreeMap<String, String>,
+    manifest: Value,
+    latency_body: Option<(String, String)>,
+    completion_source: Option<String>,
+    dataset_file_count: usize,
+}
+
+impl ScenarioInputs {
+    fn prepare(workspace: &Path, scenario: Scenario, faithful_latency: bool) -> ToolResult<Self> {
+        let (files, manifest) = if faithful_latency {
+            (
+                BTreeMap::new(),
+                json!({"kind":"latency-four-documents","root_present":true,"discovery_executed":false}),
+            )
+        } else {
+            discovery::dataset(scenario.file_count())
+        };
+        for (name, source) in &files {
+            check_cancelled()?;
+            fs::write(workspace.join(name), source)?;
+        }
+        let latency_body = latency_fixture(scenario)?;
+        let completion_source = (scenario == Scenario::Latency)
+            .then(|| latency::SMALL_SOURCE.replace("  add(1, 2)\n", "  ad\n"));
+        let dataset_file_count = if faithful_latency {
+            let source = completion_source
+                .as_deref()
+                .ok_or("Missing latency documents")?;
+            let documents = latency_documents(source);
+            for (name, source) in documents {
+                fs::write(workspace.join(format!("{name}.bend")), source)?;
+            }
+            documents.len()
+        } else {
+            files.len()
+        };
+        Ok(Self {
+            files,
+            manifest,
+            latency_body,
+            completion_source,
+            dataset_file_count,
+        })
+    }
+}
+
 fn initial_result(
     binary: &Path,
     scenario: Scenario,
-    dataset_file_count: usize,
-    manifest: Value,
+    inputs: &mut ScenarioInputs,
     session: &dyn ScenarioSession,
 ) -> ToolResult<Value> {
     let mut result = json!({
         "format_version":1,"scenario":scenario.name(),"status":"running",
-        "dataset_file_count":dataset_file_count,
+        "dataset_file_count":inputs.dataset_file_count,
         "binary_sha256":common::sha256_file(binary)?,
         "samples":SAMPLES,"warmup":WARMUP,
         "phases":[],"timings_ns":{},"requests":[],"semantics":{},"workloads_ns":{},
         "profiler_finish_order":if session.finish_before_shutdown() {"before_child_shutdown"} else {"after_child_shutdown"},
     });
-    result["dataset_manifest"] = manifest;
+    result["dataset_manifest"] = std::mem::take(&mut inputs.manifest);
+    if let Some((hash, body)) = &inputs.latency_body {
+        result["latency_fixture"] = json!({"sha256":hash,"repetitions":latency::FIXTURE_REPETITIONS,"expanded_bytes":body.len()});
+    }
     Ok(result)
 }
 
@@ -657,17 +721,9 @@ pub(crate) fn execute(
         .prefix("bend-profile-scenario-")
         .tempdir()?;
     let workspace = directory.path().canonicalize()?;
-    let (files, manifest) = discovery::dataset(scenario.file_count());
-    for (name, source) in &files {
-        check_cancelled()?;
-        fs::write(workspace.join(name), source)?;
-    }
-    let (symbols, references) = discovery::expected_results(&workspace, &files)?;
-    let latency_body = latency_fixture(scenario)?;
-    let mut result = initial_result(&binary, scenario, files.len(), manifest, session)?;
-    if let Some((hash, body)) = &latency_body {
-        result["latency_fixture"] = json!({"sha256":hash,"repetitions":latency::FIXTURE_REPETITIONS,"expanded_bytes":body.len()});
-    }
+    let faithful_latency = scenario == Scenario::Latency && session.faithful_latency();
+    let mut inputs = ScenarioInputs::prepare(&workspace, scenario, faithful_latency)?;
+    let mut result = initial_result(&binary, scenario, &mut inputs, session)?;
     let started = Instant::now();
     let mut owner = OwnedSession {
         session,
@@ -694,9 +750,19 @@ pub(crate) fn execute(
             started,
         };
         run.transition("initialize", |run| run.client.initialize())?;
-        run.discovery(&workspace, &files, &symbols, &references)?;
-        if let Some((_, body)) = &latency_body {
-            run.latency(&workspace, body)?;
+        if !faithful_latency {
+            let (symbols, references) = discovery::expected_results(&workspace, &inputs.files)?;
+            run.discovery(&workspace, &inputs.files, &symbols, &references)?;
+        }
+        if let Some((_, body)) = &inputs.latency_body {
+            run.latency(
+                &workspace,
+                body,
+                inputs
+                    .completion_source
+                    .as_deref()
+                    .ok_or("Missing latency documents")?,
+            )?;
         }
         if run.session.finish_before_shutdown() {
             run.transition("profiler_finish", |run| run.session.finished())?;

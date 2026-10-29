@@ -1,6 +1,6 @@
 use crate::{
     ToolResult, common, doctor,
-    scenario::{self, Scenario, ScenarioSession},
+    scenario::{self, LatencyContext, Scenario, ScenarioSession},
 };
 use clap::Parser;
 use serde_json::{Value, json};
@@ -37,6 +37,8 @@ struct Arguments {
     output_dir: PathBuf,
     #[arg(long)]
     candidate_revision: String,
+    #[arg(long, value_enum, default_value = "discovery-first")]
+    latency_context: LatencyContext,
 }
 
 fn files(directory: &Path, result: &mut Vec<PathBuf>) -> ToolResult<()> {
@@ -210,12 +212,30 @@ fn profile_backend(args: &Arguments) -> ToolResult<(&'static str, &'static str, 
     Ok((mode, backend, kind))
 }
 
+fn validate_span_trace(output: &Path) -> ToolResult<Value> {
+    let spans: Value = serde_json::from_slice(&fs::read(output.join("lsp-spans.json"))?)?;
+    let events = spans.as_array().ok_or("Span trace is not an event array")?;
+    let begins = events
+        .iter()
+        .filter(|event| event["name"] == "transport.service_future" && event["ph"] == "b")
+        .count();
+    let ends = events
+        .iter()
+        .filter(|event| event["name"] == "transport.service_future" && event["ph"] == "e")
+        .count();
+    if begins < 32 || begins != ends {
+        return Err("Incomplete protocol lifetime spans in diagnostic trace".into());
+    }
+    Ok(json!({"complete":true,"protocol_futures":begins,"events":events.len()}))
+}
+
 pub(crate) fn run(args: &[String]) -> ToolResult<()> {
     common::require_ci()?;
     let args = Arguments::try_parse_from(
         std::iter::once("profile".to_owned()).chain(args.iter().cloned()),
     )?;
     let scenario = Scenario::parse(&args.scenario)?;
+    let faithful_latency = args.latency_context == LatencyContext::ReadyWorkspace;
     if args.candidate_revision.len() != 40
         || !args
             .candidate_revision
@@ -232,6 +252,9 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         return Err("Profile output must be empty; choose a fresh output directory".into());
     }
     let (mode, backend, kind) = profile_backend(&args)?;
+    if faithful_latency && (backend != "perf" || scenario != Scenario::Latency) {
+        return Err("Faithful latency capture requires the Linux native latency profile".into());
+    }
     let mut manifest = json!({
         "format_version": 1, "status": "running", "backend": backend, "profile_kind": kind,
         "scenario": scenario.name(), "source_sha": args.candidate_revision, "target": target,
@@ -240,8 +263,15 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         "hosted_run": {"run_id": std::env::var("GITHUB_RUN_ID").ok(), "attempt": std::env::var("GITHUB_RUN_ATTEMPT").ok(), "job": std::env::var("GITHUB_JOB").ok()},
         "measurement": "Separate diagnostic process; profiler overhead is not clean latency evidence"
     });
+    manifest["collector_source_sha"] = json!(std::env::var("WORKFLOW_SHA").ok());
+    if faithful_latency {
+        manifest["span_trace"] = json!("lsp-spans.json");
+        manifest["sample_clock"] = json!("CLOCK_REALTIME");
+        manifest["switch_events"] = json!(true);
+    }
     common::write_json(&manifest_path, &manifest)?;
     let mut session = Session::new(backend, kind, &output);
+    session.latency_context = args.latency_context;
     let outcome = (|| -> ToolResult<()> {
         scenario::install_cancellation_handler()?;
         scenario::check_cancelled()?;
@@ -257,6 +287,9 @@ pub(crate) fn run(args: &[String]) -> ToolResult<()> {
         let result = scenario::execute(&binary, scenario, &output.join("scenario"), &mut session)?;
         manifest["scenario_result"] = result;
         session.validate(&binary)?;
+        if faithful_latency {
+            manifest["span_trace_validation"] = validate_span_trace(&output)?;
+        }
         Ok(())
     })();
     // execute owns its child; this independently reaps/cleans profiler processes and native sessions.
