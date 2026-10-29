@@ -461,12 +461,6 @@ impl Backend {
         tracing::Span::current().record("result_count", documents.len());
         documents
     }
-    #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "indexed_documents", result_count = tracing::field::Empty))]
-    pub(super) fn indexed_documents(&self) -> Vec<Document> {
-        let documents = self.workspace.read().indexed_documents();
-        tracing::Span::current().record("result_count", documents.len());
-        documents
-    }
     #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "refresh", revision = document.revision.0, source_bytes = document.text.len(), file_id = tracing::field::Empty, outcome = tracing::field::Empty))]
     pub(super) async fn open_workspace_document(&self, document: Document, path: Option<PathBuf>) {
         let Some(ticket) = self.begin_document_refresh(&document.uri, document.revision) else {

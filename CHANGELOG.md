@@ -56,6 +56,9 @@
 
 ### Under the hood
 
+- Borrow reachable snapshots and editor identities while collecting workspace
+  symbols instead of allocating an owned document for every loaded file.
+  Preserve language filtering, Base inclusion, unsaved overlays and result ranges.
 - Publish the pinned Windows compiler at its final owned path before running
   validation, instead of renaming an executed image afterwards. Preserve failed
   builds and their original validation/cleanup errors as evidence, never export

@@ -29,30 +29,31 @@ impl Backend {
         params: WorkspaceSymbolParams,
     ) -> Result<Option<Vec<SymbolInformation>>> {
         let _workspace_read = self.workspace_read_with_prelude(None).await;
-        let documents = self.indexed_documents();
-        let includes_base = documents.iter().any(|document| {
-            analysis::imports(document).iter().any(|import| {
+        let workspace = self.workspace.read();
+        let includes_base = workspace.indexed_snapshots().any(|(_, _, snapshot)| {
+            analysis::imports(snapshot).iter().any(|import| {
                 import.valid_syntax
                     && import.alias.is_none()
-                    && import.path_text(&document.text) == "Base"
+                    && import.path_text(&snapshot.text) == "Base"
             })
         });
         let query = analysis::WorkspaceSymbolQuery::new(&params.query);
         let capacity = if query.is_empty() {
-            documents
-                .iter()
-                .filter(|document| Self::supported(document))
-                .map(|document| document.syntax.symbols().len())
+            workspace
+                .indexed_snapshots()
+                .filter(|(_, language_id, _)| matches!(*language_id, "bend" | "bend2"))
+                .map(|(_, _, snapshot)| snapshot.syntax.symbols().len())
                 .sum()
         } else {
             0
         };
         let mut symbols = Vec::with_capacity(capacity);
-        for doc in documents {
-            if Self::supported(&doc) {
-                symbols.extend(adapters::workspace_symbols(&doc, &doc.uri, &query));
+        for (uri, language_id, snapshot) in workspace.indexed_snapshots() {
+            if matches!(language_id, "bend" | "bend2") {
+                symbols.extend(adapters::workspace_symbols(snapshot, uri, &query));
             }
         }
+        drop(workspace);
         if includes_base && let Some(module) = self.compiler.base_module.read().clone() {
             if query.is_empty() {
                 symbols.reserve(module.syntax.symbols().len());

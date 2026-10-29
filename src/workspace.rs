@@ -1482,14 +1482,28 @@ impl WorkspaceDb {
         }
     }
 
+    /// Reachable loaded snapshots with their borrowed editor identities.
+    pub fn indexed_snapshots(&self) -> impl Iterator<Item = (&Url, &str, &Arc<DocumentSnapshot>)> {
+        self.reachable.iter().filter_map(|id| {
+            let entry = &self.entries[id.0];
+            Some((
+                entry.uri.as_ref(),
+                entry.language_id.as_str(),
+                entry.snapshot()?,
+            ))
+        })
+    }
+
     #[must_use]
     pub fn indexed_documents(&self) -> Vec<Document> {
         let mut documents = Vec::with_capacity(self.reachable.len());
-        self.visit_indexed_entries(|_, entry| {
-            if let Some(document) = entry.document() {
-                documents.push(document);
-            }
-        });
+        for (uri, language_id, snapshot) in self.indexed_snapshots() {
+            documents.push(Document::with_snapshot(
+                uri.clone(),
+                language_id.to_owned(),
+                snapshot.clone(),
+            ));
+        }
         documents
     }
 
