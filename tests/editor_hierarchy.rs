@@ -60,6 +60,35 @@ mod hierarchy {
         response["result"][0].clone()
     }
 
+    fn outgoing_calls(client: &mut LspClient, item: &Value) -> Vec<Value> {
+        let mut response = client.request("callHierarchy/outgoingCalls", json!({"item":item}));
+        response["result"]
+            .as_array_mut()
+            .map(std::mem::take)
+            .must_be("outgoing calls must return an array")
+    }
+
+    fn assert_helper_target(edge: &Value, root_uri: &str, shared_uri: &str, call_line: u32) {
+        assert_eq!(edge["to"]["name"], "helper");
+        assert_eq!(
+            edge["fromRanges"],
+            json!([{"start":{"line":call_line,"character":2},"end":{"line":call_line,"character":8}}])
+        );
+        assert_eq!(
+            edge["to"]["uri"], root_uri,
+            "each handle resolves the helper implementation of its own entry"
+        );
+        assert_eq!(
+            edge["to"]["selectionRange"],
+            if root_uri == shared_uri {
+                json!({"start":{"line":2,"character":4},"end":{"line":2,"character":10}})
+            } else {
+                json!({"start":{"line":3,"character":4},"end":{"line":3,"character":17}})
+            },
+            "the helper target is the claim for the shared entry and the definition otherwise"
+        );
+    }
+
     const SHARED_CALLER: &str = "def f(x: U32) -> U32:\n  x\ndef g(x: U32) -> U32:\n  f(x)\n";
     const ROOT_A: &str = "import ./shared.bend as Shared\ndef a(x: U32) -> U32:\n  Shared.g(x)\n";
     const ROOT_B: &str = "import ./shared.bend as Shared\ndef b(x: U32) -> U32:\n  Shared.g(x)\n";
@@ -283,15 +312,11 @@ mod hierarchy {
                     .as_u64()
                     .must_be("caller handle view serial"),
             );
-            let outgoing =
-                client.request("callHierarchy/outgoingCalls", json!({"item":call["from"]}));
-            let edges = outgoing["result"]
-                .as_array()
-                .must_be("outgoing calls must return an array");
+            let edges = outgoing_calls(&mut client, &call["from"]);
             assert_eq!(
                 edges.len(),
                 2,
-                "the caller expands to both callees in its own entry: {outgoing}"
+                "the caller expands to both callees in its own entry: {edges:?}"
             );
             let callee = edges
                 .iter()
@@ -310,23 +335,7 @@ mod hierarchy {
                 .iter()
                 .find(|edge| edge["to"]["name"] == "helper")
                 .must_be("outgoing call to the helper claim");
-            assert_eq!(
-                helper["fromRanges"],
-                json!([{"start":{"line":10,"character":2},"end":{"line":10,"character":8}}])
-            );
-            assert_eq!(
-                helper["to"]["uri"], root_uri,
-                "each handle resolves the helper implementation of its own entry"
-            );
-            assert_eq!(
-                helper["to"]["selectionRange"],
-                if root_uri == shared_uri {
-                    json!({"start":{"line":2,"character":4},"end":{"line":2,"character":10}})
-                } else {
-                    json!({"start":{"line":3,"character":4},"end":{"line":3,"character":17}})
-                },
-                "the helper target is the claim for the shared entry and the definition otherwise"
-            );
+            assert_helper_target(helper, &root_uri, &shared_uri, 10);
         }
         assert_eq!(
             roots.into_iter().collect::<Vec<_>>(),
@@ -398,15 +407,11 @@ mod hierarchy {
                 .must_be("caller handle root URI")
                 .to_owned();
             roots.insert(root_uri.clone());
-            let outgoing =
-                client.request("callHierarchy/outgoingCalls", json!({"item":call["from"]}));
-            let edges = outgoing["result"]
-                .as_array()
-                .must_be("first hop must return an array");
+            let edges = outgoing_calls(&mut client, &call["from"]);
             assert_eq!(
                 edges.len(),
                 1,
-                "the first hop is identical in every entry: {outgoing}"
+                "the first hop is identical in every entry: {edges:?}"
             );
             assert_eq!(edges[0]["to"]["name"], "f");
             assert_eq!(edges[0]["to"]["uri"], shared_uri);
@@ -418,35 +423,13 @@ mod hierarchy {
                 edges[0]["fromRanges"],
                 json!([{"start":{"line":10,"character":2},"end":{"line":10,"character":3}}])
             );
-            let second = client.request(
-                "callHierarchy/outgoingCalls",
-                json!({"item":edges[0]["to"]}),
-            );
-            let hops = second["result"]
-                .as_array()
-                .must_be("second hop must return an array");
+            let hops = outgoing_calls(&mut client, &edges[0]["to"]);
             assert_eq!(
                 hops.len(),
                 1,
-                "the second hop resolves the callee in that entry's context: {second}"
+                "the second hop resolves the callee in that entry's context: {hops:?}"
             );
-            assert_eq!(hops[0]["to"]["name"], "helper");
-            assert_eq!(
-                hops[0]["fromRanges"],
-                json!([{"start":{"line":7,"character":2},"end":{"line":7,"character":8}}])
-            );
-            assert_eq!(
-                hops[0]["to"]["uri"], root_uri,
-                "the second hop keeps the entry's helper implementation"
-            );
-            assert_eq!(
-                hops[0]["to"]["selectionRange"],
-                if root_uri == shared_uri {
-                    json!({"start":{"line":2,"character":4},"end":{"line":2,"character":10}})
-                } else {
-                    json!({"start":{"line":3,"character":4},"end":{"line":3,"character":17}})
-                }
-            );
+            assert_helper_target(&hops[0], &root_uri, &shared_uri, 7);
         }
         assert_eq!(
             roots.into_iter().collect::<Vec<_>>(),
@@ -508,14 +491,11 @@ mod hierarchy {
             "the merged caller stays in the prepared entry context"
         );
         assert_eq!(call["from"]["data"]["view"], item["data"]["view"]);
-        let first = client.request("callHierarchy/outgoingCalls", json!({"item":call["from"]}));
-        let to_f = first["result"]
-            .as_array()
-            .must_be("first cycle hop must return an array");
+        let to_f = outgoing_calls(&mut client, &call["from"]);
         assert_eq!(
             to_f.len(),
             1,
-            "the recursive caller has one outgoing edge: {first}"
+            "the recursive caller has one outgoing edge: {to_f:?}"
         );
         assert_eq!(to_f[0]["to"]["name"], "f");
         assert_eq!(to_f[0]["to"]["uri"], shared_uri);
@@ -531,14 +511,11 @@ mod hierarchy {
             to_f[0]["fromRanges"],
             json!([{"start":{"line":14,"character":2},"end":{"line":14,"character":3}}])
         );
-        let second = client.request("callHierarchy/outgoingCalls", json!({"item":to_f[0]["to"]}));
-        let to_g = second["result"]
-            .as_array()
-            .must_be("second cycle hop must return an array");
+        let to_g = outgoing_calls(&mut client, &to_f[0]["to"]);
         assert_eq!(
             to_g.len(),
             1,
-            "the cycle continues through the callee: {second}"
+            "the cycle continues through the callee: {to_g:?}"
         );
         assert_eq!(to_g[0]["to"]["name"], "g");
         assert_eq!(to_g[0]["to"]["uri"], shared_uri);
@@ -550,14 +527,11 @@ mod hierarchy {
             to_g[0]["fromRanges"],
             json!([{"start":{"line":11,"character":2},"end":{"line":11,"character":3}}])
         );
-        let closed = client.request("callHierarchy/outgoingCalls", json!({"item":to_g[0]["to"]}));
-        let to_f_again = closed["result"]
-            .as_array()
-            .must_be("closed cycle must return an array");
+        let to_f_again = outgoing_calls(&mut client, &to_g[0]["to"]);
         assert_eq!(
             to_f_again.len(),
             1,
-            "the visited-pair traversal keeps the cycle finite: {closed}"
+            "the visited-pair traversal keeps the cycle finite: {to_f_again:?}"
         );
         assert_eq!(
             to_f_again[0]["to"], to_f[0]["to"],
