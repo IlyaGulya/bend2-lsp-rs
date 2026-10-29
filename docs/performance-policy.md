@@ -1716,6 +1716,27 @@ Additional failed rows or larger unapproved bounds require a new decision.
 Missing, inconclusive, corrupt or incomplete evidence never becomes reviewable.
 No prior environment approval can authorize a later run or attempt.
 
+The fresh exact-source [105-pair comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40545135412)
+for `12afbf96e8e5ed18462de42bdc1b265791673ff9` retains the same 35
+regression identities. The maintainer explicitly approved only these five
+updated finite I1mr upper bounds in the
+[fresh bound report](https://github.com/IlyaGulya/bend2-lsp-rs/pull/62#issuecomment-6477326197):
+
+| Workload | Case | Approved I1mr relative upper bound |
+|---|---|---:|
+| `workspace_burst_revision_invalidation` | `sixteen_revisions` | `5149/11942` |
+| `workspace_incremental_invalidation` | `hundred_files` | `407/871` |
+| `workspace_orphan_graph_release` | `hundred_files` | `21104/50979` |
+| `workspace_symbols_warm` | `case_insensitive` | `3/13` |
+| `workspace_symbols_warm` | `empty` | `13/42` |
+
+The other 30 caps were not expanded. After complete runtime/control
+qualification, the protected owner review admitted this exact source/run,
+attempt 1; all nine performance jobs completed successfully.
+The [final admission record](https://github.com/IlyaGulya/bend2-lsp-rs/pull/62#issuecomment-6486467451)
+does not authorize another source or attempt, hide the strict numerical
+regressions, or bypass a later PR's checks.
+
 The maintainer separately approved semantic profile
 `semantic-pr-v8-full-reference-budget`: successful-run p95 at most 120 seconds
 and a uniform 240-second hard supervisor bound, including the fixed
@@ -1723,8 +1744,15 @@ and a uniform 240-second hard supervisor bound, including the fixed
 artifact/output limits, corpus, compiler/Base bytes, GC/JIT policy, parity,
 histories and isolation remain unchanged. The outer calibration job has enough
 orchestration headroom for these measured bounds; it does not enlarge them.
-The profile remains provisional until fresh 20-run/five-VM evidence and every
-supporting phase pass the original completeness and identity checks.
+The fresh [v8 qualification](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40545168208)
+completed all 20 normal runs on five VMs and every supporting phase for
+source `12afbf96e8e5ed18462de42bdc1b265791673ff9`. Independent replay of the
+original report command reproduced all 16 stage distributions.
+
+| Measured runtime quantity | Observed | Accepted bound |
+|---|---:|---:|
+| Normal successful-run p95 | 101.163 seconds | 120 seconds |
+| Maximum fixed 512-project run | 181.321 seconds | 240-second hard limit |
 
 The earlier [v7 calibration](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40506476317)
 remains failed under its then-current 60-second p95 target and 120-second hard

@@ -91,8 +91,9 @@ five intended-invalid views, two recovery views), then performs the proof-contex
 A/B/A and repeated-case checks in that same session. The reverse session covers
 all 627 valid views in exact reversed order and retains bounded IDs and semantic
 hashes until every result is compared with the forward history. It is joined
-and shut down before the fresh-worker comparison and 13 real stdio projects
-(418 consumer checks). A timeout, EOF, mismatch, or early forward failure cancels
+and shut down before the fresh-worker comparison and 15 real stdio projects,
+including pinned-Base targets. Reports retain the actual per-case consumer checks.
+An EOF, timeout, mismatch, or early forward failure cancels
 and joins the reverse owner; original failures remain failures, not partial
 successes. Reports include independent worker PIDs, complete reverse IDs/hashes,
 per-history start/finish/close times, per-case RPC intervals, and the measured
@@ -137,6 +138,23 @@ pristine compiler must expose the recovered error B with the correct origin.
 ## Local commands
 
 From the repository root:
+
+Provision the genuine compiler outside measurement using the same checksum-pinned
+installer as quality CI; do not substitute an ambient executable or Base-only
+adapter:
+
+```sh
+python3 scripts/bootstrap_bend.py --destination target/semantic-compiler \
+  --github-env target/semantic-compiler.env
+while IFS='=' read -r name value; do
+  export "$name=$value"
+done < target/semantic-compiler.env
+```
+
+This environment is also required for current stdio failure replay after
+installing the recorded pinned tools. Consumer checks verify the real compiler's
+version and Base output before starting the LSP; worker reports record compiler
+and Base-source hashes. Nothing is downloaded during measured consumer work.
 
 ```sh
 python3 scripts/semantic_install.py --download-runtime --report target/semantic-install.json
@@ -201,17 +219,36 @@ failure predicate survives; a same-spelling replacement binder is not the same
 local-binding bug. Review and add promoted cases to the permanent corpus rather
 than blessing candidate output as compiler truth.
 
+Standalone qualification also replays a genuine preserved erased/empty-telescope
+failure using its recorded derivative compiler pin and Bun 1.4.2, including an
+offline clean-workspace run. Three fresh replays preserve the same 18-entry
+predicate; extended reduction reaches its finite local minimum in 14 attempts
+under the unchanged 2,000-attempt/600-second ceiling. This is observed bounded
+work, not a worst-case cost or global-minimum claim. The permanent
+`erased-and-empty-type-telescopes` case is validated afresh against the current
+official pin; it does not copy the broken candidate's output.
+
+Historical promotion remains pin-bound: a throwaway recorded-pin promotion
+succeeds, while promotion into the current official pin is rejected. The five
+lambda/prefix/dotted/law/root-context controls separately exercise actual
+recorded-tools extended shrinking; they are deliberately injected faults, not
+newly discovered production bugs. Deadline/tool failures retain original
+captures and never count as semantic agreement.
+
 ## Resource and performance contracts
 
-The PR profile `semantic-pr-v8-full-reference-budget` is **provisional**,
-not calibrated evidence. Its two case-worker pairs use bounded reply retention
-and ordinary native heaps with idle collection. Relative to the earlier
-provisional profile, only the measured-run admission budget changed: the
-successful-run p95 target is 120 s and the hard measured-run deadline is 240 s,
-which also bounds every 128/256/512-project scaling measurement. Corpus, seed,
-release settings, and all other limits remain unchanged:
+The PR profile `semantic-pr-v8-full-reference-budget` was qualified for source
+`12afbf96e8e5ed18462de42bdc1b265791673ff9` by
+[20 complete normal runs on five VMs and all supporting phases](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40545168208).
+Independent replay of the original report command reproduced the hosted
+aggregate. This qualification binds those recorded source/tool/harness bytes;
+it is not an automatic acceptance of later measured-code or harness changes.
+Its two case-worker pairs use bounded reply retention and ordinary native heaps
+with idle collection. Relative to the earlier provisional profile, only the
+measured-run admission budget changed. Corpus, seed, release settings, and all
+other limits remain unchanged:
 
-| Constraint | Initial profile |
+| Constraint | Accepted v8 profile |
 | --- | ---: |
 | Generated projects | 256 |
 | Worker concurrency (independent pristine/instrumented pairs) | 2 |

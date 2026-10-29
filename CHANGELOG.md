@@ -177,15 +177,20 @@
   instead of retaining every decoded Base table. Collect short-lived native
   allocations at idle Book boundaries without resetting ordered histories.
   Batch small canonical components within the existing payload bound; preserve
-  complete Base comparison and all history and stdio checks. Resource
-  qualification remains provisional.
+  complete Base comparison and all history and stdio checks. The v8 profile has
+  source-bound 20-run/five-VM qualification; earlier failed cohorts stay failed.
 - Generate native canonical keys with a non-mutating copy-on-write source-field
   projection and native JSON serialization. Preserve official lowering, every
   other own field/order, shared compiler terms and complete Base parity.
-- Adopt the maintainer-approved provisional semantic v8 budget: p95 at most
-  120 seconds and a uniform 240-second hard bound, including 512-project support.
-  Keep memory, GC/JIT, compiler, coverage and other resource limits unchanged;
-  require fresh complete calibration instead of rescoring historical failures.
+- Adopt the maintainer-approved semantic v8 budget: p95 at most 120 seconds
+  and a uniform 240-second hard bound, including 512-project support. Keep
+  memory, GC/JIT, compiler, coverage and other resource limits unchanged;
+  require fresh complete calibration for changed measured inputs instead of
+  rescoring historical failures.
+- Compare pinned-Base targets through genuine compiler-configured stdio
+  consumers, including entry-rooted target/status metadata and direct
+  definition requests in the matching entry context. Reject stub contents and
+  foreign or decorated Base-document URIs; retain the compiler/Base hashes.
 - Shard each of the six logical Callgrind controls across four physical runners.
   Preserve all 105 balanced pairs per workload on one host, all nine counters,
   the frozen baseline and positive-control sensitivity. Reject incomplete,

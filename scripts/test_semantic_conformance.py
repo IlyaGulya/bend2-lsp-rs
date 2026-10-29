@@ -102,6 +102,34 @@ class ComparatorTests(unittest.TestCase):
         source='# \v\f\x85\u2028\u2029 text\n\U0001d11etarget'
         self.assertEqual(byte_offset(source,{'line':1,'character':2}),22)
 
+    def test_stdio_base_target_requires_authenticated_pinned_source(self):
+        from semantic_stdio import BaseDocument, ConsumerMismatch, pinned_base_source
+        source=pinned_base_source()
+        with tempfile.TemporaryDirectory() as workspace_dir,tempfile.TemporaryDirectory() as base_dir:
+            workspace=Path(workspace_dir);(workspace/'main.bend').write_text('import Base\n',newline='')
+            base=Path(base_dir)/'Base.bend';base.write_bytes(source)
+            start=source.index(b'def U32.add')+len(b'def ');end=start+len(b'U32.add')
+            offset=source.rfind(b'\n',0,start)+1
+            selection={'start':{'line':source[:start].count(b'\n'),'character':start-offset},
+                'end':{'line':source[:start].count(b'\n'),'character':end-offset}}
+            files={'main.bend':'import Base\n'}
+            document=BaseDocument({'id':'base-target'},workspace,files,source)
+            self.assertEqual(document.site(base.as_uri(),selection),
+                {'file':'@Base.bend','start':start,'end':end})
+            for uri in (base.as_uri().replace('file://','file://foreign.example'),
+                    base.as_uri()+'?different-document',base.as_uri()+'#different-document'):
+                with self.subTest(uri=uri),self.assertRaises(ConsumerMismatch) as rejected:
+                    BaseDocument({'id':'base-target'},workspace,files,source).site(uri,selection)
+                self.assertEqual(rejected.exception.category,'stdio-base-target-uri')
+            base.write_bytes(b'def U32.add(x: U32, y: U32) -> U32:\n  x\n')
+            with self.assertRaises(ConsumerMismatch) as rejected:
+                BaseDocument({'id':'base-target'},workspace,files,source).site(base.as_uri(),selection)
+            self.assertEqual(rejected.exception.category,'stdio-base-target-not-pinned-source')
+            (workspace/'Base.bend').write_bytes(source)
+            with self.assertRaises(ConsumerMismatch) as rejected:
+                BaseDocument({'id':'base-target'},workspace,files,source).site((workspace/'Base.bend').as_uri(),selection)
+            self.assertEqual(rejected.exception.category,'stdio-base-target-inside-fixture')
+
     def test_compact_layout_fingerprint_preserves_complete_semantic_identity(self):
         from semantic_conformance import _layout_fingerprint
         text='import lib as Alias\r\ndef x(x: Type):\r\n  Alias.target(x)\r\n'
