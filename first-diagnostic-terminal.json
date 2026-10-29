@@ -1,0 +1,181 @@
+{
+  "metadata": {
+    "conclusion": "failure",
+    "databaseId": 40884115926,
+    "headSha": "1e71e2c332fa5a69aea55d7af754a999d91bcca5",
+    "jobs": [
+      {
+        "completedAt": "2026-10-29T14:06:00Z",
+        "conclusion": "failure",
+        "databaseId": 123483123533,
+        "name": "diagnose-saved-lint-startup",
+        "startedAt": "2026-10-29T14:03:28Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-29T14:03:30Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-29T14:03:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:03:38Z",
+            "conclusion": "success",
+            "name": "Check out immutable C7 system under test",
+            "number": 2,
+            "startedAt": "2026-10-29T14:03:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:03:43Z",
+            "conclusion": "success",
+            "name": "Check out immutable diagnostic producer",
+            "number": 3,
+            "startedAt": "2026-10-29T14:03:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:03:44Z",
+            "conclusion": "success",
+            "name": "Create workflow-owned diagnostic root and bootstrap envelope",
+            "number": 4,
+            "startedAt": "2026-10-29T14:03:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:03:44Z",
+            "conclusion": "success",
+            "name": "Verify producer commit and both pinned digests before executing producer code",
+            "number": 5,
+            "startedAt": "2026-10-29T14:03:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:03:45Z",
+            "conclusion": "success",
+            "name": "Record diagnostic root context",
+            "number": 6,
+            "startedAt": "2026-10-29T14:03:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:04:07Z",
+            "conclusion": "success",
+            "name": "Install pinned Rust toolchain 1.98.1",
+            "number": 7,
+            "startedAt": "2026-10-29T14:03:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:04:10Z",
+            "conclusion": "success",
+            "name": "Verify tracked identities, pinned test digest and cold target",
+            "number": 8,
+            "startedAt": "2026-10-29T14:04:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:45Z",
+            "conclusion": "success",
+            "name": "Build the saved-lint integration test without running it",
+            "number": 9,
+            "startedAt": "2026-10-29T14:04:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:51Z",
+            "conclusion": "success",
+            "name": "Arm the bounded observer and require readiness",
+            "number": 10,
+            "startedAt": "2026-10-29T14:05:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:52Z",
+            "conclusion": "failure",
+            "name": "Run the saved-lint protocol tests exactly once",
+            "number": 11,
+            "startedAt": "2026-10-29T14:05:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:52Z",
+            "conclusion": "success",
+            "name": "Stop the observer and record its bound lifecycle",
+            "number": 12,
+            "startedAt": "2026-10-29T14:05:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:54Z",
+            "conclusion": "failure",
+            "name": "Finalize bounded diagnostics and enforce tracked identity",
+            "number": 13,
+            "startedAt": "2026-10-29T14:05:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:55Z",
+            "conclusion": "success",
+            "name": "Preserve bounded diagnostics",
+            "number": 14,
+            "startedAt": "2026-10-29T14:05:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:57Z",
+            "conclusion": "success",
+            "name": "Post Check out immutable diagnostic producer",
+            "number": 27,
+            "startedAt": "2026-10-29T14:05:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:59Z",
+            "conclusion": "success",
+            "name": "Post Check out immutable C7 system under test",
+            "number": 28,
+            "startedAt": "2026-10-29T14:05:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-29T14:05:59Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 29,
+            "startedAt": "2026-10-29T14:05:59Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40884115926/job/123483123533"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40884115926"
+  },
+  "artifacts": [
+    {
+      "id": 12904505751,
+      "node_id": "MDg6QXJ0aWZhY3QxMjkwNDUwNTc1MQ==",
+      "name": "windows-lint-startup-diagnostic-40884115926-1",
+      "size_in_bytes": 160556,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/12904505751",
+      "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/12904505751/zip",
+      "expired": false,
+      "digest": "sha256:ed595c351b76c08f2e8c966b53a0cd7a5848b59685ee662368c114705d4cc170",
+      "created_at": "2026-10-29T14:05:55Z",
+      "updated_at": "2026-10-29T14:05:55Z",
+      "expires_at": "2026-11-05T14:05:54Z",
+      "workflow_run": {
+        "id": 40884115926,
+        "repository_id": 1399088559,
+        "head_repository_id": 1399088559,
+        "head_branch": "diagnostic/c7-lint-startup-40863668428",
+        "head_sha": "1e71e2c332fa5a69aea55d7af754a999d91bcca5"
+      }
+    }
+  ],
+  "original_failed_C7_run_unchanged": 40863668428
+}

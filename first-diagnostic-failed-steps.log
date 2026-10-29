@@ -1,0 +1,42 @@
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	﻿2026-10-29T14:05:51.6263851Z ##[group]Run ../producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase run -Root "$env:DIAG_ROOT" -Sut . -ExpectedTestSha256 "$env:TEST_SHA256"
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6265846Z ^[[36;1m../producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase run -Root "$env:DIAG_ROOT" -Sut . -ExpectedTestSha256 "$env:TEST_SHA256"^[[0m
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6305306Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6305664Z env:
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6305841Z   BEND_NO_TELEMETRY: 1
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6306044Z   GIT_CONFIG_COUNT: 2
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6306252Z   GIT_CONFIG_KEY_0: core.autocrlf
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6306487Z   GIT_CONFIG_VALUE_0: false
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6306710Z   GIT_CONFIG_KEY_1: core.eol
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6306929Z   GIT_CONFIG_VALUE_1: lf
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6307188Z   SUT_REVISION: c7d0b2c2a9ee88a329433ef01ce496c3892f3985
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6307570Z   PRODUCER_REVISION: 1e71e2c332fa5a69aea55d7af754a999d91bcca5
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6308051Z   SCRIPT_SHA256: 2a2bfd187e5e8a5a9cca16b1659215fee0c4ec0d0828ef99bd4162f31e82f48f
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6308647Z   TEST_SHA256: 9594a0e6f972739a997ba328a14cddc8cfd61a8ef6706b3cf26e6b4a7cbd201e
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6309265Z   DIAG_ROOT: C:\Users\runneradmin\AppData\Local\Temp\bend2-lint-startup-diagnostic-40884115926-1
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:51.6309733Z ##[endgroup]
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:52.1026294Z observer process is gone; the original test was not run
+diagnose-saved-lint-startup	Run the saved-lint protocol tests exactly once	2026-10-29T14:05:52.1531757Z ##[error]Process completed with exit code 1.
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	﻿2026-10-29T14:05:52.7246267Z ##[group]Run $actual = (Get-FileHash -LiteralPath ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Algorithm SHA256).Hash.ToLowerInvariant()
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7247592Z ^[[36;1m$actual = (Get-FileHash -LiteralPath ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Algorithm SHA256).Hash.ToLowerInvariant()^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7248588Z ^[[36;1mif ($actual -ne $env:SCRIPT_SHA256) { throw "producer script changed before finalization: $actual" }^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7249640Z ^[[36;1m./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase finalize -Root "$env:DIAG_ROOT" -Sut ./sut -Producer ./producer -ExpectedTestSha256 "$env:TEST_SHA256"^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7288661Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7289028Z env:
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7289203Z   BEND_NO_TELEMETRY: 1
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7289409Z   GIT_CONFIG_COUNT: 2
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7289619Z   GIT_CONFIG_KEY_0: core.autocrlf
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7289870Z   GIT_CONFIG_VALUE_0: false
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7290133Z   GIT_CONFIG_KEY_1: core.eol
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7290360Z   GIT_CONFIG_VALUE_1: lf
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7290621Z   SUT_REVISION: c7d0b2c2a9ee88a329433ef01ce496c3892f3985
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7291018Z   PRODUCER_REVISION: 1e71e2c332fa5a69aea55d7af754a999d91bcca5
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7291511Z   SCRIPT_SHA256: 2a2bfd187e5e8a5a9cca16b1659215fee0c4ec0d0828ef99bd4162f31e82f48f
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7292070Z   TEST_SHA256: 9594a0e6f972739a997ba328a14cddc8cfd61a8ef6706b3cf26e6b4a7cbd201e
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7292682Z   DIAG_ROOT: C:\Users\runneradmin\AppData\Local\Temp\bend2-lint-startup-diagnostic-40884115926-1
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:52.7293149Z ##[endgroup]
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:54.4254164Z ^[[31;1mwindows-lint-startup-diagnostic.ps1: ^[[0mD:\a\_temp\ee8ca45d-d4d0-4426-9650-4a32afbab059.ps1:4^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:54.4256008Z ^[[31;1m^[[0m^[[36;1mLine |^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:54.4256738Z ^[[31;1m^[[0m^[[36;1m^[[36;1m   4 | ^[[0m ^[[36;1m./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase finaliz^[[0m …^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:54.4257620Z ^[[31;1m^[[0m^[[36;1m^[[36;1m^[[0m^[[36;1m^[[0m^[[36;1m     | ^[[31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:54.4258347Z ^[[31;1m^[[0m^[[36;1m^[[36;1m^[[0m^[[36;1m^[[0m^[[36;1m^[[31;1m^[[31;1m^[[36;1m     | ^[[31;1mCannot index into a null array.^[[0m
+diagnose-saved-lint-startup	Finalize bounded diagnostics and enforce tracked identity	2026-10-29T14:05:54.4816025Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,69 @@
+{
+  "setup": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "cp",
+        "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/c7-fixture-startup-wrapper.rs",
+        "rust:/tmp/c7-fixture-startup-wrapper.rs"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": " bend2-lsp-rs-rust-1 Copying /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/c7-fixture-startup-wrapper.rs to bend2-lsp-rs-rust-1:/tmp/c7-fixture-startup-wrapper.rs\n bend2-lsp-rs-rust-1 Copied /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/c7-fixture-startup-wrapper.rs to bend2-lsp-rs-rust-1:/tmp/c7-fixture-startup-wrapper.rs\n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "cp",
+        "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/c7-lint-startup-mechanism-probe.py",
+        "rust:/tmp/c7-lint-startup-mechanism-probe.py"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": " bend2-lsp-rs-rust-1 Copying /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/c7-lint-startup-mechanism-probe.py to bend2-lsp-rs-rust-1:/tmp/c7-lint-startup-mechanism-probe.py\n bend2-lsp-rs-rust-1 Copied /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/c7-lint-startup-mechanism-probe.py to bend2-lsp-rs-rust-1:/tmp/c7-lint-startup-mechanism-probe.py\n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "exec",
+        "-T",
+        "rust",
+        "rustc",
+        "--edition=2024",
+        "-Dwarnings",
+        "/tmp/semantic-approved-126952f6d048/tests/fixtures/bend_lint_process.rs",
+        "-o",
+        "/tmp/c7-lint-original-fixture"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "exec",
+        "-T",
+        "rust",
+        "rustc",
+        "--edition=2024",
+        "-Dwarnings",
+        "/tmp/c7-fixture-startup-wrapper.rs",
+        "-o",
+        "/tmp/c7-fixture-startup-wrapper"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"production_binary_sha256\": \"6da4780d6278ea44c2b2164e7a0acdc463ce9d0b1102fa0716bcfc363c96f888\",\n  \"original_fixture_source_sha256\": \"17477b2aefdb7479fffe2df47d0b5e8dd2f109d81f9a3de2118e59d5589a0f27\",\n  \"cases\": [\n    {\n      \"injected_fixture_prepublication_delay_ms\": 0,\n      \"original_lint_timeout_ms\": 500,\n      \"actual_timeout_notification\": {\n        \"jsonrpc\": \"2.0\",\n        \"method\": \"window/logMessage\",\n        \"params\": {\n          \"message\": \"bend-lint failed: bend-lint timed out; process tree is being killed and reaped\",\n          \"type\": 2\n        }\n      },\n      \"analyzer_pid_reaped\": true,\n      \"published_addresses\": {\n        \"address\": \"127.0.0.1:39315\",\n        \"descendant-address\": \"127.0.0.1:46271\"\n      },\n      \"compiler_rejection_still_visible_at_version2\": true,\n      \"no_fabricated_lint_diagnostic\": true,\n      \"clean_shutdown\": true,\n      \"server_stderr\": \"\"\n    },\n    {\n      \"injected_fixture_prepublication_delay_ms\": 750,\n      \"original_lint_timeout_ms\": 500,\n      \"actual_timeout_notification\": {\n        \"jsonrpc\": \"2.0\",\n        \"method\": \"window/logMessage\",\n        \"params\": {\n          \"message\": \"bend-lint failed: bend-lint timed out; process tree is being killed and reaped\",\n          \"type\": 2\n        }\n      },\n      \"analyzer_pid_reaped\": true,\n      \"published_addresses\": {},\n      \"compiler_rejection_still_visible_at_version2\": true,\n      \"no_fabricated_lint_diagnostic\": true,\n      \"clean_shutdown\": true,\n      \"server_stderr\": \"\"\n    }\n  ],\n  \"scope\": \"Controlled Linux functional mechanism only; not a performance experiment or attribution of the original Windows CI failure\",\n  \"original_failed_run_unchanged\": 40863668428\n}\n",
+  "stderr": "",
+  "original_Windows_failure_not_retried": true,
+  "no_local_performance_measurement": true
+}

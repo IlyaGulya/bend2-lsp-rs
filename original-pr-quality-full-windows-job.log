@@ -1,0 +1,624 @@
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	﻿2026-10-29T11:13:14.8629579Z Current runner version: '2.338.0'
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8674138Z ##[group]Runner Image Provisioner
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8674824Z Hosted Compute Agent
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8675266Z Version: 20261021.618
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8675757Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8676394Z Build Date: 2026-10-21T00:45:21Z
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8676881Z Worker ID: {8d6c6b83-2395-466d-bcdf-cb95e1ef7cfb}
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8677398Z Region: westus3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8677802Z Cloud: Azure
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8678156Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8679129Z ##[group]Operating System
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8679603Z Microsoft Windows Server 2022
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8680029Z 10.0.20348
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8680404Z Datacenter
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8680760Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8681164Z ##[group]Runner Image
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8681566Z Image: windows-2022
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8681948Z Version: 20261025.346.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8682757Z Included Software: https://github.com/actions/runner-images/blob/win22/20261025.346/images/windows/Windows2022-Readme.md
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8684257Z Image Release: https://github.com/actions/runner-images/releases/tag/win22%2F20261025.346
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8684945Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8685741Z ##[group]GITHUB_TOKEN Permissions
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8687180Z Contents: read
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8687608Z Metadata: read
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8687997Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8689654Z Secret source: Actions
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8690354Z Cache mode: write
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.8690866Z Prepare workflow directory
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.9150591Z Prepare all required actions
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:14.9192399Z Getting action download info
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:15.2813378Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:15.4121388Z Download action repository 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Set up job	2026-10-29T11:13:15.6502330Z Complete job name: native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	﻿2026-10-29T11:13:15.8276363Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8277424Z with:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8277779Z   persist-credentials: false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8278213Z   repository: IlyaGulya/bend2-lsp-rs
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8281816Z   token: ***
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8282340Z   ssh-strict: true
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8282862Z   ssh-user: git
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8283408Z   clean: true
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8283988Z   sparse-checkout-cone-mode: true
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8284650Z   fetch-depth: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8285190Z   fetch-tags: false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8285611Z   show-progress: true
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8285986Z   lfs: false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8286299Z   submodules: false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8286646Z   set-safe-directory: true
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8287044Z   allow-unsafe-pr-checkout: false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8287773Z env:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8288088Z   BEND_NO_TELEMETRY: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8288441Z   EXPECTED_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8288814Z   NATIVE_TARGET: x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8289294Z   PYTHON: python
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.8289886Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.9562216Z Syncing repository: IlyaGulya/bend2-lsp-rs
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.9564391Z ##[group]Getting Git version info
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:15.9566152Z Working directory is 'D:\a\bend2-lsp-rs\bend2-lsp-rs'
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.0320223Z [command]"C:\Program Files\Git\bin\git.exe" version
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.5874019Z git version 2.56.0.windows.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.5908060Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.5921700Z Temporarily overriding HOME='D:\a\_temp\f1093827-8017-4d22-99a1-625e53b851da' before making global git config changes
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.5923455Z Adding repository directory to the temporary git global config as a safe directory
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.5930769Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\bend2-lsp-rs\bend2-lsp-rs
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.6650283Z Deleting the contents of 'D:\a\bend2-lsp-rs\bend2-lsp-rs'
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.6654041Z ##[group]Determining repository object format
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.6655730Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.6657079Z ##[group]Initializing the repository
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.6663671Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\bend2-lsp-rs\bend2-lsp-rs
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.7822146Z Initialized empty Git repository in D:/a/bend2-lsp-rs/bend2-lsp-rs/.git/
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.7856081Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/IlyaGulya/bend2-lsp-rs
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8448399Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8449891Z ##[group]Disabling automatic garbage collection
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8455222Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8697895Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8699716Z ##[group]Setting up auth
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8701074Z Removing SSH command configuration
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8708056Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:16.8959267Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:18.8555778Z Removing HTTP extra header
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:18.8557092Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:18.8748565Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.2955019Z Removing includeIf entries pointing to credentials config files
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.2964189Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.3220943Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.7236784Z [command]"C:\Program Files\Git\bin\git.exe" config --file D:\a\_temp\git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.7551020Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git.path D:\a\_temp\git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.7802065Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git/worktrees/*.path D:\a\_temp\git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.8103265Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.8349988Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.8602878Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.8603404Z ##[group]Fetching the repository
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:19.8614067Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +941c8988b6799a784b587dbcb8c923a0164ace28:refs/remotes/pull/62/merge
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1200513Z From https://github.com/IlyaGulya/bend2-lsp-rs
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1201303Z  * [new ref]         941c8988b6799a784b587dbcb8c923a0164ace28 -> pull/62/merge
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1230395Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1230970Z ##[group]Determining the checkout info
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1233188Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1240005Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1620447Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1860847Z ##[group]Checking out the ref
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.1871896Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/remotes/pull/62/merge
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2970922Z Note: switching to 'refs/remotes/pull/62/merge'.
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2971299Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2971566Z You are in 'detached HEAD' state. You can look around, make experimental
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2972531Z changes and commit them, and you can discard any commits you make in this
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2973003Z state without impacting any branches by switching back to a branch.
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2973229Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2973421Z If you want to create a new branch to retain commits you create, you may
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2973860Z do so (now or later) by using -c with the switch command. Example:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974075Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974183Z   git switch -c <new-branch-name>
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974401Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974486Z Or undo this operation with:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974607Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974677Z   git switch -
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974768Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2974937Z Turn off this advice by setting config variable advice.detachedHead to false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2975166Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.2975457Z HEAD is now at 941c898 Merge c7d0b2c2a9ee88a329433ef01ce496c3892f3985 into 8ba06b117e8453959baa2157f857fa2e055fc887
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.3115329Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.3570623Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.3812296Z 941c8988b6799a784b587dbcb8c923a0164ace28
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.3843828Z ##[group]Removing auth
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.3844225Z Removing SSH command configuration
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.3851224Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.4106642Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.8519416Z Removing HTTP extra header
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.8529160Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:22.8789876Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3207309Z Removing includeIf entries pointing to credentials config files
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3217845Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3436238Z includeif.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3436877Z includeif.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git/worktrees/*.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3437392Z includeif.gitdir:/github/workspace/.git.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3437798Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3468161Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3685109Z D:\a\_temp\git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3717151Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git.path D\:\\a\\_temp\\git\-credentials\-6f0a4020\-8029\-4b50\-815f\-7521fe401c43\.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.3979023Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git/worktrees/*.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.4199008Z D:\a\_temp\git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.4230696Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:D:/a/bend2-lsp-rs/bend2-lsp-rs/.git/worktrees/*.path D\:\\a\\_temp\\git\-credentials\-6f0a4020\-8029\-4b50\-815f\-7521fe401c43\.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.4500255Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:/github/workspace/.git.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.4726228Z /github/runner_temp/git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.4758828Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-6f0a4020\-8029\-4b50\-815f\-7521fe401c43\.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.5010904Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.5226030Z /github/runner_temp/git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.5255065Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-6f0a4020\-8029\-4b50\-815f\-7521fe401c43\.config
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.5502841Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.9652322Z Removing credentials config 'D:\a\_temp\git-credentials-6f0a4020-8029-4b50-815f-7521fe401c43.config'
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:13:23.9662338Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	﻿2026-10-29T11:13:23.9944738Z ##[group]Run test "$ACTUAL_ARCH" = "$EXPECTED_ARCH"
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9945142Z ^[[36;1mtest "$ACTUAL_ARCH" = "$EXPECTED_ARCH"^[[0m
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9958274Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9958613Z env:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9958782Z   BEND_NO_TELEMETRY: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9958951Z   EXPECTED_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9959129Z   NATIVE_TARGET: x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9959333Z   PYTHON: python
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9959485Z   ACTUAL_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Verify native runner	2026-10-29T11:13:23.9959638Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	﻿2026-10-29T11:13:24.2472574Z ##[group]Run rustup toolchain install "1.98.1-$NATIVE_TARGET" --profile minimal
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2473105Z ^[[36;1mrustup toolchain install "1.98.1-$NATIVE_TARGET" --profile minimal^[[0m
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2473444Z ^[[36;1mrustup override set "1.98.1-$NATIVE_TARGET"^[[0m
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2474162Z ^[[36;1m"$PYTHON" -c 'import os, subprocess; host = next(line.removeprefix("host: ") for line in subprocess.check_output(["rustc", "-vV"], text=True).splitlines() if line.startswith("host: ")); assert host == os.environ["NATIVE_TARGET"], host'^[[0m
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2484063Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2484364Z env:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2484525Z   BEND_NO_TELEMETRY: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2484692Z   EXPECTED_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2484875Z   NATIVE_TARGET: x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2485077Z   PYTHON: python
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:24.2485240Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:26.0420390Z info: syncing channel updates for 1.98.1-x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:26.9013253Z info: latest update on 2026-09-03 for version 1.98.1 (48a229cea 2026-09-01)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:26.9110293Z info: downloading 3 components
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:34.0537109Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:35.8728641Z   1.98.1-x86_64-pc-windows-msvc installed - rustc 1.98.1 (48a229cea 2026-09-01)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:35.8729082Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Install pinned native Rust toolchain	2026-10-29T11:13:35.9054533Z info: override toolchain for D:\a\bend2-lsp-rs\bend2-lsp-rs set to 1.98.1-x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	﻿2026-10-29T11:13:39.4304432Z ##[group]Run "$PYTHON" scripts/bootstrap_bend.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4305603Z ^[[36;1m"$PYTHON" scripts/bootstrap_bend.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"^[[0m
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4315225Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4315535Z env:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4315688Z   BEND_NO_TELEMETRY: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4315888Z   EXPECTED_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4316078Z   NATIVE_TARGET: x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4316298Z   PYTHON: python
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4318520Z   GH_TOKEN: ***
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:39.4318688Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:48.1496824Z   [12ms]  bundle  4 modules
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:48.5970077Z  [447ms] compile  D:\a\_temp\bend-2.0.37\bin\bend.exe
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Provision checksum-pinned genuine Bend 2.0.37	2026-10-29T11:13:49.4611035Z Built genuine Bend 2.0.37 source 4ff8545f19b09b7d2b8ca2303668100eac8efd66 with native x86_64-pc-windows-msvc Bun 1.4.0+34cbb9a40: D:\a\_temp\bend-2.0.37\bin\bend.exe
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	﻿2026-10-29T11:13:49.4967150Z ##[group]Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4967566Z with:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4967801Z   name: genuine-bend-2.0.37-x86_64-pc-windows-msvc-40863668428-1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4968598Z   path: D:\a\_temp\bend-2.0.37/compiler-publication.json
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	D:\a\_temp\bend-2.0.37/compiler-build-identity.json
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	D:\a\_temp\bend-2.0.37/compiler-embedded-source.js
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	D:\a\_temp\bend-2.0.37/bin
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	D:\a\_temp\bend-2.0.37/bend2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	D:\a\_temp\bend-2.0.37/guide
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4969292Z   if-no-files-found: error
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4969471Z   retention-days: 7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4969634Z   compression-level: 6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4969800Z   overwrite: false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4969969Z   include-hidden-files: false
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4970163Z   archive: true
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4970312Z env:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4970463Z   BEND_NO_TELEMETRY: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4970636Z   EXPECTED_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4970817Z   NATIVE_TARGET: x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4971077Z   PYTHON: python
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4971301Z   BEND2_COMPILER_TEST_PATH: D:\a\_temp\bend-2.0.37\bin\bend.exe
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.4971560Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.6517850Z Multiple search paths detected. Calculating the least common ancestor of all paths
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.6520690Z The least common ancestor is D:\a\_temp\bend-2.0.37. This will be the root directory of the artifact
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.6521154Z With the provided path, there will be 73 files uploaded
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.6525285Z Artifact name is valid!
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:49.6526633Z Root directory input is valid!
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:50.0052423Z Uploading artifact: genuine-bend-2.0.37-x86_64-pc-windows-msvc-40863668428-1.zip
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:50.0082061Z Beginning upload of artifact content to blob storage
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:51.6714025Z Uploaded bytes 8388608
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:51.9425421Z Uploaded bytes 16777216
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:52.1484797Z Uploaded bytes 25165824
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:52.4010432Z Uploaded bytes 33554432
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:52.7392181Z Uploaded bytes 41101884
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:52.7998639Z Finished uploading artifact content to blob storage!
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:52.8001472Z SHA256 digest of uploaded artifact is 65f5814f5e81493a73a9a5c4f8ecdb2ad5888c802b38ce9ab34a8cb4ea94b74c
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:52.8003454Z Finalizing artifact upload
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:53.4128339Z Artifact genuine-bend-2.0.37-x86_64-pc-windows-msvc-40863668428-1 successfully finalized. Artifact ID 12891864333
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:53.4129312Z Artifact genuine-bend-2.0.37-x86_64-pc-windows-msvc-40863668428-1 has been successfully uploaded! Final size is 41101884 bytes. Artifact ID is 12891864333
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Preserve actual native compiler source and runtime identity	2026-10-29T11:13:53.4136500Z Artifact download URL: https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40863668428/artifacts/12891864333
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	﻿2026-10-29T11:13:53.4356055Z ##[group]Run cargo test --locked --test native_compiler_diagnostics --test native_law_ranges --test compiler_multi_error
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4356813Z ^[[36;1mcargo test --locked --test native_compiler_diagnostics --test native_law_ranges --test compiler_multi_error^[[0m
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4367654Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4367975Z env:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4368135Z   BEND_NO_TELEMETRY: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4368316Z   EXPECTED_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4368503Z   NATIVE_TARGET: x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4368717Z   PYTHON: python
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4368954Z   BEND2_COMPILER_TEST_PATH: D:\a\_temp\bend-2.0.37\bin\bend.exe
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:53.4369221Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:54.6547668Z     Updating crates.io index
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.0063488Z  Downloading crates ...
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.1136662Z   Downloaded crypto-common v0.1.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.1260544Z   Downloaded equivalent v1.0.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.1439380Z   Downloaded block-buffer v0.10.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.1624728Z   Downloaded cfg-if v1.0.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.1735312Z   Downloaded cpufeatures v0.2.17
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.2122926Z   Downloaded futures-task v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.2246618Z   Downloaded tracing-log v0.2.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.2337337Z   Downloaded async-trait v0.1.92
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.2805783Z   Downloaded bitflags v1.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.3490446Z   Downloaded generic-array v0.14.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.3652741Z   Downloaded utf8_iter v1.0.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.3737638Z   Downloaded version_check v0.9.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.3825436Z   Downloaded auto_impl v1.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.4839135Z   Downloaded crossbeam-epoch v0.9.21
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.5099034Z   Downloaded futures-executor v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.5327405Z   Downloaded bincode v1.3.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.5564834Z   Downloaded digest v0.10.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.5722012Z   Downloaded futures-sink v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.5986927Z   Downloaded futures-channel v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.6191997Z   Downloaded icu_locale_core v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.7556469Z   Downloaded base64 v0.22.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.7963627Z   Downloaded bytes v1.12.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:56.8332541Z   Downloaded derive_more v2.1.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:57.2724536Z   Downloaded iai-callgrind v0.16.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:57.3453460Z   Downloaded unicode-ident v1.0.26
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:57.3709984Z   Downloaded winapi-util v0.1.11
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:57.4043467Z   Downloaded writeable v0.6.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:57.4276409Z   Downloaded icu_collections v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:57.9921965Z   Downloaded futures-io v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.0028702Z   Downloaded hashbrown v0.14.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.0386477Z   Downloaded iai-callgrind-macros v0.6.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.0562072Z   Downloaded aho-corasick v1.1.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.1287925Z   Downloaded globset v0.4.20
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.1387683Z   Downloaded walkdir v2.5.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.1598236Z   Downloaded windows-link v0.2.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.1664313Z   Downloaded windows-numerics v0.3.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.1914276Z   Downloaded crossbeam-deque v0.8.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.2017669Z   Downloaded fastrand v2.5.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.2156267Z   Downloaded futures v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.2656213Z   Downloaded futures-macro v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.2816812Z   Downloaded tower-lsp-macros v0.9.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.2878229Z   Downloaded windows-future v0.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.3070325Z   Downloaded windows-implement v0.60.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.3173891Z   Downloaded windows-interface v0.59.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.3279442Z   Downloaded zerofrom v0.1.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.3348475Z   Downloaded derive_more-impl v2.1.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.5571794Z   Downloaded icu_normalizer_data v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.6751185Z   Downloaded tracing-chrome v0.7.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.6977211Z   Downloaded typenum v1.20.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.7217685Z   Downloaded getrandom v0.4.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.7949961Z   Downloaded httparse v1.10.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.8210804Z   Downloaded yoke v0.8.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.8379191Z   Downloaded zmij v1.0.23
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.8655653Z   Downloaded windows-result v0.4.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.8894276Z   Downloaded zerovec-derive v0.11.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.9527244Z   Downloaded tower-service v0.3.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:58.9706458Z   Downloaded futures-util v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:59.2879330Z   Downloaded pin-project-internal v1.1.13
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:59.3883711Z   Downloaded windows-collections v0.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:13:59.4294446Z   Downloaded windows-core v0.62.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:00.8442084Z   Downloaded zerofrom-derive v0.1.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:00.9229404Z   Downloaded futures-core v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:00.9668790Z   Downloaded itoa v1.0.18
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:00.9948634Z   Downloaded lock_api v0.4.14
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.0822644Z   Downloaded stable_deref_trait v1.2.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.2045209Z   Downloaded thread_local v1.1.10
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.2780050Z   Downloaded form_urlencoded v1.2.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.3055810Z   Downloaded serde_repr v0.1.21
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.3361903Z   Downloaded tower-layer v0.3.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.3462140Z   Downloaded windows-threading v0.2.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.5720353Z   Downloaded yoke-derive v0.8.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.5843864Z   Downloaded windows-strings v0.5.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.6171445Z   Downloaded rustc_version v0.4.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.7268553Z   Downloaded tracing-attributes v0.1.31
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.7642318Z   Downloaded zerovec v0.11.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.8611447Z   Downloaded url v2.5.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.8910458Z   Downloaded tracing-core v0.1.36
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.9107728Z   Downloaded zerotrie v0.2.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.9475948Z   Downloaded nu-ansi-term v0.50.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:01.9726949Z   Downloaded tinystr v0.8.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.0135649Z   Downloaded idna_adapter v1.2.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.0278787Z   Downloaded tracing-subscriber v0.3.23
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.2550680Z   Downloaded tracing v0.1.44
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.8602581Z   Downloaded proc-macro-error-attr2 v2.0.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.8837629Z   Downloaded lazy_static v1.5.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9026236Z   Downloaded litemap v0.8.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9310811Z   Downloaded tokio-macros v2.7.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9466539Z   Downloaded potential_utf v0.1.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9544687Z   Downloaded scopeguard v1.2.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9715023Z   Downloaded same-file v1.0.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9860163Z   Downloaded synstructure v0.14.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9927038Z   Downloaded percent-encoding v2.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:02.9988904Z   Downloaded dashmap v5.5.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.0303813Z   Downloaded pin-project-lite v0.2.17
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.1386629Z   Downloaded quote v1.0.47
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.2713776Z   Downloaded proc-macro-error2 v2.0.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.3152087Z   Downloaded displaydoc v0.2.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.3422045Z   Downloaded sha2 v0.10.9
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.3708653Z   Downloaded proc-macro2 v1.0.107
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.4028978Z   Downloaded serde_derive v1.0.229
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.4284133Z   Downloaded tempfile v3.27.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.4879935Z   Downloaded slab v0.4.12
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.7432264Z   Downloaded smallvec v1.16.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:03.8722747Z   Downloaded crossbeam-utils v0.8.23
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:04.1756907Z   Downloaded pin-project v1.1.13
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:04.8972536Z   Downloaded parking_lot_core v0.9.12
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:04.9162870Z   Downloaded icu_provider v2.3.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.3181763Z   Downloaded once_cell v1.21.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.4360054Z   Downloaded sharded-slab v0.1.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.4699132Z   Downloaded log v0.4.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.5109839Z   Downloaded semver v1.0.28
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.5407242Z   Downloaded ignore v0.4.33
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.5803864Z   Downloaded lsp-types v0.94.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.6229921Z   Downloaded memchr v2.8.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.6707842Z   Downloaded serde v1.0.229
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.7350979Z   Downloaded serde_core v1.0.229
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.7752801Z   Downloaded icu_properties v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.7978435Z   Downloaded indexmap v2.14.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:06.8307153Z   Downloaded tower v0.4.13
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:07.0997693Z   Downloaded mio v1.2.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:07.2372309Z   Downloaded serde_json v1.0.151
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:07.3149358Z   Downloaded idna v1.1.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:07.3344870Z   Downloaded tokio-util v0.7.19
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:10.3440669Z   Downloaded bstr v1.13.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:10.6004981Z   Downloaded hashbrown v0.17.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:11.3634990Z   Downloaded process-wrap v10.0.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:11.4946319Z   Downloaded icu_properties_data v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:11.8645391Z   Downloaded iai-callgrind-runner v0.16.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:12.2831160Z   Downloaded syn v2.0.119
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:12.3907629Z   Downloaded syn v3.0.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:12.6577814Z   Downloaded icu_normalizer v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:12.7309747Z   Downloaded regex-syntax v0.8.11
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:12.7701012Z   Downloaded windows-sys v0.61.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:13.1712623Z   Downloaded regex-automata v0.4.18
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:13.2845984Z   Downloaded tokio v1.53.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:14.5583535Z   Downloaded windows v0.62.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:18.9022906Z    Compiling proc-macro2 v1.0.107
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:18.9023381Z    Compiling quote v1.0.47
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:18.9023822Z    Compiling unicode-ident v1.0.26
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:18.9024338Z    Compiling windows-link v0.2.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:18.9501630Z    Compiling stable_deref_trait v1.2.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:18.9917174Z    Compiling memchr v2.8.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:19.1173794Z    Compiling windows-sys v0.61.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:19.8670081Z    Compiling serde_core v1.0.229
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:21.4797372Z    Compiling smallvec v1.16.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:21.6213614Z    Compiling pin-project-lite v0.2.17
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:21.6647307Z    Compiling serde v1.0.229
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:23.6168519Z    Compiling writeable v0.6.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:23.6414534Z    Compiling zmij v1.0.23
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:23.8883527Z    Compiling cfg-if v1.0.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:23.9231549Z    Compiling litemap v0.8.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.0041329Z    Compiling futures-core v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.1247149Z    Compiling icu_properties_data v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.1321491Z    Compiling futures-sink v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.2087348Z    Compiling utf8_iter v1.0.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.4377443Z    Compiling once_cell v1.21.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.5240648Z    Compiling syn v3.0.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.6330352Z    Compiling syn v2.0.119
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.6595626Z    Compiling serde_json v1.0.151
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:24.9034602Z    Compiling icu_normalizer_data v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:25.5443718Z    Compiling version_check v0.9.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:25.8637276Z    Compiling itoa v1.0.18
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:26.0645918Z    Compiling generic-array v0.14.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:26.5552245Z    Compiling futures-channel v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:26.7169602Z    Compiling windows-strings v0.5.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:26.7851861Z    Compiling windows-result v0.4.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:27.0914377Z    Compiling futures-io v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:27.1434956Z    Compiling slab v0.4.12
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:27.2646106Z    Compiling futures-task v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:27.3298703Z    Compiling tracing-core v0.1.36
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:27.4247944Z    Compiling crossbeam-utils v0.8.23
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:27.7118247Z    Compiling log v0.4.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:27.9337742Z    Compiling typenum v1.20.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:28.2484998Z    Compiling mio v1.2.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:28.9727074Z    Compiling synstructure v0.14.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:29.7227657Z    Compiling percent-encoding v2.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:30.0067743Z    Compiling bytes v1.12.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:30.1910215Z    Compiling parking_lot_core v0.9.12
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:30.4380932Z    Compiling crossbeam-epoch v0.9.21
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:30.7110562Z    Compiling form_urlencoded v1.2.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:31.3991949Z    Compiling windows-implement v0.60.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:31.5307954Z    Compiling zerofrom-derive v0.1.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:31.5451321Z    Compiling yoke-derive v0.8.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:32.3129567Z    Compiling zerovec-derive v0.11.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:32.7287039Z    Compiling displaydoc v0.2.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:33.0071364Z    Compiling serde_derive v1.0.229
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:33.0755008Z    Compiling zerofrom v0.1.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:33.1787135Z    Compiling yoke v0.8.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:33.3570018Z    Compiling futures-macro v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:33.6501664Z    Compiling zerotrie v0.2.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:33.6504807Z    Compiling zerovec v0.11.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:34.0082431Z    Compiling windows-interface v0.59.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:34.3035689Z    Compiling tinystr v0.8.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:34.3651357Z    Compiling potential_utf v0.1.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:34.4951626Z    Compiling icu_locale_core v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:34.4984917Z    Compiling icu_collections v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:34.8449319Z    Compiling windows-core v0.62.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:35.2493660Z    Compiling futures-util v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:35.5542745Z    Compiling icu_provider v2.3.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:35.9383299Z    Compiling icu_normalizer v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:36.2757159Z    Compiling icu_properties v2.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:36.8230916Z    Compiling tokio-macros v2.7.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:37.6353112Z    Compiling idna_adapter v1.2.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:37.7353147Z    Compiling idna v1.1.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:37.8310163Z    Compiling tokio v1.53.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:38.3231335Z    Compiling pin-project-internal v1.1.13
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:38.7195206Z    Compiling futures-executor v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.0066075Z    Compiling winapi-util v0.1.11
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.0696666Z    Compiling aho-corasick v1.1.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.2805567Z    Compiling windows-threading v0.2.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.3839240Z    Compiling httparse v1.10.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.7117310Z    Compiling lazy_static v1.5.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.7197447Z    Compiling scopeguard v1.2.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.8189436Z    Compiling crossbeam-deque v0.8.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:39.8213700Z    Compiling getrandom v0.4.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:40.0258848Z    Compiling regex-syntax v0.8.11
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:40.0517710Z    Compiling lock_api v0.4.14
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:40.2846280Z    Compiling sharded-slab v0.1.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:40.9660637Z    Compiling pin-project v1.1.13
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:41.0234641Z    Compiling windows-future v0.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:41.8636955Z    Compiling regex-automata v0.4.18
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:42.8884696Z    Compiling same-file v1.0.6
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:43.0239975Z    Compiling futures v0.3.34
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:43.0729313Z    Compiling url v2.5.8
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:43.7636622Z    Compiling windows-numerics v0.3.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:43.9564073Z    Compiling windows-collections v0.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:44.4252263Z    Compiling serde_repr v0.1.21
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:44.4979387Z    Compiling derive_more-impl v2.1.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:44.9018008Z    Compiling tracing-attributes v0.1.31
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.3999792Z    Compiling block-buffer v0.10.4
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.4671240Z    Compiling crypto-common v0.1.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.5114061Z    Compiling tracing-log v0.2.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.5473132Z    Compiling thread_local v1.1.10
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.5485947Z    Compiling nu-ansi-term v0.50.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.7779746Z    Compiling bstr v1.13.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.8255807Z    Compiling tower-service v0.3.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.8811708Z    Compiling bitflags v1.3.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:46.9263629Z    Compiling hashbrown v0.14.5
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:47.0299629Z    Compiling hashbrown v0.17.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:47.4553670Z    Compiling equivalent v1.0.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:47.5065780Z    Compiling tower-layer v0.3.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:47.6174857Z    Compiling dashmap v5.5.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:47.6533224Z    Compiling tower v0.4.13
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:47.7720320Z    Compiling indexmap v2.14.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:48.0514380Z    Compiling globset v0.4.20
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:48.1855074Z    Compiling lsp-types v0.94.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:48.4032163Z    Compiling tracing-subscriber v0.3.23
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:48.6233278Z    Compiling tracing v0.1.44
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:48.8857118Z    Compiling digest v0.10.7
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:49.2602444Z    Compiling windows v0.62.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:49.5029665Z    Compiling walkdir v2.5.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:49.9816734Z    Compiling tokio-util v0.7.19
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:51.1523433Z    Compiling async-trait v0.1.92
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:51.1982443Z    Compiling auto_impl v1.3.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:52.2576933Z    Compiling tower-lsp-macros v0.9.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:52.2578587Z    Compiling proc-macro-error-attr2 v2.0.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:52.5298819Z    Compiling cpufeatures v0.2.17
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:52.5725978Z    Compiling fastrand v2.5.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:52.6817220Z    Compiling iai-callgrind-runner v0.16.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:52.8153365Z    Compiling tempfile v3.27.0
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:52.8739294Z    Compiling proc-macro-error2 v2.0.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:53.4223787Z    Compiling sha2 v0.10.9
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:53.4684558Z    Compiling process-wrap v10.0.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:53.9485405Z    Compiling tracing-chrome v0.7.2
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:54.4491270Z    Compiling ignore v0.4.33
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:54.4554984Z    Compiling derive_more v2.1.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:54.5001178Z    Compiling iai-callgrind v0.16.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:54.6760046Z    Compiling base64 v0.22.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:55.0641097Z    Compiling iai-callgrind-macros v0.6.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:56.4217905Z    Compiling bincode v1.3.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:14:58.4978286Z    Compiling tower-lsp v0.20.0 (D:\a\bend2-lsp-rs\bend2-lsp-rs\vendor\tower-lsp)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:00.1860929Z    Compiling bend2-lsp v0.6.2 (D:\a\bend2-lsp-rs\bend2-lsp-rs)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:27.6032265Z     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 32s
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:27.6043160Z warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:27.6043893Z note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:27.6481594Z      Running tests\compiler_multi_error.rs (target\debug\deps\compiler_multi_error-a96120a4220f71e0.exe)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:27.6548415Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:27.6548908Z running 1 test
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:28.5578204Z test genuine_compiler_reports_both_independent_errors_at_their_literals ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:28.5578721Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:28.5579033Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:28.5579472Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:28.5595232Z      Running tests\native_compiler_diagnostics.rs (target\debug\deps\native_compiler_diagnostics-7fa8e620af31041e.exe)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:28.5663350Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:28.5663704Z running 3 tests
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:29.7881361Z test transitive_import_links_original_cause_and_keeps_independent_source_error ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9579404Z test conflicting_base_import_reports_the_cause_at_the_import_instead_of_a_banner ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9851196Z test compiler_owned_base_stays_exempt_but_user_base_is_checked ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9851748Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9852040Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.42s
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9852477Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9867230Z      Running tests\native_law_ranges.rs (target\debug\deps\native_law_ranges-9ed7ed9b2a0aa098.exe)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9931002Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:30.9931385Z running 2 tests
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:32.0343019Z test multiline_unfilled_law_range_ends_at_final_type_token_before_comments ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:32.0728382Z test unfilled_law_range_ends_at_type_before_comments_and_independent_definition ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:32.0728738Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:32.0728947Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.08s
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run mandatory real-compiler stdio E2Es	2026-10-29T11:15:32.0729219Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	﻿2026-10-29T11:15:32.1541583Z ##[group]Run cargo test --locked --test bend_lint_protocol
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1541991Z ^[[36;1mcargo test --locked --test bend_lint_protocol^[[0m
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1551280Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1551577Z env:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1551721Z   BEND_NO_TELEMETRY: 1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1551893Z   EXPECTED_ARCH: X64
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1552229Z   NATIVE_TARGET: x86_64-pc-windows-msvc
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1552439Z   PYTHON: python
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1552663Z   BEND2_COMPILER_TEST_PATH: D:\a\_temp\bend-2.0.37\bin\bend.exe
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.1552939Z ##[endgroup]
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:32.3649477Z    Compiling bend2-lsp v0.6.2 (D:\a\bend2-lsp-rs\bend2-lsp-rs)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:33.7455384Z     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.53s
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:33.7463550Z warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:33.7464700Z note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:33.7576574Z      Running tests\bend_lint_protocol.rs (target\debug\deps\bend_lint_protocol-20658ce2b833af58.exe)
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:33.7647565Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:33.7647968Z running 29 tests
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:34.6305931Z test changes_and_unsaved_save_notifications_never_analyze_old_disk_text ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:34.6861892Z test close_and_reopen_cannot_accept_previous_save_completion ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:34.6863257Z test config_file_change_invalidates_pending_project_results ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:34.7606262Z test dangerous_fixes_are_absent_without_separate_code_action_consent ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:34.8438222Z test dangerous_fixes_require_optin_explicit_request_and_versioned_user_edit ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.0181864Z test conflicting_or_unverifiable_multifile_fix_is_not_offered ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.1258074Z test configuration_change_rejects_pending_results ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.2666966Z test compiler_and_lint_publish_as_one_union_and_disabling_only_clears_lint ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.3294018Z test delayed_lint_is_discarded_after_edit_and_requests_stay_responsive ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.5179835Z test dependency_edit_invalidates_inflight_root_findings ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.6664128Z test enabled_save_uses_json_in_nearest_project_without_fixing_disk ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.7061489Z test explicit_path_without_enabled_consent_never_executes_project_rules ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.8649327Z test editing_saved_document_clears_published_lint_until_next_real_save ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:35.9295114Z test lint_error_exit_one_is_a_valid_report_not_a_provider_failure ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:36.0482062Z test later_compiler_completion_keeps_already_published_lint_findings ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:36.1148835Z test lint_rule_cannot_impersonate_an_automatic_parser_fix ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:36.1348002Z test imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_error ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:36.3057150Z test lint_is_off_by_default_even_with_project_rules_and_save ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:36.4669444Z test previously_reported_fix_is_refused_after_unsaved_edit_or_external_disk_change ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:36.8404467Z test relative_analyzer_path_is_never_resolved_from_project_or_path ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:37.0338202Z test shutdown_reaps_analyzer_process_tree ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:37.1130689Z test suppressed_findings_stay_hidden_and_utf16_positions_are_not_reencoded ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:37.1375155Z test missing_analyzer_is_visible_without_erasing_compiler_diagnostics ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:38.1041184Z test unsaved_imported_dependency_prevents_saved_root_analysis ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:38.1101648Z test invalid_ranges_and_outside_paths_never_become_editor_findings ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:38.1866562Z test valid_multifile_dangerous_action_versions_every_open_saved_target ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:38.6187484Z test watched_dependency_change_invalidates_inflight_root_findings ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:39.0683716Z test malformed_output_and_process_failure_preserve_selected_compiler_errors ... ok
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4496875Z test timeout_kills_analyzer_and_its_descendant_without_blocking_compiler ... FAILED
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4497260Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4497330Z failures:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4497672Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4497870Z ---- timeout_kills_analyzer_and_its_descendant_without_blocking_compiler stdout ----
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4498181Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4498498Z thread 'timeout_kills_analyzer_and_its_descendant_without_blocking_compiler' (6664) panicked at tests\bend_lint_protocol.rs:234:13:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4499065Z fixture did not create address
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4499354Z note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4499693Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4499697Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4499770Z failures:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4499999Z     timeout_kills_analyzer_and_its_descendant_without_blocking_compiler
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4500236Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4500437Z test result: FAILED. 28 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.69s
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4500717Z 
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4506731Z error: test failed, to rerun pass `--test bend_lint_protocol`
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Run saved-lint process and publication lifecycle E2Es	2026-10-29T11:15:47.4591661Z ##[error]Process completed with exit code 101.
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	﻿2026-10-29T11:15:47.4796970Z Post job cleanup.
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6124121Z [command]"C:\Program Files\Git\bin\git.exe" version
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6356224Z git version 2.56.0.windows.3
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6405306Z Temporarily overriding HOME='D:\a\_temp\fde7cb8e-e0fa-4e0c-bca9-040d32b9cd5d' before making global git config changes
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6405964Z Adding repository directory to the temporary git global config as a safe directory
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6414771Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\bend2-lsp-rs\bend2-lsp-rs
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6668472Z Removing SSH command configuration
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6679477Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:47.6941912Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:48.1110884Z Removing HTTP extra header
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:48.1119696Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:48.1371707Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:48.5825743Z Removing includeIf entries pointing to credentials config files
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:48.5835535Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-10-29T11:15:48.6106910Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Complete job	﻿2026-10-29T11:15:49.1517317Z Cleaning up orphan processes
+native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)	Complete job	2026-10-29T11:15:49.1789088Z Terminate orphan process: pid (7492) (vctip)

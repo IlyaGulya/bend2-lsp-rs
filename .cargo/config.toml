@@ -1,2 +1,0 @@
-[alias]
-perf = "run --locked --package bend2-perf --bin bend2-perf --"

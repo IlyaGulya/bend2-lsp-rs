@@ -1,0 +1,20 @@
+{
+  "input": "unaltered actual diagnostic40884115926 summary",
+  "actual_function_extracted_with_PowerShell_AST": true,
+  "runtime": "existing /tmp/pwsh7/pwsh",
+  "no_new_test_cases_or_SUT_measurement": true,
+  "results": [
+    {
+      "source": "original-1e71-failing",
+      "returncode": 73,
+      "stdout": "",
+      "stderr": "Cannot index into a null array.\n"
+    },
+    {
+      "source": "corrected-null-guard",
+      "returncode": 0,
+      "stdout": "{\"preserved_reproduction\":\"not_run\",\"rendered\":true,\"invented_wait_file_section\":false}\n",
+      "stderr": ""
+    }
+  ]
+}

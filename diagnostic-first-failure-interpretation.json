@@ -1,0 +1,18 @@
+{
+  "run_id": 40884115926,
+  "producer": "1e71e2c332fa5a69aea55d7af754a999d91bcca5",
+  "SUT": "c7d0b2c2a9ee88a329433ef01ce496c3892f3985",
+  "artifact_id": 12904505751,
+  "archive_sha256": "ed595c351b76c08f2e8c966b53a0cd7a5848b59685ee662368c114705d4cc170",
+  "all_archive_CRCs_verified": true,
+  "test_started": false,
+  "original_SUT_case_not_exercised": true,
+  "observer_ready_at": "2026-10-29T14:05:46.3884129Z",
+  "observer_absent_at_next_workflow_step": true,
+  "observer_stderr_empty": true,
+  "observer_end_summary_absent": true,
+  "external_exit_cause_unknown": true,
+  "conservative_lifetime_fix": "Keep observer start, unchanged test command, and identity-bound stop in the SAME owning PowerShell/workflow step; retain independent always cleanup",
+  "separate_proven_null_bug": "Format-StepSummary treats @($null).Count as1 when aborted run has no wait_file_diagnostics, then indexes null; use actual field presence before rendering",
+  "original_C7_failure_unchanged_and_unattributed": 40863668428
+}

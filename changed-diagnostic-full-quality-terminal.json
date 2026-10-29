@@ -1,0 +1,1209 @@
+{
+  "conclusion": "success",
+  "databaseId": 40892502216,
+  "headSha": "d939306d639a4587c975bea6146381c75bc90691",
+  "jobs": [
+    {
+      "completedAt": "2026-10-29T14:47:04Z",
+      "conclusion": "success",
+      "databaseId": 123512779428,
+      "name": "quality",
+      "startedAt": "2026-10-29T14:32:37Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:32:39Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:32:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:07Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:32:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:18Z",
+          "conclusion": "success",
+          "name": "Install pinned Rust toolchain",
+          "number": 3,
+          "startedAt": "2026-10-29T14:35:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:18Z",
+          "conclusion": "success",
+          "name": "Identify Rust dependency paths and configure sccache",
+          "number": 4,
+          "startedAt": "2026-10-29T14:35:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:20Z",
+          "conclusion": "success",
+          "name": "Restore Cargo downloads only",
+          "number": 5,
+          "startedAt": "2026-10-29T14:35:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:21Z",
+          "conclusion": "success",
+          "name": "Install pinned sccache",
+          "number": 6,
+          "startedAt": "2026-10-29T14:35:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:22Z",
+          "conclusion": "success",
+          "name": "Configure isolated quality tool installs",
+          "number": 7,
+          "startedAt": "2026-10-29T14:35:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:25Z",
+          "conclusion": "success",
+          "name": "Restore pinned quality tools and Cargo install metadata",
+          "number": 8,
+          "startedAt": "2026-10-29T14:35:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:27Z",
+          "conclusion": "success",
+          "name": "Install pinned quality tools",
+          "number": 9,
+          "startedAt": "2026-10-29T14:35:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:28Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned genuine Bend 2.0.37",
+          "number": 10,
+          "startedAt": "2026-10-29T14:35:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:31Z",
+          "conclusion": "success",
+          "name": "Install pinned semantic runtime",
+          "number": 11,
+          "startedAt": "2026-10-29T14:35:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:45:22Z",
+          "conclusion": "success",
+          "name": "Run quality gates",
+          "number": 12,
+          "startedAt": "2026-10-29T14:35:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:45:24Z",
+          "conclusion": "success",
+          "name": "Preserve semantic reports and original counterexamples",
+          "number": 13,
+          "startedAt": "2026-10-29T14:45:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:46:56Z",
+          "conclusion": "success",
+          "name": "Stress repeated 10000-file workspace lifecycles",
+          "number": 14,
+          "startedAt": "2026-10-29T14:45:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:46:58Z",
+          "conclusion": "success",
+          "name": "Preserve workspace lifecycle stress evidence",
+          "number": 15,
+          "startedAt": "2026-10-29T14:46:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:46:59Z",
+          "conclusion": "success",
+          "name": "Install checksum-pinned Neovim",
+          "number": 16,
+          "startedAt": "2026-10-29T14:46:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:47:01Z",
+          "conclusion": "success",
+          "name": "Run real Neovim native LSP E2E",
+          "number": 17,
+          "startedAt": "2026-10-29T14:46:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:47:01Z",
+          "conclusion": "skipped",
+          "name": "Upload Neovim E2E failure logs",
+          "number": 18,
+          "startedAt": "2026-10-29T14:47:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:47:01Z",
+          "conclusion": "skipped",
+          "name": "Save trusted Cargo downloads",
+          "number": 19,
+          "startedAt": "2026-10-29T14:47:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:47:01Z",
+          "conclusion": "skipped",
+          "name": "Save trusted pinned quality tools",
+          "number": 20,
+          "startedAt": "2026-10-29T14:47:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:47:01Z",
+          "conclusion": "success",
+          "name": "Post Install pinned sccache",
+          "number": 39,
+          "startedAt": "2026-10-29T14:47:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:47:01Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 40,
+          "startedAt": "2026-10-29T14:47:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:47:01Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 41,
+          "startedAt": "2026-10-29T14:47:01Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512779428"
+    },
+    {
+      "completedAt": "2026-10-29T14:35:44Z",
+      "conclusion": "success",
+      "databaseId": 123512779681,
+      "name": "legacy-native-compiler-e2e",
+      "startedAt": "2026-10-29T14:34:12Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:34:14Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:34:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:17Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:34:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:17Z",
+          "conclusion": "success",
+          "name": "Verify native macOS ARM64 runner",
+          "number": 3,
+          "startedAt": "2026-10-29T14:34:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:25Z",
+          "conclusion": "success",
+          "name": "Install pinned native Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-29T14:34:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:26Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned legacy Bend 2.0.36",
+          "number": 5,
+          "startedAt": "2026-10-29T14:34:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:39Z",
+          "conclusion": "success",
+          "name": "Preserve genuine 2.0.36 stdio and LAW coverage",
+          "number": 6,
+          "startedAt": "2026-10-29T14:34:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:40Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 12,
+          "startedAt": "2026-10-29T14:35:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:40Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-29T14:35:40Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512779681"
+    },
+    {
+      "completedAt": "2026-10-29T14:35:10Z",
+      "conclusion": "success",
+      "databaseId": 123512779707,
+      "name": "native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3)",
+      "startedAt": "2026-10-29T14:32:38Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:32:39Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:32:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:40Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:32:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:40Z",
+          "conclusion": "success",
+          "name": "Verify native runner",
+          "number": 3,
+          "startedAt": "2026-10-29T14:32:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:45Z",
+          "conclusion": "success",
+          "name": "Install pinned native Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-29T14:32:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:47Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned genuine Bend 2.0.37",
+          "number": 5,
+          "startedAt": "2026-10-29T14:32:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:48Z",
+          "conclusion": "success",
+          "name": "Preserve actual native compiler source and runtime identity",
+          "number": 6,
+          "startedAt": "2026-10-29T14:32:47Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:31Z",
+          "conclusion": "success",
+          "name": "Run mandatory real-compiler stdio E2Es",
+          "number": 7,
+          "startedAt": "2026-10-29T14:32:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:38Z",
+          "conclusion": "success",
+          "name": "Run saved-lint process and publication lifecycle E2Es",
+          "number": 8,
+          "startedAt": "2026-10-29T14:33:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:58Z",
+          "conclusion": "success",
+          "name": "Verify notification ordering under contended lint cleanup",
+          "number": 9,
+          "startedAt": "2026-10-29T14:33:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:58Z",
+          "conclusion": "skipped",
+          "name": "Verify native macOS semantic supervision",
+          "number": 10,
+          "startedAt": "2026-10-29T14:33:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:58Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned standalone bend-lint and native Bun",
+          "number": 11,
+          "startedAt": "2026-10-29T14:33:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:59Z",
+          "conclusion": "success",
+          "name": "Preserve actual native linter package and runtime identity",
+          "number": 12,
+          "startedAt": "2026-10-29T14:33:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:08Z",
+          "conclusion": "success",
+          "name": "Run genuine standalone lint diagnostics and explicit dangerous action E2E",
+          "number": 13,
+          "startedAt": "2026-10-29T14:33:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:08Z",
+          "conclusion": "skipped",
+          "name": "Verify genuine Windows ARM native rule program",
+          "number": 14,
+          "startedAt": "2026-10-29T14:35:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:08Z",
+          "conclusion": "skipped",
+          "name": "Capture the genuine Windows ARM native exception",
+          "number": 15,
+          "startedAt": "2026-10-29T14:35:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:08Z",
+          "conclusion": "skipped",
+          "name": "Preserve genuine analyzer failure evidence",
+          "number": 16,
+          "startedAt": "2026-10-29T14:35:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:09Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 32,
+          "startedAt": "2026-10-29T14:35:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:09Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-10-29T14:35:09Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512779707"
+    },
+    {
+      "completedAt": "2026-10-29T14:38:56Z",
+      "conclusion": "success",
+      "databaseId": 123512779842,
+      "name": "native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3)",
+      "startedAt": "2026-10-29T14:34:09Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:34:11Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:34:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:14Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:34:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:14Z",
+          "conclusion": "success",
+          "name": "Verify native runner",
+          "number": 3,
+          "startedAt": "2026-10-29T14:34:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:21Z",
+          "conclusion": "success",
+          "name": "Install pinned native Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-29T14:34:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:23Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned genuine Bend 2.0.37",
+          "number": 5,
+          "startedAt": "2026-10-29T14:34:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:25Z",
+          "conclusion": "success",
+          "name": "Preserve actual native compiler source and runtime identity",
+          "number": 6,
+          "startedAt": "2026-10-29T14:34:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:42Z",
+          "conclusion": "success",
+          "name": "Run mandatory real-compiler stdio E2Es",
+          "number": 7,
+          "startedAt": "2026-10-29T14:34:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:51Z",
+          "conclusion": "success",
+          "name": "Run saved-lint process and publication lifecycle E2Es",
+          "number": 8,
+          "startedAt": "2026-10-29T14:35:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:36:18Z",
+          "conclusion": "success",
+          "name": "Verify notification ordering under contended lint cleanup",
+          "number": 9,
+          "startedAt": "2026-10-29T14:35:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:32Z",
+          "conclusion": "success",
+          "name": "Verify native macOS semantic supervision",
+          "number": 10,
+          "startedAt": "2026-10-29T14:36:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:33Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned standalone bend-lint and native Bun",
+          "number": 11,
+          "startedAt": "2026-10-29T14:37:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:35Z",
+          "conclusion": "success",
+          "name": "Preserve actual native linter package and runtime identity",
+          "number": 12,
+          "startedAt": "2026-10-29T14:37:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:48Z",
+          "conclusion": "success",
+          "name": "Run genuine standalone lint diagnostics and explicit dangerous action E2E",
+          "number": 13,
+          "startedAt": "2026-10-29T14:37:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:48Z",
+          "conclusion": "skipped",
+          "name": "Verify genuine Windows ARM native rule program",
+          "number": 14,
+          "startedAt": "2026-10-29T14:38:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:48Z",
+          "conclusion": "skipped",
+          "name": "Capture the genuine Windows ARM native exception",
+          "number": 15,
+          "startedAt": "2026-10-29T14:38:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:48Z",
+          "conclusion": "skipped",
+          "name": "Preserve genuine analyzer failure evidence",
+          "number": 16,
+          "startedAt": "2026-10-29T14:38:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:49Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 32,
+          "startedAt": "2026-10-29T14:38:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:53Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-10-29T14:38:49Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512779842"
+    },
+    {
+      "completedAt": "2026-10-29T14:35:42Z",
+      "conclusion": "success",
+      "databaseId": 123512779975,
+      "name": "native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3)",
+      "startedAt": "2026-10-29T14:32:36Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:32:38Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:32:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:39Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:32:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:39Z",
+          "conclusion": "success",
+          "name": "Verify native runner",
+          "number": 3,
+          "startedAt": "2026-10-29T14:32:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:48Z",
+          "conclusion": "success",
+          "name": "Install pinned native Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-29T14:32:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:50Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned genuine Bend 2.0.37",
+          "number": 5,
+          "startedAt": "2026-10-29T14:32:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:32:51Z",
+          "conclusion": "success",
+          "name": "Preserve actual native compiler source and runtime identity",
+          "number": 6,
+          "startedAt": "2026-10-29T14:32:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:49Z",
+          "conclusion": "success",
+          "name": "Run mandatory real-compiler stdio E2Es",
+          "number": 7,
+          "startedAt": "2026-10-29T14:32:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:33:55Z",
+          "conclusion": "success",
+          "name": "Run saved-lint process and publication lifecycle E2Es",
+          "number": 8,
+          "startedAt": "2026-10-29T14:33:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:16Z",
+          "conclusion": "success",
+          "name": "Verify notification ordering under contended lint cleanup",
+          "number": 9,
+          "startedAt": "2026-10-29T14:33:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:16Z",
+          "conclusion": "skipped",
+          "name": "Verify native macOS semantic supervision",
+          "number": 10,
+          "startedAt": "2026-10-29T14:34:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:17Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned standalone bend-lint and native Bun",
+          "number": 11,
+          "startedAt": "2026-10-29T14:34:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:18Z",
+          "conclusion": "success",
+          "name": "Preserve actual native linter package and runtime identity",
+          "number": 12,
+          "startedAt": "2026-10-29T14:34:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:40Z",
+          "conclusion": "success",
+          "name": "Run genuine standalone lint diagnostics and explicit dangerous action E2E",
+          "number": 13,
+          "startedAt": "2026-10-29T14:34:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:40Z",
+          "conclusion": "skipped",
+          "name": "Verify genuine Windows ARM native rule program",
+          "number": 14,
+          "startedAt": "2026-10-29T14:35:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:40Z",
+          "conclusion": "skipped",
+          "name": "Capture the genuine Windows ARM native exception",
+          "number": 15,
+          "startedAt": "2026-10-29T14:35:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:40Z",
+          "conclusion": "skipped",
+          "name": "Preserve genuine analyzer failure evidence",
+          "number": 16,
+          "startedAt": "2026-10-29T14:35:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:41Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 32,
+          "startedAt": "2026-10-29T14:35:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:41Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-10-29T14:35:41Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512779975"
+    },
+    {
+      "completedAt": "2026-10-29T14:40:19Z",
+      "conclusion": "success",
+      "databaseId": 123512779980,
+      "name": "native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python)",
+      "startedAt": "2026-10-29T14:35:05Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:35:07Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:35:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:20Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:35:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:20Z",
+          "conclusion": "success",
+          "name": "Verify native runner",
+          "number": 3,
+          "startedAt": "2026-10-29T14:35:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:31Z",
+          "conclusion": "success",
+          "name": "Install pinned native Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-29T14:35:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:48Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned genuine Bend 2.0.37",
+          "number": 5,
+          "startedAt": "2026-10-29T14:35:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:51Z",
+          "conclusion": "success",
+          "name": "Preserve actual native compiler source and runtime identity",
+          "number": 6,
+          "startedAt": "2026-10-29T14:35:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:32Z",
+          "conclusion": "success",
+          "name": "Run mandatory real-compiler stdio E2Es",
+          "number": 7,
+          "startedAt": "2026-10-29T14:35:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:41Z",
+          "conclusion": "success",
+          "name": "Run saved-lint process and publication lifecycle E2Es",
+          "number": 8,
+          "startedAt": "2026-10-29T14:37:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:15Z",
+          "conclusion": "success",
+          "name": "Verify notification ordering under contended lint cleanup",
+          "number": 9,
+          "startedAt": "2026-10-29T14:37:41Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:15Z",
+          "conclusion": "skipped",
+          "name": "Verify native macOS semantic supervision",
+          "number": 10,
+          "startedAt": "2026-10-29T14:38:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:56Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned standalone bend-lint and native Bun",
+          "number": 11,
+          "startedAt": "2026-10-29T14:38:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:57Z",
+          "conclusion": "success",
+          "name": "Preserve actual native linter package and runtime identity",
+          "number": 12,
+          "startedAt": "2026-10-29T14:38:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:40:12Z",
+          "conclusion": "success",
+          "name": "Run genuine standalone lint diagnostics and explicit dangerous action E2E",
+          "number": 13,
+          "startedAt": "2026-10-29T14:38:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:40:12Z",
+          "conclusion": "success",
+          "name": "Verify genuine Windows ARM native rule program",
+          "number": 14,
+          "startedAt": "2026-10-29T14:40:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:40:12Z",
+          "conclusion": "skipped",
+          "name": "Capture the genuine Windows ARM native exception",
+          "number": 15,
+          "startedAt": "2026-10-29T14:40:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:40:12Z",
+          "conclusion": "skipped",
+          "name": "Preserve genuine analyzer failure evidence",
+          "number": 16,
+          "startedAt": "2026-10-29T14:40:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:40:17Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 32,
+          "startedAt": "2026-10-29T14:40:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:40:17Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-10-29T14:40:17Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512779980"
+    },
+    {
+      "completedAt": "2026-10-29T14:38:06Z",
+      "conclusion": "success",
+      "databaseId": 123512779988,
+      "name": "native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)",
+      "startedAt": "2026-10-29T14:32:48Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:32:50Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:32:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:47Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:32:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:47Z",
+          "conclusion": "success",
+          "name": "Verify native runner",
+          "number": 3,
+          "startedAt": "2026-10-29T14:34:47Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:34:57Z",
+          "conclusion": "success",
+          "name": "Install pinned native Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-29T14:34:47Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:06Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned genuine Bend 2.0.37",
+          "number": 5,
+          "startedAt": "2026-10-29T14:34:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:10Z",
+          "conclusion": "success",
+          "name": "Preserve actual native compiler source and runtime identity",
+          "number": 6,
+          "startedAt": "2026-10-29T14:35:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:36:38Z",
+          "conclusion": "success",
+          "name": "Run mandatory real-compiler stdio E2Es",
+          "number": 7,
+          "startedAt": "2026-10-29T14:35:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:36:45Z",
+          "conclusion": "success",
+          "name": "Run saved-lint process and publication lifecycle E2Es",
+          "number": 8,
+          "startedAt": "2026-10-29T14:36:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:13Z",
+          "conclusion": "success",
+          "name": "Verify notification ordering under contended lint cleanup",
+          "number": 9,
+          "startedAt": "2026-10-29T14:36:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:13Z",
+          "conclusion": "skipped",
+          "name": "Verify native macOS semantic supervision",
+          "number": 10,
+          "startedAt": "2026-10-29T14:37:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:15Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned standalone bend-lint and native Bun",
+          "number": 11,
+          "startedAt": "2026-10-29T14:37:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:37:17Z",
+          "conclusion": "success",
+          "name": "Preserve actual native linter package and runtime identity",
+          "number": 12,
+          "startedAt": "2026-10-29T14:37:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:02Z",
+          "conclusion": "success",
+          "name": "Run genuine standalone lint diagnostics and explicit dangerous action E2E",
+          "number": 13,
+          "startedAt": "2026-10-29T14:37:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:02Z",
+          "conclusion": "skipped",
+          "name": "Verify genuine Windows ARM native rule program",
+          "number": 14,
+          "startedAt": "2026-10-29T14:38:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:02Z",
+          "conclusion": "skipped",
+          "name": "Capture the genuine Windows ARM native exception",
+          "number": 15,
+          "startedAt": "2026-10-29T14:38:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:02Z",
+          "conclusion": "skipped",
+          "name": "Preserve genuine analyzer failure evidence",
+          "number": 16,
+          "startedAt": "2026-10-29T14:38:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:04Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 32,
+          "startedAt": "2026-10-29T14:38:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:04Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-10-29T14:38:04Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512779988"
+    },
+    {
+      "completedAt": "2026-10-29T14:43:30Z",
+      "conclusion": "success",
+      "databaseId": 123512780003,
+      "name": "native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3)",
+      "startedAt": "2026-10-29T14:35:05Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T14:35:07Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T14:35:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:11Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-29T14:35:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:11Z",
+          "conclusion": "success",
+          "name": "Verify native runner",
+          "number": 3,
+          "startedAt": "2026-10-29T14:35:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:29Z",
+          "conclusion": "success",
+          "name": "Install pinned native Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-29T14:35:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:33Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned genuine Bend 2.0.37",
+          "number": 5,
+          "startedAt": "2026-10-29T14:35:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:35:34Z",
+          "conclusion": "success",
+          "name": "Preserve actual native compiler source and runtime identity",
+          "number": 6,
+          "startedAt": "2026-10-29T14:35:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:26Z",
+          "conclusion": "success",
+          "name": "Run mandatory real-compiler stdio E2Es",
+          "number": 7,
+          "startedAt": "2026-10-29T14:35:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:38:36Z",
+          "conclusion": "success",
+          "name": "Run saved-lint process and publication lifecycle E2Es",
+          "number": 8,
+          "startedAt": "2026-10-29T14:38:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:39:44Z",
+          "conclusion": "success",
+          "name": "Verify notification ordering under contended lint cleanup",
+          "number": 9,
+          "startedAt": "2026-10-29T14:38:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:42:00Z",
+          "conclusion": "success",
+          "name": "Verify native macOS semantic supervision",
+          "number": 10,
+          "startedAt": "2026-10-29T14:39:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:42:02Z",
+          "conclusion": "success",
+          "name": "Provision checksum-pinned standalone bend-lint and native Bun",
+          "number": 11,
+          "startedAt": "2026-10-29T14:42:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:42:03Z",
+          "conclusion": "success",
+          "name": "Preserve actual native linter package and runtime identity",
+          "number": 12,
+          "startedAt": "2026-10-29T14:42:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:43:27Z",
+          "conclusion": "success",
+          "name": "Run genuine standalone lint diagnostics and explicit dangerous action E2E",
+          "number": 13,
+          "startedAt": "2026-10-29T14:42:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:43:27Z",
+          "conclusion": "skipped",
+          "name": "Verify genuine Windows ARM native rule program",
+          "number": 14,
+          "startedAt": "2026-10-29T14:43:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:43:27Z",
+          "conclusion": "skipped",
+          "name": "Capture the genuine Windows ARM native exception",
+          "number": 15,
+          "startedAt": "2026-10-29T14:43:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:43:27Z",
+          "conclusion": "skipped",
+          "name": "Preserve genuine analyzer failure evidence",
+          "number": 16,
+          "startedAt": "2026-10-29T14:43:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:43:28Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 32,
+          "startedAt": "2026-10-29T14:43:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T14:43:28Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-10-29T14:43:28Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216/job/123512780003"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40892502216"
+}

@@ -1,0 +1,114 @@
+{
+  "kind": "windows-saved-lint-timeout-follow-up-evidence",
+  "format_version": 1,
+  "repository": "IlyaGulya/bend2-lsp-rs",
+  "related_PR": 62,
+  "blocking_PR": false,
+  "decision": "Maintainer explicitly classified this Windows failure as a separate non-blocking follow-up; failed historical run remains failed and no CI policy/test waiver was applied.",
+  "SUT_commit": "c7d0b2c2a9ee88a329433ef01ce496c3892f3985",
+  "tested_PR_merge": "941c8988b6799a784b587dbcb8c923a0164ace28",
+  "diagnostic_first_producer": "1e71e2c332fa5a69aea55d7af754a999d91bcca5",
+  "diagnostic_changed_producer": "d939306d639a4587c975bea6146381c75bc90691",
+  "original_failure_run": 40863668428,
+  "original_failure_job": 123412904770,
+  "first_diagnostic_run": 40884115926,
+  "first_diagnostic_artifact": {
+    "id": 12904505751,
+    "sha256": "ed595c351b76c08f2e8c966b53a0cd7a5848b59685ee662368c114705d4cc170"
+  },
+  "changed_diagnostic_run": 40892502856,
+  "changed_diagnostic_artifact": {
+    "id": 12905157215,
+    "sha256": "5316eca6250a3dd44f49497d61c488170896066f8efe66c169fa9744a4a3a3c9"
+  },
+  "changed_full_quality_run": 40892502216,
+  "original_cause": "unknown; not reproduced in the one actual captured diagnostic run",
+  "unchanged_test_contract": {
+    "lint_timeout_ms": 500,
+    "Windows_test_cases": 29,
+    "default_concurrency": true,
+    "descendant_cleanup_compiler_responsiveness_stale_publication_shutdown_assertions_preserved": true
+  },
+  "files": [
+    {
+      "path": "aborted-summary-render-failing-before-passing-after.json",
+      "bytes": 591,
+      "sha256": "394ac3ed3cfa14b5115ff3a872ce7a240dc8af334fad846d5789cd1983cf7113"
+    },
+    {
+      "path": "changed-diagnostic-40892502856.zip",
+      "bytes": 232741,
+      "sha256": "5316eca6250a3dd44f49497d61c488170896066f8efe66c169fa9744a4a3a3c9"
+    },
+    {
+      "path": "changed-diagnostic-full-quality-terminal.json",
+      "bytes": 41383,
+      "sha256": "7381f551251d7994cd078935b3ed3d8aa5d682120226799b7220e575f4d50519"
+    },
+    {
+      "path": "changed-diagnostic-independent-proof.json",
+      "bytes": 1565,
+      "sha256": "2bb697a77958225bda364c2a04049141a94e97e3b41cc30910f5027723064f7b"
+    },
+    {
+      "path": "diagnostic-first-failure-interpretation.json",
+      "bytes": 1011,
+      "sha256": "f13afd28b407b37c78ca0fa2831f1b835addd302a4cefd877590862945025c16"
+    },
+    {
+      "path": "first-diagnostic-40884115926.zip",
+      "bytes": 160556,
+      "sha256": "ed595c351b76c08f2e8c966b53a0cd7a5848b59685ee662368c114705d4cc170"
+    },
+    {
+      "path": "first-diagnostic-failed-steps.log",
+      "bytes": 7467,
+      "sha256": "0d955e96fdfdda840219b871da08af70a8b40e0aa89584580475c323a9449f92"
+    },
+    {
+      "path": "first-diagnostic-quality-failed.log",
+      "bytes": 95532,
+      "sha256": "1d90903bf9fc588b9ece2b90b15bde9e9ca8c1f2730a9e11c0654e0c26ecbd4a"
+    },
+    {
+      "path": "first-diagnostic-quality-terminal.json",
+      "bytes": 41383,
+      "sha256": "b505636a551ae086410e5a339b5c30565b59b9bb6e943b23b4e7110b4c61daa1"
+    },
+    {
+      "path": "first-diagnostic-terminal.json",
+      "bytes": 6551,
+      "sha256": "c05c6590b1917e39711b5cac45c737f5bf320b5f8901729fa90f975a287c3880"
+    },
+    {
+      "path": "linux-fixture-startup-wrapper.rs",
+      "bytes": 798,
+      "sha256": "f7595ab7f5ed9c1ad555fa3b05ec256e958dadcd905da99ffd863e3f101efeb9"
+    },
+    {
+      "path": "linux-mechanism-probe-run.json",
+      "bytes": 4897,
+      "sha256": "ee9168d467e4614739ab10c54984e858c1ecb57aa304b5b8f081eb1ace4a1d3f"
+    },
+    {
+      "path": "linux-mechanism-probe.py",
+      "bytes": 5364,
+      "sha256": "145d8b6e1dd75883cd2b34d783b18fe668f27b4f4f59bdde9d279f80a80a0bdc"
+    },
+    {
+      "path": "original-pr-quality-failed-steps.log",
+      "bytes": 13453,
+      "sha256": "70b24055e0d97f5515cf40846948d4d9aac84d684f59d848bd2d520f6fb44845"
+    },
+    {
+      "path": "original-pr-quality-full-windows-job.log",
+      "bytes": 120747,
+      "sha256": "2de6d956e321d34293f87bfc7657930d78245ce6896fa8f91e634cde99f4d4bd"
+    },
+    {
+      "path": "original-pr-quality-run.json",
+      "bytes": 41383,
+      "sha256": "e06ae40eabbb9c48974f80ca3c845bfb5d424e77fb95cc9b0ed3be5d29c3c49f"
+    }
+  ]
+}

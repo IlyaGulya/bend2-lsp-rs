@@ -1,0 +1,857 @@
+quality	Run quality gates	﻿2026-10-29T14:15:32.4007180Z ##[group]Run ./scripts/quality
+quality	Run quality gates	2026-10-29T14:15:32.4007574Z ^[[36;1m./scripts/quality^[[0m
+quality	Run quality gates	2026-10-29T14:15:32.4027710Z shell: /usr/bin/bash -e {0}
+quality	Run quality gates	2026-10-29T14:15:32.4028021Z env:
+quality	Run quality gates	2026-10-29T14:15:32.4028255Z   RUSTC_WRAPPER: sccache
+quality	Run quality gates	2026-10-29T14:15:32.4028543Z   CARGO_INCREMENTAL: 0
+quality	Run quality gates	2026-10-29T14:15:32.4029333Z   SCCACHE_WEBDAV_ENDPOINT: https://cache.eu-central-a.buildfetch.com/sccache/hVXWOX
+quality	Run quality gates	2026-10-29T14:15:32.4029887Z   SCCACHE_WEBDAV_USERNAME: token-auth
+quality	Run quality gates	2026-10-29T14:15:32.4030387Z   SCCACHE_WEBDAV_PASSWORD: ***
+quality	Run quality gates	2026-10-29T14:15:32.4030733Z   SCCACHE_WEBDAV_RW_MODE: READ_ONLY
+quality	Run quality gates	2026-10-29T14:15:32.4031154Z   SCCACHE_PATH: /opt/hostedtoolcache/sccache/0.18.0/x64/sccache
+quality	Run quality gates	2026-10-29T14:15:32.4031598Z   ACTIONS_CACHE_SERVICE_V2: on
+quality	Run quality gates	2026-10-29T14:15:32.4032102Z   ACTIONS_RESULTS_URL: https://results-receiver.actions.githubusercontent.com/
+quality	Run quality gates	2026-10-29T14:15:32.4087296Z   ACTIONS_RUNTIME_TOKEN: ***
+quality	Run quality gates	2026-10-29T14:15:32.4087704Z   CARGO_INSTALL_ROOT: /home/runner/work/_temp/ci-quality-tools/cargo
+quality	Run quality gates	2026-10-29T14:15:32.4088318Z   GOBIN: /home/runner/work/_temp/ci-quality-tools/go/bin
+quality	Run quality gates	2026-10-29T14:15:32.4088754Z   BEND2_COMPILER_TEST_PATH: /home/runner/work/_temp/bend-2.0.37/bin/bend
+quality	Run quality gates	2026-10-29T14:15:32.4089441Z   BEND_NO_TELEMETRY: 1
+quality	Run quality gates	2026-10-29T14:15:32.4089686Z ##[endgroup]
+quality	Run quality gates	2026-10-29T14:15:32.5038766Z == policy ==
+quality	Run quality gates	2026-10-29T14:15:33.2953622Z Policy check passed: no inline lint suppressions.
+quality	Run quality gates	2026-10-29T14:15:33.4555110Z .........
+quality	Run quality gates	2026-10-29T14:15:33.4555706Z ----------------------------------------------------------------------
+quality	Run quality gates	2026-10-29T14:15:33.4556306Z Ran 9 tests in 0.015s
+quality	Run quality gates	2026-10-29T14:15:33.4556546Z 
+quality	Run quality gates	2026-10-29T14:15:33.4556682Z OK
+quality	Run quality gates	2026-10-29T14:15:33.5393234Z ..
+quality	Run quality gates	2026-10-29T14:15:33.5393696Z ----------------------------------------------------------------------
+quality	Run quality gates	2026-10-29T14:15:33.5394159Z Ran 2 tests in 0.023s
+quality	Run quality gates	2026-10-29T14:15:33.5394356Z 
+quality	Run quality gates	2026-10-29T14:15:33.5394462Z OK
+quality	Run quality gates	2026-10-29T14:15:34.1271113Z .................
+quality	Run quality gates	2026-10-29T14:15:34.1271852Z ----------------------------------------------------------------------
+quality	Run quality gates	2026-10-29T14:15:34.1272472Z Ran 17 tests in 0.507s
+quality	Run quality gates	2026-10-29T14:15:34.1272699Z 
+quality	Run quality gates	2026-10-29T14:15:34.1272820Z OK
+quality	Run quality gates	2026-10-29T14:15:34.1388768Z == workflow security ==
+quality	Run quality gates	2026-10-29T14:15:35.2667305Z ^[[32m INFO^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 zizmor v1.30.1
+quality	Run quality gates	2026-10-29T14:15:35.3329637Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/buildfetch-probe.yml
+quality	Run quality gates	2026-10-29T14:15:35.3337544Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/cache-warm.yml
+quality	Run quality gates	2026-10-29T14:15:35.3341676Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/installer-validation.yml
+quality	Run quality gates	2026-10-29T14:15:35.3351410Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/nightly.yml
+quality	Run quality gates	2026-10-29T14:15:35.3381396Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/perf-diagnostics.yml
+quality	Run quality gates	2026-10-29T14:15:35.3386373Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/perf-full.yml
+quality	Run quality gates	2026-10-29T14:15:35.3416932Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/performance-calibration.yml
+quality	Run quality gates	2026-10-29T14:15:35.3481127Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/performance.yml
+quality	Run quality gates	2026-10-29T14:15:35.3511132Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/quality.yml
+quality	Run quality gates	2026-10-29T14:15:35.3512823Z ^[[33m WARN^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m one or more inputs contains YAML anchors; see https://docs.zizmor.sh/usage/#yaml-anchors for details
+quality	Run quality gates	2026-10-29T14:15:35.3531281Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-binaries.yml
+quality	Run quality gates	2026-10-29T14:15:35.3544599Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release.yml
+quality	Run quality gates	2026-10-29T14:15:35.3549299Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/semantic-canonical-key.yml
+quality	Run quality gates	2026-10-29T14:15:35.3564283Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/semantic-fuzz.yml
+quality	Run quality gates	2026-10-29T14:15:35.3572696Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/semantic-oracle-profile.yml
+quality	Run quality gates	2026-10-29T14:15:35.3664565Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/windows-lint-startup-diagnostic.yml
+quality	Run quality gates	2026-10-29T14:15:35.3666164Z ^[[32mNo findings to report. Good job!^[[39m (^[[1m^[[93m2^[[39m ignored, ^[[93m42^[[39m suppressed^[[0m)
+quality	Run quality gates	2026-10-29T14:15:35.3711708Z == Rust performance infrastructure contract tests ==
+quality	Run quality gates	2026-10-29T14:15:35.4391288Z     Updating crates.io index
+quality	Run quality gates	2026-10-29T14:15:35.6789886Z  Downloading crates ...
+quality	Run quality gates	2026-10-29T14:15:35.7036590Z   Downloaded crypto-common v0.1.7
+quality	Run quality gates	2026-10-29T14:15:35.7051612Z   Downloaded itoa v1.0.18
+quality	Run quality gates	2026-10-29T14:15:35.7079546Z   Downloaded anstyle-query v1.1.5
+quality	Run quality gates	2026-10-29T14:15:35.7090920Z   Downloaded clap_lex v1.1.1
+quality	Run quality gates	2026-10-29T14:15:35.7105383Z   Downloaded ctrlc v3.5.2
+quality	Run quality gates	2026-10-29T14:15:35.7125667Z   Downloaded block-buffer v0.10.4
+quality	Run quality gates	2026-10-29T14:15:35.7136103Z   Downloaded core_detect v1.0.0
+quality	Run quality gates	2026-10-29T14:15:35.7153070Z   Downloaded cpufeatures v0.2.17
+quality	Run quality gates	2026-10-29T14:15:35.7170280Z   Downloaded percent-encoding v2.3.2
+quality	Run quality gates	2026-10-29T14:15:35.7178171Z   Downloaded rustversion v1.0.23
+quality	Run quality gates	2026-10-29T14:15:35.7211013Z   Downloaded tinystr v0.8.4
+quality	Run quality gates	2026-10-29T14:15:35.7236768Z   Downloaded zerofrom v0.1.8
+quality	Run quality gates	2026-10-29T14:15:35.7250354Z   Downloaded anstream v1.0.0
+quality	Run quality gates	2026-10-29T14:15:35.7278400Z   Downloaded anstyle v1.0.14
+quality	Run quality gates	2026-10-29T14:15:35.7299362Z   Downloaded anstyle-parse v1.0.0
+quality	Run quality gates	2026-10-29T14:15:35.7322136Z   Downloaded encoding_rs_io v0.1.8
+quality	Run quality gates	2026-10-29T14:15:35.7341739Z   Downloaded litemap v0.8.3
+quality	Run quality gates	2026-10-29T14:15:35.7377406Z   Downloaded serde_derive v1.0.229
+quality	Run quality gates	2026-10-29T14:15:35.7420542Z   Downloaded simdutf8 v0.1.5
+quality	Run quality gates	2026-10-29T14:15:35.7443588Z   Downloaded unicode-ident v1.0.26
+quality	Run quality gates	2026-10-29T14:15:35.7470821Z   Downloaded zerovec v0.11.8
+quality	Run quality gates	2026-10-29T14:15:35.7530541Z   Downloaded clap v4.6.7
+quality	Run quality gates	2026-10-29T14:15:35.7626441Z   Downloaded getrandom v0.4.3
+quality	Run quality gates	2026-10-29T14:15:35.7664086Z   Downloaded icu_properties v2.3.0
+quality	Run quality gates	2026-10-29T14:15:35.7696783Z   Downloaded idna v1.1.0
+quality	Run quality gates	2026-10-29T14:15:35.7731926Z   Downloaded nix v0.31.3
+quality	Run quality gates	2026-10-29T14:15:35.7847567Z   Downloaded quick-xml v0.38.4
+quality	Run quality gates	2026-10-29T14:15:35.7901569Z   Downloaded digest v0.10.7
+quality	Run quality gates	2026-10-29T14:15:35.7920508Z   Downloaded writeable v0.6.4
+quality	Run quality gates	2026-10-29T14:15:35.7941652Z   Downloaded form_urlencoded v1.2.2
+quality	Run quality gates	2026-10-29T14:15:35.7950235Z   Downloaded icu_locale_core v2.3.0
+quality	Run quality gates	2026-10-29T14:15:35.8018714Z   Downloaded zmij v1.0.23
+quality	Run quality gates	2026-10-29T14:15:35.8036756Z   Downloaded displaydoc v0.2.7
+quality	Run quality gates	2026-10-29T14:15:35.8057536Z   Downloaded idna_adapter v1.2.2
+quality	Run quality gates	2026-10-29T14:15:35.8067630Z   Downloaded potential_utf v0.1.6
+quality	Run quality gates	2026-10-29T14:15:35.8078616Z   Downloaded bitflags v2.13.2
+quality	Run quality gates	2026-10-29T14:15:35.8124036Z   Downloaded cfg_aliases v0.2.2
+quality	Run quality gates	2026-10-29T14:15:35.8134322Z   Downloaded is_terminal_polyfill v1.70.2
+quality	Run quality gates	2026-10-29T14:15:35.8144008Z   Downloaded colorchoice v1.0.5
+quality	Run quality gates	2026-10-29T14:15:35.8154589Z   Downloaded generic-array v0.14.7
+quality	Run quality gates	2026-10-29T14:15:35.8169095Z   Downloaded cfg-if v1.0.5
+quality	Run quality gates	2026-10-29T14:15:35.8182624Z   Downloaded errno v0.3.14
+quality	Run quality gates	2026-10-29T14:15:35.8198170Z   Downloaded proc-macro2 v1.0.107
+quality	Run quality gates	2026-10-29T14:15:35.8228163Z   Downloaded utf8_iter v1.0.4
+quality	Run quality gates	2026-10-29T14:15:35.8238762Z   Downloaded synstructure v0.14.0
+quality	Run quality gates	2026-10-29T14:15:35.8248754Z   Downloaded yoke-derive v0.8.4
+quality	Run quality gates	2026-10-29T14:15:35.8261425Z   Downloaded zerofrom-derive v0.1.8
+quality	Run quality gates	2026-10-29T14:15:35.8272843Z   Downloaded stable_deref_trait v1.2.1
+quality	Run quality gates	2026-10-29T14:15:35.8282192Z   Downloaded yoke v0.8.3
+quality	Run quality gates	2026-10-29T14:15:35.8299931Z   Downloaded fastrand v2.5.0
+quality	Run quality gates	2026-10-29T14:15:35.8314252Z   Downloaded icu_provider v2.3.1
+quality	Run quality gates	2026-10-29T14:15:35.8341116Z   Downloaded multiversion_no_op v1.0.0
+quality	Run quality gates	2026-10-29T14:15:35.8350287Z   Downloaded once_cell v1.21.4
+quality	Run quality gates	2026-10-29T14:15:35.8375040Z   Downloaded quote v1.0.47
+quality	Run quality gates	2026-10-29T14:15:35.8402317Z   Downloaded sha2 v0.10.9
+quality	Run quality gates	2026-10-29T14:15:35.8427421Z   Downloaded smallvec v1.16.2
+quality	Run quality gates	2026-10-29T14:15:35.8441764Z   Downloaded tempfile v3.27.0
+quality	Run quality gates	2026-10-29T14:15:35.8468062Z   Downloaded url v2.5.8
+quality	Run quality gates	2026-10-29T14:15:35.8494241Z   Downloaded zerovec-derive v0.11.6
+quality	Run quality gates	2026-10-29T14:15:35.8512119Z   Downloaded clap_derive v4.6.7
+quality	Run quality gates	2026-10-29T14:15:35.8534324Z   Downloaded icu_normalizer_data v2.3.0
+quality	Run quality gates	2026-10-29T14:15:35.8556145Z   Downloaded serde v1.0.229
+quality	Run quality gates	2026-10-29T14:15:35.8590741Z   Downloaded typenum v1.20.1
+quality	Run quality gates	2026-10-29T14:15:35.8626209Z   Downloaded zerotrie v0.2.5
+quality	Run quality gates	2026-10-29T14:15:35.8666123Z   Downloaded icu_collections v2.3.0
+quality	Run quality gates	2026-10-29T14:15:35.8730680Z   Downloaded serde_core v1.0.229
+quality	Run quality gates	2026-10-29T14:15:35.8760557Z   Downloaded memchr v2.8.3
+quality	Run quality gates	2026-10-29T14:15:35.8816706Z   Downloaded serde_json v1.0.151
+quality	Run quality gates	2026-10-29T14:15:35.8890138Z   Downloaded icu_properties_data v2.3.0
+quality	Run quality gates	2026-10-29T14:15:35.9000262Z   Downloaded clap_builder v4.6.7
+quality	Run quality gates	2026-10-29T14:15:35.9064573Z   Downloaded syn v3.0.6
+quality	Run quality gates	2026-10-29T14:15:35.9171498Z   Downloaded rustix v1.1.5
+quality	Run quality gates	2026-10-29T14:15:35.9438355Z   Downloaded icu_normalizer v2.3.0
+quality	Run quality gates	2026-10-29T14:15:35.9534783Z   Downloaded encoding_rs v0.8.42
+quality	Run quality gates	2026-10-29T14:15:35.9631464Z   Downloaded libc v0.2.189
+quality	Run quality gates	2026-10-29T14:15:36.0057216Z   Downloaded linux-raw-sys v0.12.1
+quality	Run quality gates	2026-10-29T14:15:36.1098024Z    Compiling proc-macro2 v1.0.107
+quality	Run quality gates	2026-10-29T14:15:36.1100302Z    Compiling unicode-ident v1.0.26
+quality	Run quality gates	2026-10-29T14:15:36.1101617Z    Compiling quote v1.0.47
+quality	Run quality gates	2026-10-29T14:15:36.1102656Z    Compiling stable_deref_trait v1.2.1
+quality	Run quality gates	2026-10-29T14:15:36.2741463Z    Compiling writeable v0.6.4
+quality	Run quality gates	2026-10-29T14:15:36.4819843Z    Compiling cfg-if v1.0.5
+quality	Run quality gates	2026-10-29T14:15:36.5938478Z    Compiling version_check v0.9.5
+quality	Run quality gates	2026-10-29T14:15:36.6810258Z    Compiling litemap v0.8.3
+quality	Run quality gates	2026-10-29T14:15:37.0664433Z    Compiling icu_normalizer_data v2.3.0
+quality	Run quality gates	2026-10-29T14:15:37.1292315Z    Compiling serde_core v1.0.229
+quality	Run quality gates	2026-10-29T14:15:37.1584572Z    Compiling generic-array v0.14.7
+quality	Run quality gates	2026-10-29T14:15:37.2258047Z    Compiling rustversion v1.0.23
+quality	Run quality gates	2026-10-29T14:15:37.2411284Z    Compiling utf8_iter v1.0.4
+quality	Run quality gates	2026-10-29T14:15:37.2872946Z    Compiling icu_properties_data v2.3.0
+quality	Run quality gates	2026-10-29T14:15:37.3640325Z    Compiling libc v0.2.189
+quality	Run quality gates	2026-10-29T14:15:37.4455584Z    Compiling typenum v1.20.1
+quality	Run quality gates	2026-10-29T14:15:38.0387882Z    Compiling syn v3.0.6
+quality	Run quality gates	2026-10-29T14:15:38.4496881Z    Compiling smallvec v1.16.2
+quality	Run quality gates	2026-10-29T14:15:38.6414980Z    Compiling utf8parse v0.2.2
+quality	Run quality gates	2026-10-29T14:15:38.6470113Z    Compiling bitflags v2.13.2
+quality	Run quality gates	2026-10-29T14:15:38.6590517Z    Compiling cfg_aliases v0.2.2
+quality	Run quality gates	2026-10-29T14:15:38.8395683Z    Compiling serde v1.0.229
+quality	Run quality gates	2026-10-29T14:15:38.8590431Z    Compiling nix v0.31.3
+quality	Run quality gates	2026-10-29T14:15:38.8720200Z    Compiling anstyle-parse v1.0.0
+quality	Run quality gates	2026-10-29T14:15:38.9135626Z    Compiling synstructure v0.14.0
+quality	Run quality gates	2026-10-29T14:15:39.0130261Z    Compiling zerovec-derive v0.11.6
+quality	Run quality gates	2026-10-29T14:15:39.0764677Z    Compiling displaydoc v0.2.7
+quality	Run quality gates	2026-10-29T14:15:39.1040578Z    Compiling serde_derive v1.0.229
+quality	Run quality gates	2026-10-29T14:15:39.1580837Z    Compiling zerofrom-derive v0.1.8
+quality	Run quality gates	2026-10-29T14:15:39.6620213Z    Compiling yoke-derive v0.8.4
+quality	Run quality gates	2026-10-29T14:15:40.1035895Z    Compiling encoding_rs v0.8.42
+quality	Run quality gates	2026-10-29T14:15:40.1575010Z    Compiling zerofrom v0.1.8
+quality	Run quality gates	2026-10-29T14:15:40.2430352Z    Compiling anstyle v1.0.14
+quality	Run quality gates	2026-10-29T14:15:40.4130407Z    Compiling rustix v1.1.5
+quality	Run quality gates	2026-10-29T14:15:40.5097756Z    Compiling yoke v0.8.3
+quality	Run quality gates	2026-10-29T14:15:40.5442613Z    Compiling getrandom v0.4.3
+quality	Run quality gates	2026-10-29T14:15:40.6277096Z    Compiling is_terminal_polyfill v1.70.2
+quality	Run quality gates	2026-10-29T14:15:40.6561194Z    Compiling anstyle-query v1.1.5
+quality	Run quality gates	2026-10-29T14:15:40.7443966Z    Compiling zerovec v0.11.8
+quality	Run quality gates	2026-10-29T14:15:40.8289804Z    Compiling zerotrie v0.2.5
+quality	Run quality gates	2026-10-29T14:15:40.8532652Z    Compiling zmij v1.0.23
+quality	Run quality gates	2026-10-29T14:15:40.9763788Z    Compiling colorchoice v1.0.5
+quality	Run quality gates	2026-10-29T14:15:41.0149925Z    Compiling tinystr v0.8.4
+quality	Run quality gates	2026-10-29T14:15:41.0669570Z    Compiling potential_utf v0.1.6
+quality	Run quality gates	2026-10-29T14:15:41.1724295Z    Compiling anstream v1.0.0
+quality	Run quality gates	2026-10-29T14:15:41.2510293Z    Compiling icu_locale_core v2.3.0
+quality	Run quality gates	2026-10-29T14:15:41.2970202Z    Compiling icu_collections v2.3.0
+quality	Run quality gates	2026-10-29T14:15:41.6295572Z    Compiling crypto-common v0.1.7
+quality	Run quality gates	2026-10-29T14:15:41.7725420Z    Compiling block-buffer v0.10.4
+quality	Run quality gates	2026-10-29T14:15:41.8150371Z    Compiling icu_provider v2.3.1
+quality	Run quality gates	2026-10-29T14:15:41.8265021Z    Compiling heck v0.5.0
+quality	Run quality gates	2026-10-29T14:15:41.9738582Z    Compiling linux-raw-sys v0.12.1
+quality	Run quality gates	2026-10-29T14:15:42.0267304Z    Compiling memchr v2.8.3
+quality	Run quality gates	2026-10-29T14:15:42.0326604Z    Compiling serde_json v1.0.151
+quality	Run quality gates	2026-10-29T14:15:42.0501944Z    Compiling icu_normalizer v2.3.0
+quality	Run quality gates	2026-10-29T14:15:42.1319304Z    Compiling icu_properties v2.3.0
+quality	Run quality gates	2026-10-29T14:15:42.2553990Z    Compiling multiversion_no_op v1.0.0
+quality	Run quality gates	2026-10-29T14:15:42.3077462Z    Compiling strsim v0.11.1
+quality	Run quality gates	2026-10-29T14:15:42.3420474Z    Compiling core_detect v1.0.0
+quality	Run quality gates	2026-10-29T14:15:42.3560519Z    Compiling clap_lex v1.1.1
+quality	Run quality gates	2026-10-29T14:15:42.5282880Z    Compiling iai-callgrind-runner v0.16.1
+quality	Run quality gates	2026-10-29T14:15:42.5549549Z    Compiling simdutf8 v0.1.5
+quality	Run quality gates	2026-10-29T14:15:42.5589506Z    Compiling percent-encoding v2.3.2
+quality	Run quality gates	2026-10-29T14:15:42.6128787Z    Compiling scopeguard v1.2.0
+quality	Run quality gates	2026-10-29T14:15:42.6526639Z    Compiling idna_adapter v1.2.2
+quality	Run quality gates	2026-10-29T14:15:42.7665506Z    Compiling form_urlencoded v1.2.2
+quality	Run quality gates	2026-10-29T14:15:42.7805498Z    Compiling clap_builder v4.6.7
+quality	Run quality gates	2026-10-29T14:15:42.8503964Z    Compiling idna v1.1.0
+quality	Run quality gates	2026-10-29T14:15:43.1147923Z    Compiling clap_derive v4.6.7
+quality	Run quality gates	2026-10-29T14:15:43.3407049Z    Compiling digest v0.10.7
+quality	Run quality gates	2026-10-29T14:15:43.7770628Z    Compiling cpufeatures v0.2.17
+quality	Run quality gates	2026-10-29T14:15:43.9030479Z    Compiling fastrand v2.5.0
+quality	Run quality gates	2026-10-29T14:15:43.9866609Z    Compiling itoa v1.0.18
+quality	Run quality gates	2026-10-29T14:15:44.1600363Z    Compiling once_cell v1.21.4
+quality	Run quality gates	2026-10-29T14:15:44.1760108Z    Compiling ctrlc v3.5.2
+quality	Run quality gates	2026-10-29T14:15:44.2123912Z    Compiling clap v4.6.7
+quality	Run quality gates	2026-10-29T14:15:44.3834129Z    Compiling tempfile v3.27.0
+quality	Run quality gates	2026-10-29T14:15:44.3931998Z    Compiling sha2 v0.10.9
+quality	Run quality gates	2026-10-29T14:15:44.4109986Z    Compiling encoding_rs_io v0.1.8
+quality	Run quality gates	2026-10-29T14:15:44.5822000Z    Compiling url v2.5.8
+quality	Run quality gates	2026-10-29T14:15:44.6290788Z    Compiling quick-xml v0.38.4
+quality	Run quality gates	2026-10-29T14:15:44.6446732Z    Compiling bincode v1.3.3
+quality	Run quality gates	2026-10-29T14:15:45.8986960Z    Compiling bend2-perf v0.6.2 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf)
+quality	Run quality gates	2026-10-29T14:16:02.6162228Z     Finished `test` profile [unoptimized + debuginfo] target(s) in 27.21s
+quality	Run quality gates	2026-10-29T14:16:02.6400109Z      Running unittests src/main.rs (target/debug/deps/bend2_perf-7d537b41f12b4f8c)
+quality	Run quality gates	2026-10-29T14:16:02.6422024Z 
+quality	Run quality gates	2026-10-29T14:16:02.6422470Z running 209 tests
+quality	Run quality gates	2026-10-29T14:16:02.6440246Z test calibration::tests::collected_probe_and_malformed_profiles_fail ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6441625Z test calibration::tests::arbitrary_precision_and_private_number_key_preserve_real_json_types ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6451875Z test calibration::tests::each_five_pair_block_balances_all_execution_positions ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6480102Z test calibration::tests::comparison_metrics_cannot_be_mistaken_for_fresh_counts ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6482111Z test calibration::tests::collector_cli_preserves_five_pair_default_and_strict_options ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6510179Z test calibration::tests::cargo_artifact_is_required_and_cannot_escape_independent_target ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6539920Z test calibration::tests::invalid_count_types_and_signs_are_rejected ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6570187Z test calibration::tests::executed_workload_manifest_rejects_incomplete_or_duplicate_list ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6571625Z test calibration::tests::missing_duplicate_and_extra_workloads_are_rejected ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6599931Z test calibration::tests::missing_metrics_and_unexpected_profile_parts_fail_closed ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6630010Z test calibration::tests::non_json_transport_duplicate_keys_and_nonfinite_numbers_fail_closed ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6659701Z test calibration::tests::null_workload_id_is_distinct_from_named_id ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6689680Z test calibration::tests::real_nm_format_reports_address_size_and_demangled_name ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6691614Z test calibration::tests::nested_or_stale_destinations_cannot_contaminate_source_or_output ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6719879Z test calibration::tests::reference_locations_list_retains_every_real_case_and_rejects_incomplete_coverage ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6750071Z test calibration::tests::reference_locations_cargo_artifact_is_selected_without_analysis_substitution ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6900236Z test calibration::tests::harness_newline_representations_preserve_exact_variants_and_anchor_counts ... ok
+quality	Run quality gates	2026-10-29T14:16:02.6954542Z test calibration::tests::reports::binary_addresses_host_identity_and_execution_order_are_preserved ... ok
+quality	Run quality gates	2026-10-29T14:16:02.7280137Z test calibration::tests::reports::duplicate_jobs_and_missing_split_are_rejected ... ok
+quality	Run quality gates	2026-10-29T14:16:02.7321057Z test calibration::tests::exact_known_anchors_reject_harness_drift_and_ambiguity ... ok
+quality	Run quality gates	2026-10-29T14:16:02.7401281Z test calibration::tests::reports::discovery_control_failure_and_non_inlay_control_shifts_are_diagnostic ... ok
+quality	Run quality gates	2026-10-29T14:16:02.7543629Z test calibration::tests::reports::environment_rejects_host_metadata_and_allows_comparable_cache_geometry ... ok
+quality	Run quality gates	2026-10-29T14:16:02.7939739Z test calibration::tests::reports::discovery_only_learning_retains_holdout_noise_and_ignores_controls ... ok
+quality	Run quality gates	2026-10-29T14:16:02.8151115Z test calibration::tests::reports::missing_and_escaping_raw_evidence_is_rejected ... ok
+quality	Run quality gates	2026-10-29T14:16:02.8300687Z test calibration::tests::reports::learned_floor_is_inclusive_and_active_allowance_can_be_larger ... ok
+quality	Run quality gates	2026-10-29T14:16:02.8390821Z test calibration::tests::reports::missing_required_signals_and_noncontiguous_pairs_fail_closed ... ok
+quality	Run quality gates	2026-10-29T14:16:02.8487940Z test calibration::tests::reports::incomparable_source_fixture_harness_environment_or_workloads_fail ... ok
+quality	Run quality gates	2026-10-29T14:16:02.9212088Z test calibration::tests::reports::multibench::historical_scope_stays_analysis_only_and_mixed_experiments_fail ... ok
+quality	Run quality gates	2026-10-29T14:16:02.9260590Z test calibration::tests::reports::malformed_counts_sources_samples_and_identities_are_rejected ... ok
+quality	Run quality gates	2026-10-29T14:16:02.9561003Z test calibration::tests::reports::multibench::v2_evidence_rejects_missing_misattributed_and_forged_measurements ... ok
+quality	Run quality gates	2026-10-29T14:16:02.9568364Z test calibration::tests::reports::multibench::strict_cli_scope_rejects_historical_evidence_but_retains_verified_report ... ok
+quality	Run quality gates	2026-10-29T14:16:02.9874211Z test calibration::tests::reports::multibench::v2_manifests_bind_complete_disjoint_identity_ownership ... ok
+quality	Run quality gates	2026-10-29T14:16:03.0612445Z test calibration::tests::reports::multibench::v2_retained_two_benchmark_evidence_is_accepted_and_scope_is_explicit ... ok
+quality	Run quality gates	2026-10-29T14:16:03.0810736Z test calibration::tests::reports::optional_expected_coverage_fails_missing_matrix_jobs_or_pairs ... ok
+quality	Run quality gates	2026-10-29T14:16:03.1002198Z test calibration::tests::reports::multibench::strict_cli_workload_count_rejects_omission_but_retains_verified_report ... ok
+quality	Run quality gates	2026-10-29T14:16:03.1269561Z test calibration::tests::reports::recursive_reader_ignores_raw_json_but_rejects_duplicate_json_keys ... ok
+quality	Run quality gates	2026-10-29T14:16:03.2190796Z test calibration::tests::reports::positive_controls_must_exceed_two_percent_for_every_validation_signal ... ok
+quality	Run quality gates	2026-10-29T14:16:03.7154893Z test calibration::tests::reports::predeclared_coverage_requires_full_seven_three_five_design ... ok
+quality	Run quality gates	2026-10-29T14:16:17.8070891Z test calibration::tests::reports::repeated::repeated_cli_accepts_exact_boundary_retains_raw_failures_and_fixed_bounds ... ok
+quality	Run quality gates	2026-10-29T14:16:25.3816639Z test calibration::tests::reports::multibench::repeated_v2_reports_both_benchmarks_without_changing_fixed_control_math ... ok
+quality	Run quality gates	2026-10-29T14:16:30.2180824Z test calibration::tests::reports::repeated::repeated_cli_binomial_boundary_requires_62_of_105_and_preserves_ties ... ok
+quality	Run quality gates	2026-10-29T14:16:30.7441159Z test calibration::tests::reports::repeated::repeated_cli_does_not_pool_jobs_or_accept_inconclusive_controls ... ok
+quality	Run quality gates	2026-10-29T14:16:30.8700911Z test calibration::tests::reports::retained_stdout_must_match_counts_execution_and_fresh_baseline ... ok
+quality	Run quality gates	2026-10-29T14:16:30.8703772Z test calibration::tests::reports::sharding::canonical_manifest_dodges_newline_null_and_empty_string_collisions ... ok
+quality	Run quality gates	2026-10-29T14:16:30.8720897Z test calibration::tests::reports::sharding::cli_accepts_bounded_shards_and_rejects_out_of_range_arguments ... ok
+quality	Run quality gates	2026-10-29T14:16:30.9848623Z test calibration::tests::reports::sharding::complete_shards_recompose_one_host_series_and_full_scope ... ok
+quality	Run quality gates	2026-10-29T14:16:30.9870308Z test calibration::tests::reports::sharding::deterministic_four_whole_function_shards_are_disjoint_and_exhaustive ... ok
+quality	Run quality gates	2026-10-29T14:16:31.9487583Z test calibration::tests::reports::sharding::rejects_incomplete_duplicate_shuffled_stale_or_mixed_shards ... ok
+quality	Run quality gates	2026-10-29T14:16:32.2601116Z test calibration::tests::reports::sharding::sharded_aggregation_preserves_unsharded_comparisons_and_sensitivity ... ok
+quality	Run quality gates	2026-10-29T14:16:32.3586902Z test calibration::tests::reports::signed_distributions_nearest_rank_and_exact_relative_ratios ... ok
+quality	Run quality gates	2026-10-29T14:16:32.4579558Z test calibration::tests::reports::signed_u64_extremes_retain_exact_delta_and_ratio_without_overflow ... ok
+quality	Run quality gates	2026-10-29T14:16:33.5530971Z test calibration::tests::reports::strict_controls_do_not_certify_partial_coverage_or_missed_regressions ... ok
+quality	Run quality gates	2026-10-29T14:16:35.5938522Z test calibration::tests::reports::strict_controls_reject_unchanged_source_regression_and_accept_limit_boundary ... ok
+quality	Run quality gates	2026-10-29T14:16:35.6860704Z test calibration::tests::reports::training_ir_exceedances_are_report_only_and_never_relax_ir ... ok
+quality	Run quality gates	2026-10-29T14:16:35.7260890Z test calibration::tests::reports::zero_baseline_is_undefined_relative_but_counts_and_policy_still_apply ... ok
+quality	Run quality gates	2026-10-29T14:16:35.8110647Z test calibration::tests::reports::zero_ir_positive_controls_require_a_real_increase ... ok
+quality	Run quality gates	2026-10-29T14:16:35.8140306Z test calibration::tests::snapshot_rejects_symlinks_to_mutable_external_inputs ... ok
+quality	Run quality gates	2026-10-29T14:16:35.8169985Z test calibration::tests::stale_baseline_or_other_executable_cannot_supply_metrics ... ok
+quality	Run quality gates	2026-10-29T14:16:35.8200122Z test calibration::tests::unretained_ambiguous_small_or_unsupported_symbols_fail ... ok
+quality	Run quality gates	2026-10-29T14:16:35.8220196Z test calibration::tests::zero_is_a_real_count_not_a_missing_measurement ... ok
+quality	Run quality gates	2026-10-29T14:16:35.9660787Z test callgrind::descriptor::tests::bounds_input_and_revalidates_persisted_evidence ... ok
+quality	Run quality gates	2026-10-29T14:16:36.0250592Z test callgrind::descriptor::tests::capture_requires_fresh_evidence_and_exact_original_framing ... ok
+quality	Run quality gates	2026-10-29T14:16:36.0260407Z test callgrind::descriptor::tests::partitions_every_case_without_changing_dispatch_indices_or_configuration ... ok
+quality	Run quality gates	2026-10-29T14:16:36.0310053Z test callgrind::descriptor::tests::rejects_missing_extra_duplicate_empty_and_mixed_workloads ... ok
+quality	Run quality gates	2026-10-29T14:16:36.0350095Z test callgrind::descriptor::tests::rejects_state_and_cross_function_comparisons_at_every_scope ... ok
+quality	Run quality gates	2026-10-29T14:16:36.0380015Z test callgrind::descriptor::tests::shard_selection_keeps_whole_function_cases_and_frozen_indices ... ok
+quality	Run quality gates	2026-10-29T14:16:36.6191765Z test callgrind::runner::tests::broken_stdin_is_an_error_and_still_reaps_the_original_child ... ok
+quality	Run quality gates	2026-10-29T14:16:36.8598001Z test callgrind::runner::tests::child_failure_stops_dispatch_and_joins_every_late_writer ... ok
+quality	Run quality gates	2026-10-29T14:16:36.8600247Z test callgrind::runner::tests::invalid_parallelism_cannot_launch_a_child ... ok
+quality	Run quality gates	2026-10-29T14:16:37.1191106Z test callgrind::runner::tests::real_children_overlap_with_a_bounded_dynamic_queue ... ok
+quality	Run quality gates	2026-10-29T14:16:37.1840220Z test callgrind::runner::tests::spawn_failure_drains_an_already_running_child ... ok
+quality	Run quality gates	2026-10-29T14:16:37.2040675Z test dashboard::tests::aggregate_requires_expected_targets_and_exact_source_pairing ... ok
+quality	Run quality gates	2026-10-29T14:16:37.2042842Z test dashboard::tests::artifact_paths_cannot_traverse_or_turn_into_viewer_urls ... ok
+quality	Run quality gates	2026-10-29T14:16:37.8326614Z test dashboard::tests::canonical_gate_bundle_merges_without_a_seventh_or_duplicate_target ... ok
+quality	Run quality gates	2026-10-29T14:16:37.8650618Z test dashboard::tests::changed_scope_and_native_memory_timeline_are_not_regressions ... ok
+quality	Run quality gates	2026-10-29T14:16:37.9191107Z test dashboard::tests::coherent_verdict_cannot_invert_the_authoritative_metric_outcome ... ok
+quality	Run quality gates	2026-10-29T14:16:38.3490343Z test dashboard::tests::completed_policy_pass_requires_real_retained_numeric_evidence ... ok
+quality	Run quality gates	2026-10-29T14:16:38.9070929Z test dashboard::tests::gate_regression_stays_distinct_from_failed_collection ... ok
+quality	Run quality gates	2026-10-29T14:16:38.9330387Z test dashboard::tests::heap_report_preserves_thirteen_profiles_and_live_allocation_totals ... ok
+quality	Run quality gates	2026-10-29T14:16:39.3320545Z test dashboard::tests::historical_workflow_failure_without_job_metadata_is_not_reclassified ... ok
+quality	Run quality gates	2026-10-29T14:16:42.6336518Z test dashboard::tests::hosted_failure_is_a_regression_only_when_every_failed_job_and_step_is_the_bound_gate ... ok
+quality	Run quality gates	2026-10-29T14:16:42.6632310Z test dashboard::tests::latency_report_retains_actual_values_rounds_and_offline_navigation ... ok
+quality	Run quality gates	2026-10-29T14:16:42.8350815Z test calibration::tests::reports::repeated::repeated_cli_rejects_missing_roles_duplicate_jobs_and_unbalanced_positions ... ok
+quality	Run quality gates	2026-10-29T14:16:43.1430625Z test dashboard::tests::missing_old_policy_verdict_never_infers_a_passing_gate ... ok
+quality	Run quality gates	2026-10-29T14:16:43.1466602Z test dashboard::tests::missing_required_evidence_writes_diagnostic_surface_and_fails ... ok
+quality	Run quality gates	2026-10-29T14:16:43.1523263Z test dashboard::tests::native_profile_navigation_is_verified_and_html_escaped ... ok
+quality	Run quality gates	2026-10-29T14:16:43.1538465Z test dashboard::tests::rejected_hosted_request_remains_readable_without_target_artifacts ... ok
+quality	Run quality gates	2026-10-29T14:16:43.1760687Z test dashboard::tests::required_resident_observations_cannot_be_reported_complete ... ok
+quality	Run quality gates	2026-10-29T14:16:43.1930755Z test dashboard::tests::standalone_profile_outcome_is_derived_from_validated_retained_capture ... ok
+quality	Run quality gates	2026-10-29T14:16:43.1965082Z test dashboard::tests::tampered_measurement_is_not_reported_as_a_success ... ok
+quality	Run quality gates	2026-10-29T14:16:43.2336162Z test dashboard::tests::target_only_report_never_claims_full_matrix_coverage ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5220907Z test calibration::tests::reports::repeated::repeated_cli_handles_zero_u64_and_cache_boundary_exactly ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5682307Z test calibration::tests::reports::repeated::repeated_cli_writes_failure_reports_for_insufficient_or_unverified_evidence ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5720183Z test doctor::tests::patched_sampler_provenance_binds_revision_patch_target_and_executable ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5740291Z test hosted::tests::evidence_download_refuses_to_replace_existing_files ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5760032Z test hosted::tests::native_kind_cannot_dispatch_a_cpu_collection ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5779990Z test hosted::tests::request_identity_never_selects_latest_or_other_branch ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5799958Z test latency::tests::definitions_and_completion_must_be_semantically_correct ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5839840Z test latency::tests::hover_requires_exact_revision_and_known_signature ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5859872Z test native::discovery::tests::baseline_absence_never_accepts_wrong_or_duplicate_answers ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5879949Z test native::discovery::tests::cli_rejects_invalid_revisions_counts_and_timeouts ... ok
+quality	Run quality gates	2026-10-29T14:16:43.5881122Z test native::discovery::tests::cold_memory_excludes_warm_peaks_and_preserves_unavailable_values ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6558728Z test native::discovery::tests::exact_deterministic_source_manifests ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6575556Z test native::discovery::tests::initial_completion_checks_local_binding_and_preserves_readiness ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6580838Z test native::discovery::tests::reports_native_commit_separately_from_resident_memory ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6582197Z test native::discovery::tests::reports_only_completed_rounds_and_preserves_missing_readiness ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6583418Z test native::memory::heap::tests::byte_peak_block_count_does_not_bound_other_instants ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6620073Z test native::memory::heap::tests::raw_profile_identity_is_hashed_and_strict_json_is_required ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6632138Z test native::memory::heap::tests::rejects_wrong_process_schema_symbols_and_allocation_invariants ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6680515Z test native::memory::heap::tests::valid_raw_heap_profile_preserves_distinct_total_peak_and_end ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6710338Z test native::memory::lifecycle::tests::dependency_lifecycle_requires_new_signature_and_exact_definition ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6730180Z test native::memory::tests::allocation_job_contract_is_exactly_candidate_only_thirteen ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6731775Z test native::memory::tests::cargo_dsym_sidecars_accept_materialized_binary_and_example_members ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6820888Z test native::memory::tests::cargo_dsym_sidecars_reject_unknown_or_ambiguous_members ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6823865Z test native::memory::tests::cargo_dsym_sidecars_reject_unmaterialized_bundle_and_member_links ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6886422Z test native::memory::tests::cargo_dsym_sidecars_require_exact_identities_and_nonempty_components ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6891285Z test native::memory::tests::declared_debug_build_overrides_are_preserved ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6910947Z test native::memory::tests::memory_cli_has_only_original_commands ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6918766Z test native::memory::tests::same_runner_provenance_cannot_mix_run_attempt_target_or_host ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6929861Z test native::memory::tests::symbol_sidecars_require_recorded_identity_and_valid_structure ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6950639Z test native::tests::input_identity_rejects_modified_deleted_or_misdeclared_files ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6961883Z test paired::collector::tests::each_arm_selects_its_own_candidate_only_workloads ... ok
+quality	Run quality gates	2026-10-29T14:16:43.6969966Z test platform_memory::tests::linux_units_and_native_metrics_preserve_resident_semantics ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7110599Z test platform_memory::tests::malformed_or_missing_resident_values_are_not_inferred ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7111937Z test policy::tests::arithmetic_does_not_overflow ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7119964Z test policy::tests::cache_event_boundaries ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7150021Z test policy::tests::instructions_keep_two_percent_relative_limit ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7151135Z test policy::tests::summary_pairs_candidate_first_and_baseline_second ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7430658Z test profiling::sessions::linux_perf_tests::early_exit_preserves_stderr_and_reaps_collector ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7432825Z test profiling::sessions::linux_perf_tests::startup_failure_fixture ... ok
+quality	Run quality gates	2026-10-29T14:16:43.7801259Z test profiling::sessions::tests::blocked_preparation_command_is_cancelled_and_reaped ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8141600Z test profiling::sessions::tests::blocked_recorder_readiness_is_cancelled_and_reaped ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8160633Z test profiling::sessions::tests::cancellation_fixture ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8192621Z test profiling::sessions::tests::cpu_evidence_rejects_idle_or_metadata_only_samples ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8200541Z test profiling::sessions::tests::cpu_evidence_rejects_incoherent_columns ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8201796Z test profiling::sessions::tests::cpu_evidence_requires_actual_target_pid ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8203237Z test profiling::sessions::tests::exited_samply_banner_cannot_acknowledge_attachment ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8204909Z test profiling::sessions::tests::macos_samply_elevation_requires_explicit_hosted_configuration ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8206598Z test profiling::sessions::tests::native_console_readiness_requires_the_complete_crlf_banner ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8208157Z test profiling::sessions::tests::notification_requires_a_complete_exact_key ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8232528Z test profiling::sessions::tests::perf_ack_rejects_malformed_or_extra_frames ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8234809Z test profiling::sessions::tests::perf_ack_requires_the_upstream_nul_terminated_frame ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8404860Z test profiling::sessions::tests::preparation_installs_cleanup_capable_signal_handler ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8407383Z test profiling::sessions::tests::samply_attach_requires_the_complete_pid_bound_stderr_banner ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8474875Z test dashboard::tests::verdict_inputs_are_bound_to_raw_artifact_integrity ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8485231Z test profiling::validation::tests::cpu_records_resolve_kernel_thread_attribution ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8495497Z test profiling::validation::tests::etl_rejects_truncated_document_after_complete_target_event ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8509882Z test profiling::validation::tests::heap_records_require_allocator_provider_pid_and_size ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8527531Z test profiling::validation::tests::instruments_allocation_columns_require_target_address_and_positive_size ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8550764Z test profiling::validation::tests::instruments_allocation_detail_attributes_are_not_metadata_evidence ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8557606Z test profiling::validation::tests::instruments_allocation_detail_rejects_ambiguous_or_metadata_targets ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8564272Z test profiling::validation::tests::instruments_cpu_requires_sample_payload_and_consistent_attribution ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8566519Z test profiling::validation::tests::instruments_discovers_real_allocation_detail_and_checks_pid ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8569806Z test profiling::validation::tests::instruments_does_not_attribute_row_from_backtrace_process ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8588423Z test profiling::validation::tests::instruments_hosted_allocation_attributes_require_exact_target_scope ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8615530Z test profiling::validation::tests::instruments_hosted_time_samples_resolve_kperf_payloads ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8620213Z test profiling::validation::tests::instruments_kperf_process_cannot_supply_row_attribution ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8800916Z test profiling::validation::tests::instruments_launched_allocations_bind_real_target_and_payload ... ok
+quality	Run quality gates	2026-10-29T14:16:43.8835615Z test profiling::validation::tests::instruments_launched_allocations_reject_extra_or_metadata_targets ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9120940Z test profiling::validation::tests::instruments_launched_allocations_reject_wrong_process_track ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9436388Z test profiling::sessions::tests::samply_stdout_banner_is_not_an_attach_ack ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9468487Z test profiling::validation::tests::instruments_metadata_rows_are_not_cpu_or_allocation_evidence ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9500103Z test profiling::validation::tests::instruments_rejects_dangling_and_wrong_type_attribution_references ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9501906Z test profiling::validation::tests::instruments_rejects_truncated_export_after_complete_sample ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9520203Z test profiling::validation::tests::instruments_resolves_process_thread_pid_and_payload_references ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9535826Z test profiling::validation::tests::instruments_target_in_toc_cannot_validate_other_process_samples ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9558385Z test profiling::validation::tests::instruments_toc_requires_complete_root_and_elements ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9560231Z test profiling::validation::tests::native_xml_rejects_absent_or_multiple_document_roots ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9561743Z test profiling::validation::tests::retained_etl_loss_evidence_cannot_be_hidden_by_valid_target_samples ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9563289Z test profiling::validation::tests::retained_kernel_event_guids_and_raw_thread_schema_resolve_target_samples ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9564907Z test profiling::validation::tests::retained_raw_thread_records_reject_malformed_truncated_and_unknown_versions ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9566494Z test profiling::validation::tests::subject_thread_not_reporting_process_controls_cpu_attribution_and_reuse ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9568018Z test profiling::validation::tests::valid_cpu_sample_cannot_hide_a_malformed_record_or_unrelated_source ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9581345Z test profiling::validation::tests::windows_utf16_exports_decode_without_losing_events ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9583835Z test profiling::viewer::tests::downloaded_paths_cannot_escape_run_or_use_windows_separators ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9586852Z test profiling::viewer::tests::downloaded_profile_hash_mismatch_prevents_viewing ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9590773Z test profiling::validation::tests::instruments_launched_allocations_require_meaningful_fields_and_complete_xml ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9593180Z test profiling::viewer::tests::preserved_symbol_identity_must_match_original ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9594627Z test profiling::windows::tests::retained_wpr_loss_reports_remain_fatal ... ok
+quality	Run quality gates	2026-10-29T14:16:43.9595787Z test profiling::windows::tests::complete_wpr_stop_without_losses_is_accepted ... ok
+quality	Run quality gates	2026-10-29T14:16:44.0050791Z test workflow::collection::unix::tests::child_nonzero_status_is_not_replaced_by_supervisor_status ... ok
+quality	Run quality gates	2026-10-29T14:16:44.0265791Z test workflow::collection::unix::tests::an_unreaped_zombie_group_is_not_absent ... ok
+quality	Run quality gates	2026-10-29T14:16:44.0280865Z test workflow::collection::unix::tests::existing_receipt_cannot_be_reused_or_overwritten ... ok
+quality	Run quality gates	2026-10-29T14:16:44.6061077Z test dashboard::tests::malformed_source_or_numeric_verdict_cannot_classify_a_failed_gate_as_regression ... ok
+quality	Run quality gates	2026-10-29T14:16:44.8314683Z test dashboard::tests::unrelated_collection_failure_takes_precedence_over_policy_regression ... ok
+quality	Run quality gates	2026-10-29T14:16:44.8754426Z test workflow::collection::unix::tests::signal_exit_is_preserved ... ok
+quality	Run quality gates	2026-10-29T14:16:44.8772046Z test workflow::collection::unix::tests::spawn_failure_is_truthful_and_does_not_invent_a_group ... ok
+quality	Run quality gates	2026-10-29T14:16:44.9456652Z test workflow::collection::unix::tests::successful_command_preserves_literal_arguments_and_environment ... ok
+quality	Run quality gates	2026-10-29T14:16:45.3731807Z test workflow::collection::unix::tests::leader_exit_with_term_ignoring_writer_cannot_pass ... ok
+quality	Run quality gates	2026-10-29T14:16:45.3757733Z test workflow::collection::unix::tests::uncertain_kernel_states_cannot_hide_owned_processes ... ok
+quality	Run quality gates	2026-10-29T14:16:45.3761106Z test workflow::observer::protocol::tests::eof_does_not_complete_a_request_and_bad_data_is_rejected ... ok
+quality	Run quality gates	2026-10-29T14:16:45.3809949Z test workflow::observer::protocol::tests::framing_keeps_partial_reads_and_consecutive_requests_separate ... ok
+quality	Run quality gates	2026-10-29T14:16:45.4361115Z test workflow::observer::protocol::tests::request_limit_counts_newline_and_accepts_exact_boundary ... ok
+quality	Run quality gates	2026-10-29T14:16:45.7922013Z test workflow::collection::unix::tests::pending_receipt_blocks_publication_until_interrupted_group_is_reaped ... ok
+quality	Run quality gates	2026-10-29T14:16:45.7980526Z test workflow::observer::unsupported_tests::observer_is_explicitly_unsupported_off_macos ... ok
+quality	Run quality gates	2026-10-29T14:16:45.8991944Z test workflow::snapshot::tests::atomic_publication_refuses_a_destination_created_after_staging ... ok
+quality	Run quality gates	2026-10-29T14:16:46.0160976Z test workflow::snapshot::tests::completed_and_incomplete_evidence_have_separate_namespaces ... ok
+quality	Run quality gates	2026-10-29T14:16:46.1416122Z test workflow::snapshot::tests::failed_copy_discards_already_staged_raw ... ok
+quality	Run quality gates	2026-10-29T14:16:46.1728410Z test workflow::collection::unix::tests::cleanup_cannot_steal_an_unrelated_child_exit_status ... ok
+quality	Run quality gates	2026-10-29T14:16:46.2200078Z test workflow::snapshot::tests::live_owned_group_blocks_raw_even_with_completed_receipt ... ok
+quality	Run quality gates	2026-10-29T14:16:46.2500885Z test workflow::snapshot::tests::never_spawned_receipt_cannot_admit_existing_raw ... ok
+quality	Run quality gates	2026-10-29T14:16:46.2838360Z test workflow::snapshot::tests::invalid_lifecycle_receipts_never_publish_raw ... ok
+quality	Run quality gates	2026-10-29T14:16:46.2843507Z test workflow::snapshot::tests::source_overlap_and_existing_destinations_are_never_modified ... ok
+quality	Run quality gates	2026-10-29T14:16:46.3419880Z test workflow::snapshot::tests::published_files_are_independent_of_later_source_changes ... ok
+quality	Run quality gates	2026-10-29T14:16:46.3523633Z test workflow::snapshot::tests::special_files_are_rejected_without_opening_them ... ok
+quality	Run quality gates	2026-10-29T14:16:46.3662222Z test workflow::snapshot::tests::symlink_source_and_destination_are_not_followed ... ok
+quality	Run quality gates	2026-10-29T14:16:46.3756381Z test workflow::snapshot::tests::uncertain_cleanup_is_rejected_before_raw_walking ... ok
+quality	Run quality gates	2026-10-29T14:16:47.1082323Z test workflow::collection::unix::tests::timeout_escalates_past_ignored_term_and_reaps_leader ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2290891Z test workflow::observer::protocol::tests::response_limit_is_atomic_and_includes_the_terminator ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2291889Z 
+quality	Run quality gates	2026-10-29T14:16:47.2292450Z test result: ok. 209 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 44.59s
+quality	Run quality gates	2026-10-29T14:16:47.2293243Z 
+quality	Run quality gates	2026-10-29T14:16:47.2389929Z      Running tests/latency_contract.rs (target/debug/deps/latency_contract-eda1ebf28128487f)
+quality	Run quality gates	2026-10-29T14:16:47.2402904Z 
+quality	Run quality gates	2026-10-29T14:16:47.2403245Z running 2 tests
+quality	Run quality gates	2026-10-29T14:16:47.2428044Z test collection_requires_ci_before_accessing_measurement_inputs ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2482129Z test zero_samples_and_unknown_flags_are_rejected ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2482578Z 
+quality	Run quality gates	2026-10-29T14:16:47.2483008Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+quality	Run quality gates	2026-10-29T14:16:47.2483720Z 
+quality	Run quality gates	2026-10-29T14:16:47.2485002Z      Running tests/native_contract.rs (target/debug/deps/native_contract-d6cb6f4b96f67c33)
+quality	Run quality gates	2026-10-29T14:16:47.2496123Z 
+quality	Run quality gates	2026-10-29T14:16:47.2496311Z running 4 tests
+quality	Run quality gates	2026-10-29T14:16:47.2572618Z test discovery_and_memory_refuse_local_measurements_before_touching_inputs ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2606473Z test native_help_is_safe_locally_and_preserves_original_commands ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2675248Z test discovery_cli_rejects_invalid_numbers_and_revision_before_ci_guard ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2853885Z test lifecycle_stress_keeps_local_setup_failure_evidence ... ok
+quality	Run quality gates	2026-10-29T14:16:47.2854735Z 
+quality	Run quality gates	2026-10-29T14:16:47.2855347Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+quality	Run quality gates	2026-10-29T14:16:47.2856205Z 
+quality	Run quality gates	2026-10-29T14:16:47.2856955Z      Running tests/paired_admission.rs (target/debug/deps/paired_admission-01eac4ebe7386d47)
+quality	Run quality gates	2026-10-29T14:16:47.2869981Z 
+quality	Run quality gates	2026-10-29T14:16:47.2870702Z running 2 tests
+quality	Run quality gates	2026-10-29T14:16:49.1466986Z test retained_uncertainty_cannot_be_classified_as_pass_or_confirmed_regression ... ok
+quality	Run quality gates	2026-10-29T14:16:52.1848908Z test admission_requires_current_method_and_coherent_producer_outcomes ... ok
+quality	Run quality gates	2026-10-29T14:16:52.1861119Z 
+quality	Run quality gates	2026-10-29T14:16:52.1861825Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.90s
+quality	Run quality gates	2026-10-29T14:16:52.1862525Z 
+quality	Run quality gates	2026-10-29T14:16:52.1867974Z      Running tests/paired_collector.rs (target/debug/deps/paired_collector-59df0dcc964b2ffe)
+quality	Run quality gates	2026-10-29T14:16:52.1882927Z 
+quality	Run quality gates	2026-10-29T14:16:52.1883209Z running 1 test
+quality	Run quality gates	2026-10-29T14:16:52.2293734Z test paired_collection_rejects_wrong_source_revision_before_compilation ... ok
+quality	Run quality gates	2026-10-29T14:16:52.2294928Z 
+quality	Run quality gates	2026-10-29T14:16:52.2295549Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+quality	Run quality gates	2026-10-29T14:16:52.2296236Z 
+quality	Run quality gates	2026-10-29T14:16:52.2297158Z      Running tests/paired_contract.rs (target/debug/deps/paired_contract-e465c376237a2f89)
+quality	Run quality gates	2026-10-29T14:16:52.2310761Z 
+quality	Run quality gates	2026-10-29T14:16:52.2311010Z running 5 tests
+quality	Run quality gates	2026-10-29T14:16:53.0118744Z test paired_report_rejects_multiple_retained_files_for_one_fresh_part ... ok
+quality	Run quality gates	2026-10-29T14:16:53.5821139Z test paired_report_accepts_an_isolated_outlier_with_complete_105_sample_bounds ... ok
+quality	Run quality gates	2026-10-29T14:16:54.6761766Z test paired_report_preserves_zero_baseline_counts_without_accepting_missing_instructions ... ok
+quality	Run quality gates	2026-10-29T14:16:55.7302417Z test paired_report_requires_profile_counts_to_match_retained_stdout ... ok
+quality	Run quality gates	2026-10-29T14:16:56.3482227Z test paired_report_accepts_native_event_columns_and_zero_counters ... ok
+quality	Run quality gates	2026-10-29T14:16:56.3491322Z 
+quality	Run quality gates	2026-10-29T14:16:56.3491921Z test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.12s
+quality	Run quality gates	2026-10-29T14:16:56.3492466Z 
+quality	Run quality gates	2026-10-29T14:16:56.3498944Z      Running tests/paired_dashboard.rs (target/debug/deps/paired_dashboard-861d9565eee8abe4)
+quality	Run quality gates	2026-10-29T14:16:56.3514550Z 
+quality	Run quality gates	2026-10-29T14:16:56.3514838Z running 2 tests
+quality	Run quality gates	2026-10-29T14:17:00.2546349Z test repeated_inconclusive_bundle_remains_uncertain_without_corrupting_evidence ... ok
+quality	Run quality gates	2026-10-29T14:17:00.3131720Z test coherently_forged_repeated_pass_is_rejected_against_retained_raw_evidence ... ok
+quality	Run quality gates	2026-10-29T14:17:00.3140220Z 
+quality	Run quality gates	2026-10-29T14:17:00.3140850Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.96s
+quality	Run quality gates	2026-10-29T14:17:00.3141472Z 
+quality	Run quality gates	2026-10-29T14:17:00.3146307Z      Running tests/policy_contract.rs (target/debug/deps/policy_contract-3a4c341cc19daeb0)
+quality	Run quality gates	2026-10-29T14:17:00.3160946Z 
+quality	Run quality gates	2026-10-29T14:17:00.3161194Z running 26 tests
+quality	Run quality gates	2026-10-29T14:17:00.3301034Z test admission_rejects_hash_matching_symlinks_outside_the_bundle ... ok
+quality	Run quality gates	2026-10-29T14:17:00.3484478Z test admission_rejects_coherent_outcome_forgery_even_with_refreshed_hashes ... ok
+quality	Run quality gates	2026-10-29T14:17:00.3551423Z test admission_environment_requires_sole_owner_user_review_without_admin_bypass ... ok
+quality	Run quality gates	2026-10-29T14:17:00.4021135Z test admission_preserves_real_pass_and_each_metric_regression ... ok
+quality	Run quality gates	2026-10-29T14:17:00.4200694Z test admission_rejects_mismatched_source_head_run_and_verdict_provenance ... ok
+quality	Run quality gates	2026-10-29T14:17:00.4262235Z test candidate_results_for_a_different_baseline_are_ignored ... ok
+quality	Run quality gates	2026-10-29T14:17:00.4310440Z test duplicate_baseline_summary_id_is_a_hard_error ... ok
+quality	Run quality gates	2026-10-29T14:17:00.4398519Z test duplicate_candidate_id_is_a_hard_error ... ok
+quality	Run quality gates	2026-10-29T14:17:00.4600455Z test each_missing_required_metric_is_a_hard_error ... ok
+quality	Run quality gates	2026-10-29T14:17:00.4640551Z test left_only_baseline_workload_is_missing_not_new ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5040282Z test malformed_new_candidate_counts_are_not_excluded ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5100424Z test admission_rejects_inconsistent_exits_and_collector_errors ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5130259Z test admission_rejects_missing_malformed_tampered_and_forged_evidence ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5190449Z test manifest_preserves_exact_identity_and_canonical_order ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5220248Z test malformed_stale_and_empty_summary_trees_fail ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5411657Z test manifest_schema_empty_and_duplicate_ids_are_rejected ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5424238Z test malformed_paired_metrics_are_a_hard_error ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5489982Z test missing_instruction_collection_cannot_pass_as_an_improvement ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5511112Z test missing_paired_event_is_a_hard_error ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5580532Z test paired_candidate_absent_from_manifest_is_rejected ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5714663Z test prior_cli_flags_modes_and_help_are_preserved ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5770908Z test missing_baseline_id_fails_with_canonical_id ... ok
+quality	Run quality gates	2026-10-29T14:17:00.5880674Z test zero_baseline_three_cache_events_pass_and_four_fail_on_summaries ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6053444Z test baseline_and_candidate_workload_counts_are_authoritative ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6081554Z test regression_in_any_baseline_workload_fails ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6623581Z test retained_verdict_uses_the_authoritative_comparison_and_preserves_cli_failures ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6624696Z 
+quality	Run quality gates	2026-10-29T14:17:00.6625054Z test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+quality	Run quality gates	2026-10-29T14:17:00.6625505Z 
+quality	Run quality gates	2026-10-29T14:17:00.6627812Z      Running tests/reports_latency.rs (target/debug/deps/reports_latency-87ce696eac35076a)
+quality	Run quality gates	2026-10-29T14:17:00.6641874Z 
+quality	Run quality gates	2026-10-29T14:17:00.6642129Z running 15 tests
+quality	Run quality gates	2026-10-29T14:17:00.6716144Z test descriptive_metadata_can_differ_without_affecting_pairing ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6724010Z test hundredfold_regression_is_reported_without_failure ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6760233Z test improvement_and_even_round_half_nanosecond_median ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6774475Z test individually_valid_but_unpaired_dimensions_fail ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6867575Z test large_integer_and_half_nanosecond_summaries_are_exact ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6902754Z test latency_cli_requires_outputs_and_rejects_unknown_flags ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6919788Z test latency_help_succeeds_without_collecting_measurements ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6981492Z test paired_round_deltas_retain_alternating_collection_order ... ok
+quality	Run quality gates	2026-10-29T14:17:00.6984308Z test malformed_json_and_missing_files_fail ... ok
+quality	Run quality gates	2026-10-29T14:17:00.7033049Z test report_uses_nearest_rank_and_median_of_round_percentiles ... ok
+quality	Run quality gates	2026-10-29T14:17:00.7114794Z test sample_integers_outside_u64_are_rejected_on_either_side ... ok
+quality	Run quality gates	2026-10-29T14:17:00.7181135Z test unsorted_p95_uses_nearest_rank_not_maximum_or_interpolation ... ok
+quality	Run quality gates	2026-10-29T14:17:00.7237920Z test reports_reject_nonfinite_json_on_either_side ... ok
+quality	Run quality gates	2026-10-29T14:17:00.8796288Z test invalid_or_incomparable_measurements_fail_without_reports ... ok
+quality	Run quality gates	2026-10-29T14:17:00.8818748Z test environment_and_counts_are_required_and_strictly_typed ... ok
+quality	Run quality gates	2026-10-29T14:17:00.8819891Z 
+quality	Run quality gates	2026-10-29T14:17:00.8820224Z test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+quality	Run quality gates	2026-10-29T14:17:00.8820742Z 
+quality	Run quality gates	2026-10-29T14:17:00.8823254Z      Running tests/transport_fixture.rs (target/debug/deps/transport_fixture-ec50fb48aec67332)
+quality	Run quality gates	2026-10-29T14:17:02.8255254Z portable JSON-RPC transport contracts passed
+quality	Run quality gates	2026-10-29T14:17:02.8362932Z == release integrity ==
+quality	Run quality gates	2026-10-29T14:17:04.2616067Z ....................................
+quality	Run quality gates	2026-10-29T14:17:04.2617017Z ----------------------------------------------------------------------
+quality	Run quality gates	2026-10-29T14:17:04.2617734Z Ran 36 tests in 1.320s
+quality	Run quality gates	2026-10-29T14:17:04.2617965Z 
+quality	Run quality gates	2026-10-29T14:17:04.2618095Z OK
+quality	Run quality gates	2026-10-29T14:17:04.2618860Z Skipping obsolete nightly nightly-2026-10-01-7e28270a3b717d78b07c2b45916f37fe98cf85af: main advanced after this quality run
+quality	Run quality gates	2026-10-29T14:17:04.2620590Z Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpb_skxgiq/dist/bend2-lsp-x86_64-unknown-linux-gnu
+quality	Run quality gates	2026-10-29T14:17:04.2621892Z Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpb_skxgiq/dist/bend2-lsp-aarch64-unknown-linux-gnu
+quality	Run quality gates	2026-10-29T14:17:04.2623158Z Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpb_skxgiq/dist/bend2-lsp-x86_64-apple-darwin
+quality	Run quality gates	2026-10-29T14:17:04.2624380Z Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpb_skxgiq/dist/bend2-lsp-aarch64-apple-darwin
+quality	Run quality gates	2026-10-29T14:17:04.2625659Z Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpb_skxgiq/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+quality	Run quality gates	2026-10-29T14:17:04.2626984Z Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpb_skxgiq/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+quality	Run quality gates	2026-10-29T14:17:04.2628283Z Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-x86_64-unknown-linux-gnu
+quality	Run quality gates	2026-10-29T14:17:04.2629809Z Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-x86_64-unknown-linux-gnu
+quality	Run quality gates	2026-10-29T14:17:04.2631088Z Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-aarch64-unknown-linux-gnu
+quality	Run quality gates	2026-10-29T14:17:04.2632391Z Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-aarch64-unknown-linux-gnu
+quality	Run quality gates	2026-10-29T14:17:04.2633982Z Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-x86_64-apple-darwin
+quality	Run quality gates	2026-10-29T14:17:04.2634949Z Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-x86_64-apple-darwin
+quality	Run quality gates	2026-10-29T14:17:04.2635846Z Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-aarch64-apple-darwin
+quality	Run quality gates	2026-10-29T14:17:04.2636765Z Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-aarch64-apple-darwin
+quality	Run quality gates	2026-10-29T14:17:04.2637710Z Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+quality	Run quality gates	2026-10-29T14:17:04.2638691Z Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+quality	Run quality gates	2026-10-29T14:17:04.2640405Z Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+quality	Run quality gates	2026-10-29T14:17:04.2641705Z Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpqe4oc6u6/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+quality	Run quality gates	2026-10-29T14:17:04.2642680Z Published v1.2.3 at 7e28270a3b717d78b07c2b45916f37fe98cf85af with six tested native executables and SHA256SUMS
+quality	Run quality gates	2026-10-29T14:17:04.2643504Z v1.2.3 is already public at 7e28270a3b717d78b07c2b45916f37fe98cf85af; leaving all assets unchanged
+quality	Run quality gates	2026-10-29T14:17:04.2822999Z == semantic supervisor contract tests ==
+quality	Run quality gates	2026-10-29T14:17:15.1469494Z ......................................................................................s.....s......ssss.............................
+quality	Run quality gates	2026-10-29T14:17:15.1471087Z ----------------------------------------------------------------------
+quality	Run quality gates	2026-10-29T14:17:15.1472006Z Ran 132 tests in 10.691s
+quality	Run quality gates	2026-10-29T14:17:15.1472405Z 
+quality	Run quality gates	2026-10-29T14:17:15.1472648Z OK (skipped=6)
+quality	Run quality gates	2026-10-29T14:17:15.2710462Z ....
+quality	Run quality gates	2026-10-29T14:17:15.2711510Z ----------------------------------------------------------------------
+quality	Run quality gates	2026-10-29T14:17:15.2712680Z Ran 4 tests in 0.010s
+quality	Run quality gates	2026-10-29T14:17:15.2713159Z 
+quality	Run quality gates	2026-10-29T14:17:15.2713429Z OK
+quality	Run quality gates	2026-10-29T14:17:15.2865635Z == format ==
+quality	Run quality gates	2026-10-29T14:17:16.4648208Z == rustc ==
+quality	Run quality gates	2026-10-29T14:17:16.5579866Z  Downloading crates ...
+quality	Run quality gates	2026-10-29T14:17:16.5983729Z   Downloaded crossbeam-deque v0.8.8
+quality	Run quality gates	2026-10-29T14:17:16.6036935Z   Downloaded futures-io v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.6044309Z   Downloaded futures-task v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.6135608Z   Downloaded adler2 v2.0.1
+quality	Run quality gates	2026-10-29T14:17:16.6151183Z   Downloaded async-trait v0.1.92
+quality	Run quality gates	2026-10-29T14:17:16.6193157Z   Downloaded auto_impl v1.3.0
+quality	Run quality gates	2026-10-29T14:17:16.6262607Z   Downloaded bitflags v1.3.2
+quality	Run quality gates	2026-10-29T14:17:16.6294506Z   Downloaded dashmap v5.5.3
+quality	Run quality gates	2026-10-29T14:17:16.6319251Z   Downloaded dhat v0.3.3
+quality	Run quality gates	2026-10-29T14:17:16.6342546Z   Downloaded httparse v1.10.1
+quality	Run quality gates	2026-10-29T14:17:16.6368722Z   Downloaded mintex v0.1.4
+quality	Run quality gates	2026-10-29T14:17:16.6378206Z   Downloaded parking_lot_core v0.9.12
+quality	Run quality gates	2026-10-29T14:17:16.6399552Z   Downloaded pin-project-internal v1.1.13
+quality	Run quality gates	2026-10-29T14:17:16.6416574Z   Downloaded proc-macro-error2 v2.0.1
+quality	Run quality gates	2026-10-29T14:17:16.6450480Z   Downloaded rustc-hash v1.1.0
+quality	Run quality gates	2026-10-29T14:17:16.6462036Z   Downloaded semver v1.0.28
+quality	Run quality gates	2026-10-29T14:17:16.6486085Z   Downloaded signal-hook-registry v1.4.8
+quality	Run quality gates	2026-10-29T14:17:16.6499397Z   Downloaded thousands v0.2.0
+quality	Run quality gates	2026-10-29T14:17:16.6513854Z   Downloaded tower-service v0.3.3
+quality	Run quality gates	2026-10-29T14:17:16.6521177Z   Downloaded addr2line v0.25.1
+quality	Run quality gates	2026-10-29T14:17:16.6541226Z   Downloaded futures-channel v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.6562881Z   Downloaded ignore v0.4.33
+quality	Run quality gates	2026-10-29T14:17:16.6588732Z   Downloaded log v0.4.34
+quality	Run quality gates	2026-10-29T14:17:16.6614547Z   Downloaded tower v0.4.13
+quality	Run quality gates	2026-10-29T14:17:16.6718105Z   Downloaded tracing-core v0.1.36
+quality	Run quality gates	2026-10-29T14:17:16.6745287Z   Downloaded walkdir v2.5.0
+quality	Run quality gates	2026-10-29T14:17:16.6763641Z   Downloaded backtrace v0.3.76
+quality	Run quality gates	2026-10-29T14:17:16.6813600Z   Downloaded base64 v0.22.1
+quality	Run quality gates	2026-10-29T14:17:16.6852120Z   Downloaded crossbeam-epoch v0.9.21
+quality	Run quality gates	2026-10-29T14:17:16.6876981Z   Downloaded crossbeam-utils v0.8.23
+quality	Run quality gates	2026-10-29T14:17:16.6905061Z   Downloaded futures v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.6958041Z   Downloaded aho-corasick v1.1.5
+quality	Run quality gates	2026-10-29T14:17:16.7011955Z   Downloaded bytes v1.12.1
+quality	Run quality gates	2026-10-29T14:17:16.7048389Z   Downloaded futures-util v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.7181933Z   Downloaded futures-macro v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.7193237Z   Downloaded futures-core v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.7206814Z   Downloaded gimli v0.32.3
+quality	Run quality gates	2026-10-29T14:17:16.7276858Z   Downloaded futures-executor v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.7291455Z   Downloaded equivalent v1.0.3
+quality	Run quality gates	2026-10-29T14:17:16.7301921Z   Downloaded regex-syntax v0.8.11
+quality	Run quality gates	2026-10-29T14:17:16.7370223Z   Downloaded lock_api v0.4.14
+quality	Run quality gates	2026-10-29T14:17:16.7383627Z   Downloaded object v0.37.3
+quality	Run quality gates	2026-10-29T14:17:16.7492097Z   Downloaded derive_more-impl v2.1.1
+quality	Run quality gates	2026-10-29T14:17:16.7547109Z   Downloaded futures-sink v0.3.34
+quality	Run quality gates	2026-10-29T14:17:16.7556403Z   Downloaded mio v1.2.3
+quality	Run quality gates	2026-10-29T14:17:16.7616502Z   Downloaded tracing v0.1.44
+quality	Run quality gates	2026-10-29T14:17:16.7781974Z   Downloaded derive_more v2.1.1
+quality	Run quality gates	2026-10-29T14:17:16.7910613Z   Downloaded iai-callgrind v0.16.1
+quality	Run quality gates	2026-10-29T14:17:16.7980479Z   Downloaded tokio v1.53.3
+quality	Run quality gates	2026-10-29T14:17:16.8440649Z   Downloaded miniz_oxide v0.8.9
+quality	Run quality gates	2026-10-29T14:17:16.8466566Z   Downloaded nu-ansi-term v0.50.3
+quality	Run quality gates	2026-10-29T14:17:16.8491138Z   Downloaded process-wrap v10.0.1
+quality	Run quality gates	2026-10-29T14:17:16.8566056Z   Downloaded proc-macro-error-attr2 v2.0.0
+quality	Run quality gates	2026-10-29T14:17:16.8575977Z   Downloaded iai-callgrind-macros v0.6.1
+quality	Run quality gates	2026-10-29T14:17:16.8591319Z   Downloaded bstr v1.13.1
+quality	Run quality gates	2026-10-29T14:17:16.8670328Z   Downloaded tracing-chrome v0.7.2
+quality	Run quality gates	2026-10-29T14:17:16.8684495Z   Downloaded hashbrown v0.17.1
+quality	Run quality gates	2026-10-29T14:17:16.8737061Z   Downloaded globset v0.4.20
+quality	Run quality gates	2026-10-29T14:17:16.8753252Z   Downloaded rustc-demangle v0.1.28
+quality	Run quality gates	2026-10-29T14:17:16.8770696Z   Downloaded lsp-types v0.94.1
+quality	Run quality gates	2026-10-29T14:17:16.8807924Z   Downloaded regex-automata v0.4.18
+quality	Run quality gates	2026-10-29T14:17:16.8952425Z   Downloaded serde_repr v0.1.21
+quality	Run quality gates	2026-10-29T14:17:16.8972893Z   Downloaded sharded-slab v0.1.7
+quality	Run quality gates	2026-10-29T14:17:16.9006778Z   Downloaded pin-project v1.1.13
+quality	Run quality gates	2026-10-29T14:17:16.9139646Z   Downloaded tracing-subscriber v0.3.23
+quality	Run quality gates	2026-10-29T14:17:16.9224093Z   Downloaded indexmap v2.14.2
+quality	Run quality gates	2026-10-29T14:17:16.9267375Z   Downloaded parking_lot v0.12.5
+quality	Run quality gates	2026-10-29T14:17:16.9292738Z   Downloaded tower-layer v0.3.3
+quality	Run quality gates	2026-10-29T14:17:16.9303008Z   Downloaded pin-project-lite v0.2.17
+quality	Run quality gates	2026-10-29T14:17:16.9360525Z   Downloaded tracing-attributes v0.1.31
+quality	Run quality gates	2026-10-29T14:17:16.9387083Z   Downloaded rustc_version v0.4.1
+quality	Run quality gates	2026-10-29T14:17:16.9400997Z   Downloaded tower-lsp-macros v0.9.0
+quality	Run quality gates	2026-10-29T14:17:16.9407192Z   Downloaded tokio-macros v2.7.2
+quality	Run quality gates	2026-10-29T14:17:16.9418538Z   Downloaded thread_local v1.1.10
+quality	Run quality gates	2026-10-29T14:17:16.9432208Z   Downloaded same-file v1.0.6
+quality	Run quality gates	2026-10-29T14:17:16.9445848Z   Downloaded slab v0.4.12
+quality	Run quality gates	2026-10-29T14:17:16.9458775Z   Downloaded tracing-log v0.2.0
+quality	Run quality gates	2026-10-29T14:17:16.9472772Z   Downloaded syn v2.0.119
+quality	Run quality gates	2026-10-29T14:17:16.9579371Z   Downloaded tokio-util v0.7.19
+quality	Run quality gates	2026-10-29T14:17:17.0286298Z     Checking memchr v2.8.3
+quality	Run quality gates	2026-10-29T14:17:17.0287434Z     Checking cfg-if v1.0.5
+quality	Run quality gates	2026-10-29T14:17:17.0299736Z    Compiling syn v3.0.6
+quality	Run quality gates	2026-10-29T14:17:17.0300596Z     Checking libc v0.2.189
+quality	Run quality gates	2026-10-29T14:17:17.6067873Z     Checking stable_deref_trait v1.2.1
+quality	Run quality gates	2026-10-29T14:17:18.2884959Z     Checking smallvec v1.16.2
+quality	Run quality gates	2026-10-29T14:17:18.4756277Z     Checking serde_core v1.0.229
+quality	Run quality gates	2026-10-29T14:17:18.8386491Z     Checking litemap v0.8.3
+quality	Run quality gates	2026-10-29T14:17:18.8413416Z     Checking writeable v0.6.4
+quality	Run quality gates	2026-10-29T14:17:18.9510279Z     Checking utf8_iter v1.0.4
+quality	Run quality gates	2026-10-29T14:17:19.0538940Z     Checking once_cell v1.21.4
+quality	Run quality gates	2026-10-29T14:17:19.0600042Z     Checking scopeguard v1.2.0
+quality	Run quality gates	2026-10-29T14:17:19.1516088Z     Checking icu_properties_data v2.3.0
+quality	Run quality gates	2026-10-29T14:17:19.1739408Z    Compiling synstructure v0.14.0
+quality	Run quality gates	2026-10-29T14:17:19.2597310Z    Compiling zerovec-derive v0.11.6
+quality	Run quality gates	2026-10-29T14:17:19.2699781Z    Compiling displaydoc v0.2.7
+quality	Run quality gates	2026-10-29T14:17:19.4330722Z    Compiling serde_derive v1.0.229
+quality	Run quality gates	2026-10-29T14:17:19.4410480Z    Compiling zerofrom-derive v0.1.8
+quality	Run quality gates	2026-10-29T14:17:19.7590408Z    Compiling yoke-derive v0.8.4
+quality	Run quality gates	2026-10-29T14:17:20.4300676Z     Checking icu_normalizer_data v2.3.0
+quality	Run quality gates	2026-10-29T14:17:20.5340529Z     Checking zerofrom v0.1.8
+quality	Run quality gates	2026-10-29T14:17:20.6708161Z     Checking zmij v1.0.23
+quality	Run quality gates	2026-10-29T14:17:20.7240368Z     Checking itoa v1.0.18
+quality	Run quality gates	2026-10-29T14:17:20.7669637Z     Checking yoke v0.8.3
+quality	Run quality gates	2026-10-29T14:17:20.8926456Z     Checking bitflags v2.13.2
+quality	Run quality gates	2026-10-29T14:17:20.9276747Z     Checking serde_json v1.0.151
+quality	Run quality gates	2026-10-29T14:17:20.9814523Z     Checking zerovec v0.11.8
+quality	Run quality gates	2026-10-29T14:17:21.1071974Z     Checking zerotrie v0.2.5
+quality	Run quality gates	2026-10-29T14:17:21.2335128Z     Checking percent-encoding v2.3.2
+quality	Run quality gates	2026-10-29T14:17:21.2600475Z     Checking tinystr v0.8.4
+quality	Run quality gates	2026-10-29T14:17:21.3347563Z     Checking potential_utf v0.1.6
+quality	Run quality gates	2026-10-29T14:17:21.4469882Z     Checking typenum v1.20.1
+quality	Run quality gates	2026-10-29T14:17:21.4813706Z     Checking icu_locale_core v2.3.0
+quality	Run quality gates	2026-10-29T14:17:21.5480311Z     Checking icu_collections v2.3.0
+quality	Run quality gates	2026-10-29T14:17:21.9000726Z    Compiling nix v0.31.3
+quality	Run quality gates	2026-10-29T14:17:21.9646705Z     Checking generic-array v0.14.7
+quality	Run quality gates	2026-10-29T14:17:22.0227599Z     Checking icu_provider v2.3.1
+quality	Run quality gates	2026-10-29T14:17:22.1368704Z     Checking serde v1.0.229
+quality	Run quality gates	2026-10-29T14:17:22.1722515Z     Checking form_urlencoded v1.2.2
+quality	Run quality gates	2026-10-29T14:17:22.2254914Z    Compiling syn v2.0.119
+quality	Run quality gates	2026-10-29T14:17:22.2863665Z     Checking icu_normalizer v2.3.0
+quality	Run quality gates	2026-10-29T14:17:22.3879501Z     Checking icu_properties v2.3.0
+quality	Run quality gates	2026-10-29T14:17:22.5320288Z     Checking block-buffer v0.10.4
+quality	Run quality gates	2026-10-29T14:17:22.7558057Z     Checking crypto-common v0.1.7
+quality	Run quality gates	2026-10-29T14:17:22.8276099Z     Checking idna_adapter v1.2.2
+quality	Run quality gates	2026-10-29T14:17:22.8922410Z     Checking linux-raw-sys v0.12.1
+quality	Run quality gates	2026-10-29T14:17:22.9605927Z     Checking digest v0.10.7
+quality	Run quality gates	2026-10-29T14:17:23.0348059Z     Checking idna v1.1.0
+quality	Run quality gates	2026-10-29T14:17:23.1401380Z     Checking rustix v1.1.5
+quality	Run quality gates	2026-10-29T14:17:23.1755287Z     Checking getrandom v0.4.3
+quality	Run quality gates	2026-10-29T14:17:23.2130192Z     Checking cpufeatures v0.2.17
+quality	Run quality gates	2026-10-29T14:17:23.2560391Z     Checking url v2.5.8
+quality	Run quality gates	2026-10-29T14:17:23.3951881Z     Checking fastrand v2.5.0
+quality	Run quality gates	2026-10-29T14:17:23.4219821Z     Checking sha2 v0.10.9
+quality	Run quality gates	2026-10-29T14:17:23.5100243Z     Checking pin-project-lite v0.2.17
+quality	Run quality gates	2026-10-29T14:17:23.6122902Z     Checking futures-core v0.3.34
+quality	Run quality gates	2026-10-29T14:17:23.6380415Z     Checking tempfile v3.27.0
+quality	Run quality gates	2026-10-29T14:17:23.6599758Z     Checking futures-sink v0.3.34
+quality	Run quality gates	2026-10-29T14:17:23.7152252Z     Checking iai-callgrind-runner v0.16.1
+quality	Run quality gates	2026-10-29T14:17:23.8210660Z     Checking bincode v1.3.3
+quality	Run quality gates	2026-10-29T14:17:23.8582100Z    Compiling futures-macro v0.3.34
+quality	Run quality gates	2026-10-29T14:17:23.8650784Z     Checking futures-channel v0.3.34
+quality	Run quality gates	2026-10-29T14:17:24.0620365Z    Compiling parking_lot_core v0.9.12
+quality	Run quality gates	2026-10-29T14:17:24.0760276Z     Checking futures-task v0.3.34
+quality	Run quality gates	2026-10-29T14:17:24.0880909Z     Checking slab v0.4.12
+quality	Run quality gates	2026-10-29T14:17:24.1870459Z     Checking futures-io v0.3.34
+quality	Run quality gates	2026-10-29T14:17:24.3093225Z     Checking tracing-core v0.1.36
+quality	Run quality gates	2026-10-29T14:17:24.3169689Z     Checking errno v0.3.14
+quality	Run quality gates	2026-10-29T14:17:24.3218530Z     Checking log v0.4.34
+quality	Run quality gates	2026-10-29T14:17:24.4136672Z     Checking futures-util v0.3.34
+quality	Run quality gates	2026-10-29T14:17:24.5385797Z     Checking signal-hook-registry v1.4.8
+quality	Run quality gates	2026-10-29T14:17:24.5570663Z     Checking lock_api v0.4.14
+quality	Run quality gates	2026-10-29T14:17:24.7779687Z    Compiling tokio-macros v2.7.2
+quality	Run quality gates	2026-10-29T14:17:24.7986716Z     Checking mio v1.2.3
+quality	Run quality gates	2026-10-29T14:17:24.8025769Z     Checking bytes v1.12.1
+quality	Run quality gates	2026-10-29T14:17:24.9897540Z     Checking lazy_static v1.5.0
+quality	Run quality gates	2026-10-29T14:17:25.0639647Z    Compiling crossbeam-utils v0.8.23
+quality	Run quality gates	2026-10-29T14:17:25.0683388Z     Checking futures-executor v0.3.34
+quality	Run quality gates	2026-10-29T14:17:25.1405598Z     Checking tokio v1.53.3
+quality	Run quality gates	2026-10-29T14:17:25.2117396Z    Compiling pin-project-internal v1.1.13
+quality	Run quality gates	2026-10-29T14:17:25.2197991Z    Compiling crossbeam-epoch v0.9.21
+quality	Run quality gates	2026-10-29T14:17:25.2894743Z    Compiling object v0.37.3
+quality	Run quality gates	2026-10-29T14:17:25.3450298Z    Compiling httparse v1.10.1
+quality	Run quality gates	2026-10-29T14:17:25.5049412Z     Checking futures v0.3.34
+quality	Run quality gates	2026-10-29T14:17:25.5920179Z     Checking sharded-slab v0.1.7
+quality	Run quality gates	2026-10-29T14:17:25.8579257Z     Checking tracing-log v0.2.0
+quality	Run quality gates	2026-10-29T14:17:25.9248700Z     Checking pin-project v1.1.13
+quality	Run quality gates	2026-10-29T14:17:26.0420597Z    Compiling tracing-attributes v0.1.31
+quality	Run quality gates	2026-10-29T14:17:26.0770275Z    Compiling serde_repr v0.1.21
+quality	Run quality gates	2026-10-29T14:17:26.1380577Z     Checking aho-corasick v1.1.5
+quality	Run quality gates	2026-10-29T14:17:26.4181473Z     Checking thread_local v1.1.10
+quality	Run quality gates	2026-10-29T14:17:26.4963181Z     Checking tower-service v0.3.3
+quality	Run quality gates	2026-10-29T14:17:26.6560388Z    Compiling crossbeam-deque v0.8.8
+quality	Run quality gates	2026-10-29T14:17:26.7310182Z     Checking bitflags v1.3.2
+quality	Run quality gates	2026-10-29T14:17:26.8560657Z     Checking nu-ansi-term v0.50.3
+quality	Run quality gates	2026-10-29T14:17:26.8997638Z     Checking gimli v0.32.3
+quality	Run quality gates	2026-10-29T14:17:26.9815872Z     Checking tower-layer v0.3.3
+quality	Run quality gates	2026-10-29T14:17:27.0861545Z     Checking hashbrown v0.14.5
+quality	Run quality gates	2026-10-29T14:17:27.2001582Z     Checking adler2 v2.0.1
+quality	Run quality gates	2026-10-29T14:17:27.3164247Z     Checking regex-syntax v0.8.11
+quality	Run quality gates	2026-10-29T14:17:27.3662195Z     Checking dashmap v5.5.3
+quality	Run quality gates	2026-10-29T14:17:27.4070683Z     Checking miniz_oxide v0.8.9
+quality	Run quality gates	2026-10-29T14:17:27.6178641Z     Checking addr2line v0.25.1
+quality	Run quality gates	2026-10-29T14:17:27.6357772Z     Checking tower v0.4.13
+quality	Run quality gates	2026-10-29T14:17:27.6450379Z     Checking regex-automata v0.4.18
+quality	Run quality gates	2026-10-29T14:17:27.8436281Z     Checking tracing-subscriber v0.3.23
+quality	Run quality gates	2026-10-29T14:17:27.8947448Z     Checking lsp-types v0.94.1
+quality	Run quality gates	2026-10-29T14:17:28.0812906Z     Checking tracing v0.1.44
+quality	Run quality gates	2026-10-29T14:17:28.6110887Z    Compiling auto_impl v1.3.0
+quality	Run quality gates	2026-10-29T14:17:28.7170299Z     Checking tokio-util v0.7.19
+quality	Run quality gates	2026-10-29T14:17:29.0610343Z    Compiling tower-lsp-macros v0.9.0
+quality	Run quality gates	2026-10-29T14:17:29.2203042Z    Compiling async-trait v0.1.92
+quality	Run quality gates	2026-10-29T14:17:29.3785614Z     Checking bstr v1.13.1
+quality	Run quality gates	2026-10-29T14:17:29.4262223Z     Checking rustc-demangle v0.1.28
+quality	Run quality gates	2026-10-29T14:17:29.6528385Z     Checking hashbrown v0.17.1
+quality	Run quality gates	2026-10-29T14:17:29.6530817Z     Checking same-file v1.0.6
+quality	Run quality gates	2026-10-29T14:17:29.7091625Z     Checking equivalent v1.0.3
+quality	Run quality gates	2026-10-29T14:17:29.7685848Z     Checking globset v0.4.20
+quality	Run quality gates	2026-10-29T14:17:29.8721587Z     Checking walkdir v2.5.0
+quality	Run quality gates	2026-10-29T14:17:29.9078503Z     Checking backtrace v0.3.76
+quality	Run quality gates	2026-10-29T14:17:29.9580967Z     Checking indexmap v2.14.2
+quality	Run quality gates	2026-10-29T14:17:30.0885834Z     Checking parking_lot v0.12.5
+quality	Run quality gates	2026-10-29T14:17:30.1573830Z     Checking thousands v0.2.0
+quality	Run quality gates	2026-10-29T14:17:30.2198749Z     Checking rustc-hash v1.1.0
+quality	Run quality gates	2026-10-29T14:17:30.2320125Z     Checking mintex v0.1.4
+quality	Run quality gates	2026-10-29T14:17:30.3090007Z     Checking process-wrap v10.0.1
+quality	Run quality gates	2026-10-29T14:17:30.3592113Z     Checking ignore v0.4.33
+quality	Run quality gates	2026-10-29T14:17:30.4190735Z     Checking tower-lsp v0.20.0 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/vendor/tower-lsp)
+quality	Run quality gates	2026-10-29T14:17:30.4342843Z     Checking dhat v0.3.3
+quality	Run quality gates	2026-10-29T14:17:30.6012182Z     Checking tracing-chrome v0.7.2
+quality	Run quality gates	2026-10-29T14:17:30.6610634Z    Compiling derive_more-impl v2.1.1
+quality	Run quality gates	2026-10-29T14:17:30.9322192Z     Checking base64 v0.22.1
+quality	Run quality gates	2026-10-29T14:17:31.4438222Z    Compiling proc-macro-error-attr2 v2.0.0
+quality	Run quality gates	2026-10-29T14:17:31.6470083Z    Compiling proc-macro-error2 v2.0.1
+quality	Run quality gates	2026-10-29T14:17:31.8738228Z    Compiling derive_more v2.1.1
+quality	Run quality gates	2026-10-29T14:17:32.1023418Z    Compiling iai-callgrind v0.16.1
+quality	Run quality gates	2026-10-29T14:17:32.1902310Z     Checking utf8parse v0.2.2
+quality	Run quality gates	2026-10-29T14:17:32.2301769Z    Compiling iai-callgrind-macros v0.6.1
+quality	Run quality gates	2026-10-29T14:17:32.3533379Z     Checking is_terminal_polyfill v1.70.2
+quality	Run quality gates	2026-10-29T14:17:32.3813261Z     Checking bend2-lsp v0.6.2 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs)
+quality	Run quality gates	2026-10-29T14:17:32.4012035Z     Checking anstyle-parse v1.0.0
+quality	Run quality gates	2026-10-29T14:17:32.5729853Z     Checking colorchoice v1.0.5
+quality	Run quality gates	2026-10-29T14:17:32.6430415Z     Checking anstyle v1.0.14
+quality	Run quality gates	2026-10-29T14:17:32.7980208Z     Checking anstyle-query v1.1.5
+quality	Run quality gates	2026-10-29T14:17:32.9151123Z     Checking core_detect v1.0.0
+quality	Run quality gates	2026-10-29T14:17:33.0077441Z     Checking anstream v1.0.0
+quality	Run quality gates	2026-10-29T14:17:33.3237977Z     Checking simdutf8 v0.1.5
+quality	Run quality gates	2026-10-29T14:17:33.3290498Z     Checking clap_lex v1.1.1
+quality	Run quality gates	2026-10-29T14:17:33.3333494Z     Checking strsim v0.11.1
+quality	Run quality gates	2026-10-29T14:17:33.5670833Z    Compiling clap_derive v4.6.7
+quality	Run quality gates	2026-10-29T14:17:33.5673920Z     Checking encoding_rs v0.8.42
+quality	Run quality gates	2026-10-29T14:17:33.5799362Z     Checking clap_builder v4.6.7
+quality	Run quality gates	2026-10-29T14:17:33.9930553Z     Checking ctrlc v3.5.2
+quality	Run quality gates	2026-10-29T14:17:34.1007655Z     Checking encoding_rs_io v0.1.8
+quality	Run quality gates	2026-10-29T14:17:34.2229918Z     Checking quick-xml v0.38.4
+quality	Run quality gates	2026-10-29T14:17:35.1234533Z     Checking clap v4.6.7
+quality	Run quality gates	2026-10-29T14:17:35.3490617Z     Checking bend2-perf v0.6.2 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf)
+quality	Run quality gates	2026-10-29T14:17:40.3310576Z     Checking bend2-semantic-probe v0.6.2 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/semantic-probe)
+quality	Run quality gates	2026-10-29T14:17:44.9049509Z     Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.39s
+quality	Run quality gates	2026-10-29T14:17:44.9057696Z warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+quality	Run quality gates	2026-10-29T14:17:44.9059599Z note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+quality	Run quality gates	2026-10-29T14:17:44.9316206Z == clippy (all targets; test panic helpers permitted) ==
+quality	Run quality gates	2026-10-29T14:17:45.2593243Z     Checking tower-lsp v0.20.0 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/vendor/tower-lsp)
+quality	Run quality gates	2026-10-29T14:17:45.2653338Z     Checking bend2-perf v0.6.2 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf)
+quality	Run quality gates	2026-10-29T14:17:47.2017806Z     Checking bend2-lsp v0.6.2 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs)
+quality	Run quality gates	2026-10-29T14:17:56.2520776Z     Checking bend2-semantic-probe v0.6.2 (/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/semantic-probe)
+quality	Run quality gates	2026-10-29T14:17:57.2240540Z error: called `map(<f>).unwrap_or_else(<g>)` on a `Result` value
+quality	Run quality gates	2026-10-29T14:17:57.2241413Z    --> tests/bend_lint_protocol.rs:266:39
+quality	Run quality gates	2026-10-29T14:17:57.2241974Z     |
+quality	Run quality gates	2026-10-29T14:17:57.2242602Z 266 |                       let observation = fs::File::open(self.control.join(filename))
+quality	Run quality gates	2026-10-29T14:17:57.2243397Z     |  _______________________________________^
+quality	Run quality gates	2026-10-29T14:17:57.2243968Z 267 | |                         .map(|file| {
+quality	Run quality gates	2026-10-29T14:17:57.2244596Z 268 | |                             let mut contents = Vec::new();
+quality	Run quality gates	2026-10-29T14:17:57.2245395Z 269 | |                             let error = file.take(16_384).read_to_end(&mut contents).err();
+quality	Run quality gates	2026-10-29T14:17:57.2246120Z ...   |
+quality	Run quality gates	2026-10-29T14:17:57.2246455Z 274 | |                         })
+quality	Run quality gates	2026-10-29T14:17:57.2247107Z 275 | |                         .unwrap_or_else(|error| json!({"open_error": error.to_string()}));
+quality	Run quality gates	2026-10-29T14:17:57.2248064Z     | |_________________________________________________________________________________________^
+quality	Run quality gates	2026-10-29T14:17:57.2248751Z     |
+quality	Run quality gates	2026-10-29T14:17:57.2249887Z     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#map_unwrap_or
+quality	Run quality gates	2026-10-29T14:17:57.2251023Z     = note: `-D clippy::map-unwrap-or` implied by `-D clippy::pedantic`
+quality	Run quality gates	2026-10-29T14:17:57.2251953Z     = help: to override `-D clippy::pedantic` add `#[allow(clippy::map_unwrap_or)]`
+quality	Run quality gates	2026-10-29T14:17:57.2252689Z help: try
+quality	Run quality gates	2026-10-29T14:17:57.2253041Z     |
+quality	Run quality gates	2026-10-29T14:17:57.2253999Z 266 ~                     let observation = fs::File::open(self.control.join(filename)).map_or_else(|error| json!({"open_error": error.to_string()}), |file| {
+quality	Run quality gates	2026-10-29T14:17:57.2255172Z 267 +                             let mut contents = Vec::new();
+quality	Run quality gates	2026-10-29T14:17:57.2255902Z 268 +                             let error = file.take(16_384).read_to_end(&mut contents).err();
+quality	Run quality gates	2026-10-29T14:17:57.2256565Z 269 +                             json!({
+quality	Run quality gates	2026-10-29T14:17:57.2257238Z 270 +                                 "contents_utf8_lossy": String::from_utf8_lossy(&contents),
+quality	Run quality gates	2026-10-29T14:17:57.2258080Z 271 +                                 "read_error": error.map(|error| error.to_string()),
+quality	Run quality gates	2026-10-29T14:17:57.2258750Z 272 +                             })
+quality	Run quality gates	2026-10-29T14:17:57.2259493Z 273 ~                         });
+quality	Run quality gates	2026-10-29T14:17:57.2260302Z     |
+quality	Run quality gates	2026-10-29T14:17:57.2260525Z 
+quality	Run quality gates	2026-10-29T14:17:57.2773796Z error: could not compile `bend2-lsp` (test "bend_lint_protocol") due to 1 previous error
+quality	Run quality gates	2026-10-29T14:17:57.2775178Z warning: build failed, waiting for other jobs to finish...
+quality	Run quality gates	2026-10-29T14:17:57.3193233Z ##[error]Process completed with exit code 101.
