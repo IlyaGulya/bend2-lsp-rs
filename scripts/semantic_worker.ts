@@ -304,6 +304,17 @@ async function run(request:any) {
     return response;
   } finally {if(pristine.active)await pristine.close();fs.rmSync(sandbox,{recursive:true,force:true});}
 }
+// A piped stdout can be nonblocking (the pristine worker's stderr plumbing
+// makes Bun do this), where console.log writes only the free pipe capacity and
+// silently drops the rest. Stream writes queue the remainder with backpressure
+// and report failures to the callback; a rejection is a transport failure and
+// must stop the worker instead of emitting another frame.
+function emitReply(line:string):Promise<void>{
+  const {promise,resolve,reject}=Promise.withResolvers<void>();
+  try{process.stdout.write(line+'\n',(error:Error|null|undefined)=>error?reject(error):resolve());}
+  catch(error){reject(error);}
+  return promise;
+}
 const input=readline.createInterface({input:process.stdin,crlfDelay:Infinity});
 let stopping=false;
 async function shutdown(code:number){
@@ -318,9 +329,23 @@ process.on('SIGINT',()=>{void shutdown(130);});
 try {
   for await(const line of input){
     if(stopping)break;
-    let request:any;
-    try{if(Buffer.byteLength(line)>300000)throw Error('input-limit');request=JSON.parse(line);const response=await run(request);const output=JSON.stringify(response);if(Buffer.byteLength(output)>4000000)throw Error('output-limit');console.log(output);}
-    catch(error){if(stopping)break;console.log(JSON.stringify({schema:1,id:request?.id??null,root:request?.root??null,outcome:'oracle-error',error:String(error),provenance}));if(pristine.failed)break;}
-    finally {if(edenGC()>IDLE_HEAP_BYTES)gcAndSweep();}
+    try {
+      let request:any;
+      let output:string;
+      try {
+        if(Buffer.byteLength(line)>300000)throw Error('input-limit');
+        request=JSON.parse(line);
+        const response=await run(request);
+        output=JSON.stringify(response);
+        if(Buffer.byteLength(output)>4000000)throw Error('output-limit');
+      } catch(error) {
+        if(stopping)break;
+        await emitReply(JSON.stringify({schema:1,id:request?.id??null,root:request?.root??null,outcome:'oracle-error',error:String(error),provenance}));
+        if(pristine.failed)break;
+        continue;
+      }
+      // A rejected transport write propagates: never answer it with another frame.
+      await emitReply(output);
+    } finally {if(edenGC()>IDLE_HEAP_BYTES)gcAndSweep();}
   }
 } finally {input.close();await pristine.close();}

@@ -1,4 +1,4 @@
-// Targeted native-worker protocol smoke: run with the authenticated Bun and installation directory.
+// Targeted native-worker protocol smoke: run with authenticated Bun, installation and Python executable.
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -7,6 +7,7 @@ import {spawn,spawnSync} from 'node:child_process';
 import {Worker as ThreadWorker} from 'node:worker_threads';
 import * as readline from 'node:readline';
 import {once} from 'node:events';
+import {fileURLToPath} from 'node:url';
 import {bookChunks,canonicalTermKey,compareBatch,validateBatch,BATCH_CHUNKS,CHUNK_CHARS} from './semantic_book_stream.ts';
 import type {Book,File,HTerm,LTerm,Patt,Quant,Span} from '../tests/fixtures/semantic/compiler/bend.ts';
 // Structural view of the pinned compiler exports used by these fixtures.
@@ -407,6 +408,67 @@ async function signalContract(signal:'SIGTERM'|'SIGINT',request:any){
     await closed;
   }
 }
+async function replyFrameContract(){
+  const home=path.join(fixture,'reply-frame');fs.mkdirSync(home);
+  // 300 typed declarations keep the source under the input cap while the reply
+  // (declarations, occurrences and targets) far exceeds any piped stdout buffer.
+  const prefix='import Base\n\n';
+  let offset=Buffer.byteLength(prefix);
+  const targets=new Map<number,{file:string,start:number,end:number}>();
+  const source=prefix+Array.from({length:300},(_,index)=>{
+    const name=`f${index}`,declaration=`def ${name}() -> U32:\n  ${index%10}\n`;
+    targets.set(offset+4,{file:'main.bend',start:offset+4,end:offset+4+name.length});
+    offset+=Buffer.byteLength(declaration);
+    return declaration;
+  }).join('');
+  const request={schema:1,id:'large-frame-λ🦀',root:'main.bend',files:{'main.bend':source},revisions:{'main.bend':1},inspect_base:[]};
+  const followup={...request,id:'large-frame-followup-λ🦀'};
+  const inputs=path.join(home,'inputs');fs.mkdirSync(inputs);
+  const requestFiles=[path.join(inputs,'request-0.json'),path.join(inputs,'request-1.json')];
+  fs.writeFileSync(requestFiles[0],JSON.stringify(request));fs.writeFileSync(requestFiles[1],JSON.stringify(followup));
+  const frames=path.join(home,'frames');fs.mkdirSync(frames);
+  // Bun/Node spawn "pipe" is a Unix socketpair that buffers the whole frame and
+  // hides stdout loss. The helper owns a real os.pipe() bounded to 8192 bytes
+  // and runs the authenticated worker with it as stdout, stdin left open.
+  const helper=fileURLToPath(new URL('./semantic_frame_pipe.py',import.meta.url));
+  const python=process.argv[3];
+  assert.ok(python&&path.isAbsolute(python),'native contracts require the invoking Python executable');
+  const invoked=spawnSync(python,[helper,process.execPath,path.join(installation,'worker.ts'),...requestFiles,frames],{cwd:home,encoding:'utf8',timeout:30000,maxBuffer:4000000});
+  assert.equal(invoked.error,undefined);
+  assert.equal(invoked.status,0,(invoked.stderr||'')+(invoked.stdout||''));
+  const transport=JSON.parse(fs.readFileSync(path.join(frames,'transport.json'),'utf8'));
+  const first=fs.readFileSync(path.join(frames,'frame-0.bin'));
+  const second=fs.readFileSync(path.join(frames,'frame-1.bin'));
+  // Fatal UTF-8 decoding proves the frame did not end inside a multibyte sequence.
+  function reply(frame:Buffer,id:string){
+    const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(frame));
+    assert.equal(value.schema,1);assert.equal(value.id,id);assert.equal(value.root,request.root);assert.equal(value.outcome,'valid');
+    assert.equal(value.declarations.length,targets.size,'large reply must keep every declaration');
+    const seen=new Set<number>();
+    for(const declaration of value.declarations){
+      const expected=targets.get(declaration.site.start);
+      assert.ok(expected,'reply contains only the written declaration sites');
+      assert.deepEqual(declaration.site,expected);
+      assert.deepEqual(declaration.target,expected,'each function resolves to its own declaration');
+      assert.equal(declaration.kind,'def');
+      assert.ok(!seen.has(declaration.site.start),'written declaration must not be duplicated');
+      seen.add(declaration.site.start);
+    }
+    assert.equal(value.occurrences.length,600,'each function keeps its binding and U32 reference');
+    assert.ok(value.occurrences.every((occurrence:any)=>occurrence.status==='resolved'&&occurrence.target),'large reply must resolve every written occurrence');
+    assert.equal(value.complete,true,'large reply must report complete resolution');
+  }
+  assert.equal(transport.exit,0,JSON.stringify(transport));
+  assert.ok(first.length>65536,'reply frame must exceed a bounded pipe capacity: '+first.length);
+  reply(first,request.id);
+  assert.equal(transport.frames[0].trailing,0,'reply must be exactly one newline-terminated frame');
+  assert.ok(second.length>65536,'follow-up reply frame must stay complete: '+second.length);
+  reply(second,followup.id);
+  assert.equal(transport.frames[1].trailing,0,'follow-up reply must be exactly one newline-terminated frame');
+  if(transport.capacity!==null)assert.ok(first.length>transport.capacity,'frame must exceed the real OS pipe capacity: '+first.length+' vs '+transport.capacity);
+  if(transport.fd1!==null)assert.ok(transport.fd1.startsWith('pipe:'),'worker stdout must be a real OS pipe: '+transport.fd1);
+  console.log('Persistent worker lossless UTF-8 JSONL reply contract passed: '+first.length+' byte frame over a bounded OS pipe ('+String(transport.capacity??'capacity unreported')+'), open stdin and same-process follow-up');
+}
 try {
   const root=path.join(fixture,'main.bend');
   await nativeBookControls(root);
@@ -423,6 +485,7 @@ try {
   const request={schema:1,id:'failure-contract',root:'main.bend',files:{'main.bend':'import Base\n\ndef main() -> U32:\n  1\n'},revisions:{'main.bend':1}};
   await signalContract('SIGTERM',request);
   await signalContract('SIGINT',request);
+  await replyFrameContract();
   for(const [name,source]of [
     ['crash',"throw Error('deliberate-worker-crash');"],
     ['eof','process.exit(0);'],

@@ -70,6 +70,10 @@
 
 ### Under the hood
 
+- Await complete JSONL writes from the persistent semantic oracle instead of
+  dropping large replies when its stdout pipe is nonblocking. Verify a real
+  bounded OS pipe, UTF-8 frames and a follow-up request in the same process;
+  retain the compiler/runtime pins and existing resource limits.
 - Borrow reachable snapshots and editor identities while collecting workspace
   symbols instead of allocating an owned document for every loaded file.
   Preserve language filtering, Base inclusion, unsaved overlays and result ranges.
