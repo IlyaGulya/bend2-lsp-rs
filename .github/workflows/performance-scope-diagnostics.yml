@@ -86,9 +86,19 @@ jobs:
           export CARGO_INSTALL_ROOT="$RUNNER_TEMP/ci-scope-tools"
           export PATH="$CARGO_INSTALL_ROOT/bin:$PATH"
           ./scripts/install-tools.sh performance
-          version="$(iai-callgrind-runner --version)"
-          [[ "$version" == 'iai-callgrind-runner 0.16.1' ]]
-          printf '%s\n' "$version" | tee "$RUNNER_TEMP/runner-version.txt"
+          # The runner is a private benchmark protocol, not a standalone
+          # --version CLI. Reuse the production collector's Cargo-list check.
+          cargo install --list | tee "$RUNNER_TEMP/runner-installed.txt"
+          python3 - <<'PY'
+          import os,pathlib,shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          installed=(root/'runner-installed.txt').read_text()
+          versions=[line.removeprefix('iai-callgrind-runner v').removesuffix(':') for line in installed.splitlines() if line.startswith('iai-callgrind-runner v') and line.endswith(':')]
+          binary=pathlib.Path(os.environ['CARGO_INSTALL_ROOT'])/'bin/iai-callgrind-runner'
+          if versions!=['0.16.1'] or not binary.is_file() or pathlib.Path(shutil.which('iai-callgrind-runner') or '').resolve()!=binary.resolve():
+              raise SystemExit('requires the isolated cargo-installed iai-callgrind-runner 0.16.1')
+          (root/'runner-version.txt').write_text('iai-callgrind-runner 0.16.1\n')
+          PY
       - name: Measure cold nested-scope construction and published-view close/orphan release
         # All rows of the analysis target execute, but only the diagnostic group
         # writes fixture receipts; existing workload bodies and thresholds are
