@@ -2765,7 +2765,7 @@ function Format-StepSummary {
             }
         }
     }
-    if ($testRun -and @($testRun['wait_file_diagnostics']).Count -gt 0) {
+    if ($testRun -and $testRun['wait_file_diagnostics']) {
         $lines.Add('')
         $lines.Add('### wait_file diagnostics (instrumented test)')
         foreach ($diagnostic in @($testRun['wait_file_diagnostics'])) {

@@ -59,8 +59,8 @@ jobs:
       PRODUCER_REVISION: ${{ inputs.script_revision || github.sha }}
       # Independently pinned defaults for the push-triggered run of the reviewed producer
       # commit. A manual dispatch must supply both digests explicitly.
-      SCRIPT_SHA256: ${{ inputs.script_sha256 || '2a2bfd187e5e8a5a9cca16b1659215fee0c4ec0d0828ef99bd4162f31e82f48f' }}
-      TEST_SHA256: ${{ inputs.test_sha256 || '9594a0e6f972739a997ba328a14cddc8cfd61a8ef6706b3cf26e6b4a7cbd201e' }}
+      SCRIPT_SHA256: ${{ inputs.script_sha256 || '4c873e31a8b13d6d9fb7347e4f62cdefa3e9cd9dbb824d974df1993aa94e1754' }}
+      TEST_SHA256: ${{ inputs.test_sha256 || 'b000a6a0b96db85fa2c5a016a6d0e75b12d1f36761caf3145f7a0f2fcbb63a5a' }}
     steps:
       - name: Check out immutable C7 system under test
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -176,14 +176,25 @@ jobs:
       - name: Build the saved-lint integration test without running it
         working-directory: sut
         run: ../producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase build -Root "$env:DIAG_ROOT" -Sut .
-      - name: Arm the bounded observer and require readiness
-        run: |
-          ./producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase start -Root "$env:DIAG_ROOT" 2>&1 | Tee-Object -FilePath "$env:DIAG_ROOT/logs/start.log"
-          $code = $LASTEXITCODE
-          if ($code -ne 0) { exit $code }
-      - name: Run the saved-lint protocol tests exactly once
+      - name: Observe and run the saved-lint protocol tests exactly once
         working-directory: sut
-        run: ../producer/scripts/windows-lint-startup-diagnostic.ps1 -Phase run -Root "$env:DIAG_ROOT" -Sut . -ExpectedTestSha256 "$env:TEST_SHA256"
+        run: |
+          # Keep the collector, test and bound teardown in one owning shell. The
+          # first diagnostic lost its ready collector between workflow steps.
+          $script = '../producer/scripts/windows-lint-startup-diagnostic.ps1'
+          $runCode = 90
+          $stopCode = 1
+          try {
+            & $script -Phase start -Root "$env:DIAG_ROOT"
+            if ($LASTEXITCODE -ne 0) { throw "observer start failed: $LASTEXITCODE" }
+            & $script -Phase run -Root "$env:DIAG_ROOT" -Sut . -ExpectedTestSha256 "$env:TEST_SHA256"
+            $runCode = $LASTEXITCODE
+          } finally {
+            & $script -Phase stop -Root "$env:DIAG_ROOT"
+            $stopCode = $LASTEXITCODE
+          }
+          if ($runCode -ne 0) { exit $runCode }
+          exit $stopCode
       - name: Stop the observer and record its bound lifecycle
         if: always() && steps.verify_producer.outputs.verified == 'true' && steps.bootstrap.outputs.diag_root != ''
         run: |

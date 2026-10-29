@@ -263,16 +263,17 @@ impl Session {
                     "started",
                     "server.stderr",
                 ] {
-                    let observation = fs::File::open(self.control.join(filename))
-                        .map(|file| {
+                    let observation = fs::File::open(self.control.join(filename)).map_or_else(
+                        |error| json!({"open_error": error.to_string()}),
+                        |file| {
                             let mut contents = Vec::new();
                             let error = file.take(16_384).read_to_end(&mut contents).err();
                             json!({
                                 "contents_utf8_lossy": String::from_utf8_lossy(&contents),
                                 "read_error": error.map(|error| error.to_string()),
                             })
-                        })
-                        .unwrap_or_else(|error| json!({"open_error": error.to_string()}));
+                        },
+                    );
                     files.insert(filename.to_owned(), observation);
                 }
                 eprintln!(
