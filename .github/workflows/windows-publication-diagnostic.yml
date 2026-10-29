@@ -1,0 +1,88 @@
+name: windows-publication-diagnostic
+run-name: windows-publication-diagnostic / ${{ github.sha }}
+
+# Diagnostic only. This workflow reproduces the genuine Windows ARM compiler
+# provisioning publication attempt and captures process/file-ownership
+# evidence around it. It never installs a compiler, never runs Rust tests, and
+# never relabels a failed publication as a pass.
+
+on:
+  push:
+    branches:
+      - diag/windows-probe-ownership
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  publication-ownership:
+    if: github.repository == 'IlyaGulya/bend2-lsp-rs' && github.ref == 'refs/heads/diag/windows-probe-ownership'
+    permissions:
+      contents: read
+    runs-on: windows-11-arm
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      BEND_NO_TELEMETRY: '1'
+      EXPECTED_ARCH: ARM64
+      NATIVE_TARGET: aarch64-pc-windows-msvc
+      PYTHON: python
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify native Windows ARM runner
+        env:
+          ACTUAL_ARCH: ${{ runner.arch }}
+        run: test "$ACTUAL_ARCH" = "$EXPECTED_ARCH"
+      - name: Record hosted runner identity
+        run: |
+          "$PYTHON" - <<'PY'
+          import json
+          import os
+          import platform
+          import sys
+          print(json.dumps({
+              "python": sys.version,
+              "executable": sys.executable,
+              "machine": platform.machine(),
+              "platform": platform.platform(),
+              "image_os": os.environ.get("ImageOS"),
+              "image_version": os.environ.get("ImageVersion"),
+          }, sort_keys=True))
+          PY
+      - name: Reproduce the canonical publication attempt
+        id: canonical
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: '"$PYTHON" scripts/bootstrap_bend.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$RUNNER_TEMP/canonical-github-env" --github-output "$RUNNER_TEMP/canonical-github-output"'
+      - name: Capture publication ownership evidence
+        id: diagnostic
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: scripts
+        run: '"$PYTHON" scripts/diagnose_windows_publication.py --target "$NATIVE_TARGET" --destination "$RUNNER_TEMP/bend-2.0.37-diagnostic" --evidence-dir "$RUNNER_TEMP/windows-publication-evidence" --observation-seconds 10'
+      - name: Preserve publication, ownership, and validation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-publication-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/windows-publication-evidence/
+            ${{ runner.temp }}/canonical-github-output
+            ${{ runner.temp }}/canonical-github-env
+          if-no-files-found: error
+          retention-days: 14
+      - name: Report the observed outcome without relabeling it
+        if: always()
+        env:
+          CANONICAL_OUTCOME: ${{ steps.canonical.outcome }}
+          DIAGNOSTIC_OUTCOME: ${{ steps.diagnostic.outcome }}
+        run: |
+          printf 'canonical=%s diagnostic=%s\n' "$CANONICAL_OUTCOME" "$DIAGNOSTIC_OUTCOME"
+          test "$CANONICAL_OUTCOME" = success
+          test "$DIAGNOSTIC_OUTCOME" = success
