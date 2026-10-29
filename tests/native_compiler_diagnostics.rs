@@ -403,6 +403,70 @@ fn malformed_main_header_keeps_real_error_and_recovery_navigation() {
     client.finish();
 }
 
+fn assert_editor_only_import(
+    client: &mut LspClient,
+    root_uri: &str,
+    imported: &str,
+    target_uri: &str,
+    alias: &str,
+    version: i32,
+) {
+    let links = client.request(
+        "textDocument/documentLink",
+        json!({"textDocument":{"uri":root_uri}}),
+    );
+    let links = links["result"].as_array().must_be("editor import links");
+    assert_eq!(links.len(), 1, "only the explicit import becomes a link");
+    assert_eq!(links[0]["target"], target_uri);
+    assert_eq!(
+        links[0]["data"],
+        json!({"uncertain":true,"resolution":"editor-path"}),
+        "compiler rejection keeps the editor link explicitly uncertain"
+    );
+    let tooltip = links[0]["tooltip"]
+        .as_str()
+        .must_be("editor import visible warning");
+    assert!(
+        tooltip.contains("editor path") && tooltip.contains("not compiler-resolved"),
+        "the editor link must visibly warn that it is not compiler-resolved: {tooltip}"
+    );
+    let path_end = 7 + imported.encode_utf16().count();
+    assert_eq!(
+        links[0]["range"],
+        json!({
+            "start":{"line":0,"character":7},
+            "end":{"line":0,"character":path_end}
+        })
+    );
+    let path_definition = client.request(
+        "textDocument/definition",
+        json!({"textDocument":{"uri":root_uri},"position":{"line":0,"character":8}}),
+    );
+    assert_eq!(path_definition["result"]["uri"], target_uri);
+    assert_eq!(
+        path_definition["result"]["range"],
+        json!({"start":{"line":0,"character":0},"end":{"line":0,"character":0}})
+    );
+    let member_definition = client.request(
+        "textDocument/definition",
+        json!({
+            "textDocument":{"uri":root_uri},
+            "position":{"line":2,"character":2 + alias.len() + 1}
+        }),
+    );
+    assert_eq!(
+        member_definition["result"],
+        Value::Null,
+        "the editor path must not manufacture a native member entity"
+    );
+    let semantic = client.request(
+        "bend2/semanticDocument",
+        json!({"textDocument":{"uri":root_uri}}),
+    );
+    assert_eq!(semantic["result"]["complete"], false);
+    assert_eq!(semantic["result"]["document"]["version"], version);
+}
+
 #[test]
 fn compiler_rejected_editor_imports_stay_uncertain_without_native_entities() {
     let compiler = compiler();
@@ -472,60 +536,14 @@ fn compiler_rejected_editor_imports_stay_uncertain_without_native_entities() {
             "retain the compiler's import cause: {errors:#?}"
         );
         let target_uri = uri(&directory.path().join(target_name));
-        let links = client.request(
-            "textDocument/documentLink",
-            json!({"textDocument":{"uri":root_uri}}),
+        assert_editor_only_import(
+            &mut client,
+            &root_uri,
+            imported,
+            &target_uri,
+            alias,
+            version,
         );
-        let links = links["result"].as_array().must_be("editor import links");
-        assert_eq!(links.len(), 1, "only the explicit import becomes a link");
-        assert_eq!(links[0]["target"], target_uri);
-        assert_eq!(
-            links[0]["data"],
-            json!({"uncertain":true,"resolution":"editor-path"}),
-            "compiler rejection keeps the editor link explicitly uncertain"
-        );
-        let tooltip = links[0]["tooltip"]
-            .as_str()
-            .must_be("editor import visible warning");
-        assert!(
-            tooltip.contains("editor path") && tooltip.contains("not compiler-resolved"),
-            "the editor link must visibly warn that it is not compiler-resolved: {tooltip}"
-        );
-        let path_end = 7 + imported.encode_utf16().count();
-        assert_eq!(
-            links[0]["range"],
-            json!({
-                "start":{"line":0,"character":7},
-                "end":{"line":0,"character":path_end}
-            })
-        );
-        let path_definition = client.request(
-            "textDocument/definition",
-            json!({"textDocument":{"uri":root_uri},"position":{"line":0,"character":8}}),
-        );
-        assert_eq!(path_definition["result"]["uri"], target_uri);
-        assert_eq!(
-            path_definition["result"]["range"],
-            json!({"start":{"line":0,"character":0},"end":{"line":0,"character":0}})
-        );
-        let member_definition = client.request(
-            "textDocument/definition",
-            json!({
-                "textDocument":{"uri":root_uri},
-                "position":{"line":2,"character":2 + alias.len() + 1}
-            }),
-        );
-        assert_eq!(
-            member_definition["result"],
-            Value::Null,
-            "the editor path must not manufacture a native member entity"
-        );
-        let semantic = client.request(
-            "bend2/semanticDocument",
-            json!({"textDocument":{"uri":root_uri}}),
-        );
-        assert_eq!(semantic["result"]["complete"], false);
-        assert_eq!(semantic["result"]["document"]["version"], version);
     }
     client.finish();
 }
