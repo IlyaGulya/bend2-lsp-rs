@@ -1717,17 +1717,65 @@ mod tests {
     fn collector_interrupt_reaches_a_console_ignoring_ctrl_c() -> super::ToolResult<()> {
         // Exercise the actual console APIs with an owned waiting process, not
         // a fabricated profiler trace or an assertion about a command string.
-        const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; using System.Threading; public static class IgnoringConsole { public delegate bool HandlerRoutine(uint ctrl); public static readonly ManualResetEvent Stopped = new ManualResetEvent(false); public static readonly HandlerRoutine Stop = delegate(uint ctrl) { if (ctrl != 1) return false; Stopped.Set(); return true; }; [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Ignore(IntPtr handler, bool add); [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Register(HandlerRoutine handler, bool add); }'
-if (![IgnoringConsole]::Ignore([IntPtr]::Zero,$true)) { throw 'Could not ignore CTRL_C' }
-if (![IgnoringConsole]::Register([IgnoringConsole]::Stop,$true)) { throw 'Could not register CTRL_BREAK handler' }
-[Console]::Error.WriteLine('console.fixture.ready')
-[void][IgnoringConsole]::Stopped.WaitOne()
+        const SCRIPT: &str = r#"
+using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+public static class IgnoringConsole {
+    public delegate bool HandlerRoutine(uint ctrl);
+    public static readonly ManualResetEvent Stopped = new ManualResetEvent(false);
+    public static readonly HandlerRoutine Stop = delegate(uint ctrl) {
+        if (ctrl != 1) return false;
+        Stopped.Set();
+        return true;
+    };
+    [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)]
+    public static extern bool Ignore(IntPtr handler, bool add);
+    [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)]
+    public static extern bool Register(HandlerRoutine handler, bool add);
+    public static void Main() {
+        if (!Ignore(IntPtr.Zero, true)) throw new Exception("Could not ignore CTRL_C");
+        if (!Register(Stop, true)) throw new Exception("Could not register CTRL_BREAK handler");
+        Console.Error.WriteLine("console.fixture.ready");
+        Stopped.WaitOne();
+    }
+}
 "#;
         let directory = tempfile::tempdir()?;
+        let source = directory.path().join("ignoring-console.cs");
+        std::fs::write(&source, SCRIPT)?;
+        let compiler = std::path::PathBuf::from(
+            std::env::var_os("WINDIR").ok_or("Missing Windows directory")?,
+        )
+        .join("Microsoft.NET/Framework64/v4.0.30319/csc.exe");
+        let compiler = compiler
+            .to_str()
+            .ok_or("Framework compiler path is not UTF-8")?;
+        let executable = directory.path().join("ignoring-console.exe");
+        let executable = executable
+            .to_str()
+            .ok_or("Console fixture path is not UTF-8")?;
         let mut session = super::Session::new("samply", "cpu", directory.path());
-        let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
-        session.spawn("powershell.exe", &args)?;
+        let args = [
+            "/nologo".to_owned(),
+            "/target:exe".to_owned(),
+            format!("/out:{executable}"),
+            source
+                .to_str()
+                .ok_or("Console fixture source path is not UTF-8")?
+                .to_owned(),
+        ];
+        // Compile the fixture as bounded setup, not inside the collector's
+        // unchanged readiness deadline. Real collectors are installed binaries.
+        // Invoke the Framework compiler directly, without PowerShell/Add-Type startup.
+        session.command_env_mode_timeout(
+            compiler,
+            &args,
+            &[],
+            super::CommandMode::Active,
+            super::Duration::from_secs(60),
+        )?;
+        session.spawn(executable, &[])?;
         session.wait_ready_text("console.fixture.ready\n")?;
         let pid = session
             .child

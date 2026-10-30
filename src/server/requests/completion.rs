@@ -12,7 +12,7 @@ use tower_lsp::{
 };
 
 struct ExplicitCompletionType {
-    uri: url::Url,
+    uri: std::sync::Arc<url::Url>,
     snapshot: std::sync::Arc<analysis::DocumentSnapshot>,
     name: String,
     alias: Option<String>,

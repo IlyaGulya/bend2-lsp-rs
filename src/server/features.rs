@@ -23,13 +23,13 @@ pub(super) fn named_document_symbol(
     None
 }
 
-pub(super) fn call_hierarchy_item(uri: Url, symbol: DocumentSymbol) -> CallHierarchyItem {
+pub(super) fn call_hierarchy_item(uri: &Url, symbol: DocumentSymbol) -> CallHierarchyItem {
     CallHierarchyItem {
         name: symbol.name,
         kind: symbol.kind,
         tags: None,
         detail: symbol.detail,
-        uri,
+        uri: uri.clone(),
         range: symbol.range,
         selection_range: symbol.selection_range,
         data: None,
@@ -55,13 +55,13 @@ pub(super) fn type_hierarchy_symbol(
     None
 }
 
-pub(super) fn type_hierarchy_item(uri: Url, symbol: DocumentSymbol) -> TypeHierarchyItem {
+pub(super) fn type_hierarchy_item(uri: &Url, symbol: DocumentSymbol) -> TypeHierarchyItem {
     TypeHierarchyItem {
         name: symbol.name,
         kind: symbol.kind,
         tags: None,
         detail: symbol.detail,
-        uri,
+        uri: uri.clone(),
         range: symbol.range,
         selection_range: symbol.selection_range,
         data: None,

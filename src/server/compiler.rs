@@ -1490,7 +1490,7 @@ mod snapshot_lifetime_tests {
         let mut database = WorkspaceDb::default();
         let root = database.set_open_document(document, Some(path));
         let graph = database
-            .source_graph(root)
+            .source_graph_for(root, None)
             .ok_or_else(|| std::io::Error::other("source graph"))?;
         let cache = Arc::new(RwLock::new(HashMap::new()));
         let reapers = Arc::new(CompilerReapers::default());

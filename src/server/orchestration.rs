@@ -5,6 +5,7 @@ use super::{
     lsp::Backend,
     revision::{RevisionStatus, RevisionTicket, wait_for_captured_revision},
     state::revision_result,
+    workspace_service::PreparedRevision,
 };
 use crate::{
     analysis::{self, DocumentSnapshot, LineIndex, Revision},
@@ -120,15 +121,6 @@ impl Backend {
             )),
         }
     }
-    pub(super) fn begin_revision(
-        &self,
-        uri: &Url,
-        path: Option<PathBuf>,
-        revision: Revision,
-        create: bool,
-    ) -> Option<(FileId, RevisionTicket, Option<PathBuf>)> {
-        self.workspace.begin_revision(uri, path, revision, create)
-    }
     pub(super) fn begin_document_refresh(
         &self,
         uri: &Url,
@@ -146,7 +138,15 @@ impl Backend {
         text: String,
         path: Option<PathBuf>,
     ) -> Option<bool> {
-        let (id, ticket, path) = self.begin_revision(&uri, path, Revision(version), true)?;
+        let PreparedRevision {
+            file: id,
+            ticket,
+            path,
+            uri,
+        } = self
+            .workspace
+            .begin_revision(&uri, path, Revision(version), true)?;
+        let uri = uri?;
         tracing::Span::current().record("file_id", tracing::field::debug(&id));
         if !revision_result(ticket.wait_for_turn().await) {
             return None;
@@ -213,14 +213,14 @@ impl Backend {
         let span = tracing::Span::current();
         let sync = {
             let state = self.workspace.state.read();
-            let revisions = &state.revisions;
-            let database = &state.database;
-            let Some(id) = database.file_id_by_uri(uri) else {
+            let Some(id) = state.database.file_id_by_uri(uri) else {
                 span.record("outcome", "untracked");
                 return;
             };
             span.record("file_id", tracing::field::debug(&id));
-            revisions.get(&id).cloned()
+            // Revisions are per editor spelling: wait for this URI's own
+            // version stream, not another spelling of the same file.
+            state.revision_sync(uri).cloned()
         };
         let Some(sync) = sync else {
             span.record("outcome", "untracked");
@@ -283,24 +283,33 @@ impl Backend {
         {
             return Vec::new();
         }
-        let dependencies = if let Some(uri) = uri {
-            let database = &state.database;
-            let Some(root) = database.file_id_by_uri(uri) else {
-                return Vec::new();
-            };
-            Some(database.dependencies(root))
-        } else {
-            None
+        let Some(uri) = uri else {
+            return revisions
+                .values()
+                .filter_map(|sync| {
+                    let status = revision_result(sync.status());
+                    status
+                        .is_pending()
+                        .then(|| (sync.subscribe(), status.generation()))
+                })
+                .collect();
         };
-        revisions
+        let database = &state.database;
+        let Some(root) = database.file_id_by_uri(uri) else {
+            return Vec::new();
+        };
+        // One file can be open under several spellings; every relevant open
+        // view gates the read on its own revision stream.
+        database
+            .dependencies(root)
             .iter()
-            .filter_map(|(id, sync)| {
-                let state = revision_result(sync.status());
-                (state.is_pending()
-                    && dependencies
-                        .as_ref()
-                        .is_none_or(|dependencies| dependencies.contains(id)))
-                .then(|| (sync.subscribe(), state.generation()))
+            .flat_map(|id| database.open_view_ids(*id))
+            .filter_map(|view| {
+                let sync = revisions.get(&view)?;
+                let status = revision_result(sync.status());
+                status
+                    .is_pending()
+                    .then(|| (sync.subscribe(), status.generation()))
             })
             .collect()
     }
@@ -437,7 +446,14 @@ impl Backend {
     ) -> bool {
         let uri = params.text_document.uri.clone();
         let version = params.text_document.version;
-        let Some((id, ticket, path)) = self.begin_revision(&uri, None, Revision(version), false)
+        let Some(PreparedRevision {
+            file: id,
+            ticket,
+            path,
+            ..
+        }) = self
+            .workspace
+            .begin_revision(&uri, None, Revision(version), false)
         else {
             return false;
         };
@@ -566,7 +582,7 @@ impl Backend {
         &self,
         source: &Document,
         alias: &str,
-    ) -> Option<(Url, Arc<DocumentSnapshot>)> {
+    ) -> Option<(Arc<Url>, Arc<DocumentSnapshot>)> {
         let import = analysis::imports(source)
             .iter()
             .find(|import| import.alias_text(&source.text) == Some(alias))?;
@@ -602,7 +618,7 @@ impl Backend {
         &self,
         document: &Document,
         name: &str,
-    ) -> (Url, Arc<DocumentSnapshot>, String) {
+    ) -> (Arc<Url>, Arc<DocumentSnapshot>, String) {
         if let Some((alias, member)) = name.split_once('.')
             && let Some((uri, snapshot)) = self.module_document(document, alias)
         {
@@ -619,7 +635,7 @@ impl Backend {
         &self,
         document: &Document,
         name: &str,
-    ) -> Option<(Url, Arc<DocumentSnapshot>, String)> {
+    ) -> Option<(Arc<Url>, Arc<DocumentSnapshot>, String)> {
         let (uri, snapshot, member) = self.symbol_source(document, name);
         if named_document_symbol(&snapshot, &member).is_some() {
             return Some((uri, snapshot, member));
@@ -672,7 +688,7 @@ impl Backend {
             let candidate_path = self
                 .document_path(&candidate.uri)
                 .map(|path| normalize_path(&path));
-            let same_target = candidate.uri == *target_uri
+            let same_target = candidate.uri.as_ref() == target_uri
                 || target_path
                     .as_ref()
                     .is_some_and(|path| candidate_path.as_ref() == Some(path));
@@ -688,7 +704,7 @@ impl Backend {
                     if include_declaration || reference.kind != analysis::ReferenceKind::Declaration
                     {
                         locations.push(Location {
-                            uri: candidate.uri.clone(),
+                            uri: candidate.uri.as_ref().clone(),
                             range: super::adapters::range(&candidate, reference.range),
                         });
                     }
@@ -721,7 +737,7 @@ impl Backend {
                     continue;
                 }
                 locations.push(Location {
-                    uri: candidate.uri.clone(),
+                    uri: candidate.uri.as_ref().clone(),
                     range: super::adapters::range(&candidate, reference.range),
                 });
             }
@@ -752,7 +768,12 @@ impl Backend {
                     let database = workspace_db.read();
                     let root = database.file_id_by_uri(&uri)?;
                     tracing::Span::current().record("file_id", tracing::field::debug(&root));
-                    database.source_graph(root)
+                    // The requested editor spelling supplies the root text and
+                    // its own indexed imports; other nodes keep their own
+                    // generation-fenced representative text. An ambiguous
+                    // (conflicting-text) spelling fails closed here rather
+                    // than checking one buffer against another's closure.
+                    database.source_graph_for(root, Some(&uri))
                 })
             })
             .await,
@@ -817,7 +838,7 @@ impl Backend {
                 path,
             });
             for document in database.dependents(id) {
-                affected.insert(document.uri.clone(), document.revision.0);
+                affected.insert(document.uri.as_ref().clone(), document.revision.0);
             }
         }
         (admitted, affected)
@@ -896,7 +917,7 @@ impl Backend {
                             continue;
                         };
                         if let Some(document) = database.open_document(&update.file.uri) {
-                            affected.insert(document.uri.clone(), document.revision.0);
+                            affected.insert(document.uri.as_ref().clone(), document.revision.0);
                         }
                         updates.push((id, imports_changed));
                     }
@@ -921,7 +942,7 @@ impl Backend {
             let database = workspace_db.read();
             for (id, _) in updates {
                 for document in database.dependents(id) {
-                    affected.insert(document.uri.clone(), document.revision.0);
+                    affected.insert(document.uri.as_ref().clone(), document.revision.0);
                 }
             }
             affected.retain(|uri, version| {
@@ -945,7 +966,7 @@ impl Backend {
         &self,
         source: &Document,
         call: &analysis::CallSite,
-    ) -> Option<(Url, Arc<DocumentSnapshot>, analysis::SymbolId)> {
+    ) -> Option<(Arc<Url>, Arc<DocumentSnapshot>, analysis::SymbolId)> {
         if let Some(callee) = call.callee {
             let symbol = source.syntax.symbol_by_id(callee)?;
             return (symbol.kind == analysis::SymbolKind::Function)

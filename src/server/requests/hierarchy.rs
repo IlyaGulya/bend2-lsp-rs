@@ -62,7 +62,7 @@ impl Backend {
         let Some(symbol) = adapters::document_symbol_by_id(&snapshot, symbol) else {
             return Ok(None);
         };
-        Ok(Some(vec![call_hierarchy_item(uri, symbol)]))
+        Ok(Some(vec![call_hierarchy_item(&uri, symbol)]))
     }
 
     pub(in crate::server) async fn handle_incoming_calls(
@@ -85,7 +85,7 @@ impl Backend {
                 else {
                     continue;
                 };
-                if target_uri != target.uri
+                if target_uri.as_ref() != &target.uri
                     || target_snapshot
                         .syntax
                         .symbol_by_id(target_id)
@@ -103,14 +103,13 @@ impl Backend {
                     continue;
                 };
                 let range = adapters::range(&caller_doc, call.callee_range);
-                if let Some((_, ranges)) = calls
-                    .iter_mut()
-                    .find(|(item, _)| item.uri == caller_doc.uri && item.name == caller_symbol.name)
-                {
+                if let Some((_, ranges)) = calls.iter_mut().find(|(item, _)| {
+                    item.uri == *caller_doc.uri && item.name == caller_symbol.name
+                }) {
                     ranges.push(range);
                 } else {
                     calls.push((
-                        call_hierarchy_item(caller_doc.uri.clone(), caller_symbol),
+                        call_hierarchy_item(&caller_doc.uri, caller_symbol),
                         vec![range],
                     ));
                 }
@@ -156,12 +155,12 @@ impl Backend {
             };
             if let Some((_, ranges)) = calls
                 .iter_mut()
-                .find(|(item, _)| item.uri == target_uri && item.name == target.name)
+                .find(|(item, _)| item.uri == *target_uri && item.name == target.name)
             {
                 ranges.push(adapters::range(&caller_doc, call.callee_range));
             } else {
                 calls.push((
-                    call_hierarchy_item(target_uri, target),
+                    call_hierarchy_item(&target_uri, target),
                     vec![adapters::range(&caller_doc, call.callee_range)],
                 ));
             }
@@ -198,7 +197,7 @@ impl Backend {
         let Some((symbol, _)) = type_hierarchy_symbol(&source, &name) else {
             return Ok(None);
         };
-        Ok(Some(vec![type_hierarchy_item(uri, symbol)]))
+        Ok(Some(vec![type_hierarchy_item(&uri, symbol)]))
     }
 
     pub(in crate::server) async fn handle_supertypes(
@@ -219,7 +218,7 @@ impl Backend {
         });
         Ok(Some(
             parent
-                .map(|symbol| vec![type_hierarchy_item(doc.uri, symbol)])
+                .map(|symbol| vec![type_hierarchy_item(&doc.uri, symbol)])
                 .unwrap_or_default(),
         ))
     }
@@ -239,7 +238,7 @@ impl Backend {
             .and_then(|symbol| symbol.children)
             .unwrap_or_default()
             .into_iter()
-            .map(|symbol| type_hierarchy_item(doc.uri.clone(), symbol))
+            .map(|symbol| type_hierarchy_item(&doc.uri, symbol))
             .collect();
         Ok(Some(children))
     }

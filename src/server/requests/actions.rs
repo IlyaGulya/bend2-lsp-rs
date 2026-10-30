@@ -19,8 +19,17 @@ impl Backend {
         if kind_requested(params.context.only.as_deref(), &CodeActionKind::QUICKFIX) {
             self.workspace.wait_for_discovery().await;
         }
+        // Analyzer waits and filesystem validation must not hold the workspace
+        // update view: unrelated didChange commits have to proceed while a
+        // code action waits for the shared analyzer. Only this document's own
+        // revision is awaited, exactly as the former entry guard did.
+        self.wait_for_document_revision(&params.text_document.uri)
+            .await;
+        let prepared = self.prepare_lint_code_actions(&params).await;
         let _workspace_read = self.document_read(&params.text_document.uri).await;
-        let mut actions = self.lint_code_actions(&params).await;
+        // Finalization is pure and in-memory under this last read view.
+        let mut actions = self.finalize_lint_code_actions(&params, prepared);
+        actions.extend(self.lint_control_actions(&params));
         let uri = params.text_document.uri;
         let Some(doc) = self.document(&uri) else {
             return Ok(None);
@@ -126,7 +135,7 @@ impl Backend {
                     .chain(base);
                 for (target, path) in candidates {
                     if let Some(edits) =
-                        auto_import_edits(doc, &workspace, &target, &path, reference)
+                        auto_import_edits(doc, &workspace, target.as_ref(), &path, reference)
                     {
                         actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                             title: format!("Import {name} from {path}"),
