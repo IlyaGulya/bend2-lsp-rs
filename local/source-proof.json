@@ -1,40 +1,44 @@
 {
-  "source_revision": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
-  "parent": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
-  "quality_log_sha256": "54b7085b7c7a4477a6a1e918563bdfe5ec8633397d325fa22d8e83b068c1d139",
+  "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+  "parent": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
   "quality": "passed",
+  "quality_log_sha256": "8a8298c3eb0232dcfba7f8a1fb91f7c806cfbc011e5776697ce6f7087ceb2811",
   "nextest": {
     "passed": 489,
     "skipped": 2
   },
-  "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb",
+  "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385",
   "smokes": {
-    "autoimport": {
-      "exit_code": 0,
-      "script_sha256": "a699c3b50a17773ff4fca9cb8e6e042a6f809ea9d1ea05e547d70eeb45c3703c",
-      "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb"
-    },
     "p1": {
       "exit_code": 0,
       "script_sha256": "7cba4b434947d0a4b61c8df88c1662348ffd47303a7b0fdebbec0fe7585e7491",
-      "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb"
+      "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
     },
     "base-pair": {
       "exit_code": 0,
       "script_sha256": "8e9c4376d320c71e58991d4305d5685a9629195e475d1b062fcd91560da69265",
-      "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb"
+      "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
     },
-    "hierarchy": {
+    "entry-hierarchy": {
       "exit_code": 0,
       "script_sha256": "85740120d5838d0e3820b80d9560276a05d41dcb7d32dc57524717f5e08d32ed",
-      "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb"
+      "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
     },
-    "recovery": {
+    "recovery-diagnostics": {
       "exit_code": 0,
       "script_sha256": "0f225bf1c85fb4f9a8e7880215b11482b758b3a45ffdf4562b3c481a9536b740",
-      "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb"
+      "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+    },
+    "autoimport": {
+      "exit_code": 0,
+      "script_sha256": "7f1b651e240ab218b3751dcd083907938536f686122e1ced2fd5d373e3844f39",
+      "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
     }
   },
+  "windows_runtime": "not exercised locally, no pass claimed",
+  "local_index_boundary_api": "passed6focusedregressions beforecommit on identical3codefilehashes; fullqualityon87f includes6regressions",
+  "autoimport_initial_failure": "Initial throwaway omitted discovery/index synchronization; retained full originalfailure, correctedwith existing unopenedwatchedsource contract, no completion retries or production/test weakening.",
   "performance_qualification": false,
-  "prior_10000_default_stdio_proof": "Source709 only; no transfer of latency/RSS/admission. Current full quality also exercises its unchanged10k process/lifecycle tests."
+  "source709_native_callgrind_heap": "historical intermediate only, not source87f admission",
+  "windows_issue74": "historical optional-lint failure remains separate non-blocking; no blanket currentWindows exemption"
 }

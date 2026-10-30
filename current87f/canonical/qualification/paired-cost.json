@@ -1,0 +1,104 @@
+{
+  "pairs": [
+    {
+      "pair": 1,
+      "samples": [
+        {
+          "variant": "native",
+          "milliseconds": 25.423108000000013
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 7.446477999999985
+        }
+      ]
+    },
+    {
+      "pair": 2,
+      "samples": [
+        {
+          "variant": "candidate",
+          "milliseconds": 6.650756000000001
+        },
+        {
+          "variant": "native",
+          "milliseconds": 17.510481000000027
+        }
+      ]
+    },
+    {
+      "pair": 3,
+      "samples": [
+        {
+          "variant": "native",
+          "milliseconds": 13.814056999999991
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 6.285595999999998
+        }
+      ]
+    },
+    {
+      "pair": 4,
+      "samples": [
+        {
+          "variant": "candidate",
+          "milliseconds": 6.137700999999993
+        },
+        {
+          "variant": "native",
+          "milliseconds": 13.42918000000003
+        }
+      ]
+    },
+    {
+      "pair": 5,
+      "samples": [
+        {
+          "variant": "native",
+          "milliseconds": 13.492918999999972
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 7.492544000000009
+        }
+      ]
+    },
+    {
+      "pair": 6,
+      "samples": [
+        {
+          "variant": "candidate",
+          "milliseconds": 10.843083999999976
+        },
+        {
+          "variant": "native",
+          "milliseconds": 20.242429000000016
+        }
+      ]
+    },
+    {
+      "pair": 7,
+      "samples": [
+        {
+          "variant": "native",
+          "milliseconds": 14.682303999999988
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 6.728490999999963
+        }
+      ]
+    }
+  ],
+  "terms_per_arm": 910,
+  "sink": 0,
+  "scope": "Whole-Book official term_lower + canonical key + existing idle GC per arm; report-only micro-cost, not cold loading, full runtime p95, RSS or admission.",
+  "source": null,
+  "runtime": {
+    "version": "1.4.0",
+    "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+  },
+  "performance_admission": false
+}

@@ -1,0 +1,17 @@
+{
+  "source_head": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "run_id": 41011101457,
+  "job_id": 123916922275,
+  "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41011101457/job/123916922275",
+  "cause_observed": "2026-10-30T06:51:34.7441720Z curl: (22) The requested URL returned error: 502",
+  "step": "Install and validate pinned Valgrind",
+  "dependent_errors": [
+    "missing bend2-perf after skipped build => exit127",
+    "no sealed artifact => upload error"
+  ],
+  "classification": "external sourceware.org HTTP502 tooling prerequisite, not product/numeric failure",
+  "source_changes": false,
+  "retry_policy_changes": false,
+  "same_source_reruns": false,
+  "scope": "709 calibration report cannot be complete; freshsource87f uses original mandatoryworkflow. No transferofotherreports. Not Windowsissue74."
+}

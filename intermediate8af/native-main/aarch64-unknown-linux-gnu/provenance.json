@@ -1,0 +1,573 @@
+{
+  "allocation_profile": "candidate only; separate release opt-level=3/lto=fat/codegen-units=1 with dhat-heap, debug=1, strip=none; report-only; never timing evidence",
+  "binary_and_symbol_files": {
+    "/home/runner/work/_temp/native-timing-binaries/candidate": {
+      "path": "/home/runner/work/_temp/native-timing-binaries/candidate",
+      "sha256": "35a8f74acf52a4afab197bc7745222ead41bc79a7f735aa4fdb63354864c0e72"
+    },
+    "/home/runner/work/_temp/native-timing-binaries/main": {
+      "path": "/home/runner/work/_temp/native-timing-binaries/main",
+      "sha256": "a4a4efe776e1da61fde4dd64ab7c67fff249ba663c673d6308475e1c90fd7427"
+    }
+  },
+  "build_command_environment": {},
+  "build_environment": {
+    "CARGO_BUILD_TARGET": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null,
+    "CARGO_PROFILE_RELEASE_DEBUG": null,
+    "CARGO_PROFILE_RELEASE_LTO": null,
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+    "CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO": null,
+    "CARGO_PROFILE_RELEASE_STRIP": null,
+    "RUSTC_WRAPPER": null,
+    "RUSTFLAGS": null
+  },
+  "ci": {
+    "GITHUB_JOB": "latency",
+    "GITHUB_RUN_ATTEMPT": "1",
+    "GITHUB_RUN_ID": "41017184711",
+    "GITHUB_SHA": "a5f58258f332e30391666d7726acdcadc4681419",
+    "GITHUB_WORKFLOW_REF": "IlyaGulya/bend2-lsp-rs/.github/workflows/performance.yml@refs/pull/62/merge",
+    "ImageOS": "ubuntu24-arm64",
+    "ImageVersion": "20261026.166.1",
+    "PERF_RUNNER": "ubuntu-24.04-arm",
+    "PERF_TARGET": "aarch64-unknown-linux-gnu",
+    "RUNNER_ARCH": "ARM64",
+    "RUNNER_NAME": "GitHub Actions 1000018386",
+    "RUNNER_OS": "Linux"
+  },
+  "commands": "rustup toolchain install 1.98.1-aarch64-unknown-linux-gnu --profile minimal \nrustup override set 1.98.1-aarch64-unknown-linux-gnu \nrustc -vV \ncargo build --locked --release -p bend2-perf --target-dir /home/runner/work/_temp/native-perf-tools \ncargo test --locked -p bend2-perf --no-fail-fast --test paired_contract --test paired_admission --test paired_dashboard --test paired_collector --target-dir /home/runner/work/_temp/native-perf-tools \ngit fetch --no-tags origin 8ba06b117e8453959baa2157f857fa2e055fc887 \ngit worktree add --detach /home/runner/work/_temp/native-main 8ba06b117e8453959baa2157f857fa2e055fc887 \ncargo build --locked --release --bin bend2-lsp --manifest-path /home/runner/work/_temp/native-main/Cargo.toml --target-dir /home/runner/work/_temp/native-target-main \ncargo build --locked --release --bin bend2-lsp --target-dir /home/runner/work/_temp/native-target-candidate \n/home/runner/work/_temp/native-perf-tools/release/bend2-perf native memory provenance --baseline-revision 8ba06b117e8453959baa2157f857fa2e055fc887 --candidate-revision a5f58258f332e30391666d7726acdcadc4681419 --commands-file target/native-perf/aarch64-unknown-linux-gnu/commands.txt --binary-dir /home/runner/work/_temp/native-timing-binaries --output target/native-perf/aarch64-unknown-linux-gnu/provenance.json \n",
+  "commands_file": {
+    "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/target/native-perf/aarch64-unknown-linux-gnu/commands.txt",
+    "sha256": "7f1c15e86a5ef3f80c931926f9d5710a96499e18095d8ea4e69a2b1f9d1d46c1"
+  },
+  "format_version": 1,
+  "hardware": {
+    "cpuinfo": "processor\t: 0\nBogoMIPS\t: 2000.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 sm3 sm4 asimddp sha512 sve asimdfhm uscat ilrcpc flagm sb paca pacg dcpodp sve2 sveaes svebitperm svesha3 svesm4 flagm2 frint svei8mm svebf16 i8mm bf16\nCPU implementer\t: 0x41\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0xd49\nCPU revision\t: 0",
+    "logical_cpus": 4,
+    "machine": "aarch64",
+    "meminfo": "MemTotal:       16324144 kB\nMemFree:        11706092 kB\nMemAvailable:   15030036 kB\nBuffers:          122864 kB\nCached:          3356156 kB\nSwapCached:            0 kB\nActive:           737600 kB\nInactive:        3039064 kB\nActive(anon):     355044 kB\nInactive(anon):        0 kB\nActive(file):     382556 kB\nInactive(file):  3039064 kB\nUnevictable:       45820 kB\nMlocked:           42748 kB\nSwapTotal:       3145724 kB\nSwapFree:        3145724 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:             12844 kB\nWriteback:             0 kB\nAnonPages:        343312 kB\nMapped:           334416 kB\nShmem:             49952 kB\nKReclaimable:     157204 kB\nSlab:             244896 kB\nSReclaimable:     157204 kB\nSUnreclaim:        87692 kB\nKernelStack:        4056 kB\nShadowCallStack:    1056 kB\nPageTables:         6868 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    11307796 kB\nCommitted_AS:    2483460 kB\nVmallocTotal:   135288315904 kB\nVmallocUsed:       40088 kB\nVmallocChunk:          0 kB\nPercpu:             1888 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:         0 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:    681984 kB\nFilePmdMapped:         0 kB\nCmaTotal:          32768 kB\nCmaFree:         1460224 kB\nBalloon:               0 kB\nGPUActive:             0 kB\nGPUReclaim:            0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\n",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "platform": "linux"
+  },
+  "harness": {
+    "path": "/home/runner/work/_temp/native-perf-tools/release/bend2-perf",
+    "sha256": "cd6823f6cff261696916a7f9c7b03cd56568d8adc692e757e0fc0c3056c9337e"
+  },
+  "native_target": "aarch64-unknown-linux-gnu",
+  "provenance_command": [
+    "/home/runner/work/_temp/native-perf-tools/release/bend2-perf",
+    "native",
+    "memory",
+    "provenance",
+    "--baseline-revision",
+    "8ba06b117e8453959baa2157f857fa2e055fc887",
+    "--candidate-revision",
+    "a5f58258f332e30391666d7726acdcadc4681419",
+    "--commands-file",
+    "target/native-perf/aarch64-unknown-linux-gnu/commands.txt",
+    "--binary-dir",
+    "/home/runner/work/_temp/native-timing-binaries",
+    "--output",
+    "target/native-perf/aarch64-unknown-linux-gnu/provenance.json"
+  ],
+  "source": {
+    "baseline_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+    "baseline_tree": "d47ab7453b1d5d0a9e27f88a3cc409a9c4ed1d9c",
+    "candidate_revision": "a5f58258f332e30391666d7726acdcadc4681419",
+    "candidate_revision_kind": "exact checked-out source commit",
+    "candidate_tree": "a082cf5bfb3091973038cdfcc80653458f2d170e",
+    "inputs": [
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/Cargo.lock",
+        "sha256": "04df83cd1d808a8d1370990994496bd6e5e6d84945f79a9cb7291c286c2f54ee"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/Cargo.toml",
+        "sha256": "17eb66037d4b9663e0943762934cfffc8bfa41d680df11032150ef47a054c0a2"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/benches/fixtures/analyzer_input.bend",
+        "sha256": "d2f018dbc359ab0231fb19eb094c42a1298cd60a71416490fd05e3783dcab1f3"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/benches/fixtures/analyzer_large.bend",
+        "sha256": "3a031f0c3ca50a4bf5e84955afb45edc2caf37b048af6f96fac07af8bdbb6472"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/benches/fixtures/analyzer_medium.bend",
+        "sha256": "d50c8644b6ad233da6606a77bdae8409326134f99838b726a50cbc042debf7e9"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/examples/folding_allocations.rs",
+        "sha256": "dc2acdbb24d8ef6638e53b5e048233c9f5127a6c149f18230d5c742380047f6e"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/examples/line_index_profile.rs",
+        "sha256": "f04b01667a62ee055d4ee2539aaafacb741119c2b3d531c2a5d4fc3869927b1f"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/analysis/syntax/completion.rs",
+        "sha256": "2e4f2e737e8e4b772351ed9437c470807de6ba6b929d5167620045225951dc15"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/analysis/syntax/locals.rs",
+        "sha256": "2465b1f3418a7718171d15eaf5ceda2e32abf1e04c935141942d2de816e51602"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/analysis/syntax/parser.rs",
+        "sha256": "e38e16e59d2d3b1d532eb87f7ef83d773c8223b56c65ea9d1cafc66f764c856a"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/analysis/syntax/scanner.rs",
+        "sha256": "1ca4ea92bbf025711c358d73d9f8cdedf798586a08357ea5629303869a0c736e"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/analysis/syntax.rs",
+        "sha256": "fa45b263ba8d1e2ebb278edf6055a8bae29e75655a9bc38d0ff50b433b2dc574"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/analysis.rs",
+        "sha256": "f66a380340bd95183770cabafdfd69c9b279ae73740cd500ff57160fcc7c19d7"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/lib.rs",
+        "sha256": "09612422518a1a3fc09b5194d25a1d6766288b67ff68ecd6b3a8b11bfcd512e4"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/main.rs",
+        "sha256": "7fa6d176489e425f731f44d07be3b897ee2c4f35e78ea0c8d27ba7b6614f11b2"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/native_trace_stdio.rs",
+        "sha256": "57c61c5c9036b1ac5f5a53b17173cdf0a3a450bd556098ec9f70177c33457de5"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/adapters.rs",
+        "sha256": "3382bf77f1375ae487e05e9b973620aafe32e7b0c00bb7f6a94fa69d456fa3fb"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/capabilities.rs",
+        "sha256": "3cdb95dc7e9504cb4ba5397b35d88d710713017a73e10ef43875840569e2be37"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/compiler.rs",
+        "sha256": "5058d733228b587bba499153028edc0b1356fb2a8a29624943a60ad726674a19"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/compiler_backend.rs",
+        "sha256": "c2e8615225d00659dcce5411a79dca55736627127506fddca61237f7238a9426"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/compiler_backend_driver.rs",
+        "sha256": "9a23d2c2bcfe76bf362aa9837f6727cb58b2429065b8b6d66670c4e3353e01dd"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/compiler_service.rs",
+        "sha256": "297d1ee5036e7b621929feef258805dd75ee8f36d09a61964a737055eb979d37"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/diagnostics.rs",
+        "sha256": "d66d844af7e028b5f2e7c7d195d405fcfeabc6b49de52294d43f296c6bcc5527"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/discovery.rs",
+        "sha256": "d9c8f8b274aa0466994e0f61cdc8a587bec474c478f19e837affeb4b0ddd7ecc"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/document_text.rs",
+        "sha256": "b139cc22cf83fb3725572ce7ef0103084bc433118c425f606509e8a87d5b0026"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/features.rs",
+        "sha256": "aac35010571c0c1dcf1e29bd67b2292402b769a72126ee4a1241a860aeb1e8af"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/formatter.rs",
+        "sha256": "2eb69dec8882414144fa09d271b5237764cc8e058105e6ec5f34828aeaf33ece"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/lint/actions.rs",
+        "sha256": "c80b564bbbb63d750d359c9e28e58debfe2f695be22c426176bd988f9c74d3fa"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/lint/mod.rs",
+        "sha256": "be23f5b9cb13c0426f28572db30df94e9e4b3bca32c42d16b4d8731d3ec836a9"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/lint/process.rs",
+        "sha256": "9d69ccf4e51e88b18b1bbe9d847e2336a1bb89670361e894e4be1467f5189442"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/lint/saved.rs",
+        "sha256": "ae429cded4414cd1e2206d150a6e0d0d6ecd1262bb1b37710b3b00a1e0496b44"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/lint/wire.rs",
+        "sha256": "6aed33f64bffd0464ea1834f29d864b7fdc4441f0c68cf83612d06a36fb48b0a"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/lsp/semantic.rs",
+        "sha256": "324e257b40f7bea0e3055e958404c234b360a61b9c78fc4b48571a0eb73af9f9"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/lsp.rs",
+        "sha256": "07647f78dae3ac93e33973cd014e7e9b27f3447ec0c4b04678728d29edfd522e"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/mod.rs",
+        "sha256": "67276e9ce036d5b3f4baa8f8cf85f68fc81eb4ac768d25613c59bb310aa88059"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/orchestration.rs",
+        "sha256": "fa9a4e199148fd30c8e69d2e2c239eb038b54aceebc914d2f3e765151e5f7e9e"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/reference_locations.rs",
+        "sha256": "776a650447497eef08f167db8705709307425f4708c5b24ff9b115fbcaebc73b"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/actions.rs",
+        "sha256": "971fbb5f3c9a64986abbdf488e673a8270fe5bef6a92cfd756f333d7ae041759"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/completion.rs",
+        "sha256": "d15dc056ace1dc1a7ab5336a9fc5911b4ee304ca5fb09931eddeb991aaea6ffe"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/file_operations.rs",
+        "sha256": "6aebb6403ea42655506b229dd7d560fa3f9e63e666e5ab1574248b5261ef4731"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/formatting.rs",
+        "sha256": "628ea04afb4b268592bb7e7c4bc261fa480f21e70f26b9165094a19f27195e58"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/hierarchy.rs",
+        "sha256": "09bd6246b4c4cde5040620acdce84dec877d5bed435481ea6b854acd50763b1d"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/import_edits.rs",
+        "sha256": "34eff022b88eb08eacf377aced1d7285396515842975b1962de0e65d4cf07131"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/mod.rs",
+        "sha256": "17faeeb8e81c00da6e3eccc7e8fa7d33fdeb9a6253ee550b7bf8a6d7257010a6"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/navigation.rs",
+        "sha256": "425c2ad4ad5fe4e8f052f23b7aed76e997f46643e0f1abdb52df239f94cf7797"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/references.rs",
+        "sha256": "6677a75cdc8ea721fb2102624dffa3c7d942a3e9155732642e26b9bd30fdf608"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/shared.rs",
+        "sha256": "c1812a5276252c62bb67424226dcbf49c081efb6d0d2000e3b1ba449c08daae5"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/structure.rs",
+        "sha256": "3e14893209406b8036379358d29b138a4f3bc58a7b9048b5fbff8e2381dcfd9d"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/requests/symbols.rs",
+        "sha256": "69375bc165e9be7bbd70b28516afa633ec20cea8640f6548c0508d7aedfa5d72"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/revision.rs",
+        "sha256": "97c2e6ef1562048766b20b5f06a477f23415faef4647348cb62059a5a70dc265"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/revision_tests.rs",
+        "sha256": "05cdf2c777125fb766324a9ecd90f88bc91a27e665e0d24920603a21a0fdcee9"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/state.rs",
+        "sha256": "2ef7f8f34f3ad3a918c1981fa6a271156e753d19cd91c03ade3a0e929d399d0c"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/telemetry.rs",
+        "sha256": "2625a49a4eeab4fdba4434a7a3bb8730505d4d9d16bd343ffd6e3e51049f2d40"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/transport.rs",
+        "sha256": "2fa3bf3478d67bee365a2dbd96d65af803bf31ec4ceab50b93b49d5c8ed5a0d4"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/workspace_service.rs",
+        "sha256": "102194b78d9e75645a811998cf6f403d5d90314f3d312906c970e30755b2e7be"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/server/workspace_tests.rs",
+        "sha256": "cdfc5746a237b074703e0e43afb33ce4edf3107a0e1976b185bda034ec990fdf"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic/build.rs",
+        "sha256": "cde348de2dc554b8d17540d929a36f1fc90c8ffc815aa67f0007a856fa8c4eeb"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic/completion.rs",
+        "sha256": "e5bdb51d6141a3ca5b788bc50cfca0f8f7100875b4370282ae1cfb25c0a2509d"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic/imports.rs",
+        "sha256": "9a463b34ee9edf8874bf58ac73158a8b986e284b185f9eb6b8f0c020b9f651a5"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic/index.rs",
+        "sha256": "7226a120b179141f61e536ece7c33d4b9559247fa2b2e0c96088f306ce6e35f4"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic/physical.rs",
+        "sha256": "b0133a5d436bc411400d40149f105f6e414b5ffc66018c5ae7e2f78f5ea1674f"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic/rename.rs",
+        "sha256": "213e4ba6f9c16c67bd2c0c0217bd0aae746f906cb3f9762a93fe9354ab6a6c66"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic/watch.rs",
+        "sha256": "58522c91ab1d9ce7f34f223accc146b042d8cbfddb5a83186d68338fd593e59d"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace/semantic.rs",
+        "sha256": "33b7193b3a5b73d351cc8fdb7fe0221fd19b8e053964600ce6136f84d78258d8"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/src/workspace.rs",
+        "sha256": "9fb550712c0eecdd17c8cee13302b78ba6eb3a36acedd1e41796365f462163c1"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/.github/workflows/performance.yml",
+        "sha256": "df9377c2e6b41a692783c337059fdd131b2d755ae6d727e1d6caa3f4a6a7233d"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/Cargo.lock",
+        "sha256": "04df83cd1d808a8d1370990994496bd6e5e6d84945f79a9cb7291c286c2f54ee"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/Cargo.toml",
+        "sha256": "17eb66037d4b9663e0943762934cfffc8bfa41d680df11032150ef47a054c0a2"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/Cargo.toml",
+        "sha256": "f71b3841ef412ae7ea75695cc8b0a79987cf897f7d39e940958b0f4f5e9d6993"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/admission.rs",
+        "sha256": "e80ccbccf1c0229e16471144d986ed5533b6f91e0e440406099b35b5d4712ce2"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/collector.rs",
+        "sha256": "2705886972f41a26366e812b6c4845730600b10e37d91727c1c9c970767d9997"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/repeated.rs",
+        "sha256": "5c94838a4beb28251b1baac1928129cffd4836def166ecb8ce78a190e315b070"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/report.rs",
+        "sha256": "e5a821198d2caae0da9f72b0bf4db005c7c40b829b7c19be2994159290e19e14"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/shard.rs",
+        "sha256": "eb03253c40976588c9d9dd09b11c6bba3b6703e9c3a776c9a306e6d6d31fe694"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/tests/reports/multibench.rs",
+        "sha256": "2dea866534ac5b90b8cc635c2881d0132ce5c0e9960efd67f4c126cbf43c6053"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/tests/reports/repeated.rs",
+        "sha256": "80799acd5cabbe13f58202b4e1367ba71e70812e0f9d7eb6b3504a95348cef52"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/tests/reports/sharding.rs",
+        "sha256": "4cbfcbb39b5a7e464374947e2602aedff22c3845210ee98fefda4c1d873f5032"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/tests/reports.rs",
+        "sha256": "fb4574a66d45b3f2f258ea1a3b448a4840ed1dc149d5c93100ba476bbdfb06d0"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration/tests.rs",
+        "sha256": "14b84fbafdd309185537f0c7a360a6e1b3b4e6f7a4f21a5a9a3a94a546eaa331"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/calibration.rs",
+        "sha256": "427dac6690eb623cbfac71c59c75807491e866d87fed8d78df39b5e783e194e8"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/callgrind/collect.rs",
+        "sha256": "611d0572bd1b25c86cf482fecb4a72c486daac97a89b52c71c6601a479a8007c"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/callgrind/descriptor.rs",
+        "sha256": "4ddd65e22c92167f02ad5d6d296120672ca67349ec4a32022e534939849556a3"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/callgrind/parallel.rs",
+        "sha256": "0c7590b26e70ce2ab1b98172af1a086af98a046d3ad781a7ad501f8ca405eb00"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/callgrind/runner.rs",
+        "sha256": "e58e4350ea0f82db4b530f06d138f853af6a7d2bb251a4f409914108e739e1de"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/callgrind.rs",
+        "sha256": "ed5f37513dc96be724d48996cfc6d2ab9a2894769682cc57753ca419649b872a"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/common.rs",
+        "sha256": "2c6944e6174c37e8078af324f63bea01b20d29e2d035c5bf3cee872fcee4305a"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/dashboard/data.rs",
+        "sha256": "a55a4fb552460bdd0d3f472634d8c4e07757693c679b0f14a601e466ba744610"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/dashboard/render.rs",
+        "sha256": "ee815372f6942117c752c8e11329adac7e11622d1b1a23c9c9547325936d5658"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/dashboard/tests.rs",
+        "sha256": "345b4b0a87e9a02820e10edd6a1b81de52cdb1073d9121dcdca266e5b08a2213"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/dashboard.rs",
+        "sha256": "d3bdf26bf593d6e6bd8e63dadeb220ac09e8a5333f8332fd6c4ed5442bd34279"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/doctor.rs",
+        "sha256": "93ebf6da61f74b6f992ad274f79d5f1aa11d53f872763fc3f8307a2b9c6c505e"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/hosted.rs",
+        "sha256": "5a1c1b0fba3f6f56f2a9c45b7aba15a275666bd37b3e761154e2ec4dd9e69ef7"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/latency.rs",
+        "sha256": "f236c3b827864b1c11fe41c79d71b54861cbe55ee9297ca9e45ee1c6e88e7c55"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/lifecycle_stress.rs",
+        "sha256": "7c5a22a767d5aeab7ef04e2b6a42316ada27ffcdec27ba2ac3ee6d20cbdedc5d"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/main.rs",
+        "sha256": "ac84a2636da311b8e74f801d9be802009f37343334d56d5cb7ee3295705f8b0a"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/native/discovery.rs",
+        "sha256": "7060f133040ec8c3f3130c833b1b798b14d937bcb93a061621ce2f367be71f2e"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/native/memory/heap.rs",
+        "sha256": "ddcad9c76591820bdafd1581c0fa141bf88cb344a2631a1c184104f6daf31460"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/native/memory/lifecycle.rs",
+        "sha256": "2063b4974f99ffa8f2477eb45510874b7362531253d0be680c85563826de8ca0"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/native/memory/profiles.rs",
+        "sha256": "5b3e68d826537b30c2291a7b8adf681ed54cff3d88517983f191a0d480f8354a"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/native/memory.rs",
+        "sha256": "823484ffb363c8f0e67a2569161ff6baf1d4a3ac453d0edd4f344d1552fa1905"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/native.rs",
+        "sha256": "00cda71a4c0e3e87471535a8aa11e945d66cbb109faecf18b541ad3cb7d5b0d2"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/paired/collector.rs",
+        "sha256": "905209ecdd0782f9b483432a89eba9d92a69d31baf1ef27b7ae134b59dd89ead"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/paired/report.rs",
+        "sha256": "bd1324fe38ecc786edfe6d847e9e93288b12c99bf29591a97da3d51006b1393c"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/paired.rs",
+        "sha256": "b5b941b6a7dbc2fcbd680bec51cc868f3318eb6663a012c98ca888f57da0fbb6"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/platform_memory.rs",
+        "sha256": "388545d2103d8f6cd51918fb167ad7f6db1e019f62fd4f80bb6c3a7345259d84"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/policy.rs",
+        "sha256": "6e910fa5c38ae62d523458f8e9008fbb901fb8acefedbe9518450c8e8112fcbb"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/profiling/linux_perf_tests.rs",
+        "sha256": "455598a72c0e352d0145ee8830e7a473c1fa9be07bc6de99896143bbae34c414"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/profiling/sessions.rs",
+        "sha256": "cca947272cf2bd52c612bde6741f19bb277d9a7350d73d02cc95212c186faf31"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/profiling/validation.rs",
+        "sha256": "7c1a02b44fbcff62ffe03ac36df1a9deacd089e4cd0155618d1000a849abc111"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/profiling/viewer.rs",
+        "sha256": "9e8502be3a6d6f0d84c0fedf354183fa11302cfc8a1970d16e889e2cefb0f212"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/profiling/windows.rs",
+        "sha256": "670e7b747479fed906f324a484d6497590c50990156dc0fe103d89c5a09c07ee"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/profiling.rs",
+        "sha256": "841174d9d91a0a76a50319fe4e876f3856c23066a69e77f7c8a8ebd26edf9e28"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/repeated.rs",
+        "sha256": "ddd6e25abb2c9820fd1ae607589ec800b822477d707ce81863eaf8285997db90"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/reports.rs",
+        "sha256": "62f31105b65ace166a19d0954079fc521572affbdf420485019e536d8ca1cafa"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/scenario.rs",
+        "sha256": "eda5d0cb5fbb7e6293a5c8f4486e84def2deb2187972fd1f24c8ca82f4828c14"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/transport/macos.rs",
+        "sha256": "51a06b43d5ca5a6b553bbe66ecf021e70ac1ebfb175dce593461afafae3c43da"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/transport.rs",
+        "sha256": "22ac987cc1b8778bad8e46e1616b4a64332207f53f930da152e18ca0d5ce330b"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/workflow/collection.rs",
+        "sha256": "13fc468a067737173e979def6696a0a277320e2eec8dfa3a1ba18645d3d0b4ee"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/workflow/observer.rs",
+        "sha256": "8688d0e46a2486f7b17e4ab64f826c91b4bd0a402f1c5e6996942fd134074111"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/workflow/snapshot.rs",
+        "sha256": "2bab218a619c36ccfeadd33f289d4f312bee4dd962a709ebd736b37a957352eb"
+      },
+      {
+        "path": "/home/runner/work/bend2-lsp-rs/bend2-lsp-rs/tools/perf/src/workflow.rs",
+        "sha256": "a08b3c7e4ddd4116239ca7d1b0ac80de9b2fbd767b9fdeee25b58cda4e29ac2c"
+      }
+    ]
+  },
+  "toolchain": {
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
+    "rustup": "1.98.1-aarch64-unknown-linux-gnu (directory override for '/home/runner/work/bend2-lsp-rs/bend2-lsp-rs')"
+  }
+}

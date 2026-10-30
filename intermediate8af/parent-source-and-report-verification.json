@@ -1,0 +1,86 @@
+[
+  {
+    "run_id": 41017181504,
+    "target": "aarch64-apple-darwin",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017181504,
+    "target": "aarch64-pc-windows-msvc",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017181504,
+    "target": "aarch64-unknown-linux-gnu",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017181504,
+    "target": "x86_64-apple-darwin",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017181504,
+    "target": "x86_64-pc-windows-msvc",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017181504,
+    "target": "x86_64-unknown-linux-gnu",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017184711,
+    "target": "aarch64-apple-darwin",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017184711,
+    "target": "aarch64-pc-windows-msvc",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017184711,
+    "target": "aarch64-unknown-linux-gnu",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017184711,
+    "target": "x86_64-apple-darwin",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017184711,
+    "target": "x86_64-pc-windows-msvc",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  },
+  {
+    "run_id": 41017184711,
+    "target": "x86_64-unknown-linux-gnu",
+    "source_and_tree": "verified",
+    "cold_medians_and_7_rounds": "verified",
+    "selected3reports_sealed_sha256": "verified"
+  }
+]

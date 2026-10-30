@@ -1,179 +1,656 @@
 {
   "schema": 1,
-  "source_revision": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
-  "parent": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
-  "before_candidate": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
-  "frozen_main_baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
-  "status": {
-    "local_quality": "passed",
-    "local_real_process_smokes": "passed",
-    "hosted_latest_source_correctness": "pending",
-    "hosted_latest_source_numeric_admission": "pending",
-    "latest_source_performance_improvement": "not yet established",
-    "draft": true,
-    "performance_exception_requested": false
+  "kind": "semantic-performance-repair-evidence",
+  "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+  "parent": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "frozen_main": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "before_repair": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "source_branch": "feat/semantic-conformance-main",
+  "pr": "https://github.com/IlyaGulya/bend2-lsp-rs/pull/62",
+  "draft": true,
+  "current_local": {
+    "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+    "parent": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+    "quality": "passed",
+    "quality_log_sha256": "8a8298c3eb0232dcfba7f8a1fb91f7c806cfbc011e5776697ce6f7087ceb2811",
+    "nextest": {
+      "passed": 489,
+      "skipped": 2
+    },
+    "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385",
+    "smokes": {
+      "p1": {
+        "exit_code": 0,
+        "script_sha256": "7cba4b434947d0a4b61c8df88c1662348ffd47303a7b0fdebbec0fe7585e7491",
+        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+      },
+      "base-pair": {
+        "exit_code": 0,
+        "script_sha256": "8e9c4376d320c71e58991d4305d5685a9629195e475d1b062fcd91560da69265",
+        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+      },
+      "entry-hierarchy": {
+        "exit_code": 0,
+        "script_sha256": "85740120d5838d0e3820b80d9560276a05d41dcb7d32dc57524717f5e08d32ed",
+        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+      },
+      "recovery-diagnostics": {
+        "exit_code": 0,
+        "script_sha256": "0f225bf1c85fb4f9a8e7880215b11482b758b3a45ffdf4562b3c481a9536b740",
+        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+      },
+      "autoimport": {
+        "exit_code": 0,
+        "script_sha256": "7f1b651e240ab218b3751dcd083907938536f686122e1ced2fd5d373e3844f39",
+        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+      }
+    },
+    "windows_runtime": "not exercised locally, no pass claimed",
+    "local_index_boundary_api": "passed6focusedregressions beforecommit on identical3codefilehashes; fullqualityon87f includes6regressions",
+    "autoimport_initial_failure": "Initial throwaway omitted discovery/index synchronization; retained full originalfailure, correctedwith existing unopenedwatchedsource contract, no completion retries or production/test weakening.",
+    "performance_qualification": false,
+    "source709_native_callgrind_heap": "historical intermediate only, not source87f admission",
+    "windows_issue74": "historical optional-lint failure remains separate non-blocking; no blanket currentWindows exemption"
   },
-  "scope": {
-    "local": "Persistent Linux ARM64 Rust service, default debug binary7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb.489 passed/2existing nextest skips; full quality plus actual stdio P1/Base.Pair/hierarchy/recovery and acceptance of auto-import of the function sharing a constructor name. Acceptance resolves Definition exactly to the function. Auto-import scenario intentionally has no compiler: it does not claim compiler acceptance. Other P1/recovery scenarios use the genuine pinned compiler.",
-    "completion_followup": "Only reject module-ineligible constructors before source slicing/name matching; preserve owned result values, Vec growth, declaration order, fuzzy matching and independent constructor completion. No benchmark bodies, metrics, fixtures, capacities, source/runtime pins, geometry, deadlines or gates changed.",
-    "before": "Frozen B1 measurements retain their tested merge SHA in original numeric evidence. No B1/C7/709 admission transfers to8af.",
-    "heap": "B1 whole-scenario DHAT peak, not clean cold RSS or editor latency. Full raw original retained compressed.709 profile still pending when this manifest was sealed.",
-    "static_reviews": "Read-only7468cc5 core representation/concurrency review;709 extracts shared cold index remapping;8af only changes module completion filter order. No performance proof or GitHub approval.",
-    "attempts": "7468Clippy103/100 fixed by shared remapping extraction;70910k harness stopped before spawn on reused owned isolation dirs, corrected without product/test weakening.8af throwaway API smoke expected two constructors for Ns.H, but unchanged fuzzy behavior correctly includes Ns.Unfinished; expectation corrected in throwaway only, complete raw export expired and observed delivered facts are explicitly identified.",
-    "prior_709_default_stdio_10000": "Source709 exact10k symbols/references, unsaved dependency revision, folder removal and exit proof remains source709 only athttps://github.com/IlyaGulya/bend2-lsp-rs/blob/ddff0e365e6d3fe51d9c4821ac6a18309b6e5d16/manifest.json. Current full quality also runs its unchanged10k process/lifecycle tests. No transfer of latency/RSS or numeric admission.",
-    "preserved": "No strict; real selected-compiler errors and editor recovery; rejected editor links do not establish native semantics; all entry/URI/generation/law/hierarchy ownership unchanged."
+  "current_hosted": {
+    "canonical_key": {
+      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "status": "pass",
+      "views_per_compiler": 634,
+      "ordinary_and_instrumented_pinned_source_compiler_observations_equal": true,
+      "performance_admission": false,
+      "run": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028945087"
+    },
+    "remaining_source_bound_runs": [
+      {
+        "conclusion": "",
+        "databaseId": 41028941081,
+        "event": "workflow_dispatch",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "name": "performance",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028941081",
+        "workflowName": "performance"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41028741880,
+        "event": "pull_request",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "name": "semantic-fuzz",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741880",
+        "workflowName": "semantic-fuzz"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41028741760,
+        "event": "pull_request",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "name": "installer-validation",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741760",
+        "workflowName": "installer-validation"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41028741823,
+        "event": "pull_request",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "name": "performance-calibration",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741823",
+        "workflowName": "performance-calibration"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41028741761,
+        "event": "pull_request",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "name": "quality",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741761",
+        "workflowName": "quality"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41028741757,
+        "event": "pull_request",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "name": "performance",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741757",
+        "workflowName": "performance"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41028741664,
+        "event": "pull_request",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "name": "perf-diagnostics / pr-41028741664-1",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741664",
+        "workflowName": "perf-diagnostics"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41028945087,
+        "event": "workflow_dispatch",
+        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028945087",
+        "workflowName": "semantic-canonical-key"
+      }
+    ],
+    "remaining_outcomes": "pending/unobserved, no pass inferred from queued metadata or truncated watcher output"
   },
-  "pins": {
-    "Bend": "2.0.37",
-    "Bun": "1.4.0",
-    "Rust": "1.98.1"
+  "performance_admission": false,
+  "unchanged_contracts": [
+    "Bend2.0.37 andBun1.4.0 pins",
+    "no strict mode; real selectedcompilerdiagnostics plus editorrecovery",
+    "warm immutable snapshot/index-only semantics",
+    "physical identity/logicalURI/case distinctions, stalehandles,law andentry meanings",
+    "benchmark bodies/fixtures/resultownership/metrics/geometry/thresholds",
+    "normalconformance limits, deadlines,retry andresourcepolicies",
+    "draft PR; no approval,merge,tag,release"
+  ],
+  "intermediate709": {
+    "source_head": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+    "tested_merge": "c1fe6928d8a5123d7ae6a7a758432e5644c4b69b",
+    "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+    "callgrind_run": 41011101522,
+    "method": "paired-median-105-v1",
+    "status": "inconclusive",
+    "metric_counts": {
+      "passed": 121,
+      "regression": 40,
+      "inconclusive": 1
+    },
+    "event_counts": {
+      "Ir": {
+        "passed": 53,
+        "regression": 1
+      },
+      "I1mr": {
+        "passed": 27,
+        "regression": 27
+      },
+      "ILmr": {
+        "passed": 41,
+        "regression": 12,
+        "inconclusive": 1
+      }
+    },
+    "workloads": 54,
+    "candidate_only_unpaired": 48,
+    "admission": false,
+    "native_and_heap_scope": "Historical source709 only; nativepairedcold/RSS and whole-scenario DHAT allocationattribution are different measurements. No current87fqualification."
   },
-  "hosted_latest_runs": {
-    "41017184839": "perf-diagnostics/pull_request",
-    "41017184760": "semantic-fuzz/pull_request",
-    "41017184202": "semantic-canonical-key.yml/workflow_dispatch",
-    "41017184771": "performance-calibration/pull_request",
-    "41017184711": "performance/pull_request",
-    "41017184812": "installer-validation/pull_request",
-    "41017184713": "quality/pull_request",
-    "41017181504": "performance.yml/workflow_dispatch"
+  "intermediate8af": {
+    "source_head": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+    "tested_merge": "a5f58258f332e30391666d7726acdcadc4681419",
+    "candidate_tree": "a082cf5bfb3091973038cdfcc80653458f2d170e",
+    "native_runs": [
+      41017184711,
+      41017181504
+    ],
+    "targets_per_run": 6,
+    "paired_rounds": 7,
+    "parent_checks": "All12source/tree bindings, 10000-file coldms/RSS medians, roundcounts and3sealedreportSHA256s independentlyverified. Child additionallyverifiedfullartifactinventories. Zipdigests are producerdeclared, not independentlyrecomputed.",
+    "assessment": "Remaining10kWindowscoldregression againstmain islarge on8af:2.83x x64,3.55x ARM; RSS+66to70MiB. Warmreferences improve onall6targets. This does not qualify or predict87f."
   },
-  "prior_evidence_manifest": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/ddff0e365e6d3fe51d9c4821ac6a18309b6e5d16/manifest.json",
-  "files": [
-    {
-      "path": "attempts/completion-fuzzy-expectation.json",
+  "external_failure": {
+    "source_head": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+    "run_id": 41011101457,
+    "job_id": 123916922275,
+    "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41011101457/job/123916922275",
+    "cause_observed": "2026-10-30T06:51:34.7441720Z curl: (22) The requested URL returned error: 502",
+    "step": "Install and validate pinned Valgrind",
+    "dependent_errors": [
+      "missing bend2-perf after skipped build => exit127",
+      "no sealed artifact => upload error"
+    ],
+    "classification": "external sourceware.org HTTP502 tooling prerequisite, not product/numeric failure",
+    "source_changes": false,
+    "retry_policy_changes": false,
+    "same_source_reruns": false,
+    "scope": "709 calibration report cannot be complete; freshsource87f uses original mandatoryworkflow. No transferofotherreports. Not Windowsissue74."
+  },
+  "windows_issue74": {
+    "url": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/74",
+    "scope": "Historical optional-lint Windows failure is separatelyevidenced and non-blocking by ownerdecision; not blanket exemption for fresh Windows failures."
+  },
+  "evidence_scope": {
+    "compressed_files": "*.gz losslesslygzip originalbytes withmtime0; SHA256 belowcoversstoredbytes. Originalartifact-manifest digests applytodecompressed originalreports.",
+    "native": "Full selected native discovery/latency reports, provenance and fullhashinventories archived. MultiGB rawwire/fixture trees are retained locally and in originalhostedartifacts linked by native summary; not allrawtrees committedhere.",
+    "callgrind": "Fullintermediate709policy and105pairedmachinecounts included; raw profiles remaininoriginalartifact12962317642 andlocaldownload.",
+    "attempts": "Original API/harness failures retained and explained; no production changes or permanenttests weakened tohidefailure.",
+    "reviews": "Staticonly, limits stated; newWindows runtime stillrequires exact87fCI."
+  },
+  "files": {
+    "attempts/autoimport-initial-index-readiness.json": {
+      "bytes": 5591,
+      "sha256": "002f99c6b37a8a8e86a27589f1e551669c1f3a88e08dc90ed78dbb4f4a35920e"
+    },
+    "attempts/completion-fuzzy-expectation.json": {
       "bytes": 897,
       "sha256": "0fee22160eb0be042ee92b9c4ff81d98bb2ceb8b3697c46eb9fc488592566d99"
     },
-    {
-      "path": "attempts/discovery-reused-isolation.stderr.log",
+    "attempts/discovery-reused-isolation.stderr.log": {
       "bytes": 407,
       "sha256": "8124310f9b2f89ca28dc6ceaf2083d917273f6456a2aee78770a5d773da6d181"
     },
-    {
-      "path": "attempts/quality-7468cc5.log",
+    "attempts/local-index-caret-expectation.json": {
+      "bytes": 5802,
+      "sha256": "3404c3c2172be0c454efb6ddc6a21047ba49de23fef8fa158cd0d6480efde4b6"
+    },
+    "attempts/quality-7468cc5.log": {
       "bytes": 33129,
       "sha256": "e75a86dd8b742eac48c2476a26d965c899998ab91b5f1ab0d57360deeee96cdb"
     },
-    {
-      "path": "attempts/source-7468cc5.bundle",
+    "attempts/source-7468cc5.bundle": {
       "bytes": 1857518,
       "sha256": "26b044cf96c863e48a72d33838c8d210e4a3ff81fd19bd4077ba5805948d003e"
     },
-    {
-      "path": "before/callgrind-admission-measurement.json",
+    "before/callgrind-admission-measurement.json": {
       "bytes": 4246,
       "sha256": "0d882ac0b16bcfd2bbe1bf9256b8b1a6c65d2beccb3ffe0b7061536a1dda7433"
     },
-    {
-      "path": "before/callgrind-policy.json.gz",
+    "before/callgrind-policy.json.gz": {
       "bytes": 950636,
       "sha256": "4b240a5a65a51375af009e198202cb20ae54492d3549102bc49b9795f90d28a4"
     },
-    {
-      "path": "before/callgrind-policy.md",
+    "before/callgrind-policy.md": {
       "bytes": 17659,
       "sha256": "54edecbb4c82952190263b4c597f316d1d06275208fb086a35bad7c12d16de56"
     },
-    {
-      "path": "before/heap-attribution.json",
+    "before/heap-attribution.json": {
       "bytes": 211248,
       "sha256": "811234a54f330fa9e1e5e23933e8200ba5ad2a9191c1e4724ec091dc5e8065a7"
     },
-    {
-      "path": "before/heap-dhat.json.gz",
+    "before/heap-dhat.json.gz": {
       "bytes": 260507,
       "sha256": "f68f80cfd62f78c1bcb14a4746b1fdd19d4e8abe53d03f87f23917b77aecd25a"
     },
-    {
-      "path": "before/heap-profile-manifest.json",
+    "before/heap-profile-manifest.json": {
       "bytes": 1656963,
       "sha256": "583d1578f831e35ec0e3073086c6537502f28eb35d72faaf41a39f878135536d"
     },
-    {
-      "path": "before/native-cold-summary.json",
+    "before/native-cold-summary.json": {
       "bytes": 12165,
       "sha256": "946d5f8816ddfb7ea8f16cadcc1c03459da232cb1b831c6b2cbf3d94ac60ea2c"
     },
-    {
-      "path": "before/windows-cpu-profile-manifest.json",
+    "before/windows-cpu-profile-manifest.json": {
       "bytes": 1694351,
       "sha256": "cef1d114a238e41a7588b19a42acc759ec1cb9678a307f734ed6d73828640b98"
     },
-    {
-      "path": "before/windows-cpu-validation.json",
+    "before/windows-cpu-validation.json": {
       "bytes": 267,
       "sha256": "45a22eb22dc32c5e30d6a7d2dc62f8aac8b1191e24954ce2c1eceb587a17eb08"
     },
-    {
-      "path": "local/autoimport.json",
+    "current87f/canonical/installation.json": {
+      "bytes": 2434,
+      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
+    },
+    "current87f/canonical/native-contracts.json": {
+      "bytes": 2434,
+      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
+    },
+    "current87f/canonical/qualification/corpus-equivalence.json.gz": {
+      "bytes": 102652,
+      "sha256": "af3d0195cc4aea3625e974a5f2b33603e1f3c2c6f87b0e416adc47437f45279f"
+    },
+    "current87f/canonical/qualification/paired-cost.json": {
+      "bytes": 2143,
+      "sha256": "87355f948e806fd01f90e9e8708aae3e29cfaf6c18419e584d374dc90e7181fa"
+    },
+    "current87f/canonical/qualification/plan.json.gz": {
+      "bytes": 107452,
+      "sha256": "4cc15fd12aa8df95425f75d385733dfa94c409b1eae3f1a1c09730b074eb7376"
+    },
+    "current87f/canonical/qualification/qualification.json": {
+      "bytes": 4683,
+      "sha256": "cfed89af84c5a5972ddf2e26b65140f084791c3ce58604122a1963999859e928"
+    },
+    "current87f/canonical/qualification/requests.json.gz": {
+      "bytes": 76979,
+      "sha256": "61f40ad091b0ffbcade088c5272bbc070e71b45c912423b91b985fa433a1e383"
+    },
+    "intermediate709/admission-measurement.json": {
+      "bytes": 4650,
+      "sha256": "ca99f5f5acf90283103df27ac5a3ee197d76ba784b14c45444783b2a5b392556"
+    },
+    "intermediate709/calibration-failed-job.log": {
+      "bytes": 21189,
+      "sha256": "d77f9be7430fe1bdcdab398eaefa624a97be896d818199a9977d24f1b78c060b"
+    },
+    "intermediate709/calibration-failure.json": {
+      "bytes": 837,
+      "sha256": "38e2e280a5961b17b32845158b0a0fb8c7ae21905f4bd9758a684be428ff181e"
+    },
+    "intermediate709/callgrind-absolute-metrics.json": {
+      "bytes": 107852,
+      "sha256": "b420c076da10d292a5ee616e9e6154193ee6597929877d378260dbb2c3f58ba4"
+    },
+    "intermediate709/callgrind-counts.json": {
+      "bytes": 834,
+      "sha256": "6a18ea7784938bfa2e65a75da909990a91c739f770ac8cc2f26a434b9c66bc9b"
+    },
+    "intermediate709/callgrind-policy.json.gz": {
+      "bytes": 969382,
+      "sha256": "2634cce72bf079e36595c0e1623d216e68b22dd349be2d8fa8d8981d199e8ab1"
+    },
+    "intermediate709/callgrind-policy.md": {
+      "bytes": 17796,
+      "sha256": "6ed9070719ca5ccf0f4bec1234571c12327fa40bc05fe0503c5764027b97240e"
+    },
+    "intermediate709/heap-attribution.json": {
+      "bytes": 312557,
+      "sha256": "da2313b5d95dab868469d42aa852140b85d27f719c3859a6b4d154b549b000ab"
+    },
+    "intermediate709/native-paired-summary.json": {
+      "bytes": 224845,
+      "sha256": "824b5c1587afe457ab7f697864063068093ae86872d95f21dfbc957e54aa0704"
+    },
+    "intermediate709/paired-data.json.gz": {
+      "bytes": 354086,
+      "sha256": "dc0756eaba43851ec6a2ff9b8131533354f23bfda5c84939ffb908d5c758ea78"
+    },
+    "intermediate8af/local/autoimport.json": {
       "bytes": 9304,
       "sha256": "524ad930a5f9b6a64cb9fbcf048c6fd604bffe4ba0a8b157f76c1d7fdfd7a19e"
     },
-    {
-      "path": "local/base-pair.json",
+    "intermediate8af/local/base-pair.json": {
       "bytes": 28923,
       "sha256": "ae93008055413571eca6313b2df05ff633f8ac44730c5e2c75ee382197761062"
     },
-    {
-      "path": "local/completion-api-smoke-and-targeted-tests.json",
+    "intermediate8af/local/completion-api-smoke-and-targeted-tests.json": {
       "bytes": 6541,
       "sha256": "e14515fee2af538de00f62b04df2be56747dfb381348c25d16ee52f9e990fc60"
     },
-    {
-      "path": "local/hierarchy.json",
+    "intermediate8af/local/hierarchy.json": {
       "bytes": 56320,
       "sha256": "bb9a966b55befcebd8257d53e855f217eaec516c4f2b98793c2cef94ac70d87a"
     },
-    {
-      "path": "local/p1.json",
+    "intermediate8af/local/p1.json": {
       "bytes": 34433,
       "sha256": "58180c46a4a029063b21f6a6f658d0afd969f2936544f38dc262e232ee9b190a"
     },
-    {
-      "path": "local/quality.log",
-      "bytes": 107740,
-      "sha256": "54b7085b7c7a4477a6a1e918563bdfe5ec8633397d325fa22d8e83b068c1d139"
-    },
-    {
-      "path": "local/recovery.json",
+    "intermediate8af/local/recovery.json": {
       "bytes": 21434,
       "sha256": "1ec81d6c00c02c404a96445d7d02909908515746b15e3445f9150f738fc6db93"
     },
-    {
-      "path": "local/source-proof.json",
-      "bytes": 1748,
-      "sha256": "fb754768d6e731c73fd3e94e98163ddaab12f4afbb04921d02249a5829efe462"
+    "intermediate8af/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479689,
+      "sha256": "a402428e5a0a09159283c0942988167133c6f0ac8a555f2936b16759557a5e33"
     },
-    {
-      "path": "provenance/fresh-pr-runs.json",
+    "intermediate8af/native-b1/aarch64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 117253,
+      "sha256": "dc1b37ebdedf3281b831e60530ae2e2e3d7f5111da42d00ea9f4fe26335092ec"
+    },
+    "intermediate8af/native-b1/aarch64-apple-darwin/latency-report.json": {
+      "bytes": 24661,
+      "sha256": "1e5bafdc3c01e845dd7a0864d4c846fb1b29aa2cfa6c96203928a1ec607689d4"
+    },
+    "intermediate8af/native-b1/aarch64-apple-darwin/provenance.json": {
+      "bytes": 28820,
+      "sha256": "1de302b0a46503269514be9fd5a4bc31e0b5ea8d9b35e0b6d029fe06a110a8d6"
+    },
+    "intermediate8af/native-b1/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479697,
+      "sha256": "0123b9d5eeb06a9b4a5ea84889b4a5a840dc47c28222132504e33f7da9d0e8a9"
+    },
+    "intermediate8af/native-b1/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 339044,
+      "sha256": "0c9f562985d7a38468af9b95e527c4f19f8a2d101bf03d61fdc44fa6a8c4ba8e"
+    },
+    "intermediate8af/native-b1/aarch64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24691,
+      "sha256": "5defcbbf09cecf73fd67f5f5c47c4e52a7eeca09feb5604e70a1cf9f9fe82476"
+    },
+    "intermediate8af/native-b1/aarch64-pc-windows-msvc/provenance.json": {
+      "bytes": 29515,
+      "sha256": "dba82bf844d956d364d9cbdefa7caa234135e130bcaec5af5a14c2264d1d7efc"
+    },
+    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479740,
+      "sha256": "e86a8452f50ed0a3cb8346a7eef9711b1588520b5e1b4a7ecb4cfdd5ce968148"
+    },
+    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 335527,
+      "sha256": "f365b83cb569fd8e31b40520a2ffd575b649515b2449b4e7ef55c03abfdd44ed"
+    },
+    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24597,
+      "sha256": "580631da50e8f533307af35c833f90ab7f55bf707c71c30be62581557aedd66d"
+    },
+    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
+      "bytes": 31076,
+      "sha256": "596c612307b1208382810825ddff976315ece3ffb8fad39365f672d1139c2c1e"
+    },
+    "intermediate8af/native-b1/x86_64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479700,
+      "sha256": "ce4b4c27cef0f143f7b74372c6843af8e202d5691b7312ba1f1c4c41f3bb6536"
+    },
+    "intermediate8af/native-b1/x86_64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 156316,
+      "sha256": "0dc3d3161dfd83878065c49357358c7d38c08ea76894a6887712da884ddc740f"
+    },
+    "intermediate8af/native-b1/x86_64-apple-darwin/latency-report.json": {
+      "bytes": 24746,
+      "sha256": "270e4babf878709244cb3a955d648b35dbfda7b1a7fedd3946db6e52117f62b5"
+    },
+    "intermediate8af/native-b1/x86_64-apple-darwin/provenance.json": {
+      "bytes": 28835,
+      "sha256": "03b7f69ef565aa44ea3028ac1341ef75bd4bfd32d37472dfc32eda4b2b37ce2b"
+    },
+    "intermediate8af/native-b1/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479687,
+      "sha256": "ee01f403c7c06437c6d72050560a733b8e6cb4ec3a74ff297784e9703ab85cec"
+    },
+    "intermediate8af/native-b1/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 351355,
+      "sha256": "8c9b01e97881ad104d57be6206efa2c216b0fb1cfccef5f54b76f22a26e4dde4"
+    },
+    "intermediate8af/native-b1/x86_64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24711,
+      "sha256": "c0b2dae08a4a7d75f2eb5a93b4a10e5dd1f3dfb763ff2f774c4a6a09a2459bd7"
+    },
+    "intermediate8af/native-b1/x86_64-pc-windows-msvc/provenance.json": {
+      "bytes": 29532,
+      "sha256": "de7edb8460c8af2307b387871ad550c14035c6a98413e47c988204153e41ae3a"
+    },
+    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479730,
+      "sha256": "cfad3fc1773727814313b5fa6818b50152df5c849d309b6c159a91fe512098a7"
+    },
+    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 347441,
+      "sha256": "5be83889d2dc784b1c3fd106847ce4aa451129edc16e766ab67a7169047c5072"
+    },
+    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24628,
+      "sha256": "4cc93e07503ee8b3dd2df9b30d3005cbd5acc75ada198291a7a2ae1624528318"
+    },
+    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
+      "bytes": 32092,
+      "sha256": "127d466e68062fca0a320beb39c5ed07a8f4559826313e65f8771663754c215a"
+    },
+    "intermediate8af/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479689,
+      "sha256": "22dd4149cf709771920916f7f1932edab0d6122d3c2739e506f2753e1564ecdb"
+    },
+    "intermediate8af/native-main/aarch64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 121355,
+      "sha256": "485528e028bfa20efa0d92260c8be4f82f7237d027af280f6987fce0a6187d67"
+    },
+    "intermediate8af/native-main/aarch64-apple-darwin/latency-report.json": {
+      "bytes": 24700,
+      "sha256": "d521a1ff42ab561e53165fcbb84acc6fc3ec64f536735577d639235e43928ca3"
+    },
+    "intermediate8af/native-main/aarch64-apple-darwin/provenance.json": {
+      "bytes": 28797,
+      "sha256": "755638da81e054937cb4f1d8967ccd57d744d80e4f4f466fb6d72b8354f90349"
+    },
+    "intermediate8af/native-main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479697,
+      "sha256": "2b9014ca23e62ee70d2e260a80d848f45a12f716f907fa03c0d6fdfd139c1226"
+    },
+    "intermediate8af/native-main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 326273,
+      "sha256": "73ef8bbb79bd94a8c86a4970127b80c8b57602860a1c939c61e26adc28330a5e"
+    },
+    "intermediate8af/native-main/aarch64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24577,
+      "sha256": "31a9968c3b0f6f96d550f28ac805dfba0b2f225bbd49aedcfc3354351ffb015b"
+    },
+    "intermediate8af/native-main/aarch64-pc-windows-msvc/provenance.json": {
+      "bytes": 29492,
+      "sha256": "45bc6de28f98718283ec732e5151f569c21765127491ee02339c3072001f08fc"
+    },
+    "intermediate8af/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479742,
+      "sha256": "95febf61c433149852b20ca25a8526d28486806a571a150c2eb0b6abf7b0d41d"
+    },
+    "intermediate8af/native-main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 338494,
+      "sha256": "3c90196403ab3ea6d5da916bfe13e15f6aa03090141701949e6576b2eac9a8b5"
+    },
+    "intermediate8af/native-main/aarch64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24551,
+      "sha256": "49ca59f58539a763ec389bd7e837ca2fffbaced6be6b5af8b82e82e8e60d604a"
+    },
+    "intermediate8af/native-main/aarch64-unknown-linux-gnu/provenance.json": {
+      "bytes": 31053,
+      "sha256": "87c53fef8f143ea043269e3635e3b212c1ad02163b183f5763c8024d9e153419"
+    },
+    "intermediate8af/native-main/x86_64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479699,
+      "sha256": "a0fb371b6bdd70d4dbb321d444bc8a26ef2ef177521132df666b379f4299b12f"
+    },
+    "intermediate8af/native-main/x86_64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 167446,
+      "sha256": "50210d93529fbc8a426c96540c8a506fabbdd7a4019fd6523134415afe9de2e2"
+    },
+    "intermediate8af/native-main/x86_64-apple-darwin/latency-report.json": {
+      "bytes": 24717,
+      "sha256": "b17bbe374f20a110055ed5c92a8728b99b8fc4df176bc82000f6ccf284d6a63d"
+    },
+    "intermediate8af/native-main/x86_64-apple-darwin/provenance.json": {
+      "bytes": 28812,
+      "sha256": "839e67c499baa62c1e26fae9586f6e5defd20835ad30e6ecb9b0c049d25176bc"
+    },
+    "intermediate8af/native-main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479691,
+      "sha256": "cca85a3b70b73421b559f655a88d4375bd645e276cc2bd2f90bccaa320b043e6"
+    },
+    "intermediate8af/native-main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 346339,
+      "sha256": "0252ee156fc3770da1611429b80f28809cf51788b28e0c86dccdc7a6d13923dd"
+    },
+    "intermediate8af/native-main/x86_64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24635,
+      "sha256": "9f23caaa2777ae4318c8b041e0dbd58e9d48f27ee7666e71cecbb26262f21360"
+    },
+    "intermediate8af/native-main/x86_64-pc-windows-msvc/provenance.json": {
+      "bytes": 29509,
+      "sha256": "4ade464cef3a0e69d4e5980597b18bb1cc17c9afa9679ccdec590e9bdd9c4b9c"
+    },
+    "intermediate8af/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479731,
+      "sha256": "bc7e4043b54ac3e1243605bc9eeccb40538f59480ec5012526df6ec7b05e56fe"
+    },
+    "intermediate8af/native-main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 349763,
+      "sha256": "08e82d6b718c0ebf1cb27311136718cad3ee9d7890b8082ad0eaac7f86742acb"
+    },
+    "intermediate8af/native-main/x86_64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24625,
+      "sha256": "75554fd22502a9e336eb0534a15a9d634ae8d1c5d0b4e752d924e2a150881f19"
+    },
+    "intermediate8af/native-main/x86_64-unknown-linux-gnu/provenance.json": {
+      "bytes": 32069,
+      "sha256": "cf23a07977124478a1142a44302ef4db6f4fda927c73f839f0f0de8620a25fdf"
+    },
+    "intermediate8af/native-paired-summary.json.gz": {
+      "bytes": 34812,
+      "sha256": "ec303bcb0e24617936ec83f9ba4fab1b88a743bcfe372c8e8eabf1cf707d17d4"
+    },
+    "intermediate8af/parent-source-and-report-verification.json": {
+      "bytes": 2465,
+      "sha256": "a6f9f79c54546b1257d37961bac6cb76abc0c0922bb978930ff5450c74c1d909"
+    },
+    "local/local-index-api-smoke-and-tests.json": {
+      "bytes": 7882,
+      "sha256": "6fb193762c41de153dce038718a98e75465ee06f607063be353725ba713f7c2b"
+    },
+    "local/quality.log": {
+      "bytes": 107740,
+      "sha256": "8a8298c3eb0232dcfba7f8a1fb91f7c806cfbc011e5776697ce6f7087ceb2811"
+    },
+    "local/source-proof.json": {
+      "bytes": 2246,
+      "sha256": "367d257c4c46ef2d05cd6b5a7f7b8eb0328f895f9770da8895ee0cc31359e42a"
+    },
+    "local/stdio-autoimport.json": {
+      "bytes": 11219,
+      "sha256": "45a7b1d0dd530a5ae2c0a74d567d6e1b13b844e84d3cef90961040b0b9ad5aea"
+    },
+    "local/stdio-base-pair.json": {
+      "bytes": 37280,
+      "sha256": "af5129fff6d59c6c8f91d39c280c071f8d8fa6e95cf1e0039117e203935add9a"
+    },
+    "local/stdio-entry-hierarchy.json": {
+      "bytes": 63356,
+      "sha256": "454eb1046f23a8c22e76d61f873267decf78b5b1e61969c6ab8089a6193fa84c"
+    },
+    "local/stdio-p1.json": {
+      "bytes": 42745,
+      "sha256": "b98fab6189c82bb8740471d1978acd67eee25597482a418e9ad704b748384ca3"
+    },
+    "local/stdio-recovery-diagnostics.json": {
+      "bytes": 28151,
+      "sha256": "923b881599a72861a8c6b0727049dac999825c1e552d69a916e539e6613c189d"
+    },
+    "provenance/dispatch-attempts.json": {
+      "bytes": 2340,
+      "sha256": "76e92b7c9fb7e611a70bb6ca02e03d39c311e645c62abd9155a37b7d68dd7fb9"
+    },
+    "provenance/fresh-pr-runs.json": {
       "bytes": 2689,
       "sha256": "765051cfb639130235f47aaad0a220e5c536f620b2d3726ba54c3d8b2c576fcc"
     },
-    {
-      "path": "provenance/hosted-dispatches.json",
+    "provenance/hosted-dispatches.json": {
       "bytes": 548,
       "sha256": "73b6799584a3f2deb8e56223abf05d373a5cff66375cf7af90caf6a1694e8c4a"
     },
-    {
-      "path": "provenance/source-handoff.json",
-      "bytes": 1083,
-      "sha256": "5281d424eed18166bbf96f519fe38263ee5a932cabbbd5c810a9f94c76f6f56b"
+    "provenance/hosted-runs.json": {
+      "bytes": 2592,
+      "sha256": "31abe74ca113f1597679bf577b330207f260d8acea0519297ddeb0b483c8eb43"
     },
-    {
-      "path": "provenance/source-publication.json",
-      "bytes": 722,
-      "sha256": "1ba1903fa67b2091713f230e64114467b507d107e52cc7b319e71d7aa26dc451"
+    "provenance/source-handoff.json": {
+      "bytes": 3230,
+      "sha256": "3b9eba561f625bd8d71a4c6828a69c006a366c39174ab7e6f51fcc24f3a7a819"
     },
-    {
-      "path": "reviews/ReviewCompactIndexes-7468cc5.json",
+    "provenance/source-publication.json": {
+      "bytes": 653,
+      "sha256": "428d12c7f9af33b7f8687fcbe3830f98fa84061640423bd4989696f737d824cf"
+    },
+    "reviews/ReviewCompactIndexes-7468cc5.json": {
       "bytes": 2982,
       "sha256": "69f52439c4bb9ca754c4eebef962429b4e3ad0417b416359c1c9a4015e914242"
     },
-    {
-      "path": "reviews/ReviewDiscoveryOwnership-7468cc5.json",
+    "reviews/ReviewDiscoveryOwnership-7468cc5.json": {
       "bytes": 4992,
       "sha256": "1541e9bec6129ac338d2e1d68c3f09a02f6d772110024f05caf545a96258cd34"
+    },
+    "reviews/ReviewLocalFastPaths-87f26c8.txt": {
+      "bytes": 2074,
+      "sha256": "e6b5da6f80c0c838ae8384375a4e5e929bc25c8ac4a3016bb5a1c5d412a56fa3"
+    },
+    "reviews/ReviewWindowsPrefixEq-87f26c8.txt": {
+      "bytes": 1288,
+      "sha256": "6aede3fbe2e249131c4b75e82fd10fe0713fcff28189a91db34dc25d675ca2ac"
     }
-  ]
+  }
 }

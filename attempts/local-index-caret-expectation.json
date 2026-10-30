@@ -1,0 +1,68 @@
+{
+  "observed_attempt": {
+    "committed_parent": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+    "dirty_sources_sha256": {
+      "src/workspace.rs": "dc99ca2064f78735231981b924b0330cd7bc0a24024a1d8d1d555513b43cf73c",
+      "src/analysis/syntax.rs": "eb2b931f4dabece526766e07b43041f031239a577a3e7e3637f9eead01a79b38",
+      "src/analysis/syntax/locals.rs": "a764b13de104af6492ea5166ff42651ac4c000c5a47349fb40ca7c595c4ccc5a"
+    },
+    "source_status": "uncommitted prefix equivalence/local index follow-up; not published or performance-qualified",
+    "windows_runtime": "not exercised on thisLinuxARM64host; cfgWindows matrix remains required",
+    "smoke_script": "use bend2_lsp::analysis::{self, CompletionKind, DocumentSnapshot, Revision};\n\nfn main() {\n    for source in [\"\", \"def constant() -> U32:\\n  0\\n\", \"def wrap(_: U32) -> U32:\\n  0\\n\"] {\n        let snapshot = DocumentSnapshot::new(Revision(1), source.to_owned());\n        assert_eq!(analysis::scoped_completion_items(&snapshot, source.len(), \"parameter\"), []);\n        assert_eq!(analysis::scoped_completion_items(&snapshot, source.len(), \"_\"), []);\n    }\n    let function = \"def wrap(parameter: U32) -> U32:\\n  parameter\";\n    let eof = DocumentSnapshot::new(Revision(2), function.to_owned());\n    let completed = analysis::scoped_completion_items(&eof, function.len(), \"parameter\");\n    assert_eq!(completed.iter().map(|item| (item.label.as_str(), item.kind)).collect::<Vec<_>>(), [(\"parameter\", CompletionKind::Variable)]);\n\n    let mut source = format!(\"{function}\\n\");\n    for index in 0..80 {\n        source.push_str(&format!(\"def later_{index}() -> U32:\\n  {index}\\n\"));\n    }\n    let snapshot = DocumentSnapshot::new(Revision(3), source.clone());\n    let binding = &snapshot.syntax.bindings()[0];\n    let body = source.find(\"\\n  parameter\").map_or(0, |offset| offset + 3);\n    let completed = analysis::scoped_completion_items(&snapshot, body, \"parameter\");\n    assert_eq!(completed.iter().map(|item| (item.label.as_str(), item.kind)).collect::<Vec<_>>(), [(\"parameter\", CompletionKind::Variable)]);\n    assert_eq!(analysis::scoped_completion_items(&snapshot, binding.scope.end, \"parameter\"), []);\n    let outside = source.find(\"def later_79\").map_or(0, |offset| offset + 4);\n    let completed = analysis::scoped_completion_items(&snapshot, outside, \"later_79\");\n    assert_eq!(completed.iter().map(|item| (item.label.as_str(), item.kind)).collect::<Vec<_>>(), [(\"later_79\", CompletionKind::Function)]);\n    assert_eq!(analysis::scoped_completion_items(&snapshot, outside, \"parameter\"), []);\n    println!(\"local-index API smoke passed: empty/anonymous locals, singleton parameter, EOF completion, half-open scope end, and late global names beyond local index domain\");\n}\n",
+    "results": [
+      {
+        "command": [
+          "docker",
+          "compose",
+          "cp",
+          "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/local-index-smoke.rs",
+          "rust:/tmp/review-local-index-smoke.rs"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": " bend2-lsp-rs-rust-1 Copying /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/local-index-smoke.rs to bend2-lsp-rs-rust-1:/tmp/review-local-index-smoke.rs\n bend2-lsp-rs-rust-1 Copied /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/local-index-smoke.rs to bend2-lsp-rs-rust-1:/tmp/review-local-index-smoke.rs\n"
+      },
+      {
+        "command": [
+          "docker",
+          "compose",
+          "exec",
+          "-T",
+          "-w",
+          "/tmp/semantic-approved-126952f6d048",
+          "rust",
+          "rustc",
+          "--edition",
+          "2024",
+          "--crate-name",
+          "local_index_smoke",
+          "--extern",
+          "bend2_lsp=/workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib",
+          "-L",
+          "dependency=/workspace/target/semantic-approved-126952f6d048/debug/deps",
+          "/tmp/review-local-index-smoke.rs",
+          "-o",
+          "/tmp/review-local-index-smoke"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "docker",
+          "compose",
+          "exec",
+          "-T",
+          "rust",
+          "/tmp/review-local-index-smoke"
+        ],
+        "exit_code": 101,
+        "stdout": "",
+        "stderr": "\nthread 'main' (188115) panicked at /tmp/review-local-index-smoke.rs:23:5:\nassertion `left == right` failed\n  left: [Completion { label: \"parameter\", detail: \"Local binding\", kind: Variable }]\n right: []\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+      }
+    ],
+    "performance_qualification": false
+  },
+  "explanation": "Throwaway assertion called scoped_completion_items at binding.scope.end. Existing SyntaxIndex::bindings_at deliberately shifts a caret exactly at previous token.end back one byte, so parameter remains a completion candidate. This is intentional caret visibility, not raw lexical-scope widening and not a new product regression. Corrected smoke must retain this positive completion assertion and separately check raw visible_bindings half-open semantics. No production behavior or permanent test changes."
+}

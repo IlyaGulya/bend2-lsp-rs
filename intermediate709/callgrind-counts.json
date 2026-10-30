@@ -1,0 +1,33 @@
+{
+  "source_head": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "tested_merge": "c1fe6928d8a5123d7ae6a7a758432e5644c4b69b",
+  "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "run_id": 41011101522,
+  "artifact_id": 12962317642,
+  "artifact_zip_sha256": "0db733a9e8e0ede7bae14418b6ff9e11c433d3947668b89fa0063f9a5cbdeafc",
+  "status": "inconclusive",
+  "metric_counts": {
+    "passed": 121,
+    "regression": 40,
+    "inconclusive": 1
+  },
+  "by_metric": {
+    "Ir": {
+      "passed": 53,
+      "regression": 1
+    },
+    "I1mr": {
+      "passed": 27,
+      "regression": 27
+    },
+    "ILmr": {
+      "passed": 41,
+      "regression": 12,
+      "inconclusive": 1
+    }
+  },
+  "baseline_workloads": 54,
+  "candidate_only_unpaired": 48,
+  "source_scope": "intermediate709 only, no transfer to8af or87f",
+  "admission": false
+}
