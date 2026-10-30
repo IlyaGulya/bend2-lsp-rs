@@ -63,6 +63,10 @@
   cannot replace the identity or outcome of a newer preparation.
 - Remove outdated lint warnings and fixes immediately when watched inputs change,
   even while cleanup is pending. Keep any newer results and fixes.
+- Keep edits in unrelated projects responsive while lint quick fixes wait for
+  another project's running analyzer.
+- Offer manual lint quick fixes when an editor omits optional request trigger
+  metadata. Explicitly automatic requests still cannot receive dangerous fixes.
 
 ### Under the hood
 

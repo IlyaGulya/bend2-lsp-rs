@@ -96,11 +96,46 @@ fn explicit_checks_preserve_another_documents_genuine_fix() {
         actions[0]["edit"]["documentChanges"][0]["edits"][0]["newText"],
         canonical
     );
+    assert_omitted_trigger_format_fix(&mut client, &documents[0], &diagnostic, canonical);
     // Settings updates may reload the compiler's indexed prelude; that index
     // commit must not invalidate unchanged on-disk analyzer inputs.
     configure_analyzer(&mut client, &executable, &arguments);
     save_formatted_source(&mut client, &first, &documents[0], canonical, started);
     client.finish();
+}
+
+fn assert_omitted_trigger_format_fix(
+    client: &mut LspClient,
+    document: &str,
+    diagnostic: &Value,
+    canonical: &str,
+) {
+    // triggerKind is optional in LSP. A client that sends only `only` and
+    // diagnostics must still receive the same genuine, versioned dangerous fix.
+    let omitted = client.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument":{"uri":document},"range":diagnostic["range"],
+            "context":{"diagnostics":[diagnostic],"only":["quickfix.bend-lint.dangerous"]}
+        }),
+    );
+    let omitted_actions = omitted["result"]
+        .as_array()
+        .must_be("omitted triggerKind genuine fixes");
+    assert_eq!(
+        omitted_actions.len(),
+        1,
+        "a client that omits triggerKind still gets the reported dangerous fix"
+    );
+    assert_eq!(
+        omitted_actions[0]["edit"]["documentChanges"],
+        json!([{"textDocument":{"uri":document,"version":1},
+            "edits":[{"range":{"start":{"line":0,"character":0},
+                "end":{"line":4,"character":0}},"newText":canonical}]}]),
+        "the fix is the current-version whole-source canonical replacement, not the diagnostic highlight"
+    );
+    assert!(omitted_actions[0]["disabled"].is_null());
+    assert!(omitted_actions[0]["command"].is_null());
 }
 
 fn save_formatted_source(

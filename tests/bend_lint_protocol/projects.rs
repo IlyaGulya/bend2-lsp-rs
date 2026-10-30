@@ -4,17 +4,21 @@ use std::{
     env, fs,
     path::Path,
     process::{Command, Stdio},
+    thread,
     time::{Duration, Instant},
 };
 
-// One server, two independent projects. The fixture analyzer keeps a per-target
-// report, so each project can prove which check actually produced a packet.
+// One server, three independent projects. The fixture analyzer keeps a
+// per-target report, so each project can prove which check actually produced a
+// packet.
 struct Projects {
     directory: TempDir,
     a_uri: String,
     a_source: String,
     b_uri: String,
     b_source: String,
+    c_uri: String,
+    c_source: String,
     client: LspClient,
 }
 
@@ -27,24 +31,31 @@ impl Projects {
         fs::create_dir(&responses).must_be("create per-target responses");
         let a_directory = directory.path().join("project a");
         let b_directory = directory.path().join("project b");
-        for project in [&a_directory, &b_directory] {
+        let c_directory = directory.path().join("project c");
+        for project in [&a_directory, &b_directory, &c_directory] {
             fs::create_dir(project).must_be("create lint project");
             fs::write(project.join("bend-lint.json"), "{\"rules\":{}}")
                 .must_be("write project configuration");
         }
         let a_path = a_directory.join("a.bend");
         let b_path = b_directory.join("b.bend");
+        let c_path = c_directory.join("c.bend");
         let a_source = "def main: U32\n  1\n";
         let b_source = "def main: U32\n  2\n";
+        let c_source = "def identity: U32\n  1\n";
         fs::write(&a_path, a_source).must_be("write saved entry a");
         fs::write(&b_path, b_source).must_be("write saved entry b");
+        fs::write(&c_path, c_source).must_be("write saved entry c");
         target_response(
             &responses.join("a.bend.json"),
             &[finding(&a_path, "project/a", range(0, 0, 3))],
         );
+        let mut b_finding = finding(&b_path, "project/b", range(0, 0, 3));
+        b_finding["fixes"] = json!([fix(&b_path, range(0, 0, 3), "3")]);
+        target_response(&responses.join("b.bend.json"), &[b_finding]);
         target_response(
-            &responses.join("b.bend.json"),
-            &[finding(&b_path, "project/b", range(0, 0, 3))],
+            &responses.join("c.bend.json"),
+            &[finding(&c_path, "project/c", range(0, 0, 3))],
         );
         fs::write(
             control.join("response.json"),
@@ -69,7 +80,7 @@ impl Projects {
             json!({"settings":{
                 "bend2-lsp":{"compilerPath":executable()},
                 "bend":{"lint":{"enabled":true,"path":executable(),
-                    "dangerousCodeActions":false,"timeoutMs":10_000}}
+                    "dangerousCodeActions":true,"timeoutMs":120_000}}
             }}),
         );
         Self {
@@ -78,6 +89,8 @@ impl Projects {
             a_source: a_source.into(),
             b_uri: uri(&b_path),
             b_source: b_source.into(),
+            c_uri: uri(&c_path),
+            c_source: c_source.into(),
             client,
         }
     }
@@ -114,6 +127,29 @@ impl Projects {
     fn prepares(&self) -> usize {
         fs::read_to_string(self.directory.path().join("control").join("prepares"))
             .map_or(0, |text| text.lines().count())
+    }
+
+    // The fixture appends one line per real analyzer invocation.
+    fn calls(&self) -> usize {
+        fs::read_to_string(self.directory.path().join("control").join("calls"))
+            .map_or(0, |text| text.lines().count())
+    }
+
+    fn wait_calls(&self, count: usize) {
+        let deadline = Instant::now() + TIMEOUT;
+        while self.calls() < count {
+            assert!(
+                Instant::now() < deadline,
+                "the analyzer did not run {count} time(s)"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    // The fixture parks every analyzer invocation until the release file exists.
+    fn block(&self) {
+        fs::write(self.directory.path().join("control").join("block"), "")
+            .must_be("block analyzer completion");
     }
 
     fn publish_while_typing(&mut self, typing_uri: &str, observing_uri: &str) -> Option<Value> {
@@ -166,6 +202,34 @@ fn target_response(path: &Path, findings: &[Value]) {
         serde_json::to_vec(&response).must_be("serialize target-specific response"),
     )
     .must_be("write target-specific response");
+}
+
+// An invoked quick-fix request that only accepts the dangerous bend-lint kind.
+fn dangerous_code_action(uri: &str) -> Value {
+    json!({
+        "textDocument":{"uri":uri},
+        "range":range(0, 0, 3),
+        "context":{"diagnostics":[],"triggerKind":1,
+            "only":["quickfix.bend-lint.dangerous"]}
+    })
+}
+
+// The document version carried by an applicable dangerous edit for `uri`.
+fn dangerous_version(actions: &Value, uri: &str) -> Option<i64> {
+    for action in actions["result"].as_array()? {
+        if action["kind"].as_str() != Some("quickfix.bend-lint.dangerous") {
+            continue;
+        }
+        let Some(changes) = action["edit"]["documentChanges"].as_array() else {
+            continue;
+        };
+        for change in changes {
+            if change["textDocument"]["uri"].as_str() == Some(uri) {
+                return change["textDocument"]["version"].as_i64();
+            }
+        }
+    }
+    None
 }
 
 // Regression: a shared debounce let keystrokes in A starve B's queued check.
@@ -233,6 +297,130 @@ fn an_accepted_change_reuses_its_projects_preparation_after_another_project_prep
         projects.prepares(),
         2,
         "A's accepted recheck reuses A's preparation after B prepared its own"
+    );
+    projects.finish();
+}
+
+// Regression: the code-action request held the workspace update read guard
+// while it waited for the single shared analyzer permit. A blocked analyzer run
+// in one project therefore froze didChange for every project, and other
+// requests could not observe an unrelated document's new version until that
+// analyzer finished. C's update must commit and be observable while A still
+// holds the permit and B's action is outstanding.
+#[test]
+fn code_action_waiting_for_a_blocked_analyzer_does_not_freeze_unrelated_updates() {
+    let mut projects = Projects::start();
+    let (a_uri, a_source) = (projects.a_uri.clone(), projects.a_source.clone());
+    let (b_uri, b_source) = (projects.b_uri.clone(), projects.b_source.clone());
+    let (c_uri, c_source) = (projects.c_uri.clone(), projects.c_source.clone());
+    for (uri, source) in [
+        (&a_uri, &a_source),
+        (&b_uri, &b_source),
+        (&c_uri, &c_source),
+    ] {
+        projects.open(uri, source);
+        projects.wait_lint(uri, 1);
+    }
+
+    // Precondition: B really offers the opt-in dangerous fix at this request
+    // shape, so a later missing action cannot be mistaken for the lock bug.
+    let params = dangerous_code_action(&b_uri);
+    let offered = projects
+        .client
+        .request("textDocument/codeAction", params.clone());
+    assert_eq!(
+        dangerous_version(&offered, &b_uri),
+        Some(1),
+        "B must offer its versioned dangerous fix while the analyzer is idle: {offered}"
+    );
+
+    // A blocked analyzer invocation holds the workspace's single analyzer permit.
+    projects.block();
+    projects.change(&a_uri, 2, "def main: U32\n  4\n");
+    projects.wait_calls(4);
+
+    let action_id = projects
+        .client
+        .send_request("textDocument/codeAction", params);
+    // Causal admission barrier, from the vendored transport contract:
+    // vendor/tower-lsp/src/transport.rs reads stdin in order, calls
+    // `service.call` per message, and sends those futures into one FIFO tokio
+    // channel (read_input); process_server_tasks then runs
+    // `server_tasks_rx.buffer_unordered(4)`. futures-util 0.3.34's
+    // BufferUnordered first fills its FuturesUnordered from that channel in
+    // arrival order and only then polls it, and FuturesUnordered::push enqueues
+    // each future on a FIFO ready queue. So the earlier code action is polled
+    // (and parks on the analyzer permit) before the later probe can run, and
+    // the probe's response therefore proves the action had already entered its
+    // wait.
+    let probe = projects.client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument":{"uri":b_uri}}),
+    );
+    assert!(probe["result"].is_array(), "{probe}");
+    assert!(
+        projects
+            .client
+            .receive_matching_timed(Duration::from_millis(50), |message| {
+                message["id"] == action_id
+            })
+            .is_none(),
+        "the code action cannot resolve while the analyzer permit is held"
+    );
+
+    // Independent C must commit and publish its new version while B waits.
+    projects.change(&c_uri, 2, "def renamed: U32\n  7\n");
+    let hover_id = projects.client.send_request(
+        "textDocument/hover",
+        json!({"textDocument":{"uri":c_uri},
+            "position":{"line":0,"character":5}}),
+    );
+    let hover = projects
+        .client
+        .receive_matching(TIMEOUT, |message| message["id"] == hover_id)
+        .must_be(
+            "an unrelated document update must become observable while a code action waits for the blocked analyzer",
+        );
+    assert!(
+        hover["result"]["contents"]["value"]
+            .as_str()
+            .is_some_and(|text| text.contains("renamed: U32")),
+        "C's didChange must commit while A is still blocked: {hover}"
+    );
+    assert!(
+        !projects
+            .directory
+            .path()
+            .join("control")
+            .join("release")
+            .exists()
+            && projects.calls() == 4,
+        "the analyzer must still be blocked when C's new version is observed"
+    );
+    assert!(
+        projects
+            .client
+            .receive_matching_timed(Duration::from_millis(50), |message| {
+                message["id"] == action_id
+            })
+            .is_none(),
+        "B's code action must still be outstanding when C's update is observed"
+    );
+
+    // Releasing A lets B's waiting action resolve against current inputs.
+    fs::write(
+        projects.directory.path().join("control").join("release"),
+        "",
+    )
+    .must_be("release the blocked analyzer");
+    let resolved = projects
+        .client
+        .receive_matching(TIMEOUT, |message| message["id"] == action_id)
+        .must_be("the waiting code action resolves after the analyzer is released");
+    assert_eq!(
+        dangerous_version(&resolved, &b_uri),
+        Some(1),
+        "the waiting action still resolves to the current versioned edit: {resolved}"
     );
     projects.finish();
 }

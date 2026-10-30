@@ -214,6 +214,110 @@ fn malformed_suggested_edits_are_explained_without_exposing_an_edit() {
     session.finish();
 }
 
+// LSP makes CodeActionContext.triggerKind optional. A client that sends only
+// `only` and `diagnostics` is still invoking actions, so it must receive the
+// same exact versioned dangerous fix as an explicit INVOKED request.
+#[test]
+fn omitted_trigger_kind_returns_the_exact_versioned_dangerous_fix() {
+    let mut session = disabled_session(&[]);
+    let mut item = finding(&session.root, "language/unneeded_plus", range(0, 9, 10));
+    item["fixes"] = json!([fix(&session.root, range(0, 9, 10), "")]);
+    session.response(vec![item], vec![], true);
+    session.configure(true, true, 10_000);
+    session.open(SOURCE);
+    session.save();
+    let diagnostics = session.lint()["params"]["diagnostics"].clone();
+    let params = json!({
+        "textDocument":{"uri":session.document},
+        "range":range(0, 9, 10),
+        "context":{"only":["quickfix.bend-lint.dangerous"],"diagnostics":diagnostics}
+    });
+    let response = session.client.request("textDocument/codeAction", params);
+    let actions = response["result"]
+        .as_array()
+        .must_be("omitted triggerKind actions");
+    assert_eq!(
+        actions.len(),
+        1,
+        "an omitted triggerKind still invokes the requested dangerous fix"
+    );
+    let action = &actions[0];
+    assert_eq!(action["kind"], "quickfix.bend-lint.dangerous");
+    assert!(action["disabled"].is_null());
+    assert!(action["command"].is_null());
+    assert_ne!(action["isPreferred"], true);
+    assert_eq!(
+        action["edit"]["documentChanges"],
+        json!([{"textDocument":{"uri":session.document,"version":1},
+            "edits":[{"range":range(0, 9, 10),"newText":""}]}]),
+        "the omitted triggerKind response carries the current version and exact range"
+    );
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("saved source"),
+        SOURCE,
+        "the action only proposes an edit"
+    );
+    // Explicit AUTOMATIC remains rejected even with the same narrow context.
+    let automatic = session.client.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument":{"uri":session.document},
+            "range":range(0, 9, 10),
+            "context":{"triggerKind":2,"only":["quickfix.bend-lint.dangerous"],
+                "diagnostics":diagnostics}
+        }),
+    );
+    assert!(
+        automatic["result"]
+            .as_array()
+            .must_be("automatic actions")
+            .is_empty(),
+        "an automatic trigger never exposes a dangerous fix"
+    );
+    session.finish();
+
+    // Without the opt-in the same omitted-triggerKind request may only explain
+    // the refusal; it must never produce a runnable dangerous edit.
+    let mut not_opted_in = disabled_session(&[]);
+    let mut item = finding(
+        &not_opted_in.root,
+        "language/unneeded_plus",
+        range(0, 9, 10),
+    );
+    item["fixes"] = json!([fix(&not_opted_in.root, range(0, 9, 10), "")]);
+    not_opted_in.response(vec![item], vec![], true);
+    not_opted_in.configure(true, false, 10_000);
+    not_opted_in.open(SOURCE);
+    not_opted_in.save();
+    let diagnostics = not_opted_in.lint()["params"]["diagnostics"].clone();
+    let response = not_opted_in.client.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument":{"uri":not_opted_in.document},
+            "range":range(0, 9, 10),
+            "context":{"only":["quickfix.bend-lint.dangerous"],"diagnostics":diagnostics}
+        }),
+    );
+    let actions = response["result"]
+        .as_array()
+        .must_be("omitted triggerKind refusal");
+    assert_eq!(actions.len(), 1, "the refusal is explained once");
+    assert!(actions[0]["edit"].is_null());
+    assert!(actions[0]["command"].is_null());
+    let reason = actions[0]["disabled"]["reason"]
+        .as_str()
+        .must_be("opt-in refusal reason");
+    assert!(
+        reason.contains("bend.lint.dangerousCodeActions"),
+        "{reason}"
+    );
+    assert_eq!(
+        fs::read_to_string(&not_opted_in.root).must_be("untouched source"),
+        SOURCE
+    );
+    not_opted_in.finish();
+}
+
 #[test]
 fn stale_client_diagnostic_requests_recheck_without_inventing_a_fix() {
     let mut session = disabled_session(&[]);

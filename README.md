@@ -283,11 +283,15 @@ notes. These are reported identities, not executable attestation.
 
 With `dangerousCodeActions: true`, invoke Code Actions explicitly to see
 `quickfix.bend-lint.dangerous` suggestions labelled **Dangerous**. They are never
-preferred, offered on automatic requests, applied by the server, or exposed as a
-safe fix-all. Every touched file must be open, match the analyzed buffer revision,
-and have valid non-overlapping UTF-16 edits; an unsaved buffer can be a valid target.
+preferred, applied by the server, or exposed as a safe fix-all. Requests explicitly
+marked automatic are rejected; editors may omit the optional `triggerKind` on
+manual requests. Every touched file must be open, match the analyzed buffer
+revision, and have valid non-overlapping UTF-16 edits; an unsaved buffer can be a
+valid target.
 All edits carry document versions, which the client must honor. Closed, stale, or
 unverifiable multi-file targets are refused as a whole.
+
+Waiting for lint quick-fix validation does not block edits in other projects.
 
 A symlink and its target count as separate open views even when their text
 matches. Close the extra views before applying a dangerous fix; the server never

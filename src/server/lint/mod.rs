@@ -434,6 +434,19 @@ mod tests {
         }))?)
     }
 
+    // Exercise the actual guarded handler: bounded preparation runs without
+    // the workspace update view and finalization under its final read view.
+    async fn lint_actions(
+        backend: &Backend,
+        params: &CodeActionParams,
+    ) -> Vec<CodeActionOrCommand> {
+        backend
+            .code_action(params.clone())
+            .await
+            .unwrap_or_default()
+            .unwrap_or_default()
+    }
+
     fn dangerous_actions(actions: &[CodeActionOrCommand]) -> Vec<&CodeAction> {
         actions
             .iter()
@@ -755,7 +768,7 @@ mod tests {
             entry(&backend, 2, &snapshot, revisions, no_findings()),
         );
         let params = dangerous_params(&project.main_uri)?;
-        let actions = backend.lint_code_actions(&params).await;
+        let actions = lint_actions(&backend, &params).await;
         let dangerous = dangerous_actions(&actions);
         let action = dangerous
             .first()
@@ -826,7 +839,7 @@ mod tests {
             ),
         );
         let params = dangerous_params(&project.main_uri)?;
-        let actions = backend.lint_code_actions(&params).await;
+        let actions = lint_actions(&backend, &params).await;
         assert_eq!(
             dangerous_actions(&actions).len(),
             1,
@@ -937,7 +950,7 @@ mod tests {
         let params = dangerous_params(&project.main_uri)?;
         assert!(
             versioned_action(
-                &backend.lint_code_actions(&params).await,
+                &lint_actions(&backend, &params).await,
                 &project.main_uri,
                 1,
                 "older rule"
@@ -988,7 +1001,7 @@ mod tests {
         );
         assert!(
             versioned_action(
-                &backend.lint_code_actions(&params).await,
+                &lint_actions(&backend, &params).await,
                 &project.main_uri,
                 3,
                 "newer rule"
@@ -1001,7 +1014,7 @@ mod tests {
         assert!(applied);
         assert!(
             versioned_action(
-                &backend.lint_code_actions(&params).await,
+                &lint_actions(&backend, &params).await,
                 &project.main_uri,
                 3,
                 "newer rule"
@@ -1038,7 +1051,7 @@ mod tests {
         );
         record_ready(&backend, &project.main_uri, "older completion", 0);
         let params = dangerous_params(&project.main_uri)?;
-        let actions = backend.lint_code_actions(&params).await;
+        let actions = lint_actions(&backend, &params).await;
         assert!(
             versioned_action(&actions, &project.main_uri, 1, "older rule"),
             "the retained revision's fix exists before the fence"
@@ -1067,7 +1080,7 @@ mod tests {
             "a retired revision's contributor is ineligible before its cleanup runs"
         );
         assert!(backend.lint_diagnostics(&project.main_uri).is_empty());
-        let actions = backend.lint_code_actions(&params).await;
+        let actions = lint_actions(&backend, &params).await;
         assert!(
             !versioned_action(&actions, &project.main_uri, 1, "older rule"),
             "a retired revision's fix is ineligible before its cleanup runs"
@@ -1097,7 +1110,7 @@ mod tests {
             "newer analysis",
             newer_revision,
         );
-        let actions = backend.lint_code_actions(&params).await;
+        let actions = lint_actions(&backend, &params).await;
         assert!(
             versioned_action(&actions, &project.main_uri, 1, "newer rule"),
             "a concurrent newer publication owns the visible result"
@@ -1112,7 +1125,7 @@ mod tests {
             Some(newer_revision),
             "the older plan's cleanup preserves the newer publication"
         );
-        let actions = backend.lint_code_actions(&params).await;
+        let actions = lint_actions(&backend, &params).await;
         assert!(
             versioned_action(&actions, &project.main_uri, 1, "newer rule"),
             "late cleanup from the retired plan must not delete the newer fix"
@@ -1150,7 +1163,7 @@ mod tests {
         let params = dangerous_params(&project.main_uri)?;
         assert!(
             !versioned_action(
-                &backend.lint_code_actions(&params).await,
+                &lint_actions(&backend, &params).await,
                 &project.main_uri,
                 1,
                 "orphan rule"
