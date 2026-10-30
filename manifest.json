@@ -83,12 +83,12 @@
         "workflowName": "semantic-fuzz"
       },
       {
-        "conclusion": "",
+        "conclusion": "success",
         "databaseId": 41028741760,
         "event": "pull_request",
         "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
         "name": "installer-validation",
-        "status": "queued",
+        "status": "completed",
         "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741760",
         "workflowName": "installer-validation"
       },
@@ -113,12 +113,12 @@
         "workflowName": "quality"
       },
       {
-        "conclusion": "",
+        "conclusion": "failure",
         "databaseId": 41028741757,
         "event": "pull_request",
         "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
         "name": "performance",
-        "status": "queued",
+        "status": "completed",
         "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741757",
         "workflowName": "performance"
       },
@@ -142,7 +142,7 @@
         "workflowName": "semantic-canonical-key"
       }
     ],
-    "remaining_outcomes": "Quality/canonical/native12of12/semantic20runs5jobs/perfdiagnostics qualified. OriginalCallgrindjobsstillcomparing; installerandperformancecalibrationpending. Observernetworkerrors are notworkflowfailures.",
+    "remaining_outcomes": "Quality/canonical/20run5jobsemantic/fullnativeinstallers/perfdiagnostics passed; native12/12verified; ordinarymainCGregression123pass39reg0inconclusiveadmissionDENIED. OriginalB1comparison andperformancecalibration stillpending.",
     "quality": {
       "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
       "run_id": 41028741761,
@@ -296,6 +296,54 @@
       "targets_met": true,
       "policy_changed": false,
       "scope": "normalruntime/resourcequalification; notCallgrindadmission"
+    },
+    "installer": {
+      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "run_id": 41028741760,
+      "conclusion": "success",
+      "scope": "all6nativefullrelease tests, packaged andinstalledLSPE2Es; no releasepublished",
+      "windows_prefix_invariant_tests": "PASS bothx64andARM64, originalrawlog archived",
+      "windows_exception_applied": false
+    },
+    "ordinary_main_performance": {
+      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "tested_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
+      "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "run_id": 41028741757,
+      "measurement_collection": "success",
+      "classification_observed": "regression",
+      "performance_admission": "denied; protectedreviewskipped",
+      "request_performance_exception": false,
+      "metric_counts": {
+        "passed": 123,
+        "regression": 39
+      },
+      "by_metric": {
+        "Ir": {
+          "passed": 53,
+          "regression": 1
+        },
+        "I1mr": {
+          "passed": 27,
+          "regression": 27
+        },
+        "ILmr": {
+          "passed": 43,
+          "regression": 11
+        }
+      },
+      "workloads": 54,
+      "metric_rows": 162,
+      "candidate_only_unpaired": 48,
+      "inconclusive_count": 0,
+      "remaining_instruction_regression": {
+        "workload": "completion_warm.small",
+        "main": 19757,
+        "source87f": 21022,
+        "delta": 1265,
+        "percent": 6.40279394644936
+      },
+      "followup_status": "Unpublished boundedcapacity/metadata-copy experiment; no afterperformance claim. Source87f notadmitted."
     }
   },
   "performance_admission": false,
@@ -442,6 +490,46 @@
       "bytes": 267,
       "sha256": "45a22eb22dc32c5e30d6a7d2dc62f8aac8b1191e24954ce2c1eceb587a17eb08"
     },
+    "current87f/callgrind-main/absolute-metrics.json": {
+      "bytes": 108141,
+      "sha256": "8a253e4e7d7e2876cefb9dd117976a6826a2ec2b878a8902906e99deb8753043"
+    },
+    "current87f/callgrind-main/admission-failure.log": {
+      "bytes": 3967,
+      "sha256": "317b5ef6d6ff291ba09250293ca4975fabbd275c72a8b3ae1c8030ab7f73a9d6"
+    },
+    "current87f/callgrind-main/admission-measurement.json": {
+      "bytes": 4427,
+      "sha256": "b4d0232e28ecc5957aa9110d7583b4a47762347f045317c5f32491dca8556f25"
+    },
+    "current87f/callgrind-main/before-bounded-growth.json": {
+      "bytes": 1458,
+      "sha256": "f970afc45e21c79ab153e25bd5c7a687bff952b6b716dc09fbf0549dcf8d138a"
+    },
+    "current87f/callgrind-main/paired-data.json.gz": {
+      "bytes": 353093,
+      "sha256": "8a0f0249bfd02a533325396b4c455ba63c8babdc0c3ead407ca352246189bef6"
+    },
+    "current87f/callgrind-main/policy.json.gz": {
+      "bytes": 969471,
+      "sha256": "44c04cbd30866e50b663fd8921c4cd7043b90f692a8b478f147a88c5bece0d82"
+    },
+    "current87f/callgrind-main/policy.md": {
+      "bytes": 17791,
+      "sha256": "717be737535021980a7dd200c1a8dae4e76be40858b2b2fd8aa4695b5664ced7"
+    },
+    "current87f/callgrind-main/static-small-candidate.txt": {
+      "bytes": 9454,
+      "sha256": "8e88ddf7d85387e4f77e415a29325c08ce492a5519d7c93cd958f6016ae0c32a"
+    },
+    "current87f/callgrind-main/static-small-main.txt": {
+      "bytes": 9845,
+      "sha256": "46727141025b5ea409f7104a03f20ebb021fd8b26f1915a4d5ec28052ef66af6"
+    },
+    "current87f/callgrind-main/workflow.json": {
+      "bytes": 27722,
+      "sha256": "26cf358559efe0f309bf00e464daf1937f06d21dff73fffe59e15c17d2bd9a07"
+    },
     "current87f/canonical/installation.json": {
       "bytes": 2434,
       "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
@@ -481,6 +569,18 @@
     "current87f/hosted-quality/summary.json": {
       "bytes": 1399,
       "sha256": "1bedaf17f256ade92c836ceaad31c97913b1534e583cb1e6c0a8373462494038"
+    },
+    "current87f/installer/aarch64-pc-windows-msvc.log.gz": {
+      "bytes": 36281,
+      "sha256": "c679fddedceb9aab9f53f62c4221233ff686481eb9c18a2e4c7387809411a46f"
+    },
+    "current87f/installer/run.json": {
+      "bytes": 45592,
+      "sha256": "614f4a4cdc01f4a09af877401f3ed3f4198b96120a463b5244dd9065beb4442d"
+    },
+    "current87f/installer/x86_64-pc-windows-msvc.log.gz": {
+      "bytes": 36129,
+      "sha256": "e46d6bec73110e7267d2d7e5b220f5e8ce0c3c0a2ff5fb81e76548e91973e387"
     },
     "current87f/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479686,
