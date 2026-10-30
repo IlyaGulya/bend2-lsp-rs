@@ -2,17 +2,17 @@
 Policy check passed: no inline lint suppressions.
 .........
 ----------------------------------------------------------------------
-Ran 9 tests in 0.024s
+Ran 9 tests in 0.035s
 
 OK
 ..
 ----------------------------------------------------------------------
-Ran 2 tests in 0.017s
+Ran 2 tests in 0.012s
 
 OK
 .................
 ----------------------------------------------------------------------
-Ran 17 tests in 1.124s
+Ran 17 tests in 2.000s
 
 OK
 == workflow security ==
@@ -27,60 +27,60 @@ OK
  INFO audit: zizmor: 🌈 completed .github/workflows/performance.yml
  INFO audit: zizmor: 🌈 completed .github/workflows/quality.yml
  WARN audit: zizmor: one or more inputs contains YAML anchors; see https://docs.zizmor.sh/usage/#yaml-anchors for details
+No findings to report. Good job! (2 ignored, 40 suppressed)
  INFO audit: zizmor: 🌈 completed .github/workflows/release-binaries.yml
  INFO audit: zizmor: 🌈 completed .github/workflows/release.yml
  INFO audit: zizmor: 🌈 completed .github/workflows/semantic-canonical-key.yml
  INFO audit: zizmor: 🌈 completed .github/workflows/semantic-fuzz.yml
  INFO audit: zizmor: 🌈 completed .github/workflows/semantic-oracle-profile.yml
-No findings to report. Good job! (2 ignored, 40 suppressed)
 == Rust performance infrastructure contract tests ==
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s
      Running unittests src/main.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/bend2_perf-8c5d307591384b16)
 
 running 209 tests
 test calibration::tests::arbitrary_precision_and_private_number_key_preserve_real_json_types ... ok
 test calibration::tests::collected_probe_and_malformed_profiles_fail ... ok
-test calibration::tests::each_five_pair_block_balances_all_execution_positions ... ok
-test calibration::tests::cargo_artifact_is_required_and_cannot_escape_independent_target ... ok
-test calibration::tests::executed_workload_manifest_rejects_incomplete_or_duplicate_list ... ok
-test calibration::tests::collector_cli_preserves_five_pair_default_and_strict_options ... ok
 test calibration::tests::comparison_metrics_cannot_be_mistaken_for_fresh_counts ... ok
-test calibration::tests::real_nm_format_reports_address_size_and_demangled_name ... ok
 test calibration::tests::missing_duplicate_and_extra_workloads_are_rejected ... ok
-test calibration::tests::non_json_transport_duplicate_keys_and_nonfinite_numbers_fail_closed ... ok
-test calibration::tests::missing_metrics_and_unexpected_profile_parts_fail_closed ... ok
-test calibration::tests::nested_or_stale_destinations_cannot_contaminate_source_or_output ... ok
-test calibration::tests::null_workload_id_is_distinct_from_named_id ... ok
 test calibration::tests::invalid_count_types_and_signs_are_rejected ... ok
+test calibration::tests::executed_workload_manifest_rejects_incomplete_or_duplicate_list ... ok
+test calibration::tests::each_five_pair_block_balances_all_execution_positions ... ok
+test calibration::tests::collector_cli_preserves_five_pair_default_and_strict_options ... ok
+test calibration::tests::missing_metrics_and_unexpected_profile_parts_fail_closed ... ok
+test calibration::tests::non_json_transport_duplicate_keys_and_nonfinite_numbers_fail_closed ... ok
+test calibration::tests::real_nm_format_reports_address_size_and_demangled_name ... ok
+test calibration::tests::null_workload_id_is_distinct_from_named_id ... ok
 test calibration::tests::reference_locations_list_retains_every_real_case_and_rejects_incomplete_coverage ... ok
-test calibration::tests::reference_locations_cargo_artifact_is_selected_without_analysis_substitution ... ok
+test calibration::tests::cargo_artifact_is_required_and_cannot_escape_independent_target ... ok
+test calibration::tests::nested_or_stale_destinations_cannot_contaminate_source_or_output ... ok
 test calibration::tests::harness_newline_representations_preserve_exact_variants_and_anchor_counts ... ok
+test calibration::tests::reference_locations_cargo_artifact_is_selected_without_analysis_substitution ... ok
 test calibration::tests::exact_known_anchors_reject_harness_drift_and_ambiguity ... ok
-test calibration::tests::reports::duplicate_jobs_and_missing_split_are_rejected ... ok
 test calibration::tests::reports::binary_addresses_host_identity_and_execution_order_are_preserved ... ok
-test calibration::tests::reports::environment_rejects_host_metadata_and_allows_comparable_cache_geometry ... ok
 test calibration::tests::reports::discovery_control_failure_and_non_inlay_control_shifts_are_diagnostic ... ok
 test calibration::tests::reports::learned_floor_is_inclusive_and_active_allowance_can_be_larger ... ok
+test calibration::tests::reports::environment_rejects_host_metadata_and_allows_comparable_cache_geometry ... ok
 test calibration::tests::reports::missing_and_escaping_raw_evidence_is_rejected ... ok
+test calibration::tests::reports::duplicate_jobs_and_missing_split_are_rejected ... ok
 test calibration::tests::reports::discovery_only_learning_retains_holdout_noise_and_ignores_controls ... ok
 test calibration::tests::reports::missing_required_signals_and_noncontiguous_pairs_fail_closed ... ok
-test calibration::tests::reports::multibench::v2_evidence_rejects_missing_misattributed_and_forged_measurements ... ok
 test calibration::tests::reports::multibench::strict_cli_scope_rejects_historical_evidence_but_retains_verified_report ... ok
+test calibration::tests::reports::multibench::v2_evidence_rejects_missing_misattributed_and_forged_measurements ... ok
+test calibration::tests::reports::incomparable_source_fixture_harness_environment_or_workloads_fail ... ok
 test calibration::tests::reports::multibench::v2_manifests_bind_complete_disjoint_identity_ownership ... ok
 test calibration::tests::reports::optional_expected_coverage_fails_missing_matrix_jobs_or_pairs ... ok
-test calibration::tests::reports::incomparable_source_fixture_harness_environment_or_workloads_fail ... ok
-test calibration::tests::reports::multibench::historical_scope_stays_analysis_only_and_mixed_experiments_fail ... ok
-test calibration::tests::reports::recursive_reader_ignores_raw_json_but_rejects_duplicate_json_keys ... ok
+test calibration::tests::reports::multibench::strict_cli_workload_count_rejects_omission_but_retains_verified_report ... ok
 test calibration::tests::reports::multibench::v2_retained_two_benchmark_evidence_is_accepted_and_scope_is_explicit ... ok
 test calibration::tests::reports::positive_controls_must_exceed_two_percent_for_every_validation_signal ... ok
-test calibration::tests::reports::multibench::strict_cli_workload_count_rejects_omission_but_retains_verified_report ... ok
-test calibration::tests::reports::retained_stdout_must_match_counts_execution_and_fresh_baseline ... ok
+test calibration::tests::reports::multibench::historical_scope_stays_analysis_only_and_mixed_experiments_fail ... ok
+test calibration::tests::reports::recursive_reader_ignores_raw_json_but_rejects_duplicate_json_keys ... ok
+test calibration::tests::reports::malformed_counts_sources_samples_and_identities_are_rejected ... ok
 test calibration::tests::reports::sharding::canonical_manifest_dodges_newline_null_and_empty_string_collisions ... ok
 test calibration::tests::reports::sharding::cli_accepts_bounded_shards_and_rejects_out_of_range_arguments ... ok
-test calibration::tests::reports::malformed_counts_sources_samples_and_identities_are_rejected ... ok
+test calibration::tests::reports::retained_stdout_must_match_counts_execution_and_fresh_baseline ... ok
 test calibration::tests::reports::sharding::deterministic_four_whole_function_shards_are_disjoint_and_exhaustive ... ok
-test calibration::tests::reports::predeclared_coverage_requires_full_seven_three_five_design ... ok
 test calibration::tests::reports::sharding::complete_shards_recompose_one_host_series_and_full_scope ... ok
+test calibration::tests::reports::predeclared_coverage_requires_full_seven_three_five_design ... ok
 test calibration::tests::reports::signed_distributions_nearest_rank_and_exact_relative_ratios ... ok
 test calibration::tests::reports::signed_u64_extremes_retain_exact_delta_and_ratio_without_overflow ... ok
 test calibration::tests::reports::sharding::sharded_aggregation_preserves_unsharded_comparisons_and_sensitivity ... ok
@@ -99,9 +99,9 @@ test callgrind::descriptor::tests::rejects_missing_extra_duplicate_empty_and_mix
 test callgrind::descriptor::tests::rejects_state_and_cross_function_comparisons_at_every_scope ... ok
 test callgrind::descriptor::tests::shard_selection_keeps_whole_function_cases_and_frozen_indices ... ok
 test callgrind::runner::tests::broken_stdin_is_an_error_and_still_reaps_the_original_child ... ok
-test calibration::tests::reports::strict_controls_reject_unchanged_source_regression_and_accept_limit_boundary ... ok
-test callgrind::runner::tests::invalid_parallelism_cannot_launch_a_child ... ok
 test callgrind::runner::tests::child_failure_stops_dispatch_and_joins_every_late_writer ... ok
+test callgrind::runner::tests::invalid_parallelism_cannot_launch_a_child ... ok
+test calibration::tests::reports::strict_controls_reject_unchanged_source_regression_and_accept_limit_boundary ... ok
 test callgrind::runner::tests::spawn_failure_drains_an_already_running_child ... ok
 test dashboard::tests::aggregate_requires_expected_targets_and_exact_source_pairing ... ok
 test dashboard::tests::artifact_paths_cannot_traverse_or_turn_into_viewer_urls ... ok
@@ -151,7 +151,7 @@ test native::memory::tests::cargo_dsym_sidecars_require_exact_identities_and_non
 test native::memory::tests::declared_debug_build_overrides_are_preserved ... ok
 test native::memory::tests::memory_cli_has_only_original_commands ... ok
 test native::memory::tests::same_runner_provenance_cannot_mix_run_attempt_target_or_host ... ok
-test native::memory::tests::symbol_sidecars_require_recorded_identity_and_valid_structure ... ok
+test dashboard::tests::hosted_failure_is_a_regression_only_when_every_failed_job_and_step_is_the_bound_gate ... ok
 test native::tests::input_identity_rejects_modified_deleted_or_misdeclared_files ... ok
 test paired::collector::tests::each_arm_selects_its_own_candidate_only_workloads ... ok
 test platform_memory::tests::linux_units_and_native_metrics_preserve_resident_semantics ... ok
@@ -160,9 +160,9 @@ test policy::tests::arithmetic_does_not_overflow ... ok
 test policy::tests::cache_event_boundaries ... ok
 test policy::tests::instructions_keep_two_percent_relative_limit ... ok
 test policy::tests::summary_pairs_candidate_first_and_baseline_second ... ok
-test profiling::sessions::linux_perf_tests::early_exit_preserves_stderr_and_reaps_collector ... ok
+test native::memory::tests::symbol_sidecars_require_recorded_identity_and_valid_structure ... ok
 test profiling::sessions::linux_perf_tests::startup_failure_fixture ... ok
-test dashboard::tests::hosted_failure_is_a_regression_only_when_every_failed_job_and_step_is_the_bound_gate ... ok
+test profiling::sessions::linux_perf_tests::early_exit_preserves_stderr_and_reaps_collector ... ok
 test profiling::sessions::tests::blocked_preparation_command_is_cancelled_and_reaped ... ok
 test profiling::sessions::tests::cancellation_fixture ... ok
 test profiling::sessions::tests::cpu_evidence_rejects_idle_or_metadata_only_samples ... ok
@@ -191,7 +191,7 @@ test profiling::validation::tests::instruments_hosted_time_samples_resolve_kperf
 test profiling::validation::tests::instruments_kperf_process_cannot_supply_row_attribution ... ok
 test profiling::validation::tests::instruments_launched_allocations_bind_real_target_and_payload ... ok
 test profiling::validation::tests::instruments_launched_allocations_reject_extra_or_metadata_targets ... ok
-test profiling::sessions::tests::samply_stdout_banner_is_not_an_attach_ack ... ok
+test dashboard::tests::unrelated_collection_failure_takes_precedence_over_policy_regression ... ok
 test profiling::validation::tests::instruments_launched_allocations_reject_wrong_process_track ... ok
 test profiling::validation::tests::instruments_metadata_rows_are_not_cpu_or_allocation_evidence ... ok
 test profiling::validation::tests::instruments_rejects_dangling_and_wrong_type_attribution_references ... ok
@@ -202,24 +202,24 @@ test profiling::validation::tests::instruments_toc_requires_complete_root_and_el
 test profiling::validation::tests::native_xml_rejects_absent_or_multiple_document_roots ... ok
 test profiling::validation::tests::retained_etl_loss_evidence_cannot_be_hidden_by_valid_target_samples ... ok
 test profiling::validation::tests::retained_kernel_event_guids_and_raw_thread_schema_resolve_target_samples ... ok
-test profiling::validation::tests::instruments_launched_allocations_require_meaningful_fields_and_complete_xml ... ok
-test profiling::validation::tests::subject_thread_not_reporting_process_controls_cpu_attribution_and_reuse ... ok
 test profiling::validation::tests::retained_raw_thread_records_reject_malformed_truncated_and_unknown_versions ... ok
+test profiling::validation::tests::subject_thread_not_reporting_process_controls_cpu_attribution_and_reuse ... ok
+test profiling::validation::tests::instruments_launched_allocations_require_meaningful_fields_and_complete_xml ... ok
 test profiling::validation::tests::valid_cpu_sample_cannot_hide_a_malformed_record_or_unrelated_source ... ok
-test profiling::validation::tests::windows_utf16_exports_decode_without_losing_events ... ok
 test profiling::viewer::tests::downloaded_paths_cannot_escape_run_or_use_windows_separators ... ok
+test profiling::validation::tests::windows_utf16_exports_decode_without_losing_events ... ok
 test profiling::viewer::tests::downloaded_profile_hash_mismatch_prevents_viewing ... ok
-test profiling::viewer::tests::preserved_symbol_identity_must_match_original ... ok
 test profiling::windows::tests::complete_wpr_stop_without_losses_is_accepted ... ok
 test profiling::windows::tests::retained_wpr_loss_reports_remain_fatal ... ok
-test dashboard::tests::unrelated_collection_failure_takes_precedence_over_policy_regression ... ok
-test workflow::collection::unix::tests::child_nonzero_status_is_not_replaced_by_supervisor_status ... ok
+test profiling::viewer::tests::preserved_symbol_identity_must_match_original ... ok
+test profiling::sessions::tests::samply_stdout_banner_is_not_an_attach_ack ... ok
 test workflow::collection::unix::tests::an_unreaped_zombie_group_is_not_absent ... ok
 test workflow::collection::unix::tests::existing_receipt_cannot_be_reused_or_overwritten ... ok
+test workflow::collection::unix::tests::child_nonzero_status_is_not_replaced_by_supervisor_status ... ok
 test workflow::collection::unix::tests::pending_receipt_blocks_publication_until_interrupted_group_is_reaped ... ok
 test workflow::collection::unix::tests::signal_exit_is_preserved ... ok
-test workflow::collection::unix::tests::spawn_failure_is_truthful_and_does_not_invent_a_group ... ok
 test workflow::collection::unix::tests::leader_exit_with_term_ignoring_writer_cannot_pass ... ok
+test workflow::collection::unix::tests::spawn_failure_is_truthful_and_does_not_invent_a_group ... ok
 test workflow::collection::unix::tests::successful_command_preserves_literal_arguments_and_environment ... ok
 test workflow::collection::unix::tests::uncertain_kernel_states_cannot_hide_owned_processes ... ok
 test workflow::observer::protocol::tests::eof_does_not_complete_a_request_and_bad_data_is_rejected ... ok
@@ -228,27 +228,27 @@ test workflow::observer::protocol::tests::request_limit_counts_newline_and_accep
 test workflow::collection::unix::tests::cleanup_cannot_steal_an_unrelated_child_exit_status ... ok
 test workflow::observer::unsupported_tests::observer_is_explicitly_unsupported_off_macos ... ok
 test workflow::snapshot::tests::atomic_publication_refuses_a_destination_created_after_staging ... ok
-test workflow::snapshot::tests::completed_and_incomplete_evidence_have_separate_namespaces ... ok
 test workflow::collection::unix::tests::timeout_escalates_past_ignored_term_and_reaps_leader ... ok
+test workflow::snapshot::tests::completed_and_incomplete_evidence_have_separate_namespaces ... ok
 test workflow::observer::protocol::tests::response_limit_is_atomic_and_includes_the_terminator ... ok
-test workflow::snapshot::tests::live_owned_group_blocks_raw_even_with_completed_receipt ... ok
-test workflow::snapshot::tests::never_spawned_receipt_cannot_admit_existing_raw ... ok
-test workflow::snapshot::tests::invalid_lifecycle_receipts_never_publish_raw ... ok
-test workflow::snapshot::tests::source_overlap_and_existing_destinations_are_never_modified ... ok
 test workflow::snapshot::tests::failed_copy_discards_already_staged_raw ... ok
-test workflow::snapshot::tests::symlink_source_and_destination_are_not_followed ... ok
-test workflow::snapshot::tests::uncertain_cleanup_is_rejected_before_raw_walking ... ok
+test workflow::snapshot::tests::never_spawned_receipt_cannot_admit_existing_raw ... ok
+test workflow::snapshot::tests::live_owned_group_blocks_raw_even_with_completed_receipt ... ok
+test workflow::snapshot::tests::source_overlap_and_existing_destinations_are_never_modified ... ok
 test workflow::snapshot::tests::special_files_are_rejected_without_opening_them ... ok
 test workflow::snapshot::tests::published_files_are_independent_of_later_source_changes ... ok
+test workflow::snapshot::tests::invalid_lifecycle_receipts_never_publish_raw ... ok
+test workflow::snapshot::tests::symlink_source_and_destination_are_not_followed ... ok
+test workflow::snapshot::tests::uncertain_cleanup_is_rejected_before_raw_walking ... ok
 test calibration::tests::reports::repeated::repeated_cli_accepts_exact_boundary_retains_raw_failures_and_fixed_bounds ... ok
 test calibration::tests::reports::repeated::repeated_cli_writes_failure_reports_for_insufficient_or_unverified_evidence ... ok
 test calibration::tests::reports::repeated::repeated_cli_rejects_missing_roles_duplicate_jobs_and_unbalanced_positions ... ok
 test calibration::tests::reports::multibench::repeated_v2_reports_both_benchmarks_without_changing_fixed_control_math ... ok
-test calibration::tests::reports::repeated::repeated_cli_does_not_pool_jobs_or_accept_inconclusive_controls ... ok
 test calibration::tests::reports::repeated::repeated_cli_binomial_boundary_requires_62_of_105_and_preserves_ties ... ok
+test calibration::tests::reports::repeated::repeated_cli_does_not_pool_jobs_or_accept_inconclusive_controls ... ok
 test calibration::tests::reports::repeated::repeated_cli_handles_zero_u64_and_cache_boundary_exactly ... ok
 
-test result: ok. 209 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 44.56s
+test result: ok. 209 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 39.07s
 
      Running tests/latency_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/latency_contract-cd3ed0f49a0236c4)
 
@@ -256,7 +256,7 @@ running 2 tests
 test collection_requires_ci_before_accessing_measurement_inputs ... ok
 test zero_samples_and_unknown_flags_are_rejected ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running tests/native_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/native_contract-cb8d8eff65a2e399)
 
@@ -266,7 +266,7 @@ test native_help_is_safe_locally_and_preserves_original_commands ... ok
 test discovery_cli_rejects_invalid_numbers_and_revision_before_ci_guard ... ok
 test lifecycle_stress_keeps_local_setup_failure_evidence ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running tests/paired_admission.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_admission-1715427d50a0cbff)
 
@@ -274,14 +274,14 @@ running 2 tests
 test retained_uncertainty_cannot_be_classified_as_pass_or_confirmed_regression ... ok
 test admission_requires_current_method_and_coherent_producer_outcomes ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.01s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s
 
      Running tests/paired_collector.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_collector-83dd01e9c48d7349)
 
 running 1 test
 test paired_collection_rejects_wrong_source_revision_before_compilation ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running tests/paired_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_contract-feab9983e1b7ef96)
 
@@ -290,545 +290,545 @@ test paired_report_rejects_multiple_retained_files_for_one_fresh_part ... ok
 test paired_report_accepts_an_isolated_outlier_with_complete_105_sample_bounds ... ok
 test paired_report_preserves_zero_baseline_counts_without_accepting_missing_instructions ... ok
 test paired_report_requires_profile_counts_to_match_retained_stdout ... ok
-     Running tests/paired_dashboard.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_dashboard-056c642abd6babaf)
 test paired_report_accepts_native_event_columns_and_zero_counters ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.54s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.37s
 
+     Running tests/paired_dashboard.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/paired_dashboard-056c642abd6babaf)
 
 running 2 tests
 test repeated_inconclusive_bundle_remains_uncertain_without_corrupting_evidence ... ok
 test coherently_forged_repeated_pass_is_rejected_against_retained_raw_evidence ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.28s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.15s
 
      Running tests/policy_contract.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/policy_contract-c424ada71a91e168)
 
 running 26 tests
-test candidate_results_for_a_different_baseline_are_ignored ... ok
 test duplicate_baseline_summary_id_is_a_hard_error ... ok
+test candidate_results_for_a_different_baseline_are_ignored ... ok
 test admission_rejects_hash_matching_symlinks_outside_the_bundle ... ok
+test duplicate_candidate_id_is_a_hard_error ... ok
 test admission_environment_requires_sole_owner_user_review_without_admin_bypass ... ok
 test left_only_baseline_workload_is_missing_not_new ... ok
-test duplicate_candidate_id_is_a_hard_error ... ok
 test admission_rejects_coherent_outcome_forgery_even_with_refreshed_hashes ... ok
-test malformed_stale_and_empty_summary_trees_fail ... ok
-test each_missing_required_metric_is_a_hard_error ... ok
 test manifest_preserves_exact_identity_and_canonical_order ... ok
+test each_missing_required_metric_is_a_hard_error ... ok
+test malformed_stale_and_empty_summary_trees_fail ... ok
 test missing_instruction_collection_cannot_pass_as_an_improvement ... ok
+test manifest_schema_empty_and_duplicate_ids_are_rejected ... ok
 test admission_preserves_real_pass_and_each_metric_regression ... ok
 test missing_paired_event_is_a_hard_error ... ok
-test manifest_schema_empty_and_duplicate_ids_are_rejected ... ok
-test paired_candidate_absent_from_manifest_is_rejected ... ok
-test malformed_paired_metrics_are_a_hard_error ... ok
 test admission_rejects_mismatched_source_head_run_and_verdict_provenance ... ok
-test prior_cli_flags_modes_and_help_are_preserved ... ok
 test malformed_new_candidate_counts_are_not_excluded ... ok
-test zero_baseline_three_cache_events_pass_and_four_fail_on_summaries ... ok
 test missing_baseline_id_fails_with_canonical_id ... ok
+test malformed_paired_metrics_are_a_hard_error ... ok
+test paired_candidate_absent_from_manifest_is_rejected ... ok
+test zero_baseline_three_cache_events_pass_and_four_fail_on_summaries ... ok
+test prior_cli_flags_modes_and_help_are_preserved ... ok
 test regression_in_any_baseline_workload_fails ... ok
 test retained_verdict_uses_the_authoritative_comparison_and_preserves_cli_failures ... ok
-test admission_rejects_inconsistent_exits_and_collector_errors ... ok
 test admission_rejects_missing_malformed_tampered_and_forged_evidence ... ok
+test admission_rejects_inconsistent_exits_and_collector_errors ... ok
 test baseline_and_candidate_workload_counts_are_authoritative ... ok
 
-test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
 
      Running tests/reports_latency.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/reports_latency-3e3f081f119a9c8d)
 
 running 15 tests
 test latency_help_succeeds_without_collecting_measurements ... ok
-test hundredfold_regression_is_reported_without_failure ... ok
-test individually_valid_but_unpaired_dimensions_fail ... ok
-test improvement_and_even_round_half_nanosecond_median ... ok
 test descriptive_metadata_can_differ_without_affecting_pairing ... ok
 test latency_cli_requires_outputs_and_rejects_unknown_flags ... ok
-test paired_round_deltas_retain_alternating_collection_order ... ok
-test report_uses_nearest_rank_and_median_of_round_percentiles ... ok
-test sample_integers_outside_u64_are_rejected_on_either_side ... ok
-test unsorted_p95_uses_nearest_rank_not_maximum_or_interpolation ... ok
+test individually_valid_but_unpaired_dimensions_fail ... ok
+test improvement_and_even_round_half_nanosecond_median ... ok
+test hundredfold_regression_is_reported_without_failure ... ok
 test large_integer_and_half_nanosecond_summaries_are_exact ... ok
 test malformed_json_and_missing_files_fail ... ok
+test paired_round_deltas_retain_alternating_collection_order ... ok
+test unsorted_p95_uses_nearest_rank_not_maximum_or_interpolation ... ok
+test report_uses_nearest_rank_and_median_of_round_percentiles ... ok
+test sample_integers_outside_u64_are_rejected_on_either_side ... ok
 test reports_reject_nonfinite_json_on_either_side ... ok
 test invalid_or_incomparable_measurements_fail_without_reports ... ok
 test environment_and_counts_are_required_and_strictly_typed ... ok
 
-test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
 
      Running tests/transport_fixture.rs (/workspace/target/semantic-approved-126952f6d048/debug/deps/transport_fixture-9097266fcdcf516f)
 portable JSON-RPC transport contracts passed
 == release integrity ==
 ....................................
 ----------------------------------------------------------------------
-Ran 36 tests in 1.446s
+Ran 36 tests in 0.728s
 
 OK
 Skipping obsolete nightly nightly-2026-10-01-7e28270a3b717d78b07c2b45916f37fe98cf85af: main advanced after this quality run
-Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpywk1if_e/dist/bend2-lsp-x86_64-unknown-linux-gnu
-Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpywk1if_e/dist/bend2-lsp-aarch64-unknown-linux-gnu
-Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpywk1if_e/dist/bend2-lsp-x86_64-apple-darwin
-Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpywk1if_e/dist/bend2-lsp-aarch64-apple-darwin
-Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpywk1if_e/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
-Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpywk1if_e/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
-Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-x86_64-unknown-linux-gnu
-Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-x86_64-unknown-linux-gnu
-Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-aarch64-unknown-linux-gnu
-Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-aarch64-unknown-linux-gnu
-Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-x86_64-apple-darwin
-Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-x86_64-apple-darwin
-Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-aarch64-apple-darwin
-Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-aarch64-apple-darwin
-Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
-Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
-Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
-Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpusdzlqek/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmp01t5i135/dist/bend2-lsp-x86_64-unknown-linux-gnu
+Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmp01t5i135/dist/bend2-lsp-aarch64-unknown-linux-gnu
+Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmp01t5i135/dist/bend2-lsp-x86_64-apple-darwin
+Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmp01t5i135/dist/bend2-lsp-aarch64-apple-darwin
+Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmp01t5i135/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmp01t5i135/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-x86_64-unknown-linux-gnu
+Packaged dist/bend2-lsp-x86_64-unknown-linux-gnu; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-x86_64-unknown-linux-gnu
+Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-aarch64-unknown-linux-gnu
+Packaged dist/bend2-lsp-aarch64-unknown-linux-gnu; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-aarch64-unknown-linux-gnu
+Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-x86_64-apple-darwin
+Packaged dist/bend2-lsp-x86_64-apple-darwin; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-x86_64-apple-darwin
+Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-aarch64-apple-darwin
+Packaged dist/bend2-lsp-aarch64-apple-darwin; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-aarch64-apple-darwin
+Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-x86_64-pc-windows-msvc.exe; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-x86_64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
+Packaged dist/bend2-lsp-aarch64-pc-windows-msvc.exe; E2E executable: /tmp/tmpozblyoqp/dist/bend2-lsp-aarch64-pc-windows-msvc.exe
 Published v1.2.3 at 7e28270a3b717d78b07c2b45916f37fe98cf85af with six tested native executables and SHA256SUMS
 v1.2.3 is already public at 7e28270a3b717d78b07c2b45916f37fe98cf85af; leaving all assets unchanged
 == semantic supervisor contract tests ==
 ......................................................................................s.....s......ssss.............................
 ----------------------------------------------------------------------
-Ran 132 tests in 8.567s
+Ran 132 tests in 7.617s
 
 OK (skipped=6)
 ....
 ----------------------------------------------------------------------
-Ran 4 tests in 0.014s
+Ran 4 tests in 0.006s
 
 OK
 == format ==
 == rustc ==
     Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
     Checking bend2-semantic-probe v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/semantic-probe)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.81s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.20s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
 == clippy (all targets; test panic helpers permitted) ==
     Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
     Checking bend2-semantic-probe v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/semantic-probe)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.58s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.80s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
 == clippy (production binary; panic helpers denied) ==
     Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.80s
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.96s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
 == tests ==
    Compiling bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
    Compiling bend2-semantic-probe v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/semantic-probe)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 51.27s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 36.54s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
 ────────────
- Nextest run ID 2666255a-b5b8-4810-af4b-619e5265de3e with nextest profile: ci
+ Nextest run ID df7aa34a-9d86-494a-aa18-d5430e4cde53 with nextest profile: ci
     Starting 489 tests across 22 binaries (2 tests skipped)
         PASS [   0.005s] (  1/489) bend2-lsp analysis::syntax::name_table_tests::frozen_lookup_preserves_ids_ranges_and_absent_names
         PASS [   0.003s] (  2/489) bend2-lsp analysis::syntax::name_table_tests::frozen_lookup_separates_full_hash_collisions
         PASS [   0.003s] (  3/489) bend2-lsp analysis::syntax::name_table_tests::full_hash_collisions_keep_distinct_names_and_reject_absent_names
-        PASS [   0.014s] (  4/489) bend2-lsp server::compiler::snapshot_lifetime_tests::completed_compiler_cache_does_not_retain_semantic_snapshots
-        PASS [   0.006s] (  5/489) bend2-lsp server::compiler_backend::tests::captured_unicode_ranges_map_only_to_original_document
-        PASS [   0.005s] (  6/489) bend2-lsp server::compiler_backend::tests::compatibility_requires_the_frozen_identity_and_matching_exit
-        PASS [   0.006s] (  7/489) bend2-lsp server::compiler_backend::tests::coverage_cannot_forge_success_or_hide_failed_declarations
-        PASS [   0.005s] (  8/489) bend2-lsp server::compiler_backend::tests::dependency_digest_cannot_certify_missing_root_or_diagnostic_sources
-        PASS [   0.005s] (  9/489) bend2-lsp server::compiler_backend::tests::duplicate_and_aliased_source_records_cannot_change_provenance
-        PASS [   0.007s] ( 10/489) bend2-lsp server::compiler_backend::tests::duplicate_missing_and_trailing_protocol_fields_are_rejected
-        PASS [   0.005s] ( 11/489) bend2-lsp server::compiler_backend::tests::forged_request_identity_source_and_exit_are_rejected
-        PASS [   0.008s] ( 12/489) bend2-lsp server::compiler_backend::tests::impossible_utf16_ranges_and_span_claims_are_rejected
-        PASS [   0.006s] ( 13/489) bend2-lsp server::compiler_backend::tests::unknown_source_and_backend_failure_preserve_independent_errors
-        PASS [   0.005s] ( 14/489) bend2-lsp server::diagnostics::service_tests::failed_task_marks_service_fatal_and_rejects_admission
+        PASS [   0.016s] (  4/489) bend2-lsp server::compiler::snapshot_lifetime_tests::completed_compiler_cache_does_not_retain_semantic_snapshots
+        PASS [   0.005s] (  5/489) bend2-lsp server::compiler_backend::tests::captured_unicode_ranges_map_only_to_original_document
+        PASS [   0.003s] (  6/489) bend2-lsp server::compiler_backend::tests::compatibility_requires_the_frozen_identity_and_matching_exit
+        PASS [   0.004s] (  7/489) bend2-lsp server::compiler_backend::tests::coverage_cannot_forge_success_or_hide_failed_declarations
+        PASS [   0.004s] (  8/489) bend2-lsp server::compiler_backend::tests::dependency_digest_cannot_certify_missing_root_or_diagnostic_sources
+        PASS [   0.003s] (  9/489) bend2-lsp server::compiler_backend::tests::duplicate_and_aliased_source_records_cannot_change_provenance
+        PASS [   0.003s] ( 10/489) bend2-lsp server::compiler_backend::tests::duplicate_missing_and_trailing_protocol_fields_are_rejected
+        PASS [   0.004s] ( 11/489) bend2-lsp server::compiler_backend::tests::forged_request_identity_source_and_exit_are_rejected
+        PASS [   0.004s] ( 12/489) bend2-lsp server::compiler_backend::tests::impossible_utf16_ranges_and_span_claims_are_rejected
+        PASS [   0.003s] ( 13/489) bend2-lsp server::compiler_backend::tests::unknown_source_and_backend_failure_preserve_independent_errors
+        PASS [   0.004s] ( 14/489) bend2-lsp server::diagnostics::service_tests::failed_task_marks_service_fatal_and_rejects_admission
         PASS [   0.003s] ( 15/489) bend2-lsp server::diagnostics::service_tests::fatal_signal_rejects_admission_before_shutdown
-        PASS [   0.004s] ( 16/489) bend2-lsp server::diagnostics::service_tests::obsolete_completion_and_close_cannot_remove_replacement
-        PASS [   0.004s] ( 17/489) bend2-lsp server::diagnostics::service_tests::shutdown_drains_running_tasks_and_rejects_new_admission
-        PASS [   0.004s] ( 18/489) bend2-lsp server::formatter::tests::formatting_preserves_comments_strings_crlf_and_indent_style
+        PASS [   0.003s] ( 16/489) bend2-lsp server::diagnostics::service_tests::obsolete_completion_and_close_cannot_remove_replacement
+        PASS [   0.003s] ( 17/489) bend2-lsp server::diagnostics::service_tests::shutdown_drains_running_tasks_and_rejects_new_admission
+        PASS [   0.003s] ( 18/489) bend2-lsp server::formatter::tests::formatting_preserves_comments_strings_crlf_and_indent_style
         PASS [   0.003s] ( 19/489) bend2-lsp server::formatter::tests::formatting_preserves_missing_final_newline_and_incomplete_input
-        PASS [   0.003s] ( 20/489) bend2-lsp server::formatter::tests::formatting_preserves_unknown_punctuation_token_sequence
-        PASS [   0.004s] ( 21/489) bend2-lsp server::lsp::diagnostics_publication_tests::held_import_v1_result_cannot_replace_v2_snapshot
-        PASS [   0.004s] ( 22/489) bend2-lsp server::lsp::diagnostics_publication_tests::held_root_v1_result_cannot_publish_after_v2_commits
-        PASS [   0.006s] ( 23/489) bend2-lsp server::lsp::notification_ordering_tests::did_save_waits_for_open_even_when_lint_cleanup_is_contended
-        PASS [   0.008s] ( 24/489) bend2-lsp server::lsp::notification_ordering_tests::lint_publication_contention_cannot_overtake_did_change
-        PASS [   0.007s] ( 25/489) bend2-lsp server::lsp::notification_ordering_tests::lint_publication_contention_cannot_overtake_did_close
-        PASS [   0.006s] ( 26/489) bend2-lsp server::lsp::notification_ordering_tests::lint_publication_contention_cannot_overtake_did_open
-        PASS [   0.053s] ( 27/489) bend2-lsp server::lsp::staging_tests::staging_blocking_work_respects_its_concurrency_limit
+        PASS [   0.002s] ( 20/489) bend2-lsp server::formatter::tests::formatting_preserves_unknown_punctuation_token_sequence
+        PASS [   0.003s] ( 21/489) bend2-lsp server::lsp::diagnostics_publication_tests::held_import_v1_result_cannot_replace_v2_snapshot
+        PASS [   0.003s] ( 22/489) bend2-lsp server::lsp::diagnostics_publication_tests::held_root_v1_result_cannot_publish_after_v2_commits
+        PASS [   0.005s] ( 23/489) bend2-lsp server::lsp::notification_ordering_tests::did_save_waits_for_open_even_when_lint_cleanup_is_contended
+        PASS [   0.004s] ( 24/489) bend2-lsp server::lsp::notification_ordering_tests::lint_publication_contention_cannot_overtake_did_change
+        PASS [   0.004s] ( 25/489) bend2-lsp server::lsp::notification_ordering_tests::lint_publication_contention_cannot_overtake_did_close
+        PASS [   0.005s] ( 26/489) bend2-lsp server::lsp::notification_ordering_tests::lint_publication_contention_cannot_overtake_did_open
+        PASS [   0.055s] ( 27/489) bend2-lsp server::lsp::staging_tests::staging_blocking_work_respects_its_concurrency_limit
         PASS [   0.004s] ( 28/489) bend2-lsp server::lsp::workspace_readiness_tests::captured_revision_completes_after_commit
         PASS [   0.003s] ( 29/489) bend2-lsp server::lsp::workspace_readiness_tests::captured_revision_completes_after_failed_stage_or_close
-        PASS [   0.003s] ( 30/489) bend2-lsp server::lsp::workspace_readiness_tests::captured_revision_does_not_wait_for_a_newer_reservation
-        PASS [   0.014s] ( 31/489) bend2-lsp server::lsp::workspace_readiness_tests::definition_waits_for_compiler_configuration_and_uses_new_base
-        PASS [   0.004s] ( 32/489) bend2-lsp server::revision::tests::all_out_of_order_drop_permutations_release_the_next_generation
+        PASS [   0.004s] ( 30/489) bend2-lsp server::lsp::workspace_readiness_tests::captured_revision_does_not_wait_for_a_newer_reservation
+        PASS [   0.009s] ( 31/489) bend2-lsp server::lsp::workspace_readiness_tests::definition_waits_for_compiler_configuration_and_uses_new_base
+        PASS [   0.003s] ( 32/489) bend2-lsp server::revision::tests::all_out_of_order_drop_permutations_release_the_next_generation
         PASS [   0.003s] ( 33/489) bend2-lsp server::revision::tests::captured_readiness_does_not_follow_a_newer_pending_generation
-        PASS [   0.004s] ( 34/489) bend2-lsp server::revision::tests::close_wakes_old_epoch_waiters_without_blocking_or_failing_reopen
-        PASS [   0.003s] ( 35/489) bend2-lsp server::revision::tests::closed_epoch_cannot_repopulate_reopened_staging_cache
-        PASS [   0.004s] ( 36/489) bend2-lsp server::revision::tests::dropped_predecessor_wakes_staging_then_commit_wakes_captured_readiness
+        PASS [   0.003s] ( 34/489) bend2-lsp server::revision::tests::close_wakes_old_epoch_waiters_without_blocking_or_failing_reopen
+        PASS [   0.004s] ( 35/489) bend2-lsp server::revision::tests::closed_epoch_cannot_repopulate_reopened_staging_cache
+        PASS [   0.003s] ( 36/489) bend2-lsp server::revision::tests::dropped_predecessor_wakes_staging_then_commit_wakes_captured_readiness
         PASS [   0.003s] ( 37/489) bend2-lsp server::revision::tests::dropping_current_ticket_releases_readiness_and_allows_a_new_revision
         PASS [   0.003s] ( 38/489) bend2-lsp server::revision::tests::failed_newer_revision_retains_the_last_committed_revision
         PASS [   0.004s] ( 39/489) bend2-lsp server::revision::tests::refresh_of_same_revision_has_independent_commit_and_failure_generation
         PASS [   0.003s] ( 40/489) bend2-lsp server::revision::tests::rejected_reservations_and_stale_tickets_do_not_publish_status_changes
-        PASS [   0.004s] ( 41/489) bend2-lsp server::revision::tests::superseded_staging_remains_ordered_and_supplies_the_next_edit
-        PASS [   0.007s] ( 42/489) bend2-lsp server::state::tests::blocking_failure_propagates_instead_of_returning_a_fallback
-        PASS [   0.003s] ( 43/489) bend2-lsp server::state::tests::poisoned_state_never_returns_an_empty_or_recovered_view
+        PASS [   0.003s] ( 41/489) bend2-lsp server::revision::tests::superseded_staging_remains_ordered_and_supplies_the_next_edit
+        PASS [   0.003s] ( 42/489) bend2-lsp server::state::tests::blocking_failure_propagates_instead_of_returning_a_fallback
+        PASS [   0.004s] ( 43/489) bend2-lsp server::state::tests::poisoned_state_never_returns_an_empty_or_recovered_view
         PASS [   0.003s] ( 44/489) bend2-lsp server::state::tests::supervision_reports_failure_before_preserving_the_panic
-        PASS [   0.005s] ( 45/489) bend2-lsp server::workspace_service::tests::closing_reachable_overlay_invalidates_old_disk_and_imports
+        PASS [   0.004s] ( 45/489) bend2-lsp server::workspace_service::tests::closing_reachable_overlay_invalidates_old_disk_and_imports
         PASS [   0.004s] ( 46/489) bend2-lsp server::workspace_service::tests::cold_semantic_publication_rejects_closed_and_reopened_inputs
         PASS [   0.004s] ( 47/489) bend2-lsp server::workspace_service::tests::enabled_close_waiter_observes_commit_and_reopen_notifications
-        PASS [   0.003s] ( 48/489) bend2-lsp server::workspace_service::tests::queued_close_cannot_mutate_a_reopened_epoch
-        PASS [   0.006s] ( 49/489) bend2-lsp server::workspace_tests::tests::compiler_navigation_source_survives_editor_overlay_close_and_retirement
-        PASS [   0.007s] ( 50/489) bend2-lsp server::workspace_tests::tests::disk_sync_respects_demand_and_invalidates_retired_generations
-        PASS [   0.030s] ( 51/489) bend2-lsp server::workspace_tests::tests::loads_large_shared_cyclic_graph_and_prefers_open_snapshots
-        PASS [   0.005s] ( 52/489) bend2-lsp server::workspace_tests::tests::renamed_identity_keeps_imports_of_an_already_loaded_destination
+        PASS [   0.004s] ( 48/489) bend2-lsp server::workspace_service::tests::queued_close_cannot_mutate_a_reopened_epoch
+        PASS [   0.005s] ( 49/489) bend2-lsp server::workspace_tests::tests::compiler_navigation_source_survives_editor_overlay_close_and_retirement
+        PASS [   0.005s] ( 50/489) bend2-lsp server::workspace_tests::tests::disk_sync_respects_demand_and_invalidates_retired_generations
+        PASS [   0.029s] ( 51/489) bend2-lsp server::workspace_tests::tests::loads_large_shared_cyclic_graph_and_prefers_open_snapshots
+        PASS [   0.008s] ( 52/489) bend2-lsp server::workspace_tests::tests::renamed_identity_keeps_imports_of_an_already_loaded_destination
         PASS [   0.005s] ( 53/489) bend2-lsp server::workspace_tests::tests::replacing_imports_removes_stale_reverse_edges_and_keeps_new_target
         PASS [   0.006s] ( 54/489) bend2-lsp workspace::tests::directory_alias_renames_preserve_leaf_symlinks_and_import_order
         PASS [   0.005s] ( 55/489) bend2-lsp workspace::tests::discovered_snapshots_are_prepared_roots_until_deleted_or_removed
         PASS [   0.006s] ( 56/489) bend2-lsp workspace::tests::editor_directory_alias_renames_use_prepared_coordinates_without_native_edges
         PASS [   0.005s] ( 57/489) bend2-lsp workspace::tests::editor_import_paths_require_live_snapshots_without_native_path_relaxation
-        PASS [   0.006s] ( 58/489) bend2-lsp workspace::tests::editor_only_imports_keep_navigation_and_literal_path_rename_edits
-        PASS [   0.005s] ( 59/489) bend2-lsp workspace::tests::file_rename_preserves_each_imports_logical_symlink_spelling
-        PASS [   0.005s] ( 60/489) bend2-lsp workspace::tests::native_module_paths_validate_suffixes_and_real_namespaces
+        PASS [   0.004s] ( 58/489) bend2-lsp workspace::tests::editor_only_imports_keep_navigation_and_literal_path_rename_edits
+        PASS [   0.006s] ( 59/489) bend2-lsp workspace::tests::file_rename_preserves_each_imports_logical_symlink_spelling
+        PASS [   0.004s] ( 60/489) bend2-lsp workspace::tests::native_module_paths_validate_suffixes_and_real_namespaces
         PASS [   0.006s] ( 61/489) bend2-lsp workspace::tests::prepared_editor_paths_have_no_native_ownership_and_watch_absent_fallbacks
-        PASS [   0.005s] ( 62/489) bend2-lsp workspace::tests::reverse_entry_roots_join_physical_aliases_and_index_base_importers
+        PASS [   0.006s] ( 62/489) bend2-lsp workspace::tests::reverse_entry_roots_join_physical_aliases_and_index_base_importers
         PASS [   0.005s] ( 63/489) bend2-lsp workspace::tests::revised_base_headers_update_reverse_entry_selection
         PASS [   0.005s] ( 64/489) bend2-lsp workspace::tests::unopened_needed_dependencies_have_their_own_prepared_entry_views
-        PASS [   0.004s] ( 65/489) bend2-lsp::analysis completion_keeps_declarations_between_constructor_groups_including_recovery
-        PASS [   0.004s] ( 66/489) bend2-lsp::analysis constructor_definitions_preserve_source_order_when_names_were_seen_earlier
+        PASS [   0.003s] ( 65/489) bend2-lsp::analysis completion_keeps_declarations_between_constructor_groups_including_recovery
+        PASS [   0.003s] ( 66/489) bend2-lsp::analysis constructor_definitions_preserve_source_order_when_names_were_seen_earlier
         PASS [   0.003s] ( 67/489) bend2-lsp::analysis delimiter_lookup_preserves_nesting_and_excludes_unclosed_openings
         PASS [   0.003s] ( 68/489) bend2-lsp::analysis dense_index_lookups_distinguish_zero_ids_missing_entries_and_nested_calls
-        PASS [   0.003s] ( 69/489) bend2-lsp::analysis document_revision_keeps_previous_snapshot_immutable
+        PASS [   0.004s] ( 69/489) bend2-lsp::analysis document_revision_keeps_previous_snapshot_immutable
         PASS [   0.003s] ( 70/489) bend2-lsp::analysis duplicate_constructor_declarations_have_no_arbitrary_standalone_target
         PASS [   0.003s] ( 71/489) bend2-lsp::analysis folding_handles_empty_documents_and_unclosed_syntax_at_eof
-        PASS [   0.004s] ( 72/489) bend2-lsp::analysis folding_keeps_ascii_and_unicode_whitespace_out_of_block_boundaries
+        PASS [   0.003s] ( 72/489) bend2-lsp::analysis folding_keeps_ascii_and_unicode_whitespace_out_of_block_boundaries
         PASS [   0.003s] ( 73/489) bend2-lsp::analysis folding_preserves_blank_and_comment_line_boundaries
         PASS [   0.003s] ( 74/489) bend2-lsp::analysis folding_ranges_track_nested_indented_blocks_in_source_order
         PASS [   0.003s] ( 75/489) bend2-lsp::analysis inlay_hints_order_nested_calls_and_limit_labels_to_declared_parameters
-        PASS [   0.004s] ( 76/489) bend2-lsp::analysis line_index_clamps_empty_eof_and_out_of_range_coordinates
+        PASS [   0.003s] ( 76/489) bend2-lsp::analysis line_index_clamps_empty_eof_and_out_of_range_coordinates
         PASS [   0.003s] ( 77/489) bend2-lsp::analysis line_index_converts_utf16_and_floors_non_boundary_byte_offsets
         PASS [   0.004s] ( 78/489) bend2-lsp::analysis line_index_handles_lf_and_crlf_line_ends
-        PASS [   0.004s] ( 79/489) bend2-lsp::analysis long_unicode_lines_use_sparse_utf16_position_checkpoints
-        PASS [   0.030s] ( 80/489) bend2-lsp::analysis medium_and_large_inlay_hints_match_legacy_exactly
-        PASS [   0.043s] ( 81/489) bend2-lsp::analysis medium_and_large_legacy_fixture_outputs_match_indexed_queries_exactly
-        PASS [   0.003s] ( 82/489) bend2-lsp::analysis module_completion_keeps_same_spelling_functions_when_constructors_change
-        PASS [   0.004s] ( 83/489) bend2-lsp::analysis module_completion_preserves_ascii_case_underscores_repeated_letters_and_unicode
+        PASS [   0.005s] ( 79/489) bend2-lsp::analysis long_unicode_lines_use_sparse_utf16_position_checkpoints
+        PASS [   0.031s] ( 80/489) bend2-lsp::analysis medium_and_large_inlay_hints_match_legacy_exactly
+        PASS [   0.044s] ( 81/489) bend2-lsp::analysis medium_and_large_legacy_fixture_outputs_match_indexed_queries_exactly
+        PASS [   0.004s] ( 82/489) bend2-lsp::analysis module_completion_keeps_same_spelling_functions_when_constructors_change
+        PASS [   0.003s] ( 83/489) bend2-lsp::analysis module_completion_preserves_ascii_case_underscores_repeated_letters_and_unicode
         PASS [   0.003s] ( 84/489) bend2-lsp::analysis module_completion_preserves_length_boundaries_and_snapshot_isolation
         PASS [   0.003s] ( 85/489) bend2-lsp::analysis module_completion_preserves_subsequence_order_case_and_repeated_characters
-        PASS [   0.004s] ( 86/489) bend2-lsp::analysis parameter_hints_distinguish_unresolved_and_zero_arity_calls_from_newly_resolved_calls
+        PASS [   0.002s] ( 86/489) bend2-lsp::analysis parameter_hints_distinguish_unresolved_and_zero_arity_calls_from_newly_resolved_calls
         PASS [   0.003s] ( 87/489) bend2-lsp::analysis parameter_hints_preserve_labels_across_nested_multi_argument_interleavings
-        PASS [   0.004s] ( 88/489) bend2-lsp::analysis parameter_hints_preserve_nested_order_range_boundaries_and_argument_arity
-        PASS [   0.003s] ( 89/489) bend2-lsp::analysis reference_lookup_preserves_first_declaration_shadowing_and_unresolved_names
+        PASS [   0.003s] ( 88/489) bend2-lsp::analysis parameter_hints_preserve_nested_order_range_boundaries_and_argument_arity
+        PASS [   0.004s] ( 89/489) bend2-lsp::analysis reference_lookup_preserves_first_declaration_shadowing_and_unresolved_names
         PASS [   0.003s] ( 90/489) bend2-lsp::analysis resolved_names_keep_parameter_and_pattern_shadowing_local
-        PASS [   0.006s] ( 91/489) bend2-lsp::analysis small_legacy_fixture_outputs_match_indexed_queries_exactly
+        PASS [   0.004s] ( 91/489) bend2-lsp::analysis small_legacy_fixture_outputs_match_indexed_queries_exactly
         PASS [   0.003s] ( 92/489) bend2-lsp::analysis syntax_index_keeps_malformed_literal_hole_and_delimiter_diagnostics
         PASS [   0.003s] ( 93/489) bend2-lsp::analysis syntax_index_lexes_once_and_reuses_names_imports_calls_and_context
-        PASS [   0.004s] ( 94/489) bend2-lsp::analysis visible_bindings_preserve_cross_scope_shadowing_and_boundaries
-        PASS [   0.004s] ( 95/489) bend2-lsp::analysis workspace_symbol_queries_keep_constructor_facts_nested
-        PASS [   0.839s] ( 96/489) bend2-lsp::bend_lint_protocol changes_and_unsaved_save_notifications_never_analyze_old_disk_text
-        PASS [   0.623s] ( 97/489) bend2-lsp::bend_lint_protocol close_and_reopen_cannot_accept_previous_save_completion
-        PASS [   1.184s] ( 98/489) bend2-lsp::bend_lint_protocol compiler_and_lint_publish_as_one_union_and_disabling_only_clears_lint
-        PASS [   0.574s] ( 99/489) bend2-lsp::bend_lint_protocol config_file_change_invalidates_pending_project_results
-        PASS [   0.563s] (100/489) bend2-lsp::bend_lint_protocol configuration_change_rejects_pending_results
-        PASS [   0.276s] (101/489) bend2-lsp::bend_lint_protocol conflicting_or_unverifiable_multifile_fix_is_not_offered
-        PASS [   0.463s] (102/489) bend2-lsp::bend_lint_protocol dangerous_fixes_are_absent_without_separate_code_action_consent
-        PASS [   0.359s] (103/489) bend2-lsp::bend_lint_protocol dangerous_fixes_require_optin_explicit_request_and_versioned_user_edit
-        PASS [   0.728s] (104/489) bend2-lsp::bend_lint_protocol delayed_lint_is_discarded_after_edit_and_requests_stay_responsive
-        PASS [   0.671s] (105/489) bend2-lsp::bend_lint_protocol dependency_edit_invalidates_inflight_root_findings
-        PASS [   0.812s] (106/489) bend2-lsp::bend_lint_protocol editing_saved_document_clears_published_lint_until_next_real_save
-        PASS [   0.543s] (107/489) bend2-lsp::bend_lint_protocol enabled_save_uses_json_in_nearest_project_without_fixing_disk
-        PASS [   0.527s] (108/489) bend2-lsp::bend_lint_protocol explicit_path_without_enabled_consent_never_executes_project_rules
-        PASS [   0.730s] (109/489) bend2-lsp::bend_lint_protocol imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_error
-        PASS [   1.734s] (110/489) bend2-lsp::bend_lint_protocol invalid_ranges_and_outside_paths_never_become_editor_findings
-        PASS [   0.459s] (111/489) bend2-lsp::bend_lint_protocol later_compiler_completion_keeps_already_published_lint_findings
-        PASS [   0.243s] (112/489) bend2-lsp::bend_lint_protocol lint_error_exit_one_is_a_valid_report_not_a_provider_failure
-        PASS [   0.696s] (113/489) bend2-lsp::bend_lint_protocol lint_is_off_by_default_even_with_project_rules_and_save
-        PASS [   0.187s] (114/489) bend2-lsp::bend_lint_protocol lint_rule_cannot_impersonate_an_automatic_parser_fix
-        PASS [   2.914s] (115/489) bend2-lsp::bend_lint_protocol malformed_output_and_process_failure_preserve_selected_compiler_errors
-        PASS [   1.085s] (116/489) bend2-lsp::bend_lint_protocol missing_analyzer_is_visible_without_erasing_compiler_diagnostics
-        PASS [   0.195s] (117/489) bend2-lsp::bend_lint_protocol non_utf8_symlink_target_keeps_lossless_diagnostics_and_server_responsive
-        PASS [   0.212s] (118/489) bend2-lsp::bend_lint_protocol previously_reported_fix_is_refused_after_unsaved_edit_or_external_disk_change
-        PASS [   0.535s] (119/489) bend2-lsp::bend_lint_protocol relative_analyzer_path_is_never_resolved_from_project_or_path
-        PASS [   0.559s] (120/489) bend2-lsp::bend_lint_protocol retargeting_project_directory_symlink_discards_inflight_findings
-        PASS [   0.562s] (121/489) bend2-lsp::bend_lint_protocol retargeting_project_symlink_discards_inflight_findings
-        PASS [   0.212s] (122/489) bend2-lsp::bend_lint_protocol shutdown_reaps_analyzer_process_tree
-        PASS [   0.188s] (123/489) bend2-lsp::bend_lint_protocol suppressed_findings_stay_hidden_and_utf16_positions_are_not_reencoded
-        PASS [   1.539s] (124/489) bend2-lsp::bend_lint_protocol timeout_kills_analyzer_and_its_descendant_without_blocking_compiler
-        PASS [   0.552s] (125/489) bend2-lsp::bend_lint_protocol unsaved_imported_dependency_prevents_saved_root_analysis
-        PASS [   0.261s] (126/489) bend2-lsp::bend_lint_protocol valid_multifile_dangerous_action_versions_every_open_saved_target
-        PASS [   0.964s] (127/489) bend2-lsp::bend_lint_protocol watched_dependency_change_invalidates_inflight_root_findings
-        PASS [   0.864s] (128/489) bend2-lsp::compiler_multi_error genuine_compiler_reports_both_independent_errors_at_their_literals
-        PASS [   0.295s] (129/489) bend2-lsp::editor_compiler compiler::all_real_blocks_on_both_streams_are_mapped_without_context_errors
+        PASS [   0.003s] ( 94/489) bend2-lsp::analysis visible_bindings_preserve_cross_scope_shadowing_and_boundaries
+        PASS [   0.003s] ( 95/489) bend2-lsp::analysis workspace_symbol_queries_keep_constructor_facts_nested
+        PASS [   0.912s] ( 96/489) bend2-lsp::bend_lint_protocol changes_and_unsaved_save_notifications_never_analyze_old_disk_text
+        PASS [   0.556s] ( 97/489) bend2-lsp::bend_lint_protocol close_and_reopen_cannot_accept_previous_save_completion
+        PASS [   1.103s] ( 98/489) bend2-lsp::bend_lint_protocol compiler_and_lint_publish_as_one_union_and_disabling_only_clears_lint
+        PASS [   0.530s] ( 99/489) bend2-lsp::bend_lint_protocol config_file_change_invalidates_pending_project_results
+        PASS [   0.549s] (100/489) bend2-lsp::bend_lint_protocol configuration_change_rejects_pending_results
+        PASS [   0.247s] (101/489) bend2-lsp::bend_lint_protocol conflicting_or_unverifiable_multifile_fix_is_not_offered
+        PASS [   0.160s] (102/489) bend2-lsp::bend_lint_protocol dangerous_fixes_are_absent_without_separate_code_action_consent
+        PASS [   0.163s] (103/489) bend2-lsp::bend_lint_protocol dangerous_fixes_require_optin_explicit_request_and_versioned_user_edit
+        PASS [   0.538s] (104/489) bend2-lsp::bend_lint_protocol delayed_lint_is_discarded_after_edit_and_requests_stay_responsive
+        PASS [   0.573s] (105/489) bend2-lsp::bend_lint_protocol dependency_edit_invalidates_inflight_root_findings
+        PASS [   0.819s] (106/489) bend2-lsp::bend_lint_protocol editing_saved_document_clears_published_lint_until_next_real_save
+        PASS [   0.532s] (107/489) bend2-lsp::bend_lint_protocol enabled_save_uses_json_in_nearest_project_without_fixing_disk
+        PASS [   0.521s] (108/489) bend2-lsp::bend_lint_protocol explicit_path_without_enabled_consent_never_executes_project_rules
+        PASS [   0.708s] (109/489) bend2-lsp::bend_lint_protocol imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_error
+        PASS [   1.761s] (110/489) bend2-lsp::bend_lint_protocol invalid_ranges_and_outside_paths_never_become_editor_findings
+        PASS [   0.472s] (111/489) bend2-lsp::bend_lint_protocol later_compiler_completion_keeps_already_published_lint_findings
+        PASS [   0.169s] (112/489) bend2-lsp::bend_lint_protocol lint_error_exit_one_is_a_valid_report_not_a_provider_failure
+        PASS [   0.528s] (113/489) bend2-lsp::bend_lint_protocol lint_is_off_by_default_even_with_project_rules_and_save
+        PASS [   0.179s] (114/489) bend2-lsp::bend_lint_protocol lint_rule_cannot_impersonate_an_automatic_parser_fix
+        PASS [   2.915s] (115/489) bend2-lsp::bend_lint_protocol malformed_output_and_process_failure_preserve_selected_compiler_errors
+        PASS [   1.058s] (116/489) bend2-lsp::bend_lint_protocol missing_analyzer_is_visible_without_erasing_compiler_diagnostics
+        PASS [   0.174s] (117/489) bend2-lsp::bend_lint_protocol non_utf8_symlink_target_keeps_lossless_diagnostics_and_server_responsive
+        PASS [   0.191s] (118/489) bend2-lsp::bend_lint_protocol previously_reported_fix_is_refused_after_unsaved_edit_or_external_disk_change
+        PASS [   0.521s] (119/489) bend2-lsp::bend_lint_protocol relative_analyzer_path_is_never_resolved_from_project_or_path
+        PASS [   0.564s] (120/489) bend2-lsp::bend_lint_protocol retargeting_project_directory_symlink_discards_inflight_findings
+        PASS [   0.541s] (121/489) bend2-lsp::bend_lint_protocol retargeting_project_symlink_discards_inflight_findings
+        PASS [   0.183s] (122/489) bend2-lsp::bend_lint_protocol shutdown_reaps_analyzer_process_tree
+        PASS [   0.175s] (123/489) bend2-lsp::bend_lint_protocol suppressed_findings_stay_hidden_and_utf16_positions_are_not_reencoded
+        PASS [   1.609s] (124/489) bend2-lsp::bend_lint_protocol timeout_kills_analyzer_and_its_descendant_without_blocking_compiler
+        PASS [   0.541s] (125/489) bend2-lsp::bend_lint_protocol unsaved_imported_dependency_prevents_saved_root_analysis
+        PASS [   0.173s] (126/489) bend2-lsp::bend_lint_protocol valid_multifile_dangerous_action_versions_every_open_saved_target
+        PASS [   0.594s] (127/489) bend2-lsp::bend_lint_protocol watched_dependency_change_invalidates_inflight_root_findings
+        PASS [   0.725s] (128/489) bend2-lsp::compiler_multi_error genuine_compiler_reports_both_independent_errors_at_their_literals
+        PASS [   0.280s] (129/489) bend2-lsp::editor_compiler compiler::all_real_blocks_on_both_streams_are_mapped_without_context_errors
         PASS [   0.291s] (130/489) bend2-lsp::editor_compiler compiler::ambiguous_excerpt_is_not_assigned_to_an_imported_file
         PASS [   0.283s] (131/489) bend2-lsp::editor_compiler compiler::caret_coordinates_preserve_utf16_in_unsaved_source
-        PASS [   0.284s] (132/489) bend2-lsp::editor_compiler compiler::compiler_exception_without_error_block_is_not_silently_discarded
-        PASS [   0.562s] (133/489) bend2-lsp::editor_compiler compiler::installing_initially_missing_compiler_recovers_without_configuration_change
-        PASS [   0.307s] (134/489) bend2-lsp::editor_compiler compiler::invalid_caret_boundaries_fall_back_to_the_validated_source_line
-        PASS [   0.292s] (135/489) bend2-lsp::editor_compiler compiler::neighboring_lines_disambiguate_identical_marked_import_lines
-        PASS [   0.551s] (136/489) bend2-lsp::editor_compiler compiler::newer_version_with_real_cli_contract_is_accepted_and_probes_cached
-        PASS [   0.290s] (137/489) bend2-lsp::editor_compiler compiler::real_error_context_is_one_diagnostic_with_exact_caret_range
-        PASS [   0.291s] (138/489) bend2-lsp::editor_compiler compiler::recognized_cli_without_check_only_is_actionably_incompatible
-        PASS [   0.557s] (139/489) bend2-lsp::editor_compiler compiler::replacing_incompatible_compiler_recovers_without_configuration_change
-        PASS [   0.281s] (140/489) bend2-lsp::editor_compiler compiler::unknown_probe_contract_does_not_hide_actual_compiler_errors
-        PASS [   0.043s] (141/489) bend2-lsp::editor_completion protocol::already_loaded_base_candidates_add_bare_base_import_only_on_acceptance
-        PASS [   0.026s] (142/489) bend2-lsp::editor_completion protocol::auto_import_at_replacement_boundary_is_one_nonoverlapping_primary_edit
-        PASS [   0.061s] (143/489) bend2-lsp::editor_completion protocol::auto_import_completion_waits_for_a_new_unopened_watched_source
-        PASS [   0.025s] (144/489) bend2-lsp::editor_completion protocol::browsing_is_read_only_and_completion_matches_missing_import_quickfix
-        PASS [   0.022s] (145/489) bend2-lsp::editor_completion protocol::cached_package_import_continuation_uses_indexed_spelling
-        PASS [   0.029s] (146/489) bend2-lsp::editor_completion protocol::existing_alias_and_repeat_acceptance_use_latest_unsaved_imports_without_duplicates
-        PASS [   0.039s] (147/489) bend2-lsp::editor_completion protocol::explicit_types_filter_nested_patterns_but_unknown_types_keep_candidates
-        PASS [   0.026s] (148/489) bend2-lsp::editor_completion protocol::expression_completion_keeps_value_and_constructor_namespaces_separate
+        PASS [   0.291s] (132/489) bend2-lsp::editor_compiler compiler::compiler_exception_without_error_block_is_not_silently_discarded
+        PASS [   0.553s] (133/489) bend2-lsp::editor_compiler compiler::installing_initially_missing_compiler_recovers_without_configuration_change
+        PASS [   0.288s] (134/489) bend2-lsp::editor_compiler compiler::invalid_caret_boundaries_fall_back_to_the_validated_source_line
+        PASS [   0.285s] (135/489) bend2-lsp::editor_compiler compiler::neighboring_lines_disambiguate_identical_marked_import_lines
+        PASS [   0.543s] (136/489) bend2-lsp::editor_compiler compiler::newer_version_with_real_cli_contract_is_accepted_and_probes_cached
+        PASS [   0.296s] (137/489) bend2-lsp::editor_compiler compiler::real_error_context_is_one_diagnostic_with_exact_caret_range
+        PASS [   0.289s] (138/489) bend2-lsp::editor_compiler compiler::recognized_cli_without_check_only_is_actionably_incompatible
+        PASS [   0.563s] (139/489) bend2-lsp::editor_compiler compiler::replacing_incompatible_compiler_recovers_without_configuration_change
+        PASS [   0.298s] (140/489) bend2-lsp::editor_compiler compiler::unknown_probe_contract_does_not_hide_actual_compiler_errors
+        PASS [   0.030s] (141/489) bend2-lsp::editor_completion protocol::already_loaded_base_candidates_add_bare_base_import_only_on_acceptance
+        PASS [   0.019s] (142/489) bend2-lsp::editor_completion protocol::auto_import_at_replacement_boundary_is_one_nonoverlapping_primary_edit
+        PASS [   0.041s] (143/489) bend2-lsp::editor_completion protocol::auto_import_completion_waits_for_a_new_unopened_watched_source
+        PASS [   0.023s] (144/489) bend2-lsp::editor_completion protocol::browsing_is_read_only_and_completion_matches_missing_import_quickfix
+        PASS [   0.026s] (145/489) bend2-lsp::editor_completion protocol::cached_package_import_continuation_uses_indexed_spelling
+        PASS [   0.025s] (146/489) bend2-lsp::editor_completion protocol::existing_alias_and_repeat_acceptance_use_latest_unsaved_imports_without_duplicates
+        PASS [   0.029s] (147/489) bend2-lsp::editor_completion protocol::explicit_types_filter_nested_patterns_but_unknown_types_keep_candidates
+        PASS [   0.019s] (148/489) bend2-lsp::editor_completion protocol::expression_completion_keeps_value_and_constructor_namespaces_separate
         PASS [   0.024s] (149/489) bend2-lsp::editor_completion protocol::expression_completion_offers_same_file_constructor_with_exact_edit
-        PASS [   0.025s] (150/489) bend2-lsp::editor_completion protocol::fuzzy_ranking_and_lexical_shadowing_are_deterministic
-        PASS [   0.030s] (151/489) bend2-lsp::editor_completion protocol::import_acceptance_avoids_declarations_bindings_aliases_and_unicode_fallback_collisions
-        PASS [   0.035s] (152/489) bend2-lsp::editor_completion protocol::import_acceptance_generates_ascii_aliases_for_unicode_and_relative_paths
-        PASS [   0.026s] (153/489) bend2-lsp::editor_completion protocol::import_acceptance_replaces_middle_path_and_preserves_explicit_alias
-        PASS [   0.023s] (154/489) bend2-lsp::editor_completion protocol::import_acceptance_reuses_existing_namespace_for_relative_spelling
-        PASS [   0.025s] (155/489) bend2-lsp::editor_completion protocol::import_continuations_offer_base_and_indexed_unsaved_local_sources
-        PASS [   0.029s] (156/489) bend2-lsp::editor_completion protocol::import_filename_ranking_and_client_filtering_agree_for_automatic_requests
-        PASS [   0.035s] (157/489) bend2-lsp::editor_completion protocol::import_popup_refreshes_after_path_separators_backspace_and_retyping
-        PASS [   0.024s] (158/489) bend2-lsp::editor_completion protocol::import_separator_trigger_does_not_offer_paths_in_comments_strings_or_expressions
-        PASS [   0.025s] (159/489) bend2-lsp::editor_completion protocol::indexed_candidates_distinguish_modules_rank_scope_first_and_avoid_alias_collisions
-        PASS [   0.026s] (160/489) bend2-lsp::editor_completion protocol::indexed_external_constructors_keep_unknown_pattern_candidates_constructor_only
-        PASS [   0.022s] (161/489) bend2-lsp::editor_completion protocol::local_value_shadowing_keeps_constructor_completion_in_expressions_and_patterns
-        PASS [   0.032s] (162/489) bend2-lsp::editor_completion protocol::qualified_subsequence_edits_preserve_alias_and_suffix
-        PASS [   0.029s] (163/489) bend2-lsp::editor_completion protocol::unavailable_existing_alias_does_not_create_duplicate_or_namespace_changing_imports
-        PASS [   0.029s] (164/489) bend2-lsp::editor_completion protocol::unsaved_candidate_revisions_and_middle_token_suffix_respect_discovery_exclusions
+        PASS [   0.022s] (150/489) bend2-lsp::editor_completion protocol::fuzzy_ranking_and_lexical_shadowing_are_deterministic
+        PASS [   0.025s] (151/489) bend2-lsp::editor_completion protocol::import_acceptance_avoids_declarations_bindings_aliases_and_unicode_fallback_collisions
+        PASS [   0.031s] (152/489) bend2-lsp::editor_completion protocol::import_acceptance_generates_ascii_aliases_for_unicode_and_relative_paths
+        PASS [   0.025s] (153/489) bend2-lsp::editor_completion protocol::import_acceptance_replaces_middle_path_and_preserves_explicit_alias
+        PASS [   0.019s] (154/489) bend2-lsp::editor_completion protocol::import_acceptance_reuses_existing_namespace_for_relative_spelling
+        PASS [   0.024s] (155/489) bend2-lsp::editor_completion protocol::import_continuations_offer_base_and_indexed_unsaved_local_sources
+        PASS [   0.022s] (156/489) bend2-lsp::editor_completion protocol::import_filename_ranking_and_client_filtering_agree_for_automatic_requests
+        PASS [   0.031s] (157/489) bend2-lsp::editor_completion protocol::import_popup_refreshes_after_path_separators_backspace_and_retyping
+        PASS [   0.020s] (158/489) bend2-lsp::editor_completion protocol::import_separator_trigger_does_not_offer_paths_in_comments_strings_or_expressions
+        PASS [   0.021s] (159/489) bend2-lsp::editor_completion protocol::indexed_candidates_distinguish_modules_rank_scope_first_and_avoid_alias_collisions
+        PASS [   0.022s] (160/489) bend2-lsp::editor_completion protocol::indexed_external_constructors_keep_unknown_pattern_candidates_constructor_only
+        PASS [   0.020s] (161/489) bend2-lsp::editor_completion protocol::local_value_shadowing_keeps_constructor_completion_in_expressions_and_patterns
+        PASS [   0.025s] (162/489) bend2-lsp::editor_completion protocol::qualified_subsequence_edits_preserve_alias_and_suffix
+        PASS [   0.021s] (163/489) bend2-lsp::editor_completion protocol::unavailable_existing_alias_does_not_create_duplicate_or_namespace_changing_imports
+        PASS [   0.022s] (164/489) bend2-lsp::editor_completion protocol::unsaved_candidate_revisions_and_middle_token_suffix_respect_discovery_exclusions
         PASS [   0.021s] (165/489) bend2-lsp::editor_completion protocol::unsaved_eof_rebuilds_nested_context_and_expression_context
-        PASS [   0.021s] (166/489) bend2-lsp::editor_completion protocol::utf16_middle_token_edit_preserves_expression_suffix
-        PASS [   0.028s] (167/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_keep_entry_specific_callee_meaning_for_one_physical_caller
-        PASS [   0.027s] (168/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_keep_entry_specific_law_implementations_distinct
-        PASS [   0.024s] (169/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_keep_second_hop_callee_meaning_for_one_physical_caller
-        PASS [   0.024s] (170/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_merge_identical_recursive_contexts
-        PASS [   0.026s] (171/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_present_one_physical_shared_caller_call
-        PASS [   0.044s] (172/489) bend2-lsp::editor_import_actions protocol::auto_import_quickfix_waits_for_new_unopened_watched_source
+        PASS [   0.022s] (166/489) bend2-lsp::editor_completion protocol::utf16_middle_token_edit_preserves_expression_suffix
+        PASS [   0.026s] (167/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_keep_entry_specific_callee_meaning_for_one_physical_caller
+        PASS [   0.022s] (168/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_keep_entry_specific_law_implementations_distinct
+        PASS [   0.027s] (169/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_keep_second_hop_callee_meaning_for_one_physical_caller
+        PASS [   0.023s] (170/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_merge_identical_recursive_contexts
+        PASS [   0.023s] (171/489) bend2-lsp::editor_hierarchy hierarchy::incoming_calls_present_one_physical_shared_caller_call
+        PASS [   0.045s] (172/489) bend2-lsp::editor_import_actions protocol::auto_import_quickfix_waits_for_new_unopened_watched_source
         PASS [   0.025s] (173/489) bend2-lsp::editor_import_actions protocol::auto_import_reads_unsaved_target_symbols_and_ignores_unavailable_names
-        PASS [   0.024s] (174/489) bend2-lsp::editor_import_actions protocol::auto_import_reuses_existing_alias_without_duplicate_imports
-        PASS [   0.023s] (175/489) bend2-lsp::editor_import_actions protocol::auto_import_reuses_indexed_cached_package_path
+        PASS [   0.026s] (174/489) bend2-lsp::editor_import_actions protocol::auto_import_reuses_existing_alias_without_duplicate_imports
+        PASS [   0.027s] (175/489) bend2-lsp::editor_import_actions protocol::auto_import_reuses_indexed_cached_package_path
         PASS [   0.026s] (176/489) bend2-lsp::editor_import_actions protocol::auto_import_reuses_only_cached_base_and_preserves_generated_provenance
-        PASS [   0.025s] (177/489) bend2-lsp::editor_import_actions protocol::auto_import_uses_latest_utf16_buffer_and_avoids_scope_collisions
-        PASS [   0.024s] (178/489) bend2-lsp::editor_import_actions protocol::organize_imports_keeps_conflicting_alias_precedence_and_filter_hierarchy
-        PASS [   0.022s] (179/489) bend2-lsp::editor_import_actions protocol::organize_imports_preserves_comments_aliases_resolution_and_is_idempotent
-        PASS [   0.024s] (180/489) bend2-lsp::editor_import_actions protocol::organize_imports_preserves_crlf_and_missing_final_newline
+        PASS [   0.026s] (177/489) bend2-lsp::editor_import_actions protocol::auto_import_uses_latest_utf16_buffer_and_avoids_scope_collisions
+        PASS [   0.020s] (178/489) bend2-lsp::editor_import_actions protocol::organize_imports_keeps_conflicting_alias_precedence_and_filter_hierarchy
+        PASS [   0.021s] (179/489) bend2-lsp::editor_import_actions protocol::organize_imports_preserves_comments_aliases_resolution_and_is_idempotent
+        PASS [   0.027s] (180/489) bend2-lsp::editor_import_actions protocol::organize_imports_preserves_crlf_and_missing_final_newline
         PASS [   0.023s] (181/489) bend2-lsp::editor_import_actions protocol::organize_imports_preserves_unaliased_precedence_and_incomplete_imports
-        PASS [   0.024s] (182/489) bend2-lsp::editor_import_actions protocol::organize_imports_uses_unsaved_whole_document_without_diagnostics
-        PASS [   0.022s] (183/489) bend2-lsp::editor_navigation navigation::alias_rename_changes_declaration_and_unshadowed_roots_with_utf16_ranges
-        PASS [   0.024s] (184/489) bend2-lsp::editor_navigation navigation::alias_rename_rejects_import_global_and_local_capture_conflicts
-        PASS [   0.037s] (185/489) bend2-lsp::editor_navigation navigation::closing_moved_open_importer_restores_current_disk_imports
-        PASS [   0.040s] (186/489) bend2-lsp::editor_navigation navigation::document_links_share_definition_targets_for_base_local_and_cached_packages
-        PASS [   0.038s] (187/489) bend2-lsp::editor_navigation navigation::file_moves_edit_unsaved_and_closed_consumers_and_relocate_graph_identity
-        PASS [   0.382s] (188/489) bend2-lsp::editor_navigation navigation::file_rename_orders_immediate_change_close_and_reopen_at_new_uri
-        PASS [   0.037s] (189/489) bend2-lsp::editor_navigation navigation::file_rename_rejects_compiler_owned_base_without_losing_navigation
-        PASS [   0.034s] (190/489) bend2-lsp::editor_navigation navigation::folder_move_reindexes_open_importer_and_preserves_unsaved_revision_ownership
-        PASS [   0.080s] (191/489) bend2-lsp::editor_navigation navigation::import_path_cursor_positions_reject_symbol_rename_without_alias_or_path_edits
-        PASS [   0.023s] (192/489) bend2-lsp::editor_navigation navigation::local_assignment_tuple_and_do_binders_definition_target_exact_binding_sites
-        PASS [   0.020s] (193/489) bend2-lsp::editor_navigation navigation::local_dotted_atom_shadow_definition_stays_local_while_imported_member_stays_module
-        PASS [   0.023s] (194/489) bend2-lsp::editor_navigation navigation::local_parameter_definition_targets_binding_over_same_name_global
-        PASS [   0.028s] (195/489) bend2-lsp::editor_navigation navigation::physical_file_rename_updates_indexed_symlink_import_alias
+        PASS [   0.027s] (182/489) bend2-lsp::editor_import_actions protocol::organize_imports_uses_unsaved_whole_document_without_diagnostics
+        PASS [   0.025s] (183/489) bend2-lsp::editor_navigation navigation::alias_rename_changes_declaration_and_unshadowed_roots_with_utf16_ranges
+        PASS [   0.021s] (184/489) bend2-lsp::editor_navigation navigation::alias_rename_rejects_import_global_and_local_capture_conflicts
+        PASS [   0.028s] (185/489) bend2-lsp::editor_navigation navigation::closing_moved_open_importer_restores_current_disk_imports
+        PASS [   0.025s] (186/489) bend2-lsp::editor_navigation navigation::document_links_share_definition_targets_for_base_local_and_cached_packages
+        PASS [   0.027s] (187/489) bend2-lsp::editor_navigation navigation::file_moves_edit_unsaved_and_closed_consumers_and_relocate_graph_identity
+        PASS [   0.297s] (188/489) bend2-lsp::editor_navigation navigation::file_rename_orders_immediate_change_close_and_reopen_at_new_uri
+        PASS [   0.026s] (189/489) bend2-lsp::editor_navigation navigation::file_rename_rejects_compiler_owned_base_without_losing_navigation
+        PASS [   0.025s] (190/489) bend2-lsp::editor_navigation navigation::folder_move_reindexes_open_importer_and_preserves_unsaved_revision_ownership
+        PASS [   0.066s] (191/489) bend2-lsp::editor_navigation navigation::import_path_cursor_positions_reject_symbol_rename_without_alias_or_path_edits
+        PASS [   0.022s] (192/489) bend2-lsp::editor_navigation navigation::local_assignment_tuple_and_do_binders_definition_target_exact_binding_sites
+        PASS [   0.021s] (193/489) bend2-lsp::editor_navigation navigation::local_dotted_atom_shadow_definition_stays_local_while_imported_member_stays_module
+        PASS [   0.022s] (194/489) bend2-lsp::editor_navigation navigation::local_parameter_definition_targets_binding_over_same_name_global
+        PASS [   0.027s] (195/489) bend2-lsp::editor_navigation navigation::physical_file_rename_updates_indexed_symlink_import_alias
         PASS [   0.027s] (196/489) bend2-lsp::editor_navigation navigation::rename_batch_chains_use_original_identities_and_reject_unsaved_collisions
-        PASS [   0.046s] (197/489) bend2-lsp::editor_navigation navigation::rename_preview_and_edits_follow_alias_member_and_shadowed_local_in_unsaved_snapshots
-        PASS [   0.022s] (198/489) bend2-lsp::editor_navigation navigation::will_rename_uses_current_closed_file_ranges_without_watch_notification
-        PASS [   0.023s] (199/489) bend2-lsp::lsp_protocol protocol::advertises_workspace_folders_and_registers_bend_file_watcher
-        PASS [   0.292s] (200/489) bend2-lsp::lsp_protocol protocol::ambiguous_compiler_excerpt_falls_back_to_root_without_misattributing_import_errors
-        PASS [   0.024s] (201/489) bend2-lsp::lsp_protocol protocol::b1_navigation_respects_parameter_shadowing_and_annotation_scope
-        PASS [   0.285s] (202/489) bend2-lsp::lsp_protocol protocol::b2_module_cursor_preserves_dotted_names_under_prefix_bindings
-        PASS [   0.318s] (203/489) bend2-lsp::lsp_protocol protocol::b3_module_cursor_navigates_and_safely_renames_aliases
-        PASS [   1.934s] (204/489) bend2-lsp::lsp_protocol protocol::b4_on_type_indentation_recognizes_declarations_and_lexical_block_boundaries
-        PASS [   0.838s] (205/489) bend2-lsp::lsp_protocol protocol::b5_watched_closed_consumer_survives_concurrent_revision_commit
-        PASS [   1.095s] (206/489) bend2-lsp::lsp_protocol protocol::b5_watched_disk_commit_preserves_new_open_imports_and_close_fallback
-        PASS [   0.854s] (207/489) bend2-lsp::lsp_protocol protocol::b6_immediate_definition_waits_for_unsaved_dependency_without_blocking_unrelated_queries
-        PASS [   0.884s] (208/489) bend2-lsp::lsp_protocol protocol::blocked_superseded_import_diagnostics_do_not_restore_stale_errors
-        PASS [   0.564s] (209/489) bend2-lsp::lsp_protocol protocol::blocked_superseded_root_diagnostics_do_not_publish_after_v2
-        PASS [   0.029s] (210/489) bend2-lsp::lsp_protocol protocol::cached_hub_imports_support_navigation_and_workspace_indexing
-        PASS [   0.034s] (211/489) bend2-lsp::lsp_protocol protocol::call_and_algebraic_type_hierarchies_follow_declarations_and_calls
-        PASS [   0.282s] (212/489) bend2-lsp::lsp_protocol protocol::cancelling_a_workspace_query_does_not_abandon_pending_discovery
+        PASS [   0.040s] (197/489) bend2-lsp::editor_navigation navigation::rename_preview_and_edits_follow_alias_member_and_shadowed_local_in_unsaved_snapshots
+        PASS [   0.021s] (198/489) bend2-lsp::editor_navigation navigation::will_rename_uses_current_closed_file_ranges_without_watch_notification
+        PASS [   0.021s] (199/489) bend2-lsp::lsp_protocol protocol::advertises_workspace_folders_and_registers_bend_file_watcher
+        PASS [   0.283s] (200/489) bend2-lsp::lsp_protocol protocol::ambiguous_compiler_excerpt_falls_back_to_root_without_misattributing_import_errors
+        PASS [   0.033s] (201/489) bend2-lsp::lsp_protocol protocol::b1_navigation_respects_parameter_shadowing_and_annotation_scope
+        PASS [   0.307s] (202/489) bend2-lsp::lsp_protocol protocol::b2_module_cursor_preserves_dotted_names_under_prefix_bindings
+        PASS [   0.290s] (203/489) bend2-lsp::lsp_protocol protocol::b3_module_cursor_navigates_and_safely_renames_aliases
+        PASS [   1.884s] (204/489) bend2-lsp::lsp_protocol protocol::b4_on_type_indentation_recognizes_declarations_and_lexical_block_boundaries
+        PASS [   0.831s] (205/489) bend2-lsp::lsp_protocol protocol::b5_watched_closed_consumer_survives_concurrent_revision_commit
+        PASS [   1.093s] (206/489) bend2-lsp::lsp_protocol protocol::b5_watched_disk_commit_preserves_new_open_imports_and_close_fallback
+        PASS [   0.840s] (207/489) bend2-lsp::lsp_protocol protocol::b6_immediate_definition_waits_for_unsaved_dependency_without_blocking_unrelated_queries
+        PASS [   0.822s] (208/489) bend2-lsp::lsp_protocol protocol::blocked_superseded_import_diagnostics_do_not_restore_stale_errors
+        PASS [   0.560s] (209/489) bend2-lsp::lsp_protocol protocol::blocked_superseded_root_diagnostics_do_not_publish_after_v2
+        PASS [   0.024s] (210/489) bend2-lsp::lsp_protocol protocol::cached_hub_imports_support_navigation_and_workspace_indexing
+        PASS [   0.023s] (211/489) bend2-lsp::lsp_protocol protocol::call_and_algebraic_type_hierarchies_follow_declarations_and_calls
+        PASS [   0.280s] (212/489) bend2-lsp::lsp_protocol protocol::cancelling_a_workspace_query_does_not_abandon_pending_discovery
         PASS [   0.295s] (213/489) bend2-lsp::lsp_protocol protocol::case_constructor_completion_resolves_imports_and_latest_empty_prefix
-        PASS [   0.315s] (214/489) bend2-lsp::lsp_protocol protocol::case_pattern_completion_offers_constructors_not_expression_names
-        PASS [   0.308s] (215/489) bend2-lsp::lsp_protocol protocol::closing_document_cancels_running_compiler_process
-        PASS [   0.317s] (216/489) bend2-lsp::lsp_protocol protocol::closing_root_during_staged_load_does_not_reload_or_resurrect_it
-        PASS [   0.029s] (217/489) bend2-lsp::lsp_protocol protocol::code_action_offers_closing_a_reported_unclosed_delimiter
-        PASS [   4.408s] (218/489) bend2-lsp::lsp_protocol protocol::cold_references_cover_exact_discovered_workspaces_without_open_documents
-        PASS [   1.842s] (219/489) bend2-lsp::lsp_protocol protocol::compiler_cache_reuses_graphs_and_invalidates_exact_inputs
-        PASS [   1.349s] (220/489) bend2-lsp::lsp_protocol protocol::compiler_process_concurrency_is_bounded
-        PASS [   0.289s] (221/489) bend2-lsp::lsp_protocol protocol::completion_does_not_treat_a_shadowed_parameter_as_an_import_alias
-        PASS [   0.328s] (222/489) bend2-lsp::lsp_protocol protocol::completion_offers_in_scope_parameters_in_partial_expressions
-        PASS [   0.023s] (223/489) bend2-lsp::lsp_protocol protocol::completion_offers_matching_local_functions
-        PASS [   0.302s] (224/489) bend2-lsp::lsp_protocol protocol::completion_respects_case_scope_and_unsaved_empty_prefix_at_eof
-        PASS [   0.283s] (225/489) bend2-lsp::lsp_protocol protocol::completion_shadows_globals_only_in_the_owning_function
-        PASS [   0.813s] (226/489) bend2-lsp::lsp_protocol protocol::configuration_selects_compiler_and_rechecks_open_documents
-        PASS [   0.034s] (227/489) bend2-lsp::lsp_protocol protocol::configured_compiler_profile_preserves_prelude_navigation
-        PASS [   0.310s] (228/489) bend2-lsp::lsp_protocol protocol::creating_a_previously_closed_unsaved_file_activates_its_known_identity
-        PASS [   0.025s] (229/489) bend2-lsp::lsp_protocol protocol::definition_distinguishes_module_alias_from_type_and_constructor_members
-        PASS [   0.020s] (230/489) bend2-lsp::lsp_protocol protocol::definition_resolves_imported_constructors_in_patterns_and_expressions
-        PASS [   0.026s] (231/489) bend2-lsp::lsp_protocol protocol::discovered_file_preserves_unsaved_overlay_through_disk_deletion_and_close
-        PASS [   0.021s] (232/489) bend2-lsp::lsp_protocol protocol::discovered_unopened_importers_load_their_explicit_outside_workspace_dependencies
-        PASS [   0.299s] (233/489) bend2-lsp::lsp_protocol protocol::discovery_excludes_ignored_hidden_and_service_files_but_keeps_explicit_imports
-        PASS [   0.031s] (234/489) bend2-lsp::lsp_protocol protocol::document_symbols_expose_top_level_declarations_and_constructors
-        PASS [   0.311s] (235/489) bend2-lsp::lsp_protocol protocol::editor_only_import_links_do_not_resolve_native_entities
-        PASS [   0.020s] (236/489) bend2-lsp::lsp_protocol protocol::exit_notification_terminates_server_without_stdin_eof
-        PASS [   0.309s] (237/489) bend2-lsp::lsp_protocol protocol::exit_without_shutdown_cancels_compiler_child_and_keeps_stdin_open
-        PASS [   1.656s] (238/489) bend2-lsp::lsp_protocol protocol::failed_and_empty_base_reload_detach_prelude_and_allow_recovery
-        PASS [   0.298s] (239/489) bend2-lsp::lsp_protocol protocol::file_rename_preserves_discovered_membership_when_merging_a_known_destination
-        PASS [   0.569s] (240/489) bend2-lsp::lsp_protocol protocol::fixing_a_closed_import_clears_its_published_diagnostic
+        PASS [   0.305s] (214/489) bend2-lsp::lsp_protocol protocol::case_pattern_completion_offers_constructors_not_expression_names
+        PASS [   0.300s] (215/489) bend2-lsp::lsp_protocol protocol::closing_document_cancels_running_compiler_process
+        PASS [   0.315s] (216/489) bend2-lsp::lsp_protocol protocol::closing_root_during_staged_load_does_not_reload_or_resurrect_it
+        PASS [   0.044s] (217/489) bend2-lsp::lsp_protocol protocol::code_action_offers_closing_a_reported_unclosed_delimiter
+        PASS [   4.080s] (218/489) bend2-lsp::lsp_protocol protocol::cold_references_cover_exact_discovered_workspaces_without_open_documents
+        PASS [   1.839s] (219/489) bend2-lsp::lsp_protocol protocol::compiler_cache_reuses_graphs_and_invalidates_exact_inputs
+        PASS [   1.398s] (220/489) bend2-lsp::lsp_protocol protocol::compiler_process_concurrency_is_bounded
+        PASS [   0.290s] (221/489) bend2-lsp::lsp_protocol protocol::completion_does_not_treat_a_shadowed_parameter_as_an_import_alias
+        PASS [   0.288s] (222/489) bend2-lsp::lsp_protocol protocol::completion_offers_in_scope_parameters_in_partial_expressions
+        PASS [   0.021s] (223/489) bend2-lsp::lsp_protocol protocol::completion_offers_matching_local_functions
+        PASS [   0.288s] (224/489) bend2-lsp::lsp_protocol protocol::completion_respects_case_scope_and_unsaved_empty_prefix_at_eof
+        PASS [   0.299s] (225/489) bend2-lsp::lsp_protocol protocol::completion_shadows_globals_only_in_the_owning_function
+        PASS [   0.806s] (226/489) bend2-lsp::lsp_protocol protocol::configuration_selects_compiler_and_rechecks_open_documents
+        PASS [   0.021s] (227/489) bend2-lsp::lsp_protocol protocol::configured_compiler_profile_preserves_prelude_navigation
+        PASS [   0.281s] (228/489) bend2-lsp::lsp_protocol protocol::creating_a_previously_closed_unsaved_file_activates_its_known_identity
+        PASS [   0.024s] (229/489) bend2-lsp::lsp_protocol protocol::definition_distinguishes_module_alias_from_type_and_constructor_members
+        PASS [   0.025s] (230/489) bend2-lsp::lsp_protocol protocol::definition_resolves_imported_constructors_in_patterns_and_expressions
+        PASS [   0.023s] (231/489) bend2-lsp::lsp_protocol protocol::discovered_file_preserves_unsaved_overlay_through_disk_deletion_and_close
+        PASS [   0.019s] (232/489) bend2-lsp::lsp_protocol protocol::discovered_unopened_importers_load_their_explicit_outside_workspace_dependencies
+        PASS [   0.282s] (233/489) bend2-lsp::lsp_protocol protocol::discovery_excludes_ignored_hidden_and_service_files_but_keeps_explicit_imports
+        PASS [   0.020s] (234/489) bend2-lsp::lsp_protocol protocol::document_symbols_expose_top_level_declarations_and_constructors
+        PASS [   0.284s] (235/489) bend2-lsp::lsp_protocol protocol::editor_only_import_links_do_not_resolve_native_entities
+        PASS [   0.030s] (236/489) bend2-lsp::lsp_protocol protocol::exit_notification_terminates_server_without_stdin_eof
+        PASS [   0.306s] (237/489) bend2-lsp::lsp_protocol protocol::exit_without_shutdown_cancels_compiler_child_and_keeps_stdin_open
+        PASS [   1.652s] (238/489) bend2-lsp::lsp_protocol protocol::failed_and_empty_base_reload_detach_prelude_and_allow_recovery
+        PASS [   0.296s] (239/489) bend2-lsp::lsp_protocol protocol::file_rename_preserves_discovered_membership_when_merging_a_known_destination
+        PASS [   0.557s] (240/489) bend2-lsp::lsp_protocol protocol::fixing_a_closed_import_clears_its_published_diagnostic
         PASS [   0.023s] (241/489) bend2-lsp::lsp_protocol protocol::folding_selection_and_document_links_follow_source_ranges
-        PASS [   1.131s] (242/489) bend2-lsp::lsp_protocol protocol::generated_base_keeps_provenance_across_configuration_change_and_reopen
-        PASS [   1.346s] (243/489) bend2-lsp::lsp_protocol protocol::generated_base_preserves_lexical_checks_and_user_file_diagnostics
-        PASS [   0.031s] (244/489) bend2-lsp::lsp_protocol protocol::hover_on_a_function_name_shows_its_signature
-        PASS [   0.285s] (245/489) bend2-lsp::lsp_protocol protocol::immediate_document_symbol_and_completion_observe_latest_revision
-        PASS [   0.042s] (246/489) bend2-lsp::lsp_protocol protocol::immediate_folder_removal_cannot_publish_an_old_discovery_scan
+        PASS [   1.067s] (242/489) bend2-lsp::lsp_protocol protocol::generated_base_keeps_provenance_across_configuration_change_and_reopen
+        PASS [   1.363s] (243/489) bend2-lsp::lsp_protocol protocol::generated_base_preserves_lexical_checks_and_user_file_diagnostics
+        PASS [   0.025s] (244/489) bend2-lsp::lsp_protocol protocol::hover_on_a_function_name_shows_its_signature
+        PASS [   0.284s] (245/489) bend2-lsp::lsp_protocol protocol::immediate_document_symbol_and_completion_observe_latest_revision
+        PASS [   0.044s] (246/489) bend2-lsp::lsp_protocol protocol::immediate_folder_removal_cannot_publish_an_old_discovery_scan
         PASS [   0.358s] (247/489) bend2-lsp::lsp_protocol protocol::immediate_hover_observes_the_latest_did_change_revision
-        PASS [   0.162s] (248/489) bend2-lsp::lsp_protocol protocol::immediate_incoming_calls_include_preceding_pending_importer
-        PASS [   0.072s] (249/489) bend2-lsp::lsp_protocol protocol::immediate_outgoing_calls_resolve_preceding_pending_target_open
-        PASS [   0.134s] (250/489) bend2-lsp::lsp_protocol protocol::immediate_references_include_preceding_pending_importer
-        PASS [   0.097s] (251/489) bend2-lsp::lsp_protocol protocol::immediate_rename_includes_preceding_pending_importer
-        PASS [   0.053s] (252/489) bend2-lsp::lsp_protocol protocol::immediate_workspace_symbols_include_preceding_pending_importer
-        PASS [   0.030s] (253/489) bend2-lsp::lsp_protocol protocol::imported_symbol_identity_survives_declaration_reordering
-        PASS [   0.029s] (254/489) bend2-lsp::lsp_protocol protocol::imported_symbols_support_hover_navigation_and_member_completion
-        PASS [   0.022s] (255/489) bend2-lsp::lsp_protocol protocol::incremental_change_preserves_unedited_source
-        PASS [   0.024s] (256/489) bend2-lsp::lsp_protocol protocol::inlay_hints_name_call_arguments_and_lenses_count_references
-        PASS [   0.820s] (257/489) bend2-lsp::lsp_protocol protocol::known_unreachable_watcher_event_never_reads_source
-        PASS [   1.008s] (258/489) bend2-lsp::lsp_protocol protocol::large_staging_edits_keep_hover_requests_responsive
-        PASS [   0.280s] (259/489) bend2-lsp::lsp_protocol protocol::missing_configured_compiler_publishes_actionable_diagnostic
-        PASS [   1.112s] (260/489) bend2-lsp::lsp_protocol protocol::missing_reachable_watcher_target_supports_creation_deletion_and_recreation
-        PASS [   0.555s] (261/489) bend2-lsp::lsp_protocol protocol::newer_document_version_cancels_obsolete_compiler_process
-        PASS [   0.283s] (262/489) bend2-lsp::lsp_protocol protocol::parameter_annotation_navigation_keeps_nested_type_boundaries
-        PASS [   0.026s] (263/489) bend2-lsp::lsp_protocol protocol::parameter_hover_and_type_navigation_use_declared_type
-        PASS [   0.022s] (264/489) bend2-lsp::lsp_protocol protocol::prelude_symbols_support_hover_navigation_and_completion
-        PASS [   0.827s] (265/489) bend2-lsp::lsp_protocol protocol::queued_close_cannot_remove_a_reopened_document
-        PASS [   0.863s] (266/489) bend2-lsp::lsp_protocol protocol::queued_close_clears_imported_diagnostics_before_lower_version_reopen
-        PASS [   0.821s] (267/489) bend2-lsp::lsp_protocol protocol::queued_close_clears_imported_diagnostics_when_reopened_with_hole
-        PASS [   0.023s] (268/489) bend2-lsp::lsp_protocol protocol::range_and_on_type_formatting_return_local_edits
-        PASS [   1.100s] (269/489) bend2-lsp::lsp_protocol protocol::reachable_watcher_updates_preserve_open_dependency_overlay
-        PASS [   0.039s] (270/489) bend2-lsp::lsp_protocol protocol::references_and_rename_cover_declaration_and_call_sites
-        PASS [   0.295s] (271/489) bend2-lsp::lsp_protocol protocol::references_and_rename_follow_imports_without_touching_text_or_comments
-        PASS [   0.302s] (272/489) bend2-lsp::lsp_protocol protocol::references_and_rename_include_unopened_importers_and_remove_deleted_files
-        PASS [   0.020s] (273/489) bend2-lsp::lsp_protocol protocol::references_and_rename_respect_parameter_shadowing
-        PASS [   1.646s] (274/489) bend2-lsp::lsp_protocol protocol::reimport_uses_fresh_disk_after_unknown_and_unreachable_watcher_events
-        PASS [   0.026s] (275/489) bend2-lsp::lsp_protocol protocol::removing_workspace_folder_retires_discovered_files_and_readding_restores_them
-        PASS [   0.292s] (276/489) bend2-lsp::lsp_protocol protocol::saving_a_new_open_buffer_keeps_its_disk_declaration_indexed_after_close
-        PASS [   0.304s] (277/489) bend2-lsp::lsp_protocol protocol::semantic_alias_rename_preserves_complete_atoms_and_rejects_capture
-        PASS [   0.286s] (278/489) bend2-lsp::lsp_protocol protocol::semantic_call_hierarchy_links_law_body_and_offload_calls
-        PASS [   0.285s] (279/489) bend2-lsp::lsp_protocol protocol::semantic_completion_replaces_existing_name_at_middle_and_delimiter_boundary
-        PASS [   0.302s] (280/489) bend2-lsp::lsp_protocol protocol::semantic_cross_file_law_call_ranges_belong_to_the_implementation_document
-        PASS [   0.276s] (281/489) bend2-lsp::lsp_protocol protocol::semantic_document_exposes_written_ranges_and_entry_context
-        PASS [   0.287s] (282/489) bend2-lsp::lsp_protocol protocol::semantic_dotted_definition_prefixes_and_reference_lenses_keep_entity_identity
-        PASS [   0.315s] (283/489) bend2-lsp::lsp_protocol protocol::semantic_rename_accepts_valid_dotted_global_atoms
-        PASS [   0.280s] (284/489) bend2-lsp::lsp_protocol protocol::semantic_rename_accepts_valid_local_dotted_and_contextual_atoms
-        PASS [   0.288s] (285/489) bend2-lsp::lsp_protocol protocol::semantic_rename_keeps_dotted_global_terminals_as_name_segments
-        PASS [   0.303s] (286/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_complete_dotted_atom_conflicts
-        PASS [   0.298s] (287/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_incomplete_new_atoms_before_availability_checks
-        PASS [   0.278s] (288/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_malformed_new_atom_without_edits
-        PASS [   0.288s] (289/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_new_atoms_that_capture_an_import_alias_prefix
-        PASS [   0.026s] (290/489) bend2-lsp::lsp_protocol protocol::semantic_rename_versions_open_edits_and_rejects_capture
-        PASS [   0.304s] (291/489) bend2-lsp::lsp_protocol protocol::semantic_scopes_exclude_higher_order_locals_from_global_references
-        PASS [   0.023s] (292/489) bend2-lsp::lsp_protocol protocol::semantic_tokens_classify_declaration_names
-        PASS [   1.357s] (293/489) bend2-lsp::lsp_protocol protocol::shared_import_diagnostic_remains_until_every_root_is_clean
-        PASS [   0.074s] (294/489) bend2-lsp::lsp_protocol protocol::shutdown_cancels_and_drains_background_workspace_discovery
-        PASS [   0.020s] (295/489) bend2-lsp::lsp_protocol protocol::signature_help_selects_the_active_parameter
-        PASS [   0.280s] (296/489) bend2-lsp::lsp_protocol protocol::sigterm_without_shutdown_cancels_active_compiler_and_flushes_trace
+        PASS [   0.120s] (248/489) bend2-lsp::lsp_protocol protocol::immediate_incoming_calls_include_preceding_pending_importer
+        PASS [   0.048s] (249/489) bend2-lsp::lsp_protocol protocol::immediate_outgoing_calls_resolve_preceding_pending_target_open
+        PASS [   0.086s] (250/489) bend2-lsp::lsp_protocol protocol::immediate_references_include_preceding_pending_importer
+        PASS [   0.067s] (251/489) bend2-lsp::lsp_protocol protocol::immediate_rename_includes_preceding_pending_importer
+        PASS [   0.042s] (252/489) bend2-lsp::lsp_protocol protocol::immediate_workspace_symbols_include_preceding_pending_importer
+        PASS [   0.022s] (253/489) bend2-lsp::lsp_protocol protocol::imported_symbol_identity_survives_declaration_reordering
+        PASS [   0.022s] (254/489) bend2-lsp::lsp_protocol protocol::imported_symbols_support_hover_navigation_and_member_completion
+        PASS [   0.020s] (255/489) bend2-lsp::lsp_protocol protocol::incremental_change_preserves_unedited_source
+        PASS [   0.022s] (256/489) bend2-lsp::lsp_protocol protocol::inlay_hints_name_call_arguments_and_lenses_count_references
+        PASS [   0.818s] (257/489) bend2-lsp::lsp_protocol protocol::known_unreachable_watcher_event_never_reads_source
+        PASS [   1.042s] (258/489) bend2-lsp::lsp_protocol protocol::large_staging_edits_keep_hover_requests_responsive
+        PASS [   0.284s] (259/489) bend2-lsp::lsp_protocol protocol::missing_configured_compiler_publishes_actionable_diagnostic
+        PASS [   1.136s] (260/489) bend2-lsp::lsp_protocol protocol::missing_reachable_watcher_target_supports_creation_deletion_and_recreation
+        PASS [   0.565s] (261/489) bend2-lsp::lsp_protocol protocol::newer_document_version_cancels_obsolete_compiler_process
+        PASS [   0.292s] (262/489) bend2-lsp::lsp_protocol protocol::parameter_annotation_navigation_keeps_nested_type_boundaries
+        PASS [   0.022s] (263/489) bend2-lsp::lsp_protocol protocol::parameter_hover_and_type_navigation_use_declared_type
+        PASS [   0.024s] (264/489) bend2-lsp::lsp_protocol protocol::prelude_symbols_support_hover_navigation_and_completion
+        PASS [   0.823s] (265/489) bend2-lsp::lsp_protocol protocol::queued_close_cannot_remove_a_reopened_document
+        PASS [   0.826s] (266/489) bend2-lsp::lsp_protocol protocol::queued_close_clears_imported_diagnostics_before_lower_version_reopen
+        PASS [   0.830s] (267/489) bend2-lsp::lsp_protocol protocol::queued_close_clears_imported_diagnostics_when_reopened_with_hole
+        PASS [   0.022s] (268/489) bend2-lsp::lsp_protocol protocol::range_and_on_type_formatting_return_local_edits
+        PASS [   1.105s] (269/489) bend2-lsp::lsp_protocol protocol::reachable_watcher_updates_preserve_open_dependency_overlay
+        PASS [   0.036s] (270/489) bend2-lsp::lsp_protocol protocol::references_and_rename_cover_declaration_and_call_sites
+        PASS [   0.298s] (271/489) bend2-lsp::lsp_protocol protocol::references_and_rename_follow_imports_without_touching_text_or_comments
+        PASS [   0.295s] (272/489) bend2-lsp::lsp_protocol protocol::references_and_rename_include_unopened_importers_and_remove_deleted_files
+        PASS [   0.025s] (273/489) bend2-lsp::lsp_protocol protocol::references_and_rename_respect_parameter_shadowing
+        PASS [   1.655s] (274/489) bend2-lsp::lsp_protocol protocol::reimport_uses_fresh_disk_after_unknown_and_unreachable_watcher_events
+        PASS [   0.046s] (275/489) bend2-lsp::lsp_protocol protocol::removing_workspace_folder_retires_discovered_files_and_readding_restores_them
+        PASS [   0.283s] (276/489) bend2-lsp::lsp_protocol protocol::saving_a_new_open_buffer_keeps_its_disk_declaration_indexed_after_close
+        PASS [   0.285s] (277/489) bend2-lsp::lsp_protocol protocol::semantic_alias_rename_preserves_complete_atoms_and_rejects_capture
+        PASS [   0.282s] (278/489) bend2-lsp::lsp_protocol protocol::semantic_call_hierarchy_links_law_body_and_offload_calls
+        PASS [   0.281s] (279/489) bend2-lsp::lsp_protocol protocol::semantic_completion_replaces_existing_name_at_middle_and_delimiter_boundary
+        PASS [   0.290s] (280/489) bend2-lsp::lsp_protocol protocol::semantic_cross_file_law_call_ranges_belong_to_the_implementation_document
+        PASS [   0.297s] (281/489) bend2-lsp::lsp_protocol protocol::semantic_document_exposes_written_ranges_and_entry_context
+        PASS [   0.302s] (282/489) bend2-lsp::lsp_protocol protocol::semantic_dotted_definition_prefixes_and_reference_lenses_keep_entity_identity
+        PASS [   0.285s] (283/489) bend2-lsp::lsp_protocol protocol::semantic_rename_accepts_valid_dotted_global_atoms
+        PASS [   0.311s] (284/489) bend2-lsp::lsp_protocol protocol::semantic_rename_accepts_valid_local_dotted_and_contextual_atoms
+        PASS [   0.294s] (285/489) bend2-lsp::lsp_protocol protocol::semantic_rename_keeps_dotted_global_terminals_as_name_segments
+        PASS [   0.279s] (286/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_complete_dotted_atom_conflicts
+        PASS [   0.281s] (287/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_incomplete_new_atoms_before_availability_checks
+        PASS [   0.283s] (288/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_malformed_new_atom_without_edits
+        PASS [   0.292s] (289/489) bend2-lsp::lsp_protocol protocol::semantic_rename_rejects_new_atoms_that_capture_an_import_alias_prefix
+        PASS [   0.024s] (290/489) bend2-lsp::lsp_protocol protocol::semantic_rename_versions_open_edits_and_rejects_capture
+        PASS [   0.295s] (291/489) bend2-lsp::lsp_protocol protocol::semantic_scopes_exclude_higher_order_locals_from_global_references
+        PASS [   0.032s] (292/489) bend2-lsp::lsp_protocol protocol::semantic_tokens_classify_declaration_names
+        PASS [   1.315s] (293/489) bend2-lsp::lsp_protocol protocol::shared_import_diagnostic_remains_until_every_root_is_clean
+        PASS [   0.104s] (294/489) bend2-lsp::lsp_protocol protocol::shutdown_cancels_and_drains_background_workspace_discovery
+        PASS [   0.026s] (295/489) bend2-lsp::lsp_protocol protocol::signature_help_selects_the_active_parameter
+        PASS [   0.290s] (296/489) bend2-lsp::lsp_protocol protocol::sigterm_without_shutdown_cancels_active_compiler_and_flushes_trace
         PASS [   1.103s] (297/489) bend2-lsp::lsp_protocol protocol::staged_watcher_result_cannot_replace_reimported_disk
-        PASS [   1.142s] (298/489) bend2-lsp::lsp_protocol protocol::staged_watcher_result_cannot_resurrect_removed_import
-        PASS [   0.358s] (299/489) bend2-lsp::lsp_protocol protocol::superseded_did_change_cannot_overwrite_newer_revision
-        PASS [   0.021s] (300/489) bend2-lsp::lsp_protocol protocol::type_definition_resolves_an_annotation_to_its_type
-        PASS [   0.020s] (301/489) bend2-lsp::lsp_protocol protocol::type_navigation_resolves_qualified_imported_types
-        PASS [   0.747s] (302/489) bend2-lsp::lsp_protocol protocol::unrelated_large_open_does_not_delay_committed_document_queries
-        PASS [   0.563s] (303/489) bend2-lsp::lsp_protocol protocol::unrelated_watcher_batch_never_reads_sources
-        PASS [   0.022s] (304/489) bend2-lsp::lsp_protocol protocol::untitled_documents_support_symbols_and_completion
-        PASS [   0.565s] (305/489) bend2-lsp::lsp_protocol protocol::untitled_imports_resolve_from_workspace_without_materializing_source
-        PASS [   0.022s] (306/489) bend2-lsp::lsp_protocol protocol::watched_creation_respects_ignore_rules_without_suppressing_visible_files
-        PASS [   0.540s] (307/489) bend2-lsp::lsp_protocol protocol::watched_import_changes_recheck_open_dependents
-        PASS [   0.025s] (308/489) bend2-lsp::lsp_protocol protocol::workspace_discovery_tracks_created_changed_deleted_and_recreated_files
-        PASS [   0.028s] (309/489) bend2-lsp::lsp_protocol protocol::workspace_folder_removal_updates_untitled_import_root
-        PASS [   0.024s] (310/489) bend2-lsp::lsp_protocol protocol::workspace_symbols_filter_open_document_declarations
-        PASS [   0.022s] (311/489) bend2-lsp::lsp_protocol protocol::workspace_symbols_find_unopened_unimported_files_after_initialization
-        PASS [   1.579s] (312/489) bend2-lsp::native_compiler_diagnostics compiler_owned_base_stays_exempt_but_user_base_is_checked
-        PASS [   0.735s] (313/489) bend2-lsp::native_compiler_diagnostics compiler_rejected_editor_imports_stay_uncertain_without_native_entities
-        PASS [   1.633s] (314/489) bend2-lsp::native_compiler_diagnostics conflicting_base_import_reports_the_cause_at_the_import_instead_of_a_banner
-        PASS [   1.171s] (315/489) bend2-lsp::native_compiler_diagnostics malformed_main_header_keeps_real_error_and_recovery_navigation
-        PASS [   0.696s] (316/489) bend2-lsp::native_compiler_diagnostics transitive_import_links_original_cause_and_keeps_independent_source_error
-        PASS [   0.654s] (317/489) bend2-lsp::native_law_ranges multiline_unfilled_law_range_ends_at_final_type_token_before_comments
-        PASS [   0.621s] (318/489) bend2-lsp::native_law_ranges unfilled_law_range_ends_at_type_before_comments_and_independent_definition
-        PASS [   2.192s] (319/489) bend2-lsp::release_e2e release_compiler_lifecycle_cancels_children_and_flushes_tracing
-        PASS [   0.445s] (320/489) bend2-lsp::release_e2e release_stdio_queries_observe_incremental_unsaved_workspace
-        PASS [   0.004s] (321/489) bend2-lsp::semantic_frontend adversarial_depth_is_bounded_and_does_not_consume_the_next_definition
+        PASS [   1.106s] (298/489) bend2-lsp::lsp_protocol protocol::staged_watcher_result_cannot_resurrect_removed_import
+        PASS [   0.371s] (299/489) bend2-lsp::lsp_protocol protocol::superseded_did_change_cannot_overwrite_newer_revision
+        PASS [   0.018s] (300/489) bend2-lsp::lsp_protocol protocol::type_definition_resolves_an_annotation_to_its_type
+        PASS [   0.023s] (301/489) bend2-lsp::lsp_protocol protocol::type_navigation_resolves_qualified_imported_types
+        PASS [   0.726s] (302/489) bend2-lsp::lsp_protocol protocol::unrelated_large_open_does_not_delay_committed_document_queries
+        PASS [   0.573s] (303/489) bend2-lsp::lsp_protocol protocol::unrelated_watcher_batch_never_reads_sources
+        PASS [   0.019s] (304/489) bend2-lsp::lsp_protocol protocol::untitled_documents_support_symbols_and_completion
+        PASS [   0.563s] (305/489) bend2-lsp::lsp_protocol protocol::untitled_imports_resolve_from_workspace_without_materializing_source
+        PASS [   0.031s] (306/489) bend2-lsp::lsp_protocol protocol::watched_creation_respects_ignore_rules_without_suppressing_visible_files
+        PASS [   0.541s] (307/489) bend2-lsp::lsp_protocol protocol::watched_import_changes_recheck_open_dependents
+        PASS [   0.030s] (308/489) bend2-lsp::lsp_protocol protocol::workspace_discovery_tracks_created_changed_deleted_and_recreated_files
+        PASS [   0.025s] (309/489) bend2-lsp::lsp_protocol protocol::workspace_folder_removal_updates_untitled_import_root
+        PASS [   0.027s] (310/489) bend2-lsp::lsp_protocol protocol::workspace_symbols_filter_open_document_declarations
+        PASS [   0.020s] (311/489) bend2-lsp::lsp_protocol protocol::workspace_symbols_find_unopened_unimported_files_after_initialization
+        PASS [   1.511s] (312/489) bend2-lsp::native_compiler_diagnostics compiler_owned_base_stays_exempt_but_user_base_is_checked
+        PASS [   0.724s] (313/489) bend2-lsp::native_compiler_diagnostics compiler_rejected_editor_imports_stay_uncertain_without_native_entities
+        PASS [   1.533s] (314/489) bend2-lsp::native_compiler_diagnostics conflicting_base_import_reports_the_cause_at_the_import_instead_of_a_banner
+        PASS [   1.119s] (315/489) bend2-lsp::native_compiler_diagnostics malformed_main_header_keeps_real_error_and_recovery_navigation
+        PASS [   0.606s] (316/489) bend2-lsp::native_compiler_diagnostics transitive_import_links_original_cause_and_keeps_independent_source_error
+        PASS [   0.705s] (317/489) bend2-lsp::native_law_ranges multiline_unfilled_law_range_ends_at_final_type_token_before_comments
+        PASS [   0.639s] (318/489) bend2-lsp::native_law_ranges unfilled_law_range_ends_at_type_before_comments_and_independent_definition
+        PASS [   2.183s] (319/489) bend2-lsp::release_e2e release_compiler_lifecycle_cancels_children_and_flushes_tracing
+        PASS [   0.436s] (320/489) bend2-lsp::release_e2e release_stdio_queries_observe_incremental_unsaved_workspace
+        PASS [   0.008s] (321/489) bend2-lsp::semantic_frontend adversarial_depth_is_bounded_and_does_not_consume_the_next_definition
         PASS [   0.003s] (322/489) bend2-lsp::semantic_frontend anonymous_parameters_preserve_signature_positions_without_fake_local_names
-        PASS [   0.002s] (323/489) bend2-lsp::semantic_frontend bare_known_constructors_are_not_variable_patterns_but_lambda_names_can_shadow_them
-        PASS [   0.003s] (324/489) bend2-lsp::semantic_frontend binding_visibility_is_half_open_and_restores_outer_at_lambda_end
+        PASS [   0.003s] (323/489) bend2-lsp::semantic_frontend bare_known_constructors_are_not_variable_patterns_but_lambda_names_can_shadow_them
+        PASS [   0.002s] (324/489) bend2-lsp::semantic_frontend binding_visibility_is_half_open_and_restores_outer_at_lambda_end
         PASS [   0.002s] (325/489) bend2-lsp::semantic_frontend broken_header_recovers_before_the_next_declaration_with_unicode_trivia
         PASS [   0.002s] (326/489) bend2-lsp::semantic_frontend cached_parser_columns_keep_utf16_layout_after_non_ascii_literals
         PASS [   0.002s] (327/489) bend2-lsp::semantic_frontend call_expressions_are_not_destructuring_patterns_and_do_not_fabricate_binders
         PASS [   0.002s] (328/489) bend2-lsp::semantic_frontend calls_are_in_source_preorder_with_finalized_nested_argument_spans
-        PASS [   0.003s] (329/489) bend2-lsp::semantic_frontend case_binders_are_isolated_between_siblings_and_nested_destructures
+        PASS [   0.002s] (329/489) bend2-lsp::semantic_frontend case_binders_are_isolated_between_siblings_and_nested_destructures
         PASS [   0.005s] (330/489) bend2-lsp::semantic_frontend compiler_proven_lambda_let_and_tuple_witnesses_never_reference_the_global_target
         PASS [   0.003s] (331/489) bend2-lsp::semantic_frontend compiler_proven_offload_is_a_structural_call_with_exact_callee_and_arguments
-        PASS [   0.003s] (332/489) bend2-lsp::semantic_frontend completion_eof_visibility_does_not_widen_native_binding_scopes
+        PASS [   0.002s] (332/489) bend2-lsp::semantic_frontend completion_eof_visibility_does_not_widen_native_binding_scopes
         PASS [   0.002s] (333/489) bend2-lsp::semantic_frontend constructor_role_restores_terminal_edit_range_after_ignoring_an_exact_local_name
         PASS [   0.002s] (334/489) bend2-lsp::semantic_frontend contextual_as_and_unsafe_words_remain_real_names
-        PASS [   0.003s] (335/489) bend2-lsp::semantic_frontend contextual_keyword_coloring_distinguishes_loader_and_decorator_from_names
-        PASS [   0.003s] (336/489) bend2-lsp::semantic_frontend dependent_annotations_do_not_see_their_own_binder
-        PASS [   0.004s] (337/489) bend2-lsp::semantic_frontend dependent_quantifier_domain_uses_outer_binding_and_codomain_uses_inner_binding
-        PASS [   0.003s] (338/489) bend2-lsp::semantic_frontend do_typed_bindings_start_after_their_rhs_and_namespace_is_not_a_phantom_type
-        PASS [   0.003s] (339/489) bend2-lsp::semantic_frontend dotted_atoms_have_one_occurrence_and_are_not_prefix_shadowed
+        PASS [   0.002s] (335/489) bend2-lsp::semantic_frontend contextual_keyword_coloring_distinguishes_loader_and_decorator_from_names
+        PASS [   0.002s] (336/489) bend2-lsp::semantic_frontend dependent_annotations_do_not_see_their_own_binder
+        PASS [   0.002s] (337/489) bend2-lsp::semantic_frontend dependent_quantifier_domain_uses_outer_binding_and_codomain_uses_inner_binding
+        PASS [   0.002s] (338/489) bend2-lsp::semantic_frontend do_typed_bindings_start_after_their_rhs_and_namespace_is_not_a_phantom_type
+        PASS [   0.002s] (339/489) bend2-lsp::semantic_frontend dotted_atoms_have_one_occurrence_and_are_not_prefix_shadowed
         PASS [   0.002s] (340/489) bend2-lsp::semantic_frontend dotted_binders_match_only_the_same_complete_semantic_atom
         PASS [   0.002s] (341/489) bend2-lsp::semantic_frontend dotted_local_rename_capture_is_visible_in_the_index_at_the_complete_use
         PASS [   0.002s] (342/489) bend2-lsp::semantic_frontend dotted_local_rename_ranges_cover_the_complete_binder_at_every_use
         PASS [   0.002s] (343/489) bend2-lsp::semantic_frontend empty_type_telescopes_accept_fused_and_separated_angle_tokens
         PASS [   0.002s] (344/489) bend2-lsp::semantic_frontend grammar_completion_contexts_use_native_telescope_types_and_incomplete_pattern_boundaries
-        PASS [   0.003s] (345/489) bend2-lsp::semantic_frontend implicit_array_write_rebinding_retains_both_same_span_origins
+        PASS [   0.002s] (345/489) bend2-lsp::semantic_frontend implicit_array_write_rebinding_retains_both_same_span_origins
         PASS [   0.002s] (346/489) bend2-lsp::semantic_frontend import_path_completion_is_header_owned_and_retains_empty_unsaved_paths
         PASS [   0.002s] (347/489) bend2-lsp::semantic_frontend incomplete_nested_calls_finalize_preorder_slots_without_absorbing_the_next_definition
         PASS [   0.002s] (348/489) bend2-lsp::semantic_frontend indexed_reference_traversals_preserve_source_order_and_token_identity
         PASS [   0.002s] (349/489) bend2-lsp::semantic_frontend keyword_coloring_never_turns_dotted_semantic_atoms_into_keywords
-        PASS [   0.004s] (350/489) bend2-lsp::semantic_frontend lambda_call_resolves_to_its_binder_and_stops_at_argument_boundary
-        PASS [   0.003s] (351/489) bend2-lsp::semantic_frontend law_existential_domains_do_not_consume_the_following_braced_type_as_a_constructor
+        PASS [   0.002s] (350/489) bend2-lsp::semantic_frontend lambda_call_resolves_to_its_binder_and_stops_at_argument_boundary
+        PASS [   0.002s] (351/489) bend2-lsp::semantic_frontend law_existential_domains_do_not_consume_the_following_braced_type_as_a_constructor
         PASS [   0.002s] (352/489) bend2-lsp::semantic_frontend law_where_and_existential_clauses_have_compiler_visibility_order
-        PASS [   0.003s] (353/489) bend2-lsp::semantic_frontend native_import_headers_accept_reserved_aliases_without_term_occurrences
+        PASS [   0.002s] (353/489) bend2-lsp::semantic_frontend native_import_headers_accept_reserved_aliases_without_term_occurrences
         PASS [   0.002s] (354/489) bend2-lsp::semantic_frontend offload_may_follow_a_newline_but_bang_and_open_parenthesis_are_adjacent
-        PASS [   0.003s] (355/489) bend2-lsp::semantic_frontend parallel_right_hand_sides_see_outer_names_and_continuation_sees_new_binders
-        PASS [   0.024s] (356/489) bend2-lsp::semantic_frontend pinned_base_fused_erased_type_telescopes_keep_exact_parameters_and_local_uses
-        PASS [   0.003s] (357/489) bend2-lsp::semantic_frontend recoverable_missing_telescope_keeps_definite_body_ownership_and_queries
+        PASS [   0.002s] (355/489) bend2-lsp::semantic_frontend parallel_right_hand_sides_see_outer_names_and_continuation_sees_new_binders
+        PASS [   0.025s] (356/489) bend2-lsp::semantic_frontend pinned_base_fused_erased_type_telescopes_keep_exact_parameters_and_local_uses
+        PASS [   0.002s] (357/489) bend2-lsp::semantic_frontend recoverable_missing_telescope_keeps_definite_body_ownership_and_queries
         PASS [   0.011s] (358/489) bend2-lsp::semantic_frontend repeated_sequential_shadowing_has_indexed_lookup_and_one_visible_name
         PASS [   0.003s] (359/489) bend2-lsp::semantic_frontend reserved_words_inside_full_dotted_names_never_split_declarations_or_uses
         PASS [   0.002s] (360/489) bend2-lsp::semantic_frontend rewrite_binder_is_local_only_to_the_motive_not_the_tail
-        PASS [   0.003s] (361/489) bend2-lsp::semantic_frontend rewrite_implicit_proof_has_real_percent_origin_and_no_fake_declaration_use
+        PASS [   0.002s] (361/489) bend2-lsp::semantic_frontend rewrite_implicit_proof_has_real_percent_origin_and_no_fake_declaration_use
         PASS [   0.002s] (362/489) bend2-lsp::semantic_frontend root_match_cases_may_start_in_the_first_compiler_column
         PASS [   0.002s] (363/489) bend2-lsp::semantic_frontend source_preorder_call_slots_preserve_retroactive_type_argument_phase
         PASS [   0.002s] (364/489) bend2-lsp::semantic_frontend unknown_uppercase_pattern_names_are_local_binders_not_types
         PASS [   0.005s] (365/489) bend2-lsp::semantic_metadata dependent_nested_parameter_annotations_are_not_reparsed_by_signature_help
-        PASS [   0.002s] (366/489) bend2-lsp::semantic_metadata doc_attachment_breaks_on_blank_code_or_different_indentation
+        PASS [   0.003s] (366/489) bend2-lsp::semantic_metadata doc_attachment_breaks_on_blank_code_or_different_indentation
         PASS [   0.002s] (367/489) bend2-lsp::semantic_metadata docs_preserve_unicode_crlf_offsets_and_hover_text
-        PASS [   0.003s] (368/489) bend2-lsp::semantic_metadata empty_body_foreign_body_and_decorated_header_have_explicit_ranges
-        PASS [   0.003s] (369/489) bend2-lsp::semantic_metadata incomplete_definition_does_not_absorb_recovered_next_declaration
-        PASS [   0.003s] (370/489) bend2-lsp::semantic_metadata inlay_hints_interleave_nested_calls_in_source_order_and_preserve_range_bounds
-        PASS [   0.003s] (371/489) bend2-lsp::semantic_metadata law_and_def_keep_distinct_written_sites_and_no_executable_law_body
+        PASS [   0.002s] (368/489) bend2-lsp::semantic_metadata empty_body_foreign_body_and_decorated_header_have_explicit_ranges
+        PASS [   0.002s] (369/489) bend2-lsp::semantic_metadata incomplete_definition_does_not_absorb_recovered_next_declaration
+        PASS [   0.002s] (370/489) bend2-lsp::semantic_metadata inlay_hints_interleave_nested_calls_in_source_order_and_preserve_range_bounds
+        PASS [   0.002s] (371/489) bend2-lsp::semantic_metadata law_and_def_keep_distinct_written_sites_and_no_executable_law_body
         PASS [   0.002s] (372/489) bend2-lsp::semantic_metadata multiline_signature_parameters_and_body_are_exact_indexed_slices
-        PASS [   0.002s] (373/489) bend2-lsp::semantic_metadata snapshot_content_hash_is_stable_over_original_utf8_bytes_not_revision
+        PASS [   0.003s] (373/489) bend2-lsp::semantic_metadata snapshot_content_hash_is_stable_over_original_utf8_bytes_not_revision
         PASS [   0.002s] (374/489) bend2-lsp::semantic_metadata standalone_signature_help_uses_cold_call_targets_and_exact_parameters
         PASS [   0.002s] (375/489) bend2-lsp::semantic_metadata type_and_constructor_metadata_keep_own_written_ranges
-        PASS [   0.005s] (376/489) bend2-lsp::semantic_workspace a_type_and_constructor_with_the_same_spelling_keep_distinct_targets
-        PASS [   0.004s] (377/489) bend2-lsp::semantic_workspace alias_rename_simulates_complete_atoms_and_only_actual_new_prefix_capture
+        PASS [   0.006s] (376/489) bend2-lsp::semantic_workspace a_type_and_constructor_with_the_same_spelling_keep_distinct_targets
+        PASS [   0.005s] (377/489) bend2-lsp::semantic_workspace alias_rename_simulates_complete_atoms_and_only_actual_new_prefix_capture
         PASS [   0.003s] (378/489) bend2-lsp::semantic_workspace alias_rename_validates_native_alias_words_not_coloring_keywords
         PASS [   0.004s] (379/489) bend2-lsp::semantic_workspace an_import_lookup_alias_is_not_an_open_document_until_it_is_opened_explicitly
         PASS [   0.003s] (380/489) bend2-lsp::semantic_workspace bare_completion_keeps_type_and_constructor_namespaces_distinct
         PASS [   0.003s] (381/489) bend2-lsp::semantic_workspace base_can_fill_its_own_laws_but_an_importing_entry_cannot_fill_native_claims
-        PASS [   0.003s] (382/489) bend2-lsp::semantic_workspace body_revision_re_resolves_import_symlinks_with_unchanged_watch_spelling
+        PASS [   0.004s] (382/489) bend2-lsp::semantic_workspace body_revision_re_resolves_import_symlinks_with_unchanged_watch_spelling
         PASS [   0.003s] (383/489) bend2-lsp::semantic_workspace body_revisions_preserve_missing_import_watches_and_replace_changed_paths
         PASS [   0.003s] (384/489) bend2-lsp::semantic_workspace canonical_import_identity_preserves_verified_logical_uri_and_lookup_aliases
         PASS [   0.003s] (385/489) bend2-lsp::semantic_workspace closing_last_root_releases_view_ownership_without_invalidating_reader
-        PASS [   0.004s] (386/489) bend2-lsp::semantic_workspace completion_projects_nested_aliases_without_exposing_canonical_namespace_keys
-        PASS [   0.004s] (387/489) bend2-lsp::semantic_workspace conflicting_cross_entry_interpretations_refuse_rename
+        PASS [   0.003s] (386/489) bend2-lsp::semantic_workspace completion_projects_nested_aliases_without_exposing_canonical_namespace_keys
+        PASS [   0.005s] (387/489) bend2-lsp::semantic_workspace conflicting_cross_entry_interpretations_refuse_rename
         PASS [   0.004s] (388/489) bend2-lsp::semantic_workspace definite_editor_recovery_keeps_targets_while_preserving_declaration_uncertainty
-        PASS [   0.003s] (389/489) bend2-lsp::semantic_workspace differing_physical_overlays_remain_uri_coherent_and_refuse_ambiguous_edits
-        PASS [   0.003s] (390/489) bend2-lsp::semantic_workspace dotted_global_rename_checks_the_complete_proposed_local_spelling
-        PASS [   0.003s] (391/489) bend2-lsp::semantic_workspace fuzzy_completion_stays_inside_the_written_alias_and_exact_qualifier
-        PASS [   0.004s] (392/489) bend2-lsp::semantic_workspace imported_diamond_registers_sites_once_in_compiler_dfs_order
-        PASS [   0.003s] (393/489) bend2-lsp::semantic_workspace indexed_parameter_hints_use_law_signature_ownership_and_inclusive_ranges
-        PASS [   0.004s] (394/489) bend2-lsp::semantic_workspace inherited_base_depends_on_entry_import_order_and_not_path_order
-        PASS [   0.003s] (395/489) bend2-lsp::semantic_workspace invalid_import_headers_do_not_acquire_disk_or_base_ownership
-        PASS [   0.003s] (396/489) bend2-lsp::semantic_workspace invalid_law_fill_is_not_grouped_and_duplicate_alias_keeps_explicit_issue
+        PASS [   0.004s] (389/489) bend2-lsp::semantic_workspace differing_physical_overlays_remain_uri_coherent_and_refuse_ambiguous_edits
+        PASS [   0.004s] (390/489) bend2-lsp::semantic_workspace dotted_global_rename_checks_the_complete_proposed_local_spelling
+        PASS [   0.004s] (391/489) bend2-lsp::semantic_workspace fuzzy_completion_stays_inside_the_written_alias_and_exact_qualifier
+        PASS [   0.005s] (392/489) bend2-lsp::semantic_workspace imported_diamond_registers_sites_once_in_compiler_dfs_order
+        PASS [   0.004s] (393/489) bend2-lsp::semantic_workspace indexed_parameter_hints_use_law_signature_ownership_and_inclusive_ranges
+        PASS [   0.006s] (394/489) bend2-lsp::semantic_workspace inherited_base_depends_on_entry_import_order_and_not_path_order
+        PASS [   0.008s] (395/489) bend2-lsp::semantic_workspace invalid_import_headers_do_not_acquire_disk_or_base_ownership
+        PASS [   0.004s] (396/489) bend2-lsp::semantic_workspace invalid_law_fill_is_not_grouped_and_duplicate_alias_keeps_explicit_issue
         PASS [   0.003s] (397/489) bend2-lsp::semantic_workspace invalid_real_import_namespace_does_not_pull_in_a_child_or_its_base
         PASS [   0.003s] (398/489) bend2-lsp::semantic_workspace law_template_arity_survives_interleaved_constructors_and_rejected_declarations
-        PASS [   0.004s] (399/489) bend2-lsp::semantic_workspace library_changes_reconsider_native_edges_omitted_from_the_old_view
-        PASS [   0.004s] (400/489) bend2-lsp::semantic_workspace nested_dotted_import_name_is_indivisible_despite_local_alias_prefix
-        PASS [   0.004s] (401/489) bend2-lsp::semantic_workspace old_base_view_holds_its_backing_source_directory_until_reader_drop
-        PASS [   0.004s] (402/489) bend2-lsp::semantic_workspace overlay_replaces_imported_targets_without_reparsing_unchanged_entry
-        PASS [   0.004s] (403/489) bend2-lsp::semantic_workspace physical_uri_tracks_path_removal_and_reattachment_without_rewriting_logical_uri
+        PASS [   0.003s] (399/489) bend2-lsp::semantic_workspace library_changes_reconsider_native_edges_omitted_from_the_old_view
+        PASS [   0.003s] (400/489) bend2-lsp::semantic_workspace nested_dotted_import_name_is_indivisible_despite_local_alias_prefix
+        PASS [   0.003s] (401/489) bend2-lsp::semantic_workspace old_base_view_holds_its_backing_source_directory_until_reader_drop
+        PASS [   0.003s] (402/489) bend2-lsp::semantic_workspace overlay_replaces_imported_targets_without_reparsing_unchanged_entry
+        PASS [   0.003s] (403/489) bend2-lsp::semantic_workspace physical_uri_tracks_path_removal_and_reattachment_without_rewriting_logical_uri
         PASS [   0.045s] (404/489) bend2-lsp::semantic_workspace pinned_base_law_implementations_have_effective_bodies_and_indexed_calls
-        PASS [   0.004s] (405/489) bend2-lsp::semantic_workspace prelude_identity_change_rejects_staged_view_and_invalidation_drops_cache
-        PASS [   0.004s] (406/489) bend2-lsp::semantic_workspace prepared_library_identity_invalidates_only_affected_immutable_views
-        PASS [   0.004s] (407/489) bend2-lsp::semantic_workspace proof_entries_select_different_bodies_for_the_same_imported_law
+        PASS [   0.003s] (405/489) bend2-lsp::semantic_workspace prelude_identity_change_rejects_staged_view_and_invalidation_drops_cache
+        PASS [   0.003s] (406/489) bend2-lsp::semantic_workspace prepared_library_identity_invalidates_only_affected_immutable_views
+        PASS [   0.003s] (407/489) bend2-lsp::semantic_workspace proof_entries_select_different_bodies_for_the_same_imported_law
         PASS [   0.003s] (408/489) bend2-lsp::semantic_workspace readiness_tracks_only_dirty_open_roots_and_stale_publish_cannot_clear_it
         PASS [   0.003s] (409/489) bend2-lsp::semantic_workspace reference_groups_preserve_interleaved_forward_uses_and_distinct_locals
         PASS [   0.003s] (410/489) bend2-lsp::semantic_workspace rename_rejects_local_capture_and_global_collision_without_source_rescan
@@ -840,49 +840,49 @@ note: to see what the problems were, use the option `--future-incompat-report`, 
         PASS [   0.004s] (416/489) bend2-lsp::semantic_workspace symlink_overlay_uses_canonical_parent_and_invalidates_importing_views
         PASS [   0.004s] (417/489) bend2-lsp::semantic_workspace unresolved_and_editor_only_aliases_keep_complete_atom_rename_safety
         PASS [   0.003s] (418/489) bend2-lsp::semantic_workspace watched_symlink_retarget_refreshes_indexed_imports_without_new_source_facts
-        PASS [   0.278s] (419/489) bend2-lsp::tracing_protocol protocol::disabled_tracing_preserves_protocol_and_compiler_metrics
-        PASS [   0.298s] (420/489) bend2-lsp::tracing_protocol protocol::enabled_trace_is_complete_chrome_json_with_required_spans
-        PASS [   0.023s] (421/489) bend2-lsp::tracing_protocol protocol::graceful_shutdown_flushes_trace_before_process_exit
-        PASS [   0.023s] (422/489) bend2-lsp::tracing_protocol protocol::sigterm_after_shutdown_finalizes_trace
-        PASS [   0.308s] (423/489) bend2-lsp::tracing_protocol protocol::trace_excludes_source_uri_and_command_sentinels
-        PASS [   0.005s] (424/489) bend2-lsp::workspace_lifecycle closing_last_root_releases_root_and_orphan_dependency
+        PASS [   0.283s] (419/489) bend2-lsp::tracing_protocol protocol::disabled_tracing_preserves_protocol_and_compiler_metrics
+        PASS [   0.302s] (420/489) bend2-lsp::tracing_protocol protocol::enabled_trace_is_complete_chrome_json_with_required_spans
+        PASS [   0.024s] (421/489) bend2-lsp::tracing_protocol protocol::graceful_shutdown_flushes_trace_before_process_exit
+        PASS [   0.021s] (422/489) bend2-lsp::tracing_protocol protocol::sigterm_after_shutdown_finalizes_trace
+        PASS [   0.301s] (423/489) bend2-lsp::tracing_protocol protocol::trace_excludes_source_uri_and_command_sentinels
+        PASS [   0.011s] (424/489) bend2-lsp::workspace_lifecycle closing_last_root_releases_root_and_orphan_dependency
         PASS [   0.004s] (425/489) bend2-lsp::workspace_lifecycle closing_unsaved_dependency_overlay_reloads_fresh_disk_for_open_importer
         PASS [   0.003s] (426/489) bend2-lsp::workspace_lifecycle dependents_preserve_terminal_frontiers_diamonds_and_cycles_across_updates
         PASS [   0.003s] (427/489) bend2-lsp::workspace_lifecycle independently_open_dependency_survives_importer_close
-        PASS [   0.003s] (428/489) bend2-lsp::workspace_lifecycle reimport_during_unfinished_load_discards_retired_disk_and_import_edges
+        PASS [   0.004s] (428/489) bend2-lsp::workspace_lifecycle reimport_during_unfinished_load_discards_retired_disk_and_import_edges
         PASS [   0.003s] (429/489) bend2-lsp::workspace_lifecycle reimport_reads_updated_disk_with_stable_dependency_identity
         PASS [   0.003s] (430/489) bend2-lsp::workspace_lifecycle removing_import_releases_dependency_but_preserves_identity_and_live_reader
-        PASS [   3.145s] (431/489) bend2-lsp::workspace_lifecycle repeated_10000_file_import_lifecycle_releases_snapshots_and_preserves_identity
-        PASS [   0.012s] (432/489) bend2-lsp::workspace_lifecycle shared_dependency_is_retained_until_last_importing_root_closes
-        PASS [   0.004s] (433/489) bend2-lsp::workspace_lifecycle unreachable_import_cycle_releases_both_payloads_and_reverse_links
-        PASS [   0.012s] (434/489) tower-lsp codec::tests::decodes_optional_content_type
-        PASS [   0.003s] (435/489) tower-lsp codec::tests::decodes_small_chunks
-        PASS [   0.004s] (436/489) tower-lsp codec::tests::decodes_zero_length_message
+        PASS [   3.155s] (431/489) bend2-lsp::workspace_lifecycle repeated_10000_file_import_lifecycle_releases_snapshots_and_preserves_identity
+        PASS [   0.004s] (432/489) bend2-lsp::workspace_lifecycle shared_dependency_is_retained_until_last_importing_root_closes
+        PASS [   0.003s] (433/489) bend2-lsp::workspace_lifecycle unreachable_import_cycle_releases_both_payloads_and_reverse_links
+        PASS [   0.015s] (434/489) tower-lsp codec::tests::decodes_optional_content_type
+        PASS [   0.004s] (435/489) tower-lsp codec::tests::decodes_small_chunks
+        PASS [   0.003s] (436/489) tower-lsp codec::tests::decodes_zero_length_message
         PASS [   0.003s] (437/489) tower-lsp codec::tests::encode_and_decode
         PASS [   0.003s] (438/489) tower-lsp codec::tests::recovers_from_parse_error
         PASS [   0.003s] (439/489) tower-lsp jsonrpc::error::tests::error_code_deserializes_from_i64
         PASS [   0.003s] (440/489) tower-lsp jsonrpc::error::tests::error_code_serializes_as_i64
         PASS [   0.003s] (441/489) tower-lsp jsonrpc::response::tests::preserves_error_parts_through_wire_round_trip
-        PASS [   0.003s] (442/489) tower-lsp jsonrpc::response::tests::preserves_successful_encoded_parts_through_wire_round_trip
-        PASS [   0.003s] (443/489) tower-lsp jsonrpc::router::tests::handles_incorrect_request_types
+        PASS [   0.004s] (442/489) tower-lsp jsonrpc::response::tests::preserves_successful_encoded_parts_through_wire_round_trip
+        PASS [   0.004s] (443/489) tower-lsp jsonrpc::router::tests::handles_incorrect_request_types
         PASS [   0.003s] (444/489) tower-lsp jsonrpc::router::tests::ignores_nonexistent_notification
         PASS [   0.003s] (445/489) tower-lsp jsonrpc::router::tests::ignores_notification_with_invalid_params
         PASS [   0.003s] (446/489) tower-lsp jsonrpc::router::tests::maps_result_serialization_failure_to_internal_error
-        PASS [   0.003s] (447/489) tower-lsp jsonrpc::router::tests::rejects_request_with_invalid_params
-        PASS [   0.003s] (448/489) tower-lsp jsonrpc::router::tests::responds_to_nonexistent_request
-        PASS [   0.003s] (449/489) tower-lsp jsonrpc::router::tests::routes_notifications
-        PASS [   0.003s] (450/489) tower-lsp jsonrpc::router::tests::routes_requests
-        PASS [   0.003s] (451/489) tower-lsp jsonrpc::router::tests::serializes_nested_generic_success
-        PASS [   0.003s] (452/489) tower-lsp jsonrpc::router::tests::serializes_null_success
+        PASS [   0.004s] (447/489) tower-lsp jsonrpc::router::tests::rejects_request_with_invalid_params
+        PASS [   0.005s] (448/489) tower-lsp jsonrpc::router::tests::responds_to_nonexistent_request
+        PASS [   0.004s] (449/489) tower-lsp jsonrpc::router::tests::routes_notifications
+        PASS [   0.004s] (450/489) tower-lsp jsonrpc::router::tests::routes_requests
+        PASS [   0.005s] (451/489) tower-lsp jsonrpc::router::tests::serializes_nested_generic_success
+        PASS [   0.004s] (452/489) tower-lsp jsonrpc::router::tests::serializes_null_success
         PASS [   0.003s] (453/489) tower-lsp jsonrpc::tests::accepts_negative_integer_request_id
-        PASS [   0.004s] (454/489) tower-lsp jsonrpc::tests::accepts_null_request_id
+        PASS [   0.002s] (454/489) tower-lsp jsonrpc::tests::accepts_null_request_id
         PASS [   0.003s] (455/489) tower-lsp jsonrpc::tests::falls_back_to_requests_for_invalid_response_branches
-        PASS [   0.004s] (456/489) tower-lsp jsonrpc::tests::incoming_round_trip
+        PASS [   0.003s] (456/489) tower-lsp jsonrpc::tests::incoming_round_trip
         PASS [   0.003s] (457/489) tower-lsp jsonrpc::tests::outgoing_round_trip
         PASS [   0.003s] (458/489) tower-lsp jsonrpc::tests::parses_incoming_message
         PASS [   0.003s] (459/489) tower-lsp jsonrpc::tests::parses_invalid_server_request
         PASS [   0.003s] (460/489) tower-lsp jsonrpc::tests::parses_outgoing_message
-        PASS [   0.004s] (461/489) tower-lsp jsonrpc::tests::preserves_envelope_recursion_boundary
+        PASS [   0.003s] (461/489) tower-lsp jsonrpc::tests::preserves_envelope_recursion_boundary
         PASS [   0.003s] (462/489) tower-lsp jsonrpc::tests::preserves_json_error_categories
         PASS [   0.003s] (463/489) tower-lsp jsonrpc::tests::preserves_response_first_dispatch_and_branch_precedence
         PASS [   0.003s] (464/489) tower-lsp jsonrpc::tests::preserves_response_id_domains
@@ -891,66 +891,66 @@ note: to see what the problems were, use the option `--future-incompat-report`, 
         PASS [   0.003s] (467/489) tower-lsp service::client::pending::tests::canceled_waiter_does_not_panic_when_response_arrives
         PASS [   0.003s] (468/489) tower-lsp service::client::pending::tests::dropped_pending_returns_cancellation
         PASS [   0.003s] (469/489) tower-lsp service::client::pending::tests::routes_responses_in_fifo_order
-        PASS [   0.004s] (470/489) tower-lsp service::client::pending::tests::waits_for_client_response
-        PASS [   0.004s] (471/489) tower-lsp service::client::tests::closed_request_channel_returns_internal_error
-        PASS [   0.004s] (472/489) tower-lsp service::client::tests::log_message
-        PASS [   0.004s] (473/489) tower-lsp service::client::tests::notification_serialization_failure_sends_no_message
-        PASS [   0.004s] (474/489) tower-lsp service::client::tests::publish_diagnostics
+        PASS [   0.003s] (470/489) tower-lsp service::client::pending::tests::waits_for_client_response
+        PASS [   0.003s] (471/489) tower-lsp service::client::tests::closed_request_channel_returns_internal_error
+        PASS [   0.003s] (472/489) tower-lsp service::client::tests::log_message
+        PASS [   0.003s] (473/489) tower-lsp service::client::tests::notification_serialization_failure_sends_no_message
+        PASS [   0.003s] (474/489) tower-lsp service::client::tests::publish_diagnostics
         PASS [   0.004s] (475/489) tower-lsp service::client::tests::request_serialization_failure_returns_internal_error
         PASS [   0.003s] (476/489) tower-lsp service::client::tests::show_message
-        PASS [   0.003s] (477/489) tower-lsp service::client::tests::telemetry_event
+        PASS [   0.004s] (477/489) tower-lsp service::client::tests::telemetry_event
         PASS [   0.003s] (478/489) tower-lsp service::client::tests::typed_requests_decode_encoded_results_and_preserve_parse_errors
-        PASS [   0.003s] (479/489) tower-lsp service::pending::tests::cancels_server_request
+        PASS [   0.004s] (479/489) tower-lsp service::pending::tests::cancels_server_request
         PASS [   0.003s] (480/489) tower-lsp service::pending::tests::executes_server_request
-        PASS [   0.004s] (481/489) tower-lsp service::tests::cancels_pending_requests
+        PASS [   0.003s] (481/489) tower-lsp service::tests::cancels_pending_requests
         PASS [   0.003s] (482/489) tower-lsp service::tests::exit_notification
         PASS [   0.003s] (483/489) tower-lsp service::tests::get_inner
-        PASS [   0.003s] (484/489) tower-lsp service::tests::initializes_only_once
-        PASS [   0.003s] (485/489) tower-lsp service::tests::refuses_requests_after_shutdown
+        PASS [   0.004s] (484/489) tower-lsp service::tests::initializes_only_once
+        PASS [   0.005s] (485/489) tower-lsp service::tests::refuses_requests_after_shutdown
         PASS [   0.003s] (486/489) tower-lsp service::tests::serves_custom_requests
         PASS [   0.003s] (487/489) tower-lsp transport::tests::handles_invalid_json
-        PASS [   0.003s] (488/489) tower-lsp transport::tests::interleaves_messages
-        PASS [   0.002s] (489/489) tower-lsp transport::tests::serves_on_stdio
+        PASS [   0.005s] (488/489) tower-lsp transport::tests::interleaves_messages
+        PASS [   0.003s] (489/489) tower-lsp transport::tests::serves_on_stdio
 ────────────
-     Summary [  91.775s] 489 tests run: 489 passed, 2 skipped
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
+     Summary [  88.477s] 489 tests run: 489 passed, 2 skipped
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
    Doc-tests tower_lsp
 
 running 2 tests
 test vendor/tower-lsp/src/service.rs - service::LspServiceBuilder<S>::custom_method (line 169) ... ok
 test vendor/tower-lsp/src/lib.rs - (line 7) ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.16s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.90s
 
 == feature combinations ==
 info: running `cargo check --locked --no-default-features` on bend2-lsp (1/8)
     Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.19s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.82s
 
 info: running `cargo check --locked --no-default-features --features dhat-heap,native-trace-stdio` on bend2-lsp (2/8)
     Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.16s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.05s
 
 info: running `cargo check --locked --no-default-features --features dhat-heap` on bend2-lsp (3/8)
     Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.47s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.09s
 
 info: running `cargo check --locked --no-default-features --features native-trace-stdio` on bend2-lsp (4/8)
     Checking bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.54s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.78s
 
 info: running `cargo check --locked` on bend2-perf (5/8)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
 
 info: running `cargo check --locked` on bend2-semantic-probe (6/8)
     Checking bend2-semantic-probe v0.6.2 (/tmp/semantic-approved-126952f6d048/tools/semantic-probe)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
 
 info: running `cargo check --locked --no-default-features` on tower-lsp (7/8)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
 
 info: running `cargo check --locked --no-default-features --features proposed` on tower-lsp (8/8)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
 == dependencies ==
 warning[duplicate]: found 2 duplicate entries for crate 'bitflags'
   ┌─ /tmp/semantic-approved-126952f6d048/Cargo.lock:7:1

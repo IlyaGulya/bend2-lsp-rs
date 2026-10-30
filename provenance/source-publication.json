@@ -1,13 +1,12 @@
 {
-  "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-  "previous_head": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "previous_head": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
   "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
-  "draft": true,
-  "quality": "passed489,2existingskips",
-  "default_binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385",
-  "all5_actual_stdio": "passed",
-  "operation": "plain fast-forward source push only, no force/review/merge/tag/release",
+  "quality": "fullpassed489/2existingskips",
+  "stdio": "5actualpassed",
+  "default_binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50",
+  "operation": "plainfastforward, noforce, noreview/merge/tag/release, noexception",
   "exit_code": 0,
   "stdout": "",
-  "stderr": "To github.com:IlyaGulya/bend2-lsp-rs.git\n   8af8fe7..87f26c8  87f26c8d263fd736cc19d6da2699ccb543e1714c -> feat/semantic-conformance-main\n"
+  "stderr": "To github.com:IlyaGulya/bend2-lsp-rs.git\n   87f26c8..888d5ff  888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7 -> feat/semantic-conformance-main\n"
 }

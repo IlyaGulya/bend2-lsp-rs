@@ -1,20 +1,19 @@
 {
-  "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-  "parent": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
-  "bundle_sha256": "cad1de6ccfcf0a2309dc010043290c30558ef8f021d3b02819f662cd4b34ff86",
-  "owned_qa_checkout": "/tmp/semantic-approved-126952f6d048",
+  "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "parent": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+  "bundle_sha256": "cc0d456150f897d2addbc9493582286fca56cb48f24717721d1a4a8554822e7f",
+  "qa": "/tmp/semantic-approved-126952f6d048",
   "cargo_target": "/workspace/target/semantic-approved-126952f6d048",
-  "commands": [
+  "steps": [
     {
       "command": [
         "git",
         "bundle",
         "create",
-        "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-87f26c8d263fd736cc19d6da2699ccb543e1714c.bundle",
+        "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7.bundle",
         "HEAD",
-        "^8af8fe7ce106622b8d51407ddc6982efb68b1410"
+        "^87f26c8d263fd736cc19d6da2699ccb543e1714c"
       ],
-      "cwd": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-review",
       "exit_code": 0,
       "stdout": "",
       "stderr": ""
@@ -24,13 +23,12 @@
         "docker",
         "compose",
         "cp",
-        "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-87f26c8d263fd736cc19d6da2699ccb543e1714c.bundle",
-        "rust:/tmp/semantic-perf-prefix-locals.bundle"
+        "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7.bundle",
+        "rust:/tmp/semantic-completion-growth.bundle"
       ],
-      "cwd": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main",
       "exit_code": 0,
       "stdout": "",
-      "stderr": " bend2-lsp-rs-rust-1 Copying /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-87f26c8d263fd736cc19d6da2699ccb543e1714c.bundle to bend2-lsp-rs-rust-1:/tmp/semantic-perf-prefix-locals.bundle\n bend2-lsp-rs-rust-1 Copied /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-87f26c8d263fd736cc19d6da2699ccb543e1714c.bundle to bend2-lsp-rs-rust-1:/tmp/semantic-perf-prefix-locals.bundle\n"
+      "stderr": " bend2-lsp-rs-rust-1 Copying /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7.bundle to bend2-lsp-rs-rust-1:/tmp/semantic-completion-growth.bundle\n bend2-lsp-rs-rust-1 Copied /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/source-888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7.bundle to bend2-lsp-rs-rust-1:/tmp/semantic-completion-growth.bundle\n"
     },
     {
       "command": [
@@ -43,13 +41,12 @@
         "rust",
         "git",
         "fetch",
-        "/tmp/semantic-perf-prefix-locals.bundle",
+        "/tmp/semantic-completion-growth.bundle",
         "HEAD"
       ],
-      "cwd": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main",
       "exit_code": 0,
       "stdout": "",
-      "stderr": "From /tmp/semantic-perf-prefix-locals.bundle\n * branch            HEAD       -> FETCH_HEAD\n"
+      "stderr": "From /tmp/semantic-completion-growth.bundle\n * branch            HEAD       -> FETCH_HEAD\n"
     },
     {
       "command": [
@@ -65,9 +62,8 @@
         "--hard",
         "FETCH_HEAD"
       ],
-      "cwd": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main",
       "exit_code": 0,
-      "stdout": "HEAD is now at 87f26c8 perf: avoid redundant Windows realpaths and local-index sweeps\n",
+      "stdout": "HEAD is now at 888d5ff perf: bound lazy completion result growth\n",
       "stderr": ""
     }
   ]

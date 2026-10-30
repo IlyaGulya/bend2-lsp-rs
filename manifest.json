@@ -1,374 +1,66 @@
 {
   "schema": 1,
-  "kind": "semantic-performance-repair-evidence",
-  "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-  "parent": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
-  "frozen_main": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "kind": "semantic-performance-followup-evidence",
+  "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "parent": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+  "baseline_main": "8ba06b117e8453959baa2157f857fa2e055fc887",
   "before_repair": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
-  "source_branch": "feat/semantic-conformance-main",
-  "pr": "https://github.com/IlyaGulya/bend2-lsp-rs/pull/62",
   "draft": true,
-  "current_local": {
-    "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-    "parent": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
-    "quality": "passed",
-    "quality_log_sha256": "8a8298c3eb0232dcfba7f8a1fb91f7c806cfbc011e5776697ce6f7087ceb2811",
-    "nextest": {
-      "passed": 489,
-      "skipped": 2
-    },
-    "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385",
-    "smokes": {
+  "pr": "https://github.com/IlyaGulya/bend2-lsp-rs/pull/62",
+  "local": {
+    "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+    "parent": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+    "quality": "passed489,2existingskips,allstagesincludingnormalboundedsemanticconformance",
+    "quality_log_sha256": "2e29ad3ca55d19964b7cab9869bd158ed5b8b4cae6b07b1fa5ea7130a73caae5",
+    "default_binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50",
+    "real_stdio": {
       "p1": {
         "exit_code": 0,
         "script_sha256": "7cba4b434947d0a4b61c8df88c1662348ffd47303a7b0fdebbec0fe7585e7491",
-        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
       },
       "base-pair": {
         "exit_code": 0,
         "script_sha256": "8e9c4376d320c71e58991d4305d5685a9629195e475d1b062fcd91560da69265",
-        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
       },
       "entry-hierarchy": {
         "exit_code": 0,
         "script_sha256": "85740120d5838d0e3820b80d9560276a05d41dcb7d32dc57524717f5e08d32ed",
-        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
       },
       "recovery-diagnostics": {
         "exit_code": 0,
         "script_sha256": "0f225bf1c85fb4f9a8e7880215b11482b758b3a45ffdf4562b3c481a9536b740",
-        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
       },
       "autoimport": {
         "exit_code": 0,
-        "script_sha256": "7f1b651e240ab218b3751dcd083907938536f686122e1ced2fd5d373e3844f39",
-        "binary_sha256": "44bf1a2fe1e5c46a2dfc99981261534c935dbd55e916739495db5dc80bb69385"
+        "script_sha256": "f42ad1577387023dcfa6fccb91ddead58cbf73127f4ced0ebeacf92fb09f6270",
+        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
       }
     },
-    "windows_runtime": "not exercised locally, no pass claimed",
-    "local_index_boundary_api": "passed6focusedregressions beforecommit on identical3codefilehashes; fullqualityon87f includes6regressions",
-    "autoimport_initial_failure": "Initial throwaway omitted discovery/index synchronization; retained full originalfailure, correctedwith existing unopenedwatchedsource contract, no completion retries or production/test weakening.",
-    "performance_qualification": false,
-    "source709_native_callgrind_heap": "historical intermediate only, not source87f admission",
-    "windows_issue74": "historical optional-lint failure remains separate non-blocking; no blanket currentWindows exemption"
+    "targeted_completion_tests": {
+      "passed": 31,
+      "skipped_by_selector": 404,
+      "scope": "beforecommit onidenticalanalysiscode; fullqualityonexactcommitcontainsallregressions",
+      "raw_stdout": "observedtooloutput; not separatelyarchived, fullqualityraw log archived"
+    },
+    "change": "Lazylimitedinitialreserve16onlywhenmatchandcapacitygrowthneeded; copykindbeforeownedStrings. No newindex/pass/resultownership/fixture/policychange.",
+    "performance": "unmeasured source888; source87f39regressions and6.4%smallcompletion remain beforeevidence, not888admission",
+    "windows_scope": "prior87fpassedactualWindowsinvariant/fullnative/installedtests; nottransferredto888; freshCIrequired"
   },
-  "current_hosted": {
-    "canonical_key": {
-      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "status": "pass",
-      "views_per_compiler": 634,
-      "ordinary_and_instrumented_pinned_source_compiler_observations_equal": true,
-      "performance_admission": false,
-      "run": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028945087"
+  "change": "Boundfirst resultreservationto16 indexeddeclarationsonfirstmatch/capacitygrow path; retaincopiedkind beforeownedStrings. No speculativezeroresultallocation, matchingprepass,newindex or resultownershipchange.",
+  "before_exact87f": {
+    "tested_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
+    "source_tree": "3800454aa2f88cf45d02d2f3223268ac498b0db1",
+    "ordinary_main_run": 41028741757,
+    "policy_status": "regression",
+    "metrics": {
+      "passed": 123,
+      "regression": 39
     },
-    "remaining_source_bound_runs": [
-      {
-        "conclusion": "",
-        "databaseId": 41028941081,
-        "event": "workflow_dispatch",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "name": "performance",
-        "status": "queued",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028941081",
-        "workflowName": "performance"
-      },
-      {
-        "conclusion": "success",
-        "databaseId": 41028741880,
-        "event": "pull_request",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "name": "semantic-fuzz",
-        "status": "completed",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741880",
-        "workflowName": "semantic-fuzz"
-      },
-      {
-        "conclusion": "success",
-        "databaseId": 41028741760,
-        "event": "pull_request",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "name": "installer-validation",
-        "status": "completed",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741760",
-        "workflowName": "installer-validation"
-      },
-      {
-        "conclusion": "",
-        "databaseId": 41028741823,
-        "event": "pull_request",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "name": "performance-calibration",
-        "status": "queued",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741823",
-        "workflowName": "performance-calibration"
-      },
-      {
-        "conclusion": "success",
-        "databaseId": 41028741761,
-        "event": "pull_request",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "name": "quality",
-        "status": "completed",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741761",
-        "workflowName": "quality"
-      },
-      {
-        "conclusion": "failure",
-        "databaseId": 41028741757,
-        "event": "pull_request",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "name": "performance",
-        "status": "completed",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741757",
-        "workflowName": "performance"
-      },
-      {
-        "conclusion": "success",
-        "databaseId": 41028741664,
-        "event": "pull_request",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "name": "perf-diagnostics / pr-41028741664-1",
-        "status": "completed",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741664",
-        "workflowName": "perf-diagnostics"
-      },
-      {
-        "conclusion": "success",
-        "databaseId": 41028945087,
-        "event": "workflow_dispatch",
-        "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "status": "completed",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028945087",
-        "workflowName": "semantic-canonical-key"
-      }
-    ],
-    "remaining_outcomes": "Quality/canonical/20run5jobsemantic/fullnativeinstallers/perfdiagnostics passed; native12/12verified; ordinarymainCGregression123pass39reg0inconclusiveadmissionDENIED. OriginalB1comparison andperformancecalibration stillpending.",
-    "quality": {
-      "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "run_id": 41028741761,
-      "conclusion": "success",
-      "jobs": [
-        [
-          "legacy-native-compiler-e2e",
-          "success"
-        ],
-        [
-          "native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3)",
-          "success"
-        ],
-        [
-          "native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)",
-          "success"
-        ],
-        [
-          "native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python)",
-          "success"
-        ],
-        [
-          "quality",
-          "success"
-        ],
-        [
-          "native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3)",
-          "success"
-        ],
-        [
-          "native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3)",
-          "success"
-        ],
-        [
-          "native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3)",
-          "success"
-        ]
-      ],
-      "observed_surface": [
-        "fullquality",
-        "repeated10000-fileworkspace lifecycles",
-        "realNeovimnativeLSPE2E",
-        "all6native realcompilerstdio/lint/processE2Es",
-        "WindowsARMgenuine native rule program verified, no exception applied",
-        "legacy2.0.36compatE2E"
-      ],
-      "raw_log_sha256": "9249a7b3b65260e1f66ae83d22889dad5b29e17347f2b672d621f88ad3244733",
-      "performance_admission": false,
-      "windows_unit_release_tests": "separateinstallerworkflow stillawaited"
-    },
-    "partial_native": {
-      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "tree": "3800454aa2f88cf45d02d2f3223268ac498b0db1",
-      "tested_main_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
-      "collected4of12": [
-        [
-          41028741757,
-          "aarch64-unknown-linux-gnu"
-        ],
-        [
-          41028741757,
-          "aarch64-apple-darwin"
-        ],
-        [
-          41028741757,
-          "x86_64-unknown-linux-gnu"
-        ],
-        [
-          41028941081,
-          "aarch64-unknown-linux-gnu"
-        ]
-      ],
-      "status": "partial, Windows andmacOSx64notcollectedyet",
-      "admission": false,
-      "historical": "Earlier snapshot; superseded by complete12/12 data in native-complete-summary. Originalpartial retained for provenance."
-    },
-    "native": {
-      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "tree": "3800454aa2f88cf45d02d2f3223268ac498b0db1",
-      "tested_main_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
-      "collected12of12": [
-        [
-          41028741757,
-          "aarch64-unknown-linux-gnu"
-        ],
-        [
-          41028741757,
-          "aarch64-apple-darwin"
-        ],
-        [
-          41028741757,
-          "x86_64-unknown-linux-gnu"
-        ],
-        [
-          41028941081,
-          "aarch64-unknown-linux-gnu"
-        ],
-        [
-          41028741757,
-          "aarch64-pc-windows-msvc"
-        ],
-        [
-          41028741757,
-          "x86_64-apple-darwin"
-        ],
-        [
-          41028741757,
-          "x86_64-pc-windows-msvc"
-        ],
-        [
-          41028941081,
-          "x86_64-apple-darwin"
-        ],
-        [
-          41028941081,
-          "x86_64-unknown-linux-gnu"
-        ],
-        [
-          41028941081,
-          "x86_64-pc-windows-msvc"
-        ],
-        [
-          41028941081,
-          "aarch64-pc-windows-msvc"
-        ],
-        [
-          41028941081,
-          "aarch64-apple-darwin"
-        ]
-      ],
-      "paired_rounds": 7,
-      "scope": "all6targets percomparison, full10kfilescoldreadyandRSS; allsourcebindings/selectedreportdigestsverified",
-      "admission": false
-    },
-    "perf_diagnostics": {
-      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "run_id": 41028741664,
-      "conclusion": "success",
-      "scope": "workflow/tooling gates; individualprofiles notseparatelyclaimedvalid here"
-    },
-    "semantic_calibration": {
-      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "tested_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
-      "run_id": 41028741880,
-      "conclusion": "success",
-      "evidence_complete": true,
-      "runs": 20,
-      "independent_jobs": 5,
-      "p95_seconds": 98.547921965,
-      "max_seconds": 101.03032466399998,
-      "targets_met": true,
-      "policy_changed": false,
-      "scope": "normalruntime/resourcequalification; notCallgrindadmission"
-    },
-    "installer": {
-      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "run_id": 41028741760,
-      "conclusion": "success",
-      "scope": "all6nativefullrelease tests, packaged andinstalledLSPE2Es; no releasepublished",
-      "windows_prefix_invariant_tests": "PASS bothx64andARM64, originalrawlog archived",
-      "windows_exception_applied": false
-    },
-    "ordinary_main_performance": {
-      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-      "tested_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
-      "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
-      "run_id": 41028741757,
-      "measurement_collection": "success",
-      "classification_observed": "regression",
-      "performance_admission": "denied; protectedreviewskipped",
-      "request_performance_exception": false,
-      "metric_counts": {
-        "passed": 123,
-        "regression": 39
-      },
-      "by_metric": {
-        "Ir": {
-          "passed": 53,
-          "regression": 1
-        },
-        "I1mr": {
-          "passed": 27,
-          "regression": 27
-        },
-        "ILmr": {
-          "passed": 43,
-          "regression": 11
-        }
-      },
-      "workloads": 54,
-      "metric_rows": 162,
-      "candidate_only_unpaired": 48,
-      "inconclusive_count": 0,
-      "remaining_instruction_regression": {
-        "workload": "completion_warm.small",
-        "main": 19757,
-        "source87f": 21022,
-        "delta": 1265,
-        "percent": 6.40279394644936
-      },
-      "followup_status": "888d5ff local-only bounded lazy reserve and copiedkind;31completiontests+5realstdio passed; exact fullquality running. No new performance result or Source87fadmission."
-    }
-  },
-  "performance_admission": false,
-  "unchanged_contracts": [
-    "Bend2.0.37 andBun1.4.0 pins",
-    "no strict mode; real selectedcompilerdiagnostics plus editorrecovery",
-    "warm immutable snapshot/index-only semantics",
-    "physical identity/logicalURI/case distinctions, stalehandles,law andentry meanings",
-    "benchmark bodies/fixtures/resultownership/metrics/geometry/thresholds",
-    "normalconformance limits, deadlines,retry andresourcepolicies",
-    "draft PR; no approval,merge,tag,release"
-  ],
-  "intermediate709": {
-    "source_head": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
-    "tested_merge": "c1fe6928d8a5123d7ae6a7a758432e5644c4b69b",
-    "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
-    "callgrind_run": 41011101522,
-    "method": "paired-median-105-v1",
-    "status": "inconclusive",
-    "metric_counts": {
-      "passed": 121,
-      "regression": 40,
-      "inconclusive": 1
-    },
-    "event_counts": {
+    "by_metric": {
       "Ir": {
         "passed": 53,
         "regression": 1
@@ -378,57 +70,57 @@
         "regression": 27
       },
       "ILmr": {
-        "passed": 41,
-        "regression": 12,
-        "inconclusive": 1
+        "passed": 43,
+        "regression": 11
       }
     },
-    "workloads": 54,
-    "candidate_only_unpaired": 48,
+    "small_completion_Ir": {
+      "main": 19757,
+      "before87f": 21022,
+      "delta": 1265,
+      "percent": 6.40279394644936
+    },
     "admission": false,
-    "native_and_heap_scope": "Historical source709 only; nativepairedcold/RSS and whole-scenario DHAT allocationattribution are different measurements. No current87fqualification."
+    "allnative12and20run5jobruntime": "passed/completebeforeonly, not transferredto888",
+    "evidence_previous_manifest": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/28f48581fe08f2b7b3812f0ed88e880f4e3492a4/manifest.json"
   },
-  "intermediate8af": {
-    "source_head": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
-    "tested_merge": "a5f58258f332e30391666d7726acdcadc4681419",
-    "candidate_tree": "a082cf5bfb3091973038cdfcc80653458f2d170e",
-    "native_runs": [
-      41017184711,
-      41017181504
+  "new_hosted": {
+    "known_created_exact_source": [
+      {
+        "conclusion": "",
+        "databaseId": 41057811245,
+        "event": "workflow_dispatch",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057811245",
+        "workflowName": "performance"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 41057815829,
+        "event": "workflow_dispatch",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057815829",
+        "workflowName": "semantic-canonical-key"
+      }
     ],
-    "targets_per_run": 6,
-    "paired_rounds": 7,
-    "parent_checks": "All12source/tree bindings, 10000-file coldms/RSS medians, roundcounts and3sealedreportSHA256s independentlyverified. Child additionallyverifiedfullartifactinventories. Zipdigests are producerdeclared, not independentlyrecomputed.",
-    "assessment": "Remaining10kWindowscoldregression againstmain islarge on8af:2.83x x64,3.55x ARM; RSS+66to70MiB. Warmreferences improve onall6targets. This does not qualify or predict87f."
+    "automatic_runs": "not yet discovered by firstlist; no passinferred",
+    "performance_outcome": "unmeasured/pending",
+    "request_performance_exception": false
   },
-  "external_failure": {
-    "source_head": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
-    "run_id": 41011101457,
-    "job_id": 123916922275,
-    "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41011101457/job/123916922275",
-    "cause_observed": "2026-10-30T06:51:34.7441720Z curl: (22) The requested URL returned error: 502",
-    "step": "Install and validate pinned Valgrind",
-    "dependent_errors": [
-      "missing bend2-perf after skipped build => exit127",
-      "no sealed artifact => upload error"
-    ],
-    "classification": "external sourceware.org HTTP502 tooling prerequisite, not product/numeric failure",
-    "source_changes": false,
-    "retry_policy_changes": false,
-    "same_source_reruns": false,
-    "scope": "709 calibration report cannot be complete; freshsource87f uses original mandatoryworkflow. No transferofotherreports. Not Windowsissue74."
-  },
-  "windows_issue74": {
-    "url": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/74",
-    "scope": "Historical optional-lint Windows failure is separatelyevidenced and non-blocking by ownerdecision; not blanket exemption for fresh Windows failures."
-  },
-  "evidence_scope": {
-    "compressed_files": "*.gz losslesslygzip originalbytes withmtime0; SHA256 belowcoversstoredbytes. Originalartifact-manifest digests applytodecompressed originalreports.",
-    "native": "Full selected native discovery/latency reports, provenance and fullhashinventories archived. MultiGB rawwire/fixture trees are retained locally and in originalhostedartifacts linked by native summary; not allrawtrees committedhere.",
-    "callgrind": "Fullintermediate709policy and105pairedmachinecounts included; raw profiles remaininoriginalartifact12962317642 andlocaldownload.",
-    "attempts": "Original API/harness failures retained and explained; no production changes or permanenttests weakened tohidefailure.",
-    "reviews": "Staticonly, limits stated; newWindows runtime stillrequires exact87fCI."
-  },
+  "performance_admission": false,
+  "unchanged": [
+    "Bend2.0.37/Bun1.4.0 pins",
+    "recoverywithrealcompilererrors,no strictmode",
+    "P1localdefinition/constructorcompletion/fullatomrename",
+    "immutablewarmindexes andcontext/physicalURI/law/stalehandle contracts",
+    "benchmarks/fixtures/ownership/metrics/thresholds/cachegeometry/deadline/retry/resourcepolicies",
+    "no localSUTlatency/RSS/Callgrind experiments; staticexistingprofileannotationonly",
+    "draft; noapproval/merge/tag/release"
+  ],
+  "scope": "Fullcurrentlocal logs+5realstdio; fullbefore87fmeasuredpolicy/105pairs/native reports/provenance. Historical data explicitlybefore, no inheritedadmission. *.gzlosslessgzipmtime0; native rawmultiGBwire staysinoriginalhostedartifact/localtrees andsealedhashinventories.",
+  "windows74": "Historicaloptional-lint Windowsfailure separatelyevidenced issue74nonblocking; freshWindowschecks notexempted.",
   "files": {
     "attempts/autoimport-initial-index-readiness.json": {
       "bytes": 5591,
@@ -490,315 +182,371 @@
       "bytes": 267,
       "sha256": "45a22eb22dc32c5e30d6a7d2dc62f8aac8b1191e24954ce2c1eceb587a17eb08"
     },
-    "current87f/callgrind-main/absolute-metrics.json": {
+    "before87f/callgrind-main/absolute-metrics.json": {
       "bytes": 108141,
       "sha256": "8a253e4e7d7e2876cefb9dd117976a6826a2ec2b878a8902906e99deb8753043"
     },
-    "current87f/callgrind-main/admission-failure.log": {
+    "before87f/callgrind-main/admission-failure.log": {
       "bytes": 3967,
       "sha256": "317b5ef6d6ff291ba09250293ca4975fabbd275c72a8b3ae1c8030ab7f73a9d6"
     },
-    "current87f/callgrind-main/admission-measurement.json": {
+    "before87f/callgrind-main/admission-measurement.json": {
       "bytes": 4427,
       "sha256": "b4d0232e28ecc5957aa9110d7583b4a47762347f045317c5f32491dca8556f25"
     },
-    "current87f/callgrind-main/before-bounded-growth.json": {
+    "before87f/callgrind-main/before-bounded-growth.json": {
       "bytes": 2146,
       "sha256": "1fbcad94b5a8b9560b081d892d74cfaaafc5be54d1f76271f27544e1d5cfa87b"
     },
-    "current87f/callgrind-main/paired-data.json.gz": {
+    "before87f/callgrind-main/paired-data.json.gz": {
       "bytes": 353093,
       "sha256": "8a0f0249bfd02a533325396b4c455ba63c8babdc0c3ead407ca352246189bef6"
     },
-    "current87f/callgrind-main/policy.json.gz": {
+    "before87f/callgrind-main/policy.json.gz": {
       "bytes": 969471,
       "sha256": "44c04cbd30866e50b663fd8921c4cd7043b90f692a8b478f147a88c5bece0d82"
     },
-    "current87f/callgrind-main/policy.md": {
+    "before87f/callgrind-main/policy.md": {
       "bytes": 17791,
       "sha256": "717be737535021980a7dd200c1a8dae4e76be40858b2b2fd8aa4695b5664ced7"
     },
-    "current87f/callgrind-main/static-small-candidate.txt": {
+    "before87f/callgrind-main/static-small-candidate.txt": {
       "bytes": 9454,
       "sha256": "8e88ddf7d85387e4f77e415a29325c08ce492a5519d7c93cd958f6016ae0c32a"
     },
-    "current87f/callgrind-main/static-small-main.txt": {
+    "before87f/callgrind-main/static-small-main.txt": {
       "bytes": 9845,
       "sha256": "46727141025b5ea409f7104a03f20ebb021fd8b26f1915a4d5ec28052ef66af6"
     },
-    "current87f/callgrind-main/workflow.json": {
+    "before87f/callgrind-main/workflow.json": {
       "bytes": 27722,
       "sha256": "26cf358559efe0f309bf00e464daf1937f06d21dff73fffe59e15c17d2bd9a07"
     },
-    "current87f/canonical/installation.json": {
+    "before87f/canonical/installation.json": {
       "bytes": 2434,
       "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
     },
-    "current87f/canonical/native-contracts.json": {
+    "before87f/canonical/native-contracts.json": {
       "bytes": 2434,
       "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
     },
-    "current87f/canonical/qualification/corpus-equivalence.json.gz": {
+    "before87f/canonical/qualification/corpus-equivalence.json.gz": {
       "bytes": 102652,
       "sha256": "af3d0195cc4aea3625e974a5f2b33603e1f3c2c6f87b0e416adc47437f45279f"
     },
-    "current87f/canonical/qualification/paired-cost.json": {
+    "before87f/canonical/qualification/paired-cost.json": {
       "bytes": 2143,
       "sha256": "87355f948e806fd01f90e9e8708aae3e29cfaf6c18419e584d374dc90e7181fa"
     },
-    "current87f/canonical/qualification/plan.json.gz": {
+    "before87f/canonical/qualification/plan.json.gz": {
       "bytes": 107452,
       "sha256": "4cc15fd12aa8df95425f75d385733dfa94c409b1eae3f1a1c09730b074eb7376"
     },
-    "current87f/canonical/qualification/qualification.json": {
+    "before87f/canonical/qualification/qualification.json": {
       "bytes": 4683,
       "sha256": "cfed89af84c5a5972ddf2e26b65140f084791c3ce58604122a1963999859e928"
     },
-    "current87f/canonical/qualification/requests.json.gz": {
+    "before87f/canonical/qualification/requests.json.gz": {
       "bytes": 76979,
       "sha256": "61f40ad091b0ffbcade088c5272bbc070e71b45c912423b91b985fa433a1e383"
     },
-    "current87f/hosted-quality/full-job.log.gz": {
+    "before87f/hosted-quality/full-job.log.gz": {
       "bytes": 49431,
       "sha256": "f13dc0ee97fa08bf752f93a19b2c993dc873276a082042db2307f332515d6511"
     },
-    "current87f/hosted-quality/run.json": {
+    "before87f/hosted-quality/run.json": {
       "bytes": 28220,
       "sha256": "5e2f4a7b19ec5221955d2dde59bf62bf72219cfb853127ea12ecd59a21ca50c4"
     },
-    "current87f/hosted-quality/summary.json": {
+    "before87f/hosted-quality/summary.json": {
       "bytes": 1399,
       "sha256": "1bedaf17f256ade92c836ceaad31c97913b1534e583cb1e6c0a8373462494038"
     },
-    "current87f/installer/aarch64-pc-windows-msvc.log.gz": {
+    "before87f/installer/aarch64-pc-windows-msvc.log.gz": {
       "bytes": 36281,
       "sha256": "c679fddedceb9aab9f53f62c4221233ff686481eb9c18a2e4c7387809411a46f"
     },
-    "current87f/installer/run.json": {
+    "before87f/installer/run.json": {
       "bytes": 45592,
       "sha256": "614f4a4cdc01f4a09af877401f3ed3f4198b96120a463b5244dd9065beb4442d"
     },
-    "current87f/installer/x86_64-pc-windows-msvc.log.gz": {
+    "before87f/installer/x86_64-pc-windows-msvc.log.gz": {
       "bytes": 36129,
       "sha256": "e46d6bec73110e7267d2d7e5b220f5e8ce0c3c0a2ff5fb81e76548e91973e387"
     },
-    "current87f/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
+    "before87f/local/local-index-api-smoke-and-tests.json": {
+      "bytes": 7882,
+      "sha256": "6fb193762c41de153dce038718a98e75465ee06f607063be353725ba713f7c2b"
+    },
+    "before87f/local/quality.log": {
+      "bytes": 107740,
+      "sha256": "8a8298c3eb0232dcfba7f8a1fb91f7c806cfbc011e5776697ce6f7087ceb2811"
+    },
+    "before87f/local/source-proof.json": {
+      "bytes": 2246,
+      "sha256": "367d257c4c46ef2d05cd6b5a7f7b8eb0328f895f9770da8895ee0cc31359e42a"
+    },
+    "before87f/local/stdio-autoimport.json": {
+      "bytes": 11219,
+      "sha256": "45a7b1d0dd530a5ae2c0a74d567d6e1b13b844e84d3cef90961040b0b9ad5aea"
+    },
+    "before87f/local/stdio-base-pair.json": {
+      "bytes": 37280,
+      "sha256": "af5129fff6d59c6c8f91d39c280c071f8d8fa6e95cf1e0039117e203935add9a"
+    },
+    "before87f/local/stdio-entry-hierarchy.json": {
+      "bytes": 63356,
+      "sha256": "454eb1046f23a8c22e76d61f873267decf78b5b1e61969c6ab8089a6193fa84c"
+    },
+    "before87f/local/stdio-p1.json": {
+      "bytes": 42745,
+      "sha256": "b98fab6189c82bb8740471d1978acd67eee25597482a418e9ad704b748384ca3"
+    },
+    "before87f/local/stdio-recovery-diagnostics.json": {
+      "bytes": 28151,
+      "sha256": "923b881599a72861a8c6b0727049dac999825c1e552d69a916e539e6613c189d"
+    },
+    "before87f/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479686,
       "sha256": "f0fd9cfc653938338d72f425e229778e7b5c16ebabd306021a796cc27316952b"
     },
-    "current87f/native-b1/aarch64-apple-darwin/discovery/report.json.gz": {
+    "before87f/native-b1/aarch64-apple-darwin/discovery/report.json.gz": {
       "bytes": 113314,
       "sha256": "792908f6a2ad171b444c483aa9092ca09b90c8739e21c1806c5815e2e0eced2a"
     },
-    "current87f/native-b1/aarch64-apple-darwin/latency-report.json": {
+    "before87f/native-b1/aarch64-apple-darwin/latency-report.json": {
       "bytes": 24698,
       "sha256": "865bb234e7ff82870cd98e5fab91f3470bb3cfe1fe0de54b37d65e9ef8ad4391"
     },
-    "current87f/native-b1/aarch64-apple-darwin/provenance.json": {
+    "before87f/native-b1/aarch64-apple-darwin/provenance.json": {
       "bytes": 28820,
       "sha256": "617c27a23d9cf92c9e8324be723457fddf6d013cd0d7b613f7779792e3d0dff0"
     },
-    "current87f/native-b1/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+    "before87f/native-b1/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
       "bytes": 479696,
       "sha256": "20d86a7b6536181b6dd99cf8e0885282072db2cea784ac8f8b9e80e6afe1449b"
     },
-    "current87f/native-b1/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+    "before87f/native-b1/aarch64-pc-windows-msvc/discovery/report.json.gz": {
       "bytes": 330171,
       "sha256": "0c30a460fc31e47fdb7fc0eccf82d9484a097be2d44975877a099d75bfab49a2"
     },
-    "current87f/native-b1/aarch64-pc-windows-msvc/latency-report.json": {
+    "before87f/native-b1/aarch64-pc-windows-msvc/latency-report.json": {
       "bytes": 24703,
       "sha256": "8bb5314a14fe9ed8cecebb16c5525552963fc1d0b72005a979b512118545eff4"
     },
-    "current87f/native-b1/aarch64-pc-windows-msvc/provenance.json": {
+    "before87f/native-b1/aarch64-pc-windows-msvc/provenance.json": {
       "bytes": 29515,
       "sha256": "b1f1abf647092830884cb2314745da5d7fc0d87666dff0f04c7c9ac6aaa414ad"
     },
-    "current87f/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+    "before87f/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
       "bytes": 479735,
       "sha256": "bd9f32ec2ba0b015afd8de2a985be9da36a615bc7c100659ad402a45514f6cd2"
     },
-    "current87f/native-b1/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+    "before87f/native-b1/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
       "bytes": 338669,
       "sha256": "10e07d3e77a85e69ba51322cb73cbb9798a026e750a588e73cb9a894ed605491"
     },
-    "current87f/native-b1/aarch64-unknown-linux-gnu/latency-report.json": {
+    "before87f/native-b1/aarch64-unknown-linux-gnu/latency-report.json": {
       "bytes": 24601,
       "sha256": "75f2b785888ec49232d2773ab9c6f794b33b4f67314cb2febd31c60ea3e05a9f"
     },
-    "current87f/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
+    "before87f/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
       "bytes": 31076,
       "sha256": "5dd4b62e27fa0435e5fbdca701b149b501c0d934dad7654e08dc007b92ee120f"
     },
-    "current87f/native-b1/x86_64-apple-darwin/artifact-manifest.json.gz": {
+    "before87f/native-b1/x86_64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479699,
       "sha256": "06560b14e1433eba856301eb25b51967309ef25417da4062cce80301085fd381"
     },
-    "current87f/native-b1/x86_64-apple-darwin/discovery/report.json.gz": {
+    "before87f/native-b1/x86_64-apple-darwin/discovery/report.json.gz": {
       "bytes": 159758,
       "sha256": "068965b3be7a5e12565598892ac06e4482a95d6c9cfe2490b2d761a3928b62e1"
     },
-    "current87f/native-b1/x86_64-apple-darwin/latency-report.json": {
+    "before87f/native-b1/x86_64-apple-darwin/latency-report.json": {
       "bytes": 24736,
       "sha256": "ab92399bd2a28e37d650322a5798c1a7b42e07fe8e4be28a97eb06a129c9786d"
     },
-    "current87f/native-b1/x86_64-apple-darwin/provenance.json": {
+    "before87f/native-b1/x86_64-apple-darwin/provenance.json": {
       "bytes": 28835,
       "sha256": "45f230fdf74eebd61e63efa51bbc99837297a05c6b910fc671edafcd8cbd6712"
     },
-    "current87f/native-b1/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+    "before87f/native-b1/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
       "bytes": 479688,
       "sha256": "0861e3e730276ce6123b0942ee980dce9b208b984f7fa5db4756d5b231d04125"
     },
-    "current87f/native-b1/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+    "before87f/native-b1/x86_64-pc-windows-msvc/discovery/report.json.gz": {
       "bytes": 337286,
       "sha256": "db937f8d550141b291b360ace222d29d0477f9a103cabcd93ff80f663cc49651"
     },
-    "current87f/native-b1/x86_64-pc-windows-msvc/latency-report.json": {
+    "before87f/native-b1/x86_64-pc-windows-msvc/latency-report.json": {
       "bytes": 24715,
       "sha256": "89a4b9cda995ef115f56557b2b788b3d66c12eeb181f4cfd2280315e05922008"
     },
-    "current87f/native-b1/x86_64-pc-windows-msvc/provenance.json": {
+    "before87f/native-b1/x86_64-pc-windows-msvc/provenance.json": {
       "bytes": 29532,
       "sha256": "35c0805df8d1469783a2867ad4d00c1b3a64175c7c650656bbec73525d5080ab"
     },
-    "current87f/native-b1/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+    "before87f/native-b1/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
       "bytes": 479739,
       "sha256": "bece676416042c4aa0e355ac62dae86eeebea4a483d658e92328f608285cefc2"
     },
-    "current87f/native-b1/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+    "before87f/native-b1/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
       "bytes": 344668,
       "sha256": "e4521c1c4b71e9fd7b7fd1dd5ee14c53de0747e9cc6459ad37f002521e38dfd8"
     },
-    "current87f/native-b1/x86_64-unknown-linux-gnu/latency-report.json": {
+    "before87f/native-b1/x86_64-unknown-linux-gnu/latency-report.json": {
       "bytes": 24647,
       "sha256": "f0883194216b606c535e6f4a5303f64a0d36255f2c0ccd8abe3211c83a1c173d"
     },
-    "current87f/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
+    "before87f/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
       "bytes": 32092,
       "sha256": "19df38bba90b96518f2bdc859f96c4b3a02ecbc46d90dd295e0b359be192670c"
     },
-    "current87f/native-complete-summary.json.gz": {
+    "before87f/native-complete-summary.json.gz": {
       "bytes": 188665,
       "sha256": "8234d1068d16c0080be12a42a896317cd38ee040d082b8fae67fff66ecefad9d"
     },
-    "current87f/native-main-latency-differences.json": {
+    "before87f/native-main-latency-differences.json": {
       "bytes": 41801,
       "sha256": "e0a5f33d01d59faf627fad39beba5c3198c036eb1bd5bd8db2b40817dbde5548"
     },
-    "current87f/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
+    "before87f/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479693,
       "sha256": "a94672f0a7ea6d037870f8392752ac676cb01c2162826e659886f0cb9a65eca3"
     },
-    "current87f/native-main/aarch64-apple-darwin/discovery/report.json.gz": {
+    "before87f/native-main/aarch64-apple-darwin/discovery/report.json.gz": {
       "bytes": 121218,
       "sha256": "9cd5e9b033a93fc0d7a7ee40998bc5dc5b51d18341fdb0de56b5f55d36a4a610"
     },
-    "current87f/native-main/aarch64-apple-darwin/latency-report.json": {
+    "before87f/native-main/aarch64-apple-darwin/latency-report.json": {
       "bytes": 24699,
       "sha256": "b47d42dae642c1d01d22605c2b2dc8bbccb9d88afb47e22e25cdb9551ca8526a"
     },
-    "current87f/native-main/aarch64-apple-darwin/provenance.json": {
+    "before87f/native-main/aarch64-apple-darwin/provenance.json": {
       "bytes": 28797,
       "sha256": "297b69f4235d1856fb6b4a08badd01b705166587101e4db282244c30cfa35b42"
     },
-    "current87f/native-main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+    "before87f/native-main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
       "bytes": 479695,
       "sha256": "63f81214d875cc27ce9ee6fc240ee05f29a3dddb587025bd87d3d24dd7489368"
     },
-    "current87f/native-main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+    "before87f/native-main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
       "bytes": 319988,
       "sha256": "0fb675296074517fa7b4d417dd986d32c8ff5215f506e28f2ddf45dceade4e2b"
     },
-    "current87f/native-main/aarch64-pc-windows-msvc/latency-report.json": {
+    "before87f/native-main/aarch64-pc-windows-msvc/latency-report.json": {
       "bytes": 24614,
       "sha256": "60c0332461436b652a627312c33b793c60727d6f7f24a70523ab348cee7fd019"
     },
-    "current87f/native-main/aarch64-pc-windows-msvc/provenance.json": {
+    "before87f/native-main/aarch64-pc-windows-msvc/provenance.json": {
       "bytes": 29492,
       "sha256": "114ac2b63d0a05a8f9f703893bbafa8940d2032e4a9db7b39963052208d58dd8"
     },
-    "current87f/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+    "before87f/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
       "bytes": 479737,
       "sha256": "5e5a8bec7331d9f6b7ad9c64c2128843f9caf1b77744c2633bbbdb4bac02b348"
     },
-    "current87f/native-main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+    "before87f/native-main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
       "bytes": 345545,
       "sha256": "c6f3efe3cfca0f8c292662a61e7881fca3f6806c171a8bbb59eed12c0fc5e942"
     },
-    "current87f/native-main/aarch64-unknown-linux-gnu/latency-report.json": {
+    "before87f/native-main/aarch64-unknown-linux-gnu/latency-report.json": {
       "bytes": 24608,
       "sha256": "49c54f849f7467ff50d6b7206e07e2c9d121a049d8901de724074ba3bdc85bb8"
     },
-    "current87f/native-main/aarch64-unknown-linux-gnu/provenance.json": {
+    "before87f/native-main/aarch64-unknown-linux-gnu/provenance.json": {
       "bytes": 31053,
       "sha256": "9d2255fa0ac7b89ee3050732ea8179506954b54f82eb78c99b1fafa1a966f5c8"
     },
-    "current87f/native-main/x86_64-apple-darwin/artifact-manifest.json.gz": {
+    "before87f/native-main/x86_64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479698,
       "sha256": "651f014ee4252254d2a28cd7526d4b06216927d7f0846bb8c6272c4bcefd0431"
     },
-    "current87f/native-main/x86_64-apple-darwin/discovery/report.json.gz": {
+    "before87f/native-main/x86_64-apple-darwin/discovery/report.json.gz": {
       "bytes": 168917,
       "sha256": "60fc41d93b43e629b1e100b5f7106050dedf2e9045af78254985728129c7815a"
     },
-    "current87f/native-main/x86_64-apple-darwin/latency-report.json": {
+    "before87f/native-main/x86_64-apple-darwin/latency-report.json": {
       "bytes": 24717,
       "sha256": "20c336cbd49c6b5dd24e9ccd76861798e1b03e1e7e62d7623257db2031a4eaa5"
     },
-    "current87f/native-main/x86_64-apple-darwin/provenance.json": {
+    "before87f/native-main/x86_64-apple-darwin/provenance.json": {
       "bytes": 28812,
       "sha256": "7dead2e55a213d3fc506ed3dc767c7115b31953fe64070a5106678a36508eb58"
     },
-    "current87f/native-main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+    "before87f/native-main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
       "bytes": 479687,
       "sha256": "4309a58727a03a04f4961f0442c1f02b2b9f3d06fd65c638ae6303bc12a65e7a"
     },
-    "current87f/native-main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+    "before87f/native-main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
       "bytes": 341907,
       "sha256": "1226dab83ed4a2d729ebf41fdab52fca074f8c6458a31e0c47b67bdbbf910d9b"
     },
-    "current87f/native-main/x86_64-pc-windows-msvc/latency-report.json": {
+    "before87f/native-main/x86_64-pc-windows-msvc/latency-report.json": {
       "bytes": 24600,
       "sha256": "af7ea966e10d574ac9f62530462ff22dce13c5692c7c46a88f6a2287ab3b9edf"
     },
-    "current87f/native-main/x86_64-pc-windows-msvc/provenance.json": {
+    "before87f/native-main/x86_64-pc-windows-msvc/provenance.json": {
       "bytes": 29509,
       "sha256": "5c71163e1b08f72ea95f379b4324f4a0334e12510a7b61407458667929ed4802"
     },
-    "current87f/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+    "before87f/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
       "bytes": 479738,
       "sha256": "e78f5df3a0b1c669b1f03c099081783b5a6c010e59dad357ce6f743a62e37cae"
     },
-    "current87f/native-main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+    "before87f/native-main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
       "bytes": 327656,
       "sha256": "d0dc5bc7661301af1336fcb0c6d88053684593223fa8e4442c3a728f70703866"
     },
-    "current87f/native-main/x86_64-unknown-linux-gnu/latency-report.json": {
+    "before87f/native-main/x86_64-unknown-linux-gnu/latency-report.json": {
       "bytes": 24467,
       "sha256": "d6a3e3a425f12d2644d1399763c4ebff23af1798d961d9342c44ce20f15a4fcb"
     },
-    "current87f/native-main/x86_64-unknown-linux-gnu/provenance.json": {
+    "before87f/native-main/x86_64-unknown-linux-gnu/provenance.json": {
       "bytes": 32250,
       "sha256": "1ffeca97f273c5a15fa8475c51e5e3ccc01228369cace8fc38b7f982e659003c"
     },
-    "current87f/native-partial-summary.json.gz": {
+    "before87f/native-partial-summary.json.gz": {
       "bytes": 65050,
       "sha256": "58cd37b29fbe7843fcfa82f755622a9b21e99ebeb39892ce19639f696038e528"
     },
-    "current87f/perf-diagnostics-run.json": {
+    "before87f/perf-diagnostics-run.json": {
       "bytes": 30115,
       "sha256": "da4af5e3aa981c94388a69aeaa3948d59c2452926c98983ec79049913cc7d7f5"
     },
-    "current87f/semantic-calibration/artifacts.json": {
+    "before87f/provenance/dispatch-attempts.json": {
+      "bytes": 2340,
+      "sha256": "76e92b7c9fb7e611a70bb6ca02e03d39c311e645c62abd9155a37b7d68dd7fb9"
+    },
+    "before87f/provenance/fresh-pr-runs.json": {
+      "bytes": 2689,
+      "sha256": "765051cfb639130235f47aaad0a220e5c536f620b2d3726ba54c3d8b2c576fcc"
+    },
+    "before87f/provenance/hosted-dispatches.json": {
+      "bytes": 548,
+      "sha256": "73b6799584a3f2deb8e56223abf05d373a5cff66375cf7af90caf6a1694e8c4a"
+    },
+    "before87f/provenance/hosted-runs.json": {
+      "bytes": 2592,
+      "sha256": "31abe74ca113f1597679bf577b330207f260d8acea0519297ddeb0b483c8eb43"
+    },
+    "before87f/provenance/source-handoff.json": {
+      "bytes": 3230,
+      "sha256": "3b9eba561f625bd8d71a4c6828a69c006a366c39174ab7e6f51fcc24f3a7a819"
+    },
+    "before87f/provenance/source-publication.json": {
+      "bytes": 653,
+      "sha256": "428d12c7f9af33b7f8687fcbe3830f98fa84061640423bd4989696f737d824cf"
+    },
+    "before87f/semantic-calibration/artifacts.json": {
       "bytes": 4499,
       "sha256": "52ba09c8a6b77ced533004017c082e5c16633dd0857d30d01f8e9ade0c32faee"
     },
-    "current87f/semantic-calibration/report.json": {
+    "before87f/semantic-calibration/report.json": {
       "bytes": 10893,
       "sha256": "0ce6532c146bb57ec49628ab03d97fea2c020726ba62221875cc3c1764e80a57"
     },
-    "current87f/semantic-calibration/run.json": {
+    "before87f/semantic-calibration/run.json": {
       "bytes": 14320,
       "sha256": "de0735c0f425081f4e57c1df673711e4288e36832c8c38ede5581219dd0bf897"
     },
@@ -1070,61 +818,45 @@
       "bytes": 2465,
       "sha256": "a6f9f79c54546b1257d37961bac6cb76abc0c0922bb978930ff5450c74c1d909"
     },
-    "local/local-index-api-smoke-and-tests.json": {
-      "bytes": 7882,
-      "sha256": "6fb193762c41de153dce038718a98e75465ee06f607063be353725ba713f7c2b"
-    },
     "local/quality.log": {
       "bytes": 107740,
-      "sha256": "8a8298c3eb0232dcfba7f8a1fb91f7c806cfbc011e5776697ce6f7087ceb2811"
+      "sha256": "2e29ad3ca55d19964b7cab9869bd158ed5b8b4cae6b07b1fa5ea7130a73caae5"
     },
     "local/source-proof.json": {
-      "bytes": 2246,
-      "sha256": "367d257c4c46ef2d05cd6b5a7f7b8eb0328f895f9770da8895ee0cc31359e42a"
+      "bytes": 2266,
+      "sha256": "8cdd097507393dc0bb52cf9c2cb026f921230e0eaf422f5d1e47eb93ae18fb79"
     },
     "local/stdio-autoimport.json": {
-      "bytes": 11219,
-      "sha256": "45a7b1d0dd530a5ae2c0a74d567d6e1b13b844e84d3cef90961040b0b9ad5aea"
+      "bytes": 10838,
+      "sha256": "61f00f7f3197b5070e982842a2d4989a5cce799c641b07d717f802f3964abe4a"
     },
     "local/stdio-base-pair.json": {
-      "bytes": 37280,
-      "sha256": "af5129fff6d59c6c8f91d39c280c071f8d8fa6e95cf1e0039117e203935add9a"
+      "bytes": 37204,
+      "sha256": "0bb0bb0d4749b8faba2f755a74ec8872be56faf5818c9bbaaeafbe05e51a37f5"
     },
     "local/stdio-entry-hierarchy.json": {
-      "bytes": 63356,
-      "sha256": "454eb1046f23a8c22e76d61f873267decf78b5b1e61969c6ab8089a6193fa84c"
+      "bytes": 63280,
+      "sha256": "d292de5440f7dfc9d0189b43690a2abf9eb26a8200859888a92a4526f95bab86"
     },
     "local/stdio-p1.json": {
-      "bytes": 42745,
-      "sha256": "b98fab6189c82bb8740471d1978acd67eee25597482a418e9ad704b748384ca3"
+      "bytes": 42669,
+      "sha256": "17e92da6f7d8f4301996635a9ba60e88e96837e05a0222d03230ce8858042ed0"
     },
     "local/stdio-recovery-diagnostics.json": {
-      "bytes": 28151,
-      "sha256": "923b881599a72861a8c6b0727049dac999825c1e552d69a916e539e6613c189d"
+      "bytes": 28075,
+      "sha256": "d12f12db7240eabcec73583c1252a5dcbcf61c3079a9e1401764cc99002eaa4b"
     },
-    "provenance/dispatch-attempts.json": {
-      "bytes": 2340,
-      "sha256": "76e92b7c9fb7e611a70bb6ca02e03d39c311e645c62abd9155a37b7d68dd7fb9"
-    },
-    "provenance/fresh-pr-runs.json": {
-      "bytes": 2689,
-      "sha256": "765051cfb639130235f47aaad0a220e5c536f620b2d3726ba54c3d8b2c576fcc"
-    },
-    "provenance/hosted-dispatches.json": {
-      "bytes": 548,
-      "sha256": "73b6799584a3f2deb8e56223abf05d373a5cff66375cf7af90caf6a1694e8c4a"
-    },
-    "provenance/hosted-runs.json": {
-      "bytes": 2592,
-      "sha256": "31abe74ca113f1597679bf577b330207f260d8acea0519297ddeb0b483c8eb43"
+    "provenance/dispatches.json": {
+      "bytes": 738,
+      "sha256": "38eea5f4b47597fc00cd7410a7543b2b1da8b0dbdf1e7ddbb3faefdf3588d81d"
     },
     "provenance/source-handoff.json": {
-      "bytes": 3230,
-      "sha256": "3b9eba561f625bd8d71a4c6828a69c006a366c39174ab7e6f51fcc24f3a7a819"
+      "bytes": 2887,
+      "sha256": "4287d102cfadbc6a4d3623eaefd283e05cbcdd19879a811fcf38648be87e0f1e"
     },
     "provenance/source-publication.json": {
-      "bytes": 653,
-      "sha256": "428d12c7f9af33b7f8687fcbe3830f98fa84061640423bd4989696f737d824cf"
+      "bytes": 622,
+      "sha256": "582e64023cf1c43ceb048e34db221db67c5cee2e6b75f0c0ae2006496dcb22b7"
     },
     "reviews/ReviewCompactIndexes-7468cc5.json": {
       "bytes": 2982,

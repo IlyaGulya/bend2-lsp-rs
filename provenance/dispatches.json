@@ -1,0 +1,22 @@
+[
+  {
+    "workflow": "performance.yml",
+    "expected_head": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+    "ref": "feat/semantic-conformance-main",
+    "baseline": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+    "request_performance_exception": false,
+    "exit_code": 0,
+    "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057811245\n",
+    "stderr": ""
+  },
+  {
+    "workflow": "semantic-canonical-key.yml",
+    "expected_head": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+    "ref": "feat/semantic-conformance-main",
+    "baseline": null,
+    "request_performance_exception": false,
+    "exit_code": 0,
+    "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057815829\n",
+    "stderr": ""
+  }
+]
