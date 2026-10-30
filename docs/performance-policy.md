@@ -147,7 +147,9 @@ admission.
 
 Module completion scans indexed declarations once, reading names from indexed
 source ranges. It selects the existing ASCII or non-ASCII query path once;
-the two specialized loops stay separate in generated code. Result buffers use
+the two specialized loops stay separate in generated code. Module completion
+rejects constructor declarations before slicing or matching their names; the
+independent constructor-completion path is unchanged. Result buffers use
 ordinary `Vec` growth only after a match, without a capacity prepass, new snapshot
 metadata, or allocations on a miss. Materialization preserves declaration order,
 subsequence matching, keyword suppression and result ownership; it does not

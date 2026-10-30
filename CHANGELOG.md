@@ -70,6 +70,9 @@
 
 ### Under the hood
 
+- Reject excluded constructor declarations before slicing and matching names
+  for module completion. Preserve same-spelling functions, fuzzy matching,
+  recovery order and owned results without another index or semantic pass.
 - Retain small entry-view lookup tables in exact-size immutable storage while
   keeping hashed lookup for larger tables. Project calls from the existing
   occurrence arena instead of retaining duplicate call records and unused
