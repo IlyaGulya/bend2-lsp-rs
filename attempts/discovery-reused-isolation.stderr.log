@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "<string>", line 50, in <module>
+  File "<string>", line 6, in __init__
+  File "/tmp/semantic-approved-126952f6d048/scripts/semantic_lsp.py", line 42, in __init__
+    empty_path.mkdir()
+  File "/usr/lib/python3.11/pathlib.py", line 1117, in mkdir
+    os.mkdir(self, mode)
+FileExistsError: [Errno 17] File exists: '/tmp/review-regression-discovery-10000/empty-path'

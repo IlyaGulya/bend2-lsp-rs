@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "source_revision": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "parent": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "before_candidate": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "frozen_main_baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "status": {
+    "local_quality": "passed",
+    "local_real_process_smokes": "passed",
+    "hosted_latest_source_correctness": "pending",
+    "hosted_latest_source_numeric_admission": "pending",
+    "latest_source_performance_improvement": "not yet established",
+    "draft": true,
+    "performance_exception_requested": false
+  },
+  "scope": {
+    "local": "Persistent Linux ARM64 Rust service, default debug binary7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb.489 passed/2existing nextest skips; full quality plus actual stdio P1/Base.Pair/hierarchy/recovery and acceptance of auto-import of the function sharing a constructor name. Acceptance resolves Definition exactly to the function. Auto-import scenario intentionally has no compiler: it does not claim compiler acceptance. Other P1/recovery scenarios use the genuine pinned compiler.",
+    "completion_followup": "Only reject module-ineligible constructors before source slicing/name matching; preserve owned result values, Vec growth, declaration order, fuzzy matching and independent constructor completion. No benchmark bodies, metrics, fixtures, capacities, source/runtime pins, geometry, deadlines or gates changed.",
+    "before": "Frozen B1 measurements retain their tested merge SHA in original numeric evidence. No B1/C7/709 admission transfers to8af.",
+    "heap": "B1 whole-scenario DHAT peak, not clean cold RSS or editor latency. Full raw original retained compressed.709 profile still pending when this manifest was sealed.",
+    "static_reviews": "Read-only7468cc5 core representation/concurrency review;709 extracts shared cold index remapping;8af only changes module completion filter order. No performance proof or GitHub approval.",
+    "attempts": "7468Clippy103/100 fixed by shared remapping extraction;70910k harness stopped before spawn on reused owned isolation dirs, corrected without product/test weakening.8af throwaway API smoke expected two constructors for Ns.H, but unchanged fuzzy behavior correctly includes Ns.Unfinished; expectation corrected in throwaway only, complete raw export expired and observed delivered facts are explicitly identified.",
+    "prior_709_default_stdio_10000": "Source709 exact10k symbols/references, unsaved dependency revision, folder removal and exit proof remains source709 only athttps://github.com/IlyaGulya/bend2-lsp-rs/blob/ddff0e365e6d3fe51d9c4821ac6a18309b6e5d16/manifest.json. Current full quality also runs its unchanged10k process/lifecycle tests. No transfer of latency/RSS or numeric admission.",
+    "preserved": "No strict; real selected-compiler errors and editor recovery; rejected editor links do not establish native semantics; all entry/URI/generation/law/hierarchy ownership unchanged."
+  },
+  "pins": {
+    "Bend": "2.0.37",
+    "Bun": "1.4.0",
+    "Rust": "1.98.1"
+  },
+  "hosted_latest_runs": {
+    "41017184839": "perf-diagnostics/pull_request",
+    "41017184760": "semantic-fuzz/pull_request",
+    "41017184202": "semantic-canonical-key.yml/workflow_dispatch",
+    "41017184771": "performance-calibration/pull_request",
+    "41017184711": "performance/pull_request",
+    "41017184812": "installer-validation/pull_request",
+    "41017184713": "quality/pull_request",
+    "41017181504": "performance.yml/workflow_dispatch"
+  },
+  "prior_evidence_manifest": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/ddff0e365e6d3fe51d9c4821ac6a18309b6e5d16/manifest.json",
+  "files": [
+    {
+      "path": "attempts/completion-fuzzy-expectation.json",
+      "bytes": 897,
+      "sha256": "0fee22160eb0be042ee92b9c4ff81d98bb2ceb8b3697c46eb9fc488592566d99"
+    },
+    {
+      "path": "attempts/discovery-reused-isolation.stderr.log",
+      "bytes": 407,
+      "sha256": "8124310f9b2f89ca28dc6ceaf2083d917273f6456a2aee78770a5d773da6d181"
+    },
+    {
+      "path": "attempts/quality-7468cc5.log",
+      "bytes": 33129,
+      "sha256": "e75a86dd8b742eac48c2476a26d965c899998ab91b5f1ab0d57360deeee96cdb"
+    },
+    {
+      "path": "attempts/source-7468cc5.bundle",
+      "bytes": 1857518,
+      "sha256": "26b044cf96c863e48a72d33838c8d210e4a3ff81fd19bd4077ba5805948d003e"
+    },
+    {
+      "path": "before/callgrind-admission-measurement.json",
+      "bytes": 4246,
+      "sha256": "0d882ac0b16bcfd2bbe1bf9256b8b1a6c65d2beccb3ffe0b7061536a1dda7433"
+    },
+    {
+      "path": "before/callgrind-policy.json.gz",
+      "bytes": 950636,
+      "sha256": "4b240a5a65a51375af009e198202cb20ae54492d3549102bc49b9795f90d28a4"
+    },
+    {
+      "path": "before/callgrind-policy.md",
+      "bytes": 17659,
+      "sha256": "54edecbb4c82952190263b4c597f316d1d06275208fb086a35bad7c12d16de56"
+    },
+    {
+      "path": "before/heap-attribution.json",
+      "bytes": 211248,
+      "sha256": "811234a54f330fa9e1e5e23933e8200ba5ad2a9191c1e4724ec091dc5e8065a7"
+    },
+    {
+      "path": "before/heap-dhat.json.gz",
+      "bytes": 260507,
+      "sha256": "f68f80cfd62f78c1bcb14a4746b1fdd19d4e8abe53d03f87f23917b77aecd25a"
+    },
+    {
+      "path": "before/heap-profile-manifest.json",
+      "bytes": 1656963,
+      "sha256": "583d1578f831e35ec0e3073086c6537502f28eb35d72faaf41a39f878135536d"
+    },
+    {
+      "path": "before/native-cold-summary.json",
+      "bytes": 12165,
+      "sha256": "946d5f8816ddfb7ea8f16cadcc1c03459da232cb1b831c6b2cbf3d94ac60ea2c"
+    },
+    {
+      "path": "before/windows-cpu-profile-manifest.json",
+      "bytes": 1694351,
+      "sha256": "cef1d114a238e41a7588b19a42acc759ec1cb9678a307f734ed6d73828640b98"
+    },
+    {
+      "path": "before/windows-cpu-validation.json",
+      "bytes": 267,
+      "sha256": "45a22eb22dc32c5e30d6a7d2dc62f8aac8b1191e24954ce2c1eceb587a17eb08"
+    },
+    {
+      "path": "local/autoimport.json",
+      "bytes": 9304,
+      "sha256": "524ad930a5f9b6a64cb9fbcf048c6fd604bffe4ba0a8b157f76c1d7fdfd7a19e"
+    },
+    {
+      "path": "local/base-pair.json",
+      "bytes": 28923,
+      "sha256": "ae93008055413571eca6313b2df05ff633f8ac44730c5e2c75ee382197761062"
+    },
+    {
+      "path": "local/completion-api-smoke-and-targeted-tests.json",
+      "bytes": 6541,
+      "sha256": "e14515fee2af538de00f62b04df2be56747dfb381348c25d16ee52f9e990fc60"
+    },
+    {
+      "path": "local/hierarchy.json",
+      "bytes": 56320,
+      "sha256": "bb9a966b55befcebd8257d53e855f217eaec516c4f2b98793c2cef94ac70d87a"
+    },
+    {
+      "path": "local/p1.json",
+      "bytes": 34433,
+      "sha256": "58180c46a4a029063b21f6a6f658d0afd969f2936544f38dc262e232ee9b190a"
+    },
+    {
+      "path": "local/quality.log",
+      "bytes": 107740,
+      "sha256": "54b7085b7c7a4477a6a1e918563bdfe5ec8633397d325fa22d8e83b068c1d139"
+    },
+    {
+      "path": "local/recovery.json",
+      "bytes": 21434,
+      "sha256": "1ec81d6c00c02c404a96445d7d02909908515746b15e3445f9150f738fc6db93"
+    },
+    {
+      "path": "local/source-proof.json",
+      "bytes": 1748,
+      "sha256": "fb754768d6e731c73fd3e94e98163ddaab12f4afbb04921d02249a5829efe462"
+    },
+    {
+      "path": "provenance/fresh-pr-runs.json",
+      "bytes": 2689,
+      "sha256": "765051cfb639130235f47aaad0a220e5c536f620b2d3726ba54c3d8b2c576fcc"
+    },
+    {
+      "path": "provenance/hosted-dispatches.json",
+      "bytes": 548,
+      "sha256": "73b6799584a3f2deb8e56223abf05d373a5cff66375cf7af90caf6a1694e8c4a"
+    },
+    {
+      "path": "provenance/source-handoff.json",
+      "bytes": 1083,
+      "sha256": "5281d424eed18166bbf96f519fe38263ee5a932cabbbd5c810a9f94c76f6f56b"
+    },
+    {
+      "path": "provenance/source-publication.json",
+      "bytes": 722,
+      "sha256": "1ba1903fa67b2091713f230e64114467b507d107e52cc7b319e71d7aa26dc451"
+    },
+    {
+      "path": "reviews/ReviewCompactIndexes-7468cc5.json",
+      "bytes": 2982,
+      "sha256": "69f52439c4bb9ca754c4eebef962429b4e3ad0417b416359c1c9a4015e914242"
+    },
+    {
+      "path": "reviews/ReviewDiscoveryOwnership-7468cc5.json",
+      "bytes": 4992,
+      "sha256": "1541e9bec6129ac338d2e1d68c3f09a02f6d772110024f05caf545a96258cd34"
+    }
+  ]
+}

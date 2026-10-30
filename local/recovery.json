@@ -1,0 +1,682 @@
+{
+  "source_revision": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "script_sha256": "0f225bf1c85fb4f9a8e7880215b11482b758b3a45ffdf4562b3c481a9536b740",
+  "exit_code": 0,
+  "payload": {
+    "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb",
+    "compiler": "/tmp/semantic-review-native/bend/bin/bend",
+    "cases": [
+      {
+        "kind": "malformed-header",
+        "source": "import Base\ndef add(target: U32) -> U32:\n  target\ndef main: U32\n  add(1)\n",
+        "version1_diagnostics": {
+          "diagnostics": [
+            {
+              "code": "compiler",
+              "message": "Error:\n- expected : '('\n- observed : ':'\nLocation:\n3 |   target\n4>| def main: U32\n  |         ^\n5 |   add(1)",
+              "range": {
+                "end": {
+                  "character": 8,
+                  "line": 3
+                },
+                "start": {
+                  "character": 8,
+                  "line": 3
+                }
+              },
+              "severity": 1,
+              "source": "bend2"
+            }
+          ],
+          "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+          "version": 1
+        },
+        "version1_definition": {
+          "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+          "range": {
+            "start": {
+              "line": 1,
+              "character": 4
+            },
+            "end": {
+              "line": 1,
+              "character": 7
+            }
+          }
+        },
+        "version1_hover": {
+          "contents": {
+            "kind": "markdown",
+            "value": "```bend\ndef add(target: U32) -> U32\n```"
+          }
+        },
+        "version2_diagnostics": {
+          "diagnostics": [],
+          "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+          "version": 2
+        },
+        "version2_definition": {
+          "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+          "range": {
+            "start": {
+              "line": 1,
+              "character": 4
+            },
+            "end": {
+              "line": 1,
+              "character": 7
+            }
+          }
+        },
+        "exit": 0,
+        "direct_genuine_compiler_check": {
+          "returncode": 0,
+          "stdout": "1\n",
+          "stderr": "bend 2.0.39 is available: run bend update\n"
+        },
+        "raw_messages": [
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "textDocumentSync": {
+                  "openClose": true,
+                  "change": 2,
+                  "save": {
+                    "includeText": false
+                  }
+                },
+                "selectionRangeProvider": true,
+                "hoverProvider": true,
+                "completionProvider": {
+                  "triggerCharacters": [
+                    ".",
+                    "/"
+                  ]
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ","
+                  ],
+                  "retriggerCharacters": [
+                    ")"
+                  ]
+                },
+                "definitionProvider": true,
+                "typeDefinitionProvider": true,
+                "referencesProvider": true,
+                "documentHighlightProvider": true,
+                "documentSymbolProvider": true,
+                "workspaceSymbolProvider": true,
+                "codeActionProvider": {
+                  "codeActionKinds": [
+                    "quickfix",
+                    "quickfix.bend-lint.dangerous",
+                    "source.organizeImports"
+                  ],
+                  "resolveProvider": false
+                },
+                "codeLensProvider": {
+                  "resolveProvider": false
+                },
+                "documentFormattingProvider": true,
+                "documentRangeFormattingProvider": true,
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n"
+                },
+                "renameProvider": {
+                  "prepareProvider": true
+                },
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "foldingRangeProvider": true,
+                "workspace": {
+                  "workspaceFolders": {
+                    "supported": true,
+                    "changeNotifications": true
+                  },
+                  "fileOperations": {
+                    "didRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    },
+                    "willRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "callHierarchyProvider": true,
+                "semanticTokensProvider": {
+                  "legend": {
+                    "tokenTypes": [
+                      "namespace",
+                      "type",
+                      "class",
+                      "enum",
+                      "interface",
+                      "struct",
+                      "typeParameter",
+                      "parameter",
+                      "variable",
+                      "property",
+                      "enumMember",
+                      "event",
+                      "function",
+                      "method",
+                      "macro",
+                      "keyword",
+                      "modifier",
+                      "comment",
+                      "string",
+                      "number",
+                      "operator"
+                    ],
+                    "tokenModifiers": []
+                  },
+                  "range": false,
+                  "full": true
+                },
+                "inlayHintProvider": true,
+                "experimental": {
+                  "bend2SemanticDocument": {
+                    "method": "bend2/semanticDocument",
+                    "schemaVersion": 1
+                  }
+                }
+              },
+              "serverInfo": {
+                "name": "bend2-lsp",
+                "version": "0.6.2"
+              }
+            },
+            "id": 1
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "window/logMessage",
+            "params": {
+              "message": "Unable to run Bend compiler 'bend': No such file or directory (os error 2). Install Bend or set bend2-lsp.compilerPath to its executable.",
+              "type": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [
+                {
+                  "code": "compiler",
+                  "message": "Error:\n- expected : '('\n- observed : ':'\nLocation:\n3 |   target\n4>| def main: U32\n  |         ^\n5 |   add(1)",
+                  "range": {
+                    "end": {
+                      "character": 8,
+                      "line": 3
+                    },
+                    "start": {
+                      "character": 8,
+                      "line": 3
+                    }
+                  },
+                  "severity": 1,
+                  "source": "bend2"
+                }
+              ],
+              "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+              "version": 1
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 4
+                },
+                "end": {
+                  "line": 1,
+                  "character": 7
+                }
+              }
+            },
+            "id": 2
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "contents": {
+                "kind": "markdown",
+                "value": "```bend\ndef add(target: U32) -> U32\n```"
+              }
+            },
+            "id": 3
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [],
+              "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+              "version": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 4
+                },
+                "end": {
+                  "line": 1,
+                  "character": 7
+                }
+              }
+            },
+            "id": 4
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [],
+              "uri": "file:///tmp/review-recovery-malformed-header-u6n9st_x/main.bend",
+              "version": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": 5
+          }
+        ],
+        "stderr": ""
+      },
+      {
+        "kind": "invalid-import",
+        "source": "import Base\nimport ./module as Module\ndef main() -> U32:\n  Module.value()\n",
+        "version1_diagnostics": {
+          "diagnostics": [
+            {
+              "code": "compiler",
+              "message": "Error:\n- expected : an import of a .bend file\n- observed : './module'\nLocation:\n1 | import Base\n2>| import ./module as Module\n  |        ^\n3 | def main() -> U32:",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 1
+                },
+                "start": {
+                  "character": 7,
+                  "line": 1
+                }
+              },
+              "severity": 1,
+              "source": "bend2"
+            }
+          ],
+          "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/main.bend",
+          "version": 1
+        },
+        "version1_definition": null,
+        "editor_links": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 7
+              },
+              "end": {
+                "line": 0,
+                "character": 11
+              }
+            },
+            "target": "file:///tmp/.tmpYsFMXV/Base.bend",
+            "tooltip": "Open Base"
+          },
+          {
+            "range": {
+              "start": {
+                "line": 1,
+                "character": 7
+              },
+              "end": {
+                "line": 1,
+                "character": 15
+              }
+            },
+            "target": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/module",
+            "tooltip": "Open ./module (editor path; not compiler-resolved)",
+            "data": {
+              "resolution": "editor-path",
+              "uncertain": true
+            }
+          }
+        ],
+        "editor_path_definition": {
+          "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/module",
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 0
+            },
+            "end": {
+              "line": 0,
+              "character": 0
+            }
+          }
+        },
+        "version2_diagnostics": {
+          "diagnostics": [],
+          "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/main.bend",
+          "version": 2
+        },
+        "version2_definition": {
+          "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/module.bend",
+          "range": {
+            "start": {
+              "line": 1,
+              "character": 4
+            },
+            "end": {
+              "line": 1,
+              "character": 9
+            }
+          }
+        },
+        "exit": 0,
+        "direct_genuine_compiler_check": {
+          "returncode": 0,
+          "stdout": "3\n",
+          "stderr": "bend 2.0.39 is available: run bend update\n"
+        },
+        "raw_messages": [
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "textDocumentSync": {
+                  "openClose": true,
+                  "change": 2,
+                  "save": {
+                    "includeText": false
+                  }
+                },
+                "selectionRangeProvider": true,
+                "hoverProvider": true,
+                "completionProvider": {
+                  "triggerCharacters": [
+                    ".",
+                    "/"
+                  ]
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ","
+                  ],
+                  "retriggerCharacters": [
+                    ")"
+                  ]
+                },
+                "definitionProvider": true,
+                "typeDefinitionProvider": true,
+                "referencesProvider": true,
+                "documentHighlightProvider": true,
+                "documentSymbolProvider": true,
+                "workspaceSymbolProvider": true,
+                "codeActionProvider": {
+                  "codeActionKinds": [
+                    "quickfix",
+                    "quickfix.bend-lint.dangerous",
+                    "source.organizeImports"
+                  ],
+                  "resolveProvider": false
+                },
+                "codeLensProvider": {
+                  "resolveProvider": false
+                },
+                "documentFormattingProvider": true,
+                "documentRangeFormattingProvider": true,
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n"
+                },
+                "renameProvider": {
+                  "prepareProvider": true
+                },
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "foldingRangeProvider": true,
+                "workspace": {
+                  "workspaceFolders": {
+                    "supported": true,
+                    "changeNotifications": true
+                  },
+                  "fileOperations": {
+                    "didRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    },
+                    "willRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "callHierarchyProvider": true,
+                "semanticTokensProvider": {
+                  "legend": {
+                    "tokenTypes": [
+                      "namespace",
+                      "type",
+                      "class",
+                      "enum",
+                      "interface",
+                      "struct",
+                      "typeParameter",
+                      "parameter",
+                      "variable",
+                      "property",
+                      "enumMember",
+                      "event",
+                      "function",
+                      "method",
+                      "macro",
+                      "keyword",
+                      "modifier",
+                      "comment",
+                      "string",
+                      "number",
+                      "operator"
+                    ],
+                    "tokenModifiers": []
+                  },
+                  "range": false,
+                  "full": true
+                },
+                "inlayHintProvider": true,
+                "experimental": {
+                  "bend2SemanticDocument": {
+                    "method": "bend2/semanticDocument",
+                    "schemaVersion": 1
+                  }
+                }
+              },
+              "serverInfo": {
+                "name": "bend2-lsp",
+                "version": "0.6.2"
+              }
+            },
+            "id": 1
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "window/logMessage",
+            "params": {
+              "message": "Unable to run Bend compiler 'bend': No such file or directory (os error 2). Install Bend or set bend2-lsp.compilerPath to its executable.",
+              "type": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [
+                {
+                  "code": "compiler",
+                  "message": "Error:\n- expected : an import of a .bend file\n- observed : './module'\nLocation:\n1 | import Base\n2>| import ./module as Module\n  |        ^\n3 | def main() -> U32:",
+                  "range": {
+                    "end": {
+                      "character": 7,
+                      "line": 1
+                    },
+                    "start": {
+                      "character": 7,
+                      "line": 1
+                    }
+                  },
+                  "severity": 1,
+                  "source": "bend2"
+                }
+              ],
+              "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/main.bend",
+              "version": 1
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": 2
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 7
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 11
+                  }
+                },
+                "target": "file:///tmp/.tmpYsFMXV/Base.bend",
+                "tooltip": "Open Base"
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 1,
+                    "character": 7
+                  },
+                  "end": {
+                    "line": 1,
+                    "character": 15
+                  }
+                },
+                "target": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/module",
+                "tooltip": "Open ./module (editor path; not compiler-resolved)",
+                "data": {
+                  "resolution": "editor-path",
+                  "uncertain": true
+                }
+              }
+            ],
+            "id": 3
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/module",
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 0
+                }
+              }
+            },
+            "id": 4
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [],
+              "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/main.bend",
+              "version": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/module.bend",
+              "range": {
+                "start": {
+                  "line": 1,
+                  "character": 4
+                },
+                "end": {
+                  "line": 1,
+                  "character": 9
+                }
+              }
+            },
+            "id": 5
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [],
+              "uri": "file:///tmp/review-recovery-invalid-import-_ov6j7yz/main.bend",
+              "version": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": 6
+          }
+        ],
+        "stderr": ""
+      }
+    ]
+  },
+  "performance_qualification": false
+}

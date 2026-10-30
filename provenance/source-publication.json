@@ -1,0 +1,22 @@
+{
+  "old_head": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "candidate": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "draft": true,
+  "body_sha256_before": "57db39902470524fbbdd4991e53f0331e64b34fb4ca3444bc1a680feee7c8890",
+  "ref": "feat/semantic-conformance-main",
+  "labels": [
+    "semantic-calibration"
+  ],
+  "push_stdout": "",
+  "push_stderr": "To github.com:IlyaGulya/bend2-lsp-rs.git\n   70992a4..8af8fe7  8af8fe7ce106622b8d51407ddc6982efb68b1410 -> feat/semantic-conformance-main\n",
+  "local_quality": "passed",
+  "local_smokes": [
+    "autoimport",
+    "p1",
+    "base-pair",
+    "hierarchy",
+    "recovery"
+  ],
+  "performance_qualification": false
+}

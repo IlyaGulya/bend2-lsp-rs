@@ -1,0 +1,10 @@
+{
+  "source": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "parent": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "bundle_sha256": "be6b7c24f369cf2d7d3055521633bc1dbb1401b18b1f3bdae2b06af2e51eca03",
+  "snapshot": "/tmp/semantic-approved-126952f6d048",
+  "target_dir": "/workspace/target/semantic-approved-126952f6d048",
+  "scope": "Reject namespace-ineligible constructor declarations before source slicing or name matching; no new index, pass, reserve strategy, result ownership, benchmark or policy changes. Follow-up not pushed;709 qualification continues.",
+  "before_evidence": "B1 completion_warm.small19757\u219220298 Ir, +541/+2.738%, outside2% allowance; source and retained profile show namespace-ineligible constructor symbols still incur source slicing and name matching before kind rejection. No exact excluded-symbol count or after improvement is asserted here.",
+  "correctness_smoke": "Standalone actual library program passed namespace, ASCII case, fuzzy and recovery-order assertions;6 existing targeted tests passed. Full source qualification still required."
+}

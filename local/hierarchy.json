@@ -1,0 +1,1879 @@
+{
+  "source_revision": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "script_sha256": "85740120d5838d0e3820b80d9560276a05d41dcb7d32dc57524717f5e08d32ed",
+  "exit_code": 0,
+  "payload": {
+    "binary_sha256": "7d3c8bf7463215c87f29d46264cc47306678ff55c1746dc03bc81df560b64aeb",
+    "compiler": "/tmp/semantic-review-native/bend/bin/bend",
+    "scenarios": [
+      {
+        "kind": "equivalent-shared-caller",
+        "sources": {
+          "shared.bend": "import Base\ndef f(x: U32) -> U32:\n  x\ndef g(x: U32) -> U32:\n  f(x)\n",
+          "a.bend": "import Base\nimport ./shared.bend as Shared\ndef main() -> U32:\n  Shared.g(1)\n",
+          "b.bend": "import Base\nimport ./shared.bend as Shared\ndef main() -> U32:\n  Shared.g(1)\n"
+        },
+        "prepared": [
+          {
+            "name": "f",
+            "kind": 12,
+            "detail": "def f(x: U32) -> U32",
+            "uri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+            "range": {
+              "start": {
+                "line": 1,
+                "character": 0
+              },
+              "end": {
+                "line": 2,
+                "character": 3
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 1,
+                "character": 4
+              },
+              "end": {
+                "line": 1,
+                "character": 5
+              }
+            },
+            "data": {
+              "entity": 519,
+              "rootUri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+              "schema": 1,
+              "view": 2
+            }
+          }
+        ],
+        "incoming": [
+          {
+            "from": {
+              "name": "g",
+              "kind": 12,
+              "detail": "def g(x: U32) -> U32",
+              "uri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+              "range": {
+                "start": {
+                  "line": 3,
+                  "character": 0
+                },
+                "end": {
+                  "line": 4,
+                  "character": 6
+                }
+              },
+              "selectionRange": {
+                "start": {
+                  "line": 3,
+                  "character": 4
+                },
+                "end": {
+                  "line": 3,
+                  "character": 5
+                }
+              },
+              "data": {
+                "entity": 520,
+                "rootUri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                "schema": 1,
+                "view": 2
+              }
+            },
+            "fromRanges": [
+              {
+                "start": {
+                  "line": 4,
+                  "character": 2
+                },
+                "end": {
+                  "line": 4,
+                  "character": 3
+                }
+              }
+            ]
+          }
+        ],
+        "expansions": [
+          {
+            "root": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+            "first_hop": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 2,
+                      "character": 3
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 1,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 4,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "exit": 0,
+        "raw_messages": [
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "textDocumentSync": {
+                  "openClose": true,
+                  "change": 2,
+                  "save": {
+                    "includeText": false
+                  }
+                },
+                "selectionRangeProvider": true,
+                "hoverProvider": true,
+                "completionProvider": {
+                  "triggerCharacters": [
+                    ".",
+                    "/"
+                  ]
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ","
+                  ],
+                  "retriggerCharacters": [
+                    ")"
+                  ]
+                },
+                "definitionProvider": true,
+                "typeDefinitionProvider": true,
+                "referencesProvider": true,
+                "documentHighlightProvider": true,
+                "documentSymbolProvider": true,
+                "workspaceSymbolProvider": true,
+                "codeActionProvider": {
+                  "codeActionKinds": [
+                    "quickfix",
+                    "quickfix.bend-lint.dangerous",
+                    "source.organizeImports"
+                  ],
+                  "resolveProvider": false
+                },
+                "codeLensProvider": {
+                  "resolveProvider": false
+                },
+                "documentFormattingProvider": true,
+                "documentRangeFormattingProvider": true,
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n"
+                },
+                "renameProvider": {
+                  "prepareProvider": true
+                },
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "foldingRangeProvider": true,
+                "workspace": {
+                  "workspaceFolders": {
+                    "supported": true,
+                    "changeNotifications": true
+                  },
+                  "fileOperations": {
+                    "didRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    },
+                    "willRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "callHierarchyProvider": true,
+                "semanticTokensProvider": {
+                  "legend": {
+                    "tokenTypes": [
+                      "namespace",
+                      "type",
+                      "class",
+                      "enum",
+                      "interface",
+                      "struct",
+                      "typeParameter",
+                      "parameter",
+                      "variable",
+                      "property",
+                      "enumMember",
+                      "event",
+                      "function",
+                      "method",
+                      "macro",
+                      "keyword",
+                      "modifier",
+                      "comment",
+                      "string",
+                      "number",
+                      "operator"
+                    ],
+                    "tokenModifiers": []
+                  },
+                  "range": false,
+                  "full": true
+                },
+                "inlayHintProvider": true,
+                "experimental": {
+                  "bend2SemanticDocument": {
+                    "method": "bend2/semanticDocument",
+                    "schemaVersion": 1
+                  }
+                }
+              },
+              "serverInfo": {
+                "name": "bend2-lsp",
+                "version": "0.6.2"
+              }
+            },
+            "id": 1
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "window/logMessage",
+            "params": {
+              "message": "Unable to run Bend compiler 'bend': No such file or directory (os error 2). Install Bend or set bend2-lsp.compilerPath to its executable.",
+              "type": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "f",
+                "detail": "def f(x: U32) -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 1,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 2,
+                    "character": 3
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 1,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 1,
+                    "character": 5
+                  }
+                }
+              },
+              {
+                "name": "g",
+                "detail": "def g(x: U32) -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 3,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 6
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 3,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 3,
+                    "character": 5
+                  }
+                }
+              }
+            ],
+            "id": 2
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "main",
+                "detail": "def main() -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 2,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 3,
+                    "character": 13
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 2,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 2,
+                    "character": 8
+                  }
+                }
+              }
+            ],
+            "id": 3
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "main",
+                "detail": "def main() -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 2,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 3,
+                    "character": 13
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 2,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 2,
+                    "character": 8
+                  }
+                }
+              }
+            ],
+            "id": 4
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "f",
+                "kind": 12,
+                "detail": "def f(x: U32) -> U32",
+                "uri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                "range": {
+                  "start": {
+                    "line": 1,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 2,
+                    "character": 3
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 1,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 1,
+                    "character": 5
+                  }
+                },
+                "data": {
+                  "entity": 519,
+                  "rootUri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                  "schema": 1,
+                  "view": 2
+                }
+              }
+            ],
+            "id": 5
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "from": {
+                  "name": "g",
+                  "kind": 12,
+                  "detail": "def g(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 3,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 6
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 3,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 3,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 520,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 4,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 6
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 2,
+                      "character": 3
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 1,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-4zwuyuyn/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 4,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 7
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": 8
+          }
+        ],
+        "stderr": ""
+      },
+      {
+        "kind": "different-second-hop-meaning",
+        "sources": {
+          "shared.bend": "import Base\n\nlaw helper:\n  for x: U32\n  U32\n\ndef f(x: U32) -> U32:\n  helper(x)\n\ndef g(x: U32) -> U32:\n  f(x)\n",
+          "a.bend": "import Base\nimport ./shared.bend as Shared\n\ndef Shared.helper(x):\n  x\n\ndef main() -> U32:\n  Shared.helper(1)\n",
+          "b.bend": "import Base\nimport ./shared.bend as Shared\n\ndef Shared.helper(x):\n  x\n\ndef main() -> U32:\n  Shared.helper(1)\n"
+        },
+        "prepared": [
+          {
+            "name": "f",
+            "kind": 12,
+            "detail": "def f(x: U32) -> U32",
+            "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+            "range": {
+              "start": {
+                "line": 6,
+                "character": 0
+              },
+              "end": {
+                "line": 7,
+                "character": 11
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 6,
+                "character": 4
+              },
+              "end": {
+                "line": 6,
+                "character": 5
+              }
+            },
+            "data": {
+              "entity": 520,
+              "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+              "schema": 1,
+              "view": 2
+            }
+          }
+        ],
+        "incoming": [
+          {
+            "from": {
+              "name": "g",
+              "kind": 12,
+              "detail": "def g(x: U32) -> U32",
+              "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+              "range": {
+                "start": {
+                  "line": 9,
+                  "character": 0
+                },
+                "end": {
+                  "line": 10,
+                  "character": 6
+                }
+              },
+              "selectionRange": {
+                "start": {
+                  "line": 9,
+                  "character": 4
+                },
+                "end": {
+                  "line": 9,
+                  "character": 5
+                }
+              },
+              "data": {
+                "entity": 521,
+                "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                "schema": 1,
+                "view": 3
+              }
+            },
+            "fromRanges": [
+              {
+                "start": {
+                  "line": 10,
+                  "character": 2
+                },
+                "end": {
+                  "line": 10,
+                  "character": 3
+                }
+              }
+            ]
+          },
+          {
+            "from": {
+              "name": "g",
+              "kind": 12,
+              "detail": "def g(x: U32) -> U32",
+              "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+              "range": {
+                "start": {
+                  "line": 9,
+                  "character": 0
+                },
+                "end": {
+                  "line": 10,
+                  "character": 6
+                }
+              },
+              "selectionRange": {
+                "start": {
+                  "line": 9,
+                  "character": 4
+                },
+                "end": {
+                  "line": 9,
+                  "character": 5
+                }
+              },
+              "data": {
+                "entity": 521,
+                "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                "schema": 1,
+                "view": 2
+              }
+            },
+            "fromRanges": [
+              {
+                "start": {
+                  "line": 10,
+                  "character": 2
+                },
+                "end": {
+                  "line": 10,
+                  "character": 3
+                }
+              }
+            ]
+          },
+          {
+            "from": {
+              "name": "g",
+              "kind": 12,
+              "detail": "def g(x: U32) -> U32",
+              "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+              "range": {
+                "start": {
+                  "line": 9,
+                  "character": 0
+                },
+                "end": {
+                  "line": 10,
+                  "character": 6
+                }
+              },
+              "selectionRange": {
+                "start": {
+                  "line": 9,
+                  "character": 4
+                },
+                "end": {
+                  "line": 9,
+                  "character": 5
+                }
+              },
+              "data": {
+                "entity": 521,
+                "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                "schema": 1,
+                "view": 4
+              }
+            },
+            "fromRanges": [
+              {
+                "start": {
+                  "line": 10,
+                  "character": 2
+                },
+                "end": {
+                  "line": 10,
+                  "character": 3
+                }
+              }
+            ]
+          }
+        ],
+        "expansions": [
+          {
+            "root": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+            "first_hop": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 6,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 11
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 6,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 6,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 520,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                    "schema": 1,
+                    "view": 3
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "second_hop": [
+              {
+                "to": {
+                  "name": "helper",
+                  "kind": 12,
+                  "detail": "def Shared.helper(x)",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                  "range": {
+                    "start": {
+                      "line": 3,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 3
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 3,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 3,
+                      "character": 17
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                    "schema": 1,
+                    "view": 3
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 7,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 8
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "root": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+            "first_hop": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 6,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 11
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 6,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 6,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 520,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "second_hop": [
+              {
+                "to": {
+                  "name": "helper",
+                  "kind": 12,
+                  "detail": "law helper:\n  for x: U32\n  U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 2,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 5
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 2,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 2,
+                      "character": 10
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 7,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 8
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "root": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+            "first_hop": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 6,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 11
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 6,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 6,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 520,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                    "schema": 1,
+                    "view": 4
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "second_hop": [
+              {
+                "to": {
+                  "name": "helper",
+                  "kind": 12,
+                  "detail": "def Shared.helper(x)",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                  "range": {
+                    "start": {
+                      "line": 3,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 3
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 3,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 3,
+                      "character": 17
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                    "schema": 1,
+                    "view": 4
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 7,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 8
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "exit": 0,
+        "raw_messages": [
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "textDocumentSync": {
+                  "openClose": true,
+                  "change": 2,
+                  "save": {
+                    "includeText": false
+                  }
+                },
+                "selectionRangeProvider": true,
+                "hoverProvider": true,
+                "completionProvider": {
+                  "triggerCharacters": [
+                    ".",
+                    "/"
+                  ]
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ","
+                  ],
+                  "retriggerCharacters": [
+                    ")"
+                  ]
+                },
+                "definitionProvider": true,
+                "typeDefinitionProvider": true,
+                "referencesProvider": true,
+                "documentHighlightProvider": true,
+                "documentSymbolProvider": true,
+                "workspaceSymbolProvider": true,
+                "codeActionProvider": {
+                  "codeActionKinds": [
+                    "quickfix",
+                    "quickfix.bend-lint.dangerous",
+                    "source.organizeImports"
+                  ],
+                  "resolveProvider": false
+                },
+                "codeLensProvider": {
+                  "resolveProvider": false
+                },
+                "documentFormattingProvider": true,
+                "documentRangeFormattingProvider": true,
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n"
+                },
+                "renameProvider": {
+                  "prepareProvider": true
+                },
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "foldingRangeProvider": true,
+                "workspace": {
+                  "workspaceFolders": {
+                    "supported": true,
+                    "changeNotifications": true
+                  },
+                  "fileOperations": {
+                    "didRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    },
+                    "willRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "callHierarchyProvider": true,
+                "semanticTokensProvider": {
+                  "legend": {
+                    "tokenTypes": [
+                      "namespace",
+                      "type",
+                      "class",
+                      "enum",
+                      "interface",
+                      "struct",
+                      "typeParameter",
+                      "parameter",
+                      "variable",
+                      "property",
+                      "enumMember",
+                      "event",
+                      "function",
+                      "method",
+                      "macro",
+                      "keyword",
+                      "modifier",
+                      "comment",
+                      "string",
+                      "number",
+                      "operator"
+                    ],
+                    "tokenModifiers": []
+                  },
+                  "range": false,
+                  "full": true
+                },
+                "inlayHintProvider": true,
+                "experimental": {
+                  "bend2SemanticDocument": {
+                    "method": "bend2/semanticDocument",
+                    "schemaVersion": 1
+                  }
+                }
+              },
+              "serverInfo": {
+                "name": "bend2-lsp",
+                "version": "0.6.2"
+              }
+            },
+            "id": 1
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "window/logMessage",
+            "params": {
+              "message": "Unable to run Bend compiler 'bend': No such file or directory (os error 2). Install Bend or set bend2-lsp.compilerPath to its executable.",
+              "type": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "helper",
+                "detail": "law helper:\n  for x: U32\n  U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 2,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 5
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 2,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 2,
+                    "character": 10
+                  }
+                }
+              },
+              {
+                "name": "f",
+                "detail": "def f(x: U32) -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 6,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 11
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 6,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 5
+                  }
+                }
+              },
+              {
+                "name": "g",
+                "detail": "def g(x: U32) -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 9,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 10,
+                    "character": 6
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 9,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 9,
+                    "character": 5
+                  }
+                }
+              }
+            ],
+            "id": 2
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "Shared.helper",
+                "detail": "def Shared.helper(x)",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 3,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 3
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 3,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 3,
+                    "character": 17
+                  }
+                }
+              },
+              {
+                "name": "main",
+                "detail": "def main() -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 6,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 18
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 6,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 8
+                  }
+                }
+              }
+            ],
+            "id": 3
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "Shared.helper",
+                "detail": "def Shared.helper(x)",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 3,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 3
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 3,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 3,
+                    "character": 17
+                  }
+                }
+              },
+              {
+                "name": "main",
+                "detail": "def main() -> U32",
+                "kind": 12,
+                "range": {
+                  "start": {
+                    "line": 6,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 18
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 6,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 8
+                  }
+                }
+              }
+            ],
+            "id": 4
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "name": "f",
+                "kind": 12,
+                "detail": "def f(x: U32) -> U32",
+                "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                "range": {
+                  "start": {
+                    "line": 6,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 11
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 6,
+                    "character": 4
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 5
+                  }
+                },
+                "data": {
+                  "entity": 520,
+                  "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "schema": 1,
+                  "view": 2
+                }
+              }
+            ],
+            "id": 5
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "from": {
+                  "name": "g",
+                  "kind": 12,
+                  "detail": "def g(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 9,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 6
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 9,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 9,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 521,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                    "schema": 1,
+                    "view": 3
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              },
+              {
+                "from": {
+                  "name": "g",
+                  "kind": 12,
+                  "detail": "def g(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 9,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 6
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 9,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 9,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 521,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              },
+              {
+                "from": {
+                  "name": "g",
+                  "kind": 12,
+                  "detail": "def g(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 9,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 6
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 9,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 9,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 521,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                    "schema": 1,
+                    "view": 4
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 6
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 6,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 11
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 6,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 6,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 520,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                    "schema": 1,
+                    "view": 3
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 7
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "to": {
+                  "name": "helper",
+                  "kind": 12,
+                  "detail": "def Shared.helper(x)",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                  "range": {
+                    "start": {
+                      "line": 3,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 3
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 3,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 3,
+                      "character": 17
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/a.bend",
+                    "schema": 1,
+                    "view": 3
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 7,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 8
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 8
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 6,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 11
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 6,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 6,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 520,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 9
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "to": {
+                  "name": "helper",
+                  "kind": 12,
+                  "detail": "law helper:\n  for x: U32\n  U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 2,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 5
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 2,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 2,
+                      "character": 10
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                    "schema": 1,
+                    "view": 2
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 7,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 8
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 10
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "to": {
+                  "name": "f",
+                  "kind": 12,
+                  "detail": "def f(x: U32) -> U32",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/shared.bend",
+                  "range": {
+                    "start": {
+                      "line": 6,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 11
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 6,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 6,
+                      "character": 5
+                    }
+                  },
+                  "data": {
+                    "entity": 520,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                    "schema": 1,
+                    "view": 4
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 10,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 10,
+                      "character": 3
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 11
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "to": {
+                  "name": "helper",
+                  "kind": 12,
+                  "detail": "def Shared.helper(x)",
+                  "uri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                  "range": {
+                    "start": {
+                      "line": 3,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 4,
+                      "character": 3
+                    }
+                  },
+                  "selectionRange": {
+                    "start": {
+                      "line": 3,
+                      "character": 4
+                    },
+                    "end": {
+                      "line": 3,
+                      "character": 17
+                    }
+                  },
+                  "data": {
+                    "entity": 519,
+                    "rootUri": "file:///tmp/review-hierarchy-wire-ueang1jg/b.bend",
+                    "schema": 1,
+                    "view": 4
+                  }
+                },
+                "fromRanges": [
+                  {
+                    "start": {
+                      "line": 7,
+                      "character": 2
+                    },
+                    "end": {
+                      "line": 7,
+                      "character": 8
+                    }
+                  }
+                ]
+              }
+            ],
+            "id": 12
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": 13
+          }
+        ],
+        "stderr": ""
+      }
+    ]
+  },
+  "performance_qualification": false
+}
