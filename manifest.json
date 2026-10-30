@@ -160,7 +160,7 @@
       }
     ],
     "automatic_runs": "6automaticPRruns discovered andsourcebound to888; originalobservers running, no gate reruns.",
-    "performance_outcome": "unmeasured/pending",
+    "performance_outcome": "regression: 127passed /35regression /0inconclusive; ordinary admission denied, no exception requested",
     "request_performance_exception": false,
     "canonical": {
       "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
@@ -236,8 +236,33 @@
       "measurement_collection": "success",
       "admission": "denied",
       "exception_review": "skipped",
-      "fullpolicy_counts": "awaitingoriginalartifacttransport, no87fcountsreused",
-      "partialzip_used": false
+      "fullpolicy_counts": {
+        "passed": 127,
+        "regression": 35,
+        "inconclusive": 0
+      },
+      "partialzip_used": false,
+      "metric_classifications": {
+        "Ir": {
+          "passed": 53,
+          "regression": 1
+        },
+        "I1mr": {
+          "passed": 29,
+          "regression": 25
+        },
+        "ILmr": {
+          "passed": 45,
+          "regression": 9
+        }
+      },
+      "paired_samples": 105,
+      "workloads": 54,
+      "metric_rows": 162,
+      "policy_transfer": "complete_selected_original_HTTP_range_members_CRC_size_verified_and_dataset_SHA256_verified",
+      "whole_zip_digest_recomputed": false,
+      "source_tree": "23105e4f984543850d73b3436b6ce0eafb0cb301",
+      "candidate_merge": "20620e139079f572dfd91fd6256e31c779f1eba9"
     }
   },
   "performance_admission": false,
@@ -1276,6 +1301,61 @@
     "reviews/ReviewWindowsPrefixEq-87f26c8.txt": {
       "bytes": 1288,
       "sha256": "6aede3fbe2e249131c4b75e82fd10fe0713fcff28189a91db34dc25d675ca2ac"
+    },
+    "current888/callgrind-main/callgrind-policy.json.gz": {
+      "sha256": "4a72a51fae45b2d984301f94de1ae08bcdfd2933363daeea92c013c875b9c047",
+      "bytes": 969823
+    },
+    "current888/callgrind-main/paired-data.json.gz": {
+      "sha256": "a1f99678a935161c8541e272c64dfb6e4df80975015cdb1bfdf30e76200dbcd2",
+      "bytes": 353181
+    },
+    "current888/callgrind-main/admission-measurement.json.gz": {
+      "sha256": "6b41a44f246233ffd29ddcf41620d9380a5bafe6d23bb60ae39ea0816959331a",
+      "bytes": 600
+    },
+    "current888/callgrind-main/callgrind-policy.md": {
+      "sha256": "7d0799c098a9ba315b753f3008dfa277d2f5bc73cd67414ed8136a96ec8230d1",
+      "bytes": 17793
+    },
+    "current888/callgrind-main/original-range-verification.json": {
+      "sha256": "7b7764316a17d53a9bc816f7c8cf4071e6c2e5031d05b415d7aaeb88f33794c6",
+      "bytes": 3698
+    },
+    "current888/callgrind-main/all-counter-absolute-medians.json": {
+      "sha256": "820990d46d73b316bec9d18261af4613e79b623d00e4bf4e2b88df570ff6baaf",
+      "bytes": 108103
+    },
+    "current888/callgrind-main/admission-failure.log": {
+      "sha256": "c9518ec4db8674529049ba089247baf381f9f3cfba4fa5b1a10cca47a7a90f4a",
+      "bytes": 3966
+    },
+    "attempts/current888-artifact-transport.json": {
+      "sha256": "2b048666187f7515bdd6889b6bee7f1fb229a74133aa656479ed28683dbfee41",
+      "bytes": 1332
     }
-  }
+  },
+  "current_counter_report": {
+    "path": "current888/callgrind-main/all-counter-absolute-medians.json",
+    "small_completion_Ir": {
+      "baseline": 19757,
+      "candidate": 19864,
+      "percent": 0.5415801994,
+      "classification": "passed"
+    },
+    "medium_completion_Ir": {
+      "baseline": 110396,
+      "candidate": 114436,
+      "percent": 3.6595528824,
+      "classification": "regression"
+    },
+    "other_regressions": {
+      "I1mr": 25,
+      "ILmr": 9
+    },
+    "native_cold_RSS_assessment": "Remaining main-relative cold and RSS costs are large; the existing complete12native report remains authoritative, no cold improvement inferred from this completion fix.",
+    "admission": "denied",
+    "new_measurement_runs_for_report": 0
+  },
+  "source_frozen_for_owner_decision": true
 }

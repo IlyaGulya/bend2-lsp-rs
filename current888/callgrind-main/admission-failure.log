@@ -1,0 +1,61 @@
+﻿2026-10-30T15:33:31.1028974Z Current runner version: '2.338.0'
+2026-10-30T15:33:31.1141209Z ##[group]Runner Image Provisioner
+2026-10-30T15:33:31.1147297Z Hosted Compute Agent
+2026-10-30T15:33:31.1157265Z Version: 20261021.618
+2026-10-30T15:33:31.1167501Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-30T15:33:31.1177928Z Build Date: 2026-10-21T00:45:21Z
+2026-10-30T15:33:31.1188016Z Worker ID: {d6be7d92-75e6-4253-ad3b-6bd432c35c12}
+2026-10-30T15:33:31.1189760Z Region: eastus
+2026-10-30T15:33:31.1190896Z Cloud: Azure
+2026-10-30T15:33:31.1191843Z ##[endgroup]
+2026-10-30T15:33:31.1194745Z ##[group]Operating System
+2026-10-30T15:33:31.1195975Z Ubuntu
+2026-10-30T15:33:31.1197081Z 24.04.5
+2026-10-30T15:33:31.1198066Z LTS
+2026-10-30T15:33:31.1199078Z ##[endgroup]
+2026-10-30T15:33:31.1200314Z ##[group]Runner Image
+2026-10-30T15:33:31.1201448Z Image: ubuntu-24.04
+2026-10-30T15:33:31.1202633Z Version: 20261025.353.1
+2026-10-30T15:33:31.1205195Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261025.353/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-30T15:33:31.1208386Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261025.353
+2026-10-30T15:33:31.1210296Z ##[endgroup]
+2026-10-30T15:33:31.1212210Z ##[group]GITHUB_TOKEN Permissions
+2026-10-30T15:33:31.1232580Z Metadata: read
+2026-10-30T15:33:31.1242633Z ##[endgroup]
+2026-10-30T15:33:31.1263490Z Secret source: Actions
+2026-10-30T15:33:31.1278389Z Cache mode: write
+2026-10-30T15:33:31.1288489Z Prepare workflow directory
+2026-10-30T15:33:31.1920644Z Prepare all required actions
+2026-10-30T15:33:31.2082540Z Complete job name: performance admission
+2026-10-30T15:33:31.3470217Z ##[group]Run if [[ "$MEASUREMENT_RESULT" != success ]]; then
+2026-10-30T15:33:31.3471124Z [36;1mif [[ "$MEASUREMENT_RESULT" != success ]]; then[0m
+2026-10-30T15:33:31.3472084Z [36;1m  printf 'Measurement failed, was cancelled, or is missing; admission denied.\n' >&2[0m
+2026-10-30T15:33:31.3473313Z [36;1m  exit 1[0m
+2026-10-30T15:33:31.3473781Z [36;1mfi[0m
+2026-10-30T15:33:31.3474430Z [36;1mif [[ "$MEASUREMENT_RUN_ATTEMPT" != "$GITHUB_RUN_ATTEMPT" ]]; then[0m
+2026-10-30T15:33:31.3475549Z [36;1m  printf 'Measurement belongs to an earlier attempt; rerun all jobs for fresh admission evidence.\n' >&2[0m
+2026-10-30T15:33:31.3476486Z [36;1m  exit 1[0m
+2026-10-30T15:33:31.3476932Z [36;1mfi[0m
+2026-10-30T15:33:31.3477447Z [36;1mcase "$MEASUREMENT_STATUS:$REVIEW_RESULT" in[0m
+2026-10-30T15:33:31.3478090Z [36;1m  passed:skipped)[0m
+2026-10-30T15:33:31.3478881Z [36;1m    printf 'Ordinary performance policy passed; admitted without an exception.\n'[0m
+2026-10-30T15:33:31.3479735Z [36;1m    ;;[0m
+2026-10-30T15:33:31.3480203Z [36;1m  regression:success)[0m
+2026-10-30T15:33:31.3481077Z [36;1m    printf 'Valid regression explicitly accepted through protected exact-run owner review.\n'[0m
+2026-10-30T15:33:31.3481970Z [36;1m    ;;[0m
+2026-10-30T15:33:31.3482412Z [36;1m  *)[0m
+2026-10-30T15:33:31.3483257Z [36;1m    printf 'Performance admission denied: classification=%s review=%s.\n' \[0m
+2026-10-30T15:33:31.3484136Z [36;1m      "$MEASUREMENT_STATUS" "$REVIEW_RESULT" >&2[0m
+2026-10-30T15:33:31.3484754Z [36;1m    exit 1[0m
+2026-10-30T15:33:31.3485213Z [36;1m    ;;[0m
+2026-10-30T15:33:31.3485656Z [36;1mesac[0m
+2026-10-30T15:33:31.3736560Z shell: /usr/bin/bash -e {0}
+2026-10-30T15:33:31.3737463Z env:
+2026-10-30T15:33:31.3737921Z   MEASUREMENT_RESULT: success
+2026-10-30T15:33:31.3738483Z   MEASUREMENT_STATUS: regression
+2026-10-30T15:33:31.3739057Z   MEASUREMENT_RUN_ATTEMPT: 1
+2026-10-30T15:33:31.3739580Z   REVIEW_RESULT: skipped
+2026-10-30T15:33:31.3740099Z ##[endgroup]
+2026-10-30T15:33:31.3938455Z Performance admission denied: classification=regression review=skipped.
+2026-10-30T15:33:31.3964642Z ##[error]Process completed with exit code 1.
+2026-10-30T15:33:31.4129301Z Cleaning up orphan processes

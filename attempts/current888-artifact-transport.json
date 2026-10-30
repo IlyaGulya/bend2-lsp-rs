@@ -1,0 +1,40 @@
+{
+  "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "original_run": 41057819102,
+  "original_artifact": 12988524428,
+  "new_CI_or_SUT_runs": 0,
+  "original_zip_bytes": 237251834,
+  "whole_transport_attempts": [
+    {
+      "kind": "ghapi_original_zip",
+      "deadline_seconds": 900,
+      "outcome": "timeout",
+      "partial_bytes": 156532736,
+      "partial_zip_consumed": false
+    },
+    {
+      "kind": "ghrun_download_original_artifact",
+      "deadline_seconds": 900,
+      "outcome": "timeout"
+    }
+  ],
+  "complete_selected_policy_recovery": {
+    "http_range_bytes": 1526958,
+    "members": [
+      "admission-measurement.json",
+      "callgrind-policy.json",
+      "callgrind-policy.md",
+      "paired-data.json"
+    ],
+    "crc_and_sizes_verified": true,
+    "paired_data_sha256_verified": true,
+    "whole_zip_digest_recomputed": false
+  },
+  "subsequent_overbroad_verification_attempt": {
+    "deadline_seconds": 600,
+    "outcome": "interrupted",
+    "purpose": "Attempted needless reread of all policy referenced inputs including raw profiles; abandoned after timeout. Not a SUT check, not admission evidence.",
+    "prior_complete_policy_report_unchanged": true
+  },
+  "decision": "No further complete-archive transfer, corpus reread, new source commit or CI rerun for reporting this completed result."
+}
