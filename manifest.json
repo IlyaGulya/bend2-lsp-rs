@@ -73,12 +73,12 @@
         "workflowName": "performance"
       },
       {
-        "conclusion": "",
+        "conclusion": "success",
         "databaseId": 41028741880,
         "event": "pull_request",
         "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
         "name": "semantic-fuzz",
-        "status": "queued",
+        "status": "completed",
         "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741880",
         "workflowName": "semantic-fuzz"
       },
@@ -142,7 +142,7 @@
         "workflowName": "semantic-canonical-key"
       }
     ],
-    "remaining_outcomes": "Hostedquality/canonical/perfdiagnostics passed; native12/12 verified. Callgrind,20runsemanticgate,installer andcalibration remainunobserved/pending; noadmission.",
+    "remaining_outcomes": "Quality/canonical/native12of12/semantic20runs5jobs/perfdiagnostics qualified. OriginalCallgrindjobsstillcomparing; installerandperformancecalibrationpending. Observernetworkerrors are notworkflowfailures.",
     "quality": {
       "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
       "run_id": 41028741761,
@@ -282,6 +282,20 @@
       "run_id": 41028741664,
       "conclusion": "success",
       "scope": "workflow/tooling gates; individualprofiles notseparatelyclaimedvalid here"
+    },
+    "semantic_calibration": {
+      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "tested_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
+      "run_id": 41028741880,
+      "conclusion": "success",
+      "evidence_complete": true,
+      "runs": 20,
+      "independent_jobs": 5,
+      "p95_seconds": 98.547921965,
+      "max_seconds": 101.03032466399998,
+      "targets_met": true,
+      "policy_changed": false,
+      "scope": "normalruntime/resourcequalification; notCallgrindadmission"
     }
   },
   "performance_admission": false,
@@ -568,6 +582,10 @@
       "bytes": 188665,
       "sha256": "8234d1068d16c0080be12a42a896317cd38ee040d082b8fae67fff66ecefad9d"
     },
+    "current87f/native-main-latency-differences.json": {
+      "bytes": 41801,
+      "sha256": "e0a5f33d01d59faf627fad39beba5c3198c036eb1bd5bd8db2b40817dbde5548"
+    },
     "current87f/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479693,
       "sha256": "a94672f0a7ea6d037870f8392752ac676cb01c2162826e659886f0cb9a65eca3"
@@ -671,6 +689,18 @@
     "current87f/perf-diagnostics-run.json": {
       "bytes": 30115,
       "sha256": "da4af5e3aa981c94388a69aeaa3948d59c2452926c98983ec79049913cc7d7f5"
+    },
+    "current87f/semantic-calibration/artifacts.json": {
+      "bytes": 4499,
+      "sha256": "52ba09c8a6b77ced533004017c082e5c16633dd0857d30d01f8e9ade0c32faee"
+    },
+    "current87f/semantic-calibration/report.json": {
+      "bytes": 10893,
+      "sha256": "0ce6532c146bb57ec49628ab03d97fea2c020726ba62221875cc3c1764e80a57"
+    },
+    "current87f/semantic-calibration/run.json": {
+      "bytes": 14320,
+      "sha256": "de0735c0f425081f4e57c1df673711e4288e36832c8c38ede5581219dd0bf897"
     },
     "intermediate709/admission-measurement.json": {
       "bytes": 4650,
