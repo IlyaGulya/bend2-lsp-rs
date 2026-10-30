@@ -1,0 +1,15 @@
+{
+  "run": 41028941081,
+  "artifact": 12978920675,
+  "zip_sha256": "11b15add439a15800fb5aa43e016e8776279eca17aefacae6b753b52a0f8cdcd",
+  "producer_digest_matched": true,
+  "zip_bytes": 314717804,
+  "selected_files": [
+    "admission-measurement.json",
+    "callgrind-policy.json",
+    "callgrind-policy.md",
+    "paired-data.json"
+  ],
+  "fullzipretained": true,
+  "no_source_or_check_changes": true
+}
