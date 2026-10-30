@@ -1,0 +1,1449 @@
+{
+  "source_head": "8af8fe7ce106622b8d51407ddc6982efb68b1410",
+  "tested_merge": "a5f58258f332e30391666d7726acdcadc4681419",
+  "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "run": 41017184711,
+  "rows": [
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.154542,
+      "candidate_ms": 0.146375,
+      "delta_ms": -0.008167,
+      "delta_percent": -5.284647539180288
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.19975,
+      "candidate_ms": 0.213292,
+      "delta_ms": 0.013542,
+      "delta_percent": 6.779474342928671
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.147458,
+      "candidate_ms": 0.184916,
+      "delta_ms": 0.037458,
+      "delta_percent": 25.402487487962677
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.226458,
+      "candidate_ms": 0.252583,
+      "delta_ms": 0.026125,
+      "delta_percent": 11.53635552729424
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 29.932709,
+      "candidate_ms": 35.531625,
+      "delta_ms": 5.598916,
+      "delta_percent": 18.70500929267711
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 38.993459,
+      "candidate_ms": 50.196542,
+      "delta_ms": 11.203083,
+      "delta_percent": 28.7306724956101
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p50",
+      "baseline_ms": 1.993625,
+      "candidate_ms": 2.159125,
+      "delta_ms": 0.1655,
+      "delta_percent": 8.301460906639925
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p95",
+      "baseline_ms": 2.216292,
+      "candidate_ms": 2.480083,
+      "delta_ms": 0.263791,
+      "delta_percent": 11.902357631575633
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p50",
+      "baseline_ms": 2.161166,
+      "candidate_ms": 1.530667,
+      "delta_ms": -0.630499,
+      "delta_percent": -29.174019950341624
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p95",
+      "baseline_ms": 2.366875,
+      "candidate_ms": 1.578875,
+      "delta_ms": -0.788,
+      "delta_percent": -33.29284393979404
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.152834,
+      "candidate_ms": 0.144,
+      "delta_ms": -0.008834,
+      "delta_percent": -5.780127458549799
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.255167,
+      "candidate_ms": 0.17025,
+      "delta_ms": -0.084917,
+      "delta_percent": -33.27898983802764
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 29.3015,
+      "candidate_ms": 30.712041,
+      "delta_ms": 1.410541,
+      "delta_percent": 4.813886661092437
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 36.719792,
+      "candidate_ms": 41.266583,
+      "delta_ms": 4.546791,
+      "delta_percent": 12.382398571320884
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.119209,
+      "candidate_ms": 0.122416,
+      "delta_ms": 0.003207,
+      "delta_percent": 2.6902331199825547
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1815,
+      "candidate_ms": 0.179291,
+      "delta_ms": -0.002209,
+      "delta_percent": -1.21707988980716
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p50",
+      "baseline_ms": 0.540584,
+      "candidate_ms": 1.106375,
+      "delta_ms": 0.565791,
+      "delta_percent": 104.66292010122386
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p95",
+      "baseline_ms": 1.400625,
+      "candidate_ms": 1.754666,
+      "delta_ms": 0.354041,
+      "delta_percent": 25.27735832217759
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.115333,
+      "candidate_ms": 0.130625,
+      "delta_ms": 0.015292,
+      "delta_percent": 13.25899785837532
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.182791,
+      "candidate_ms": 0.181792,
+      "delta_ms": -0.000999,
+      "delta_percent": -0.5465258136341467
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p50",
+      "baseline_ms": 34.392666,
+      "candidate_ms": 13.221625,
+      "delta_ms": -21.171041,
+      "delta_percent": -61.55684761396514
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p95",
+      "baseline_ms": 47.614167,
+      "candidate_ms": 21.576292,
+      "delta_ms": -26.037875,
+      "delta_percent": -54.68514234429429
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p50",
+      "baseline_ms": 11.172542,
+      "candidate_ms": 10.110375,
+      "delta_ms": -1.062167,
+      "delta_percent": -9.506941213557308
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p95",
+      "baseline_ms": 15.317416,
+      "candidate_ms": 14.259542,
+      "delta_ms": -1.057874,
+      "delta_percent": -6.906347650282529
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1498,
+      "candidate_ms": 0.1507,
+      "delta_ms": 0.0009,
+      "delta_percent": 0.6008010680907949
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1634,
+      "candidate_ms": 0.1708,
+      "delta_ms": 0.0074,
+      "delta_percent": 4.528763769889843
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.134,
+      "candidate_ms": 0.1325,
+      "delta_ms": -0.0015,
+      "delta_percent": -1.1194029850746245
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1457,
+      "candidate_ms": 0.1495,
+      "delta_ms": 0.0038,
+      "delta_percent": 2.6080988332189525
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 19.8883,
+      "candidate_ms": 23.6307,
+      "delta_ms": 3.7424,
+      "delta_percent": 18.81709346701328
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 21.2895,
+      "candidate_ms": 24.8976,
+      "delta_ms": 3.6081,
+      "delta_percent": 16.947791164658632
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p50",
+      "baseline_ms": 0.8575,
+      "candidate_ms": 0.9153,
+      "delta_ms": 0.0578,
+      "delta_percent": 6.740524781341106
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p95",
+      "baseline_ms": 1.1567,
+      "candidate_ms": 1.2406,
+      "delta_ms": 0.0839,
+      "delta_percent": 7.253393273969055
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p50",
+      "baseline_ms": 1.3799,
+      "candidate_ms": 1.5513,
+      "delta_ms": 0.1714,
+      "delta_percent": 12.421189941300103
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p95",
+      "baseline_ms": 1.6202,
+      "candidate_ms": 1.8069,
+      "delta_ms": 0.1867,
+      "delta_percent": 11.523268732255287
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1305,
+      "candidate_ms": 0.1299,
+      "delta_ms": -0.0006,
+      "delta_percent": -0.45977011494252595
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1445,
+      "candidate_ms": 0.1428,
+      "delta_ms": -0.0017,
+      "delta_percent": -1.17647058823529
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 19.7895,
+      "candidate_ms": 23.7705,
+      "delta_ms": 3.981,
+      "delta_percent": 20.116728568180097
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 20.5447,
+      "candidate_ms": 24.5841,
+      "delta_ms": 4.0394,
+      "delta_percent": 19.661518542495138
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1322,
+      "candidate_ms": 0.1374,
+      "delta_ms": 0.0052,
+      "delta_percent": 3.9334341906202663
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1454,
+      "candidate_ms": 0.1501,
+      "delta_ms": 0.0047,
+      "delta_percent": 3.232462173314987
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p50",
+      "baseline_ms": 0.2784,
+      "candidate_ms": 1.0292,
+      "delta_ms": 0.7508,
+      "delta_percent": 269.68390804597703
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p95",
+      "baseline_ms": 0.4068,
+      "candidate_ms": 1.0969,
+      "delta_ms": 0.6901,
+      "delta_percent": 169.64110127826945
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1309,
+      "candidate_ms": 0.1295,
+      "delta_ms": -0.0014,
+      "delta_percent": -1.0695187165775444
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1448,
+      "candidate_ms": 0.1455,
+      "delta_ms": 0.0007,
+      "delta_percent": 0.4834254143646355
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p50",
+      "baseline_ms": 51.6291,
+      "candidate_ms": 15.0405,
+      "delta_ms": -36.5886,
+      "delta_percent": -70.8681731814035
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p95",
+      "baseline_ms": 53.5682,
+      "candidate_ms": 16.4614,
+      "delta_ms": -37.1068,
+      "delta_percent": -69.27020135080141
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p50",
+      "baseline_ms": 13.9912,
+      "candidate_ms": 11.8815,
+      "delta_ms": -2.1097,
+      "delta_percent": -15.078763794385042
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p95",
+      "baseline_ms": 15.4208,
+      "candidate_ms": 13.1354,
+      "delta_ms": -2.2854,
+      "delta_percent": -14.82024278896037
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.099122,
+      "candidate_ms": 0.107042,
+      "delta_ms": 0.00792,
+      "delta_percent": 7.990153548152779
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.112961,
+      "candidate_ms": 0.121344,
+      "delta_ms": 0.008383,
+      "delta_percent": 7.421145351050362
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.096946,
+      "candidate_ms": 0.097618,
+      "delta_ms": 0.000672,
+      "delta_percent": 0.6931693932704874
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.107809,
+      "candidate_ms": 0.107913,
+      "delta_ms": 0.000104,
+      "delta_percent": 0.09646689979501133
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 20.087125,
+      "candidate_ms": 23.565895,
+      "delta_ms": 3.47877,
+      "delta_percent": 17.31840669085296
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 21.840343,
+      "candidate_ms": 25.912141,
+      "delta_ms": 4.071798,
+      "delta_percent": 18.643470938162455
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p50",
+      "baseline_ms": 0.429708,
+      "candidate_ms": 0.432276,
+      "delta_ms": 0.002568,
+      "delta_percent": 0.5976151246893213
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p95",
+      "baseline_ms": 0.750057,
+      "candidate_ms": 0.673637,
+      "delta_ms": -0.07642,
+      "delta_percent": -10.188559002849118
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p50",
+      "baseline_ms": 0.406134,
+      "candidate_ms": 0.367809,
+      "delta_ms": -0.038325,
+      "delta_percent": -9.436540649145353
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p95",
+      "baseline_ms": 0.645591,
+      "candidate_ms": 0.589506,
+      "delta_ms": -0.056085,
+      "delta_percent": -8.687388764713265
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.094698,
+      "candidate_ms": 0.099121,
+      "delta_ms": 0.004423,
+      "delta_percent": 4.670637183467452
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.106385,
+      "candidate_ms": 0.110857,
+      "delta_ms": 0.004472,
+      "delta_percent": 4.203600131597507
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 20.31414,
+      "candidate_ms": 20.48404,
+      "delta_ms": 0.1699,
+      "delta_percent": 0.8363632425492762
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 22.056523,
+      "candidate_ms": 22.226643,
+      "delta_ms": 0.17012,
+      "delta_percent": 0.7712911051302118
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.097258,
+      "candidate_ms": 0.099465,
+      "delta_ms": 0.002207,
+      "delta_percent": 2.26922206913569
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.108825,
+      "candidate_ms": 0.106201,
+      "delta_ms": -0.002624,
+      "delta_percent": -2.4112106593154103
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p50",
+      "baseline_ms": 0.429717,
+      "candidate_ms": 0.6326,
+      "delta_ms": 0.202883,
+      "delta_percent": 47.2131658742847
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p95",
+      "baseline_ms": 2.271599,
+      "candidate_ms": 0.698948,
+      "delta_ms": -1.572651,
+      "delta_percent": -69.23101304411561
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.097554,
+      "candidate_ms": 0.099041,
+      "delta_ms": 0.001487,
+      "delta_percent": 1.5242839863050195
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.108728,
+      "candidate_ms": 0.110409,
+      "delta_ms": 0.001681,
+      "delta_percent": 1.5460598925759683
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p50",
+      "baseline_ms": 28.006749,
+      "candidate_ms": 18.485252,
+      "delta_ms": -9.521497,
+      "delta_percent": -33.99715190077934
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p95",
+      "baseline_ms": 29.736999,
+      "candidate_ms": 19.420042,
+      "delta_ms": -10.316957,
+      "delta_percent": -34.69400863214207
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p50",
+      "baseline_ms": 15.672727,
+      "candidate_ms": 11.60832,
+      "delta_ms": -4.064407,
+      "delta_percent": -25.932991750574097
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p95",
+      "baseline_ms": 17.00448,
+      "candidate_ms": 12.035645,
+      "delta_ms": -4.968835,
+      "delta_percent": -29.220740651875264
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.352458,
+      "candidate_ms": 0.406227,
+      "delta_ms": 0.053769,
+      "delta_percent": 15.255434690090741
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.472613,
+      "candidate_ms": 0.486963,
+      "delta_ms": 0.01435,
+      "delta_percent": 3.0363108928446847
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.308494,
+      "candidate_ms": 0.361348,
+      "delta_ms": 0.052854,
+      "delta_percent": 17.132910202467478
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.376452,
+      "candidate_ms": 0.468059,
+      "delta_ms": 0.091607,
+      "delta_percent": 24.334310881599784
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 31.875487,
+      "candidate_ms": 45.721188,
+      "delta_ms": 13.845701,
+      "delta_percent": 43.43682968671192
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 37.660215,
+      "candidate_ms": 57.839027,
+      "delta_ms": 20.178812,
+      "delta_percent": 53.581244822951746
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p50",
+      "baseline_ms": 2.270337,
+      "candidate_ms": 1.905774,
+      "delta_ms": -0.364563,
+      "delta_percent": -16.057660162345943
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p95",
+      "baseline_ms": 3.291498,
+      "candidate_ms": 2.781984,
+      "delta_ms": -0.509514,
+      "delta_percent": -15.479699516754986
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p50",
+      "baseline_ms": 1.859178,
+      "candidate_ms": 2.287035,
+      "delta_ms": 0.427857,
+      "delta_percent": 23.013234881221713
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p95",
+      "baseline_ms": 2.817567,
+      "candidate_ms": 3.20306,
+      "delta_ms": 0.385493,
+      "delta_percent": 13.68176870328195
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.310252,
+      "candidate_ms": 0.396051,
+      "delta_ms": 0.085799,
+      "delta_percent": 27.65461624743757
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.404612,
+      "candidate_ms": 0.463247,
+      "delta_ms": 0.058635,
+      "delta_percent": 14.491661146975376
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 30.251863,
+      "candidate_ms": 45.159283,
+      "delta_ms": 14.90742,
+      "delta_percent": 49.27769241848014
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 38.740291,
+      "candidate_ms": 54.839427,
+      "delta_ms": 16.099136,
+      "delta_percent": 41.55656961895304
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.312148,
+      "candidate_ms": 0.355342,
+      "delta_ms": 0.043194,
+      "delta_percent": 13.83766674782474
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.366744,
+      "candidate_ms": 0.507598,
+      "delta_ms": 0.140854,
+      "delta_percent": 38.40662696594901
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p50",
+      "baseline_ms": 0.679636,
+      "candidate_ms": 1.223371,
+      "delta_ms": 0.543735,
+      "delta_percent": 80.00385500473783
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p95",
+      "baseline_ms": 3.444966,
+      "candidate_ms": 1.677604,
+      "delta_ms": -1.767362,
+      "delta_percent": -51.30274144940763
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.325825,
+      "candidate_ms": 0.337567,
+      "delta_ms": 0.011742,
+      "delta_percent": 3.6037750326095352
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.412437,
+      "candidate_ms": 0.513949,
+      "delta_ms": 0.101512,
+      "delta_percent": 24.6127287319033
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p50",
+      "baseline_ms": 63.132587,
+      "candidate_ms": 31.275621,
+      "delta_ms": -31.856966,
+      "delta_percent": -50.46041594969013
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p95",
+      "baseline_ms": 80.588809,
+      "candidate_ms": 36.713196,
+      "delta_ms": -43.875613,
+      "delta_percent": -54.44380372962206
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p50",
+      "baseline_ms": 25.425842,
+      "candidate_ms": 21.835464,
+      "delta_ms": -3.590378,
+      "delta_percent": -14.120979749657847
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p95",
+      "baseline_ms": 31.233552,
+      "candidate_ms": 35.603355,
+      "delta_ms": 4.369803,
+      "delta_percent": 13.990733426668855
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1812,
+      "candidate_ms": 0.1826,
+      "delta_ms": 0.0014,
+      "delta_percent": 0.7726269315673218
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1893,
+      "candidate_ms": 0.1917,
+      "delta_ms": 0.0024,
+      "delta_percent": 1.267828843106189
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1588,
+      "candidate_ms": 0.1601,
+      "delta_ms": 0.0013,
+      "delta_percent": 0.8186397984886629
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1731,
+      "candidate_ms": 0.1758,
+      "delta_ms": 0.0027,
+      "delta_percent": 1.559792027729645
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 24.5002,
+      "candidate_ms": 32.6469,
+      "delta_ms": 8.1467,
+      "delta_percent": 33.25156529334454
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 25.4316,
+      "candidate_ms": 34.39,
+      "delta_ms": 8.9584,
+      "delta_percent": 35.225467528586485
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p50",
+      "baseline_ms": 2.3521,
+      "candidate_ms": 2.1751,
+      "delta_ms": -0.177,
+      "delta_percent": -7.525190255516345
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p95",
+      "baseline_ms": 2.588,
+      "candidate_ms": 2.2907,
+      "delta_ms": -0.2973,
+      "delta_percent": -11.48763523956723
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p50",
+      "baseline_ms": 2.3875,
+      "candidate_ms": 2.325,
+      "delta_ms": -0.0625,
+      "delta_percent": -2.617801047120416
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p95",
+      "baseline_ms": 2.4927,
+      "candidate_ms": 2.488,
+      "delta_ms": -0.0047,
+      "delta_percent": -0.18855056765756384
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1525,
+      "candidate_ms": 0.1569,
+      "delta_ms": 0.0044,
+      "delta_percent": 2.885245901639344
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1691,
+      "candidate_ms": 0.1737,
+      "delta_ms": 0.0046,
+      "delta_percent": 2.7202838557066844
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 24.5321,
+      "candidate_ms": 32.4873,
+      "delta_ms": 7.9552,
+      "delta_percent": 32.42771715425911
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 25.1786,
+      "candidate_ms": 33.0644,
+      "delta_ms": 7.8858,
+      "delta_percent": 31.31945382189638
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1624,
+      "candidate_ms": 0.1673,
+      "delta_ms": 0.0049,
+      "delta_percent": 3.0172413793103425
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1757,
+      "candidate_ms": 0.1795,
+      "delta_ms": 0.0038,
+      "delta_percent": 2.1627774615822437
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p50",
+      "baseline_ms": 0.331,
+      "candidate_ms": 0.9327,
+      "delta_ms": 0.6017,
+      "delta_percent": 181.78247734138972
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p95",
+      "baseline_ms": 0.4018,
+      "candidate_ms": 0.9773,
+      "delta_ms": 0.5755,
+      "delta_percent": 143.23046291687405
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.1643,
+      "candidate_ms": 0.162,
+      "delta_ms": -0.0023,
+      "delta_percent": -1.3998782714546576
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1757,
+      "candidate_ms": 0.1747,
+      "delta_ms": -0.001,
+      "delta_percent": -0.569151963574277
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p50",
+      "baseline_ms": 58.0268,
+      "candidate_ms": 24.5705,
+      "delta_ms": -33.4563,
+      "delta_percent": -57.656634520600825
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p95",
+      "baseline_ms": 59.8706,
+      "candidate_ms": 24.9281,
+      "delta_ms": -34.9425,
+      "delta_percent": -58.36337033535659
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p50",
+      "baseline_ms": 20.3217,
+      "candidate_ms": 15.6144,
+      "delta_ms": -4.7073,
+      "delta_percent": -23.163908531274448
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p95",
+      "baseline_ms": 20.8895,
+      "candidate_ms": 16.1184,
+      "delta_ms": -4.7711,
+      "delta_percent": -22.839704157591136
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.126293,
+      "candidate_ms": 0.1294,
+      "delta_ms": 0.003107,
+      "delta_percent": 2.4601521857901876
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "completion_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.157221,
+      "candidate_ms": 0.15619,
+      "delta_ms": -0.001031,
+      "delta_percent": -0.6557648151328421
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.117823,
+      "candidate_ms": 0.117346,
+      "delta_ms": -0.000477,
+      "delta_percent": -0.4048445549680424
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.1504,
+      "candidate_ms": 0.141838,
+      "delta_ms": -0.008562,
+      "delta_percent": -5.692819148936168
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 22.460907,
+      "candidate_ms": 31.808483,
+      "delta_ms": 9.347576,
+      "delta_percent": 41.61709052978138
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "edit_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 24.885226,
+      "candidate_ms": 34.647806,
+      "delta_ms": 9.76258,
+      "delta_percent": 39.2304253133968
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p50",
+      "baseline_ms": 0.708094,
+      "candidate_ms": 0.706029,
+      "delta_ms": -0.002065,
+      "delta_percent": -0.29162794770185574
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_edit",
+      "quantile": "p95",
+      "baseline_ms": 1.082082,
+      "candidate_ms": 1.028903,
+      "delta_ms": -0.053179,
+      "delta_percent": -4.914507403320634
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p50",
+      "baseline_ms": 0.875554,
+      "candidate_ms": 0.686178,
+      "delta_ms": -0.189376,
+      "delta_percent": -21.629277006329705
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_during_large_open",
+      "quantile": "p95",
+      "baseline_ms": 1.029263,
+      "candidate_ms": 0.936617,
+      "delta_ms": -0.092646,
+      "delta_percent": -9.001197944548666
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.120064,
+      "candidate_ms": 0.119455,
+      "delta_ms": -0.000609,
+      "delta_percent": -0.5072294776119368
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.146212,
+      "candidate_ms": 0.145505,
+      "delta_ms": -0.000707,
+      "delta_percent": -0.4835444423166413
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p50",
+      "baseline_ms": 25.355334,
+      "candidate_ms": 26.217498,
+      "delta_ms": 0.862164,
+      "delta_percent": 3.4003259432512367
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "native-latency",
+      "workload": "open_to_hover_large",
+      "quantile": "p95",
+      "baseline_ms": 27.336842,
+      "candidate_ms": 30.702505,
+      "delta_ms": 3.365663,
+      "delta_percent": 12.311820802124828
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.116495,
+      "candidate_ms": 0.115312,
+      "delta_ms": -0.001183,
+      "delta_percent": -1.0154942272200485
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "definition_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.141561,
+      "candidate_ms": 0.149041,
+      "delta_ms": 0.00748,
+      "delta_percent": 5.2839411984939355
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p50",
+      "baseline_ms": 0.437159,
+      "candidate_ms": 0.657026,
+      "delta_ms": 0.219867,
+      "delta_percent": 50.29451526790023
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "dependency_edit_to_correct_hover",
+      "quantile": "p95",
+      "baseline_ms": 1.73559,
+      "candidate_ms": 0.751332,
+      "delta_ms": -0.984258,
+      "delta_percent": -56.71028295853283
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p50",
+      "baseline_ms": 0.115092,
+      "candidate_ms": 0.116686,
+      "delta_ms": 0.001594,
+      "delta_percent": 1.384978973343065
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "hover_warm",
+      "quantile": "p95",
+      "baseline_ms": 0.142439,
+      "candidate_ms": 0.148714,
+      "delta_ms": 0.006275,
+      "delta_percent": 4.405394589964828
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p50",
+      "baseline_ms": 31.564823,
+      "candidate_ms": 22.773184,
+      "delta_ms": -8.791639,
+      "delta_percent": -27.852647866899172
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "references_warm",
+      "quantile": "p95",
+      "baseline_ms": 33.648517,
+      "candidate_ms": 23.971464,
+      "delta_ms": -9.677053,
+      "delta_percent": -28.75922585236075
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p50",
+      "baseline_ms": 16.388045,
+      "candidate_ms": 11.667096,
+      "delta_ms": -4.720949,
+      "delta_percent": -28.807273838947843
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "scenario": "workspace10000",
+      "workload": "workspace_symbol_warm",
+      "quantile": "p95",
+      "baseline_ms": 17.6974,
+      "candidate_ms": 12.476309,
+      "delta_ms": -5.221091,
+      "delta_percent": -29.50202289601862
+    }
+  ],
+  "limits": "Descriptive report quantiles; no numericnativegate or statisticalsignificance assertion. Different scenarios/fixtures keptdistinct. Intermediate8af, no87f admission."
+}

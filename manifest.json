@@ -103,12 +103,12 @@
         "workflowName": "performance-calibration"
       },
       {
-        "conclusion": "",
+        "conclusion": "success",
         "databaseId": 41028741761,
         "event": "pull_request",
         "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
         "name": "quality",
-        "status": "queued",
+        "status": "completed",
         "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741761",
         "workflowName": "quality"
       },
@@ -133,16 +133,91 @@
         "workflowName": "perf-diagnostics"
       },
       {
-        "conclusion": "",
+        "conclusion": "success",
         "databaseId": 41028945087,
         "event": "workflow_dispatch",
         "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-        "status": "queued",
+        "status": "completed",
         "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028945087",
         "workflowName": "semantic-canonical-key"
       }
     ],
-    "remaining_outcomes": "pending/unobserved, no pass inferred from queued metadata or truncated watcher output"
+    "remaining_outcomes": "Hostedqualityandcanonicalpassed. Nativepartial4/12verified. Remaininggatespending/unobserved; no passinferred.",
+    "quality": {
+      "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "run_id": 41028741761,
+      "conclusion": "success",
+      "jobs": [
+        [
+          "legacy-native-compiler-e2e",
+          "success"
+        ],
+        [
+          "native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3)",
+          "success"
+        ],
+        [
+          "native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python)",
+          "success"
+        ],
+        [
+          "native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python)",
+          "success"
+        ],
+        [
+          "quality",
+          "success"
+        ],
+        [
+          "native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3)",
+          "success"
+        ],
+        [
+          "native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3)",
+          "success"
+        ],
+        [
+          "native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3)",
+          "success"
+        ]
+      ],
+      "observed_surface": [
+        "fullquality",
+        "repeated10000-fileworkspace lifecycles",
+        "realNeovimnativeLSPE2E",
+        "all6native realcompilerstdio/lint/processE2Es",
+        "WindowsARMgenuine native rule program verified, no exception applied",
+        "legacy2.0.36compatE2E"
+      ],
+      "raw_log_sha256": "9249a7b3b65260e1f66ae83d22889dad5b29e17347f2b672d621f88ad3244733",
+      "performance_admission": false,
+      "windows_unit_release_tests": "separateinstallerworkflow stillawaited"
+    },
+    "partial_native": {
+      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "tree": "3800454aa2f88cf45d02d2f3223268ac498b0db1",
+      "tested_main_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
+      "collected4of12": [
+        [
+          41028741757,
+          "aarch64-unknown-linux-gnu"
+        ],
+        [
+          41028741757,
+          "aarch64-apple-darwin"
+        ],
+        [
+          41028741757,
+          "x86_64-unknown-linux-gnu"
+        ],
+        [
+          41028941081,
+          "aarch64-unknown-linux-gnu"
+        ]
+      ],
+      "status": "partial, Windows andmacOSx64notcollectedyet",
+      "admission": false
+    }
   },
   "performance_admission": false,
   "unchanged_contracts": [
@@ -316,6 +391,86 @@
       "bytes": 76979,
       "sha256": "61f40ad091b0ffbcade088c5272bbc070e71b45c912423b91b985fa433a1e383"
     },
+    "current87f/hosted-quality/full-job.log.gz": {
+      "bytes": 49431,
+      "sha256": "f13dc0ee97fa08bf752f93a19b2c993dc873276a082042db2307f332515d6511"
+    },
+    "current87f/hosted-quality/run.json": {
+      "bytes": 28220,
+      "sha256": "5e2f4a7b19ec5221955d2dde59bf62bf72219cfb853127ea12ecd59a21ca50c4"
+    },
+    "current87f/hosted-quality/summary.json": {
+      "bytes": 1399,
+      "sha256": "1bedaf17f256ade92c836ceaad31c97913b1534e583cb1e6c0a8373462494038"
+    },
+    "current87f/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479735,
+      "sha256": "bd9f32ec2ba0b015afd8de2a985be9da36a615bc7c100659ad402a45514f6cd2"
+    },
+    "current87f/native-b1/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 338669,
+      "sha256": "10e07d3e77a85e69ba51322cb73cbb9798a026e750a588e73cb9a894ed605491"
+    },
+    "current87f/native-b1/aarch64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24601,
+      "sha256": "75f2b785888ec49232d2773ab9c6f794b33b4f67314cb2febd31c60ea3e05a9f"
+    },
+    "current87f/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
+      "bytes": 31076,
+      "sha256": "5dd4b62e27fa0435e5fbdca701b149b501c0d934dad7654e08dc007b92ee120f"
+    },
+    "current87f/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479693,
+      "sha256": "a94672f0a7ea6d037870f8392752ac676cb01c2162826e659886f0cb9a65eca3"
+    },
+    "current87f/native-main/aarch64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 121218,
+      "sha256": "9cd5e9b033a93fc0d7a7ee40998bc5dc5b51d18341fdb0de56b5f55d36a4a610"
+    },
+    "current87f/native-main/aarch64-apple-darwin/latency-report.json": {
+      "bytes": 24699,
+      "sha256": "b47d42dae642c1d01d22605c2b2dc8bbccb9d88afb47e22e25cdb9551ca8526a"
+    },
+    "current87f/native-main/aarch64-apple-darwin/provenance.json": {
+      "bytes": 28797,
+      "sha256": "297b69f4235d1856fb6b4a08badd01b705166587101e4db282244c30cfa35b42"
+    },
+    "current87f/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479737,
+      "sha256": "5e5a8bec7331d9f6b7ad9c64c2128843f9caf1b77744c2633bbbdb4bac02b348"
+    },
+    "current87f/native-main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 345545,
+      "sha256": "c6f3efe3cfca0f8c292662a61e7881fca3f6806c171a8bbb59eed12c0fc5e942"
+    },
+    "current87f/native-main/aarch64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24608,
+      "sha256": "49c54f849f7467ff50d6b7206e07e2c9d121a049d8901de724074ba3bdc85bb8"
+    },
+    "current87f/native-main/aarch64-unknown-linux-gnu/provenance.json": {
+      "bytes": 31053,
+      "sha256": "9d2255fa0ac7b89ee3050732ea8179506954b54f82eb78c99b1fafa1a966f5c8"
+    },
+    "current87f/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479738,
+      "sha256": "e78f5df3a0b1c669b1f03c099081783b5a6c010e59dad357ce6f743a62e37cae"
+    },
+    "current87f/native-main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 327656,
+      "sha256": "d0dc5bc7661301af1336fcb0c6d88053684593223fa8e4442c3a728f70703866"
+    },
+    "current87f/native-main/x86_64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24467,
+      "sha256": "d6a3e3a425f12d2644d1399763c4ebff23af1798d961d9342c44ce20f15a4fcb"
+    },
+    "current87f/native-main/x86_64-unknown-linux-gnu/provenance.json": {
+      "bytes": 32250,
+      "sha256": "1ffeca97f273c5a15fa8475c51e5e3ccc01228369cace8fc38b7f982e659003c"
+    },
+    "current87f/native-partial-summary.json.gz": {
+      "bytes": 65050,
+      "sha256": "58cd37b29fbe7843fcfa82f755622a9b21e99ebeb39892ce19639f696038e528"
+    },
     "intermediate709/admission-measurement.json": {
       "bytes": 4650,
       "sha256": "ca99f5f5acf90283103df27ac5a3ee197d76ba784b14c45444783b2a5b392556"
@@ -475,6 +630,10 @@
     "intermediate8af/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
       "bytes": 32092,
       "sha256": "127d466e68062fca0a320beb39c5ed07a8f4559826313e65f8771663754c215a"
+    },
+    "intermediate8af/native-main-latency-differences.json": {
+      "bytes": 41869,
+      "sha256": "1010abfaea60f31f1a2be49c295306b4f5e62cee1f5c29feee242c246891a94a"
     },
     "intermediate8af/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479689,
