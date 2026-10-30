@@ -1887,6 +1887,39 @@ pub(crate) fn canonical_source_path(path: &Path) -> PathBuf {
     })
 }
 
+/// Compare already-resolved spellings without changing identity-bearing paths.
+/// Windows canonicalization adds a verbatim prefix; do not treat that prefix
+/// alone as a directory or leaf alias, or fold case-sensitive path components.
+fn canonical_spelling_eq(left: &Path, right: &Path) -> bool {
+    if left == right {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::path::Prefix;
+
+        let mut left = left.components();
+        let mut right = right.components();
+        let (Some(Component::Prefix(left_prefix)), Some(Component::Prefix(right_prefix))) =
+            (left.next(), right.next())
+        else {
+            return false;
+        };
+        let same_prefix = match (left_prefix.kind(), right_prefix.kind()) {
+            (Prefix::Disk(left), Prefix::VerbatimDisk(right))
+            | (Prefix::VerbatimDisk(left), Prefix::Disk(right)) => left == right,
+            (Prefix::UNC(left_host, left_share), Prefix::VerbatimUNC(right_host, right_share))
+            | (Prefix::VerbatimUNC(left_host, left_share), Prefix::UNC(right_host, right_share)) => {
+                left_host == right_host && left_share == right_share
+            }
+            _ => false,
+        };
+        same_prefix && left.eq(right)
+    }
+    #[cfg(not(windows))]
+    false
+}
+
 pub(crate) fn canonical_library_path() -> Option<PathBuf> {
     hub_library_path().map(|path| canonical_source_path(&path))
 }
@@ -2126,7 +2159,7 @@ fn resolve_native_import_target(
         };
         (candidate, physical)
     };
-    let path = if candidate == physical_path
+    let path = if canonical_spelling_eq(&candidate, &physical_path)
         || source.parent() == physical_source.parent()
         || canonical_source_path(&candidate) == physical_path
     {
@@ -2137,7 +2170,7 @@ fn resolve_native_import_target(
     // Resolve directories, but never follow a symlink in the imported leaf:
     // moving a directory target must update its aliases, while renaming a
     // separately named symlink leaf must not rewrite the real file's imports.
-    let rename_path = if path == physical_path {
+    let rename_path = if canonical_spelling_eq(&path, &physical_path) {
         None
     } else {
         let rename_path = canonical_directory_entry_path(&path);
@@ -2178,6 +2211,50 @@ pub(crate) fn resolve_editor_import_paths(
         .iter()
         .filter_map(|import| resolve_editor_import_target(source, import.path_text(&snapshot.text)))
         .collect()
+}
+
+#[cfg(all(test, windows))]
+mod windows_path_tests {
+    use super::canonical_spelling_eq;
+    use std::path::Path;
+
+    #[test]
+    fn canonical_prefixes_preserve_volume_share_case_and_leaf_identity() {
+        for (logical, physical) in [
+            (r"C:\workspace\module.bend", r"\\?\C:\workspace\module.bend"),
+            (
+                r"\\server\share\module.bend",
+                r"\\?\UNC\server\share\module.bend",
+            ),
+        ] {
+            assert!(canonical_spelling_eq(
+                Path::new(logical),
+                Path::new(physical)
+            ));
+            assert!(canonical_spelling_eq(
+                Path::new(physical),
+                Path::new(logical)
+            ));
+        }
+        for (logical, physical) in [
+            (r"C:\workspace\module.bend", r"\\?\D:\workspace\module.bend"),
+            (r"C:\Workspace\module.bend", r"\\?\C:\workspace\module.bend"),
+            (r"C:\workspace\alias.bend", r"\\?\C:\workspace\module.bend"),
+            (
+                r"\\server\share\module.bend",
+                r"\\?\UNC\server\other\module.bend",
+            ),
+            (
+                r"\\server\share\module.bend",
+                r"\\?\UNC\other\share\module.bend",
+            ),
+        ] {
+            assert!(!canonical_spelling_eq(
+                Path::new(logical),
+                Path::new(physical)
+            ));
+        }
+    }
 }
 
 #[cfg(all(test, unix))]

@@ -620,7 +620,7 @@ impl SyntaxIndex {
         let constructor_index = constructor_index(std::mem::take(&mut facts.constructors));
         let auxiliary = AuxiliaryIndex::new(diagnostics, constructor_index);
         resolve_standalone_references(&mut facts, &symbol_by_name, &constructor_targets);
-        let local_index = locals::LocalIndex::build(&facts.bindings, names.ranges.len());
+        let local_index = locals::LocalIndex::build(&facts.bindings);
         let token_references =
             reference_token_index(source, &mut tokens, &names, &facts, &local_index);
         let parameter_hint_count = resolve_calls(&mut facts, &token_references);

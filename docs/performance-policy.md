@@ -99,6 +99,20 @@ not a latency or resident-memory measurement. Fresh source-bound hosted
 Callgrind and native comparisons remain required before claiming a performance
 improvement or admission; earlier C7/B1 results do not qualify changed source.
 
+Windows native-import resolution compares parsed standard/verbatim drive and
+UNC prefixes without changing stored paths or case-folding path components.
+It still canonicalizes the physical target afresh. Only equality checks that
+would repeat canonicalization for the same spelling are bypassed; actual aliases,
+case differences and directory-entry rename checks retain their original
+fallback. No filesystem cache or existence probe is added.
+Cold local-index construction skips sweep events for empty and single-binding
+inputs. The name table ends at the highest eligible local binding name, not the
+last unrelated global name. Raw lexical visibility remains half-open; caret
+completion still includes token-end insertion points and unfinished bodies
+through its existing separate metadata. These paths remain covered by cold
+snapshot benchmarks, the native 10,000-file discovery scenario, and boundary/
+shadowing correctness checks; local smoke is not performance qualification.
+
 A local Linux ARM64 diagnostic against `19ec528`, using pinned Valgrind 3.27.1
 and the unchanged 32 KiB I1/D1 and 8 MiB LL geometry, exercised all 96 analysis
 workloads once per revision with positive instruction counters throughout:

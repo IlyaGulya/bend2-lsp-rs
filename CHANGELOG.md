@@ -73,6 +73,12 @@
 - Reject excluded constructor declarations before slicing and matching names
   for module completion. Preserve same-spelling functions, fuzzy matching,
   recovery order and owned results without another index or semantic pass.
+- Avoid duplicate Windows import canonicalization when paths differ only by
+  the standard versus verbatim drive/UNC prefix. Keep fresh physical identity
+  checks and the original fallback for actual aliases or case differences.
+- Skip local-index sweep setup for empty or single-binding files and size its
+  name table from local bindings rather than unrelated globals. Preserve
+  shadowing, half-open lexical scopes and token-end/unfinished-body completion.
 - Retain small entry-view lookup tables in exact-size immutable storage while
   keeping hashed lookup for larger tables. Project calls from the existing
   occurrence arena instead of retaining duplicate call records and unused

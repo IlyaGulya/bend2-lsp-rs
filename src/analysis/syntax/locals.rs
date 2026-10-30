@@ -8,7 +8,7 @@ struct Visibility {
     range: TextRange,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq)]
 pub(super) struct LocalIndex {
     visibility: Box<[Visibility]>,
     source_indices: Box<[usize]>,
@@ -17,7 +17,19 @@ pub(super) struct LocalIndex {
 }
 
 impl LocalIndex {
-    pub fn build(bindings: &[IndexedBinding], name_count: usize) -> Self {
+    pub fn build(bindings: &[IndexedBinding]) -> Self {
+        if let Some(index) = Self::trivial(bindings) {
+            return index;
+        }
+        let name_count = bindings
+            .iter()
+            .filter(|binding| !binding.anonymous && binding.scope.start < binding.scope.end)
+            .map(|binding| binding.name.0 + 1)
+            .max()
+            .unwrap_or(0);
+        if name_count == 0 {
+            return Self::default();
+        }
         let (binding_indices, mut name_spans) = compact_groups(bindings, name_count, |binding| {
             (!binding.anonymous && binding.scope.start < binding.scope.end)
                 .then_some(binding.name.0)
@@ -95,6 +107,10 @@ impl LocalIndex {
             heap.clear();
             *span = TextRange::new(first_visibility, visibility.len());
         }
+        Self::from_visibility(visibility, name_spans)
+    }
+
+    fn from_visibility(visibility: Vec<Visibility>, name_spans: Vec<TextRange>) -> Self {
         let source_indices = source_order(&visibility, &name_spans);
         let mut max_end = vec![0; visibility.len()];
         build_tree(
@@ -110,6 +126,26 @@ impl LocalIndex {
             name_spans: name_spans.into_boxed_slice(),
             max_end: max_end.into_boxed_slice(),
         }
+    }
+
+    fn trivial(bindings: &[IndexedBinding]) -> Option<Self> {
+        let [binding] = bindings else {
+            return bindings.is_empty().then(Self::default);
+        };
+        if binding.anonymous || binding.scope.start >= binding.scope.end {
+            return Some(Self::default());
+        }
+        let mut name_spans = vec![TextRange::new(0, 0); binding.name.0 + 1];
+        name_spans[binding.name.0] = TextRange::new(0, 1);
+        Some(Self {
+            visibility: Box::new([Visibility {
+                binding: binding.binding_id,
+                range: binding.scope,
+            }]),
+            source_indices: Box::new([0]),
+            name_spans: name_spans.into_boxed_slice(),
+            max_end: Box::new([binding.scope.end]),
+        })
     }
 
     pub fn lookup(&self, name: NameId, offset: usize) -> Option<BindingId> {
