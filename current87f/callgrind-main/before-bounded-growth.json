@@ -32,14 +32,14 @@
     ],
     "unresolved_libc_name_limit": "Only numericaddress is available for0xab650; free-like is inference, not authenticatedsymbol.",
     "realloc_call_records": {
-      "a": {
-        "calls": 0,
-        "raw_call_records": []
+      "measured_query_call_count": "not established",
+      "raw_whole_invocation_call_records": {
+        "a": 56,
+        "b": 91
       },
-      "b": {
-        "calls": 0,
-        "raw_call_records": []
-      }
+      "parser_correction": "Initial parser recognized only parenthesized symbol IDs; files use uncompressed fn=/cfn= names. The initial zero was unsupported parser output, not zero reallocations. Raw call records 56/91 do not establish a measured-query allocation count; their window is not authenticated here. Only measured Ir self-cost240/240 and per-source attribution are used.",
+      "algorithmic_growth": "Vec<Completion> starts atstandard4capacity andgrows8/16/32for32matches; proposedlazyinitialreserve16 avoids two earlygrowth stages by code reasoning, no aftermeasurement claim.",
+      "raw_call_record_window": "not established; do not compare as measured warm allocation count"
     }
   },
   "change": "Lazily reserve an initial bounded16items only on firstmatch and existingcapacitygrowthpath; subsequentgrowthnormal. Copy SymbolKind before Stringallocations. No extra semanticpass/index/fixture/resultownership/policychange.",

@@ -343,7 +343,7 @@
         "delta": 1265,
         "percent": 6.40279394644936
       },
-      "followup_status": "Unpublished boundedcapacity/metadata-copy experiment; no afterperformance claim. Source87f notadmitted."
+      "followup_status": "888d5ff local-only bounded lazy reserve and copiedkind;31completiontests+5realstdio passed; exact fullquality running. No new performance result or Source87fadmission."
     }
   },
   "performance_admission": false,
@@ -503,8 +503,8 @@
       "sha256": "b4d0232e28ecc5957aa9110d7583b4a47762347f045317c5f32491dca8556f25"
     },
     "current87f/callgrind-main/before-bounded-growth.json": {
-      "bytes": 1458,
-      "sha256": "f970afc45e21c79ab153e25bd5c7a687bff952b6b716dc09fbf0549dcf8d138a"
+      "bytes": 2146,
+      "sha256": "1fbcad94b5a8b9560b081d892d74cfaaafc5be54d1f76271f27544e1d5cfa87b"
     },
     "current87f/callgrind-main/paired-data.json.gz": {
       "bytes": 353093,
