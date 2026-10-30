@@ -70,10 +70,19 @@
 
 ### Under the hood
 
+- Compact published entry-view capture receipts, generation/alias tables and
+  physical-URI ownership. Reuse indexed entity names instead of retaining another
+  canonical-name map; preserve value/constructor precedence, conflicting-overlay
+  safety, exact invalidation and immutable warm queries. Keep cold alias
+  registration hashed to avoid quadratic duplicate checks.
+- Reuse normalized discovery keys and capture their snapshot/generation guard in
+  one lookup. Avoid an immediately duplicated hub-import realpath check without
+  caching filesystem identities across files or weakening retarget detection.
 - Reserve module-completion result storage only after the first match, with an
   initial bound of sixteen indexed declarations. Reuse the declaration kind
-  across owned label/signature construction; keep matching, ordering and result
-  ownership unchanged without a second index pass.
+  across owned label/signature construction; leave subsequent growth to
+  `Vec::push` rather than duplicating its capacity check and reserve. Keep matching,
+  ordering and result ownership unchanged without a second index pass.
 - Reject excluded constructor declarations before slicing and matching names
   for module completion. Preserve same-spelling functions, fuzzy matching,
   recovery order and owned results without another index or semantic pass.

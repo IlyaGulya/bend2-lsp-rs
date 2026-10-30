@@ -94,8 +94,24 @@ pub struct SemanticCompletion {
 
 struct SemanticFileContext {
     namespace: String,
-    aliases: HashMap<String, String>,
+    // Sorted by alias: an alias table is usually empty, so it must not carry a
+    // hash-table allocation in every captured file's context.
+    aliases: Box<[(String, String)]>,
     available_end: usize,
+}
+
+impl SemanticFileContext {
+    fn alias(&self, name: &str) -> Option<&str> {
+        alias_namespace(&self.aliases, name)
+    }
+}
+
+/// Look one written import alias up in a sorted alias table.
+fn alias_namespace<'a>(aliases: &'a [(String, String)], name: &str) -> Option<&'a str> {
+    let index = aliases
+        .binary_search_by(|(alias, _)| alias.as_str().cmp(name))
+        .ok()?;
+    Some(aliases[index].1.as_str())
 }
 
 #[derive(Clone, Debug)]
@@ -230,10 +246,37 @@ struct SemanticCapture {
     root: FileId,
     files: Box<[CapturedFileReceipt]>,
     library: Option<std::path::PathBuf>,
-    base: Option<SemanticBase>,
+    // Boxed because a published view usually owns no prelude.
+    base: Option<Box<SemanticBase>>,
     base_file: Option<FileId>,
-    physical_generations: HashMap<Arc<Path>, u64>,
-    conflicting_paths: std::collections::HashSet<std::path::PathBuf>,
+    // Sorted by path: every reader iterates this capture fact and only the cold
+    // build looks one up, so it does not need a retained hash table.
+    physical_generations: Box<[(Arc<Path>, u64)]>,
+    // The capture reports conflicting overlay paths as issues; a published view
+    // only needs to know whether any exist.
+    conflicted: bool,
+}
+
+impl SemanticCapture {
+    fn physical_generation(&self, path: &Path) -> Option<u64> {
+        let index = self
+            .physical_generations
+            .binary_search_by(|(candidate, _)| (**candidate).cmp(path))
+            .ok()?;
+        Some(self.physical_generations[index].1)
+    }
+
+    fn physical_paths(&self) -> impl Iterator<Item = &Path> + '_ {
+        self.physical_generations.iter().map(|(path, _)| &**path)
+    }
+
+    #[must_use]
+    fn requires_base(&self) -> bool {
+        self.files
+            .iter()
+            .filter_map(|file| file.document.as_ref())
+            .any(|document| imports_base(&document.snapshot))
+    }
 }
 
 /// Captured under the workspace read lock; `build` performs no I/O or parsing.
@@ -245,8 +288,8 @@ pub struct SemanticViewInput {
     library: Option<std::path::PathBuf>,
     base: Option<SemanticBase>,
     base_file: Option<FileId>,
-    physical_generations: HashMap<Arc<Path>, u64>,
-    conflicting_paths: std::collections::HashSet<std::path::PathBuf>,
+    physical_generations: Box<[(Arc<Path>, u64)]>,
+    conflicting_paths: Box<[std::path::PathBuf]>,
 }
 
 impl SemanticViewInput {
@@ -257,16 +300,6 @@ impl SemanticViewInput {
 
     #[must_use]
     pub fn requires_base(&self) -> bool {
-        self.files
-            .iter()
-            .filter_map(|file| file.document.as_ref())
-            .any(|document| imports_base(&document.snapshot))
-    }
-}
-
-impl SemanticCapture {
-    #[must_use]
-    fn requires_base(&self) -> bool {
         self.files
             .iter()
             .filter_map(|file| file.document.as_ref())
@@ -285,12 +318,15 @@ fn imports_base(document: &DocumentSnapshot) -> bool {
 pub struct SemanticView {
     capture: SemanticCapture,
     documents: Vec<Document>,
+    // Parallel to `documents`: one captured physical identity per document.
+    physical_document_uris: Vec<Arc<url::Url>>,
     document_indices: CompactMap<FileId, usize>,
     by_uri: CompactMap<Arc<url::Url>, FileId>,
-    physical_uris: CompactMap<FileId, Arc<url::Url>>,
     by_physical_uri: CompactMap<Arc<url::Url>, FileId>,
     declaration_indices: CompactMap<(FileId, SymbolId), usize>,
-    names: CompactMap<String, SemanticTarget>,
+    // Canonical top-level names are the entities themselves; only a conflicting
+    // overlay can mark a name ambiguous without owning an entity.
+    ambiguous_names: Box<[String]>,
     entities: Vec<SemanticEntity>,
     namespace_indices: CompactMap<String, Box<[usize]>>,
     contexts: CompactMap<FileId, SemanticFileContext>,
@@ -354,7 +390,8 @@ impl SemanticView {
 
     #[must_use]
     pub fn physical_uri(&self, file: FileId) -> Option<&url::Url> {
-        self.physical_uris.get(&file).map(AsRef::as_ref)
+        let document = *self.document_indices.get(&file)?;
+        self.physical_document_uris.get(document).map(AsRef::as_ref)
     }
 
     #[must_use]
@@ -383,6 +420,35 @@ impl SemanticView {
         (id.view == self.serial())
             .then(|| self.entities.get(id.index))
             .flatten()
+    }
+
+    /// Resolve one canonical top-level name exactly as cold build registered it.
+    /// Entities are the retained name table; only a conflicting overlay records
+    /// an ambiguous name that owns no entity.
+    fn top_level(&self, name: &str) -> Option<SemanticTarget> {
+        if self
+            .ambiguous_names
+            .binary_search_by(|candidate| candidate.as_str().cmp(name))
+            .is_ok()
+        {
+            return Some(SemanticTarget::Ambiguous);
+        }
+        let namespace = name.split_once(':').map_or("", |(namespace, _)| namespace);
+        let indices = self.namespace_indices.get(namespace)?;
+        let start = indices.partition_point(|index| self.entities[*index].name.as_str() < name);
+        let mut constructor = None;
+        for index in &indices[start..] {
+            let entity = &self.entities[*index];
+            if entity.name.as_str() != name {
+                break;
+            }
+            if entity.kind == DeclarationKind::Constructor {
+                constructor.get_or_insert(entity.id);
+            } else {
+                return Some(SemanticTarget::Global(entity.id));
+            }
+        }
+        constructor.map(SemanticTarget::Global)
     }
 
     /// Borrow occurrences in source order, with synthetic records first at equal starts.
@@ -622,6 +688,10 @@ impl WorkspaceDb {
             .enumerate()
             .map(|(index, file)| (file.id, index))
             .collect();
+        let mut physical_generations: Vec<_> = physical.generations.into_iter().collect();
+        physical_generations.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+        let mut conflicting_paths: Vec<_> = physical.conflicts.into_iter().collect();
+        conflicting_paths.sort_unstable();
         let mut input = SemanticViewInput {
             serial: NEXT_VIEW.fetch_add(1, Ordering::Relaxed),
             root,
@@ -630,8 +700,8 @@ impl WorkspaceDb {
             library: self.semantic_library_path.clone(),
             base,
             base_file,
-            physical_generations: physical.generations,
-            conflicting_paths: physical.conflicts,
+            physical_generations: physical_generations.into_boxed_slice(),
+            conflicting_paths: conflicting_paths.into_boxed_slice(),
         };
         if !input.requires_base() {
             input.base = None;
@@ -752,7 +822,7 @@ impl WorkspaceDb {
                 .or_default()
                 .insert(view.root());
         }
-        for path in view.capture.physical_generations.keys() {
+        for path in view.capture.physical_paths() {
             self.semantic_physical_dependents
                 .entry(path.to_path_buf())
                 .or_default()
@@ -901,16 +971,16 @@ impl WorkspaceDb {
             if let Some(file) = view.capture.base_file {
                 self.remove_semantic_dependent(file, root);
             }
-            for path in view.capture.physical_generations.keys() {
+            for path in view.capture.physical_paths() {
                 if self
                     .semantic_physical_dependents
-                    .get_mut(&**path)
+                    .get_mut(path)
                     .is_some_and(|roots| {
                         roots.remove(&root);
                         roots.is_empty()
                     })
                 {
-                    self.semantic_physical_dependents.remove(&**path);
+                    self.semantic_physical_dependents.remove(path);
                 }
             }
         }

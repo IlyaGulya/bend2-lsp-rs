@@ -202,7 +202,7 @@ impl WorkspaceDb {
 
 impl SemanticCapture {
     pub(super) fn library_affected(&self, previous: Option<&Path>, next: Option<&Path>) -> bool {
-        self.physical_generations.keys().any(|path| {
+        self.physical_paths().any(|path| {
             previous.is_some_and(|root| path.starts_with(root))
                 || next.is_some_and(|root| path.starts_with(root))
         }) || self.files.iter().any(|file| {

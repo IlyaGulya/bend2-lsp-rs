@@ -19,7 +19,7 @@ impl SemanticView {
         };
         let mut candidates = BTreeMap::new();
         if let Some((alias, suffix)) = prefix.split_once('.')
-            && let Some(namespace) = context.aliases.get(alias)
+            && let Some(namespace) = context.alias(alias)
         {
             self.completion_range(context, namespace, suffix, Some(alias), &mut candidates);
             for (name, targets) in &mut candidates {
@@ -28,8 +28,8 @@ impl SemanticView {
                     .iter_mut()
                     .chain(targets.constructor.iter_mut())
                 {
-                    if self.names.get(name.as_str()).is_some_and(|global| {
-                        self.target_available(context, *global) && *global != *target
+                    if self.top_level(name.as_str()).is_some_and(|global| {
+                        self.target_available(context, global) && global != *target
                     }) {
                         *target = SemanticTarget::Ambiguous;
                     }

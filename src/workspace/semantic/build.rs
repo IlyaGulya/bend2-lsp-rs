@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
-    path::{Component, Path},
+    path::{Component, Path, PathBuf},
     sync::Arc,
 };
 
@@ -18,6 +18,8 @@ use crate::analysis::{
 struct BuildFiles {
     files: Vec<CapturedFile>,
     indices: HashMap<FileId, usize>,
+    // Conflicting overlay paths stay build-only; the published issues carry them.
+    conflicts: Box<[PathBuf]>,
 }
 
 impl BuildFiles {
@@ -30,6 +32,7 @@ struct FileContext {
     file: FileId,
     generation: u64,
     namespace: String,
+    // Register aliases with hashed lookup; only published contexts need sorted slices.
     aliases: HashMap<String, String>,
     base: bool,
     conflicted: bool,
@@ -51,14 +54,18 @@ impl FileContext {
                 entry
                     .path
                     .as_deref()
-                    .and_then(|path| capture.physical_generations.get(path))
-                    .copied()
+                    .and_then(|path| capture.physical_generation(path))
                     .unwrap_or(entry.generation)
             },
         );
         let conflicted = captured
             .and_then(|entry| entry.path.as_deref())
-            .is_some_and(|path| capture.conflicting_paths.contains(path));
+            .is_some_and(|path| {
+                files
+                    .conflicts
+                    .binary_search_by(|conflict| conflict.as_path().cmp(path))
+                    .is_ok()
+            });
         Self {
             file,
             generation,
@@ -67,6 +74,10 @@ impl FileContext {
             base,
             conflicted,
         }
+    }
+
+    fn alias(&self, name: &str) -> Option<&str> {
+        self.aliases.get(name).map(String::as_str)
     }
 }
 
@@ -91,9 +102,10 @@ struct PendingOccurrence {
 struct Builder {
     view: SemanticView,
     files: BuildFiles,
-    names: HashMap<String, SemanticTarget>,
     constructors: HashMap<String, SemanticTarget>,
     top_levels: HashMap<String, SemanticTarget>,
+    // Canonical names a conflicting overlay marked ambiguous without an entity.
+    ambiguous: Vec<String>,
     // Signature metadata stays aligned with entities, including filled laws.
     template_parameter_counts: Vec<usize>,
     pending: Vec<PendingOccurrence>,
@@ -118,19 +130,19 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
             root,
             files: Vec::new().into_boxed_slice(),
             library,
-            base,
+            base: base.map(Box::new),
             base_file,
             physical_generations,
-            conflicting_paths,
+            conflicted: !conflicting_paths.is_empty(),
         },
         documents: Vec::new(),
+        physical_document_uris: Vec::new(),
         document_indices: CompactMap::new(),
         entities: Vec::new(),
         by_uri: CompactMap::new(),
         declaration_indices: CompactMap::new(),
-        physical_uris: CompactMap::new(),
         by_physical_uri: CompactMap::new(),
-        names: CompactMap::new(),
+        ambiguous_names: Box::default(),
         namespace_indices: CompactMap::new(),
         contexts: CompactMap::new(),
         declarations: Vec::new(),
@@ -145,8 +157,7 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         parameter_hints: CompactMap::new(),
     };
     view.issues.extend(
-        view.capture
-            .conflicting_paths
+        conflicting_paths
             .iter()
             .cloned()
             .map(|path| SemanticIssue::ConflictingOverlays { path }),
@@ -156,10 +167,11 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         files: BuildFiles {
             files: captured,
             indices: file_indices,
+            conflicts: conflicting_paths,
         },
-        names: HashMap::new(),
         constructors: HashMap::new(),
         top_levels: HashMap::new(),
+        ambiguous: Vec::new(),
         template_parameter_counts: Vec::new(),
         pending: Vec::new(),
         call_count: 0,
@@ -169,11 +181,13 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
     builder.reserve_indexes(&contexts);
     for context in contexts {
         builder.file(&context);
+        let mut aliases: Vec<_> = context.aliases.into_iter().collect();
+        aliases.sort_unstable_by(|left, right| left.0.cmp(&right.0));
         builder.view.contexts.insert(
             context.file,
             SemanticFileContext {
                 namespace: context.namespace,
-                aliases: context.aliases,
+                aliases: aliases.into_boxed_slice(),
                 available_end: builder.view.entities.len(),
             },
         );
@@ -195,6 +209,9 @@ impl Builder {
                 self.view.capture.base.is_some() && self.view.capture.base_file.is_some(),
             );
         self.view.documents.reserve_exact(document_count);
+        self.view
+            .physical_document_uris
+            .reserve_exact(document_count);
         for file in &mut self.files.files {
             let Some(document) = &mut file.document else {
                 continue;
@@ -208,12 +225,12 @@ impl Builder {
             self.view
                 .by_physical_uri
                 .insert(Arc::clone(&physical_uri), id);
-            self.view.physical_uris.insert(id, physical_uri);
             self.view.documents.push(Document::with_snapshot(
                 document.uri.as_ref().clone(),
                 std::mem::take(&mut document.language_id),
                 Arc::clone(&document.snapshot),
             ));
+            self.view.physical_document_uris.push(physical_uri);
         }
         if let (Some(base), Some(file)) = (&self.view.capture.base, self.view.capture.base_file) {
             self.view
@@ -222,8 +239,8 @@ impl Builder {
             let uri = Arc::new(base.document.uri.clone());
             self.view.by_uri.insert(Arc::clone(&uri), file);
             self.view.by_physical_uri.insert(Arc::clone(&uri), file);
-            self.view.physical_uris.insert(file, uri);
             self.view.documents.push(base.document.clone());
+            self.view.physical_document_uris.push(uri);
         }
     }
 
@@ -248,7 +265,6 @@ impl Builder {
         self.view.declarations.reserve_exact(declarations);
         self.view.declaration_indices.reserve(declarations);
         self.view.bindings.reserve(bindings);
-        self.names.reserve(declarations);
         self.top_levels.reserve(declarations);
         self.template_parameter_counts.reserve(declarations);
         self.pending.reserve(references);
@@ -416,10 +432,7 @@ impl Builder {
 
     fn resolve(&mut self, context: &FileContext, name: &str, site: SemanticSite) -> PendingTarget {
         let alias = name.split_once('.').and_then(|(prefix, suffix)| {
-            context
-                .aliases
-                .get(prefix)
-                .map(|namespace| (namespace, suffix))
+            context.alias(prefix).map(|namespace| (namespace, suffix))
         });
         let mut qualified = if let Some((namespace, suffix)) = alias {
             qualify(namespace, suffix)
@@ -428,19 +441,21 @@ impl Builder {
         };
         if alias.is_some()
             && qualified != name
-            && self.names.contains_key(&qualified)
-            && self.names.contains_key(name)
+            && self.registered(&qualified)
+            && self.registered(name)
         {
             self.view.issues.push(SemanticIssue::AmbiguousName { site });
             return PendingTarget::Direct(SemanticTarget::Ambiguous);
         }
-        if qualified != name
-            && !self.names.contains_key(&qualified)
-            && self.names.contains_key(name)
-        {
+        if qualified != name && !self.registered(&qualified) && self.registered(name) {
             name.clone_into(&mut qualified);
         }
         PendingTarget::Name(qualified)
+    }
+
+    /// Constructor and value tables together are the set of registered names.
+    fn registered(&self, name: &str) -> bool {
+        self.top_levels.contains_key(name) || self.constructors.contains_key(name)
     }
 
     fn register(
@@ -476,8 +491,7 @@ impl Builder {
         };
         let target = if context.conflicted {
             let canonical = qualify(&context.namespace, name);
-            self.names
-                .insert(canonical.clone(), SemanticTarget::Ambiguous);
+            self.ambiguous.push(canonical.clone());
             let table = if declaration.kind == DeclarationKind::Constructor {
                 &mut self.constructors
             } else {
@@ -520,7 +534,7 @@ impl Builder {
         };
         let alias_conflict = name
             .split_once('.')
-            .is_some_and(|(prefix, _)| context.aliases.contains_key(prefix));
+            .is_some_and(|(prefix, _)| context.alias(prefix).is_some());
         if !declaration.linkable
             || alias_conflict
             || table.contains_key(&canonical)
@@ -548,11 +562,13 @@ impl Builder {
             .push(declaration.template_parameter_count);
         let target = SemanticTarget::Global(id);
         if declaration.kind == DeclarationKind::Constructor {
-            self.constructors.insert(canonical.clone(), target);
-            self.names.entry(canonical).or_insert(target);
+            self.constructors.insert(canonical, target);
         } else {
-            self.top_levels.insert(canonical.clone(), target);
-            self.names.insert(canonical, target);
+            // A later value registration wins over an earlier conflicting overlay,
+            // exactly as the old single name table's overwrite did.
+            self.ambiguous
+                .retain(|candidate| candidate.as_str() != canonical.as_str());
+            self.top_levels.insert(canonical, target);
         }
         target
     }
@@ -735,12 +751,13 @@ impl Builder {
         self.view.call_indices = call_indices.into_boxed_slice();
         self.view.incoming = compact_index(incoming).into();
         self.view.outgoing = compact_index(outgoing).into();
-        self.view.names = self.names.into();
+        self.ambiguous.sort_unstable();
+        self.ambiguous.dedup();
+        self.view.ambiguous_names = self.ambiguous.into_boxed_slice();
         self.view.namespace_indices = namespace_index(&self.view.entities).into();
         self.view.parameter_hints = parameter_hint_index(&self.view).into();
         self.view.document_indices = self.view.document_indices.freeze();
         self.view.by_uri = self.view.by_uri.freeze();
-        self.view.physical_uris = self.view.physical_uris.freeze();
         self.view.by_physical_uri = self.view.by_physical_uri.freeze();
         self.view.declaration_indices = self.view.declaration_indices.freeze();
         self.view.contexts = self.view.contexts.freeze();

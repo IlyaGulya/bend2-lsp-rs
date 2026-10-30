@@ -767,17 +767,13 @@ fn collect_module_completions_for_query<const ASCII_PREFIX: bool, const HAS_CONS
         }
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ASCII_PREFIX) {
-            if items.len() == items.capacity() {
-                if items.is_empty() {
-                    items.reserve_exact(
-                        syntax
-                            .symbols()
-                            .len()
-                            .min(MODULE_COMPLETION_INITIAL_CAPACITY),
-                    );
-                } else {
-                    items.reserve(1);
-                }
+            if items.is_empty() {
+                items.reserve_exact(
+                    syntax
+                        .symbols()
+                        .len()
+                        .min(MODULE_COMPLETION_INITIAL_CAPACITY),
+                );
             }
             items.push(completion(
                 name.to_owned(),

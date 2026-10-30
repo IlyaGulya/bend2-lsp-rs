@@ -25,7 +25,7 @@ impl SemanticView {
         {
             return None;
         }
-        if !self.capture.conflicting_paths.is_empty() {
+        if self.capture.conflicted {
             return None;
         }
         let document = self.document(file)?;
@@ -36,7 +36,7 @@ impl SemanticView {
             .iter()
             .find(|import| import.valid_syntax && import.alias == Some(alias_range))?;
         let alias = import.alias_text(&document.text)?;
-        let namespace = context.aliases.get(alias).map(String::as_str);
+        let namespace = context.alias(alias);
         if document.syntax.imports().iter().any(|other| {
             other.valid_syntax
                 && other.alias != Some(alias_range)
@@ -160,7 +160,7 @@ impl SemanticView {
             } else if prefix == old_alias {
                 None
             } else {
-                context.aliases.get(prefix).map(String::as_str)
+                context.alias(prefix)
             };
             if let Some(namespace) = alias_namespace {
                 qualified = qualify(namespace, suffix);
@@ -194,9 +194,7 @@ impl SemanticView {
             }
             return SemanticTarget::Unresolved;
         }
-        self.names
-            .get(&qualified)
-            .copied()
+        self.top_level(&qualified)
             .filter(|target| match target {
                 SemanticTarget::Global(id) => self
                     .entity(*id)
@@ -213,10 +211,10 @@ impl SemanticView {
         offset: usize,
         name: &str,
     ) -> bool {
-        let Some(SemanticTarget::Global(id)) = self.names.get(name) else {
+        let Some(SemanticTarget::Global(id)) = self.top_level(name) else {
             return false;
         };
-        let Some(entity) = self.entity(*id) else {
+        let Some(entity) = self.entity(id) else {
             return false;
         };
         if entity.id.index >= context.available_end {
@@ -317,7 +315,7 @@ impl SemanticView {
         } else {
             return false;
         };
-        context.aliases.contains_key(first)
+        context.alias(first).is_some()
     }
 
     /// Reject spellings the pinned frontend cannot declare, then check
@@ -328,7 +326,7 @@ impl SemanticView {
         if !self.new_atom_is_valid(target, new_name) {
             return false;
         }
-        if !self.capture.conflicting_paths.is_empty() {
+        if self.capture.conflicted {
             return false;
         }
         if self.references(target).iter().any(|occurrence| {
@@ -352,9 +350,8 @@ impl SemanticView {
                 proposed.push_str(&entity.name[..boundary]);
                 proposed.push_str(new_name);
                 if self
-                    .names
-                    .get(&proposed)
-                    .is_some_and(|found| *found != target)
+                    .top_level(&proposed)
+                    .is_some_and(|found| found != target)
                 {
                     return false;
                 }
@@ -362,9 +359,8 @@ impl SemanticView {
                     .rsplit_once(':')
                     .map_or(proposed.as_str(), |(_, name)| name);
                 if self
-                    .names
-                    .get(written_name)
-                    .is_some_and(|found| *found != target)
+                    .top_level(written_name)
+                    .is_some_and(|found| found != target)
                 {
                     return false;
                 }

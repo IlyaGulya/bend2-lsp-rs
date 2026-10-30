@@ -68,11 +68,12 @@ and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
 Module completion delays result reservation until the first match. Its first
-reservation is bounded by sixteen indexed declarations; later growth uses the
-normal vector policy. No-match queries do not allocate a speculative result
-buffer, and selective queries do not reserve the whole document's declaration
-count. The indexed declaration kind is copied before owned label/signature
-allocation. This adds no matching prepass or retained index. Fresh source-bound
+reservation is bounded by sixteen indexed declarations; only `Vec::push` handles
+later growth, without a second capacity guard or explicit reserve on each growth.
+No-match queries do not allocate a speculative result buffer, and selective
+queries do not reserve the whole document's declaration count. The indexed
+declaration kind is copied before owned label/signature allocation. This adds no
+matching prepass or retained index. Fresh source-bound
 Callgrind results are still required; static annotation of an earlier hosted
 profile is attribution, not a new performance measurement or admission.
 
@@ -100,13 +101,34 @@ translated during cold grouping rather than through a second warm indirection.
 Unused per-site target tables and duplicate entity-site lists are removed;
 declaration metadata, entry serials, generations and all prepared contexts remain.
 These storage choices do not permit rebuilding closed contexts on warm requests.
+
+Published entry captures keep validation receipts rather than build-only document
+metadata and semantic-import copies. Physical generations use a sorted immutable
+slice; conflict paths remain build-only after their issues and conflict flag are
+published. Physical document URIs share the document index instead of retaining
+another keyed table. Optional Base ownership is boxed rather than paid inline by
+every view.
+
+Canonical top-level lookup reuses the existing namespace/name-sorted entity index
+instead of retaining another canonical-name map. Value/constructor precedence and
+ambiguous overlay names remain explicit. Alias registration stays hashed during
+cold construction to avoid quadratic duplicate checks; published alias tables
+are sorted immutable slices. The existing `semantic_completion_warm` and
+`semantic_rename_preflight_warm` cases cover these indexed lookup trade-offs.
+
 Cold discovery may use at most two owned walkers, retaining tracing context,
 ignore/symlink rules, cancellation and final generation checks.
+Discovery obtains snapshot ownership and the exact file/generation admission guard
+with one lookup of its already-normalized path. Snapshot commit reuses known
+normalized keys, and a hub import reuses the physical spelling just computed in
+that same resolution. Independent source/import resolutions still observe the
+filesystem afresh; a long walk does not memoize target identities across files.
+
 Correctness smoke on 10,000 files checks every symbol/reference location, an
 unsaved dependency revision, root removal and clean process shutdown. This is
 not a latency or resident-memory measurement. Fresh source-bound hosted
 Callgrind and native comparisons remain required before claiming a performance
-improvement or admission; earlier C7/B1 results do not qualify changed source.
+improvement or admission; earlier-source measurements do not qualify changed source.
 
 Windows native-import resolution compares parsed standard/verbatim drive and
 UNC prefixes without changing stored paths or case-folding path components.

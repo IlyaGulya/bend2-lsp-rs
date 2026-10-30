@@ -410,10 +410,18 @@ impl WorkspaceDb {
     pub(crate) fn discovered_roots(&self) -> Vec<FileId> {
         self.discovered.iter().copied().collect()
     }
-    pub(crate) fn has_discovered_snapshot(&self, path: &Path) -> bool {
-        self.by_path
-            .get(path)
-            .is_some_and(|id| self.is_discovered(*id) && self.entries[id.0].disk_snapshot.is_some())
+    /// One lookup for an already-normalized discovery path: whether the
+    /// workspace owns its disk snapshot, and the admission generation a
+    /// prepared snapshot must still match before commit.
+    pub(crate) fn discovery_state(&self, path: &Path) -> (bool, Option<(FileId, u64)>) {
+        let Some(&id) = self.by_path.get(path) else {
+            return (false, None);
+        };
+        let entry = &self.entries[id.0];
+        (
+            self.discovered.contains(&id) && entry.disk_snapshot.is_some(),
+            Some((id, entry.disk_generation)),
+        )
     }
     pub(crate) fn admit_discovered_path(&mut self, path: PathBuf) -> Option<FileId> {
         let uri = Url::from_file_path(&path).ok()?;
@@ -1333,8 +1341,14 @@ impl WorkspaceDb {
         snapshot: Option<Arc<DocumentSnapshot>>,
         imports: Vec<PreparedImportTarget>,
     ) -> Option<(FileId, bool)> {
-        let path = normalize_path(path);
-        let id = *self.by_path.get(&path)?;
+        // Most callers pass a spelling that is already interned in normalized
+        // form; only pay normalization for a spelling the map does not know.
+        let id = if let Some(&id) = self.by_path.get(path) {
+            id
+        } else {
+            let normalized = normalize_path(path);
+            *self.by_path.get(&normalized)?
+        };
         if !self.is_needed(id) {
             return None;
         }
@@ -2132,7 +2146,8 @@ fn resolve_native_import_target(
     if imported == "Base" {
         return None;
     }
-    let (candidate, physical_path) = if is_hub_import_path(imported) {
+    let hub_import = is_hub_import_path(imported);
+    let (candidate, physical_path) = if hub_import {
         let library = hub_library_path()?;
         let candidate = hub_cached_path(imported, &library)?;
         let namespace = candidate
@@ -2159,7 +2174,10 @@ fn resolve_native_import_target(
         };
         (candidate, physical)
     };
-    let path = if canonical_spelling_eq(&candidate, &physical_path)
+    // A hub candidate's physical path is exactly the canonical spelling just
+    // computed above, so that fallback comparison would repeat the same call.
+    let path = if hub_import
+        || canonical_spelling_eq(&candidate, &physical_path)
         || source.parent() == physical_source.parent()
         || canonical_source_path(&candidate) == physical_path
     {

@@ -167,12 +167,7 @@ impl WorkspaceService {
         // consistent without adding a lock per token or per byte of source.
         let (has_snapshot, disk_generation) = {
             let database = self.read();
-            let disk_generation = database.file_id_by_path(&path).and_then(|id| {
-                database
-                    .disk_generation(id)
-                    .map(|generation| (id, generation))
-            });
-            (database.has_discovered_snapshot(&path), disk_generation)
+            database.discovery_state(&path)
         };
         if has_snapshot {
             return None;
@@ -243,11 +238,8 @@ impl WorkspaceService {
         self.commit(None, None, |database| {
             // Validate before this batch's import edges intern new identities.
             for source in &mut prepared {
-                source.accepted = database.file_id_by_path(&source.path).and_then(|id| {
-                    database
-                        .disk_generation(id)
-                        .map(|generation| (id, generation))
-                }) == source.disk_generation;
+                source.accepted =
+                    database.discovery_state(&source.path).1 == source.disk_generation;
             }
             for source in prepared {
                 if source.accepted {
