@@ -67,6 +67,15 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
+Module completion delays result reservation until the first match. Its first
+reservation is bounded by sixteen indexed declarations; later growth uses the
+normal vector policy. No-match queries do not allocate a speculative result
+buffer, and selective queries do not reserve the whole document's declaration
+count. The indexed declaration kind is copied before owned label/signature
+allocation. This adds no matching prepass or retained index. Fresh source-bound
+Callgrind results are still required; static annotation of an earlier hosted
+profile is attribution, not a new performance measurement or admission.
+
 The `semantic_view_cold.declarations_{100,1000,10000}` cases construct entry
 views from captured snapshot facts. Declaration-name occurrences reuse existing
 snapshot-local IDs with an exact range check. Construction caches each file's

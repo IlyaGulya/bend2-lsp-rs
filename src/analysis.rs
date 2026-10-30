@@ -749,6 +749,8 @@ fn collect_module_completions(
     }
 }
 
+const MODULE_COMPLETION_INITIAL_CAPACITY: usize = 16;
+
 // Select matching and constructor filtering once for the complete query.
 #[inline(never)]
 fn collect_module_completions_for_query<const ASCII_PREFIX: bool, const HAS_CONSTRUCTORS: bool>(
@@ -759,15 +761,28 @@ fn collect_module_completions_for_query<const ASCII_PREFIX: bool, const HAS_CONS
     let syntax = &snapshot.syntax;
     let mut items = Vec::new();
     for symbol in syntax.symbols() {
-        if HAS_CONSTRUCTORS && symbol.kind == SymbolKind::Constructor {
+        let kind = symbol.kind;
+        if HAS_CONSTRUCTORS && kind == SymbolKind::Constructor {
             continue;
         }
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ASCII_PREFIX) {
+            if items.len() == items.capacity() {
+                if items.is_empty() {
+                    items.reserve_exact(
+                        syntax
+                            .symbols()
+                            .len()
+                            .min(MODULE_COMPLETION_INITIAL_CAPACITY),
+                    );
+                } else {
+                    items.reserve(1);
+                }
+            }
             items.push(completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),
-                symbol.kind,
+                kind,
             ));
         }
     }

@@ -70,6 +70,10 @@
 
 ### Under the hood
 
+- Reserve module-completion result storage only after the first match, with an
+  initial bound of sixteen indexed declarations. Reuse the declaration kind
+  across owned label/signature construction; keep matching, ordering and result
+  ownership unchanged without a second index pass.
 - Reject excluded constructor declarations before slicing and matching names
   for module completion. Preserve same-spelling functions, fuzzy matching,
   recovery order and owned results without another index or semantic pass.
