@@ -87,27 +87,88 @@
   "new_hosted": {
     "known_created_exact_source": [
       {
-        "conclusion": "",
-        "databaseId": 41057811245,
-        "event": "workflow_dispatch",
+        "databaseId": 41057819300,
+        "workflowName": "semantic-fuzz",
+        "event": "pull_request",
         "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
         "status": "queued",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057811245",
-        "workflowName": "performance"
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819300"
       },
       {
-        "conclusion": "",
+        "databaseId": 41057819157,
+        "workflowName": "installer-validation",
+        "event": "pull_request",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819157"
+      },
+      {
+        "databaseId": 41057819178,
+        "workflowName": "performance-calibration",
+        "event": "pull_request",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819178"
+      },
+      {
+        "databaseId": 41057819122,
+        "workflowName": "quality",
+        "event": "pull_request",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819122"
+      },
+      {
+        "databaseId": 41057819102,
+        "workflowName": "performance",
+        "event": "pull_request",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819102"
+      },
+      {
+        "databaseId": 41057819374,
+        "workflowName": "perf-diagnostics / pr-41057819374-1",
+        "event": "pull_request",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819374"
+      },
+      {
         "databaseId": 41057815829,
+        "workflowName": "semantic-canonical-key / 888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
         "event": "workflow_dispatch",
         "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
         "status": "queued",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057815829",
-        "workflowName": "semantic-canonical-key"
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057815829"
+      },
+      {
+        "databaseId": 41057811245,
+        "workflowName": "performance",
+        "event": "workflow_dispatch",
+        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057811245"
       }
     ],
-    "automatic_runs": "not yet discovered by firstlist; no passinferred",
+    "automatic_runs": "6automaticPRruns discovered andsourcebound to888; originalobservers running, no gate reruns.",
     "performance_outcome": "unmeasured/pending",
-    "request_performance_exception": false
+    "request_performance_exception": false,
+    "canonical": {
+      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+      "run_id": 41057815829,
+      "status": "pass",
+      "views_per_compiler": 634,
+      "performance_admission": false
+    }
   },
   "performance_admission": false,
   "unchanged": [
@@ -549,6 +610,34 @@
     "before87f/semantic-calibration/run.json": {
       "bytes": 14320,
       "sha256": "de0735c0f425081f4e57c1df673711e4288e36832c8c38ede5581219dd0bf897"
+    },
+    "current888/canonical/installation.json": {
+      "bytes": 2434,
+      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
+    },
+    "current888/canonical/native-contracts.json": {
+      "bytes": 2434,
+      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
+    },
+    "current888/canonical/qualification/corpus-equivalence.json.gz": {
+      "bytes": 102652,
+      "sha256": "af3d0195cc4aea3625e974a5f2b33603e1f3c2c6f87b0e416adc47437f45279f"
+    },
+    "current888/canonical/qualification/paired-cost.json": {
+      "bytes": 2122,
+      "sha256": "8324dcab5900349d4665dfd10ae479e38d98974acf9d5e418066b73b4ee6b4c1"
+    },
+    "current888/canonical/qualification/plan.json.gz": {
+      "bytes": 107452,
+      "sha256": "4cc15fd12aa8df95425f75d385733dfa94c409b1eae3f1a1c09730b074eb7376"
+    },
+    "current888/canonical/qualification/qualification.json": {
+      "bytes": 4683,
+      "sha256": "a2630d939f8a2e2129d90c1e71d2761cdc558c5cda9b66d252c5f5c688f8adb0"
+    },
+    "current888/canonical/qualification/requests.json.gz": {
+      "bytes": 76979,
+      "sha256": "61f40ad091b0ffbcade088c5272bbc070e71b45c912423b91b985fa433a1e383"
     },
     "intermediate709/admission-measurement.json": {
       "bytes": 4650,

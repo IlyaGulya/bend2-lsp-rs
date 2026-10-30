@@ -1,0 +1,99 @@
+{
+  "all_planned_views_verified_for_both_compilers": true,
+  "candidate_source_sha256": "fce7992d6856a93db540c0005cf60a039388321f1bf98bda37bc9b2edc899e40",
+  "corpus_equivalence_sha256": "51ca7cd556573422aae3dbfa8e5ade121790e1237163049d36d89e983871358d",
+  "corpus_sha256": "ac1f9791d7e36b7c726c3fa6108b398bbbaccc772b959dc085e354fa6b42d998",
+  "driver_sha256": "9e8136add616437b0db5c2bd40ace85cd6b8a3e9a032666b80d311c065a0142f",
+  "harness_sha256": "9f78fa49313da49262757c46a1a6f588a69907c1ede878d1a69a31fe2bb3e972",
+  "mode": "hosted-micro-cost-and-correctness",
+  "normal_resource_limits_unchanged": {
+    "artifact_bytes": 33554432,
+    "artifact_files": 512,
+    "calibration": "provisional; requires at least 20 runs on 5 independent CI jobs",
+    "candidate_build_profile": {
+      "cargo_flags": [
+        "--release",
+        "--locked"
+      ],
+      "cargo_settings": {
+        "codegen-units": 1,
+        "lto": "fat",
+        "opt-level": 3,
+        "strip": "symbols"
+      },
+      "features": "default",
+      "name": "release"
+    },
+    "generated_projects": 256,
+    "hard_seconds": 240,
+    "name": "semantic-pr-v8-full-reference-budget",
+    "output_bytes": 1048576,
+    "report_bytes": 16777216,
+    "rss_bytes": 1073741824,
+    "runner": "ubuntu-24.04",
+    "sample_seconds": 0.02,
+    "scheduled_artifact_bytes": 268435456,
+    "scheduled_artifact_files": 8192,
+    "scheduled_hard_seconds": 3600,
+    "scheduled_search_seconds": 2700,
+    "scheduled_shrink_seconds": 600,
+    "schema": 1,
+    "seed": 5301,
+    "setup_target_seconds": 300,
+    "shutdown_seconds": 2,
+    "success_p95_target_seconds": 120,
+    "workers": 2
+  },
+  "performance_admission": false,
+  "plain_and_instrumented_observations_equal": true,
+  "plan_sha256": "1c5586dd6bffbfbfe4bef2ecf9049034b91d44139555dd3fbaec56bddce37a32",
+  "planned_views_per_compiler": 634,
+  "provenance": {
+    "adapter_sha256": "7a986af2cfd7f04215e629b9b5783c3df2f648a6697ce16048a0d60c0e47adde",
+    "book_stream_sha256": "2152248e257af678071469ba8608c73e9711f1ccbc3fe164934455019de6afaf",
+    "installation": "3926f9da550d3917dd8a4c9ee8ab3fb3e3a58ba40cf9d53f5bb1ed9aaf983823",
+    "official_pins_sha256": "d3e5aa8fd28871385aff5975422e24ac9f06282199f16b2752ddea9d31d17e83",
+    "pin": {
+      "compatibility": "Official Bend 2.0.37 compiler and Base source bytes, verified against scripts/bend_compiler_pins.json. Conformance uses the release's pinned Bun 1.4.0 runtime version/revision and an observation-only adapter; source-oracle execution remains distinct from the distributed Bend executable.",
+      "compiler_version": "2.0.37",
+      "files": {
+        "LICENSE": "0beb288abd3d067e231f3fbe7df1f8ee37344061fc67f22018150a19e4b26c35",
+        "base.bend": "3238272964daa05438a8a99311008802fd495963ac78dbbf51f6d5e6bdcee77c",
+        "bend.ts": "6c1df3eb304fe085070aa4797928f70243b80d4635389e3d5d8a49fdfbb3051e"
+      },
+      "id": "bend-2.0.37-official-content-v1",
+      "license": "Apache-2.0",
+      "license_provenance": {
+        "git_blob_sha1": "a20d4b8ab3ed6c76c1215488bd2d865cee1e57c4",
+        "path": "LICENSE",
+        "size": 11344,
+        "source_url": "https://api.github.com/repos/bendlang/bend/license?ref=4ff8545f19b09b7d2b8ca2303668100eac8efd66"
+      },
+      "release_api": "https://api.github.com/repos/bendlang/bend/releases/tags/v2.0.37",
+      "repository": "https://github.com/bendlang/bend",
+      "runtime": {
+        "name": "bun",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676",
+        "version": "1.4.0"
+      },
+      "schema": 1,
+      "source_archive": {
+        "sha256": "bdc3057a068b13c9c8677f505cbc049956dc432b84eaabf01abfc803c9360488",
+        "size": 59480748
+      },
+      "source_commit": "4ff8545f19b09b7d2b8ca2303668100eac8efd66"
+    },
+    "pin_sha256": "e2a8b030ae3467758eb291fcc8823933cf0575d662ab291d041a952d410ab74c",
+    "pristine_worker_sha256": "647d595f2e1794026b4b4b12ef8ae898bc2a08886f9d44382bd72438cee5fba3",
+    "runtime_pin_sha256": "ae76b3729f0cf01a67bfae861239a7e80034067b221ff6a41d5a1c6a840cca5a",
+    "runtime_sha256": "33d56b070be6a9e3da0ab013038b43d1645d0534ca811ecdba4472599117eb4b",
+    "schema": 1,
+    "worker_sha256": "7bc9e922ebd039f130ddbde23066c706039e3282d16ec53cb8627b3de45b1287"
+  },
+  "schema": 1,
+  "scope": "Additional representation differential test, not a replacement for normal conformance, full histories, quality, p95 or strict Callgrind.",
+  "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "source_fingerprint": "7adc8adf126d26b9cbdc4ef08e00483d495161baca06a4bc25fe7378efe0fb19",
+  "status": "pass",
+  "typescript_sha256": "136e2498d1fd08d50a8df3bb4b067c5822758c78934c8802b5ea09855b71fdc7"
+}
