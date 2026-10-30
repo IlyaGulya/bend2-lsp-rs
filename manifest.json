@@ -77,9 +77,75 @@
     "Bun": "1.4.0"
   },
   "hosted_qualification": {
-    "created_runs": [],
+    "created_runs": [
+      {
+        "id": 41111209195,
+        "name": "semantic-fuzz",
+        "event": "pull_request",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209195"
+      },
+      {
+        "id": 41111209231,
+        "name": "installer-validation",
+        "event": "pull_request",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209231"
+      },
+      {
+        "id": 41111209224,
+        "name": "performance-calibration",
+        "event": "pull_request",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209224"
+      },
+      {
+        "id": 41111209380,
+        "name": "performance",
+        "event": "pull_request",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209380"
+      },
+      {
+        "id": 41111209303,
+        "name": "perf-diagnostics / pr-41111209303-1",
+        "event": "pull_request",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209303"
+      },
+      {
+        "id": 41111209193,
+        "name": "quality",
+        "event": "pull_request",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209193"
+      },
+      {
+        "id": 41111551294,
+        "name": "performance",
+        "event": "workflow_dispatch",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111551294"
+      }
+    ],
     "performance": "notyetmeasuredfor8842984; no prior source admission inherited",
-    "planned_scope": "Onequalifiedcandidate; ordinaryfrozenmain comparison plus existingworkflow before888comparison where needed for candidate-only semantic workloads; native/fullquality/normal20run gates unchanged"
+    "planned_scope": "Onequalifiedcandidate; ordinaryfrozenmain comparison plus existingworkflow before888comparison where needed for candidate-only semantic workloads; native/fullquality/normal20run gates unchanged",
+    "ordinary_frozen_main": "automaticperformancepull_request, notadmitteduntilnumericpolicyavailable",
+    "before888_run": 41111551294
   },
   "performance_admission": false,
   "request_performance_exception": false,
@@ -164,6 +230,15 @@
     "local/discovery-10000.json.gz": {
       "bytes": 138458,
       "sha256": "2e64ad6c5153652c420abdc12754624739a3c659b7a3ea0ebed22fb77c2bc76b"
+    },
+    "hosted/created-exact-source-runs.json": {
+      "bytes": 1983,
+      "sha256": "44184bef4421f8e0af6a9a7b5bb251299cce07a207375b1a2b166b5a69237a50"
+    },
+    "hosted/before888-dispatch.json": {
+      "bytes": 501,
+      "sha256": "1812ee8975cd248d7cd13c3bd53fac5d8749d634bd65551f381edf2403ea0c99"
     }
-  }
+  },
+  "source_pushed": true
 }

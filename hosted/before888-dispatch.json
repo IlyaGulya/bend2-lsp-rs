@@ -1,0 +1,11 @@
+{
+  "source": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "baseline": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "workflow": "performance.yml",
+  "ref": "feat/semantic-conformance-main",
+  "request_performance_exception": false,
+  "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111551294\n",
+  "stderr": "",
+  "purpose": "Pair all existingsemanticcold/warmworkloads that are candidate-only vs main; samefrozencandidate, no fixture/policy/resourcechange",
+  "dispatches": 1
+}
