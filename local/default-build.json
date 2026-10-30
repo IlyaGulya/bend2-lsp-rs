@@ -1,0 +1,25 @@
+{
+  "source": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "tree": "b9975db790d0768011828bf282615e9cfce96334",
+  "command": [
+    "docker",
+    "compose",
+    "exec",
+    "-T",
+    "-w",
+    "/tmp/semantic-approved-126952f6d048",
+    "rust",
+    "env",
+    "CARGO_TARGET_DIR=/workspace/target/semantic-approved-126952f6d048",
+    "CARGO_INCREMENTAL=0",
+    "cargo",
+    "build",
+    "--locked",
+    "--bin",
+    "bend2-lsp"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "   Compiling bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.66s\n",
+  "same_target": "/workspace/target/semantic-approved-126952f6d048"
+}

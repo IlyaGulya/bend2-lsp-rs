@@ -1,0 +1,29 @@
+{
+  "parent": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "source_files": {
+    "src/analysis.rs": "69e402d6819ac72f8f5ac8b698bbc14aa4db300f3f9f0e89c6fae30ba32b66fc",
+    "src/workspace.rs": "b5dac8a558e099778091e83edf99111556a86b0fbb6e7c026e156cfd07d05d0e",
+    "src/server/discovery.rs": "ae58267431a6d4b762e4fb46ed24b86db0751cf4b82013dce75c99e90101006f",
+    "src/workspace/semantic.rs": "03218dae59ae9caea723d41e2be892df244766dad22f71ac8f33b8c3920d709c",
+    "src/workspace/semantic/build.rs": "2070506a9534ef7f9e993192513cb5725180969599ddaf9387d836e31404ec4d",
+    "src/workspace/semantic/completion.rs": "8efa596e5eb4e6cc7356b492983db906eb83cafbf90676576c6ee1237e0300a6",
+    "src/workspace/semantic/rename.rs": "77a1cfb33fac4f88c62ce3e27870491e26fb0a5804ab45a2adcd1ff86994bb87",
+    "src/workspace/semantic/watch.rs": "8c8147eef9c73f2a6c54e68aa2b49004f712aad8be4c0b7bd479376bfefa1ca7"
+  },
+  "command": "docker compose exec -T -w /tmp/semantic-approved-126952f6d048 rust env CARGO_TARGET_DIR=/workspace/target/semantic-approved-126952f6d048 CARGO_INCREMENTAL=0 cargo build --locked --bin bend2-lsp",
+  "observed_exit_code": 101,
+  "diagnostics": [
+    {
+      "code": "E0282",
+      "source": "src/workspace/semantic/build.rs:401",
+      "message": "typeannotationsneededfor&(_,_) aliasVec inference"
+    },
+    {
+      "code": "E0658",
+      "source": "src/workspace/semantic.rs:795",
+      "message": "unstable str_as_str from unnecessaryas_slice() onalreadyboxedimportslice"
+    }
+  ],
+  "raw_output": "ObservedinlineactualBashoutput; no standalone rawlogclaimed",
+  "action": "Fix actualtypes and retain HashMap duringcoldaliasconstruction to avoid quadratic duplicate detection; sorted boxedalias table remains retainedwarmrepresentation. No tests/policies disabled."
+}

@@ -1,1361 +1,169 @@
 {
   "schema": 1,
-  "kind": "semantic-performance-followup-evidence",
-  "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-  "parent": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-  "baseline_main": "8ba06b117e8453959baa2157f857fa2e055fc887",
-  "before_repair": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "kind": "semantic-entry-capture-regression-repair",
+  "source": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "tree": "b9975db790d0768011828bf282615e9cfce96334",
+  "source_parent": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
+  "frozen_main": "8ba06b117e8453959baa2157f857fa2e055fc887",
   "draft": true,
-  "pr": "https://github.com/IlyaGulya/bend2-lsp-rs/pull/62",
-  "local": {
-    "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-    "parent": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
-    "quality": "passed489,2existingskips,allstagesincludingnormalboundedsemanticconformance",
-    "quality_log_sha256": "2e29ad3ca55d19964b7cab9869bd158ed5b8b4cae6b07b1fa5ea7130a73caae5",
-    "default_binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50",
-    "real_stdio": {
-      "p1": {
-        "exit_code": 0,
-        "script_sha256": "7cba4b434947d0a4b61c8df88c1662348ffd47303a7b0fdebbec0fe7585e7491",
-        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
-      },
-      "base-pair": {
-        "exit_code": 0,
-        "script_sha256": "8e9c4376d320c71e58991d4305d5685a9629195e475d1b062fcd91560da69265",
-        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
-      },
-      "entry-hierarchy": {
-        "exit_code": 0,
-        "script_sha256": "85740120d5838d0e3820b80d9560276a05d41dcb7d32dc57524717f5e08d32ed",
-        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
-      },
-      "recovery-diagnostics": {
-        "exit_code": 0,
-        "script_sha256": "0f225bf1c85fb4f9a8e7880215b11482b758b3a45ffdf4562b3c481a9536b740",
-        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
-      },
-      "autoimport": {
-        "exit_code": 0,
-        "script_sha256": "f42ad1577387023dcfa6fccb91ddead58cbf73127f4ced0ebeacf92fb09f6270",
-        "binary_sha256": "10e5cd8b82cba1d50fe0989eabb51a72f8841a5a8d5fd39c403e65880b763d50"
-      }
+  "pr": 62,
+  "before_immutable_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/f592fbc68d08790722c07a9196684605969dbded/manifest.json",
+  "qualification": {
+    "local_quality": "pass",
+    "source_exact": true,
+    "tests_passed": 489,
+    "existing_skips": 2,
+    "quality_observed_wall_seconds": 319.7,
+    "actual_stdio_scenarios": 6,
+    "default_binary_sha256": "466ae44cdffb57560f6cadbff86158d55c13de487ed67c25df666878b8cedb54",
+    "precommit_smokes_byte_identical_to_rebuilt_exact_commit_default_binary": true,
+    "production_source_hashes": {
+      "src/analysis.rs": "69e402d6819ac72f8f5ac8b698bbc14aa4db300f3f9f0e89c6fae30ba32b66fc",
+      "src/workspace.rs": "b5dac8a558e099778091e83edf99111556a86b0fbb6e7c026e156cfd07d05d0e",
+      "src/server/discovery.rs": "ae58267431a6d4b762e4fb46ed24b86db0751cf4b82013dce75c99e90101006f",
+      "src/workspace/semantic.rs": "340fa4bd6f70c7aca26ad60162e97e8db17d4746e528e1bf91291d3f621ae1fe",
+      "src/workspace/semantic/build.rs": "6ae67af7b770c130310214231c398307a14b264f32b5f0496178e69380c098df",
+      "src/workspace/semantic/completion.rs": "8efa596e5eb4e6cc7356b492983db906eb83cafbf90676576c6ee1237e0300a6",
+      "src/workspace/semantic/rename.rs": "77a1cfb33fac4f88c62ce3e27870491e26fb0a5804ab45a2adcd1ff86994bb87",
+      "src/workspace/semantic/watch.rs": "8c8147eef9c73f2a6c54e68aa2b49004f712aad8be4c0b7bd479376bfefa1ca7"
     },
-    "targeted_completion_tests": {
-      "passed": 31,
-      "skipped_by_selector": 404,
-      "scope": "beforecommit onidenticalanalysiscode; fullqualityonexactcommitcontainsallregressions",
-      "raw_stdout": "observedtooloutput; not separatelyarchived, fullqualityraw log archived"
+    "cold10000_exact_result": {
+      "cold_symbols": {
+        "count": 10000,
+        "exact_names_locations": true
+      },
+      "cold_references": {
+        "count": 10000,
+        "exact_locations_no_duplicates": true
+      },
+      "after_unsaved_dependency_revision": {
+        "version": 2,
+        "count": 10000,
+        "exact_locations_no_duplicates": true
+      },
+      "root_removal": {
+        "symbols": 0
+      },
+      "exit": 0
     },
-    "change": "Lazylimitedinitialreserve16onlywhenmatchandcapacitygrowthneeded; copykindbeforeownedStrings. No newindex/pass/resultownership/fixture/policychange.",
-    "performance": "unmeasured source888; source87f39regressions and6.4%smallcompletion remain beforeevidence, not888admission",
-    "windows_scope": "prior87fpassedactualWindowsinvariant/fullnative/installedtests; nottransferredto888; freshCIrequired"
+    "semantic_recovery": "No strictmode; genuine selected compiler errors visible; uncertain editor-only links never native semantic edges."
   },
-  "change": "Boundfirst resultreservationto16 indexeddeclarationsonfirstmatch/capacitygrow path; retaincopiedkind beforeownedStrings. No speculativezeroresultallocation, matchingprepass,newindex or resultownershipchange.",
-  "before_exact87f": {
-    "tested_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
-    "source_tree": "3800454aa2f88cf45d02d2f3223268ac498b0db1",
-    "ordinary_main_run": 41028741757,
-    "policy_status": "regression",
-    "metrics": {
-      "passed": 123,
-      "regression": 39
-    },
-    "by_metric": {
-      "Ir": {
-        "passed": 53,
-        "regression": 1
-      },
-      "I1mr": {
-        "passed": 27,
-        "regression": 27
-      },
-      "ILmr": {
-        "passed": 43,
-        "regression": 11
-      }
-    },
-    "small_completion_Ir": {
-      "main": 19757,
-      "before87f": 21022,
-      "delta": 1265,
-      "percent": 6.40279394644936
-    },
-    "admission": false,
-    "allnative12and20run5jobruntime": "passed/completebeforeonly, not transferredto888",
-    "evidence_previous_manifest": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/28f48581fe08f2b7b3812f0ed88e880f4e3492a4/manifest.json"
+  "changes": [
+    "Publish compact validationreceipts instead of build-onlycapture metadata",
+    "Sorted physical generation receipts and binary conflict lookup; optionalBase boxed",
+    "PhysicalURIparallel document index; remove canonical-name table using existing namespace/name sorted index with value/constructor/ambiguity precedence",
+    "Retain sorted boxed alias tables; hashedcoldregistration avoids quadratic duplicate checks",
+    "Discovery normalized ownership/generation lookup combined; known normalized key reuse; immediately repeated hubrealpath removed",
+    "Directmodulecollector keepsboundedfirstreserve16; subsequentVec::push alone grows resultbuffer"
+  ],
+  "rejected_approaches": [
+    "No batchfilesystemmemoization: would hide mid-batch symlink/creation changes",
+    "No iterator-sharing modulecollector cutover: earlier measured5cc1fb6 rejection retained; keep directprojection"
+  ],
+  "unchanged_contract_hashes": {
+    "benches/analysis.rs": "b296cfe0ebbd1e32a31cc10546827be7f03ab95b793540183fec7cd3eae88dbb",
+    "benches/fixtures/analyzer_input.bend": "d2f018dbc359ab0231fb19eb094c42a1298cd60a71416490fd05e3783dcab1f3",
+    "Cargo.toml": "17eb66037d4b9663e0943762934cfffc8bfa41d680df11032150ef47a054c0a2",
+    "Cargo.lock": "04df83cd1d808a8d1370990994496bd6e5e6d84945f79a9cb7291c286c2f54ee",
+    "rust-toolchain.toml": "8b43e8367cdb4d117cdaea1eaba8d2c526614d603c6e7ba8f30165f5a712c1c1",
+    "scripts/quality": "05fabdf32d7c58d3391bedd350009b81f7f0b9361f68612ba7b8bcd532adc9a6",
+    "scripts/install-tools.sh": "08de090b2b10b12f913e902832a9f95e7f10dfa996e7d3695146899ab40579e0",
+    "tests/analysis.rs": "c283b96c1a35010a57d8e09e9630cedc866f7b9b14d93dd6c38af74a3d4101d2",
+    "tests/semantic_workspace.rs": "119cd7f21e2593fa73141903bf06f1b5f7656f232135667712244f161deb74aa",
+    "tests/lsp_protocol.rs": "20f40683174ef519718ac8366f566a093fb06ca45b15d4089a70fa478c270a86"
   },
-  "new_hosted": {
-    "known_created_exact_source": [
-      {
-        "databaseId": 41057819300,
-        "workflowName": "semantic-fuzz",
-        "event": "pull_request",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819300"
-      },
-      {
-        "databaseId": 41057819157,
-        "workflowName": "installer-validation",
-        "event": "pull_request",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "completed",
-        "conclusion": "success",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819157"
-      },
-      {
-        "databaseId": 41057819178,
-        "workflowName": "performance-calibration",
-        "event": "pull_request",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819178"
-      },
-      {
-        "databaseId": 41057819122,
-        "workflowName": "quality",
-        "event": "pull_request",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "completed",
-        "conclusion": "success",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819122"
-      },
-      {
-        "databaseId": 41057819102,
-        "workflowName": "performance",
-        "event": "pull_request",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "completed",
-        "conclusion": "failure",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819102"
-      },
-      {
-        "databaseId": 41057819374,
-        "workflowName": "perf-diagnostics / pr-41057819374-1",
-        "event": "pull_request",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "completed",
-        "conclusion": "success",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057819374"
-      },
-      {
-        "databaseId": 41057815829,
-        "workflowName": "semantic-canonical-key / 888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "event": "workflow_dispatch",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "completed",
-        "conclusion": "success",
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057815829"
-      },
-      {
-        "databaseId": 41057811245,
-        "workflowName": "performance",
-        "event": "workflow_dispatch",
-        "headSha": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41057811245"
-      }
-    ],
-    "automatic_runs": "6automaticPRruns discovered andsourcebound to888; originalobservers running, no gate reruns.",
-    "performance_outcome": "regression: 127passed /35regression /0inconclusive; ordinary admission denied, no exception requested",
-    "request_performance_exception": false,
-    "canonical": {
-      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-      "run_id": 41057815829,
-      "status": "pass",
-      "views_per_compiler": 634,
-      "performance_admission": false
-    },
-    "quality": {
-      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-      "run_id": 41057819122,
-      "conclusion": "success",
-      "scope": "fullquality, repeated10kworkspacelifecycles, realNeovimLSP andall6genuinecompiler/lint/processE2Es pluslegacycompat",
-      "windows": "bothx64andARMpassed; genuineARMnativeprogramverified; noexception"
-    },
-    "partial_native": {
-      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-      "source_tree": "23105e4f984543850d73b3436b6ce0eafb0cb301",
-      "collected": [
-        [
-          41057819102,
-          "x86_64-pc-windows-msvc"
-        ],
-        [
-          41057819102,
-          "x86_64-apple-darwin"
-        ],
-        [
-          41057819102,
-          "aarch64-unknown-linux-gnu"
-        ],
-        [
-          41057811245,
-          "aarch64-pc-windows-msvc"
-        ],
-        [
-          41057811245,
-          "aarch64-unknown-linux-gnu"
-        ],
-        [
-          41057811245,
-          "aarch64-apple-darwin"
-        ]
-      ],
-      "status": "partial6of12",
-      "admission": false,
-      "historical": "Superseded bycomplete12of12, earlierpartialretainedforprovenance"
-    },
-    "native_complete": {
-      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-      "tree": "23105e4f984543850d73b3436b6ce0eafb0cb301",
-      "tested_main_merge": "20620e139079f572dfd91fd6256e31c779f1eba9",
-      "status": "complete12of12",
-      "paired_rounds": 7,
-      "scope": "all6targets percomparison; source/tree andcritical3reportSHAsverified; native mediansnotordinaryCGadmission"
-    },
-    "installer": {
-      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-      "run_id": 41057819157,
-      "conclusion": "success",
-      "scope": "fullnative releaseandpackaged/installedE2Esall6targets, no releasepublished"
-    },
-    "perf_diagnostics": {
-      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-      "run_id": 41057819374,
-      "conclusion": "success",
-      "scope": "workflowconclusion, no inferredprofilevalidity/latencyadmission"
-    },
-    "ordinary_main": {
-      "source": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
-      "run_id": 41057819102,
-      "workflow_conclusion": "failure",
-      "measurement_collection": "success",
-      "admission": "denied",
-      "exception_review": "skipped",
-      "fullpolicy_counts": {
-        "passed": 127,
-        "regression": 35,
-        "inconclusive": 0
-      },
-      "partialzip_used": false,
-      "metric_classifications": {
-        "Ir": {
-          "passed": 53,
-          "regression": 1
-        },
-        "I1mr": {
-          "passed": 29,
-          "regression": 25
-        },
-        "ILmr": {
-          "passed": 45,
-          "regression": 9
-        }
-      },
-      "paired_samples": 105,
-      "workloads": 54,
-      "metric_rows": 162,
-      "policy_transfer": "complete_selected_original_HTTP_range_members_CRC_size_verified_and_dataset_SHA256_verified",
-      "whole_zip_digest_recomputed": false,
-      "source_tree": "23105e4f984543850d73b3436b6ce0eafb0cb301",
-      "candidate_merge": "20620e139079f572dfd91fd6256e31c779f1eba9"
-    }
+  "pins": {
+    "Bend": "2.0.37",
+    "Bun": "1.4.0"
+  },
+  "hosted_qualification": {
+    "created_runs": [],
+    "performance": "notyetmeasuredfor8842984; no prior source admission inherited",
+    "planned_scope": "Onequalifiedcandidate; ordinaryfrozenmain comparison plus existingworkflow before888comparison where needed for candidate-only semantic workloads; native/fullquality/normal20run gates unchanged"
   },
   "performance_admission": false,
-  "unchanged": [
-    "Bend2.0.37/Bun1.4.0 pins",
-    "recoverywithrealcompilererrors,no strictmode",
-    "P1localdefinition/constructorcompletion/fullatomrename",
-    "immutablewarmindexes andcontext/physicalURI/law/stalehandle contracts",
-    "benchmarks/fixtures/ownership/metrics/thresholds/cachegeometry/deadline/retry/resourcepolicies",
-    "no localSUTlatency/RSS/Callgrind experiments; staticexistingprofileannotationonly",
-    "draft; noapproval/merge/tag/release"
-  ],
-  "scope": "Fullcurrentlocal logs+5realstdio; fullbefore87fmeasuredpolicy/105pairs/native reports/provenance. Historical data explicitlybefore, no inheritedadmission. *.gzlosslessgzipmtime0; native rawmultiGBwire staysinoriginalhostedartifact/localtrees andsealedhashinventories.",
-  "windows74": "Historicaloptional-lint Windowsfailure separatelyevidenced issue74nonblocking; freshWindowschecks notexempted.",
+  "request_performance_exception": false,
+  "owner_choice": "Continueoptimization; existing35regressions and largecold/RSS costs NOTapproved",
+  "windows74": {
+    "url": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/74",
+    "historical_non_blocker": true,
+    "fresh_windows_failures_exempted": false
+  },
+  "local_SUT_perf_experiments": 0,
+  "same_retained_QA_source": "/tmp/semantic-approved-126952f6d048",
+  "same_retained_Cargo_target": "/workspace/target/semantic-approved-126952f6d048",
   "files": {
-    "attempts/autoimport-initial-index-readiness.json": {
-      "bytes": 5591,
-      "sha256": "002f99c6b37a8a8e86a27589f1e551669c1f3a88e08dc90ed78dbb4f4a35920e"
-    },
-    "attempts/completion-fuzzy-expectation.json": {
-      "bytes": 897,
-      "sha256": "0fee22160eb0be042ee92b9c4ff81d98bb2ceb8b3697c46eb9fc488592566d99"
-    },
-    "attempts/discovery-reused-isolation.stderr.log": {
-      "bytes": 407,
-      "sha256": "8124310f9b2f89ca28dc6ceaf2083d917273f6456a2aee78770a5d773da6d181"
-    },
-    "attempts/local-index-caret-expectation.json": {
-      "bytes": 5802,
-      "sha256": "3404c3c2172be0c454efb6ddc6a21047ba49de23fef8fa158cd0d6480efde4b6"
-    },
-    "attempts/quality-7468cc5.log": {
-      "bytes": 33129,
-      "sha256": "e75a86dd8b742eac48c2476a26d965c899998ab91b5f1ab0d57360deeee96cdb"
-    },
-    "attempts/source-7468cc5.bundle": {
-      "bytes": 1857518,
-      "sha256": "26b044cf96c863e48a72d33838c8d210e4a3ff81fd19bd4077ba5805948d003e"
-    },
-    "before/callgrind-admission-measurement.json": {
-      "bytes": 4246,
-      "sha256": "0d882ac0b16bcfd2bbe1bf9256b8b1a6c65d2beccb3ffe0b7061536a1dda7433"
-    },
-    "before/callgrind-policy.json.gz": {
-      "bytes": 950636,
-      "sha256": "4b240a5a65a51375af009e198202cb20ae54492d3549102bc49b9795f90d28a4"
-    },
-    "before/callgrind-policy.md": {
-      "bytes": 17659,
-      "sha256": "54edecbb4c82952190263b4c597f316d1d06275208fb086a35bad7c12d16de56"
-    },
-    "before/heap-attribution.json": {
-      "bytes": 211248,
-      "sha256": "811234a54f330fa9e1e5e23933e8200ba5ad2a9191c1e4724ec091dc5e8065a7"
-    },
-    "before/heap-dhat.json.gz": {
-      "bytes": 260507,
-      "sha256": "f68f80cfd62f78c1bcb14a4746b1fdd19d4e8abe53d03f87f23917b77aecd25a"
-    },
-    "before/heap-profile-manifest.json": {
-      "bytes": 1656963,
-      "sha256": "583d1578f831e35ec0e3073086c6537502f28eb35d72faaf41a39f878135536d"
-    },
-    "before/native-cold-summary.json": {
-      "bytes": 12165,
-      "sha256": "946d5f8816ddfb7ea8f16cadcc1c03459da232cb1b831c6b2cbf3d94ac60ea2c"
-    },
-    "before/windows-cpu-profile-manifest.json": {
-      "bytes": 1694351,
-      "sha256": "cef1d114a238e41a7588b19a42acc759ec1cb9678a307f734ed6d73828640b98"
-    },
-    "before/windows-cpu-validation.json": {
-      "bytes": 267,
-      "sha256": "45a22eb22dc32c5e30d6a7d2dc62f8aac8b1191e24954ce2c1eceb587a17eb08"
-    },
-    "before87f/callgrind-b1/admission-measurement.json": {
-      "bytes": 2399,
-      "sha256": "411da318d0e95f2742b7c3b6ef4d27a6c17ff9e5b672612365d047e46f0c75db"
-    },
-    "before87f/callgrind-b1/callgrind-policy.json.gz": {
-      "bytes": 1291471,
-      "sha256": "c1b90d00fe01a942497c451cdb01b3334f072c11f8ff0d7cc703bc82191ed672"
-    },
-    "before87f/callgrind-b1/callgrind-policy.md": {
-      "bytes": 28751,
-      "sha256": "5cd75703f2f484a17af724bbe9c254a94a73fd2de87fcbd5e8758e4868c7d2c6"
-    },
-    "before87f/callgrind-b1/intended-effects.json": {
-      "bytes": 3025,
-      "sha256": "ed520f4fe479de1ee5284d65b8efda591e5346da8b979092c37b496dd1072a05"
-    },
-    "before87f/callgrind-b1/paired-data.json.gz": {
-      "bytes": 513054,
-      "sha256": "13b3e585cb74f89bed3c1ed1c882b034f77ccaa5130c1e17e7b07cbf3175c86a"
-    },
-    "before87f/callgrind-b1/zip-verification.json": {
-      "bytes": 402,
-      "sha256": "807e88db8733010175c55aff1071e5a65ccd35a1a4eb792e9f5f73dccaa4a573"
-    },
-    "before87f/callgrind-main/absolute-metrics.json": {
-      "bytes": 108141,
-      "sha256": "8a253e4e7d7e2876cefb9dd117976a6826a2ec2b878a8902906e99deb8753043"
-    },
-    "before87f/callgrind-main/admission-failure.log": {
-      "bytes": 3967,
-      "sha256": "317b5ef6d6ff291ba09250293ca4975fabbd275c72a8b3ae1c8030ab7f73a9d6"
-    },
-    "before87f/callgrind-main/admission-measurement.json": {
-      "bytes": 4427,
-      "sha256": "b4d0232e28ecc5957aa9110d7583b4a47762347f045317c5f32491dca8556f25"
-    },
-    "before87f/callgrind-main/before-bounded-growth.json": {
-      "bytes": 2146,
-      "sha256": "1fbcad94b5a8b9560b081d892d74cfaaafc5be54d1f76271f27544e1d5cfa87b"
-    },
-    "before87f/callgrind-main/paired-data.json.gz": {
-      "bytes": 353093,
-      "sha256": "8a0f0249bfd02a533325396b4c455ba63c8babdc0c3ead407ca352246189bef6"
-    },
-    "before87f/callgrind-main/policy.json.gz": {
-      "bytes": 969471,
-      "sha256": "44c04cbd30866e50b663fd8921c4cd7043b90f692a8b478f147a88c5bece0d82"
-    },
-    "before87f/callgrind-main/policy.md": {
-      "bytes": 17791,
-      "sha256": "717be737535021980a7dd200c1a8dae4e76be40858b2b2fd8aa4695b5664ced7"
-    },
-    "before87f/callgrind-main/static-small-candidate.txt": {
-      "bytes": 9454,
-      "sha256": "8e88ddf7d85387e4f77e415a29325c08ce492a5519d7c93cd958f6016ae0c32a"
-    },
-    "before87f/callgrind-main/static-small-main.txt": {
-      "bytes": 9845,
-      "sha256": "46727141025b5ea409f7104a03f20ebb021fd8b26f1915a4d5ec28052ef66af6"
-    },
-    "before87f/callgrind-main/workflow.json": {
-      "bytes": 27722,
-      "sha256": "26cf358559efe0f309bf00e464daf1937f06d21dff73fffe59e15c17d2bd9a07"
-    },
-    "before87f/canonical/installation.json": {
-      "bytes": 2434,
-      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
-    },
-    "before87f/canonical/native-contracts.json": {
-      "bytes": 2434,
-      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
-    },
-    "before87f/canonical/qualification/corpus-equivalence.json.gz": {
-      "bytes": 102652,
-      "sha256": "af3d0195cc4aea3625e974a5f2b33603e1f3c2c6f87b0e416adc47437f45279f"
-    },
-    "before87f/canonical/qualification/paired-cost.json": {
-      "bytes": 2143,
-      "sha256": "87355f948e806fd01f90e9e8708aae3e29cfaf6c18419e584d374dc90e7181fa"
-    },
-    "before87f/canonical/qualification/plan.json.gz": {
-      "bytes": 107452,
-      "sha256": "4cc15fd12aa8df95425f75d385733dfa94c409b1eae3f1a1c09730b074eb7376"
-    },
-    "before87f/canonical/qualification/qualification.json": {
-      "bytes": 4683,
-      "sha256": "cfed89af84c5a5972ddf2e26b65140f084791c3ce58604122a1963999859e928"
-    },
-    "before87f/canonical/qualification/requests.json.gz": {
-      "bytes": 76979,
-      "sha256": "61f40ad091b0ffbcade088c5272bbc070e71b45c912423b91b985fa433a1e383"
-    },
-    "before87f/hosted-quality/full-job.log.gz": {
-      "bytes": 49431,
-      "sha256": "f13dc0ee97fa08bf752f93a19b2c993dc873276a082042db2307f332515d6511"
-    },
-    "before87f/hosted-quality/run.json": {
-      "bytes": 28220,
-      "sha256": "5e2f4a7b19ec5221955d2dde59bf62bf72219cfb853127ea12ecd59a21ca50c4"
-    },
-    "before87f/hosted-quality/summary.json": {
-      "bytes": 1399,
-      "sha256": "1bedaf17f256ade92c836ceaad31c97913b1534e583cb1e6c0a8373462494038"
-    },
-    "before87f/installer/aarch64-pc-windows-msvc.log.gz": {
-      "bytes": 36281,
-      "sha256": "c679fddedceb9aab9f53f62c4221233ff686481eb9c18a2e4c7387809411a46f"
-    },
-    "before87f/installer/run.json": {
-      "bytes": 45592,
-      "sha256": "614f4a4cdc01f4a09af877401f3ed3f4198b96120a463b5244dd9065beb4442d"
-    },
-    "before87f/installer/x86_64-pc-windows-msvc.log.gz": {
-      "bytes": 36129,
-      "sha256": "e46d6bec73110e7267d2d7e5b220f5e8ce0c3c0a2ff5fb81e76548e91973e387"
-    },
-    "before87f/local/local-index-api-smoke-and-tests.json": {
-      "bytes": 7882,
-      "sha256": "6fb193762c41de153dce038718a98e75465ee06f607063be353725ba713f7c2b"
-    },
-    "before87f/local/quality.log": {
-      "bytes": 107740,
-      "sha256": "8a8298c3eb0232dcfba7f8a1fb91f7c806cfbc011e5776697ce6f7087ceb2811"
-    },
-    "before87f/local/source-proof.json": {
-      "bytes": 2246,
-      "sha256": "367d257c4c46ef2d05cd6b5a7f7b8eb0328f895f9770da8895ee0cc31359e42a"
-    },
-    "before87f/local/stdio-autoimport.json": {
-      "bytes": 11219,
-      "sha256": "45a7b1d0dd530a5ae2c0a74d567d6e1b13b844e84d3cef90961040b0b9ad5aea"
-    },
-    "before87f/local/stdio-base-pair.json": {
-      "bytes": 37280,
-      "sha256": "af5129fff6d59c6c8f91d39c280c071f8d8fa6e95cf1e0039117e203935add9a"
-    },
-    "before87f/local/stdio-entry-hierarchy.json": {
-      "bytes": 63356,
-      "sha256": "454eb1046f23a8c22e76d61f873267decf78b5b1e61969c6ab8089a6193fa84c"
-    },
-    "before87f/local/stdio-p1.json": {
-      "bytes": 42745,
-      "sha256": "b98fab6189c82bb8740471d1978acd67eee25597482a418e9ad704b748384ca3"
-    },
-    "before87f/local/stdio-recovery-diagnostics.json": {
-      "bytes": 28151,
-      "sha256": "923b881599a72861a8c6b0727049dac999825c1e552d69a916e539e6613c189d"
-    },
-    "before87f/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479686,
-      "sha256": "f0fd9cfc653938338d72f425e229778e7b5c16ebabd306021a796cc27316952b"
-    },
-    "before87f/native-b1/aarch64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 113314,
-      "sha256": "792908f6a2ad171b444c483aa9092ca09b90c8739e21c1806c5815e2e0eced2a"
-    },
-    "before87f/native-b1/aarch64-apple-darwin/latency-report.json": {
-      "bytes": 24698,
-      "sha256": "865bb234e7ff82870cd98e5fab91f3470bb3cfe1fe0de54b37d65e9ef8ad4391"
-    },
-    "before87f/native-b1/aarch64-apple-darwin/provenance.json": {
-      "bytes": 28820,
-      "sha256": "617c27a23d9cf92c9e8324be723457fddf6d013cd0d7b613f7779792e3d0dff0"
-    },
-    "before87f/native-b1/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479696,
-      "sha256": "20d86a7b6536181b6dd99cf8e0885282072db2cea784ac8f8b9e80e6afe1449b"
-    },
-    "before87f/native-b1/aarch64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 330171,
-      "sha256": "0c30a460fc31e47fdb7fc0eccf82d9484a097be2d44975877a099d75bfab49a2"
-    },
-    "before87f/native-b1/aarch64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24703,
-      "sha256": "8bb5314a14fe9ed8cecebb16c5525552963fc1d0b72005a979b512118545eff4"
-    },
-    "before87f/native-b1/aarch64-pc-windows-msvc/provenance.json": {
-      "bytes": 29515,
-      "sha256": "b1f1abf647092830884cb2314745da5d7fc0d87666dff0f04c7c9ac6aaa414ad"
-    },
-    "before87f/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479735,
-      "sha256": "bd9f32ec2ba0b015afd8de2a985be9da36a615bc7c100659ad402a45514f6cd2"
-    },
-    "before87f/native-b1/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 338669,
-      "sha256": "10e07d3e77a85e69ba51322cb73cbb9798a026e750a588e73cb9a894ed605491"
-    },
-    "before87f/native-b1/aarch64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24601,
-      "sha256": "75f2b785888ec49232d2773ab9c6f794b33b4f67314cb2febd31c60ea3e05a9f"
-    },
-    "before87f/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
-      "bytes": 31076,
-      "sha256": "5dd4b62e27fa0435e5fbdca701b149b501c0d934dad7654e08dc007b92ee120f"
-    },
-    "before87f/native-b1/x86_64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479699,
-      "sha256": "06560b14e1433eba856301eb25b51967309ef25417da4062cce80301085fd381"
-    },
-    "before87f/native-b1/x86_64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 159758,
-      "sha256": "068965b3be7a5e12565598892ac06e4482a95d6c9cfe2490b2d761a3928b62e1"
-    },
-    "before87f/native-b1/x86_64-apple-darwin/latency-report.json": {
-      "bytes": 24736,
-      "sha256": "ab92399bd2a28e37d650322a5798c1a7b42e07fe8e4be28a97eb06a129c9786d"
-    },
-    "before87f/native-b1/x86_64-apple-darwin/provenance.json": {
-      "bytes": 28835,
-      "sha256": "45f230fdf74eebd61e63efa51bbc99837297a05c6b910fc671edafcd8cbd6712"
-    },
-    "before87f/native-b1/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479688,
-      "sha256": "0861e3e730276ce6123b0942ee980dce9b208b984f7fa5db4756d5b231d04125"
-    },
-    "before87f/native-b1/x86_64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 337286,
-      "sha256": "db937f8d550141b291b360ace222d29d0477f9a103cabcd93ff80f663cc49651"
-    },
-    "before87f/native-b1/x86_64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24715,
-      "sha256": "89a4b9cda995ef115f56557b2b788b3d66c12eeb181f4cfd2280315e05922008"
-    },
-    "before87f/native-b1/x86_64-pc-windows-msvc/provenance.json": {
-      "bytes": 29532,
-      "sha256": "35c0805df8d1469783a2867ad4d00c1b3a64175c7c650656bbec73525d5080ab"
-    },
-    "before87f/native-b1/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479739,
-      "sha256": "bece676416042c4aa0e355ac62dae86eeebea4a483d658e92328f608285cefc2"
-    },
-    "before87f/native-b1/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 344668,
-      "sha256": "e4521c1c4b71e9fd7b7fd1dd5ee14c53de0747e9cc6459ad37f002521e38dfd8"
-    },
-    "before87f/native-b1/x86_64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24647,
-      "sha256": "f0883194216b606c535e6f4a5303f64a0d36255f2c0ccd8abe3211c83a1c173d"
-    },
-    "before87f/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
-      "bytes": 32092,
-      "sha256": "19df38bba90b96518f2bdc859f96c4b3a02ecbc46d90dd295e0b359be192670c"
-    },
-    "before87f/native-complete-summary.json.gz": {
-      "bytes": 188665,
-      "sha256": "8234d1068d16c0080be12a42a896317cd38ee040d082b8fae67fff66ecefad9d"
-    },
-    "before87f/native-main-latency-differences.json": {
-      "bytes": 41801,
-      "sha256": "e0a5f33d01d59faf627fad39beba5c3198c036eb1bd5bd8db2b40817dbde5548"
-    },
-    "before87f/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479693,
-      "sha256": "a94672f0a7ea6d037870f8392752ac676cb01c2162826e659886f0cb9a65eca3"
-    },
-    "before87f/native-main/aarch64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 121218,
-      "sha256": "9cd5e9b033a93fc0d7a7ee40998bc5dc5b51d18341fdb0de56b5f55d36a4a610"
-    },
-    "before87f/native-main/aarch64-apple-darwin/latency-report.json": {
-      "bytes": 24699,
-      "sha256": "b47d42dae642c1d01d22605c2b2dc8bbccb9d88afb47e22e25cdb9551ca8526a"
-    },
-    "before87f/native-main/aarch64-apple-darwin/provenance.json": {
-      "bytes": 28797,
-      "sha256": "297b69f4235d1856fb6b4a08badd01b705166587101e4db282244c30cfa35b42"
-    },
-    "before87f/native-main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479695,
-      "sha256": "63f81214d875cc27ce9ee6fc240ee05f29a3dddb587025bd87d3d24dd7489368"
-    },
-    "before87f/native-main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 319988,
-      "sha256": "0fb675296074517fa7b4d417dd986d32c8ff5215f506e28f2ddf45dceade4e2b"
-    },
-    "before87f/native-main/aarch64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24614,
-      "sha256": "60c0332461436b652a627312c33b793c60727d6f7f24a70523ab348cee7fd019"
-    },
-    "before87f/native-main/aarch64-pc-windows-msvc/provenance.json": {
-      "bytes": 29492,
-      "sha256": "114ac2b63d0a05a8f9f703893bbafa8940d2032e4a9db7b39963052208d58dd8"
-    },
-    "before87f/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479737,
-      "sha256": "5e5a8bec7331d9f6b7ad9c64c2128843f9caf1b77744c2633bbbdb4bac02b348"
-    },
-    "before87f/native-main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 345545,
-      "sha256": "c6f3efe3cfca0f8c292662a61e7881fca3f6806c171a8bbb59eed12c0fc5e942"
-    },
-    "before87f/native-main/aarch64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24608,
-      "sha256": "49c54f849f7467ff50d6b7206e07e2c9d121a049d8901de724074ba3bdc85bb8"
-    },
-    "before87f/native-main/aarch64-unknown-linux-gnu/provenance.json": {
-      "bytes": 31053,
-      "sha256": "9d2255fa0ac7b89ee3050732ea8179506954b54f82eb78c99b1fafa1a966f5c8"
-    },
-    "before87f/native-main/x86_64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479698,
-      "sha256": "651f014ee4252254d2a28cd7526d4b06216927d7f0846bb8c6272c4bcefd0431"
-    },
-    "before87f/native-main/x86_64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 168917,
-      "sha256": "60fc41d93b43e629b1e100b5f7106050dedf2e9045af78254985728129c7815a"
-    },
-    "before87f/native-main/x86_64-apple-darwin/latency-report.json": {
-      "bytes": 24717,
-      "sha256": "20c336cbd49c6b5dd24e9ccd76861798e1b03e1e7e62d7623257db2031a4eaa5"
-    },
-    "before87f/native-main/x86_64-apple-darwin/provenance.json": {
-      "bytes": 28812,
-      "sha256": "7dead2e55a213d3fc506ed3dc767c7115b31953fe64070a5106678a36508eb58"
-    },
-    "before87f/native-main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479687,
-      "sha256": "4309a58727a03a04f4961f0442c1f02b2b9f3d06fd65c638ae6303bc12a65e7a"
-    },
-    "before87f/native-main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 341907,
-      "sha256": "1226dab83ed4a2d729ebf41fdab52fca074f8c6458a31e0c47b67bdbbf910d9b"
-    },
-    "before87f/native-main/x86_64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24600,
-      "sha256": "af7ea966e10d574ac9f62530462ff22dce13c5692c7c46a88f6a2287ab3b9edf"
-    },
-    "before87f/native-main/x86_64-pc-windows-msvc/provenance.json": {
-      "bytes": 29509,
-      "sha256": "5c71163e1b08f72ea95f379b4324f4a0334e12510a7b61407458667929ed4802"
-    },
-    "before87f/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479738,
-      "sha256": "e78f5df3a0b1c669b1f03c099081783b5a6c010e59dad357ce6f743a62e37cae"
-    },
-    "before87f/native-main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 327656,
-      "sha256": "d0dc5bc7661301af1336fcb0c6d88053684593223fa8e4442c3a728f70703866"
-    },
-    "before87f/native-main/x86_64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24467,
-      "sha256": "d6a3e3a425f12d2644d1399763c4ebff23af1798d961d9342c44ce20f15a4fcb"
-    },
-    "before87f/native-main/x86_64-unknown-linux-gnu/provenance.json": {
-      "bytes": 32250,
-      "sha256": "1ffeca97f273c5a15fa8475c51e5e3ccc01228369cace8fc38b7f982e659003c"
-    },
-    "before87f/native-partial-summary.json.gz": {
-      "bytes": 65050,
-      "sha256": "58cd37b29fbe7843fcfa82f755622a9b21e99ebeb39892ce19639f696038e528"
-    },
-    "before87f/perf-diagnostics-run.json": {
-      "bytes": 30115,
-      "sha256": "da4af5e3aa981c94388a69aeaa3948d59c2452926c98983ec79049913cc7d7f5"
-    },
-    "before87f/provenance/dispatch-attempts.json": {
-      "bytes": 2340,
-      "sha256": "76e92b7c9fb7e611a70bb6ca02e03d39c311e645c62abd9155a37b7d68dd7fb9"
-    },
-    "before87f/provenance/fresh-pr-runs.json": {
-      "bytes": 2689,
-      "sha256": "765051cfb639130235f47aaad0a220e5c536f620b2d3726ba54c3d8b2c576fcc"
-    },
-    "before87f/provenance/hosted-dispatches.json": {
-      "bytes": 548,
-      "sha256": "73b6799584a3f2deb8e56223abf05d373a5cff66375cf7af90caf6a1694e8c4a"
-    },
-    "before87f/provenance/hosted-runs.json": {
-      "bytes": 2592,
-      "sha256": "31abe74ca113f1597679bf577b330207f260d8acea0519297ddeb0b483c8eb43"
-    },
-    "before87f/provenance/source-handoff.json": {
-      "bytes": 3230,
-      "sha256": "3b9eba561f625bd8d71a4c6828a69c006a366c39174ab7e6f51fcc24f3a7a819"
-    },
-    "before87f/provenance/source-publication.json": {
-      "bytes": 653,
-      "sha256": "428d12c7f9af33b7f8687fcbe3830f98fa84061640423bd4989696f737d824cf"
-    },
-    "before87f/semantic-calibration/artifacts.json": {
-      "bytes": 4499,
-      "sha256": "52ba09c8a6b77ced533004017c082e5c16633dd0857d30d01f8e9ade0c32faee"
-    },
-    "before87f/semantic-calibration/report.json": {
-      "bytes": 10893,
-      "sha256": "0ce6532c146bb57ec49628ab03d97fea2c020726ba62221875cc3c1764e80a57"
-    },
-    "before87f/semantic-calibration/run.json": {
-      "bytes": 14320,
-      "sha256": "de0735c0f425081f4e57c1df673711e4288e36832c8c38ede5581219dd0bf897"
-    },
-    "current888/canonical/installation.json": {
-      "bytes": 2434,
-      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
-    },
-    "current888/canonical/native-contracts.json": {
-      "bytes": 2434,
-      "sha256": "288ca6be7e43d9a0e2dde5af89a915a9a5576dd1961ec594b463f27f8c0b426a"
-    },
-    "current888/canonical/qualification/corpus-equivalence.json.gz": {
-      "bytes": 102652,
-      "sha256": "af3d0195cc4aea3625e974a5f2b33603e1f3c2c6f87b0e416adc47437f45279f"
-    },
-    "current888/canonical/qualification/paired-cost.json": {
-      "bytes": 2122,
-      "sha256": "8324dcab5900349d4665dfd10ae479e38d98974acf9d5e418066b73b4ee6b4c1"
-    },
-    "current888/canonical/qualification/plan.json.gz": {
-      "bytes": 107452,
-      "sha256": "4cc15fd12aa8df95425f75d385733dfa94c409b1eae3f1a1c09730b074eb7376"
-    },
-    "current888/canonical/qualification/qualification.json": {
-      "bytes": 4683,
-      "sha256": "a2630d939f8a2e2129d90c1e71d2761cdc558c5cda9b66d252c5f5c688f8adb0"
-    },
-    "current888/canonical/qualification/requests.json.gz": {
-      "bytes": 76979,
-      "sha256": "61f40ad091b0ffbcade088c5272bbc070e71b45c912423b91b985fa433a1e383"
-    },
-    "current888/hosted-installer/run.json": {
-      "bytes": 45592,
-      "sha256": "649b6a96457716c523c1bb9a861ce5039d7683981e62025db81075792becf09e"
-    },
-    "current888/hosted-mainperformance/run.json": {
-      "bytes": 27722,
-      "sha256": "4973f2f622d2bd7b38bf2fce6596a338b8290cef5dce3eb502120b7cd6cae619"
-    },
-    "current888/hosted-perfdiagnostics/run.json": {
-      "bytes": 30090,
-      "sha256": "99d90242fda0fa4c96e87dc8b5c18bf70050be522444ab5e70d394fb6954bbf6"
-    },
-    "current888/hosted-quality/full-job.log.gz": {
-      "bytes": 68030,
-      "sha256": "17e421d81b640cb147226249c5f92e8173fac7df13d4d76bae86e6a56ffac1fa"
-    },
-    "current888/hosted-quality/run.json": {
-      "bytes": 28172,
-      "sha256": "3377c603146cdebbd9598e394291211756c6b5ee4d7553096c2d7af33d40c5a1"
-    },
-    "current888/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479690,
-      "sha256": "270e75cf9f5ccbbaf43c8b094b880696c81709afb806e8a5aaf10c4742e0db06"
-    },
-    "current888/native-b1/aarch64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 113014,
-      "sha256": "ebbb3e4b154e2f8074031d61cd0c17ac67ca763aeed0ec2dce17f49d14f1cbac"
-    },
-    "current888/native-b1/aarch64-apple-darwin/latency-report.json": {
-      "bytes": 24731,
-      "sha256": "fef56ce3f8a7719bb7b549a751b70b714b69a726d2de1829d5332497ff941db9"
-    },
-    "current888/native-b1/aarch64-apple-darwin/provenance.json": {
-      "bytes": 28820,
-      "sha256": "cd4c17e993c89011c91be61a14ac90d8128e631f87e9fcd227d7bf78cbd7a411"
-    },
-    "current888/native-b1/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479695,
-      "sha256": "9b0d3e844b166b958bb3775fc2d06d9e32f76a116fcbf21e4d6dafcbd243ea09"
-    },
-    "current888/native-b1/aarch64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 335349,
-      "sha256": "9596f757b08107fd99f83fe63c264707f8dedb9f1445503588c885a8dd0c53c1"
-    },
-    "current888/native-b1/aarch64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24715,
-      "sha256": "e9fd622e1ede76d524c42420bf13442be8d26119b077ce5d458ae9592e9cc1f0"
-    },
-    "current888/native-b1/aarch64-pc-windows-msvc/provenance.json": {
-      "bytes": 29515,
-      "sha256": "14049edb23e7739e5816abf24ed2c95175aec6cad34c15c97dc592fff5826da8"
-    },
-    "current888/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479738,
-      "sha256": "c4d47bd42e94171d8b9234b99814fc654f3a24b4cb9cf2aa32c8db61bb25fd8c"
-    },
-    "current888/native-b1/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 340720,
-      "sha256": "a29e774f48e1b0f2b4f2081b5e62781b3db3919742d1096db580bd112d0c6a7e"
-    },
-    "current888/native-b1/aarch64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24600,
-      "sha256": "4ee6985fa9702673b9a476dc35d15d2c5ee7e2815e106627bc2fc18e43733112"
-    },
-    "current888/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
-      "bytes": 31076,
-      "sha256": "721e5297de1b80b454ae2a0390c7f0ca213766e5abf8cb61525ea85597be82f9"
-    },
-    "current888/native-b1/x86_64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479700,
-      "sha256": "4e7e3417720aaaf23afc12c023a50502991f7650633a0413a51baa7fa46b3b56"
-    },
-    "current888/native-b1/x86_64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 164965,
-      "sha256": "b538d7c7671f52886ff64a746c87c8d486fb8ffa397891743f63e810ff69aaf4"
-    },
-    "current888/native-b1/x86_64-apple-darwin/latency-report.json": {
-      "bytes": 24768,
-      "sha256": "0c2dd032b0e66ec64caa9c05eda07f14c59d67f79d2ac5c13881ebe2ca84d1a9"
-    },
-    "current888/native-b1/x86_64-apple-darwin/provenance.json": {
-      "bytes": 28835,
-      "sha256": "8236f1c1dfd8fbbada2f4859289eda2e3c420624f495fd66b99dc58745f96ea9"
-    },
-    "current888/native-b1/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479688,
-      "sha256": "94defd74356a69261aa3189106974124a292ee959291386acf8d9806577166b6"
-    },
-    "current888/native-b1/x86_64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 343427,
-      "sha256": "49753ed0ed38e3f72d1dedf6f58b371a65bc3fee2be14e42eea909db23ff454c"
-    },
-    "current888/native-b1/x86_64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24697,
-      "sha256": "5f92ed98551e5a32496fc6f0863a7003bbf5ff5506d6de6ec0d7584c36e89bfd"
-    },
-    "current888/native-b1/x86_64-pc-windows-msvc/provenance.json": {
-      "bytes": 29532,
-      "sha256": "15f0e6e6282cd4b39ac9bf4a81ea47137308948cbfb814bf747f6b0194482a9f"
-    },
-    "current888/native-b1/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479734,
-      "sha256": "707c8f5a09fca2b58132709f7524bb5c194e5d74c72805e89e64c575a0b4f29d"
-    },
-    "current888/native-b1/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 348973,
-      "sha256": "2af8cb7e0b157d3bf181b892e38943540a815283c3f1ad5ee2e5eb2e5c651468"
-    },
-    "current888/native-b1/x86_64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24643,
-      "sha256": "a808597051b24350fe1bfd168ae73d162aab4e3a7310ba84fea895c3f8b3adf1"
-    },
-    "current888/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
-      "bytes": 32092,
-      "sha256": "9456de979400a01636326ba2547be196811073615b841e2a4b3cca154f3679e5"
-    },
-    "current888/native-complete-summary.json.gz": {
-      "bytes": 188973,
-      "sha256": "c5de247f3dad33e3ded86ec4ca17d25a01c2b055946bce842687e93879014350"
-    },
-    "current888/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479696,
-      "sha256": "3a7287ac0e2d8af16954ae1a434f93d0aea5261c294bab7d48eef5da9537f666"
-    },
-    "current888/native-main/aarch64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 119586,
-      "sha256": "75bf1fd1751a64ce321a8cf9d0e743a1a51b4db17853440b8381811447fc6a21"
-    },
-    "current888/native-main/aarch64-apple-darwin/latency-report.json": {
-      "bytes": 24691,
-      "sha256": "b222221948e01100103c827b081b48beece990ea2c33741a59831a4dc99e83ab"
-    },
-    "current888/native-main/aarch64-apple-darwin/provenance.json": {
-      "bytes": 28797,
-      "sha256": "730ceef296aba669073437ca1a758ec143823301bf6a4c1266c1bbeab6913f77"
-    },
-    "current888/native-main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479698,
-      "sha256": "2e051d798efe967ce5d6854c3b220b810b484d5a9b5fa99b0f12b366a19db2de"
-    },
-    "current888/native-main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 321090,
-      "sha256": "c6ab993dcbebddbc5e1c8b3d895b711d9e4c4444a6a0fd84ada4a2bceec431c2"
-    },
-    "current888/native-main/aarch64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24608,
-      "sha256": "ad3a008e325bcd6837ad2e034da13a7e8cc7cc0d1f86bf2cde047a3b77ed51ad"
-    },
-    "current888/native-main/aarch64-pc-windows-msvc/provenance.json": {
-      "bytes": 29492,
-      "sha256": "b0636156b80f3a890438018ca55ba970cb2c2968f812e388ea5eb24c63ca6309"
-    },
-    "current888/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479741,
-      "sha256": "76c487a513ca9e48e2424faff320c888237a65dbad5ea1946269215ba04d7207"
-    },
-    "current888/native-main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 344765,
-      "sha256": "88dbf61dea0c8f32f4b9b1e0d7e423a4aff6280a486f0026a41be666e76876b8"
-    },
-    "current888/native-main/aarch64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24569,
-      "sha256": "edea5cfe4e9208a970fc7d2521101612a365557dac19b6fb917249bfe8af7ef4"
-    },
-    "current888/native-main/aarch64-unknown-linux-gnu/provenance.json": {
-      "bytes": 31053,
-      "sha256": "bbab5c729a34503522769d9e7cafdd2d7d31fa595b889f9fc985544120a3c911"
-    },
-    "current888/native-main/x86_64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479696,
-      "sha256": "233b5bd745e2777507ab773d51b303bb9f576d0f6572c3ffbc46144350fe0d7a"
-    },
-    "current888/native-main/x86_64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 162581,
-      "sha256": "3f37c2af4afdbc6e9e546d986f5305689ff9ff7d29d4e88a6756d9fd1cd171f3"
-    },
-    "current888/native-main/x86_64-apple-darwin/latency-report.json": {
-      "bytes": 24765,
-      "sha256": "e36baf8defb9f4fe57528d46ee28c002fd5c55bb5842ed73366b664a930a6b9f"
-    },
-    "current888/native-main/x86_64-apple-darwin/provenance.json": {
-      "bytes": 28812,
-      "sha256": "0f0a10c6fb987b1c1feefbf2dd0865792d6b7e05c77219baa68678dde7696181"
-    },
-    "current888/native-main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479692,
-      "sha256": "4598ffe460bb1a3fffb967d4bc4309b3f91489d67c945f11c862125c2f2f8d09"
-    },
-    "current888/native-main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 333696,
-      "sha256": "67252c27cad6eb1e0a42a5a3a6e20a0e91da17a39e2e0413160a5c41ecb5a222"
-    },
-    "current888/native-main/x86_64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24646,
-      "sha256": "a8c485219d2436d01e17e66fc872fe8989a153700da3f46f1d351a2b433a4c9f"
-    },
-    "current888/native-main/x86_64-pc-windows-msvc/provenance.json": {
-      "bytes": 29509,
-      "sha256": "54516099ed75e21048a7ff0e1861e6123cfa07c3c0d1636208cb8974102be398"
-    },
-    "current888/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479740,
-      "sha256": "387ab875949a83f9ebb5242daf9dc3be7968d60eee090b7a5b93976d9cde7509"
-    },
-    "current888/native-main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 365346,
-      "sha256": "fe13522685302b8e6b7a2f068a0187a2ec342b7e9cdcd27c31ba97a6d97305a6"
-    },
-    "current888/native-main/x86_64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24616,
-      "sha256": "253297ad500fd5a77bd601d2a934fa25305ea7a3b968fc8531ee469b25bc2e27"
-    },
-    "current888/native-main/x86_64-unknown-linux-gnu/provenance.json": {
-      "bytes": 32069,
-      "sha256": "de3ca3ac0f3e49f2531937591f21ca9aaaab609d8174b29e29427db44d7186c1"
-    },
-    "current888/native-partial-summary.json.gz": {
-      "bytes": 93787,
-      "sha256": "95adc4db79ac012dfd881313eda9f52010056542c629d6da5b7a5bf565633e51"
-    },
-    "intermediate709/admission-measurement.json": {
-      "bytes": 4650,
-      "sha256": "ca99f5f5acf90283103df27ac5a3ee197d76ba784b14c45444783b2a5b392556"
-    },
-    "intermediate709/calibration-failed-job.log": {
-      "bytes": 21189,
-      "sha256": "d77f9be7430fe1bdcdab398eaefa624a97be896d818199a9977d24f1b78c060b"
-    },
-    "intermediate709/calibration-failure.json": {
-      "bytes": 837,
-      "sha256": "38e2e280a5961b17b32845158b0a0fb8c7ae21905f4bd9758a684be428ff181e"
-    },
-    "intermediate709/callgrind-absolute-metrics.json": {
-      "bytes": 107852,
-      "sha256": "b420c076da10d292a5ee616e9e6154193ee6597929877d378260dbb2c3f58ba4"
-    },
-    "intermediate709/callgrind-counts.json": {
-      "bytes": 834,
-      "sha256": "6a18ea7784938bfa2e65a75da909990a91c739f770ac8cc2f26a434b9c66bc9b"
-    },
-    "intermediate709/callgrind-policy.json.gz": {
-      "bytes": 969382,
-      "sha256": "2634cce72bf079e36595c0e1623d216e68b22dd349be2d8fa8d8981d199e8ab1"
-    },
-    "intermediate709/callgrind-policy.md": {
-      "bytes": 17796,
-      "sha256": "6ed9070719ca5ccf0f4bec1234571c12327fa40bc05fe0503c5764027b97240e"
-    },
-    "intermediate709/heap-attribution.json": {
-      "bytes": 312557,
-      "sha256": "da2313b5d95dab868469d42aa852140b85d27f719c3859a6b4d154b549b000ab"
-    },
-    "intermediate709/native-paired-summary.json": {
-      "bytes": 224845,
-      "sha256": "824b5c1587afe457ab7f697864063068093ae86872d95f21dfbc957e54aa0704"
-    },
-    "intermediate709/paired-data.json.gz": {
-      "bytes": 354086,
-      "sha256": "dc0756eaba43851ec6a2ff9b8131533354f23bfda5c84939ffb908d5c758ea78"
-    },
-    "intermediate8af/local/autoimport.json": {
-      "bytes": 9304,
-      "sha256": "524ad930a5f9b6a64cb9fbcf048c6fd604bffe4ba0a8b157f76c1d7fdfd7a19e"
-    },
-    "intermediate8af/local/base-pair.json": {
-      "bytes": 28923,
-      "sha256": "ae93008055413571eca6313b2df05ff633f8ac44730c5e2c75ee382197761062"
-    },
-    "intermediate8af/local/completion-api-smoke-and-targeted-tests.json": {
-      "bytes": 6541,
-      "sha256": "e14515fee2af538de00f62b04df2be56747dfb381348c25d16ee52f9e990fc60"
-    },
-    "intermediate8af/local/hierarchy.json": {
-      "bytes": 56320,
-      "sha256": "bb9a966b55befcebd8257d53e855f217eaec516c4f2b98793c2cef94ac70d87a"
-    },
-    "intermediate8af/local/p1.json": {
-      "bytes": 34433,
-      "sha256": "58180c46a4a029063b21f6a6f658d0afd969f2936544f38dc262e232ee9b190a"
-    },
-    "intermediate8af/local/recovery.json": {
-      "bytes": 21434,
-      "sha256": "1ec81d6c00c02c404a96445d7d02909908515746b15e3445f9150f738fc6db93"
-    },
-    "intermediate8af/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479689,
-      "sha256": "a402428e5a0a09159283c0942988167133c6f0ac8a555f2936b16759557a5e33"
-    },
-    "intermediate8af/native-b1/aarch64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 117253,
-      "sha256": "dc1b37ebdedf3281b831e60530ae2e2e3d7f5111da42d00ea9f4fe26335092ec"
-    },
-    "intermediate8af/native-b1/aarch64-apple-darwin/latency-report.json": {
-      "bytes": 24661,
-      "sha256": "1e5bafdc3c01e845dd7a0864d4c846fb1b29aa2cfa6c96203928a1ec607689d4"
-    },
-    "intermediate8af/native-b1/aarch64-apple-darwin/provenance.json": {
-      "bytes": 28820,
-      "sha256": "1de302b0a46503269514be9fd5a4bc31e0b5ea8d9b35e0b6d029fe06a110a8d6"
-    },
-    "intermediate8af/native-b1/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479697,
-      "sha256": "0123b9d5eeb06a9b4a5ea84889b4a5a840dc47c28222132504e33f7da9d0e8a9"
-    },
-    "intermediate8af/native-b1/aarch64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 339044,
-      "sha256": "0c9f562985d7a38468af9b95e527c4f19f8a2d101bf03d61fdc44fa6a8c4ba8e"
-    },
-    "intermediate8af/native-b1/aarch64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24691,
-      "sha256": "5defcbbf09cecf73fd67f5f5c47c4e52a7eeca09feb5604e70a1cf9f9fe82476"
-    },
-    "intermediate8af/native-b1/aarch64-pc-windows-msvc/provenance.json": {
-      "bytes": 29515,
-      "sha256": "dba82bf844d956d364d9cbdefa7caa234135e130bcaec5af5a14c2264d1d7efc"
-    },
-    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479740,
-      "sha256": "e86a8452f50ed0a3cb8346a7eef9711b1588520b5e1b4a7ecb4cfdd5ce968148"
-    },
-    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 335527,
-      "sha256": "f365b83cb569fd8e31b40520a2ffd575b649515b2449b4e7ef55c03abfdd44ed"
-    },
-    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24597,
-      "sha256": "580631da50e8f533307af35c833f90ab7f55bf707c71c30be62581557aedd66d"
-    },
-    "intermediate8af/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
-      "bytes": 31076,
-      "sha256": "596c612307b1208382810825ddff976315ece3ffb8fad39365f672d1139c2c1e"
-    },
-    "intermediate8af/native-b1/x86_64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479700,
-      "sha256": "ce4b4c27cef0f143f7b74372c6843af8e202d5691b7312ba1f1c4c41f3bb6536"
-    },
-    "intermediate8af/native-b1/x86_64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 156316,
-      "sha256": "0dc3d3161dfd83878065c49357358c7d38c08ea76894a6887712da884ddc740f"
-    },
-    "intermediate8af/native-b1/x86_64-apple-darwin/latency-report.json": {
-      "bytes": 24746,
-      "sha256": "270e4babf878709244cb3a955d648b35dbfda7b1a7fedd3946db6e52117f62b5"
-    },
-    "intermediate8af/native-b1/x86_64-apple-darwin/provenance.json": {
-      "bytes": 28835,
-      "sha256": "03b7f69ef565aa44ea3028ac1341ef75bd4bfd32d37472dfc32eda4b2b37ce2b"
-    },
-    "intermediate8af/native-b1/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479687,
-      "sha256": "ee01f403c7c06437c6d72050560a733b8e6cb4ec3a74ff297784e9703ab85cec"
-    },
-    "intermediate8af/native-b1/x86_64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 351355,
-      "sha256": "8c9b01e97881ad104d57be6206efa2c216b0fb1cfccef5f54b76f22a26e4dde4"
-    },
-    "intermediate8af/native-b1/x86_64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24711,
-      "sha256": "c0b2dae08a4a7d75f2eb5a93b4a10e5dd1f3dfb763ff2f774c4a6a09a2459bd7"
-    },
-    "intermediate8af/native-b1/x86_64-pc-windows-msvc/provenance.json": {
-      "bytes": 29532,
-      "sha256": "de7edb8460c8af2307b387871ad550c14035c6a98413e47c988204153e41ae3a"
-    },
-    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479730,
-      "sha256": "cfad3fc1773727814313b5fa6818b50152df5c849d309b6c159a91fe512098a7"
-    },
-    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 347441,
-      "sha256": "5be83889d2dc784b1c3fd106847ce4aa451129edc16e766ab67a7169047c5072"
-    },
-    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24628,
-      "sha256": "4cc93e07503ee8b3dd2df9b30d3005cbd5acc75ada198291a7a2ae1624528318"
-    },
-    "intermediate8af/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
-      "bytes": 32092,
-      "sha256": "127d466e68062fca0a320beb39c5ed07a8f4559826313e65f8771663754c215a"
-    },
-    "intermediate8af/native-main-latency-differences.json": {
-      "bytes": 41869,
-      "sha256": "1010abfaea60f31f1a2be49c295306b4f5e62cee1f5c29feee242c246891a94a"
-    },
-    "intermediate8af/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479689,
-      "sha256": "22dd4149cf709771920916f7f1932edab0d6122d3c2739e506f2753e1564ecdb"
-    },
-    "intermediate8af/native-main/aarch64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 121355,
-      "sha256": "485528e028bfa20efa0d92260c8be4f82f7237d027af280f6987fce0a6187d67"
-    },
-    "intermediate8af/native-main/aarch64-apple-darwin/latency-report.json": {
-      "bytes": 24700,
-      "sha256": "d521a1ff42ab561e53165fcbb84acc6fc3ec64f536735577d639235e43928ca3"
-    },
-    "intermediate8af/native-main/aarch64-apple-darwin/provenance.json": {
-      "bytes": 28797,
-      "sha256": "755638da81e054937cb4f1d8967ccd57d744d80e4f4f466fb6d72b8354f90349"
-    },
-    "intermediate8af/native-main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479697,
-      "sha256": "2b9014ca23e62ee70d2e260a80d848f45a12f716f907fa03c0d6fdfd139c1226"
-    },
-    "intermediate8af/native-main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 326273,
-      "sha256": "73ef8bbb79bd94a8c86a4970127b80c8b57602860a1c939c61e26adc28330a5e"
-    },
-    "intermediate8af/native-main/aarch64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24577,
-      "sha256": "31a9968c3b0f6f96d550f28ac805dfba0b2f225bbd49aedcfc3354351ffb015b"
-    },
-    "intermediate8af/native-main/aarch64-pc-windows-msvc/provenance.json": {
-      "bytes": 29492,
-      "sha256": "45bc6de28f98718283ec732e5151f569c21765127491ee02339c3072001f08fc"
-    },
-    "intermediate8af/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479742,
-      "sha256": "95febf61c433149852b20ca25a8526d28486806a571a150c2eb0b6abf7b0d41d"
-    },
-    "intermediate8af/native-main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 338494,
-      "sha256": "3c90196403ab3ea6d5da916bfe13e15f6aa03090141701949e6576b2eac9a8b5"
-    },
-    "intermediate8af/native-main/aarch64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24551,
-      "sha256": "49ca59f58539a763ec389bd7e837ca2fffbaced6be6b5af8b82e82e8e60d604a"
-    },
-    "intermediate8af/native-main/aarch64-unknown-linux-gnu/provenance.json": {
-      "bytes": 31053,
-      "sha256": "87c53fef8f143ea043269e3635e3b212c1ad02163b183f5763c8024d9e153419"
-    },
-    "intermediate8af/native-main/x86_64-apple-darwin/artifact-manifest.json.gz": {
-      "bytes": 479699,
-      "sha256": "a0fb371b6bdd70d4dbb321d444bc8a26ef2ef177521132df666b379f4299b12f"
-    },
-    "intermediate8af/native-main/x86_64-apple-darwin/discovery/report.json.gz": {
-      "bytes": 167446,
-      "sha256": "50210d93529fbc8a426c96540c8a506fabbdd7a4019fd6523134415afe9de2e2"
-    },
-    "intermediate8af/native-main/x86_64-apple-darwin/latency-report.json": {
-      "bytes": 24717,
-      "sha256": "b17bbe374f20a110055ed5c92a8728b99b8fc4df176bc82000f6ccf284d6a63d"
-    },
-    "intermediate8af/native-main/x86_64-apple-darwin/provenance.json": {
-      "bytes": 28812,
-      "sha256": "839e67c499baa62c1e26fae9586f6e5defd20835ad30e6ecb9b0c049d25176bc"
-    },
-    "intermediate8af/native-main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
-      "bytes": 479691,
-      "sha256": "cca85a3b70b73421b559f655a88d4375bd645e276cc2bd2f90bccaa320b043e6"
-    },
-    "intermediate8af/native-main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
-      "bytes": 346339,
-      "sha256": "0252ee156fc3770da1611429b80f28809cf51788b28e0c86dccdc7a6d13923dd"
-    },
-    "intermediate8af/native-main/x86_64-pc-windows-msvc/latency-report.json": {
-      "bytes": 24635,
-      "sha256": "9f23caaa2777ae4318c8b041e0dbd58e9d48f27ee7666e71cecbb26262f21360"
-    },
-    "intermediate8af/native-main/x86_64-pc-windows-msvc/provenance.json": {
-      "bytes": 29509,
-      "sha256": "4ade464cef3a0e69d4e5980597b18bb1cc17c9afa9679ccdec590e9bdd9c4b9c"
-    },
-    "intermediate8af/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
-      "bytes": 479731,
-      "sha256": "bc7e4043b54ac3e1243605bc9eeccb40538f59480ec5012526df6ec7b05e56fe"
-    },
-    "intermediate8af/native-main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
-      "bytes": 349763,
-      "sha256": "08e82d6b718c0ebf1cb27311136718cad3ee9d7890b8082ad0eaac7f86742acb"
-    },
-    "intermediate8af/native-main/x86_64-unknown-linux-gnu/latency-report.json": {
-      "bytes": 24625,
-      "sha256": "75554fd22502a9e336eb0534a15a9d634ae8d1c5d0b4e752d924e2a150881f19"
-    },
-    "intermediate8af/native-main/x86_64-unknown-linux-gnu/provenance.json": {
-      "bytes": 32069,
-      "sha256": "cf23a07977124478a1142a44302ef4db6f4fda927c73f839f0f0de8620a25fdf"
-    },
-    "intermediate8af/native-paired-summary.json.gz": {
-      "bytes": 34812,
-      "sha256": "ec303bcb0e24617936ec83f9ba4fab1b88a743bcfe372c8e8eabf1cf707d17d4"
-    },
-    "intermediate8af/parent-source-and-report-verification.json": {
-      "bytes": 2465,
-      "sha256": "a6f9f79c54546b1257d37961bac6cb76abc0c0922bb978930ff5450c74c1d909"
-    },
     "local/quality.log": {
-      "bytes": 107740,
-      "sha256": "2e29ad3ca55d19964b7cab9869bd158ed5b8b4cae6b07b1fa5ea7130a73caae5"
+      "bytes": 107915,
+      "sha256": "a56f191c886786348b18626523e4f959844691703bf90b35eafd987d2729f1a6"
     },
     "local/source-proof.json": {
-      "bytes": 2266,
-      "sha256": "8cdd097507393dc0bb52cf9c2cb026f921230e0eaf422f5d1e47eb93ae18fb79"
+      "bytes": 5660,
+      "sha256": "78d9e21582a49b19be31a61cf4628fefcee1d3564c598f5966cc9138ee7a44f7"
     },
-    "local/stdio-autoimport.json": {
-      "bytes": 10838,
-      "sha256": "61f00f7f3197b5070e982842a2d4989a5cce799c641b07d717f802f3964abe4a"
+    "local/source-handoff.json": {
+      "bytes": 801,
+      "sha256": "393f7003140e94152d4eee7625c653e07e170504b2f7df6bea2795298a39a062"
     },
-    "local/stdio-base-pair.json": {
-      "bytes": 37204,
-      "sha256": "0bb0bb0d4749b8faba2f755a74ec8872be56faf5818c9bbaaeafbe05e51a37f5"
+    "local/source-commit.json": {
+      "bytes": 2930,
+      "sha256": "08caeea363fc3cd3c59a1c9785f6a487041f538a03bf891434f2bb6ca4ff5e18"
     },
-    "local/stdio-entry-hierarchy.json": {
-      "bytes": 63280,
-      "sha256": "d292de5440f7dfc9d0189b43690a2abf9eb26a8200859888a92a4526f95bab86"
+    "local/default-build.json": {
+      "bytes": 693,
+      "sha256": "26b89990259813f652bcb0b5533ed23c7d23594a6783485ed0d75c2204787664"
     },
-    "local/stdio-p1.json": {
-      "bytes": 42669,
-      "sha256": "17e92da6f7d8f4301996635a9ba60e88e96837e05a0222d03230ce8858042ed0"
+    "attempts/initial-integrated-build-failure.json": {
+      "bytes": 1784,
+      "sha256": "ca5d42e3c83afb7e7f89536ad9e6184ece1fa2c68b28246212de0f765f758eb8"
     },
-    "local/stdio-recovery-diagnostics.json": {
-      "bytes": 28075,
-      "sha256": "d12f12db7240eabcec73583c1252a5dcbcf61c3079a9e1401764cc99002eaa4b"
+    "before888/all-counter-absolute-medians.json.gz": {
+      "bytes": 8686,
+      "sha256": "903c79e98a6a86cf96245854b1c75aa3173e43c63edd64fddadb1be2d53840df"
     },
-    "provenance/dispatches.json": {
-      "bytes": 738,
-      "sha256": "38eea5f4b47597fc00cd7410a7543b2b1da8b0dbdf1e7ddbb3faefdf3588d81d"
+    "before888/semantic-runtime-report.json": {
+      "bytes": 10901,
+      "sha256": "f1e277d10455280d695aa8fc3f4b436f5111c7f0580f90175b825cd13da2590e"
     },
-    "provenance/source-handoff.json": {
-      "bytes": 2887,
-      "sha256": "4287d102cfadbc6a4d3623eaefd283e05cbcdd19879a811fcf38648be87e0f1e"
+    "attribution/medium-static-decision.json": {
+      "bytes": 1883,
+      "sha256": "f102fa54a045dc9a9faec9f73bcddb017c2c435e54a4a528521358714b69c78e"
     },
-    "provenance/source-publication.json": {
-      "bytes": 622,
-      "sha256": "582e64023cf1c43ceb048e34db221db67c5cee2e6b75f0c0ae2006496dcb22b7"
+    "attribution/medium-static-inputs.json": {
+      "bytes": 1145,
+      "sha256": "7f5bf00a6c8bcd86c627debc603e2e3c757d9e2f8cf6324c2c570206aa8e3439"
     },
-    "reviews/ReviewCompactIndexes-7468cc5.json": {
-      "bytes": 2982,
-      "sha256": "69f52439c4bb9ca754c4eebef962429b4e3ad0417b416359c1c9a4015e914242"
+    "attribution/medium-a-static-annotation.txt": {
+      "bytes": 9839,
+      "sha256": "e4646e665a37e7302400861b45b85cf533d1c1df40f96b4b1a736a8424a6367d"
     },
-    "reviews/ReviewDiscoveryOwnership-7468cc5.json": {
-      "bytes": 4992,
-      "sha256": "1541e9bec6129ac338d2e1d68c3f09a02f6d772110024f05caf545a96258cd34"
+    "attribution/medium-b-static-annotation.txt": {
+      "bytes": 10090,
+      "sha256": "912c9d6db4f13ed99086b7a4422e2e1ac96f83a4694a22e2cdb908cc864f0b8b"
     },
-    "reviews/ReviewLocalFastPaths-87f26c8.txt": {
-      "bytes": 2074,
-      "sha256": "e6b5da6f80c0c838ae8384375a4e5e929bc25c8ac4a3016bb5a1c5d412a56fa3"
+    "local/stdio-p1.json.gz": {
+      "bytes": 5778,
+      "sha256": "2a4272c0c4bac1319d4239e51c3bfdf9684a5ee9cd7fb45646d807268839001f"
     },
-    "reviews/ReviewWindowsPrefixEq-87f26c8.txt": {
-      "bytes": 1288,
-      "sha256": "6aede3fbe2e249131c4b75e82fd10fe0713fcff28189a91db34dc25d675ca2ac"
+    "local/stdio-base-pair.json.gz": {
+      "bytes": 6272,
+      "sha256": "af3138e1e4a2f143eb76eb50c46c6b31202e622a0f3bac1739144785bc044b01"
     },
-    "current888/callgrind-main/callgrind-policy.json.gz": {
-      "sha256": "4a72a51fae45b2d984301f94de1ae08bcdfd2933363daeea92c013c875b9c047",
-      "bytes": 969823
+    "local/stdio-entry-hierarchy.json.gz": {
+      "bytes": 5430,
+      "sha256": "f64a26a849dcb0e74cb39a8da548c2fbf825d3cfd002471fab59e7375fbd869c"
     },
-    "current888/callgrind-main/paired-data.json.gz": {
-      "sha256": "a1f99678a935161c8541e272c64dfb6e4df80975015cdb1bfdf30e76200dbcd2",
-      "bytes": 353181
+    "local/stdio-recovery-diagnostics.json.gz": {
+      "bytes": 4888,
+      "sha256": "c906bb5d6baf512be5842c89a0f84d321d3c1f5cf7b99c0da09590a2b20c298f"
     },
-    "current888/callgrind-main/admission-measurement.json.gz": {
-      "sha256": "6b41a44f246233ffd29ddcf41620d9380a5bafe6d23bb60ae39ea0816959331a",
-      "bytes": 600
+    "local/stdio-autoimport.json.gz": {
+      "bytes": 3932,
+      "sha256": "5df221cfccf7064c4d3629d0cc4299e7acddb1325f27f8aeda92ca3ad985d2ec"
     },
-    "current888/callgrind-main/callgrind-policy.md": {
-      "sha256": "7d0799c098a9ba315b753f3008dfa277d2f5bc73cd67414ed8136a96ec8230d1",
-      "bytes": 17793
-    },
-    "current888/callgrind-main/original-range-verification.json": {
-      "sha256": "7b7764316a17d53a9bc816f7c8cf4071e6c2e5031d05b415d7aaeb88f33794c6",
-      "bytes": 3698
-    },
-    "current888/callgrind-main/all-counter-absolute-medians.json": {
-      "sha256": "820990d46d73b316bec9d18261af4613e79b623d00e4bf4e2b88df570ff6baaf",
-      "bytes": 108103
-    },
-    "current888/callgrind-main/admission-failure.log": {
-      "sha256": "c9518ec4db8674529049ba089247baf381f9f3cfba4fa5b1a10cca47a7a90f4a",
-      "bytes": 3966
-    },
-    "attempts/current888-artifact-transport.json": {
-      "sha256": "2b048666187f7515bdd6889b6bee7f1fb229a74133aa656479ed28683dbfee41",
-      "bytes": 1332
+    "local/discovery-10000.json.gz": {
+      "bytes": 138458,
+      "sha256": "2e64ad6c5153652c420abdc12754624739a3c659b7a3ea0ebed22fb77c2bc76b"
     }
-  },
-  "current_counter_report": {
-    "path": "current888/callgrind-main/all-counter-absolute-medians.json",
-    "small_completion_Ir": {
-      "baseline": 19757,
-      "candidate": 19864,
-      "percent": 0.5415801994,
-      "classification": "passed"
-    },
-    "medium_completion_Ir": {
-      "baseline": 110396,
-      "candidate": 114436,
-      "percent": 3.6595528824,
-      "classification": "regression"
-    },
-    "other_regressions": {
-      "I1mr": 25,
-      "ILmr": 9
-    },
-    "native_cold_RSS_assessment": "Remaining main-relative cold and RSS costs are large; the existing complete12native report remains authoritative, no cold improvement inferred from this completion fix.",
-    "admission": "denied",
-    "new_measurement_runs_for_report": 0
-  },
-  "source_frozen_for_owner_decision": true
+  }
 }
