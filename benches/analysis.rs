@@ -1018,6 +1018,8 @@ static SEMANTIC_ROOTS_2: LazyLock<SemanticFixture> =
     LazyLock::new(|| SemanticFixture::new(100, 2, false));
 static SEMANTIC_ROOTS_8: LazyLock<SemanticFixture> =
     LazyLock::new(|| SemanticFixture::new(100, 8, false));
+static SEMANTIC_ROOTS_64: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(100, 64, false));
 static SEMANTIC_SPARSE_100: LazyLock<SemanticFixture> =
     LazyLock::new(|| SemanticFixture::new(1, 1, false).with_unrelated_files(100));
 static SEMANTIC_SPARSE_1000: LazyLock<SemanticFixture> =
@@ -1043,6 +1045,32 @@ fn semantic_input(declarations: usize) -> workspace::SemanticViewInput {
 #[bench::declarations_10000(semantic_input(10_000))]
 fn semantic_view_cold(input: workspace::SemanticViewInput) -> workspace::SemanticView {
     std::hint::black_box(input.build())
+}
+
+fn semantic_root_inputs(fixture: &SemanticFixture) -> Vec<workspace::SemanticViewInput> {
+    fixture
+        .roots
+        .iter()
+        .map(|root| {
+            fixture
+                .database
+                .capture_semantic_view(*root, None)
+                .must_be("captured shared dependency")
+        })
+        .collect()
+}
+
+#[library_benchmark]
+#[bench::shared_dependency_2(semantic_root_inputs(LazyLock::force(&SEMANTIC_ROOTS_2)))]
+#[bench::shared_dependency_8(semantic_root_inputs(LazyLock::force(&SEMANTIC_ROOTS_8)))]
+#[bench::shared_dependency_64(semantic_root_inputs(LazyLock::force(&SEMANTIC_ROOTS_64)))]
+fn semantic_views_cold(inputs: Vec<workspace::SemanticViewInput>) -> Vec<workspace::SemanticView> {
+    std::hint::black_box(
+        inputs
+            .into_iter()
+            .map(workspace::SemanticViewInput::build)
+            .collect(),
+    )
 }
 
 #[library_benchmark]
@@ -1239,7 +1267,7 @@ library_benchmark_group!(
         import_completion_candidates_warm, workspace_symbols_warm, workspace_symbol_response_warm,
         cold_snapshot_build_metadata, declaration_metadata_warm,
         declaration_documentation_warm, declaration_hover_warm, signature_help_warm,
-        semantic_view_cold, semantic_views_preparsed_update, semantic_resolve_warm,
+        semantic_view_cold, semantic_views_cold, semantic_views_preparsed_update, semantic_resolve_warm,
         semantic_references_warm, semantic_incoming_calls_warm, semantic_outgoing_calls_warm,
         semantic_view_reuse_warm, semantic_view_capture, semantic_shared_source_ownership,
         semantic_completion_warm, semantic_rename_preflight_warm,

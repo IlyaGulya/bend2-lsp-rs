@@ -714,10 +714,10 @@ impl Backend {
             };
             let mut grouped = HashMap::<SemanticEntityId, Vec<Range>>::new();
             for call in view.calls_to(target) {
-                let Some(caller) = call.caller else {
+                let Some(caller) = call.caller() else {
                     continue;
                 };
-                if let Some(location) = Self::semantic_location(view, call.site) {
+                if let Some(location) = Self::semantic_location(view, call.site()) {
                     grouped.entry(caller).or_default().push(location.range);
                 }
             }
@@ -793,10 +793,10 @@ impl Backend {
         let (view, caller) = self.semantic_hierarchy_target(item)?;
         let mut grouped = HashMap::<SemanticEntityId, Vec<Range>>::new();
         for call in view.calls_from(caller) {
-            let SemanticTarget::Global(target) = call.target else {
+            let SemanticTarget::Global(target) = call.target() else {
                 continue;
             };
-            if let Some(location) = Self::semantic_location(&view, call.site) {
+            if let Some(location) = Self::semantic_location(&view, call.site()) {
                 grouped.entry(target).or_default().push(location.range);
             }
         }
@@ -1101,12 +1101,12 @@ fn same_hierarchy_expansion(
             match (left_calls.next(), right_calls.next()) {
                 (None, None) => break,
                 (Some(left_call), Some(right_call)) => {
-                    if left_call.site != right_call.site {
+                    if left_call.site() != right_call.site() {
                         return false;
                     }
                     match (
-                        visible_hierarchy_target(left, left_call.target),
-                        visible_hierarchy_target(right, right_call.target),
+                        visible_hierarchy_target(left, left_call.target()),
+                        visible_hierarchy_target(right, right_call.target()),
                     ) {
                         (Some(left_target), Some(right_target)) => {
                             stack.push((left_target, right_target));

@@ -70,6 +70,14 @@
 
 ### Under the hood
 
+- Retain small entry-view lookup tables in exact-size immutable storage while
+  keeping hashed lookup for larger tables. Project calls from the existing
+  occurrence arena instead of retaining duplicate call records and unused
+  per-site metadata; preserve prepared entry contexts and hierarchy handles.
+- Prepare discovered files with at most two owned walkers, preserving ignore
+  rules, tracing context, cancellation and revision-checked publication.
+  Add shared-dependency cold-view coverage without changing existing benchmark
+  workloads, event metrics or admission thresholds.
 - Await complete JSONL writes from the persistent semantic oracle instead of
   dropping large replies when its stdout pipe is nonblocking. Verify a real
   bounded OS pipe, UTF-8 frames and a follow-up request in the same process;

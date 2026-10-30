@@ -2,7 +2,10 @@ mod support;
 
 use bend2_lsp::{
     analysis::{DocumentSnapshot, ReferenceRole, Revision},
-    workspace::{Document, FileId, SemanticBase, SemanticTarget, SemanticView, WorkspaceDb},
+    workspace::{
+        Document, FileId, SemanticBase, SemanticEntity, SemanticSite, SemanticTarget, SemanticView,
+        WorkspaceDb,
+    },
 };
 use std::{fs, path::Path, sync::Arc};
 use support::Must;
@@ -34,6 +37,14 @@ fn target(view: &SemanticView, file: FileId, needle: &str) -> SemanticTarget {
     view.resolve_at(file, offset)
         .must_be("resolved occurrence")
         .target
+}
+
+fn declaration_sites(view: &SemanticView, entity: &SemanticEntity) -> Vec<SemanticSite> {
+    view.declarations()
+        .iter()
+        .filter(|declaration| declaration.target == SemanticTarget::Global(entity.id))
+        .map(|declaration| declaration.site)
+        .collect()
 }
 
 fn base(path: &Path) -> SemanticBase {
@@ -190,7 +201,11 @@ fn proof_entries_select_different_bodies_for_the_same_imported_law() {
             .iter()
             .find(|entity| entity.name == "claims:identity")
             .must_be("law entity");
-        assert_eq!(entity.sites.len(), 2);
+        let sites = declaration_sites(view, entity);
+        assert_eq!(sites.len(), 2);
+        assert!(sites.contains(&entity.declaration));
+        let body_owner = entity.body_owner.must_be("body owner");
+        assert!(sites.contains(&body_owner));
         assert_eq!(
             view.document(entity.declaration.file)
                 .must_be("claims source")
@@ -198,9 +213,7 @@ fn proof_entries_select_different_bodies_for_the_same_imported_law() {
             uri(&claims)
         );
         assert_eq!(
-            view.document(entity.body_owner.must_be("body owner").file)
-                .must_be("body source")
-                .uri,
+            view.document(body_owner.file).must_be("body source").uri,
             uri(body)
         );
         assert_eq!(entity.signature_owner, entity.declaration);
@@ -222,7 +235,7 @@ fn proof_entries_select_different_bodies_for_the_same_imported_law() {
         .must_be("reopened law");
     assert_eq!(entity.body_owner.must_be("reopened body").file, a);
     assert_eq!(reopened.calls_from(entity.id).count(), 0);
-    assert_eq!(entity.sites.len(), 2);
+    assert_eq!(declaration_sites(&reopened, entity).len(), 2);
 }
 
 #[test]
@@ -243,7 +256,7 @@ fn nested_dotted_import_name_is_indivisible_despite_local_alias_prefix() {
     };
     assert_eq!(view.entity(id).must_be("entity").name, "dep:Foo.target");
     let call = view.calls_to(resolved).next().must_be("offload call");
-    assert_eq!(call.role, ReferenceRole::Offload);
+    assert_eq!(call.role(), ReferenceRole::Offload);
     assert!(matches!(
         target(&view, root, "!(D"),
         SemanticTarget::Local(_)
@@ -475,7 +488,9 @@ fn invalid_law_fill_is_not_grouped_and_duplicate_alias_keeps_explicit_issue() {
         .find(|entity| entity.name == "claims:identity")
         .must_be("law");
     assert!(law.body_owner.is_none());
-    assert_eq!(law.sites.len(), 1);
+    let sites = declaration_sites(&view, law);
+    assert_eq!(sites.len(), 1);
+    assert_eq!(sites[0], law.declaration);
     assert!(
         view.declarations()
             .iter()
@@ -1241,8 +1256,11 @@ fn base_can_fill_its_own_laws_but_an_importing_entry_cannot_fill_native_claims()
         .find(|entity| entity.name == "claim")
         .must_be("Base claim");
     assert!(claim.base);
-    assert_eq!(claim.sites.len(), 2);
     let body = claim.body_owner.must_be("Base claim implementation");
+    let sites = declaration_sites(&valid, claim);
+    assert_eq!(sites.len(), 2);
+    assert!(sites.contains(&claim.declaration));
+    assert!(sites.contains(&body));
     assert_eq!(body.file, claim.declaration.file);
     assert_ne!(body.range, claim.declaration.range);
     assert_eq!(claim.signature_owner, claim.declaration);
@@ -1251,7 +1269,7 @@ fn base_can_fill_its_own_laws_but_an_importing_entry_cannot_fill_native_claims()
     assert!(
         valid
             .calls_to(SemanticTarget::Global(claim.id))
-            .any(|call| call.site.file == root)
+            .any(|call| call.site().file == root)
     );
     let illegal = open(
         &mut db,
@@ -1265,7 +1283,9 @@ fn base_can_fill_its_own_laws_but_an_importing_entry_cannot_fill_native_claims()
         .find(|entity| entity.name == "external_claim")
         .must_be("unfilled native claim");
     assert!(native.body_owner.is_none());
-    assert_eq!(native.sites.len(), 1);
+    let sites = declaration_sites(&invalid, native);
+    assert_eq!(sites.len(), 1);
+    assert_eq!(sites[0], native.declaration);
     assert!(
         invalid
             .declarations()
@@ -1314,7 +1334,10 @@ fn pinned_base_law_implementations_have_effective_bodies_and_indexed_calls() {
     assert_eq!(claim.declaration.range.start, law_start);
     assert_eq!(body.range.start, def_start);
     assert_eq!(body.file, claim.declaration.file);
-    assert_eq!(claim.sites.len(), 2);
+    let sites = declaration_sites(&view, claim);
+    assert_eq!(sites.len(), 2);
+    assert!(sites.contains(&claim.declaration));
+    assert!(sites.contains(&body));
     assert_eq!(claim.signature_owner, claim.declaration);
     let invalid: Vec<_> = view
         .issues()
@@ -1343,10 +1366,10 @@ fn pinned_base_law_implementations_have_effective_bodies_and_indexed_calls() {
     );
     assert!(
         view.calls_to(SemanticTarget::Global(claim.id))
-            .any(|call| call.site.file == root)
+            .any(|call| call.site().file == root)
     );
     assert!(view.calls_from(claim.id).any(|call| {
-        match call.target {
+        match call.target() {
             SemanticTarget::Global(id) => view
                 .entity(id)
                 .is_some_and(|entity| entity.name == "Word.add_comm"),

@@ -6,7 +6,7 @@ use std::{
 };
 
 use super::{
-    CapturedFile, Document, FileId, SemanticBindingId, SemanticCall, SemanticCapture,
+    CapturedFile, CompactMap, Document, FileId, SemanticBindingId, SemanticCapture,
     SemanticDeclaration, SemanticEntity, SemanticEntityId, SemanticFileContext, SemanticIssue,
     SemanticOccurrence, SemanticSite, SemanticTarget, SemanticView, SemanticViewInput,
 };
@@ -124,26 +124,25 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
             conflicting_paths,
         },
         documents: Vec::new(),
-        document_indices: HashMap::new(),
+        document_indices: CompactMap::new(),
         entities: Vec::new(),
-        by_uri: HashMap::new(),
-        targets_by_site: HashMap::new(),
-        declaration_indices: HashMap::new(),
-        physical_uris: HashMap::new(),
-        by_physical_uri: HashMap::new(),
-        names: HashMap::new(),
-        namespace_indices: HashMap::new(),
-        contexts: HashMap::new(),
+        by_uri: CompactMap::new(),
+        declaration_indices: CompactMap::new(),
+        physical_uris: CompactMap::new(),
+        by_physical_uri: CompactMap::new(),
+        names: CompactMap::new(),
+        namespace_indices: CompactMap::new(),
+        contexts: CompactMap::new(),
         declarations: Vec::new(),
         occurrences: Vec::new().into_boxed_slice(),
-        occurrence_indices: HashMap::new(),
-        reference_ranges: HashMap::new(),
-        calls: Vec::new(),
-        incoming: HashMap::new(),
-        outgoing: HashMap::new(),
-        bindings: HashMap::new(),
+        occurrence_indices: CompactMap::new(),
+        reference_ranges: CompactMap::new(),
+        call_indices: Vec::new().into_boxed_slice(),
+        incoming: CompactMap::new(),
+        outgoing: CompactMap::new(),
+        bindings: CompactMap::new(),
         issues: Vec::new(),
-        parameter_hints: HashMap::new(),
+        parameter_hints: CompactMap::new(),
     };
     view.issues.extend(
         view.capture
@@ -186,6 +185,16 @@ impl Builder {
     fn install_documents(&mut self) {
         // The view owns one Document per captured file; the capture keeps only
         // the shared URI and snapshot identity afterwards.
+        let document_count = self
+            .files
+            .files
+            .iter()
+            .filter(|file| file.document.is_some())
+            .count()
+            + usize::from(
+                self.view.capture.base.is_some() && self.view.capture.base_file.is_some(),
+            );
+        self.view.documents.reserve_exact(document_count);
         for file in &mut self.files.files {
             let Some(document) = &mut file.document else {
                 continue;
@@ -235,11 +244,10 @@ impl Builder {
                 }
             }
         }
-        self.view.entities.reserve(declarations);
-        self.view.declarations.reserve(declarations);
+        self.view.entities.reserve_exact(declarations);
+        self.view.declarations.reserve_exact(declarations);
         self.view.declaration_indices.reserve(declarations);
         self.view.bindings.reserve(bindings);
-        self.view.targets_by_site.reserve(declarations + bindings);
         self.names.reserve(declarations);
         self.top_levels.reserve(declarations);
         self.template_parameter_counts.reserve(declarations);
@@ -480,14 +488,10 @@ impl Builder {
         } else if let Some(id) = fill {
             let entity = &mut self.view.entities[id.index];
             entity.body_owner = Some(site);
-            let mut sites = entity.sites.to_vec();
-            sites.push(site);
-            entity.sites = sites.into_boxed_slice();
             SemanticTarget::Global(id)
         } else {
             self.register_fresh(context, declaration, name, site)
         };
-        self.view.targets_by_site.insert(site, target);
         self.view.declaration_indices.insert(
             (context.file, declaration.symbol),
             self.view.declarations.len(),
@@ -537,7 +541,6 @@ impl Builder {
             declaration: site,
             signature_owner: site,
             body_owner: (declaration.kind == DeclarationKind::Def).then_some(site),
-            sites: vec![site].into_boxed_slice(),
             kind: declaration.kind,
             base: context.base,
         });
@@ -567,9 +570,6 @@ impl Builder {
             };
             let site = Self::site(context, binding.name_range);
             self.view.bindings.insert(id, site);
-            self.view
-                .targets_by_site
-                .insert(site, SemanticTarget::Local(id));
         }
         let declarations = document.syntax.declaration_sites();
         let mut registration: Vec<_> = declarations.iter().collect();
@@ -655,8 +655,9 @@ impl Builder {
     }
 
     fn finish(mut self) -> SemanticView {
-        self.view.calls.reserve(self.call_count);
-        let mut occurrence_indices = std::mem::take(&mut self.view.occurrence_indices);
+        let mut call_indices = Vec::with_capacity(self.call_count);
+        let mut occurrence_indices =
+            std::mem::take(&mut self.view.occurrence_indices).into_building();
         let mut occurrences = Vec::with_capacity(self.pending.len());
         let mut reference_ranges: HashMap<SemanticTarget, Range<usize>> = HashMap::new();
         let mut incoming: HashMap<SemanticTarget, Vec<usize>> = HashMap::new();
@@ -700,14 +701,8 @@ impl Builder {
                     ReferenceRole::Call | ReferenceRole::Offload
                 )
             {
-                let index = self.view.calls.len();
-                self.view.calls.push(SemanticCall {
-                    site: occurrence.site,
-                    full_range: occurrence.full_range,
-                    caller: occurrence.enclosing,
-                    target: occurrence.target,
-                    role: occurrence.role,
-                });
+                let index = occurrences.len();
+                call_indices.push(index);
                 incoming.entry(occurrence.target).or_default().push(index);
                 if let Some(caller) = occurrence.enclosing {
                     outgoing.entry(caller).or_default().push(index);
@@ -720,25 +715,36 @@ impl Builder {
             occurrences.push(occurrence);
         }
         let source_indices = group_occurrences(&mut occurrences, &mut reference_ranges);
+        remap_occurrence_indices(
+            call_indices
+                .iter_mut()
+                .chain(incoming.values_mut().flatten())
+                .chain(outgoing.values_mut().flatten()),
+            &source_indices,
+        );
         for indices in occurrence_indices.values_mut() {
-            if !source_indices.is_empty() {
-                for index in &mut *indices {
-                    *index = source_indices[*index];
-                }
-            }
+            remap_occurrence_indices(indices.iter_mut(), &source_indices);
             indices.sort_by_key(|index| {
                 let occurrence = &occurrences[*index];
                 (occurrence.full_range.start, !occurrence.synthetic)
             });
         }
         self.view.occurrences = occurrences.into_boxed_slice();
-        self.view.occurrence_indices = compact_index(occurrence_indices);
-        self.view.reference_ranges = reference_ranges;
-        self.view.incoming = compact_index(incoming);
-        self.view.outgoing = compact_index(outgoing);
-        self.view.names = self.names;
-        self.view.namespace_indices = namespace_index(&self.view.entities);
-        self.view.parameter_hints = parameter_hint_index(&self.view);
+        self.view.occurrence_indices = compact_index(occurrence_indices).into();
+        self.view.reference_ranges = reference_ranges.into();
+        self.view.call_indices = call_indices.into_boxed_slice();
+        self.view.incoming = compact_index(incoming).into();
+        self.view.outgoing = compact_index(outgoing).into();
+        self.view.names = self.names.into();
+        self.view.namespace_indices = namespace_index(&self.view.entities).into();
+        self.view.parameter_hints = parameter_hint_index(&self.view).into();
+        self.view.document_indices = self.view.document_indices.freeze();
+        self.view.by_uri = self.view.by_uri.freeze();
+        self.view.physical_uris = self.view.physical_uris.freeze();
+        self.view.by_physical_uri = self.view.by_physical_uri.freeze();
+        self.view.declaration_indices = self.view.declaration_indices.freeze();
+        self.view.contexts = self.view.contexts.freeze();
+        self.view.bindings = self.view.bindings.freeze();
         self.view.capture.files = self
             .files
             .files
@@ -746,6 +752,17 @@ impl Builder {
             .map(CapturedFile::into_receipt)
             .collect();
         self.view
+    }
+}
+
+fn remap_occurrence_indices<'a>(
+    indices: impl Iterator<Item = &'a mut usize>,
+    source_indices: &[usize],
+) {
+    if !source_indices.is_empty() {
+        for index in indices {
+            *index = source_indices[*index];
+        }
     }
 }
 
@@ -818,7 +835,7 @@ fn compact_index<K, V>(mut index: HashMap<K, Vec<V>>) -> HashMap<K, Vec<V>> {
 
 fn parameter_hint_index(view: &SemanticView) -> HashMap<FileId, Box<[(usize, String)]>> {
     let mut indexed = HashMap::new();
-    for (&file, &document_index) in &view.document_indices {
+    for (&file, &document_index) in view.document_indices.iter() {
         let document = &view.documents[document_index];
         let mut hints = Vec::new();
         for call in document.syntax.calls() {

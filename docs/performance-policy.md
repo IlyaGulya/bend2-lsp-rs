@@ -74,6 +74,31 @@ generation/conflict facts and each entity's signature template arity; it borrows
 shared snapshots and preallocates qualified names rather than repeatedly
 searching declarations, hashing paths or cloning document metadata.
 
+The `semantic_views_cold.shared_dependency_{2,8,64}` cases capture all root
+inputs outside measurement, then construct and retain every entry view in the
+measured body. They reuse the existing 100-declaration shared-dependency fixture.
+Unlike a single large entry, this exposes repeated per-view table and record
+ownership. Existing workloads, result ownership, profiler geometry, event metrics
+and numeric limits remain unchanged. These additional cases are explicitly
+unpaired when a baseline does not contain them; they do not replace any required
+baseline comparison or establish admission on their own.
+
+Small immutable entry-view tables retain at most eight exact-size key/value
+records and use bounded equality lookup; larger tables keep the original
+randomized hash table. Construction still uses hash tables and freezes them once.
+Calls borrow the target-grouped occurrence arena, with incoming/outgoing indices
+translated during cold grouping rather than through a second warm indirection.
+Unused per-site target tables and duplicate entity-site lists are removed;
+declaration metadata, entry serials, generations and all prepared contexts remain.
+These storage choices do not permit rebuilding closed contexts on warm requests.
+Cold discovery may use at most two owned walkers, retaining tracing context,
+ignore/symlink rules, cancellation and final generation checks.
+Correctness smoke on 10,000 files checks every symbol/reference location, an
+unsaved dependency revision, root removal and clean process shutdown. This is
+not a latency or resident-memory measurement. Fresh source-bound hosted
+Callgrind and native comparisons remain required before claiming a performance
+improvement or admission; earlier C7/B1 results do not qualify changed source.
+
 A local Linux ARM64 diagnostic against `19ec528`, using pinned Valgrind 3.27.1
 and the unchanged 32 KiB I1/D1 and 8 MiB LL geometry, exercised all 96 analysis
 workloads once per revision with positive instruction counters throughout:

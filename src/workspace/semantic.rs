@@ -15,9 +15,12 @@ use crate::analysis::{DeclarationKind, DocumentSnapshot, ReferenceRole, SymbolId
 mod build;
 mod completion;
 mod imports;
+mod index;
 mod physical;
 mod rename;
 mod watch;
+
+use index::CompactMap;
 
 #[derive(Default)]
 struct PhysicalCapture<'a> {
@@ -102,7 +105,6 @@ pub struct SemanticEntity {
     pub declaration: SemanticSite,
     pub signature_owner: SemanticSite,
     pub body_owner: Option<SemanticSite>,
-    pub sites: Box<[SemanticSite]>,
     pub kind: DeclarationKind,
     pub base: bool,
 }
@@ -119,13 +121,39 @@ pub struct SemanticOccurrence {
     pub enclosing: Option<SemanticEntityId>,
 }
 
+/// A borrowed view of one indexed call. Every call fact already lives in the
+/// view's single occurrence arena, so this wrapper stays pointer-sized and
+/// carries no copied range, target or role payload.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct SemanticCall {
-    pub site: SemanticSite,
-    pub full_range: TextRange,
-    pub caller: Option<SemanticEntityId>,
-    pub target: SemanticTarget,
-    pub role: ReferenceRole,
+pub struct SemanticCall<'a> {
+    occurrence: &'a SemanticOccurrence,
+}
+
+impl SemanticCall<'_> {
+    #[must_use]
+    pub const fn site(self) -> SemanticSite {
+        self.occurrence.site
+    }
+
+    #[must_use]
+    pub const fn full_range(self) -> TextRange {
+        self.occurrence.full_range
+    }
+
+    #[must_use]
+    pub const fn caller(self) -> Option<SemanticEntityId> {
+        self.occurrence.enclosing
+    }
+
+    #[must_use]
+    pub const fn target(self) -> SemanticTarget {
+        self.occurrence.target
+    }
+
+    #[must_use]
+    pub const fn role(self) -> ReferenceRole {
+        self.occurrence.role
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -257,26 +285,26 @@ fn imports_base(document: &DocumentSnapshot) -> bool {
 pub struct SemanticView {
     capture: SemanticCapture,
     documents: Vec<Document>,
-    document_indices: HashMap<FileId, usize>,
-    by_uri: HashMap<Arc<url::Url>, FileId>,
-    physical_uris: HashMap<FileId, Arc<url::Url>>,
-    by_physical_uri: HashMap<Arc<url::Url>, FileId>,
-    targets_by_site: HashMap<SemanticSite, SemanticTarget>,
-    declaration_indices: HashMap<(FileId, SymbolId), usize>,
-    names: HashMap<String, SemanticTarget>,
+    document_indices: CompactMap<FileId, usize>,
+    by_uri: CompactMap<Arc<url::Url>, FileId>,
+    physical_uris: CompactMap<FileId, Arc<url::Url>>,
+    by_physical_uri: CompactMap<Arc<url::Url>, FileId>,
+    declaration_indices: CompactMap<(FileId, SymbolId), usize>,
+    names: CompactMap<String, SemanticTarget>,
     entities: Vec<SemanticEntity>,
-    namespace_indices: HashMap<String, Box<[usize]>>,
-    contexts: HashMap<FileId, SemanticFileContext>,
+    namespace_indices: CompactMap<String, Box<[usize]>>,
+    contexts: CompactMap<FileId, SemanticFileContext>,
     declarations: Vec<SemanticDeclaration>,
     // One target-grouped record arena; file traversal keeps only source-order indices.
     occurrences: Box<[SemanticOccurrence]>,
-    occurrence_indices: HashMap<FileId, Vec<usize>>,
-    reference_ranges: HashMap<SemanticTarget, Range<usize>>,
-    calls: Vec<SemanticCall>,
-    incoming: HashMap<SemanticTarget, Vec<usize>>,
-    outgoing: HashMap<SemanticEntityId, Vec<usize>>,
-    bindings: HashMap<SemanticBindingId, SemanticSite>,
-    parameter_hints: HashMap<FileId, Box<[(usize, String)]>>,
+    occurrence_indices: CompactMap<FileId, Vec<usize>>,
+    reference_ranges: CompactMap<SemanticTarget, Range<usize>>,
+    // Occurrence-arena indices of calls in their original build order.
+    call_indices: Box<[usize]>,
+    incoming: CompactMap<SemanticTarget, Vec<usize>>,
+    outgoing: CompactMap<SemanticEntityId, Vec<usize>>,
+    bindings: CompactMap<SemanticBindingId, SemanticSite>,
+    parameter_hints: CompactMap<FileId, Box<[(usize, String)]>>,
     issues: Vec<SemanticIssue>,
 }
 
@@ -343,11 +371,6 @@ impl SemanticView {
     pub fn declaration(&self, file: FileId, symbol: SymbolId) -> Option<&SemanticDeclaration> {
         self.declarations
             .get(*self.declaration_indices.get(&(file, symbol))?)
-    }
-
-    #[must_use]
-    pub fn target_for_site(&self, site: SemanticSite) -> Option<SemanticTarget> {
-        self.targets_by_site.get(&site).copied()
     }
 
     #[must_use]
@@ -429,25 +452,35 @@ impl SemanticView {
             .map_or(&[], |range| &self.occurrences[range.clone()])
     }
 
+    /// Borrow calls in their original build order without copying call facts.
     #[must_use]
-    pub fn calls(&self) -> &[SemanticCall] {
-        &self.calls
+    pub fn calls(
+        &self,
+    ) -> impl ExactSizeIterator<Item = SemanticCall<'_>> + DoubleEndedIterator + Clone + FusedIterator
+    {
+        self.call_indices.iter().map(|index| SemanticCall {
+            occurrence: &self.occurrences[*index],
+        })
     }
 
-    pub fn calls_to(&self, target: SemanticTarget) -> impl Iterator<Item = &SemanticCall> {
+    pub fn calls_to(&self, target: SemanticTarget) -> impl Iterator<Item = SemanticCall<'_>> {
         self.incoming
             .get(&target)
             .into_iter()
             .flat_map(|indices| indices.iter())
-            .map(|index| &self.calls[*index])
+            .map(|index| SemanticCall {
+                occurrence: &self.occurrences[*index],
+            })
     }
 
-    pub fn calls_from(&self, caller: SemanticEntityId) -> impl Iterator<Item = &SemanticCall> {
+    pub fn calls_from(&self, caller: SemanticEntityId) -> impl Iterator<Item = SemanticCall<'_>> {
         self.outgoing
             .get(&caller)
             .into_iter()
             .flat_map(|indices| indices.iter())
-            .map(|index| &self.calls[*index])
+            .map(|index| SemanticCall {
+                occurrence: &self.occurrences[*index],
+            })
     }
 
     #[must_use]

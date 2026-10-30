@@ -7,10 +7,11 @@ use crate::{
     analysis::{DocumentSnapshot, Revision},
     workspace::{FileId, PreparedImportTarget, canonical_source_path, normalize_path},
 };
+use ignore::{DirEntry, ParallelVisitor, ParallelVisitorBuilder, WalkState};
 use std::{
     collections::HashSet,
     path::{Component, Path, PathBuf},
-    sync::{Arc, atomic::Ordering},
+    sync::{Arc, atomic::Ordering, mpsc},
 };
 
 struct PreparedSource {
@@ -31,6 +32,82 @@ pub(super) fn walk_builder(roots: &[PathBuf]) -> ignore::WalkBuilder {
         .require_git(false)
         .filter_entry(|entry| entry.depth() == 0 || discoverable_name(entry.file_name()));
     builder
+}
+
+/// Two walkers overlap independent cold file reads and snapshot construction.
+/// Discovery competes with interactive requests for the same cores, so the
+/// bound stays fixed and small under the existing staging admission.
+const MAX_DISCOVERY_WORKERS: usize = 2;
+
+fn discovery_worker_count() -> usize {
+    std::thread::available_parallelism()
+        .map_or(1, std::num::NonZeroUsize::get)
+        .min(MAX_DISCOVERY_WORKERS)
+}
+
+/// Builds one visitor per walker thread. Each visitor owns its chunk of
+/// prepared sources and sends it once when the walker joins the thread, so the
+/// walk itself performs no shared-state locking.
+struct DiscoveryVisitorBuilder<'a> {
+    workspace: &'a WorkspaceService,
+    epoch: u64,
+    prepared: mpsc::Sender<Vec<PreparedSource>>,
+    span: tracing::Span,
+}
+
+impl<'s> ParallelVisitorBuilder<'s> for DiscoveryVisitorBuilder<'s> {
+    fn build(&mut self) -> Box<dyn ParallelVisitor + 's> {
+        Box::new(DiscoveryVisitor {
+            workspace: self.workspace,
+            epoch: self.epoch,
+            prepared: self.prepared.clone(),
+            sources: Vec::new(),
+            span: self.span.clone(),
+        })
+    }
+}
+
+struct DiscoveryVisitor<'a> {
+    workspace: &'a WorkspaceService,
+    epoch: u64,
+    prepared: mpsc::Sender<Vec<PreparedSource>>,
+    sources: Vec<PreparedSource>,
+    span: tracing::Span,
+}
+
+impl ParallelVisitor for DiscoveryVisitor<'_> {
+    fn visit(&mut self, entry: Result<DirEntry, ignore::Error>) -> WalkState {
+        // Quit is observed by every walker thread, so cancellation stops
+        // admission promptly; WalkParallel joins its owned threads before
+        // returning, and nothing is committed for a stale epoch.
+        if !self.workspace.discovery_is_current(self.epoch) {
+            return WalkState::Quit;
+        }
+        let Ok(entry) = entry else {
+            return WalkState::Continue;
+        };
+        if !entry.file_type().is_some_and(|kind| kind.is_file()) {
+            return WalkState::Continue;
+        }
+        let path = entry.path();
+        if path.extension().is_none_or(|extension| extension != "bend") {
+            return WalkState::Continue;
+        }
+        let _span = self.span.enter();
+        if let Some(source) = self.workspace.prepare_source(path) {
+            self.sources.push(source);
+        }
+        WalkState::Continue
+    }
+}
+
+impl Drop for DiscoveryVisitor<'_> {
+    fn drop(&mut self) {
+        if !self.sources.is_empty() {
+            // The receiver outlives the walk; drop happens before it returns.
+            let _ = self.prepared.send(std::mem::take(&mut self.sources));
+        }
+    }
 }
 
 fn discoverable_name(name: &std::ffi::OsStr) -> bool {
@@ -84,47 +161,68 @@ impl WorkspaceService {
         }));
     }
 
-    fn prepare_discovery(&self, epoch: u64, roots: &[PathBuf]) -> Vec<PreparedSource> {
-        let mut sources = Vec::new();
-        for entry in walk_builder(roots).build().flatten() {
-            if !self.discovery_is_current(epoch) {
-                break;
-            }
-            if !entry.file_type().is_some_and(|kind| kind.is_file()) {
-                continue;
-            }
-            let path = entry.path();
-            if path.extension().is_none_or(|extension| extension != "bend") {
-                continue;
-            }
-            let path = normalize_path(path);
-            if self.read().has_discovered_snapshot(&path) {
-                continue;
-            }
-            let disk_generation = {
-                let database = self.read();
-                database.file_id_by_path(&path).and_then(|id| {
-                    database
-                        .disk_generation(id)
-                        .map(|generation| (id, generation))
-                })
-            };
-            let Ok(text) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            let snapshot = Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text));
-            let physical_path = canonical_source_path(&path);
-            let imports =
-                crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
-            sources.push(PreparedSource {
-                path,
-                physical_path,
-                snapshot,
-                imports,
-                disk_generation,
-                accepted: false,
+    fn prepare_source(&self, path: &Path) -> Option<PreparedSource> {
+        let path = normalize_path(path);
+        // One read guard per source keeps the skip and generation capture
+        // consistent without adding a lock per token or per byte of source.
+        let (has_snapshot, disk_generation) = {
+            let database = self.read();
+            let disk_generation = database.file_id_by_path(&path).and_then(|id| {
+                database
+                    .disk_generation(id)
+                    .map(|generation| (id, generation))
             });
+            (database.has_discovered_snapshot(&path), disk_generation)
+        };
+        if has_snapshot {
+            return None;
         }
+        let text = std::fs::read_to_string(&path).ok()?;
+        let snapshot = Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text));
+        let physical_path = canonical_source_path(&path);
+        let imports = crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
+        Some(PreparedSource {
+            path,
+            physical_path,
+            snapshot,
+            imports,
+            disk_generation,
+            accepted: false,
+        })
+    }
+
+    fn prepare_discovery(&self, epoch: u64, roots: &[PathBuf]) -> Vec<PreparedSource> {
+        if !self.discovery_is_current(epoch) {
+            return Vec::new();
+        }
+        let (prepared, collected) = mpsc::channel();
+        let mut visitors = DiscoveryVisitorBuilder {
+            workspace: self,
+            epoch,
+            prepared,
+            span: tracing::Span::current(),
+        };
+        // The owning staging task already holds one permit. A second walker
+        // uses another existing permit, or stays serial when other work owns it.
+        let extra_worker = (discovery_worker_count() > 1)
+            .then(|| self.staging.clone().try_acquire_owned().ok())
+            .flatten();
+        let mut builder = walk_builder(roots);
+        builder.threads(1 + usize::from(extra_worker.is_some()));
+        // Blocks until every walker thread has been joined, so no discovery
+        // worker survives cancellation or a stale epoch.
+        builder.build_parallel().visit(&mut visitors);
+        drop(extra_worker);
+        drop(visitors);
+        let mut sources = Vec::new();
+        // Every visitor has been joined and dropped, so the channel is
+        // disconnected and this drains each worker's chunk exactly once.
+        for chunk in collected {
+            sources.extend(chunk);
+        }
+        // Parallel traversal order is scheduling dependent; commit in a stable
+        // path order so identities and diagnostics never depend on timing.
+        sources.sort_unstable_by(|left, right| left.path.cmp(&right.path));
         sources
     }
 
