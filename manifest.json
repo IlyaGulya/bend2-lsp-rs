@@ -123,12 +123,12 @@
         "workflowName": "performance"
       },
       {
-        "conclusion": "",
+        "conclusion": "success",
         "databaseId": 41028741664,
         "event": "pull_request",
         "headSha": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
         "name": "perf-diagnostics / pr-41028741664-1",
-        "status": "queued",
+        "status": "completed",
         "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41028741664",
         "workflowName": "perf-diagnostics"
       },
@@ -142,7 +142,7 @@
         "workflowName": "semantic-canonical-key"
       }
     ],
-    "remaining_outcomes": "Hostedqualityandcanonicalpassed. Nativepartial4/12verified. Remaininggatespending/unobserved; no passinferred.",
+    "remaining_outcomes": "Hostedquality/canonical/perfdiagnostics passed; native12/12 verified. Callgrind,20runsemanticgate,installer andcalibration remainunobserved/pending; noadmission.",
     "quality": {
       "source_revision": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
       "run_id": 41028741761,
@@ -216,7 +216,72 @@
         ]
       ],
       "status": "partial, Windows andmacOSx64notcollectedyet",
+      "admission": false,
+      "historical": "Earlier snapshot; superseded by complete12/12 data in native-complete-summary. Originalpartial retained for provenance."
+    },
+    "native": {
+      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "tree": "3800454aa2f88cf45d02d2f3223268ac498b0db1",
+      "tested_main_merge": "6f7ef1af9fef11ec166fe4683e7fd1d44252ef41",
+      "collected12of12": [
+        [
+          41028741757,
+          "aarch64-unknown-linux-gnu"
+        ],
+        [
+          41028741757,
+          "aarch64-apple-darwin"
+        ],
+        [
+          41028741757,
+          "x86_64-unknown-linux-gnu"
+        ],
+        [
+          41028941081,
+          "aarch64-unknown-linux-gnu"
+        ],
+        [
+          41028741757,
+          "aarch64-pc-windows-msvc"
+        ],
+        [
+          41028741757,
+          "x86_64-apple-darwin"
+        ],
+        [
+          41028741757,
+          "x86_64-pc-windows-msvc"
+        ],
+        [
+          41028941081,
+          "x86_64-apple-darwin"
+        ],
+        [
+          41028941081,
+          "x86_64-unknown-linux-gnu"
+        ],
+        [
+          41028941081,
+          "x86_64-pc-windows-msvc"
+        ],
+        [
+          41028941081,
+          "aarch64-pc-windows-msvc"
+        ],
+        [
+          41028941081,
+          "aarch64-apple-darwin"
+        ]
+      ],
+      "paired_rounds": 7,
+      "scope": "all6targets percomparison, full10kfilescoldreadyandRSS; allsourcebindings/selectedreportdigestsverified",
       "admission": false
+    },
+    "perf_diagnostics": {
+      "source": "87f26c8d263fd736cc19d6da2699ccb543e1714c",
+      "run_id": 41028741664,
+      "conclusion": "success",
+      "scope": "workflow/tooling gates; individualprofiles notseparatelyclaimedvalid here"
     }
   },
   "performance_admission": false,
@@ -403,6 +468,38 @@
       "bytes": 1399,
       "sha256": "1bedaf17f256ade92c836ceaad31c97913b1534e583cb1e6c0a8373462494038"
     },
+    "current87f/native-b1/aarch64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479686,
+      "sha256": "f0fd9cfc653938338d72f425e229778e7b5c16ebabd306021a796cc27316952b"
+    },
+    "current87f/native-b1/aarch64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 113314,
+      "sha256": "792908f6a2ad171b444c483aa9092ca09b90c8739e21c1806c5815e2e0eced2a"
+    },
+    "current87f/native-b1/aarch64-apple-darwin/latency-report.json": {
+      "bytes": 24698,
+      "sha256": "865bb234e7ff82870cd98e5fab91f3470bb3cfe1fe0de54b37d65e9ef8ad4391"
+    },
+    "current87f/native-b1/aarch64-apple-darwin/provenance.json": {
+      "bytes": 28820,
+      "sha256": "617c27a23d9cf92c9e8324be723457fddf6d013cd0d7b613f7779792e3d0dff0"
+    },
+    "current87f/native-b1/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479696,
+      "sha256": "20d86a7b6536181b6dd99cf8e0885282072db2cea784ac8f8b9e80e6afe1449b"
+    },
+    "current87f/native-b1/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 330171,
+      "sha256": "0c30a460fc31e47fdb7fc0eccf82d9484a097be2d44975877a099d75bfab49a2"
+    },
+    "current87f/native-b1/aarch64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24703,
+      "sha256": "8bb5314a14fe9ed8cecebb16c5525552963fc1d0b72005a979b512118545eff4"
+    },
+    "current87f/native-b1/aarch64-pc-windows-msvc/provenance.json": {
+      "bytes": 29515,
+      "sha256": "b1f1abf647092830884cb2314745da5d7fc0d87666dff0f04c7c9ac6aaa414ad"
+    },
     "current87f/native-b1/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
       "bytes": 479735,
       "sha256": "bd9f32ec2ba0b015afd8de2a985be9da36a615bc7c100659ad402a45514f6cd2"
@@ -418,6 +515,58 @@
     "current87f/native-b1/aarch64-unknown-linux-gnu/provenance.json": {
       "bytes": 31076,
       "sha256": "5dd4b62e27fa0435e5fbdca701b149b501c0d934dad7654e08dc007b92ee120f"
+    },
+    "current87f/native-b1/x86_64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479699,
+      "sha256": "06560b14e1433eba856301eb25b51967309ef25417da4062cce80301085fd381"
+    },
+    "current87f/native-b1/x86_64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 159758,
+      "sha256": "068965b3be7a5e12565598892ac06e4482a95d6c9cfe2490b2d761a3928b62e1"
+    },
+    "current87f/native-b1/x86_64-apple-darwin/latency-report.json": {
+      "bytes": 24736,
+      "sha256": "ab92399bd2a28e37d650322a5798c1a7b42e07fe8e4be28a97eb06a129c9786d"
+    },
+    "current87f/native-b1/x86_64-apple-darwin/provenance.json": {
+      "bytes": 28835,
+      "sha256": "45f230fdf74eebd61e63efa51bbc99837297a05c6b910fc671edafcd8cbd6712"
+    },
+    "current87f/native-b1/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479688,
+      "sha256": "0861e3e730276ce6123b0942ee980dce9b208b984f7fa5db4756d5b231d04125"
+    },
+    "current87f/native-b1/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 337286,
+      "sha256": "db937f8d550141b291b360ace222d29d0477f9a103cabcd93ff80f663cc49651"
+    },
+    "current87f/native-b1/x86_64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24715,
+      "sha256": "89a4b9cda995ef115f56557b2b788b3d66c12eeb181f4cfd2280315e05922008"
+    },
+    "current87f/native-b1/x86_64-pc-windows-msvc/provenance.json": {
+      "bytes": 29532,
+      "sha256": "35c0805df8d1469783a2867ad4d00c1b3a64175c7c650656bbec73525d5080ab"
+    },
+    "current87f/native-b1/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479739,
+      "sha256": "bece676416042c4aa0e355ac62dae86eeebea4a483d658e92328f608285cefc2"
+    },
+    "current87f/native-b1/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 344668,
+      "sha256": "e4521c1c4b71e9fd7b7fd1dd5ee14c53de0747e9cc6459ad37f002521e38dfd8"
+    },
+    "current87f/native-b1/x86_64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24647,
+      "sha256": "f0883194216b606c535e6f4a5303f64a0d36255f2c0ccd8abe3211c83a1c173d"
+    },
+    "current87f/native-b1/x86_64-unknown-linux-gnu/provenance.json": {
+      "bytes": 32092,
+      "sha256": "19df38bba90b96518f2bdc859f96c4b3a02ecbc46d90dd295e0b359be192670c"
+    },
+    "current87f/native-complete-summary.json.gz": {
+      "bytes": 188665,
+      "sha256": "8234d1068d16c0080be12a42a896317cd38ee040d082b8fae67fff66ecefad9d"
     },
     "current87f/native-main/aarch64-apple-darwin/artifact-manifest.json.gz": {
       "bytes": 479693,
@@ -435,6 +584,22 @@
       "bytes": 28797,
       "sha256": "297b69f4235d1856fb6b4a08badd01b705166587101e4db282244c30cfa35b42"
     },
+    "current87f/native-main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479695,
+      "sha256": "63f81214d875cc27ce9ee6fc240ee05f29a3dddb587025bd87d3d24dd7489368"
+    },
+    "current87f/native-main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 319988,
+      "sha256": "0fb675296074517fa7b4d417dd986d32c8ff5215f506e28f2ddf45dceade4e2b"
+    },
+    "current87f/native-main/aarch64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24614,
+      "sha256": "60c0332461436b652a627312c33b793c60727d6f7f24a70523ab348cee7fd019"
+    },
+    "current87f/native-main/aarch64-pc-windows-msvc/provenance.json": {
+      "bytes": 29492,
+      "sha256": "114ac2b63d0a05a8f9f703893bbafa8940d2032e4a9db7b39963052208d58dd8"
+    },
     "current87f/native-main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
       "bytes": 479737,
       "sha256": "5e5a8bec7331d9f6b7ad9c64c2128843f9caf1b77744c2633bbbdb4bac02b348"
@@ -450,6 +615,38 @@
     "current87f/native-main/aarch64-unknown-linux-gnu/provenance.json": {
       "bytes": 31053,
       "sha256": "9d2255fa0ac7b89ee3050732ea8179506954b54f82eb78c99b1fafa1a966f5c8"
+    },
+    "current87f/native-main/x86_64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479698,
+      "sha256": "651f014ee4252254d2a28cd7526d4b06216927d7f0846bb8c6272c4bcefd0431"
+    },
+    "current87f/native-main/x86_64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 168917,
+      "sha256": "60fc41d93b43e629b1e100b5f7106050dedf2e9045af78254985728129c7815a"
+    },
+    "current87f/native-main/x86_64-apple-darwin/latency-report.json": {
+      "bytes": 24717,
+      "sha256": "20c336cbd49c6b5dd24e9ccd76861798e1b03e1e7e62d7623257db2031a4eaa5"
+    },
+    "current87f/native-main/x86_64-apple-darwin/provenance.json": {
+      "bytes": 28812,
+      "sha256": "7dead2e55a213d3fc506ed3dc767c7115b31953fe64070a5106678a36508eb58"
+    },
+    "current87f/native-main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479687,
+      "sha256": "4309a58727a03a04f4961f0442c1f02b2b9f3d06fd65c638ae6303bc12a65e7a"
+    },
+    "current87f/native-main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 341907,
+      "sha256": "1226dab83ed4a2d729ebf41fdab52fca074f8c6458a31e0c47b67bdbbf910d9b"
+    },
+    "current87f/native-main/x86_64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24600,
+      "sha256": "af7ea966e10d574ac9f62530462ff22dce13c5692c7c46a88f6a2287ab3b9edf"
+    },
+    "current87f/native-main/x86_64-pc-windows-msvc/provenance.json": {
+      "bytes": 29509,
+      "sha256": "5c71163e1b08f72ea95f379b4324f4a0334e12510a7b61407458667929ed4802"
     },
     "current87f/native-main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
       "bytes": 479738,
@@ -470,6 +667,10 @@
     "current87f/native-partial-summary.json.gz": {
       "bytes": 65050,
       "sha256": "58cd37b29fbe7843fcfa82f755622a9b21e99ebeb39892ce19639f696038e528"
+    },
+    "current87f/perf-diagnostics-run.json": {
+      "bytes": 30115,
+      "sha256": "da4af5e3aa981c94388a69aeaa3948d59c2452926c98983ec79049913cc7d7f5"
     },
     "intermediate709/admission-measurement.json": {
       "bytes": 4650,
