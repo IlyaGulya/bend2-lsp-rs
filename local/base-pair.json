@@ -1,0 +1,818 @@
+{
+  "source_revision": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "base_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "candidate_parent": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "script_sha256": "8e9c4376d320c71e58991d4305d5685a9629195e475d1b062fcd91560da69265",
+  "exit_code": 0,
+  "performance_qualification": false,
+  "payload": {
+    "binary_sha256": "72f6a749b2639eb21e5d8ff21a943833ff25e6ffe85afb09d281c74ff2f05a15",
+    "compiler": "/tmp/semantic-review-native/bend/bin/bend",
+    "cases": [
+      {
+        "kind": "expression-constructor-with-base",
+        "initial_source": "import Base\ntype Shape is Data:\n  Pair{value: U32}\ndef make() -> Shape:\n  Pa\n",
+        "coexisting_name_kinds": [
+          3,
+          4
+        ],
+        "pair_completion": {
+          "label": "Pair",
+          "kind": 4,
+          "detail": "Pair{value: U32}",
+          "sortText": "01000000000010000000004Pair",
+          "filterText": "Pair",
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 4,
+                "character": 2
+              },
+              "end": {
+                "line": 4,
+                "character": 4
+              }
+            },
+            "newText": "Pair"
+          }
+        },
+        "unfinished_input_diagnostics": {
+          "diagnostics": [
+            {
+              "code": "compiler",
+              "message": "Error:\n- expected : a defined name\n- observed : Pa\nLocation: make\n4 | def make() -> Shape:\n5>|   Pa\n  |   ^^\n6 | ",
+              "range": {
+                "end": {
+                  "character": 4,
+                  "line": 4
+                },
+                "start": {
+                  "character": 2,
+                  "line": 4
+                }
+              },
+              "severity": 1,
+              "source": "bend2"
+            }
+          ],
+          "uri": "file:///tmp/review-p1-expression-constructor-with-base-twzb_th1/main.bend",
+          "version": 1
+        },
+        "manually_completed_constructor_call": {
+          "source": "import Base\ntype Shape is Data:\n  Pair{value: U32}\ndef make() -> Shape:\n  Pair{1}\n",
+          "diagnostics": {
+            "diagnostics": [],
+            "uri": "file:///tmp/review-p1-expression-constructor-with-base-twzb_th1/main.bend",
+            "version": 2
+          }
+        },
+        "exit": 0,
+        "direct_genuine_compiler_check": {
+          "returncode": 0,
+          "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "stderr": "bend 2.0.39 is available: run bend update\n"
+        },
+        "raw_messages": [
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "textDocumentSync": {
+                  "openClose": true,
+                  "change": 2,
+                  "save": {
+                    "includeText": false
+                  }
+                },
+                "selectionRangeProvider": true,
+                "hoverProvider": true,
+                "completionProvider": {
+                  "triggerCharacters": [
+                    ".",
+                    "/"
+                  ]
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ","
+                  ],
+                  "retriggerCharacters": [
+                    ")"
+                  ]
+                },
+                "definitionProvider": true,
+                "typeDefinitionProvider": true,
+                "referencesProvider": true,
+                "documentHighlightProvider": true,
+                "documentSymbolProvider": true,
+                "workspaceSymbolProvider": true,
+                "codeActionProvider": {
+                  "codeActionKinds": [
+                    "quickfix",
+                    "quickfix.bend-lint.dangerous",
+                    "source.organizeImports"
+                  ],
+                  "resolveProvider": false
+                },
+                "codeLensProvider": {
+                  "resolveProvider": false
+                },
+                "documentFormattingProvider": true,
+                "documentRangeFormattingProvider": true,
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n"
+                },
+                "renameProvider": {
+                  "prepareProvider": true
+                },
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "foldingRangeProvider": true,
+                "workspace": {
+                  "workspaceFolders": {
+                    "supported": true,
+                    "changeNotifications": true
+                  },
+                  "fileOperations": {
+                    "didRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    },
+                    "willRename": {
+                      "filters": [
+                        {
+                          "scheme": "file",
+                          "pattern": {
+                            "glob": "**/*"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "callHierarchyProvider": true,
+                "semanticTokensProvider": {
+                  "legend": {
+                    "tokenTypes": [
+                      "namespace",
+                      "type",
+                      "class",
+                      "enum",
+                      "interface",
+                      "struct",
+                      "typeParameter",
+                      "parameter",
+                      "variable",
+                      "property",
+                      "enumMember",
+                      "event",
+                      "function",
+                      "method",
+                      "macro",
+                      "keyword",
+                      "modifier",
+                      "comment",
+                      "string",
+                      "number",
+                      "operator"
+                    ],
+                    "tokenModifiers": []
+                  },
+                  "range": false,
+                  "full": true
+                },
+                "inlayHintProvider": true,
+                "experimental": {
+                  "bend2SemanticDocument": {
+                    "method": "bend2/semanticDocument",
+                    "schemaVersion": 1
+                  }
+                }
+              },
+              "serverInfo": {
+                "name": "bend2-lsp",
+                "version": "0.6.2"
+              }
+            },
+            "id": 1
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "window/logMessage",
+            "params": {
+              "message": "Unable to run Bend compiler 'bend': No such file or directory (os error 2). Install Bend or set bend2-lsp.compilerPath to its executable.",
+              "type": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": true,
+              "items": [
+                {
+                  "label": "Pair",
+                  "kind": 4,
+                  "detail": "Pair{value: U32}",
+                  "sortText": "01000000000010000000004Pair",
+                  "filterText": "Pair",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Pair"
+                  }
+                },
+                {
+                  "label": "Pair",
+                  "kind": 3,
+                  "detail": "def Pair(-A: Type, -B: Type) -> Type",
+                  "sortText": "01000000000010000000004Pair",
+                  "filterText": "Pair",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Pair"
+                  }
+                },
+                {
+                  "label": "Pair.fst",
+                  "kind": 3,
+                  "detail": "def Pair.fst(-A: Type, -B: Type, p: A & B) -> A",
+                  "sortText": "01000000000010000000008Pair.fst",
+                  "filterText": "Pair.fst",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Pair.fst"
+                  }
+                },
+                {
+                  "label": "Pair.snd",
+                  "kind": 3,
+                  "detail": "def Pair.snd(-A: Type, -B: Type, p: A & B) -> B",
+                  "sortText": "01000000000010000000008Pair.snd",
+                  "filterText": "Pair.snd",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Pair.snd"
+                  }
+                },
+                {
+                  "label": "TCP.accept",
+                  "kind": 3,
+                  "detail": "def TCP.accept(listener: Listener) ->\n  IO(Listener & Result<&1, &1, U32 & String, Socket>)",
+                  "sortText": "03000000000510000000010TCP.accept",
+                  "filterText": "TCP.accept",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "TCP.accept"
+                  }
+                },
+                {
+                  "label": "IO.pass",
+                  "kind": 3,
+                  "detail": "def IO.pass(-A: Type, r: Result<&1, &1, U32 & String, A>) -> IO(A)",
+                  "sortText": "03000000000610000000007IO.pass",
+                  "filterText": "IO.pass",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "IO.pass"
+                  }
+                },
+                {
+                  "label": "Map.has",
+                  "kind": 3,
+                  "detail": "def Map.has(-a: Quant, -V: Kind(a), m: Map<a, V>, key: String) -> Map<a, V> & Bool",
+                  "sortText": "03000000000610000000007Map.has",
+                  "filterText": "Map.has",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.has"
+                  }
+                },
+                {
+                  "label": "App.draw",
+                  "kind": 3,
+                  "detail": "def App.draw(\n  -S: Type, window: Window, drawn: S & Image,\n  tick: List<Event> -> S -> IO(Maybe<S>), rest: Window -> S -> IO(Unit)\n) -> IO(Unit)",
+                  "sortText": "03000000000610000000008App.draw",
+                  "filterText": "App.draw",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "App.draw"
+                  }
+                },
+                {
+                  "label": "App.play",
+                  "kind": 3,
+                  "detail": "def App.play(~S: Type, ~app: App<S>, frames: List<List<Event>>, state: S) ->\n  IO(Maybe<S>)",
+                  "sortText": "03000000000610000000008App.play",
+                  "filterText": "App.play",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "App.play"
+                  }
+                },
+                {
+                  "label": "Map.has.go",
+                  "kind": 3,
+                  "detail": "def Map.has.go(-a: Quant, -V: Kind(a), node: Map<a, V>, kb: String & Bool) ->\n  Map<a, V> & Bool",
+                  "sortText": "03000000000610000000010Map.has.go",
+                  "filterText": "Map.has.go",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.has.go"
+                  }
+                },
+                {
+                  "label": "Map.values",
+                  "kind": 3,
+                  "detail": "def Map.values(a, -V: Kind(a), m: Map<a, V>) -> List<a, V>",
+                  "sortText": "03000000000610000000010Map.values",
+                  "filterText": "Map.values",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.values"
+                  }
+                },
+                {
+                  "label": "Map.has.leaf",
+                  "kind": 3,
+                  "detail": "def Map.has.leaf(a, -V: Kind(a), v: V, r: (String & String) & Cmp) ->\n  Map<a, V> & Bool",
+                  "sortText": "03000000000610000000012Map.has.leaf",
+                  "filterText": "Map.has.leaf",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.has.leaf"
+                  }
+                },
+                {
+                  "label": "Map.values.go",
+                  "kind": 3,
+                  "detail": "def Map.values.go(a, -V: Kind(a), m: Map<a, V>, acc: List<a, V>) -> List<a, V>",
+                  "sortText": "03000000000610000000013Map.values.go",
+                  "filterText": "Map.values.go",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.values.go"
+                  }
+                },
+                {
+                  "label": "Empty.absurd",
+                  "kind": 3,
+                  "detail": "def Empty.absurd(-A: Type, e: Empty) -> A",
+                  "sortText": "03000000000710000000012Empty.absurd",
+                  "filterText": "Empty.absurd",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Empty.absurd"
+                  }
+                },
+                {
+                  "label": "IO.spawn",
+                  "kind": 3,
+                  "detail": "def IO.spawn(-A: Type, act: IO(A)) -> IO(Unit)",
+                  "sortText": "03000000000810000000008IO.spawn",
+                  "filterText": "IO.spawn",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "IO.spawn"
+                  }
+                },
+                {
+                  "label": "Map.bit.at",
+                  "kind": 3,
+                  "detail": "def Map.bit.at(key: String, co: Nat & Nat) -> String & Bool",
+                  "sortText": "03000000000910000000010Map.bit.at",
+                  "filterText": "Map.bit.at",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.bit.at"
+                  }
+                },
+                {
+                  "label": "TCP.try_accept",
+                  "kind": 3,
+                  "detail": "def TCP.try_accept(listener: Listener, ms: U32) ->\n  IO(Listener & Poll<&1, &1, Result<&1, &1, U32 & String, Socket>, Unit>)",
+                  "sortText": "03000000000910000000014TCP.try_accept",
+                  "filterText": "TCP.try_accept",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "TCP.try_accept"
+                  }
+                },
+                {
+                  "label": "Map.get.leaf",
+                  "kind": 3,
+                  "detail": "def Map.get.leaf(-V: Data, d: V, +v: V, r: (String & String) & Cmp) ->\n  Map<&2, V> & V",
+                  "sortText": "03000000001110000000012Map.get.leaf",
+                  "filterText": "Map.get.leaf",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.get.leaf"
+                  }
+                },
+                {
+                  "label": "Map.pop.leaf",
+                  "kind": 3,
+                  "detail": "def Map.pop.leaf(a, -V: Kind(a), v: V, r: (String & String) & Cmp) ->\n  Map<a, V> & Maybe<a, V>",
+                  "sortText": "03000000001110000000012Map.pop.leaf",
+                  "filterText": "Map.pop.leaf",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Map.pop.leaf"
+                  }
+                },
+                {
+                  "label": "Array.map.at",
+                  "kind": 3,
+                  "detail": "def Array.map.at(\n  ~T: Data, ~U: Data, ~f: T -> U, v: U, an: Array<T> & U32\n) -> Array<U>",
+                  "sortText": "03000000001710000000012Array.map.at",
+                  "filterText": "Array.map.at",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Array.map.at"
+                  }
+                },
+                {
+                  "label": "List.replicate",
+                  "kind": 3,
+                  "detail": "def List.replicate(-A: Data, n: Nat, +x: A) -> List<&2, A>",
+                  "sortText": "03000000001710000000014List.replicate",
+                  "filterText": "List.replicate",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "List.replicate"
+                  }
+                },
+                {
+                  "label": "Word.shr.pad",
+                  "kind": 3,
+                  "detail": "def Word.shr.pad(n: Nat, w: Word(n)) -> Word(1n+n)",
+                  "sortText": "03000000001810000000012Word.shr.pad",
+                  "filterText": "Word.shr.pad",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Word.shr.pad"
+                  }
+                },
+                {
+                  "label": "Char.is_space",
+                  "kind": 3,
+                  "detail": "def Char.is_space(c: Char) -> Bool",
+                  "sortText": "03000000001810000000013Char.is_space",
+                  "filterText": "Char.is_space",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Char.is_space"
+                  }
+                },
+                {
+                  "label": "Array.swap.at",
+                  "kind": 3,
+                  "detail": "def Array.swap.at(-T: Type, i: U32, v: T, an: Array<T> & U32) -> Array<T> & T",
+                  "sortText": "03000000001910000000013Array.swap.at",
+                  "filterText": "Array.swap.at",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Array.swap.at"
+                  }
+                },
+                {
+                  "label": "String.repeat",
+                  "kind": 3,
+                  "detail": "def String.repeat(+s: String, n: Nat) -> String",
+                  "sortText": "03000000001910000000013String.repeat",
+                  "filterText": "String.repeat",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "String.repeat"
+                  }
+                },
+                {
+                  "label": "List.sort.pass",
+                  "kind": 3,
+                  "detail": "def List.sort.pass(\n  ~A: Data, ~le: A -> A -> Bool, +n: Nat, runs: List<&2, List<&2, A>>\n) -> List<&2, List<&2, A>>",
+                  "sortText": "03000000002010000000014List.sort.pass",
+                  "filterText": "List.sort.pass",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "List.sort.pass"
+                  }
+                },
+                {
+                  "label": "Char.is_alpha",
+                  "kind": 3,
+                  "detail": "def Char.is_alpha(+c: Char) -> Bool",
+                  "sortText": "03000000002110000000013Char.is_alpha",
+                  "filterText": "Char.is_alpha",
+                  "textEdit": {
+                    "range": {
+                      "start": {
+                        "line": 4,
+                        "character": 2
+                      },
+                      "end": {
+                        "line": 4,
+                        "character": 4
+                      }
+                    },
+                    "newText": "Char.is_alpha"
+                  }
+                }
+              ]
+            },
+            "id": 2
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [
+                {
+                  "code": "compiler",
+                  "message": "Error:\n- expected : a defined name\n- observed : Pa\nLocation: make\n4 | def make() -> Shape:\n5>|   Pa\n  |   ^^\n6 | ",
+                  "range": {
+                    "end": {
+                      "character": 4,
+                      "line": 4
+                    },
+                    "start": {
+                      "character": 2,
+                      "line": 4
+                    }
+                  },
+                  "severity": 1,
+                  "source": "bend2"
+                }
+              ],
+              "uri": "file:///tmp/review-p1-expression-constructor-with-base-twzb_th1/main.bend",
+              "version": 1
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [],
+              "uri": "file:///tmp/review-p1-expression-constructor-with-base-twzb_th1/main.bend",
+              "version": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+              "diagnostics": [],
+              "uri": "file:///tmp/review-p1-expression-constructor-with-base-twzb_th1/main.bend",
+              "version": 2
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": 3
+          }
+        ],
+        "stderr": ""
+      }
+    ]
+  }
+}

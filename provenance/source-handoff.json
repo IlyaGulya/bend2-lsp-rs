@@ -1,0 +1,9 @@
+{
+  "candidate": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "parent": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "bundle_sha256": "1a22afc96510db8dc42b521744752ee81711765fc9b06dda55e80cbc7b393809",
+  "docker_snapshot": "/tmp/semantic-approved-126952f6d048",
+  "target_dir": "/workspace/target/semantic-approved-126952f6d048",
+  "prior_quality_failure_source": "7468cc519a5dae14c23a971aee5d1734b791da8c",
+  "fix": "Extract shared cold occurrence-index permutation; preserve all three call projections and per-file ordering; no lint exception"
+}

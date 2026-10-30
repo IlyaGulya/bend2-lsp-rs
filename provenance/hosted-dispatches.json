@@ -1,0 +1,49 @@
+[
+  {
+    "workflow": "performance.yml",
+    "ref": "feat/semantic-conformance-main",
+    "inputs": {
+      "base_sha": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+      "request_performance_exception": "false"
+    },
+    "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41011094428\n",
+    "stderr": ""
+  },
+  {
+    "workflow": "perf-diagnostics.yml",
+    "ref": "main",
+    "inputs": {
+      "request_id": "pr62-70992a4-compare-119641d3",
+      "mode": "compare",
+      "native_kind": "cpu",
+      "base_sha": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+      "candidate_sha": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+      "scenario": "discovery-10000",
+      "target": "all"
+    },
+    "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41011097804\n",
+    "stderr": ""
+  },
+  {
+    "workflow": "perf-diagnostics.yml",
+    "ref": "main",
+    "inputs": {
+      "request_id": "pr62-70992a4-heap-089770e2",
+      "mode": "heap",
+      "native_kind": "cpu",
+      "base_sha": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+      "candidate_sha": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+      "scenario": "discovery-10000",
+      "target": "x86_64-unknown-linux-gnu"
+    },
+    "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41011100803\n",
+    "stderr": ""
+  },
+  {
+    "workflow": "semantic-canonical-key.yml",
+    "ref": "feat/semantic-conformance-main",
+    "inputs": {},
+    "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41011103776\n",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "source_revision": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "base_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "candidate_parent": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "script_sha256": "13134bd1d67001d71bec99ddf6a9dc572cd2d763d910196d34168de4747373bf",
+  "exit_code": 0,
+  "performance_qualification": false,
+  "payload": {
+    "scope": "single actual LSP correctness scenario; no local latency/RSS qualification",
+    "files": 10000,
+    "cold_symbols": {
+      "count": 10000,
+      "exact_locations": true
+    },
+    "cold_references": {
+      "count": 10000,
+      "exact_locations": true
+    },
+    "after_unsaved_dependency_revision": {
+      "version": 2,
+      "count": 10000,
+      "exact_locations": true
+    },
+    "root_removal": {
+      "symbols": 0
+    },
+    "exit": 0,
+    "wire_sha256": "825914108e099e5db2d8e7beaed0a42b13d2b483f9238f52f0c678b85e10ffdd"
+  },
+  "prior_harness_attempt": "Failed before process spawn because owned empty-path/empty-home from previous smoke remained; preserved stderr and removed only those owned isolated directories before retry.",
+  "binary_sha256": "72f6a749b2639eb21e5d8ff21a943833ff25e6ffe85afb09d281c74ff2f05a15"
+}

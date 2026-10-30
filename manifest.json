@@ -1,0 +1,189 @@
+{
+  "schema": 1,
+  "source_revision": "70992a458e8ef58cdccfb03eaf23b2941d4ebc59",
+  "candidate_parent": "b1a2d4624d5d6b2ef5e0a451abd93ecc5237c009",
+  "frozen_main_baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "status": {
+    "local_quality": "passed",
+    "local_real_process_smokes": "passed",
+    "hosted_canonical_key": "passed41011103776",
+    "other_hosted_correctness": "pending",
+    "hosted_numeric_admission": "pending",
+    "performance_improvement": "not yet established",
+    "draft": true,
+    "exception_requested": false
+  },
+  "pins": {
+    "Bend": "2.0.37",
+    "Bun": "1.4.0",
+    "Rust": "1.98.1"
+  },
+  "scope": {
+    "local": "Persistent Linux ARM64 Rust service, default debug LSP; correctness only. No local latency/RSS qualification. 489 passed / 2 existing nextest skips; all other quality stages passed.",
+    "before": "B1 PR measurement preserves its tested merge SHA in original numeric evidence. These before results are not new-source admission.",
+    "heap": "Whole-scenario DHAT global peak; not clean cold RSS or latency. Original raw DHAT is retained compressed without alteration.",
+    "windows_cpu": "Validated target PID712 /5188 sampled CPU records in original WPR capture. No function or cold-phase causal attribution established. Full ETL/PDB remains in original hosted artifact; this bundle retains original profile identity and validation.",
+    "attempts": "Unpublished7468cc5 Clippy103/100 failure and source bundle;709 10k harness stopped before process spawn on reused owned isolation directories, then passed after removing only those directories. No product failure suppressed.",
+    "reviews": "Read-only static review of7468cc5;709 only extracts duplicated cold index remapping. Not a performance proof or GitHub approval.",
+    "preserved": "No strict; real compiler errors and editor recovery; no semantic edge for rejected editor import; all entry/generation/provenance ownership and benchmark metrics/fixtures/deadlines remain unchanged."
+  },
+  "hosted_runs": {
+    "41011103776": "semantic-canonical-key.yml/workflow_dispatch",
+    "41011101522": "performance/pull_request",
+    "41011101470": "quality/pull_request",
+    "41011101477": "semantic-fuzz/pull_request",
+    "41011101549": "perf-diagnostics/pull_request",
+    "41011101457": "performance-calibration/pull_request",
+    "41011101484": "installer-validation/pull_request",
+    "41011094428": "performance.yml/workflow_dispatch",
+    "41011097804": "perf-diagnostics.yml/compare",
+    "41011100803": "perf-diagnostics.yml/heap"
+  },
+  "original_full_artifacts": {
+    "b1_callgrind": {
+      "run": 40955628867,
+      "artifact": 12938867008,
+      "archive_sha256": "1ae940834117ecf98ea19c045abed114741c83fd7fd112c5624ce59329d8a2d4"
+    },
+    "b1_heap": {
+      "run": 41003760128,
+      "artifact": 12954971211
+    },
+    "b1_windows_cpu": {
+      "run": 41003762954,
+      "artifact": 12955676503
+    }
+  },
+  "files": [
+    {
+      "path": "attempts/discovery-reused-isolation.stderr.log",
+      "bytes": 407,
+      "sha256": "8124310f9b2f89ca28dc6ceaf2083d917273f6456a2aee78770a5d773da6d181"
+    },
+    {
+      "path": "attempts/quality-7468cc5.log",
+      "bytes": 33129,
+      "sha256": "e75a86dd8b742eac48c2476a26d965c899998ab91b5f1ab0d57360deeee96cdb"
+    },
+    {
+      "path": "attempts/source-7468cc5.bundle",
+      "bytes": 1857518,
+      "sha256": "26b044cf96c863e48a72d33838c8d210e4a3ff81fd19bd4077ba5805948d003e"
+    },
+    {
+      "path": "before/callgrind-admission-measurement.json",
+      "bytes": 4246,
+      "sha256": "0d882ac0b16bcfd2bbe1bf9256b8b1a6c65d2beccb3ffe0b7061536a1dda7433"
+    },
+    {
+      "path": "before/callgrind-policy.json.gz",
+      "bytes": 950636,
+      "sha256": "4b240a5a65a51375af009e198202cb20ae54492d3549102bc49b9795f90d28a4"
+    },
+    {
+      "path": "before/callgrind-policy.md",
+      "bytes": 17659,
+      "sha256": "54edecbb4c82952190263b4c597f316d1d06275208fb086a35bad7c12d16de56"
+    },
+    {
+      "path": "before/heap-attribution.json",
+      "bytes": 211248,
+      "sha256": "811234a54f330fa9e1e5e23933e8200ba5ad2a9191c1e4724ec091dc5e8065a7"
+    },
+    {
+      "path": "before/heap-dhat.json.gz",
+      "bytes": 260507,
+      "sha256": "f68f80cfd62f78c1bcb14a4746b1fdd19d4e8abe53d03f87f23917b77aecd25a"
+    },
+    {
+      "path": "before/heap-profile-manifest.json",
+      "bytes": 1656963,
+      "sha256": "583d1578f831e35ec0e3073086c6537502f28eb35d72faaf41a39f878135536d"
+    },
+    {
+      "path": "before/native-cold-summary.json",
+      "bytes": 12165,
+      "sha256": "946d5f8816ddfb7ea8f16cadcc1c03459da232cb1b831c6b2cbf3d94ac60ea2c"
+    },
+    {
+      "path": "before/windows-cpu-profile-manifest.json",
+      "bytes": 1694351,
+      "sha256": "cef1d114a238e41a7588b19a42acc759ec1cb9678a307f734ed6d73828640b98"
+    },
+    {
+      "path": "before/windows-cpu-validation.json",
+      "bytes": 267,
+      "sha256": "45a22eb22dc32c5e30d6a7d2dc62f8aac8b1191e24954ce2c1eceb587a17eb08"
+    },
+    {
+      "path": "local/base-pair.json",
+      "bytes": 29052,
+      "sha256": "e4af629c2016655fd6ade6db1324573f5fddb527f248e57968ab3bcb41cb5c86"
+    },
+    {
+      "path": "local/discovery-10000.json",
+      "bytes": 1199,
+      "sha256": "4af63d0c72d518d1b18622d7585d88c3fb3ad752f573a4e94d42953efdfdd7a8"
+    },
+    {
+      "path": "local/discovery-wire.json.gz",
+      "bytes": 131574,
+      "sha256": "9ab92002f5649743f091ecd8c5f18ea3704835ef9a3a0f768b18759f2a51590d"
+    },
+    {
+      "path": "local/hierarchy.json",
+      "bytes": 56449,
+      "sha256": "bcf51c202d133043df6a11727ac38db42be1a5cfcc33e8f0ac0da7e81d3e7e21"
+    },
+    {
+      "path": "local/p1.json",
+      "bytes": 34562,
+      "sha256": "cc89c9261d5b56bca3a785a28412f67d14f8ed0a6bbb07c8b3ac3144e9d009c7"
+    },
+    {
+      "path": "local/quality.log",
+      "bytes": 107740,
+      "sha256": "f2e7b2126ab50502b2e5d2e736867cf2bda1749f3f946dab70c8a59cdd4bcb20"
+    },
+    {
+      "path": "local/recovery.json",
+      "bytes": 21563,
+      "sha256": "12ba33d29037721030b1308a1bbd7e400edc838edc66572eaccb75d0cd008170"
+    },
+    {
+      "path": "local/source-proof.json",
+      "bytes": 1525,
+      "sha256": "eeb5804a37bbf5b07d03d666fa79f6b930ca18e538466b1957fc347bf3f3cc85"
+    },
+    {
+      "path": "provenance/fresh-pr-runs.json",
+      "bytes": 2693,
+      "sha256": "54a00b7db208e88639686c2b86849f3221c8940489ed3773842b3e26d222f611"
+    },
+    {
+      "path": "provenance/hosted-dispatches.json",
+      "bytes": 1539,
+      "sha256": "473cd2193eeb8433135e234cc98b6159ef42624ed59efa0e315afbf660eb9d47"
+    },
+    {
+      "path": "provenance/source-handoff.json",
+      "bytes": 550,
+      "sha256": "8674049bf8c93192376217fa0a138d499740a46421801bdd1b643b7b0b98fee7"
+    },
+    {
+      "path": "provenance/source-publication.json",
+      "bytes": 684,
+      "sha256": "3a4361d9e1bd1d8f87d0291996ee4a8a93ee67fb523f38001473e21e138b4805"
+    },
+    {
+      "path": "reviews/ReviewCompactIndexes-7468cc5.json",
+      "bytes": 2982,
+      "sha256": "69f52439c4bb9ca754c4eebef962429b4e3ad0417b416359c1c9a4015e914242"
+    },
+    {
+      "path": "reviews/ReviewDiscoveryOwnership-7468cc5.json",
+      "bytes": 4992,
+      "sha256": "1541e9bec6129ac338d2e1d68c3f09a02f6d772110024f05caf545a96258cd34"
+    }
+  ]
+}

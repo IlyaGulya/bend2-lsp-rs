@@ -1,0 +1,8 @@
+{
+  "allocation_records": 0,
+  "cpu_sample_records": 5188,
+  "decoder": "ETW XML; kernel event-class provider/opcode identities",
+  "measurement": "Decoded ETW provider/opcode records, not RSS or clean latency",
+  "target_pid": 712,
+  "total_allocated_bytes": null
+}
