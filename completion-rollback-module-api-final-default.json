@@ -1,0 +1,93 @@
+{
+  "source_parent": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_scope": "Uncommitted direct-loop rollback; source file hashes bound; no performance acceptance.",
+  "source_files": {
+    "src/analysis.rs": "69e402d6819ac72f8f5ac8b698bbc14aa4db300f3f9f0e89c6fae30ba32b66fc",
+    "src/workspace/semantic.rs": "e4b41765d11a3af1a6ea89d4ee6544c7530218f07d59492374c0b75f09e43061",
+    "src/workspace/semantic/build.rs": "76fe34d266f499c9bd734cae3f9716b46d71ebb839ee06b6352c56646a4cff82",
+    "src/workspace/semantic/rename.rs": "003ae1351ef61546af1fcaeda1fa9f590db3dde4eef8db41401ab5775d7357d5",
+    "scripts/semantic_gate.py": "4cc11b3b4ac44e03e3c0ee56efc160b249652aaf699adffa6e5f4af27ff29c25",
+    "scripts/test_semantic_gate.py": "eea72721a0e2556586f062198015ccd713728f3b1889146a7c14eac83a2caf01",
+    ".github/workflows/performance-calibration.yml": "07501096ce60eeaf1d65c042cffcf5a124172613fa377399190b9ab1625f7fd5",
+    "CHANGELOG.md": "9b325d78f286b038589c3469cd90840aaefaf69faaa43c15e006f887cf77aabf",
+    "docs/performance-policy.md": "a3ab4754599411a0c5d9b5690ba2c9800b73f55239ad6afd795c81707560fc71",
+    "docs/semantic-conformance.md": "a9e0d159e51c6ece91eb7e55bb9386421b6705d47134ca45786a06e2d3f30f5f"
+  },
+  "driver_sha256": "f5bf243eb21269bd435057712e5dfae2f993dadcdb1a9390e4ccadb505ca038f",
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "bend2-lsp-rs",
+        "cp",
+        "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/module-completion-api-smoke.rs",
+        "rust:/tmp/semantic-final-module-api.rs"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": " bend2-lsp-rs-rust-1 Copying /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/module-completion-api-smoke.rs to bend2-lsp-rs-rust-1:/tmp/semantic-final-module-api.rs\n bend2-lsp-rs-rust-1 Copied /Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/module-completion-api-smoke.rs to bend2-lsp-rs-rust-1:/tmp/semantic-final-module-api.rs\n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "bend2-lsp-rs",
+        "exec",
+        "-T",
+        "-w",
+        "/tmp/semantic-approved-126952f6d048",
+        "rust",
+        "rustc",
+        "--edition=2024",
+        "/tmp/semantic-final-module-api.rs",
+        "--extern",
+        "bend2_lsp=/workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib",
+        "-L",
+        "dependency=/workspace/target/semantic-approved-126952f6d048/debug/deps",
+        "-o",
+        "/tmp/semantic-final-module-api"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "bend2-lsp-rs",
+        "exec",
+        "-T",
+        "rust",
+        "/tmp/semantic-final-module-api"
+      ],
+      "returncode": 0,
+      "stdout": "module completion API: 10 behavioral scenarios passed; ordered 32-result growth, late first match, both constructor-presence paths, ASCII case folding, Unicode no-match and empty input\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "bend2-lsp-rs",
+        "exec",
+        "-T",
+        "rust",
+        "sha256sum",
+        "/workspace/target/semantic-approved-126952f6d048/debug/bend2-lsp",
+        "/workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib",
+        "/tmp/semantic-final-module-api"
+      ],
+      "returncode": 0,
+      "stdout": "26499e1281fc9e12f8643a9ceeff418df7512028133a922ff063442439a7c159  /workspace/target/semantic-approved-126952f6d048/debug/bend2-lsp\n0302aaf0fc6d6b2c9e6b84e34d3f9be7a44eb8177f119a0984b12f291b1f5e75  /workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib\n0ec1de2576d3e3258b30bf4fb662dfe381ea46308fa2577ced8622211365a640  /tmp/semantic-final-module-api\n",
+      "stderr": ""
+    }
+  ],
+  "new_behavioral_smoke_scenarios": 10,
+  "performance_measurement": false
+}

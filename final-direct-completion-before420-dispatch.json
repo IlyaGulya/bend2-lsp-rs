@@ -1,0 +1,24 @@
+{
+  "command": [
+    "gh",
+    "workflow",
+    "run",
+    "performance.yml",
+    "--repo",
+    "IlyaGulya/bend2-lsp-rs",
+    "--ref",
+    "feat/semantic-conformance-main",
+    "-f",
+    "base_sha=420a77c5da3ae808204b506d6d78bb955cd1113e",
+    "-f",
+    "request_performance_exception=false"
+  ],
+  "returncode": 0,
+  "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413\n",
+  "stderr": "",
+  "source_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "baseline": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "request_performance_exception": false,
+  "manual_dispatch_count_for_final_batch": 1
+}

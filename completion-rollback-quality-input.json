@@ -1,0 +1,27 @@
+{
+  "source_parent": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_scope": "Uncommitted bounded completion rollback; no source push yet.",
+  "source_hashes": {
+    "src/analysis.rs": "69e402d6819ac72f8f5ac8b698bbc14aa4db300f3f9f0e89c6fae30ba32b66fc",
+    "CHANGELOG.md": "6d3382a6293319d9f3468edc8bb28c778b1658f5054d5c0f9b097df2b547cc8b",
+    "docs/performance-policy.md": "465cb0207c31fc1d890a243207749eb9705c96227d6402c19d69f9de44a9ee1c"
+  },
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "bend2-lsp-rs",
+    "exec",
+    "-T",
+    "-w",
+    "/tmp/semantic-approved-126952f6d048",
+    "rust",
+    "env",
+    "CARGO_TARGET_DIR=/workspace/target/semantic-approved-126952f6d048",
+    "CARGO_INCREMENTAL=0",
+    "./scripts/quality"
+  ],
+  "default_build_exit_code": 0,
+  "six_actual_stdio_smokes": "passed",
+  "performance_admission": false
+}

@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "kind": "frozen-final-semantic-review-qualification",
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "source_parent": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "frozen_main": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "pr": 62,
+  "draft": true,
+  "verified_PR_merge": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+  "observed_merge_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "merge_tree_identity_verified": true,
+  "source_push_count": 1,
+  "manual_before420_dispatch_count": 1,
+  "local_qualification": {
+    "source_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+    "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+    "source_parent": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+    "scope": "Owner selected one final source and its CI; no more optimization variants; remaining exact-source costs require owner decision.",
+    "changed_paths": [
+      "src/analysis.rs",
+      "CHANGELOG.md",
+      "docs/performance-policy.md"
+    ],
+    "source_file_hashes": {
+      "src/analysis.rs": "69e402d6819ac72f8f5ac8b698bbc14aa4db300f3f9f0e89c6fae30ba32b66fc",
+      "src/workspace/semantic.rs": "e4b41765d11a3af1a6ea89d4ee6544c7530218f07d59492374c0b75f09e43061",
+      "src/workspace/semantic/build.rs": "76fe34d266f499c9bd734cae3f9716b46d71ebb839ee06b6352c56646a4cff82",
+      "src/workspace/semantic/rename.rs": "003ae1351ef61546af1fcaeda1fa9f590db3dde4eef8db41401ab5775d7357d5",
+      "scripts/semantic_gate.py": "4cc11b3b4ac44e03e3c0ee56efc160b249652aaf699adffa6e5f4af27ff29c25",
+      "scripts/test_semantic_gate.py": "eea72721a0e2556586f062198015ccd713728f3b1889146a7c14eac83a2caf01",
+      ".github/workflows/performance-calibration.yml": "07501096ce60eeaf1d65c042cffcf5a124172613fa377399190b9ab1625f7fd5",
+      "CHANGELOG.md": "6d3382a6293319d9f3468edc8bb28c778b1658f5054d5c0f9b097df2b547cc8b",
+      "docs/performance-policy.md": "465cb0207c31fc1d890a243207749eb9705c96227d6402c19d69f9de44a9ee1c",
+      "docs/semantic-conformance.md": "a9e0d159e51c6ece91eb7e55bb9386421b6705d47134ca45786a06e2d3f30f5f"
+    },
+    "quality": {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "bend2-lsp-rs",
+        "exec",
+        "-T",
+        "-w",
+        "/tmp/semantic-approved-126952f6d048",
+        "rust",
+        "env",
+        "CARGO_TARGET_DIR=/workspace/target/semantic-approved-126952f6d048",
+        "CARGO_INCREMENTAL=0",
+        "./scripts/quality"
+      ],
+      "conclusion": "pass",
+      "observed_wall_seconds": 400.82,
+      "nextest_passed": 489,
+      "existing_skips": 2,
+      "perf_infrastructure_unit_tests_passed": 209,
+      "bounded_real_compiler_semantic_conformance": "pass",
+      "raw_log": "final-direct-completion-quality.log",
+      "raw_log_sha256": "edfe57c2e3d4b8eb9d17510ef6ebc154a59ef668f5c176154860dcdef9ef062c",
+      "qualification_scope": "Full code/docs file-hash-bound gate completed immediately before commit; Git source metadata stillparent420duringlocalrun. Hosted finalSHAquality remains required."
+    },
+    "default_binary_sha256": "26499e1281fc9e12f8643a9ceeff418df7512028133a922ff063442439a7c159",
+    "default_library_sha256": "0302aaf0fc6d6b2c9e6b84e34d3f9be7a44eb8177f119a0984b12f291b1f5e75",
+    "six_real_stdio_scenarios": "pass",
+    "ten_actual_API_scenarios": "pass",
+    "performance_admission": false,
+    "request_performance_exception": false,
+    "compiler_pin": "2.0.37",
+    "Bun_pin": "1.4.0",
+    "source_commit_output": "[fix/semantic-review-lsp-boundaries 11f1a76] perf: restore direct indexed completion loop\n 3 files changed, 28 insertions(+), 37 deletions(-)\n"
+  },
+  "local_SUT_performance_experiments": false,
+  "QA_source": "/tmp/semantic-approved-126952f6d048",
+  "Cargo_target": "/workspace/target/semantic-approved-126952f6d048",
+  "same_retained_Docker_service_and_Cargo_volumes": true,
+  "owner_stop_criterion": "Rollback and one final source-bound CI cycle. No further optimization variants; ask owner about exact final-source costs after complete results. No advance acceptance.",
+  "hosted_qualification": {
+    "state": "All seven exact-source workflows created; no completion inherited.",
+    "created_workflows": [
+      {
+        "id": 41188774413,
+        "name": "performance",
+        "event": "workflow_dispatch",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "created_at": "2026-10-31T09:27:36Z"
+      },
+      {
+        "id": 41188700893,
+        "name": "performance",
+        "event": "pull_request",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700893",
+        "created_at": "2026-10-31T09:26:26Z"
+      },
+      {
+        "id": 41188700962,
+        "name": "quality",
+        "event": "pull_request",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700962",
+        "created_at": "2026-10-31T09:26:26Z"
+      },
+      {
+        "id": 41188700952,
+        "name": "semantic-fuzz",
+        "event": "pull_request",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700952",
+        "created_at": "2026-10-31T09:26:26Z"
+      },
+      {
+        "id": 41188700875,
+        "name": "performance-calibration",
+        "event": "pull_request",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700875",
+        "created_at": "2026-10-31T09:26:26Z"
+      },
+      {
+        "id": 41188700948,
+        "name": "perf-diagnostics / pr-41188700948-1",
+        "event": "pull_request",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "created_at": "2026-10-31T09:26:26Z"
+      },
+      {
+        "id": 41188700890,
+        "name": "installer-validation",
+        "event": "pull_request",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "created_at": "2026-10-31T09:26:26Z"
+      }
+    ],
+    "normal_quality": "pending",
+    "normal_semantic": "pending",
+    "calibration": "pending",
+    "main_performance": "pending",
+    "before420_performance": "pending",
+    "installer_validation": "pending",
+    "diagnostics": "pending"
+  },
+  "previous420_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/3ceb71f84236d4c9ba35a4d0a80a2aa34f2fdffa/manifest.json",
+  "previous884_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/60089cb5bdb4c6d08a0727ad3d38c7e9a842c981/manifest.json",
+  "performance_admission": false,
+  "request_performance_exception": false,
+  "no_approval_merge_tag_release": true,
+  "limits": [
+    "Local gate was production-file-hash-bound before commit; source metadata wasparent420. FinalSHAhostedquality remains required.",
+    "Prior source420 main121/41/0 and before884274/31/1 are not final-source results.",
+    "Issue74is only its historicalWindows failure; freshWindows failures are not exempted.",
+    "Owner75/76nonblock decision is limited to the two recorded IntelMac captures in run41173453571, not any fresh failure or numerical admission."
+  ],
+  "files": {
+    "completion-rollback-autoimport-stdio.json": {
+      "bytes": 12166,
+      "sha256": "9ceb2e92b8402a5f1d2d0fcb2871dc7d63974c1b7fbd3c74b7f9a505c1739be0"
+    },
+    "completion-rollback-base-pair-stdio.json": {
+      "bytes": 38536,
+      "sha256": "6ea30c314c1d2b9d8fb6ad50afeb043b5ec7d436f3e4dc352bea64edfcaff990"
+    },
+    "completion-rollback-cold10000-stdio.json": {
+      "bytes": 6240815,
+      "sha256": "a0039f992668a6610376fa65e1c47db1d4fa77acff4f4cf1bfdfe7cd0ed3be01"
+    },
+    "completion-rollback-entry-hierarchy-stdio.json": {
+      "bytes": 64612,
+      "sha256": "b76d6480b89f985b8d22ef2a686526270e1a6abdcb63f9da5489c57f08a027ef"
+    },
+    "completion-rollback-module-api-final-default.json": {
+      "bytes": 4491,
+      "sha256": "248f37210dad4e0201b42765a26fe14e14b41e5c139cf2c4bad8a0d68c009b64"
+    },
+    "completion-rollback-p1-stdio.json": {
+      "bytes": 44001,
+      "sha256": "a364562f5a783c663e2d93cec8b03786909b48aed4e6e77acfe8c10d3f010426"
+    },
+    "completion-rollback-quality-input.json": {
+      "bytes": 860,
+      "sha256": "38f721666869c7b8432c059c6e7ad2f993398cdef661cb25e356d8c4d4280d13"
+    },
+    "completion-rollback-recovery-diagnostics-stdio.json": {
+      "bytes": 29407,
+      "sha256": "a4e346a14fc27ec580310a9b777970eb5499363cea5466017ec46a080b85b000"
+    },
+    "final-direct-completion-before420-dispatch.json": {
+      "bytes": 683,
+      "sha256": "5abe158b5512596ecb1d4044ca032a52efbb30d99685daff4ff36e8d56b30246"
+    },
+    "final-direct-completion-created-runs.json": {
+      "bytes": 113779,
+      "sha256": "10dd1661aa54d3afad4de0e84825c882a7c93354a5c392765f6a130bafbbc0b1"
+    },
+    "final-direct-completion-local-qualification.json": {
+      "bytes": 2966,
+      "sha256": "b38a95d9c7e6abb94f3167e1dfb57a79b2c5359eb270442344bbdc519f29e043"
+    },
+    "final-direct-completion-quality.log": {
+      "bytes": 107916,
+      "sha256": "edfe57c2e3d4b8eb9d17510ef6ebc154a59ef668f5c176154860dcdef9ef062c"
+    },
+    "final-direct-completion-source-publication.json": {
+      "bytes": 1315,
+      "sha256": "7eb9052925d601585b397e52f5a18d9bb41c0b044635f5bb51c9a2b4292f2600"
+    },
+    "module-completion-api-smoke.rs": {
+      "bytes": 1752,
+      "sha256": "f5bf243eb21269bd435057712e5dfae2f993dadcdb1a9390e4ccadb505ca038f"
+    }
+  }
+}

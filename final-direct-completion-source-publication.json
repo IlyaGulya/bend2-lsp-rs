@@ -1,0 +1,34 @@
+{
+  "source_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "source_parent": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "frozen_base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "draft": true,
+  "owner_stop_criterion": "Rollback and one final source-bound CI cycle; owner decides on exact-source remaining costs, no advance waiver.",
+  "guard_command": [
+    "gh",
+    "pr",
+    "view",
+    "62",
+    "--repo",
+    "IlyaGulya/bend2-lsp-rs",
+    "--json",
+    "headRefOid,baseRefOid,headRefName,isDraft,body,url"
+  ],
+  "guard_head": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "guard_base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "guard_body_sha256": "c5ad8f2120cc7f6e39b6e64f896c29f1d4967912dd1eef2400df35a8e8f2da4c",
+  "push_command": [
+    "git",
+    "push",
+    "origin",
+    "11f1a7618dd959f9133622b74f0e509b066ada51:refs/heads/feat/semantic-conformance-main"
+  ],
+  "push_returncode": 0,
+  "push_stdout": "",
+  "push_stderr": "To github.com:IlyaGulya/bend2-lsp-rs.git\n   420a77c..11f1a76  11f1a7618dd959f9133622b74f0e509b066ada51 -> feat/semantic-conformance-main\n",
+  "source_push_count_for_final_batch": 1,
+  "performance_admission": false,
+  "request_performance_exception": false,
+  "no_approval_merge_tag_release": true
+}
