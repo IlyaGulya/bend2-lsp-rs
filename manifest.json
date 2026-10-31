@@ -35,7 +35,7 @@
     "Align strict calibration reporter expectation with the predeclared102-workload inventory. Unchanged original884data re-report passed; all comparison/diagnostic rows identical; no new SUT measurement or next-source qualification inherited."
   ],
   "hosted_qualification": {
-    "state": "Source420quality,semantic,14installer jobs passed;main121/41/0and before884274/31/1not admitted;sixnative reports for eachcomparison complete;calibration awaited. Frozen source11f1is separate and inherits no pass.",
+    "state": "Source420quality,semantic,installer andstrictcalibrationpassed;main121/41/0andbefore884274/31/1denied;IntelMacdiagnosticcaptures75/76separatelyowner-deferred. Finalsource11f1inherits no pass or waiver.",
     "required": "Exact-source ordinary main numeric admission and before884comparison for semantic workloads absent from main remain required; owner explicitly deferred only the two IntelMac diagnostic capture failures in recorded run41173453571, not numeric regressions or any other gate.",
     "semantic": {
       "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
@@ -345,6 +345,78 @@
       "native_raw_summary": "420-native-before884-absolute-summary.json",
       "native_collection_proof": "native-before884-to-420a77c/collection-proof.json",
       "intended_results": "Rename preflight Ir -5.00to-11.77%;captureIr-3.63to-7.05%;not free:preparsedupdates+2.28to2.39%and 10kcoldRSS+1.16to2.68MiB versus884. Whole-source results, no isolated attribution to completion loop."
+    },
+    "calibration_queue_observation": {
+      "run_id": 41173453540,
+      "measurement_shards_completed": 24,
+      "completed_conclusions": {
+        "success": 24
+      },
+      "report_job_id": 124516778842,
+      "report_state": "queued",
+      "calibration_admission": "uncollected; not inferred",
+      "manual_cancellation_sent": false,
+      "snapshot": "420-calibration-superseded-queue-snapshot.json"
+    },
+    "calibration": {
+      "source": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "merge": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+      "run_id": 41173453540,
+      "conclusion": "success",
+      "all25jobs": "success",
+      "control_validation": {
+        "classification": "passed",
+        "coverage_sufficient": true,
+        "passed": true,
+        "repeatability_failures": [],
+        "repeatability_passed": true,
+        "sensitivity_failures": [],
+        "sensitivity_passed": true
+      },
+      "coverage": {
+        "balanced_execution_order": true,
+        "expectation_error": null,
+        "observed_jobs": {
+          "discovery": 3,
+          "validation": 3
+        },
+        "observed_pairs": {
+          "discovery-01": 105,
+          "discovery-02": 105,
+          "discovery-03": 105,
+          "validation-01": 105,
+          "validation-02": 105,
+          "validation-03": 105
+        },
+        "observed_shards": {
+          "discovery-01": 4,
+          "discovery-02": 4,
+          "discovery-03": 4,
+          "validation-01": 4,
+          "validation-02": 4,
+          "validation-03": 4
+        },
+        "planned_jobs": {
+          "discovery": 3,
+          "validation": 3
+        },
+        "planned_pairs_per_job": 105,
+        "planned_shards": 4,
+        "predeclared_coverage_met": true
+      },
+      "executed_benchmark_scope": {
+        "benchmarks": {
+          "analysis": 99,
+          "reference_locations": 3
+        },
+        "evidence_format_version": 2,
+        "workloads": 102
+      },
+      "original_report_proof": "calibration-420-original-report/original-artifact-proof.json",
+      "full_authoritative_report": "Retained compressed in original digest-verified ZIP;433594529BJSONnotexpanded.",
+      "final11f1_admission_inferred": false,
+      "performance_admission": false
     }
   },
   "performance_admission": false,
@@ -378,6 +450,14 @@
     "420-before884-completed-metadata.json": {
       "bytes": 71806,
       "sha256": "b2123ccfe2d913d80c5d308e9ff0921c6f964c57e39266b00f91c4d7759c9256"
+    },
+    "420-calibration-completed-metadata.json": {
+      "bytes": 261895,
+      "sha256": "941bab6f0e3d4ddc48f422b25e3e7f13bff277833881931463da7d9c960711a1"
+    },
+    "420-calibration-superseded-queue-snapshot.json": {
+      "bytes": 196544,
+      "sha256": "e315246b630daf3091642a42e6834d0c9aeebf71b7d04411d4b65f4cc3923fa4"
     },
     "420-issue-75-api-response.json": {
       "bytes": 10644,
@@ -454,6 +534,22 @@
     "attempts/pre-check-wrapper-not-started.json": {
       "bytes": 305,
       "sha256": "ff2a6a9d55d458a00eba6f9f0c9c785662ea1713072df097c21728eb7c1024fa"
+    },
+    "calibration-420-original-report/original-artifact-proof.json": {
+      "bytes": 2147,
+      "sha256": "41252df6c7916775e25db76e9626d70a28424274f199668b7335999d94828bca"
+    },
+    "calibration-420-original-report/original-report-artifact.zip": {
+      "bytes": 21197140,
+      "sha256": "bf38ee73f26a3bfdec9cc0175927924765c03818220e025a06448156780d1b42"
+    },
+    "calibration-420-original-report/report.md": {
+      "bytes": 1585417,
+      "sha256": "53c51f4e42287ce1b096003b92ea097d6fb5d4fe8c2b728029e72989fca7e02f"
+    },
+    "calibration-420-original-report/verification.json": {
+      "bytes": 12541,
+      "sha256": "7402f69ef6de97b35494e81b9f7c71124aad5dfa6a7730fadcf37633fecce036"
     },
     "callgrind-before884-to-420-selected/admission-measurement.json": {
       "bytes": 3775,

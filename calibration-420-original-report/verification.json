@@ -1,0 +1,284 @@
+{
+  "errors": [],
+  "expected": {
+    "discovery_jobs": 3,
+    "producer_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+    "producer_workflow": ".github/workflows/performance-calibration.yml",
+    "repository": "IlyaGulya/bend2-lsp-rs",
+    "run_attempt": "1",
+    "run_id": "41173453540",
+    "shards": 4,
+    "source_format": "sealed-tree",
+    "source_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+    "validation_jobs": 3
+  },
+  "kind": "calibration-report-input-verification",
+  "observed": {
+    "compact_shards": 24,
+    "jobs": {
+      "discovery-01": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "discovery-02": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "discovery-03": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "validation-01": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "validation-02": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "validation-03": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "pairs": 12600,
+    "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54",
+    "samples": 12600,
+    "source_formats": [
+      "sealed-tree"
+    ]
+  },
+  "root": "target/performance-calibration-input",
+  "schema_version": 1,
+  "shards": [
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-01-shard-0",
+      "format": "sealed-tree",
+      "index": 0,
+      "input_sha256": "dc7dccce8bb165d5ab954df8eddf8cc3c65e807fa7c88c3310ec2684deb8b834",
+      "job_id": "discovery-01",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-01-shard-0/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-01-shard-1",
+      "format": "sealed-tree",
+      "index": 1,
+      "input_sha256": "ed98503acac71a222adbdb6138236ae75e4c970395eba85a25deab727eee14a1",
+      "job_id": "discovery-01",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-01-shard-1/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-01-shard-2",
+      "format": "sealed-tree",
+      "index": 2,
+      "input_sha256": "d61a1391a08173b03c693f32576e2274a9b9a5d8d26992905aad0f8948a8ceec",
+      "job_id": "discovery-01",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-01-shard-2/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-01-shard-3",
+      "format": "sealed-tree",
+      "index": 3,
+      "input_sha256": "b10ec37962d8851c2f2903d9da8020eb13b8d5b886278a2a3eb7426cb065f899",
+      "job_id": "discovery-01",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-01-shard-3/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-02-shard-0",
+      "format": "sealed-tree",
+      "index": 0,
+      "input_sha256": "a23df0c211fc48de38bfda2bf332623e3cca42b916885a06a36e94abbf848181",
+      "job_id": "discovery-02",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-02-shard-0/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-02-shard-1",
+      "format": "sealed-tree",
+      "index": 1,
+      "input_sha256": "92dd6c3b233a4f49c83ca169737807b9149fb6a96f2e9533fa6116408e71d768",
+      "job_id": "discovery-02",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-02-shard-1/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-02-shard-2",
+      "format": "sealed-tree",
+      "index": 2,
+      "input_sha256": "a1648277354ab9996626f55beb38606c4c303e2458748b19de343a2f0ac7b1d5",
+      "job_id": "discovery-02",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-02-shard-2/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-02-shard-3",
+      "format": "sealed-tree",
+      "index": 3,
+      "input_sha256": "93d6e4941999ddaf8644b9462591ab7ec8c558a520d0823796d900c451da5edd",
+      "job_id": "discovery-02",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-02-shard-3/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-03-shard-0",
+      "format": "sealed-tree",
+      "index": 0,
+      "input_sha256": "0cf86d8c11597755436185ba33379654d2fff300af026758f72c113160d8c538",
+      "job_id": "discovery-03",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-03-shard-0/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-03-shard-1",
+      "format": "sealed-tree",
+      "index": 1,
+      "input_sha256": "9532c0bb4f76f8a2215e56cbac9243ffa953759e70c43f2c0d655f86c1800d39",
+      "job_id": "discovery-03",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-03-shard-1/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-03-shard-2",
+      "format": "sealed-tree",
+      "index": 2,
+      "input_sha256": "182d04edb5d1ca5cca0c2c0fb67d4153bd44eac782c3b303cbd3a8184bcfe878",
+      "job_id": "discovery-03",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-03-shard-2/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-discovery-03-shard-3",
+      "format": "sealed-tree",
+      "index": 3,
+      "input_sha256": "71cea75e52f2cd614e3efd3b8c85a1ebc686b00e17758023e8d557fe132df4ed",
+      "job_id": "discovery-03",
+      "path": "performance-calibration-report-input-41173453540-1-discovery-03-shard-3/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-01-shard-0",
+      "format": "sealed-tree",
+      "index": 0,
+      "input_sha256": "cfe5dc782647418db0d8f99c30aac9656dacc803929c562af643e24ff2fb3368",
+      "job_id": "validation-01",
+      "path": "performance-calibration-report-input-41173453540-1-validation-01-shard-0/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-01-shard-1",
+      "format": "sealed-tree",
+      "index": 1,
+      "input_sha256": "cb7f5fd1c7188f99b4d7f749c7ff5b380d9b7cc272175a1840eee1edb7566a95",
+      "job_id": "validation-01",
+      "path": "performance-calibration-report-input-41173453540-1-validation-01-shard-1/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-01-shard-2",
+      "format": "sealed-tree",
+      "index": 2,
+      "input_sha256": "ef7af8aa97a72a0f6a2c824e091ee63170697818345dabb1d89350ff589df29b",
+      "job_id": "validation-01",
+      "path": "performance-calibration-report-input-41173453540-1-validation-01-shard-2/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-01-shard-3",
+      "format": "sealed-tree",
+      "index": 3,
+      "input_sha256": "d6a047cea62683cb8b17c8d91a9d56bc505441462c8a12341b026ecf21760b3d",
+      "job_id": "validation-01",
+      "path": "performance-calibration-report-input-41173453540-1-validation-01-shard-3/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-02-shard-0",
+      "format": "sealed-tree",
+      "index": 0,
+      "input_sha256": "82f342a66383d3ebd41cb15cc674936c593b4aff76bbf29712dac2c6ffc64e83",
+      "job_id": "validation-02",
+      "path": "performance-calibration-report-input-41173453540-1-validation-02-shard-0/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-02-shard-1",
+      "format": "sealed-tree",
+      "index": 1,
+      "input_sha256": "f6672017b4f23780ea4cb8ba491b22ba24a094bf6c54140f9edffb2351201907",
+      "job_id": "validation-02",
+      "path": "performance-calibration-report-input-41173453540-1-validation-02-shard-1/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-02-shard-2",
+      "format": "sealed-tree",
+      "index": 2,
+      "input_sha256": "c6572f2f4c43ad32ccc451e0a7260656bc855f1ad5b0aee82ffdb3db4ebd127d",
+      "job_id": "validation-02",
+      "path": "performance-calibration-report-input-41173453540-1-validation-02-shard-2/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-02-shard-3",
+      "format": "sealed-tree",
+      "index": 3,
+      "input_sha256": "8c012de69caabb3985bc1ad947362ba431f6d5a389d40027958f364128aa6996",
+      "job_id": "validation-02",
+      "path": "performance-calibration-report-input-41173453540-1-validation-02-shard-3/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-03-shard-0",
+      "format": "sealed-tree",
+      "index": 0,
+      "input_sha256": "2bac14bf503a46ba3a698b696879277618cc9a7852a1dd72288f8d9740d8bc24",
+      "job_id": "validation-03",
+      "path": "performance-calibration-report-input-41173453540-1-validation-03-shard-0/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-03-shard-1",
+      "format": "sealed-tree",
+      "index": 1,
+      "input_sha256": "80a47fe9b06ac6d4f65e9e2fe51648027432f8f651a20fa92d608e3784e75377",
+      "job_id": "validation-03",
+      "path": "performance-calibration-report-input-41173453540-1-validation-03-shard-1/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-03-shard-2",
+      "format": "sealed-tree",
+      "index": 2,
+      "input_sha256": "f7d678b45c28b5f85ab16a407164444d4778457909c54a5fcf9206620fc8a529",
+      "job_id": "validation-03",
+      "path": "performance-calibration-report-input-41173453540-1-validation-03-shard-2/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    },
+    {
+      "artifact_name": "performance-calibration-41173453540-1-validation-03-shard-3",
+      "format": "sealed-tree",
+      "index": 3,
+      "input_sha256": "bccc6578ae29158b722fb60861cf097aa147ddf14f6e204acc544d14acee9d5d",
+      "job_id": "validation-03",
+      "path": "performance-calibration-report-input-41173453540-1-validation-03-shard-3/report-input.json",
+      "runner_sha256": "a61b8431508884ddf15483e99f3870f537e985f132b9a3ca48d8e001d266eb54"
+    }
+  ],
+  "status": "passed"
+}
