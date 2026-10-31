@@ -1,0 +1,40 @@
+{
+  "sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+  "node_id": "C_kwDOU2Rlr9oAKGNjY2EwMTZhODNlYTYxMTQ4YzIzMWQ2Y2FhMWVhMGJmOGUyMWU2NTY",
+  "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits/ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+  "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/commit/ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+  "author": {
+    "name": "Ilya Gulya",
+    "email": "ilya@gulya.me",
+    "date": "2026-10-31T05:39:13Z"
+  },
+  "committer": {
+    "name": "GitHub",
+    "email": "noreply@github.com",
+    "date": "2026-10-31T05:39:13Z"
+  },
+  "tree": {
+    "sha": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+    "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/trees/642cbe20a98089bb991b9b77f6134af60ae43e3d"
+  },
+  "message": "Merge 420a77c5da3ae808204b506d6d78bb955cd1113e into 8ba06b117e8453959baa2157f857fa2e055fc887",
+  "parents": [
+    {
+      "sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits/8ba06b117e8453959baa2157f857fa2e055fc887",
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/commit/8ba06b117e8453959baa2157f857fa2e055fc887"
+    },
+    {
+      "sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits/420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/commit/420a77c5da3ae808204b506d6d78bb955cd1113e"
+    }
+  ],
+  "verification": {
+    "verified": true,
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq5X8BCRC1aQ7uu5UhlAAAQYYQAH74WXG8cPiLoz4zqkdQC4mk\npdegNw9h6XrzGFWENABy6J0FmJCBbOHXB9HTXKgzvrlZo3zcw1vMlnV2M9OKG9Dk\nZvr8AyIFeJXw44LQYnmhmJCEUinq8IJP1jq61TmOatARls84lwZ2l1PsiERSNskY\nH0KgaB9eMqmuhaUSLebkojGN+GU4r0ALcYf+ijLVOtcbDNrRkqwWjAxL3c0pZRhZ\nA8gubnm8gydFGJBkyUmGL2/05pz9DDlB1rj11uVuBC7WGCmW9bO1sth3lww30z0Y\n1pDJuDkis49+tmcbPlygf90Dkg/2LESKxnHY8uS/XZ7Icerod9t21E2c/XFBrxNa\nf+Ydox+0tj83C4ugDquliHM5FBC4daElrx2BTuZlKJqKLKOsefaHcsS1ZXBqDokE\nuhq1LJgYHB1cyqZVHrGzRVh+EAS+I1XQChmEQ/x+UDSZXjZvSNf2LRxAc04yjPFU\neHBtgoXlZKcBuEdCGoBwSA9CA92ws/EKZmU2dTskxGNmJMTYZTjadwCvTeZ8mUmK\nXI38mjLt4QGZUOP9hxp4Xvh/7S0g07fep8gdOcFotMtxrBp76Ki8CwDyWjj84JHF\nKk58UqH1zfmvspe9iVw7/Am2efgFqCGhzIjxb4W+6bJW7RLJw8H/x8xauXy7jIc5\n+c0PUplc46AEapWOpgc4\n=sT1d\n-----END PGP SIGNATURE-----\n",
+    "payload": "tree 642cbe20a98089bb991b9b77f6134af60ae43e3d\nparent 8ba06b117e8453959baa2157f857fa2e055fc887\nparent 420a77c5da3ae808204b506d6d78bb955cd1113e\nauthor Ilya Gulya <ilya@gulya.me> 1793425153 +0000\ncommitter GitHub <noreply@github.com> 1793425153 +0000\n\nMerge 420a77c5da3ae808204b506d6d78bb955cd1113e into 8ba06b117e8453959baa2157f857fa2e055fc887\n",
+    "verified_at": "2026-10-31T05:39:14Z"
+  }
+}

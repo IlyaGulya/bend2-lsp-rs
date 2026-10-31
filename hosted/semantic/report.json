@@ -1,0 +1,158 @@
+{
+  "evidence_complete": true,
+  "jobs": 5,
+  "max_seconds": 100.72978430700002,
+  "p50_seconds": 88.76226591600005,
+  "p95_seconds": 98.99601313400001,
+  "policy_changed": false,
+  "raw_reports": [
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/run-1/attempt-470x8xtz/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/run-2/attempt-bfgestes/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/run-3/attempt-4jqpd2iy/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/run-4/attempt-haxjt_gt/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/run-1/attempt-qklutpvc/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/run-2/attempt-_p_r415h/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/run-3/attempt-3yln4nn3/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/run-4/attempt-wd9axvxn/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/run-1/attempt-jtuvt3tq/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/run-2/attempt-w7z_56m4/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/run-3/attempt-_cqh8l81/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/run-4/attempt-01u86qet/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/run-1/attempt-4gidxpns/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/run-2/attempt-omscounz/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/run-3/attempt-xizqj8_l/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/run-4/attempt-tjsynvw1/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/run-1/attempt-5hbuih4_/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/run-2/attempt-8v0rx235/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/run-3/attempt-7_fe40nq/gate-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/run-4/attempt-m6i26vo2/gate-report.json"
+  ],
+  "revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+  "runs": 20,
+  "schema": 1,
+  "stage_distributions": {
+    "cold_setup": {
+      "max_seconds": 167.984111079,
+      "p50_seconds": 153.363624483,
+      "p95_seconds": 167.984111079
+    },
+    "cold_setup_candidate": {
+      "max_seconds": 163.42613310899998,
+      "p50_seconds": 148.58052948199997,
+      "p95_seconds": 163.42613310899998
+    },
+    "cold_setup_oracle": {
+      "max_seconds": 5.3093295800000035,
+      "p50_seconds": 4.541744608999998,
+      "p95_seconds": 5.3093295800000035
+    },
+    "gate_plan": {
+      "max_seconds": 0.30901700700002266,
+      "p50_seconds": 0.2543496780000396,
+      "p95_seconds": 0.3076196110000069
+    },
+    "gate_semantic": {
+      "max_seconds": 100.299652603,
+      "p50_seconds": 88.42107755399996,
+      "p95_seconds": 98.60591727500002
+    },
+    "runtime_install": {
+      "max_seconds": 2.8201452630000006,
+      "p50_seconds": 2.2291743099999906,
+      "p95_seconds": 2.8201452630000006
+    },
+    "scaling_128": {
+      "max_seconds": 56.973151494000035,
+      "p50_seconds": 52.67028288300003,
+      "p95_seconds": 56.973151494000035
+    },
+    "scaling_256": {
+      "max_seconds": 99.60303213399993,
+      "p50_seconds": 88.77463316199999,
+      "p95_seconds": 99.60303213399993
+    },
+    "scaling_512": {
+      "max_seconds": 177.17621967499997,
+      "p50_seconds": 161.53469200799998,
+      "p95_seconds": 177.17621967499997
+    },
+    "startup_elapsed_seconds": {
+      "max_seconds": 1.348606784000026,
+      "p50_seconds": 1.1185037259999717,
+      "p95_seconds": 1.348606784000026
+    },
+    "startup_prepare_seconds": {
+      "max_seconds": 1.2649647760000562,
+      "p50_seconds": 1.0307120029999624,
+      "p95_seconds": 1.2649647760000562
+    },
+    "startup_startup_first_reply_seconds": {
+      "max_seconds": 0.0730761589999247,
+      "p50_seconds": 0.06574592899994514,
+      "p95_seconds": 0.0730761589999247
+    },
+    "startup_supervised": {
+      "max_seconds": 1.432359781999935,
+      "p50_seconds": 1.2027001750000181,
+      "p95_seconds": 1.432359781999935
+    },
+    "warm_setup": {
+      "max_seconds": 4.691935513999994,
+      "p50_seconds": 4.510986876000004,
+      "p95_seconds": 4.691935513999994
+    },
+    "warm_setup_candidate": {
+      "max_seconds": 0.1401785259999997,
+      "p50_seconds": 0.11962437500000078,
+      "p95_seconds": 0.1401785259999997
+    },
+    "warm_setup_oracle": {
+      "max_seconds": 4.530877196000006,
+      "p50_seconds": 4.3752327339999795,
+      "p95_seconds": 4.530877196000006
+    }
+  },
+  "supporting_reports": [
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/runtime-install-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/warm-setup/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/scaling/scaling-1ylvh6kr/scaling-summary.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/scaling/scaling-1ylvh6kr/startup-worker-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/scaling/scaling-1ylvh6kr/projects-128/attempt-3ivfj061/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/scaling/scaling-1ylvh6kr/projects-256/attempt-q_9s_b76/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-01/scaling/scaling-1ylvh6kr/projects-512/attempt-l6plns3m/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/runtime-install-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/warm-setup/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/scaling/scaling-ssqcpak3/scaling-summary.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/scaling/scaling-ssqcpak3/startup-worker-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/scaling/scaling-ssqcpak3/projects-128/attempt-q2d2ae58/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/scaling/scaling-ssqcpak3/projects-256/attempt-3ehnhy58/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-02/scaling/scaling-ssqcpak3/projects-512/attempt-6u9amldj/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/runtime-install-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/warm-setup/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/scaling/scaling-fl4zlsew/scaling-summary.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/scaling/scaling-fl4zlsew/startup-worker-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/scaling/scaling-fl4zlsew/projects-128/attempt-ycb0_hth/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/scaling/scaling-fl4zlsew/projects-256/attempt-y34b7k1i/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-03/scaling/scaling-fl4zlsew/projects-512/attempt-0trv4416/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/runtime-install-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/warm-setup/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/scaling/scaling-7ls2cche/scaling-summary.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/scaling/scaling-7ls2cche/startup-worker-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/scaling/scaling-7ls2cche/projects-128/attempt-krafn3l1/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/scaling/scaling-7ls2cche/projects-256/attempt-sqjkeycx/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-04/scaling/scaling-7ls2cche/projects-512/attempt-azru7jvg/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/runtime-install-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/warm-setup/setup-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/scaling/scaling-6grufg0d/scaling-summary.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/scaling/scaling-6grufg0d/startup-worker-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/scaling/scaling-6grufg0d/projects-128/attempt-tohd69o9/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/scaling/scaling-6grufg0d/projects-256/attempt-ml3z01pm/scaling-report.json",
+    "target/semantic-calibration-input/semantic-calibration-41173453529-1-semantic-05/scaling/scaling-6grufg0d/projects-512/attempt-b79z19pr/scaling-report.json"
+  ],
+  "targets_met": true
+}

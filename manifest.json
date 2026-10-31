@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "kind": "source-bound-qualified-local-candidate-with-created-hosted-runs",
+  "kind": "source-bound-qualified-local-candidate-with-partial-hosted-results",
   "source": "420a77c5da3ae808204b506d6d78bb955cd1113e",
   "tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
   "source_parent": "8842984d99f6a7f420bfde9301ff3994e597eb23",
@@ -35,7 +35,7 @@
     "Align strict calibration reporter expectation with the predeclared102-workload inventory. Unchanged original884data re-report passed; all comparison/diagnostic rows identical; no new SUT measurement or next-source qualification inherited."
   ],
   "hosted_qualification": {
-    "state": "created; pending/uncollected, no pass inferred",
+    "state": "semantic completed success; other six workflows pending/uncollected",
     "runs": [
       {
         "id": 41173453526,
@@ -108,7 +108,29 @@
         "created_at": "2026-10-31T05:39:12Z"
       }
     ],
-    "required": "Exact source ordinary main admission plus before884comparison for semantic workloads absent from main; all normal semantic, calibration, installer and diagnostics workflows remain mandatory."
+    "required": "Exact source ordinary main admission plus before884comparison for semantic workloads absent from main; all normal semantic, calibration, installer and diagnostics workflows remain mandatory.",
+    "semantic": {
+      "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+      "observed_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "tree_identity_verified": true,
+      "run_id": 41173453529,
+      "result": "success",
+      "runs": 20,
+      "jobs": 5,
+      "evidence_complete": true,
+      "targets_met": true,
+      "policy_changed": false,
+      "p50_seconds": 88.76226591600005,
+      "p95_seconds": 98.99601313400001,
+      "max_seconds": 100.72978430700002,
+      "every_five_VM_128_256_512_supporting_stage_passed": true,
+      "performance_admission": false,
+      "raw_original_report": "semantic-420a77c-report/report.json"
+    },
+    "verified_merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+    "verified_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
   },
   "performance_admission": false,
   "request_performance_exception": false,
@@ -149,6 +171,26 @@
     "hosted/created-runs.json": {
       "bytes": 2292,
       "sha256": "5f229ddf5b0dddd588f840a006166a12014da8beb071812e6e9945f4a88bdfeb"
+    },
+    "hosted/merge-tree-identity.json": {
+      "bytes": 2826,
+      "sha256": "77942afc8052db424798b674c4dec4e655b63ab92a724817ffd47f0af510ff6e"
+    },
+    "hosted/semantic-completed-metadata.json.gz": {
+      "bytes": 4028,
+      "sha256": "acc6d1e7559108c955a14bada12e1dd530ab200837cc09a064d6f3f277b7eee6"
+    },
+    "hosted/semantic-parent-qualification.json": {
+      "bytes": 708,
+      "sha256": "0606877a46051401e2ab2500e310d489fbb269c702c7baf59ce3e6878832e0a9"
+    },
+    "hosted/semantic/original-artifact-proof.json": {
+      "bytes": 1250,
+      "sha256": "2eef3844a5411fd8531bd115f0af7f25394cdb7e82d3312125513c85d2c6a1c8"
+    },
+    "hosted/semantic/report.json": {
+      "bytes": 10899,
+      "sha256": "1d2a122854a76033e52dc386bfb1e20e1af917d2a75d730f24a7cffcf23bb7a1"
     },
     "hosted/source-publication.json": {
       "bytes": 1957,
