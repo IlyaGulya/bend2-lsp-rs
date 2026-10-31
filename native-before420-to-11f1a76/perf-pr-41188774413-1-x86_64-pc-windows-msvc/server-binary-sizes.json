@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "target": "x86_64-pc-windows-msvc",
+  "scope": "Server binary identity and size; not a new performance metric or allowance.",
+  "binaries": {
+    "baseline": {
+      "source_revision": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "bytes": 8740352,
+      "sha256": "93e7e93c87c20636c57f6f7e2da323477a7773e906654d2d08e1b4cddbd327b2"
+    },
+    "candidate": {
+      "source_revision": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "bytes": 8736768,
+      "sha256": "bdbee5cb97ed8458eed0b17e8d959fab119be0d7785c37f6184d59b7870cb236"
+    }
+  }
+}

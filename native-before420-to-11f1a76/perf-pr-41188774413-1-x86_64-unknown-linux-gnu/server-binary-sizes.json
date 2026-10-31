@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "target": "x86_64-unknown-linux-gnu",
+  "scope": "Server binary identity and size; not a new performance metric or allowance.",
+  "binaries": {
+    "baseline": {
+      "source_revision": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "bytes": 7005976,
+      "sha256": "951dfae05a4828b5ac22d8f5649bb810cf6d16edc9ef2e1fe6d82f47b7139b7d"
+    },
+    "candidate": {
+      "source_revision": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "bytes": 7002584,
+      "sha256": "0fdf2c4ebd141d596739d107487369003c826572145e508b5281da5280cf822a"
+    }
+  }
+}

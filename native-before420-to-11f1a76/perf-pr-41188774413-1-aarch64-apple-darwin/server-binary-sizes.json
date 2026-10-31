@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "target": "aarch64-apple-darwin",
+  "scope": "Server binary identity and size; not a new performance metric or allowance.",
+  "binaries": {
+    "baseline": {
+      "source_revision": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "bytes": 6067552,
+      "sha256": "b9c3af2013c41fcea544eed3bc4d4ffa797b432630ca9025ad6be903950e8e3a"
+    },
+    "candidate": {
+      "source_revision": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "bytes": 6067552,
+      "sha256": "78c46533c2cdae7c29e589a908500ae0af9811859dc4cbab8d5df76712e9c958"
+    }
+  }
+}

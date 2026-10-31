@@ -1,0 +1,467 @@
+{
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "base": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "run_id": 41188774413,
+  "large_workspace_rows": [
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 658.620043,
+        "retained_MiB": 152.984375,
+        "references_warm_p50_ms": 23.834657
+      },
+      "candidate": {
+        "cold_ms": 680.321512,
+        "retained_MiB": 152.5546875,
+        "references_warm_p50_ms": 23.35811
+      },
+      "cold_ratio": 1.0329499067491938,
+      "retained_delta_MiB": -0.4296875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1283.273128,
+        "retained_MiB": 161.7578125,
+        "references_warm_p50_ms": 31.368554
+      },
+      "candidate": {
+        "cold_ms": 1451.278926,
+        "retained_MiB": 161.55859375,
+        "references_warm_p50_ms": 29.740825
+      },
+      "cold_ratio": 1.1309197507017383,
+      "retained_delta_MiB": -0.19921875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 2025.0792,
+        "retained_MiB": 154.0546875,
+        "references_warm_p50_ms": 25.4582
+      },
+      "candidate": {
+        "cold_ms": 2008.8742,
+        "retained_MiB": 154.47265625,
+        "references_warm_p50_ms": 25.6793
+      },
+      "cold_ratio": 0.9919978438374164,
+      "retained_delta_MiB": 0.41796875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 556.010473,
+        "retained_MiB": 150.33984375,
+        "references_warm_p50_ms": 18.121538
+      },
+      "candidate": {
+        "cold_ms": 557.561948,
+        "retained_MiB": 151.53515625,
+        "references_warm_p50_ms": 18.477252
+      },
+      "cold_ratio": 1.0027903701015357,
+      "retained_delta_MiB": 1.1953125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 700.432,
+        "retained_MiB": 178.265625,
+        "references_warm_p50_ms": 12.784292
+      },
+      "candidate": {
+        "cold_ms": 737.664,
+        "retained_MiB": 177.234375,
+        "references_warm_p50_ms": 12.256917
+      },
+      "cold_ratio": 1.0531557667268199,
+      "retained_delta_MiB": -1.03125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1857.2918,
+        "retained_MiB": 163.2265625,
+        "references_warm_p50_ms": 14.7935
+      },
+      "candidate": {
+        "cold_ms": 1878.4563,
+        "retained_MiB": 163.28515625,
+        "references_warm_p50_ms": 14.6939
+      },
+      "cold_ratio": 1.0113953553232724,
+      "retained_delta_MiB": 0.05859375
+    }
+  ],
+  "all_scale_rows": [
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 2.090364,
+        "retained_MiB": 8.27734375,
+        "references_warm_p50_ms": 0.103143
+      },
+      "candidate": {
+        "cold_ms": 2.162556,
+        "retained_MiB": 8.25390625,
+        "references_warm_p50_ms": 0.09977
+      },
+      "cold_ratio": 1.0345356119795404,
+      "retained_delta_MiB": -0.0234375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 62.011863,
+        "retained_MiB": 22.61328125,
+        "references_warm_p50_ms": 1.392367
+      },
+      "candidate": {
+        "cold_ms": 61.277069,
+        "retained_MiB": 22.609375,
+        "references_warm_p50_ms": 1.346019
+      },
+      "cold_ratio": 0.9881507510909646,
+      "retained_delta_MiB": -0.00390625
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 658.620043,
+        "retained_MiB": 152.984375,
+        "references_warm_p50_ms": 23.834657
+      },
+      "candidate": {
+        "cold_ms": 680.321512,
+        "retained_MiB": 152.5546875,
+        "references_warm_p50_ms": 23.35811
+      },
+      "cold_ratio": 1.0329499067491938,
+      "retained_delta_MiB": -0.4296875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 4.798211,
+        "retained_MiB": 3.640625,
+        "references_warm_p50_ms": 0.236402
+      },
+      "candidate": {
+        "cold_ms": 4.162468,
+        "retained_MiB": 3.61328125,
+        "references_warm_p50_ms": 0.233147
+      },
+      "cold_ratio": 0.8675041593627291,
+      "retained_delta_MiB": -0.02734375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 130.845095,
+        "retained_MiB": 20.29296875,
+        "references_warm_p50_ms": 2.907321
+      },
+      "candidate": {
+        "cold_ms": 129.01165,
+        "retained_MiB": 20.37109375,
+        "references_warm_p50_ms": 2.932812
+      },
+      "cold_ratio": 0.9859876673252446,
+      "retained_delta_MiB": 0.078125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1283.273128,
+        "retained_MiB": 161.7578125,
+        "references_warm_p50_ms": 31.368554
+      },
+      "candidate": {
+        "cold_ms": 1451.278926,
+        "retained_MiB": 161.55859375,
+        "references_warm_p50_ms": 29.740825
+      },
+      "cold_ratio": 1.1309197507017383,
+      "retained_delta_MiB": -0.19921875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 5.5008,
+        "retained_MiB": 7.01953125,
+        "references_warm_p50_ms": 0.1735
+      },
+      "candidate": {
+        "cold_ms": 5.5932,
+        "retained_MiB": 7.03125,
+        "references_warm_p50_ms": 0.1744
+      },
+      "cold_ratio": 1.0167975567190228,
+      "retained_delta_MiB": 0.01171875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 195.4087,
+        "retained_MiB": 23.5859375,
+        "references_warm_p50_ms": 2.6349
+      },
+      "candidate": {
+        "cold_ms": 197.9494,
+        "retained_MiB": 23.6171875,
+        "references_warm_p50_ms": 2.5029
+      },
+      "cold_ratio": 1.013001979952786,
+      "retained_delta_MiB": 0.03125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 2025.0792,
+        "retained_MiB": 154.0546875,
+        "references_warm_p50_ms": 25.4582
+      },
+      "candidate": {
+        "cold_ms": 2008.8742,
+        "retained_MiB": 154.47265625,
+        "references_warm_p50_ms": 25.6793
+      },
+      "cold_ratio": 0.9919978438374164,
+      "retained_delta_MiB": 0.41796875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 2.034041,
+        "retained_MiB": 6.73828125,
+        "references_warm_p50_ms": 0.084355
+      },
+      "candidate": {
+        "cold_ms": 1.996586,
+        "retained_MiB": 6.74609375,
+        "references_warm_p50_ms": 0.086074
+      },
+      "cold_ratio": 0.98158591690138,
+      "retained_delta_MiB": 0.0078125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 51.595892,
+        "retained_MiB": 21.1875,
+        "references_warm_p50_ms": 1.508887
+      },
+      "candidate": {
+        "cold_ms": 51.721826,
+        "retained_MiB": 21.16015625,
+        "references_warm_p50_ms": 1.526107
+      },
+      "cold_ratio": 1.0024407757113687,
+      "retained_delta_MiB": -0.02734375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 556.010473,
+        "retained_MiB": 150.33984375,
+        "references_warm_p50_ms": 18.121538
+      },
+      "candidate": {
+        "cold_ms": 557.561948,
+        "retained_MiB": 151.53515625,
+        "references_warm_p50_ms": 18.477252
+      },
+      "cold_ratio": 1.0027903701015357,
+      "retained_delta_MiB": 1.1953125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 11.394375,
+        "retained_MiB": 5.4375,
+        "references_warm_p50_ms": 0.068375
+      },
+      "candidate": {
+        "cold_ms": 13.734208,
+        "retained_MiB": 5.421875,
+        "references_warm_p50_ms": 0.110334
+      },
+      "cold_ratio": 1.2053498327025396,
+      "retained_delta_MiB": -0.015625
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 78.406542,
+        "retained_MiB": 21.8125,
+        "references_warm_p50_ms": 1.222584
+      },
+      "candidate": {
+        "cold_ms": 73.94875,
+        "retained_MiB": 22.125,
+        "references_warm_p50_ms": 1.257583
+      },
+      "cold_ratio": 0.9431451523522106,
+      "retained_delta_MiB": 0.3125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 700.432,
+        "retained_MiB": 178.265625,
+        "references_warm_p50_ms": 12.784292
+      },
+      "candidate": {
+        "cold_ms": 737.664,
+        "retained_MiB": 177.234375,
+        "references_warm_p50_ms": 12.256917
+      },
+      "cold_ratio": 1.0531557667268199,
+      "retained_delta_MiB": -1.03125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 5.0649,
+        "retained_MiB": 9.87109375,
+        "references_warm_p50_ms": 0.132
+      },
+      "candidate": {
+        "cold_ms": 5.0468,
+        "retained_MiB": 9.83203125,
+        "references_warm_p50_ms": 0.1301
+      },
+      "cold_ratio": 0.9964263855160024,
+      "retained_delta_MiB": -0.0390625
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 195.1522,
+        "retained_MiB": 27.125,
+        "references_warm_p50_ms": 1.196
+      },
+      "candidate": {
+        "cold_ms": 196.8083,
+        "retained_MiB": 27.3359375,
+        "references_warm_p50_ms": 1.1723
+      },
+      "cold_ratio": 1.0084861969273213,
+      "retained_delta_MiB": 0.2109375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1857.2918,
+        "retained_MiB": 163.2265625,
+        "references_warm_p50_ms": 14.7935
+      },
+      "candidate": {
+        "cold_ms": 1878.4563,
+        "retained_MiB": 163.28515625,
+        "references_warm_p50_ms": 14.6939
+      },
+      "cold_ratio": 1.0113953553232724,
+      "retained_delta_MiB": 0.05859375
+    }
+  ],
+  "limits": "Seven verified matched rounds per arm/dataset. RSS fixedcheckpoints,not exact peak. These source420-to-final pairs are separate from main-to-final; no syntheticcrossVMpairs."
+}

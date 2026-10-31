@@ -1,0 +1,6 @@
+{
+  "scope": "Original artifact transport only; no benchmark/CI/SUT rerun.",
+  "error": "TimeoutError:Boundedartifactrange readiness timedout",
+  "run_id": 41188774413,
+  "successful_existing_originals_reused": true
+}

@@ -1,0 +1,1715 @@
+{
+  "run": {
+    "id": 41188774413,
+    "name": "performance",
+    "node_id": "WFR_kwLOU2Rlr88AAAAJlwrSDQ",
+    "head_branch": "feat/semantic-conformance-main",
+    "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+    "path": ".github/workflows/performance.yml",
+    "display_title": "performance",
+    "run_number": 244,
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "failure",
+    "workflow_id": 372026604,
+    "check_suite_id": 111650054893,
+    "check_suite_node_id": "CS_kwDOU2Rlr88AAAAZ_tyi7Q",
+    "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+    "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+    "pull_requests": [
+      {
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls/62",
+        "id": 4877636731,
+        "number": 62,
+        "head": {
+          "ref": "feat/semantic-conformance-main",
+          "sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+          "repo": {
+            "id": 1399088559,
+            "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+            "name": "bend2-lsp-rs"
+          }
+        },
+        "base": {
+          "ref": "main",
+          "sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "repo": {
+            "id": 1399088559,
+            "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+            "name": "bend2-lsp-rs"
+          }
+        }
+      }
+    ],
+    "created_at": "2026-10-31T09:27:36Z",
+    "updated_at": "2026-10-31T13:45:54Z",
+    "actor": {
+      "login": "IlyaGulya",
+      "id": 668727,
+      "node_id": "MDQ6VXNlcjY2ODcyNw==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/IlyaGulya",
+      "html_url": "https://github.com/IlyaGulya",
+      "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+      "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+      "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+      "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+      "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+      "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "run_attempt": 1,
+    "referenced_workflows": [],
+    "run_started_at": "2026-10-31T09:27:36Z",
+    "triggering_actor": {
+      "login": "IlyaGulya",
+      "id": 668727,
+      "node_id": "MDQ6VXNlcjY2ODcyNw==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/IlyaGulya",
+      "html_url": "https://github.com/IlyaGulya",
+      "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+      "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+      "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+      "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+      "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+      "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "jobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/jobs",
+    "logs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/logs",
+    "check_suite_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-suites/111650054893",
+    "artifacts_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/artifacts",
+    "cancel_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/cancel",
+    "rerun_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/rerun",
+    "previous_attempt_url": null,
+    "workflow_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/workflows/372026604",
+    "head_commit": {
+      "id": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "tree_id": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "message": "perf: restore direct indexed completion loop",
+      "timestamp": "2026-10-31T09:24:44Z",
+      "author": {
+        "name": "Ilya Gulya",
+        "email": "ilya@gulya.me"
+      },
+      "committer": {
+        "name": "Ilya Gulya",
+        "email": "ilya@gulya.me"
+      }
+    },
+    "repository": {
+      "id": 1399088559,
+      "node_id": "R_kgDOU2Rlrw",
+      "name": "bend2-lsp-rs",
+      "full_name": "IlyaGulya/bend2-lsp-rs",
+      "private": false,
+      "owner": {
+        "login": "IlyaGulya",
+        "id": 668727,
+        "node_id": "MDQ6VXNlcjY2ODcyNw==",
+        "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/IlyaGulya",
+        "html_url": "https://github.com/IlyaGulya",
+        "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+        "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+        "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+        "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+        "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+        "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+      "forks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/forks",
+      "keys_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/teams",
+      "hooks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/hooks",
+      "issue_events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/events",
+      "assignees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/tags",
+      "blobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/languages",
+      "stargazers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/stargazers",
+      "contributors_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contributors",
+      "subscribers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscribers",
+      "subscription_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscription",
+      "commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/merges",
+      "archive_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/downloads",
+      "issues_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/labels{/name}",
+      "releases_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/deployments"
+    },
+    "head_repository": {
+      "id": 1399088559,
+      "node_id": "R_kgDOU2Rlrw",
+      "name": "bend2-lsp-rs",
+      "full_name": "IlyaGulya/bend2-lsp-rs",
+      "private": false,
+      "owner": {
+        "login": "IlyaGulya",
+        "id": 668727,
+        "node_id": "MDQ6VXNlcjY2ODcyNw==",
+        "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/IlyaGulya",
+        "html_url": "https://github.com/IlyaGulya",
+        "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+        "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+        "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+        "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+        "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+        "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+      "forks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/forks",
+      "keys_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/teams",
+      "hooks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/hooks",
+      "issue_events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/events",
+      "assignees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/tags",
+      "blobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/languages",
+      "stargazers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/stargazers",
+      "contributors_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contributors",
+      "subscribers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscribers",
+      "subscription_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscription",
+      "commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/merges",
+      "archive_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/downloads",
+      "issues_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/labels{/name}",
+      "releases_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/deployments"
+    }
+  },
+  "jobs": {
+    "total_count": 9,
+    "jobs": [
+      {
+        "id": 124501043940,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_Ncq5A",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124501043940",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124501043940",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:27:37Z",
+        "started_at": "2026-10-31T10:33:02Z",
+        "completed_at": "2026-10-31T13:45:48Z",
+        "name": "Callgrind measurement",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:33:03Z",
+            "completed_at": "2026-10-31T10:33:05Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:33:05Z",
+            "completed_at": "2026-10-31T10:33:10Z"
+          },
+          {
+            "name": "Validate exact comparison source identities",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:33:10Z",
+            "completed_at": "2026-10-31T10:33:10Z"
+          },
+          {
+            "name": "Configure isolated profiler installation",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:33:10Z",
+            "completed_at": "2026-10-31T10:33:10Z"
+          },
+          {
+            "name": "Restore source-bound Valgrind 3.27.1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:33:10Z",
+            "completed_at": "2026-10-31T10:33:11Z"
+          },
+          {
+            "name": "Install and validate pinned Valgrind",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:33:11Z",
+            "completed_at": "2026-10-31T10:34:52Z"
+          },
+          {
+            "name": "Install pinned Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:34:52Z",
+            "completed_at": "2026-10-31T10:35:02Z"
+          },
+          {
+            "name": "Identify Rust dependency paths without object caching",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:35:02Z",
+            "completed_at": "2026-10-31T10:35:02Z"
+          },
+          {
+            "name": "Restore Cargo downloads only",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:35:02Z",
+            "completed_at": "2026-10-31T10:35:05Z"
+          },
+          {
+            "name": "Configure isolated Iai runner install",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:35:05Z",
+            "completed_at": "2026-10-31T10:35:05Z"
+          },
+          {
+            "name": "Restore pinned Iai runner and Cargo install metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:35:05Z",
+            "completed_at": "2026-10-31T10:35:06Z"
+          },
+          {
+            "name": "Install matching Iai-Callgrind runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:35:06Z",
+            "completed_at": "2026-10-31T10:35:06Z"
+          },
+          {
+            "name": "Build candidate Rust performance tooling independently",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:35:06Z",
+            "completed_at": "2026-10-31T10:36:33Z"
+          },
+          {
+            "name": "Prepare durable Callgrind evidence inventory",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:36:33Z",
+            "completed_at": "2026-10-31T10:36:33Z"
+          },
+          {
+            "name": "Prepare exact main source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:36:33Z",
+            "completed_at": "2026-10-31T10:36:34Z"
+          },
+          {
+            "name": "Compare pull request with main",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:36:34Z",
+            "completed_at": "2026-10-31T13:41:45Z"
+          },
+          {
+            "name": "Record unchanged Callgrind gate outcomes and raw identities",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T13:41:45Z",
+            "completed_at": "2026-10-31T13:41:50Z"
+          },
+          {
+            "name": "Validate source-bound measurement and explicitly requested review protection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-31T13:41:50Z",
+            "completed_at": "2026-10-31T13:42:26Z"
+          },
+          {
+            "name": "Seal stopped Callgrind evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T13:42:26Z",
+            "completed_at": "2026-10-31T13:43:25Z"
+          },
+          {
+            "name": "Preserve raw baseline and candidate Callgrind evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T13:43:25Z",
+            "completed_at": "2026-10-31T13:45:39Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 40,
+            "started_at": "2026-10-31T13:45:39Z",
+            "completed_at": "2026-10-31T13:45:40Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41,
+            "started_at": "2026-10-31T13:45:40Z",
+            "completed_at": "2026-10-31T13:45:40Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124501043940",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018907,
+        "runner_name": "GitHub Actions 1000018907",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124501043975,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NcrBw",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124501043975",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124501043975",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:27:37Z",
+        "started_at": "2026-10-31T10:29:42Z",
+        "completed_at": "2026-10-31T11:09:51Z",
+        "name": "native performance (x86_64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:29:42Z",
+            "completed_at": "2026-10-31T10:29:44Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:29:44Z",
+            "completed_at": "2026-10-31T10:29:51Z"
+          },
+          {
+            "name": "Prepare target-qualified evidence and verify native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:29:51Z",
+            "completed_at": "2026-10-31T10:29:52Z"
+          },
+          {
+            "name": "Install and verify pinned native Rust host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:29:52Z",
+            "completed_at": "2026-10-31T10:33:31Z"
+          },
+          {
+            "name": "Record expected target-qualified evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:33:31Z",
+            "completed_at": "2026-10-31T10:33:31Z"
+          },
+          {
+            "name": "Identify Rust dependency paths without object caching",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:33:31Z",
+            "completed_at": "2026-10-31T10:33:31Z"
+          },
+          {
+            "name": "Restore Cargo downloads only",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:33:31Z",
+            "completed_at": "2026-10-31T10:33:36Z"
+          },
+          {
+            "name": "Verify repeated evidence CLI contracts on the native host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:33:36Z",
+            "completed_at": "2026-10-31T10:35:00Z"
+          },
+          {
+            "name": "Build independent baseline and candidate default release executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:35:00Z",
+            "completed_at": "2026-10-31T10:44:16Z"
+          },
+          {
+            "name": "Record exact server binary sizes for bounded owner review",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:44:16Z",
+            "completed_at": "2026-10-31T10:44:16Z"
+          },
+          {
+            "name": "Measure alternating baseline and candidate LSP latency on this runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:44:16Z",
+            "completed_at": "2026-10-31T10:50:29Z"
+          },
+          {
+            "name": "Report latency without a numeric regression gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:50:29Z",
+            "completed_at": "2026-10-31T10:50:29Z"
+          },
+          {
+            "name": "Collect alternating cold discovery and warm workspace evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:50:29Z",
+            "completed_at": "2026-10-31T11:05:31Z"
+          },
+          {
+            "name": "Generate unified native report including failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T11:05:31Z",
+            "completed_at": "2026-10-31T11:09:29Z"
+          },
+          {
+            "name": "Inventory raw native evidence and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T11:09:29Z",
+            "completed_at": "2026-10-31T11:09:31Z"
+          },
+          {
+            "name": "Preserve unified native latency and process-memory evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T11:09:31Z",
+            "completed_at": "2026-10-31T11:09:45Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32,
+            "started_at": "2026-10-31T11:09:45Z",
+            "completed_at": "2026-10-31T11:09:46Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33,
+            "started_at": "2026-10-31T11:09:46Z",
+            "completed_at": "2026-10-31T11:09:46Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124501043975",
+        "labels": [
+          "macos-15-intel"
+        ],
+        "runner_id": 1000018905,
+        "runner_name": "GitHub Actions 1000018905",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124501043998,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NcrHg",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124501043998",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124501043998",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:27:37Z",
+        "started_at": "2026-10-31T10:18:11Z",
+        "completed_at": "2026-10-31T10:57:03Z",
+        "name": "native performance (x86_64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:18:12Z",
+            "completed_at": "2026-10-31T10:18:13Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:18:13Z",
+            "completed_at": "2026-10-31T10:18:23Z"
+          },
+          {
+            "name": "Prepare target-qualified evidence and verify native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:18:23Z",
+            "completed_at": "2026-10-31T10:18:23Z"
+          },
+          {
+            "name": "Install and verify pinned native Rust host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:18:23Z",
+            "completed_at": "2026-10-31T10:21:11Z"
+          },
+          {
+            "name": "Record expected target-qualified evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:21:11Z",
+            "completed_at": "2026-10-31T10:21:11Z"
+          },
+          {
+            "name": "Identify Rust dependency paths without object caching",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:21:11Z",
+            "completed_at": "2026-10-31T10:21:11Z"
+          },
+          {
+            "name": "Restore Cargo downloads only",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:21:11Z",
+            "completed_at": "2026-10-31T10:21:23Z"
+          },
+          {
+            "name": "Verify repeated evidence CLI contracts on the native host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:21:23Z",
+            "completed_at": "2026-10-31T10:22:51Z"
+          },
+          {
+            "name": "Build independent baseline and candidate default release executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:22:51Z",
+            "completed_at": "2026-10-31T10:31:44Z"
+          },
+          {
+            "name": "Record exact server binary sizes for bounded owner review",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:31:44Z",
+            "completed_at": "2026-10-31T10:31:45Z"
+          },
+          {
+            "name": "Measure alternating baseline and candidate LSP latency on this runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:31:45Z",
+            "completed_at": "2026-10-31T10:38:00Z"
+          },
+          {
+            "name": "Report latency without a numeric regression gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:38:00Z",
+            "completed_at": "2026-10-31T10:38:00Z"
+          },
+          {
+            "name": "Collect alternating cold discovery and warm workspace evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:38:00Z",
+            "completed_at": "2026-10-31T10:51:56Z"
+          },
+          {
+            "name": "Generate unified native report including failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:51:56Z",
+            "completed_at": "2026-10-31T10:56:45Z"
+          },
+          {
+            "name": "Inventory raw native evidence and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:56:45Z",
+            "completed_at": "2026-10-31T10:56:46Z"
+          },
+          {
+            "name": "Preserve unified native latency and process-memory evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:56:46Z",
+            "completed_at": "2026-10-31T10:57:00Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32,
+            "started_at": "2026-10-31T10:57:00Z",
+            "completed_at": "2026-10-31T10:57:02Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33,
+            "started_at": "2026-10-31T10:57:02Z",
+            "completed_at": "2026-10-31T10:57:02Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124501043998",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000018899,
+        "runner_name": "GitHub Actions 1000018899",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124501044005,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NcrJQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124501044005",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124501044005",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:27:37Z",
+        "started_at": "2026-10-31T10:19:08Z",
+        "completed_at": "2026-10-31T10:44:15Z",
+        "name": "native performance (aarch64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:19:09Z",
+            "completed_at": "2026-10-31T10:19:10Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:19:10Z",
+            "completed_at": "2026-10-31T10:19:14Z"
+          },
+          {
+            "name": "Prepare target-qualified evidence and verify native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:19:14Z",
+            "completed_at": "2026-10-31T10:19:14Z"
+          },
+          {
+            "name": "Install and verify pinned native Rust host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:19:14Z",
+            "completed_at": "2026-10-31T10:20:42Z"
+          },
+          {
+            "name": "Record expected target-qualified evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:20:42Z",
+            "completed_at": "2026-10-31T10:20:42Z"
+          },
+          {
+            "name": "Identify Rust dependency paths without object caching",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:20:42Z",
+            "completed_at": "2026-10-31T10:20:42Z"
+          },
+          {
+            "name": "Restore Cargo downloads only",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:20:42Z",
+            "completed_at": "2026-10-31T10:20:43Z"
+          },
+          {
+            "name": "Verify repeated evidence CLI contracts on the native host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:20:43Z",
+            "completed_at": "2026-10-31T10:21:16Z"
+          },
+          {
+            "name": "Build independent baseline and candidate default release executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:21:16Z",
+            "completed_at": "2026-10-31T10:26:00Z"
+          },
+          {
+            "name": "Record exact server binary sizes for bounded owner review",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:26:00Z",
+            "completed_at": "2026-10-31T10:26:00Z"
+          },
+          {
+            "name": "Measure alternating baseline and candidate LSP latency on this runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:26:00Z",
+            "completed_at": "2026-10-31T10:31:49Z"
+          },
+          {
+            "name": "Report latency without a numeric regression gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:31:49Z",
+            "completed_at": "2026-10-31T10:31:49Z"
+          },
+          {
+            "name": "Collect alternating cold discovery and warm workspace evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:31:49Z",
+            "completed_at": "2026-10-31T10:42:07Z"
+          },
+          {
+            "name": "Generate unified native report including failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:42:07Z",
+            "completed_at": "2026-10-31T10:44:04Z"
+          },
+          {
+            "name": "Inventory raw native evidence and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:44:04Z",
+            "completed_at": "2026-10-31T10:44:05Z"
+          },
+          {
+            "name": "Preserve unified native latency and process-memory evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:44:05Z",
+            "completed_at": "2026-10-31T10:44:13Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32,
+            "started_at": "2026-10-31T10:44:13Z",
+            "completed_at": "2026-10-31T10:44:13Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33,
+            "started_at": "2026-10-31T10:44:13Z",
+            "completed_at": "2026-10-31T10:44:13Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124501044005",
+        "labels": [
+          "ubuntu-24.04-arm"
+        ],
+        "runner_id": 1000018900,
+        "runner_name": "GitHub Actions 1000018900",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124501044037,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NcrRQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124501044037",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124501044037",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:27:37Z",
+        "started_at": "2026-10-31T09:46:55Z",
+        "completed_at": "2026-10-31T10:16:41Z",
+        "name": "native performance (aarch64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T09:46:55Z",
+            "completed_at": "2026-10-31T09:46:55Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T09:46:55Z",
+            "completed_at": "2026-10-31T09:47:02Z"
+          },
+          {
+            "name": "Prepare target-qualified evidence and verify native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T09:47:02Z",
+            "completed_at": "2026-10-31T09:47:02Z"
+          },
+          {
+            "name": "Install and verify pinned native Rust host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T09:47:02Z",
+            "completed_at": "2026-10-31T09:49:11Z"
+          },
+          {
+            "name": "Record expected target-qualified evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T09:49:11Z",
+            "completed_at": "2026-10-31T09:49:11Z"
+          },
+          {
+            "name": "Identify Rust dependency paths without object caching",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T09:49:11Z",
+            "completed_at": "2026-10-31T09:49:11Z"
+          },
+          {
+            "name": "Restore Cargo downloads only",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T09:49:11Z",
+            "completed_at": "2026-10-31T09:49:16Z"
+          },
+          {
+            "name": "Verify repeated evidence CLI contracts on the native host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T09:49:16Z",
+            "completed_at": "2026-10-31T09:50:20Z"
+          },
+          {
+            "name": "Build independent baseline and candidate default release executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T09:50:20Z",
+            "completed_at": "2026-10-31T09:56:28Z"
+          },
+          {
+            "name": "Record exact server binary sizes for bounded owner review",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T09:56:28Z",
+            "completed_at": "2026-10-31T09:56:28Z"
+          },
+          {
+            "name": "Measure alternating baseline and candidate LSP latency on this runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T09:56:28Z",
+            "completed_at": "2026-10-31T10:02:42Z"
+          },
+          {
+            "name": "Report latency without a numeric regression gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:02:42Z",
+            "completed_at": "2026-10-31T10:02:43Z"
+          },
+          {
+            "name": "Collect alternating cold discovery and warm workspace evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:02:43Z",
+            "completed_at": "2026-10-31T10:13:26Z"
+          },
+          {
+            "name": "Generate unified native report including failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:13:26Z",
+            "completed_at": "2026-10-31T10:16:28Z"
+          },
+          {
+            "name": "Inventory raw native evidence and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:16:28Z",
+            "completed_at": "2026-10-31T10:16:30Z"
+          },
+          {
+            "name": "Preserve unified native latency and process-memory evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:16:30Z",
+            "completed_at": "2026-10-31T10:16:36Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32,
+            "started_at": "2026-10-31T10:16:36Z",
+            "completed_at": "2026-10-31T10:16:36Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33,
+            "started_at": "2026-10-31T10:16:36Z",
+            "completed_at": "2026-10-31T10:16:39Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124501044037",
+        "labels": [
+          "macos-15"
+        ],
+        "runner_id": 1000018886,
+        "runner_name": "GitHub Actions 1000018886",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124501044073,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NcraQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124501044073",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124501044073",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:27:37Z",
+        "started_at": "2026-10-31T09:46:24Z",
+        "completed_at": "2026-10-31T10:24:59Z",
+        "name": "native performance (aarch64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T09:46:24Z",
+            "completed_at": "2026-10-31T09:46:26Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T09:46:26Z",
+            "completed_at": "2026-10-31T09:46:42Z"
+          },
+          {
+            "name": "Prepare target-qualified evidence and verify native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T09:46:42Z",
+            "completed_at": "2026-10-31T09:46:42Z"
+          },
+          {
+            "name": "Install and verify pinned native Rust host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T09:46:42Z",
+            "completed_at": "2026-10-31T09:49:09Z"
+          },
+          {
+            "name": "Record expected target-qualified evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T09:49:09Z",
+            "completed_at": "2026-10-31T09:49:09Z"
+          },
+          {
+            "name": "Identify Rust dependency paths without object caching",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T09:49:09Z",
+            "completed_at": "2026-10-31T09:49:10Z"
+          },
+          {
+            "name": "Restore Cargo downloads only",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T09:49:10Z",
+            "completed_at": "2026-10-31T09:49:22Z"
+          },
+          {
+            "name": "Verify repeated evidence CLI contracts on the native host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T09:49:22Z",
+            "completed_at": "2026-10-31T09:50:49Z"
+          },
+          {
+            "name": "Build independent baseline and candidate default release executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T09:50:49Z",
+            "completed_at": "2026-10-31T09:58:49Z"
+          },
+          {
+            "name": "Record exact server binary sizes for bounded owner review",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T09:58:49Z",
+            "completed_at": "2026-10-31T09:58:51Z"
+          },
+          {
+            "name": "Measure alternating baseline and candidate LSP latency on this runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T09:58:51Z",
+            "completed_at": "2026-10-31T10:04:52Z"
+          },
+          {
+            "name": "Report latency without a numeric regression gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:04:52Z",
+            "completed_at": "2026-10-31T10:04:52Z"
+          },
+          {
+            "name": "Collect alternating cold discovery and warm workspace evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:04:52Z",
+            "completed_at": "2026-10-31T10:17:01Z"
+          },
+          {
+            "name": "Generate unified native report including failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:17:01Z",
+            "completed_at": "2026-10-31T10:24:37Z"
+          },
+          {
+            "name": "Inventory raw native evidence and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:24:37Z",
+            "completed_at": "2026-10-31T10:24:38Z"
+          },
+          {
+            "name": "Preserve unified native latency and process-memory evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:24:38Z",
+            "completed_at": "2026-10-31T10:24:52Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32,
+            "started_at": "2026-10-31T10:24:52Z",
+            "completed_at": "2026-10-31T10:24:56Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33,
+            "started_at": "2026-10-31T10:24:56Z",
+            "completed_at": "2026-10-31T10:24:56Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124501044073",
+        "labels": [
+          "windows-11-arm"
+        ],
+        "runner_id": 1000018885,
+        "runner_name": "GitHub Actions 1000018885",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124501044175,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_Ncrzw",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124501044175",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124501044175",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:27:37Z",
+        "started_at": "2026-10-31T10:59:48Z",
+        "completed_at": "2026-10-31T11:27:01Z",
+        "name": "native performance (x86_64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:59:49Z",
+            "completed_at": "2026-10-31T10:59:50Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:59:50Z",
+            "completed_at": "2026-10-31T10:59:54Z"
+          },
+          {
+            "name": "Prepare target-qualified evidence and verify native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:59:54Z",
+            "completed_at": "2026-10-31T10:59:54Z"
+          },
+          {
+            "name": "Install and verify pinned native Rust host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:59:54Z",
+            "completed_at": "2026-10-31T11:01:29Z"
+          },
+          {
+            "name": "Record expected target-qualified evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T11:01:29Z",
+            "completed_at": "2026-10-31T11:01:29Z"
+          },
+          {
+            "name": "Identify Rust dependency paths without object caching",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:01:29Z",
+            "completed_at": "2026-10-31T11:01:29Z"
+          },
+          {
+            "name": "Restore Cargo downloads only",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:01:29Z",
+            "completed_at": "2026-10-31T11:01:31Z"
+          },
+          {
+            "name": "Verify repeated evidence CLI contracts on the native host",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:01:31Z",
+            "completed_at": "2026-10-31T11:02:09Z"
+          },
+          {
+            "name": "Build independent baseline and candidate default release executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:02:09Z",
+            "completed_at": "2026-10-31T11:07:01Z"
+          },
+          {
+            "name": "Record exact server binary sizes for bounded owner review",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T11:07:01Z",
+            "completed_at": "2026-10-31T11:07:01Z"
+          },
+          {
+            "name": "Measure alternating baseline and candidate LSP latency on this runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T11:07:01Z",
+            "completed_at": "2026-10-31T11:12:58Z"
+          },
+          {
+            "name": "Report latency without a numeric regression gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T11:12:58Z",
+            "completed_at": "2026-10-31T11:12:58Z"
+          },
+          {
+            "name": "Collect alternating cold discovery and warm workspace evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T11:12:58Z",
+            "completed_at": "2026-10-31T11:23:31Z"
+          },
+          {
+            "name": "Generate unified native report including failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T11:23:31Z",
+            "completed_at": "2026-10-31T11:26:48Z"
+          },
+          {
+            "name": "Inventory raw native evidence and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T11:26:48Z",
+            "completed_at": "2026-10-31T11:26:49Z"
+          },
+          {
+            "name": "Preserve unified native latency and process-memory evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T11:26:49Z",
+            "completed_at": "2026-10-31T11:26:59Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32,
+            "started_at": "2026-10-31T11:26:59Z",
+            "completed_at": "2026-10-31T11:26:59Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33,
+            "started_at": "2026-10-31T11:26:59Z",
+            "completed_at": "2026-10-31T11:26:59Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124501044175",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018925,
+        "runner_name": "GitHub Actions 1000018925",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124554104112,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAdAADNMA",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124554104112",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124554104112",
+        "status": "completed",
+        "conclusion": "failure",
+        "created_at": "2026-10-31T13:45:48Z",
+        "started_at": "2026-10-31T13:45:51Z",
+        "completed_at": "2026-10-31T13:45:54Z",
+        "name": "performance admission",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T13:45:52Z",
+            "completed_at": "2026-10-31T13:45:52Z"
+          },
+          {
+            "name": "Require valid ordinary policy or explicit exact-run approval",
+            "status": "completed",
+            "conclusion": "failure",
+            "number": 2,
+            "started_at": "2026-10-31T13:45:52Z",
+            "completed_at": "2026-10-31T13:45:52Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T13:45:52Z",
+            "completed_at": "2026-10-31T13:45:52Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124554104112",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018952,
+        "runner_name": "GitHub Actions 1000018952",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124554104774,
+        "run_id": 41188774413,
+        "workflow_name": "performance",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAdAADPxg",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124554104774",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188774413/job/124554104774",
+        "status": "completed",
+        "conclusion": "skipped",
+        "created_at": "2026-10-31T13:45:48Z",
+        "started_at": "2026-10-31T13:45:48Z",
+        "completed_at": "2026-10-31T13:45:48Z",
+        "name": "Review exact-run performance exception",
+        "steps": [],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124554104774",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": null,
+        "runner_name": null,
+        "runner_group_id": null,
+        "runner_group_name": null
+      }
+    ]
+  },
+  "artifacts": {
+    "total_count": 7,
+    "artifacts": [
+      {
+        "id": 13043529920,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MzUyOTkyMA==",
+        "name": "callgrind-41188774413-1",
+        "size_in_bytes": 329178284,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13043529920",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13043529920/zip",
+        "expired": false,
+        "digest": "sha256:f44a2849099c7da2115e85243039f4953c9b0cc765fc8d6e85b5315413b3cecf",
+        "created_at": "2026-10-31T13:45:39Z",
+        "updated_at": "2026-10-31T13:45:39Z",
+        "expires_at": "2026-11-14T13:43:44Z",
+        "workflow_run": {
+          "id": 41188774413,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13041183029,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MTE4MzAyOQ==",
+        "name": "perf-pr-41188774413-1-x86_64-unknown-linux-gnu",
+        "size_in_bytes": 12550903,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13041183029",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13041183029/zip",
+        "expired": false,
+        "digest": "sha256:05aa4a0429a76d085935f17aff1b044900aea9b9388290a1c18d440975651ce7",
+        "created_at": "2026-10-31T11:26:58Z",
+        "updated_at": "2026-10-31T11:26:58Z",
+        "expires_at": "2026-11-14T11:26:50Z",
+        "workflow_run": {
+          "id": 41188774413,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13040716657,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDcxNjY1Nw==",
+        "name": "perf-pr-41188774413-1-x86_64-apple-darwin",
+        "size_in_bytes": 11815357,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040716657",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040716657/zip",
+        "expired": false,
+        "digest": "sha256:999f9292c97eaef5d145fb2115b72891ddcdb51f86ebb11a5d76485f65cc84b9",
+        "created_at": "2026-10-31T11:09:45Z",
+        "updated_at": "2026-10-31T11:09:45Z",
+        "expires_at": "2026-11-14T11:09:33Z",
+        "workflow_run": {
+          "id": 41188774413,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13040635246,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDYzNTI0Ng==",
+        "name": "perf-pr-41188774413-1-x86_64-pc-windows-msvc",
+        "size_in_bytes": 12467905,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040635246",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040635246/zip",
+        "expired": false,
+        "digest": "sha256:9d1a71cab0eca2b974fa77cda36a9dfe41233cde25a8e77e14a539d5546d1e95",
+        "created_at": "2026-10-31T10:57:00Z",
+        "updated_at": "2026-10-31T10:57:00Z",
+        "expires_at": "2026-11-14T10:56:49Z",
+        "workflow_run": {
+          "id": 41188774413,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039913234,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTkxMzIzNA==",
+        "name": "perf-pr-41188774413-1-aarch64-unknown-linux-gnu",
+        "size_in_bytes": 12518872,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039913234",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039913234/zip",
+        "expired": false,
+        "digest": "sha256:cd0a83a1ea9c76367bb9d5340773dfa18f01ba5b201ed926a96b88bacfe1c4d5",
+        "created_at": "2026-10-31T10:44:13Z",
+        "updated_at": "2026-10-31T10:44:13Z",
+        "expires_at": "2026-11-14T10:44:06Z",
+        "workflow_run": {
+          "id": 41188774413,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039665539,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTY2NTUzOQ==",
+        "name": "perf-pr-41188774413-1-aarch64-apple-darwin",
+        "size_in_bytes": 11644100,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039665539",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039665539/zip",
+        "expired": false,
+        "digest": "sha256:6703f24f64e20fa28c634ab20d4fa40c9d5129d441e248bd394df6e37c079b12",
+        "created_at": "2026-10-31T10:16:36Z",
+        "updated_at": "2026-10-31T10:16:36Z",
+        "expires_at": "2026-11-14T10:16:31Z",
+        "workflow_run": {
+          "id": 41188774413,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13038929858,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzODkyOTg1OA==",
+        "name": "perf-pr-41188774413-1-aarch64-pc-windows-msvc",
+        "size_in_bytes": 12344215,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038929858",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038929858/zip",
+        "expired": false,
+        "digest": "sha256:8623b9397675c067906ce762982bf09c8c6917999112adaf0a96857944bd1d63",
+        "created_at": "2026-10-31T10:24:52Z",
+        "updated_at": "2026-10-31T10:24:52Z",
+        "expires_at": "2026-11-14T11:24:41Z",
+        "workflow_run": {
+          "id": 41188774413,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      }
+    ]
+  }
+}
