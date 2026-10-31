@@ -230,8 +230,11 @@ class ProcessTree:
         for pid in owned:
             if pid in table:
                 self.identities[pid] = table[pid][3]
-                if pid != os.getpid() and table[pid][1] != os.getpgrp():
-                    self.groups.add(table[pid][1])
+                group = table[pid][1]
+                # Procfs can expose pgid=-1 while a task is being torn down.
+                # Only positive IDs identify groups; zero signals our own group.
+                if pid != os.getpid() and group > 0 and group != os.getpgrp():
+                    self.groups.add(group)
         self.children.update(owned - {os.getpid()})
         rss = sum(table[pid][2] for pid in owned if pid in table) + table.observer_rss_bytes
         if rss <= 0:

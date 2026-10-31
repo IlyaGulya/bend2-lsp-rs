@@ -759,22 +759,37 @@ fn collect_module_completions_for_query<const ASCII_PREFIX: bool, const HAS_CONS
 ) -> Vec<Completion> {
     let source = &snapshot.text;
     let syntax = &snapshot.syntax;
+    let symbols = syntax.symbols();
+    let mut remaining = symbols.iter();
     let mut items = Vec::new();
-    for symbol in syntax.symbols() {
+    // Peel the first match so reservation is outside the steady-state loop.
+    // Each indexed symbol is matched once; no-match queries allocate nothing.
+    let (first, name, kind) = loop {
+        let Some(symbol) = remaining.next() else {
+            return items;
+        };
         let kind = symbol.kind;
         if HAS_CONSTRUCTORS && kind == SymbolKind::Constructor {
             continue;
         }
         let name = &source[symbol.name_range.start..symbol.name_range.end];
         if completion_matches(name, prefix, ASCII_PREFIX) {
-            if items.is_empty() {
-                items.reserve_exact(
-                    syntax
-                        .symbols()
-                        .len()
-                        .min(MODULE_COMPLETION_INITIAL_CAPACITY),
-                );
-            }
+            break (symbol, name, kind);
+        }
+    };
+    items.reserve_exact(symbols.len().min(MODULE_COMPLETION_INITIAL_CAPACITY));
+    items.push(completion(
+        name.to_owned(),
+        source[first.detail_range.start..first.detail_range.end].to_owned(),
+        kind,
+    ));
+    for symbol in remaining {
+        let kind = symbol.kind;
+        if HAS_CONSTRUCTORS && kind == SymbolKind::Constructor {
+            continue;
+        }
+        let name = &source[symbol.name_range.start..symbol.name_range.end];
+        if completion_matches(name, prefix, ASCII_PREFIX) {
             items.push(completion(
                 name.to_owned(),
                 source[symbol.detail_range.start..symbol.detail_range.end].to_owned(),

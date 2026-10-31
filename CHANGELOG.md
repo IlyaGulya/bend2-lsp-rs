@@ -70,19 +70,26 @@
 
 ### Under the hood
 
+- Keep Linux procfs teardown sentinels out of owned process-group IDs, so a
+  successful semantic worker is not rejected by an invalid cleanup signal.
+  Preserve real child reaping and all genuine cleanup failures.
+- Require all 102 current calibration workloads, including the three
+  shared-dependency cases. Correct the stale 99-workload expectation without
+  changing the sampled data, fixed-series method or admission limits.
 - Compact published entry-view capture receipts, generation/alias tables and
-  physical-URI ownership. Reuse indexed entity names instead of retaining another
-  canonical-name map; preserve value/constructor precedence, conflicting-overlay
-  safety, exact invalidation and immutable warm queries. Keep cold alias
-  registration hashed to avoid quadratic duplicate checks.
+  physical-URI ownership. Sort and freeze receipts outside the workspace read
+  lock. Move cold value/constructor registration tables into immutable lookup
+  indexes instead of searching namespace-sorted entities during rename checks.
+  Preserve precedence, conflicting-overlay safety, exact invalidation and
+  immutable warm queries. Keep cold alias registration hashed.
 - Reuse normalized discovery keys and capture their snapshot/generation guard in
   one lookup. Avoid an immediately duplicated hub-import realpath check without
   caching filesystem identities across files or weakening retarget detection.
-- Reserve module-completion result storage only after the first match, with an
-  initial bound of sixteen indexed declarations. Reuse the declaration kind
-  across owned label/signature construction; leave subsequent growth to
-  `Vec::push` rather than duplicating its capacity check and reserve. Keep matching,
-  ordering and result ownership unchanged without a second index pass.
+- Reserve module-completion result storage once after finding the first match,
+  with an initial bound of sixteen indexed declarations. Continue from the same
+  iterator without repeating that match or checking reservation on every result.
+  Leave subsequent growth to `Vec::push`; preserve matching, ordering and owned
+  results without another index pass or an allocation for a no-match query.
 - Reject excluded constructor declarations before slicing and matching names
   for module completion. Preserve same-spelling functions, fuzzy matching,
   recovery order and owned results without another index or semantic pass.

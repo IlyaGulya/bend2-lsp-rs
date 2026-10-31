@@ -135,6 +135,52 @@ class SupervisorTests(unittest.TestCase):
                 process.kill()
                 process.wait(timeout=2)
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux procfs teardown")
+    def test_disappearing_procfs_group_preserves_success_and_reaps_children(self):
+        pidfile, release = self.directory/"exiting.pid", self.directory/"release"
+        code = ("import os,pathlib,time\n"
+            "child=os.fork()\n"
+            "if child==0: os._exit(0)\n"
+            "os.waitid(os.P_PID,child,os.WEXITED|os.WNOWAIT)\n"
+            f"pathlib.Path({str(pidfile)!r}).write_text(str(child))\n"
+            f"while not pathlib.Path({str(release)!r}).exists(): time.sleep(.005)\n"
+            "os.waitpid(child,0)\n"
+            "print('complete',flush=True)\n")
+        class TeardownStat(gate.ProcessTree):
+            injected = False
+            def _table(self):
+                table = super()._table()
+                if not self.injected and pidfile.is_file():
+                    text = pidfile.read_text()
+                    row = table.get(int(text)) if text else None
+                    if (row is not None and int(text) in self.identities
+                            and not gate.is_live_process(row)):
+                        # Expose the procfs teardown sentinel once, then observe
+                        # the real child until its parent collects it.
+                        table[int(text)] = (0, -1, row[2], row[3], "X")
+                        self.injected = True
+                return table
+            def sample(self):
+                observation = super().sample()
+                if self.injected and pidfile.is_file():
+                    text = pidfile.read_text()
+                    row = observation[1].get(int(text)) if text else None
+                    if row is not None and row[1] > 0:
+                        release.touch()
+                return observation
+        result = gate.supervise([sys.executable,"-c",code],
+            deadline=time.monotonic()+10, output_path=self.directory/"output.log",
+            artifact_dir=self.directory, limits=self.limits, tree=TeardownStat())
+        self.assertEqual(result["status"], "pass", result)
+        self.assertEqual(result["returncode"], 0)
+        self.assertEqual((self.directory/"output.log").read_text(), "complete\n")
+        self.assertTrue(release.is_file(), "child teardown was not observed")
+        self.assertFalse(result["cleanup_errors"])
+        child = int(pidfile.read_text())
+        self.assert_dead(child)
+        with self.assertRaises(ChildProcessError):
+            os.waitpid(child, os.WNOHANG)
+
     @unittest.skipUnless(sys.platform == "linux", "Linux child subreaping")
     def test_quiet_success_reaps_an_adopted_zombie(self):
         code = ("import os\n"

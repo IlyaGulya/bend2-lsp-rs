@@ -178,21 +178,13 @@ impl SemanticView {
             written.clone_into(&mut qualified);
         }
         if role == ReferenceRole::Constructor {
-            let namespace = qualified
-                .split_once(':')
-                .map_or("", |(namespace, _)| namespace);
-            if let Some(indices) = self.namespace_indices.get(namespace) {
-                let start = indices.partition_point(|index| self.entities[*index].name < qualified);
-                return indices[start..]
-                    .iter()
-                    .map(|index| &self.entities[*index])
-                    .take_while(|entity| entity.name == qualified)
-                    .find(|entity| entity.kind == DeclarationKind::Constructor)
-                    .map_or(SemanticTarget::Unresolved, |entity| {
-                        SemanticTarget::Global(entity.id)
-                    });
-            }
-            return SemanticTarget::Unresolved;
+            // The constructor table holds exactly the constructor entities.
+            // Alias refactoring already refused conflicting overlays above, so
+            // no `Ambiguous` registration can reach this file.
+            return match self.constructors.get(qualified.as_str()) {
+                Some(SemanticTarget::Global(id)) => SemanticTarget::Global(*id),
+                _ => SemanticTarget::Unresolved,
+            };
         }
         self.top_level(&qualified)
             .filter(|target| match target {

@@ -280,6 +280,14 @@ deadline; an expired deadline or an unreaped helper still fails cleanup.
 The supervisor also bounds output/report sizes and kills/reaps process groups,
 including children whose group leader has already exited. Reports distinguish
 setup, startup, comparison, normalization, stdio, and shutdown costs.
+
+Only positive process-group IDs are retained as signaling targets. Linux procfs
+can expose `pgid=-1` during task teardown; it is not an owned group, and zero
+would signal the supervisor's own group. PID/birth identity tracking still
+retains the task through teardown. Live descendants, positive owned groups and
+adopted children still require the original termination/reaping checks, and
+genuine cleanup errors remain fatal.
+
 A complete observation with no live owned child may be reused only after the
 worker has exited successfully and stdout reached EOF. Cleanup still signals
 owned groups, waits the leader and reaps adopted Linux children. A final

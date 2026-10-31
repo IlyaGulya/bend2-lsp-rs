@@ -67,13 +67,13 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
-Module completion delays result reservation until the first match. Its first
-reservation is bounded by sixteen indexed declarations; only `Vec::push` handles
-later growth, without a second capacity guard or explicit reserve on each growth.
-No-match queries do not allocate a speculative result buffer, and selective
-queries do not reserve the whole document's declaration count. The indexed
-declaration kind is copied before owned label/signature allocation. This adds no
-matching prepass or retained index. Fresh source-bound
+Module completion peels the first eligible match from the same indexed iterator
+before reserving result storage. Its first reservation is bounded by sixteen
+indexed declarations; subsequent growth belongs to `Vec::push`. The remaining
+loop does not repeat the first match or check for a first reservation on every
+result. No-match queries scan once without allocating a speculative result
+buffer, and selective queries do not reserve the whole document's declaration
+count. Matching, ordering and owned results remain unchanged. Fresh source-bound
 Callgrind results are still required; static annotation of an earlier hosted
 profile is attribution, not a new performance measurement or admission.
 
@@ -104,17 +104,21 @@ These storage choices do not permit rebuilding closed contexts on warm requests.
 
 Published entry captures keep validation receipts rather than build-only document
 metadata and semantic-import copies. Physical generations use a sorted immutable
-slice; conflict paths remain build-only after their issues and conflict flag are
+slice; cold build sorts and freezes the captured construction maps outside the
+workspace read guard. Both capture and build costs remain separately measured.
+Conflict paths remain build-only after their issues and conflict flag are
 published. Physical document URIs share the document index instead of retaining
 another keyed table. Optional Base ownership is boxed rather than paid inline by
 every view.
 
-Canonical top-level lookup reuses the existing namespace/name-sorted entity index
-instead of retaining another canonical-name map. Value/constructor precedence and
-ambiguous overlay names remain explicit. Alias registration stays hashed during
-cold construction to avoid quadratic duplicate checks; published alias tables
-are sorted immutable slices. The existing `semantic_completion_warm` and
-`semantic_rename_preflight_warm` cases cover these indexed lookup trade-offs.
+Canonical values and constructors move their existing cold registration tables
+into the published `CompactMap` indexes. This avoids repeated namespace/entity
+binary searches during rename checks without cloning the name keys again.
+Value/constructor precedence and ambiguous overlay names remain explicit.
+Retaining those keys is a memory trade-off, not free compaction: cold build,
+`semantic_completion_warm`, `semantic_rename_preflight_warm` and native retained
+RSS still require exact-source qualification. Alias registration stays hashed
+during cold construction; published alias tables are sorted immutable slices.
 
 Cold discovery may use at most two owned walkers, retaining tracing context,
 ignore/symlink rules, cancellation and final generation checks.
@@ -667,14 +671,14 @@ retry-for-luck, best-sample selection, outlier deletion, or pooling of one
 workload's samples across hosts/builds. Neither role trains an allowance.
 
 Every independently built variant declares both benchmark executables:
-`analysis` (96 workloads) and `reference_locations` (three workloads). Within
+`analysis` (99 workloads) and `reference_locations` (three workloads). Within
 each executable, sorted frozen function identities are assigned by position
 modulo four. Every selected function keeps its complete original case vector,
 including all parameter IDs. The assignment is identical across all five variants;
 the complete preplanned manifest and exact selected identities are retained.
 A physical shard measures only whole assigned functions. Within one side of a
 pair, independent selected functions still run through at most four original
-`iai-callgrind-runner 0.16.1` processes. All 99 workloads, 105 pairs per workload,
+`iai-callgrind-runner 0.16.1` processes. All 102 workloads, 105 pairs per workload,
 five variants, balanced order, cache settings, counters, limits and deadlines
 remain required across the complete logical job. No next side or variant starts
 until all current runners in that shard finish.
@@ -697,12 +701,24 @@ group and deadline; incomplete output cannot acquire a `sample.json` commit
 marker. This orchestration requires fresh fixed-series qualification; a local
 frozen-binary smoke or historical serial controls do not qualify it.
 
-Semantic extraction adds 45 workloads to the original 54-workload scope.
-Qualification now requires all 99 workloads; the earlier 54-workload controls
-do not qualify this expanded scope. Ordinary source admission still compares
-every existing baseline workload and reports candidate-only workloads as
-unpaired until a later baseline contains them. No existing workload, metric,
-numeric allowance, or benchmark guard boundary changes.
+Semantic extraction added 45 workloads to the original 54-workload scope. The
+three shared-dependency cold-view cases extend that scope to 102 workloads.
+Qualification requires all 102; the earlier 54- and 99-workload controls do not
+qualify this expanded scope. Ordinary source admission still compares every
+existing baseline workload and reports candidate-only workloads as unpaired
+until a later baseline contains them. No existing workload, metric, numeric
+allowance, or benchmark guard boundary changes.
+
+The complete 102-workload collection in
+[run 41111209224](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209224)
+was rejected by the stale reporter expectation of 99. All 24 compact inputs were
+recovered with original ZIP digests, CRCs and source/producer identities verified.
+Re-reporting that unchanged data with the strict 102-workload expectation passes
+full 3/3/105/4 coverage, A/A repeatability and positive-control sensitivity.
+Every per-job comparison and diagnostic Markdown row is byte-identical to the
+original failed report. This adds no SUT measurements, does not retroactively
+change the GitHub run, and grants neither performance admission nor qualification
+to a later source revision.
 
 Evidence format v2 binds each benchmark's actual `--list` identities, executable
 hash and raw stdout/stderr to its frozen variant source. Both original harness
@@ -746,8 +762,8 @@ reliability, whole-editor latency, or the probability of a future raw failure.
 There are no tail-confidence or zero-tail-failure claims, even when every
 observed A/A comparison passes.
 
-Control validation requires complete 3/3/105 coverage of all 99 workloads across
-both executables, enforced with `--expected-workloads 99 --require-all-benchmarks`
+Control validation requires complete 3/3/105 coverage of all 102 workloads across
+both executables, enforced with `--expected-workloads 102 --require-all-benchmarks`
 and `--expected-shards 4`. Each logical job must contain every shard exactly once,
 with disjoint/exhaustive deterministic selection and one physical host per
 workload series. Source, full-manifest digest, method, role, variant sources,
@@ -858,15 +874,20 @@ A maintainer can dispatch the controls on a reviewed source revision:
 gh workflow run performance-calibration.yml --ref <reviewed-ref>
 ```
 
-For retained artifacts, the equivalent report command is:
+For retained artifacts from the current 102-workload scope, the report command is:
 
 ```bash
 bend2-perf calibration report INPUT \
   --method paired-median-105-v1 --require-control-validation \
   --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-  --expected-workloads 99 --require-all-benchmarks --expected-shards 4 \
+  --expected-workloads 102 --require-all-benchmarks --expected-shards 4 \
   --json-output report.json --markdown-output report.md
 ```
+
+Historical replay keeps its original predeclared scope: the 99-workload source
+above still requires 99, not 102. A current 102-workload collection must not be
+rejected by that stale count, and an older partial collection cannot be admitted
+by changing its expected count after observing missing results.
 
 Collection remains hosted-only. The default raw report method is retained for
 historical datasets; the active workflow explicitly selects the qualified

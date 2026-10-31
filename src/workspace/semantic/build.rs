@@ -105,7 +105,7 @@ struct Builder {
     constructors: HashMap<String, SemanticTarget>,
     top_levels: HashMap<String, SemanticTarget>,
     // Canonical names a conflicting overlay marked ambiguous without an entity.
-    ambiguous: Vec<String>,
+    ambiguous: HashSet<String>,
     // Signature metadata stays aligned with entities, including filled laws.
     template_parameter_counts: Vec<usize>,
     pending: Vec<PendingOccurrence>,
@@ -124,6 +124,11 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         physical_generations,
         conflicting_paths,
     } = input;
+    // The workspace read guard is gone; freeze the captured building maps here.
+    let mut physical_generations: Vec<_> = physical_generations.into_iter().collect();
+    physical_generations.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    let mut conflicting_paths: Vec<_> = conflicting_paths.into_iter().collect();
+    conflicting_paths.sort_unstable();
     let mut view = SemanticView {
         capture: SemanticCapture {
             serial,
@@ -132,17 +137,18 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
             library,
             base: base.map(Box::new),
             base_file,
-            physical_generations,
+            physical_generations: physical_generations.into_boxed_slice(),
             conflicted: !conflicting_paths.is_empty(),
         },
         documents: Vec::new(),
         physical_document_uris: Vec::new(),
         document_indices: CompactMap::new(),
-        entities: Vec::new(),
         by_uri: CompactMap::new(),
         declaration_indices: CompactMap::new(),
         by_physical_uri: CompactMap::new(),
-        ambiguous_names: Box::default(),
+        entities: Vec::new(),
+        top_levels: CompactMap::new(),
+        constructors: CompactMap::new(),
         namespace_indices: CompactMap::new(),
         contexts: CompactMap::new(),
         declarations: Vec::new(),
@@ -167,11 +173,11 @@ pub(super) fn build(input: SemanticViewInput) -> SemanticView {
         files: BuildFiles {
             files: captured,
             indices: file_indices,
-            conflicts: conflicting_paths,
+            conflicts: conflicting_paths.into_boxed_slice(),
         },
         constructors: HashMap::new(),
         top_levels: HashMap::new(),
-        ambiguous: Vec::new(),
+        ambiguous: HashSet::new(),
         template_parameter_counts: Vec::new(),
         pending: Vec::new(),
         call_count: 0,
@@ -491,7 +497,7 @@ impl Builder {
         };
         let target = if context.conflicted {
             let canonical = qualify(&context.namespace, name);
-            self.ambiguous.push(canonical.clone());
+            self.ambiguous.insert(canonical.clone());
             let table = if declaration.kind == DeclarationKind::Constructor {
                 &mut self.constructors
             } else {
@@ -564,10 +570,9 @@ impl Builder {
         if declaration.kind == DeclarationKind::Constructor {
             self.constructors.insert(canonical, target);
         } else {
-            // A later value registration wins over an earlier conflicting overlay,
-            // exactly as the old single name table's overwrite did.
-            self.ambiguous
-                .retain(|candidate| candidate.as_str() != canonical.as_str());
+            // A later fresh value registration clears the name's overlay
+            // ambiguity, exactly as the previous sorted name list did.
+            self.ambiguous.remove(canonical.as_str());
             self.top_levels.insert(canonical, target);
         }
         target
@@ -751,9 +756,13 @@ impl Builder {
         self.view.call_indices = call_indices.into_boxed_slice();
         self.view.incoming = compact_index(incoming).into();
         self.view.outgoing = compact_index(outgoing).into();
-        self.ambiguous.sort_unstable();
-        self.ambiguous.dedup();
-        self.view.ambiguous_names = self.ambiguous.into_boxed_slice();
+        // Overlay-only ambiguity shadows both registrations in the published
+        // value table; the constructor table keeps its own registration.
+        for name in std::mem::take(&mut self.ambiguous) {
+            self.top_levels.insert(name, SemanticTarget::Ambiguous);
+        }
+        self.view.top_levels = self.top_levels.into();
+        self.view.constructors = self.constructors.into();
         self.view.namespace_indices = namespace_index(&self.view.entities).into();
         self.view.parameter_hints = parameter_hint_index(&self.view).into();
         self.view.document_indices = self.view.document_indices.freeze();

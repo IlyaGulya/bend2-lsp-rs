@@ -288,8 +288,10 @@ pub struct SemanticViewInput {
     library: Option<std::path::PathBuf>,
     base: Option<SemanticBase>,
     base_file: Option<FileId>,
-    physical_generations: Box<[(Arc<Path>, u64)]>,
-    conflicting_paths: Box<[std::path::PathBuf]>,
+    // Capture only collects these building maps; cold build sorts and freezes
+    // them once the short workspace read guard is gone.
+    physical_generations: HashMap<Arc<Path>, u64>,
+    conflicting_paths: std::collections::HashSet<std::path::PathBuf>,
 }
 
 impl SemanticViewInput {
@@ -324,10 +326,13 @@ pub struct SemanticView {
     by_uri: CompactMap<Arc<url::Url>, FileId>,
     by_physical_uri: CompactMap<Arc<url::Url>, FileId>,
     declaration_indices: CompactMap<(FileId, SymbolId), usize>,
-    // Canonical top-level names are the entities themselves; only a conflicting
-    // overlay can mark a name ambiguous without owning an entity.
-    ambiguous_names: Box<[String]>,
     entities: Vec<SemanticEntity>,
+    // Canonical names exactly as cold build registered them. Constructor and
+    // value registrations stay separate so a value keeps precedence, and
+    // overlay-only ambiguity is folded into the value table while freezing.
+    top_levels: CompactMap<String, SemanticTarget>,
+    constructors: CompactMap<String, SemanticTarget>,
+    // Sorted namespace entity indices for prefix completion and rename scans.
     namespace_indices: CompactMap<String, Box<[usize]>>,
     contexts: CompactMap<FileId, SemanticFileContext>,
     declarations: Vec<SemanticDeclaration>,
@@ -423,32 +428,13 @@ impl SemanticView {
     }
 
     /// Resolve one canonical top-level name exactly as cold build registered it.
-    /// Entities are the retained name table; only a conflicting overlay records
-    /// an ambiguous name that owns no entity.
+    /// Values keep precedence over constructors; cold build already folded
+    /// overlay-only ambiguity into the value table.
     fn top_level(&self, name: &str) -> Option<SemanticTarget> {
-        if self
-            .ambiguous_names
-            .binary_search_by(|candidate| candidate.as_str().cmp(name))
-            .is_ok()
-        {
-            return Some(SemanticTarget::Ambiguous);
-        }
-        let namespace = name.split_once(':').map_or("", |(namespace, _)| namespace);
-        let indices = self.namespace_indices.get(namespace)?;
-        let start = indices.partition_point(|index| self.entities[*index].name.as_str() < name);
-        let mut constructor = None;
-        for index in &indices[start..] {
-            let entity = &self.entities[*index];
-            if entity.name.as_str() != name {
-                break;
-            }
-            if entity.kind == DeclarationKind::Constructor {
-                constructor.get_or_insert(entity.id);
-            } else {
-                return Some(SemanticTarget::Global(entity.id));
-            }
-        }
-        constructor.map(SemanticTarget::Global)
+        self.top_levels
+            .get(name)
+            .or_else(|| self.constructors.get(name))
+            .copied()
     }
 
     /// Borrow occurrences in source order, with synthetic records first at equal starts.
@@ -688,10 +674,11 @@ impl WorkspaceDb {
             .enumerate()
             .map(|(index, file)| (file.id, index))
             .collect();
-        let mut physical_generations: Vec<_> = physical.generations.into_iter().collect();
-        physical_generations.sort_unstable_by(|left, right| left.0.cmp(&right.0));
-        let mut conflicting_paths: Vec<_> = physical.conflicts.into_iter().collect();
-        conflicting_paths.sort_unstable();
+        let PhysicalCapture {
+            generations,
+            conflicts,
+            ..
+        } = physical;
         let mut input = SemanticViewInput {
             serial: NEXT_VIEW.fetch_add(1, Ordering::Relaxed),
             root,
@@ -700,8 +687,8 @@ impl WorkspaceDb {
             library: self.semantic_library_path.clone(),
             base,
             base_file,
-            physical_generations: physical_generations.into_boxed_slice(),
-            conflicting_paths: conflicting_paths.into_boxed_slice(),
+            physical_generations: generations,
+            conflicting_paths: conflicts,
         };
         if !input.requires_base() {
             input.base = None;
