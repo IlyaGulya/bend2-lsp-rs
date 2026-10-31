@@ -174,7 +174,34 @@
         "heap_summary": null,
         "live_sample": "request-timeout.sample.txt, original20902bytes; two observations/thread",
         "observed_stack": "Discovery worker at admit_discovered_path/Url allocation/DHAT backtrace and sync_disk_snapshot_prepared/DHAT bookkeeping; main and other workers parked.",
-        "limit": "Not proof of deadlock, default-binary latency, overall CPU dominance or a source regression; sample sparse and allocation instrumentation active."
+        "limit": "Not proof of deadlock, default-binary latency, overall CPU dominance or a source regression; sample sparse and allocation instrumentation active.",
+        "same_host_other_profile_controls": {
+          "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+          "source_merge": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+          "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+          "artifact_id": 13034850045,
+          "same_host_job": 124456402828,
+          "scenario": "discovery-10000",
+          "dataset_manifest_exactly_equal_all_10000_file_names_sizes_sha": true,
+          "samples": 32,
+          "warmup": 8,
+          "original_observed_cold_discovery_seconds": {
+            "samply_CPU_profile": 2.81338278,
+            "native_TimeProfiler_capture": 5.751843036,
+            "DHAT_timed_out_request": 30.08536584
+          },
+          "binary_sha256": {
+            "CPU": "feb19e02e8339a93fa744a3e28771490defddb555e48b78c71f36374546874d5",
+            "native": "feb19e02e8339a93fa744a3e28771490defddb555e48b78c71f36374546874d5",
+            "DHAT": "7208fdad5cd5fd61674ea49736ecb910639b1bc4f65ae3bf3da2a338ecb1f058"
+          },
+          "outcomes": {
+            "CPU": "complete",
+            "native": "complete",
+            "DHAT": "failed,30sRPCdeadline"
+          },
+          "causal_limit": "Independent differently instrumented processes at different times, not clean latency or randomized control. Observed breach is specific to DHAT capture here; does not prove default-build regression or uniquely isolate internal cause."
+        }
       },
       "native_heap": {
         "status": "failed",
@@ -188,7 +215,8 @@
         "actual_Allocations_capture_started": false,
         "preflight_issue_database_rows": 0,
         "earlier_same_job_command_template": "completed for another helperPID46001; process/output/state differ, so not identical-argv control",
-        "cause_limit": "Internal xctrace finalization locus unavailable; no hung-profiler stack captured. No repo orchestration defect or Apple bug established."
+        "cause_limit": "Internal xctrace finalization locus unavailable; no hung-profiler stack captured. No repo orchestration defect or Apple bug established.",
+        "preflight_issues": "OriginalCoreDataZISSUEtablehas0rows; no hungxctracestackexists; inner causeunresolved"
       },
       "source_review": {
         "xctrace_lifecycle": [
@@ -198,10 +226,10 @@
           "tools/perf/src/profiling/sessions.rs1552-1560OwnedCommandkillandwait"
         ],
         "no_source_fix_justified_yet": true,
-        "Dhat_review": "pending second independent read-only investigation"
+        "Dhat_review": "completed: intended complete-discovery gate, first workspace/symbol cold poll timesout underDHAT; no repo defect or deadlock demonstrated"
       },
       "selected_member_coverage": {
-        "count": 19,
+        "count": 21,
         "whole_archive_sha_verified": false,
         "original_member_CRC_and_size": true,
         "manifest_SHA_and_size": true,
@@ -266,8 +294,8 @@
       "sha256": "08287f990c6c9e39a5e9072680844b3c6e7b18d6642329e317fc31e792e2eed3"
     },
     "hosted/diagnostics/macos-intel/parent-failure-classification.json": {
-      "bytes": 2889,
-      "sha256": "0360236bb636ed343cce61744f01a6c8f2a62f397b737242346638a604372977"
+      "bytes": 4429,
+      "sha256": "10200b23d08efe24573b90e0104a8de6096873da27dc285e84ddb2737948a7f9"
     },
     "hosted/diagnostics/macos-intel/parent-member-qualification.json": {
       "bytes": 7309,
@@ -280,6 +308,14 @@
     "hosted/diagnostics/macos-intel/preflight-sqlite-schema.json": {
       "bytes": 1210,
       "sha256": "2a9a0c5b9b1d849323ec4ea2c670dee824af20daf09de71a902a22f90010df94"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/cpu/profile-manifest.json.gz": {
+      "bytes": 440126,
+      "sha256": "b0f132896ae8c961d247ab8373207807ce4d0af26df923c8ac920bdeda98c326"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/cpu/scenario/scenario.json.gz": {
+      "bytes": 435037,
+      "sha256": "7031dd7e3bf845e7d1bf19cb524a7709590048ff50c9c2637a395d1fb504f38b"
     },
     "hosted/diagnostics/macos-intel/profiles/discovery-10000/heap/command-1.stderr.log.gz": {
       "bytes": 223,
@@ -353,9 +389,13 @@
       "bytes": 455953,
       "sha256": "b773cb06e5a002b3c14da8f5174dcece0df4a931f562cb2ec7e9ba329419576a"
     },
+    "hosted/diagnostics/macos-intel/same-host-profile-controls.json": {
+      "bytes": 1195,
+      "sha256": "5d1827ed71ebfd609b94f68e005ff8911433e6dc74b7d5362c6b9bc67be0e820"
+    },
     "hosted/diagnostics/macos-intel/selected-original-members.json": {
-      "bytes": 6093,
-      "sha256": "1f66f54cb67daae1989fda7cc9d2b01903f00dd34a83290e4300a9d4da52c8c8"
+      "bytes": 6744,
+      "sha256": "017aa3f002c88f15dcee4bbcf9241aa2038dea210b379d3a57c0195d1a017c67"
     },
     "hosted/merge-tree-identity.json": {
       "bytes": 2826,

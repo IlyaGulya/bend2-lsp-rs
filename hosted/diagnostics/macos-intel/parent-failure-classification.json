@@ -23,7 +23,34 @@
     "heap_summary": null,
     "live_sample": "request-timeout.sample.txt, original20902bytes; two observations/thread",
     "observed_stack": "Discovery worker at admit_discovered_path/Url allocation/DHAT backtrace and sync_disk_snapshot_prepared/DHAT bookkeeping; main and other workers parked.",
-    "limit": "Not proof of deadlock, default-binary latency, overall CPU dominance or a source regression; sample sparse and allocation instrumentation active."
+    "limit": "Not proof of deadlock, default-binary latency, overall CPU dominance or a source regression; sample sparse and allocation instrumentation active.",
+    "same_host_other_profile_controls": {
+      "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "source_merge": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+      "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "artifact_id": 13034850045,
+      "same_host_job": 124456402828,
+      "scenario": "discovery-10000",
+      "dataset_manifest_exactly_equal_all_10000_file_names_sizes_sha": true,
+      "samples": 32,
+      "warmup": 8,
+      "original_observed_cold_discovery_seconds": {
+        "samply_CPU_profile": 2.81338278,
+        "native_TimeProfiler_capture": 5.751843036,
+        "DHAT_timed_out_request": 30.08536584
+      },
+      "binary_sha256": {
+        "CPU": "feb19e02e8339a93fa744a3e28771490defddb555e48b78c71f36374546874d5",
+        "native": "feb19e02e8339a93fa744a3e28771490defddb555e48b78c71f36374546874d5",
+        "DHAT": "7208fdad5cd5fd61674ea49736ecb910639b1bc4f65ae3bf3da2a338ecb1f058"
+      },
+      "outcomes": {
+        "CPU": "complete",
+        "native": "complete",
+        "DHAT": "failed,30sRPCdeadline"
+      },
+      "causal_limit": "Independent differently instrumented processes at different times, not clean latency or randomized control. Observed breach is specific to DHAT capture here; does not prove default-build regression or uniquely isolate internal cause."
+    }
   },
   "native_heap": {
     "status": "failed",
@@ -37,7 +64,8 @@
     "actual_Allocations_capture_started": false,
     "preflight_issue_database_rows": 0,
     "earlier_same_job_command_template": "completed for another helperPID46001; process/output/state differ, so not identical-argv control",
-    "cause_limit": "Internal xctrace finalization locus unavailable; no hung-profiler stack captured. No repo orchestration defect or Apple bug established."
+    "cause_limit": "Internal xctrace finalization locus unavailable; no hung-profiler stack captured. No repo orchestration defect or Apple bug established.",
+    "preflight_issues": "OriginalCoreDataZISSUEtablehas0rows; no hungxctracestackexists; inner causeunresolved"
   },
   "source_review": {
     "xctrace_lifecycle": [
@@ -47,10 +75,10 @@
       "tools/perf/src/profiling/sessions.rs1552-1560OwnedCommandkillandwait"
     ],
     "no_source_fix_justified_yet": true,
-    "Dhat_review": "pending second independent read-only investigation"
+    "Dhat_review": "completed: intended complete-discovery gate, first workspace/symbol cold poll timesout underDHAT; no repo defect or deadlock demonstrated"
   },
   "selected_member_coverage": {
-    "count": 19,
+    "count": 21,
     "whole_archive_sha_verified": false,
     "original_member_CRC_and_size": true,
     "manifest_SHA_and_size": true,

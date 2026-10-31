@@ -188,5 +188,25 @@
     "offset": 99128413,
     "sha256": "b619bc92ccac1e0a651de3e4ac9b9043d942ec998da00380934eda04e6a8cba8",
     "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/cpu/profile-manifest.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 3475878098,
+    "compressed": 413185,
+    "uncompressed": 1661451,
+    "offset": 56126379,
+    "sha256": "e5db820f33e2effa662f2373fb7d304328e8f2914781906a8e83e27ff847e91e",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/cpu/scenario/scenario.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 1210565978,
+    "compressed": 408989,
+    "uncompressed": 1548151,
+    "offset": 56689973,
+    "sha256": "a12b83a4a30f585da250200b6f5dba95aa7bbce737da3182787a3d6c2e02760f",
+    "complete_crc_and_size_verified": true
   }
 }

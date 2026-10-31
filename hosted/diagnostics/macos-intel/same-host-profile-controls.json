@@ -1,0 +1,27 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_merge": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "artifact_id": 13034850045,
+  "same_host_job": 124456402828,
+  "scenario": "discovery-10000",
+  "dataset_manifest_exactly_equal_all_10000_file_names_sizes_sha": true,
+  "samples": 32,
+  "warmup": 8,
+  "original_observed_cold_discovery_seconds": {
+    "samply_CPU_profile": 2.81338278,
+    "native_TimeProfiler_capture": 5.751843036,
+    "DHAT_timed_out_request": 30.08536584
+  },
+  "binary_sha256": {
+    "CPU": "feb19e02e8339a93fa744a3e28771490defddb555e48b78c71f36374546874d5",
+    "native": "feb19e02e8339a93fa744a3e28771490defddb555e48b78c71f36374546874d5",
+    "DHAT": "7208fdad5cd5fd61674ea49736ecb910639b1bc4f65ae3bf3da2a338ecb1f058"
+  },
+  "outcomes": {
+    "CPU": "complete",
+    "native": "complete",
+    "DHAT": "failed,30sRPCdeadline"
+  },
+  "causal_limit": "Independent differently instrumented processes at different times, not clean latency or randomized control. Observed breach is specific to DHAT capture here; does not prove default-build regression or uniquely isolate internal cause."
+}
