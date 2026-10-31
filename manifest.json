@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "kind": "semantic-entry-capture-regression-repair",
+  "kind": "completed-source-bound-local-and-hosted-evidence",
   "source": "8842984d99f6a7f420bfde9301ff3994e597eb23",
   "tree": "b9975db790d0768011828bf282615e9cfce96334",
   "source_parent": "888d5ff06b8ca4980bd584fa8e36f99fa8da4fb7",
@@ -77,79 +77,172 @@
     "Bun": "1.4.0"
   },
   "hosted_qualification": {
-    "created_runs": [
+    "state": "completed",
+    "runs": [
+      {
+        "id": 41111209193,
+        "name": "quality",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "event": "pull_request",
+        "created_at": "2026-10-30T18:57:07Z",
+        "run_started_at": "2026-10-30T18:57:07Z",
+        "updated_at": "2026-10-30T20:32:09Z",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209193",
+        "created_to_updated_minutes": 95.03333333333333
+      },
       {
         "id": 41111209195,
         "name": "semantic-fuzz",
-        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "failure",
         "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209195"
-      },
-      {
-        "id": 41111209231,
-        "name": "installer-validation",
         "event": "pull_request",
-        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209231"
+        "created_at": "2026-10-30T18:57:07Z",
+        "run_started_at": "2026-10-30T18:57:07Z",
+        "updated_at": "2026-10-30T21:11:13Z",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209195",
+        "created_to_updated_minutes": 134.1
       },
       {
         "id": 41111209224,
         "name": "performance-calibration",
-        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "failure",
         "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209224"
+        "event": "pull_request",
+        "created_at": "2026-10-30T18:57:07Z",
+        "run_started_at": "2026-10-30T18:57:07Z",
+        "updated_at": "2026-10-31T02:45:31Z",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209224",
+        "created_to_updated_minutes": 468.4
       },
       {
         "id": 41111209380,
         "name": "performance",
-        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "failure",
         "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209380"
-      },
-      {
-        "id": 41111209303,
-        "name": "perf-diagnostics / pr-41111209303-1",
         "event": "pull_request",
-        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209303"
-      },
-      {
-        "id": 41111209193,
-        "name": "quality",
-        "event": "pull_request",
-        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209193"
+        "created_at": "2026-10-30T18:57:07Z",
+        "run_started_at": "2026-10-30T18:57:07Z",
+        "updated_at": "2026-10-30T22:08:33Z",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209380",
+        "created_to_updated_minutes": 191.43333333333334
       },
       {
         "id": 41111551294,
         "name": "performance",
-        "event": "workflow_dispatch",
+        "status": "completed",
+        "conclusion": "failure",
         "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-        "status": "queued",
-        "conclusion": null,
-        "url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111551294"
+        "event": "workflow_dispatch",
+        "created_at": "2026-10-30T19:00:00Z",
+        "run_started_at": "2026-10-30T19:00:00Z",
+        "updated_at": "2026-10-30T22:08:39Z",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111551294",
+        "created_to_updated_minutes": 188.65
+      },
+      {
+        "id": 41111209231,
+        "name": "installer-validation",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "event": "pull_request",
+        "created_at": "2026-10-30T18:57:07Z",
+        "run_started_at": "2026-10-30T18:57:07Z",
+        "updated_at": "2026-10-30T21:09:50Z",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209231",
+        "created_to_updated_minutes": 132.71666666666667
+      },
+      {
+        "id": 41111209303,
+        "name": "perf-diagnostics / pr-41111209303-1",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+        "event": "pull_request",
+        "created_at": "2026-10-30T18:57:07Z",
+        "run_started_at": "2026-10-30T18:57:07Z",
+        "updated_at": "2026-10-30T21:11:03Z",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209303",
+        "created_to_updated_minutes": 133.93333333333334
       }
     ],
-    "performance": "notyetmeasuredfor8842984; no prior source admission inherited",
-    "planned_scope": "Onequalifiedcandidate; ordinaryfrozenmain comparison plus existingworkflow before888comparison where needed for candidate-only semantic workloads; native/fullquality/normal20run gates unchanged",
-    "ordinary_frozen_main": "automaticperformancepull_request, notadmitteduntilnumericpolicyavailable",
-    "before888_run": 41111551294
+    "main_comparison": {
+      "run_id": 41111209380,
+      "paired_fresh_process_pairs": 105,
+      "paired_workloads": 54,
+      "metric_rows": 162,
+      "passed": 126,
+      "regressions": 36,
+      "inconclusive": 0,
+      "admitted": false,
+      "regression_events": {
+        "Ir": 1,
+        "I1mr": 25,
+        "ILmr": 10
+      }
+    },
+    "before888_comparison": {
+      "run_id": 41111551294,
+      "paired_fresh_process_pairs": 105,
+      "paired_workloads": 102,
+      "metric_rows": 306,
+      "passed": 292,
+      "regressions": 13,
+      "inconclusive": 1,
+      "admitted": false
+    },
+    "native": {
+      "original_artifacts": 12,
+      "targets_per_comparison": 6,
+      "rounds_per_target": 7,
+      "status": "complete",
+      "source_target_and_every_workload_coverage_verified": true,
+      "main_10000_retained_delta_MiB": [
+        56.859375,
+        76.078125
+      ],
+      "before888_10000_retained_delta_MiB": [
+        -10.91015625,
+        -6.23828125
+      ],
+      "assessment": "Remaining main cold/RSS costs are large at10000files; ten-file absolute costs are small,1000-file extraRSS is5.87\u20137.56MiB. Faster warm references do not erase cold/RSS regressions. Native observations are not Callgrind admission."
+    },
+    "calibration": {
+      "original_run_id": 41111209224,
+      "original_conclusion": "failure",
+      "failure": "driver expected99, original predeclared and collected inventory102",
+      "strict_original_data_replay": "passed; full3/3/105/4/102, unchanged A/A and sensitivity criteria",
+      "all_comparison_diagnostic_markdown_rows_byte_identical": true,
+      "new_SUT_measurements": 0,
+      "original_run_failure_not_rewritten": true,
+      "not_next_source_qualification": true
+    },
+    "semantic": {
+      "run_id": 41111209195,
+      "conclusion": "failure",
+      "failed_supporting_phase": "512-project semantic cleanup",
+      "worker_returncode": 0,
+      "worker_counts": {
+        "validated": 1221,
+        "compared": 1221,
+        "matched": 1221,
+        "intended_invalid": 5,
+        "recovery": 2,
+        "failures": 0
+      },
+      "error": "initial tree kill failed: [Errno 22] Invalid argument",
+      "root_cause_limit": "Original process-group value was not retained; procfs teardown-sentinel attribution is an inference. A later source regression fixture reproduces exactly this error and fixes target registration without swallowing cleanup errors."
+    },
+    "windows74_exemption": "Only separately recorded historical optional-lint case; fresh failures not exempt"
   },
   "performance_admission": false,
   "request_performance_exception": false,
-  "owner_choice": "Continueoptimization; existing35regressions and largecold/RSS costs NOTapproved",
+  "owner_choice": "Continue optimization, not acceptance of35/36event-workload regressions",
   "windows74": {
     "url": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/74",
     "historical_non_blocker": true,
@@ -159,45 +252,9 @@
   "same_retained_QA_source": "/tmp/semantic-approved-126952f6d048",
   "same_retained_Cargo_target": "/workspace/target/semantic-approved-126952f6d048",
   "files": {
-    "local/quality.log": {
-      "bytes": 107915,
-      "sha256": "a56f191c886786348b18626523e4f959844691703bf90b35eafd987d2729f1a6"
-    },
-    "local/source-proof.json": {
-      "bytes": 5660,
-      "sha256": "78d9e21582a49b19be31a61cf4628fefcee1d3564c598f5966cc9138ee7a44f7"
-    },
-    "local/source-handoff.json": {
-      "bytes": 801,
-      "sha256": "393f7003140e94152d4eee7625c653e07e170504b2f7df6bea2795298a39a062"
-    },
-    "local/source-commit.json": {
-      "bytes": 2930,
-      "sha256": "08caeea363fc3cd3c59a1c9785f6a487041f538a03bf891434f2bb6ca4ff5e18"
-    },
-    "local/default-build.json": {
-      "bytes": 693,
-      "sha256": "26b89990259813f652bcb0b5533ed23c7d23594a6783485ed0d75c2204787664"
-    },
     "attempts/initial-integrated-build-failure.json": {
       "bytes": 1784,
       "sha256": "ca5d42e3c83afb7e7f89536ad9e6184ece1fa2c68b28246212de0f765f758eb8"
-    },
-    "before888/all-counter-absolute-medians.json.gz": {
-      "bytes": 8686,
-      "sha256": "903c79e98a6a86cf96245854b1c75aa3173e43c63edd64fddadb1be2d53840df"
-    },
-    "before888/semantic-runtime-report.json": {
-      "bytes": 10901,
-      "sha256": "f1e277d10455280d695aa8fc3f4b436f5111c7f0580f90175b825cd13da2590e"
-    },
-    "attribution/medium-static-decision.json": {
-      "bytes": 1883,
-      "sha256": "f102fa54a045dc9a9faec9f73bcddb017c2c435e54a4a528521358714b69c78e"
-    },
-    "attribution/medium-static-inputs.json": {
-      "bytes": 1145,
-      "sha256": "7f5bf00a6c8bcd86c627debc603e2e3c757d9e2f8cf6324c2c570206aa8e3439"
     },
     "attribution/medium-a-static-annotation.txt": {
       "bytes": 9839,
@@ -207,9 +264,201 @@
       "bytes": 10090,
       "sha256": "912c9d6db4f13ed99086b7a4422e2e1ac96f83a4694a22e2cdb908cc864f0b8b"
     },
-    "local/stdio-p1.json.gz": {
-      "bytes": 5778,
-      "sha256": "2a4272c0c4bac1319d4239e51c3bfdf9684a5ee9cd7fb45646d807268839001f"
+    "attribution/medium-static-decision.json": {
+      "bytes": 1883,
+      "sha256": "f102fa54a045dc9a9faec9f73bcddb017c2c435e54a4a528521358714b69c78e"
+    },
+    "attribution/medium-static-inputs.json": {
+      "bytes": 1145,
+      "sha256": "7f5bf00a6c8bcd86c627debc603e2e3c757d9e2f8cf6324c2c570206aa8e3439"
+    },
+    "before888/all-counter-absolute-medians.json.gz": {
+      "bytes": 8686,
+      "sha256": "903c79e98a6a86cf96245854b1c75aa3173e43c63edd64fddadb1be2d53840df"
+    },
+    "before888/semantic-runtime-report.json": {
+      "bytes": 10901,
+      "sha256": "f1e277d10455280d695aa8fc3f4b436f5111c7f0580f90175b825cd13da2590e"
+    },
+    "calibration/corrected-scope-replay/destination-integrity.json.gz": {
+      "bytes": 1388,
+      "sha256": "34543ee3ea6e80f9e40b9d243a3489a1959fb14bd015ceefbfa416761fd65a0b"
+    },
+    "calibration/corrected-scope-replay/parent-qualification.json.gz": {
+      "bytes": 1381,
+      "sha256": "c0c5d4c9a96a40efc1d90b3cb4837a3084729eeab42d2e33219027f907784e24"
+    },
+    "calibration/corrected-scope-replay/replay-summary.json.gz": {
+      "bytes": 778,
+      "sha256": "b898e33516f870da885b217ec8b8419858a542bf8a1413a06c018273e6c6482e"
+    },
+    "calibration/corrected-scope-replay/report.json.gz": {
+      "bytes": 19650784,
+      "sha256": "0470ac5dd7ab5252889417a3ac69a59b93dedd5c6395020cac84275336dae8f9"
+    },
+    "calibration/corrected-scope-replay/report.md.gz": {
+      "bytes": 100255,
+      "sha256": "d3c89a797102df004cbe1caad01b6a3d446bc27d2f4c188394706b9cb014556e"
+    },
+    "calibration/corrected-scope-replay/verification.json.gz": {
+      "bytes": 1980,
+      "sha256": "aad3500293529cf022a86a4c71353b9aa8525165257a834ea7d96bc25fa97499"
+    },
+    "calibration/original-transport/discovery-collection-proof.json.gz": {
+      "bytes": 1502,
+      "sha256": "9c025160e1054f1f18a1ba0ca11e1f495e91a30deb79ccaf4f54c5db97f2d097"
+    },
+    "calibration/original-transport/validation-collection-proof.json.gz": {
+      "bytes": 2093,
+      "sha256": "1a7b4f65ec22ef014796a1bbd6b3d34e23e3cb0b495fef980d3686f93cd2da62"
+    },
+    "calibration/original/report.md.gz": {
+      "bytes": 100298,
+      "sha256": "6f9dfead17fe6c9a72640ccb9553f322fdb876371f284f9adcfb8c7b60028e8a"
+    },
+    "calibration/original/verification.json.gz": {
+      "bytes": 1785,
+      "sha256": "ca6f3829f81a0a92cb3b89638c0643467a1de69e6046dd8b7855d1d8c7282861"
+    },
+    "calibration/replay-transport/calibration-884-replay-helper.py.gz": {
+      "bytes": 1392,
+      "sha256": "efc5bd7fc4f1da87489c62bf1fc522d5f01369862b8c20f0c9d3a836a6eb7200"
+    },
+    "calibration/replay-transport/calibration-884-replay-plan.json.gz": {
+      "bytes": 2985,
+      "sha256": "f0079dadd22dcce0b03f4d0b6bfed6ac6dcb5b462dc7666b3a0baab6f501de4e"
+    },
+    "calibration/replay-transport/calibration-884-replay-zip-transfer.json.gz": {
+      "bytes": 2720,
+      "sha256": "918eecfd6d56143d6c37c83743f38bb8972d6201fce0593fca8578669c3c5d7c"
+    },
+    "callgrind/before888/admission-measurement.json.gz": {
+      "bytes": 393,
+      "sha256": "40b0a263ba022d6e5839688d1dd3e500daac9277a49472effa5b38f3934e2819"
+    },
+    "callgrind/before888/callgrind-policy.json.gz": {
+      "bytes": 1309468,
+      "sha256": "4a1d43973faa6a0b46aa41c4abe14901d199c4511f494332f1b0d9407df7fa91"
+    },
+    "callgrind/before888/callgrind-policy.md.gz": {
+      "bytes": 4125,
+      "sha256": "4edc6bca49a0a3bdf89e62f9862d3551479ad534dcec3e883b4ebcd4b8a2212c"
+    },
+    "callgrind/before888/paired-data.json.gz": {
+      "bytes": 520574,
+      "sha256": "0a8df42f7612107976a58c0e659c7879e0c8dbe7b921fb16e09ac620a5b57e62"
+    },
+    "callgrind/before888/selected-original-members.json": {
+      "bytes": 1172,
+      "sha256": "e9624f9c902c4442911a06e557cb1094f203da38b52d4ade19cd8288c52ece36"
+    },
+    "callgrind/main/admission-measurement.json.gz": {
+      "bytes": 604,
+      "sha256": "6cc73c8c8ee0eed06ce5b948b7d881babc1e3dd4b43fb72ddb969a6b78634271"
+    },
+    "callgrind/main/callgrind-policy.json.gz": {
+      "bytes": 969385,
+      "sha256": "73f9da752afe48e54e8f792d31b2ef31a69a3087df71da0f2dd154ec7502ae47"
+    },
+    "callgrind/main/callgrind-policy.md.gz": {
+      "bytes": 3031,
+      "sha256": "1126a83f35c2f4ca3e7e812c5bbc5b3523c6a0567c3834a062b2f38566dbf4b4"
+    },
+    "callgrind/main/paired-data.json.gz": {
+      "bytes": 352055,
+      "sha256": "c9970b183cc669c37f8a487d36d2544e9dbd71847a2cf22f8986b6b78a02d2e1"
+    },
+    "callgrind/main/selected-original-members.json": {
+      "bytes": 1165,
+      "sha256": "a73ecdb61ca6809a8aa1c1ebca52deb4009e01cb4d74f06602860ae419b0337c"
+    },
+    "hosted/884-before888-all-counter-absolute-medians.json.gz": {
+      "bytes": 9391,
+      "sha256": "2e419469409a41eba13e45133beb3379e264730a0c7dea2e7f27133e2b3d0328"
+    },
+    "hosted/884-before888-policy-summary.json.gz": {
+      "bytes": 1022,
+      "sha256": "2fc2bf072461a9f833eca61ef6e9c7769d9b503cf3e76cb454124fa42120f9cb"
+    },
+    "hosted/884-completed-job-metadata.json.gz": {
+      "bytes": 21309,
+      "sha256": "82461a3142cd2b4bc4e1e43ef7f47fc608436f819863885c693323c504fb1928"
+    },
+    "hosted/884-completed-workflow-run-facts.json.gz": {
+      "bytes": 538,
+      "sha256": "b233ca8bc8ce094368197e397c897d4142a2589a646ffc070a374dbf0062e3fa"
+    },
+    "hosted/884-main-all-counter-absolute-medians.json.gz": {
+      "bytes": 7137,
+      "sha256": "14184395443891a68be2a003a1c8783cc8f160fe95798786fb2dde4a66801631"
+    },
+    "hosted/884-native-12-paired-absolute-summary.json.gz": {
+      "bytes": 2174,
+      "sha256": "575c19b224c5a30b0e7bd9e9870ca1a9e8e1cc5758c1a9d415e5adba6f7bd802"
+    },
+    "hosted/884-native-main-scale-context.json.gz": {
+      "bytes": 966,
+      "sha256": "3ca458b19f073f35b51522bc7c3d95d13683a21eea0649f6e1f25c3b8ca9675a"
+    },
+    "hosted/884-selected-range-request-log.json.gz": {
+      "bytes": 488,
+      "sha256": "ad04566d9925d81cbd1f298a67a45ea094010ccc5fd2d11294aaef45ea42f727"
+    },
+    "hosted/before888-dispatch.json": {
+      "bytes": 501,
+      "sha256": "1812ee8975cd248d7cd13c3bd53fac5d8749d634bd65551f381edf2403ea0c99"
+    },
+    "hosted/created-exact-source-runs.json": {
+      "bytes": 1983,
+      "sha256": "44184bef4421f8e0af6a9a7b5bb251299cce07a207375b1a2b166b5a69237a50"
+    },
+    "hosted/failure-logs/before888-measurement.log.gz": {
+      "bytes": 74717,
+      "sha256": "5af9c93ba4d8ef04994f2c1f69d2c0e0cc888e415c78ef87b063e10407033ff0"
+    },
+    "hosted/failure-logs/calibration-report.log.gz": {
+      "bytes": 13113,
+      "sha256": "c1b0ad02cedec533fe423b2f03b1038ec27c552c3750d83d6a0f410a14dde449"
+    },
+    "hosted/failure-logs/main-admission.log.gz": {
+      "bytes": 1407,
+      "sha256": "a8c6550c606bf10233538185bfbec696cb2a8501e8ec4d2c595dcb29b24a203f"
+    },
+    "hosted/failure-logs/semantic-report.log.gz": {
+      "bytes": 5887,
+      "sha256": "a4f92f0460fe078780e3a4f3bdc6562621c4d1b5314672fa355c14656df02918"
+    },
+    "hosted/failure-logs/semantic04-scaling.log.gz": {
+      "bytes": 5491,
+      "sha256": "f74c88ebf3f19b1a33834a1d7ab78245cbdeaa6e4eeb860e762dc42dbd1d640a"
+    },
+    "local/default-build.json": {
+      "bytes": 693,
+      "sha256": "26b89990259813f652bcb0b5533ed23c7d23594a6783485ed0d75c2204787664"
+    },
+    "local/discovery-10000.json.gz": {
+      "bytes": 138458,
+      "sha256": "2e64ad6c5153652c420abdc12754624739a3c659b7a3ea0ebed22fb77c2bc76b"
+    },
+    "local/quality.log": {
+      "bytes": 107915,
+      "sha256": "a56f191c886786348b18626523e4f959844691703bf90b35eafd987d2729f1a6"
+    },
+    "local/source-commit.json": {
+      "bytes": 2930,
+      "sha256": "08caeea363fc3cd3c59a1c9785f6a487041f538a03bf891434f2bb6ca4ff5e18"
+    },
+    "local/source-handoff.json": {
+      "bytes": 801,
+      "sha256": "393f7003140e94152d4eee7625c653e07e170504b2f7df6bea2795298a39a062"
+    },
+    "local/source-proof.json": {
+      "bytes": 5660,
+      "sha256": "78d9e21582a49b19be31a61cf4628fefcee1d3564c598f5966cc9138ee7a44f7"
+    },
+    "local/stdio-autoimport.json.gz": {
+      "bytes": 3932,
+      "sha256": "5df221cfccf7064c4d3629d0cc4299e7acddb1325f27f8aeda92ca3ad985d2ec"
     },
     "local/stdio-base-pair.json.gz": {
       "bytes": 6272,
@@ -219,26 +468,407 @@
       "bytes": 5430,
       "sha256": "f64a26a849dcb0e74cb39a8da548c2fbf825d3cfd002471fab59e7375fbd869c"
     },
+    "local/stdio-p1.json.gz": {
+      "bytes": 5778,
+      "sha256": "2a4272c0c4bac1319d4239e51c3bfdf9684a5ee9cd7fb45646d807268839001f"
+    },
     "local/stdio-recovery-diagnostics.json.gz": {
       "bytes": 4888,
       "sha256": "c906bb5d6baf512be5842c89a0f84d321d3c1f5cf7b99c0da09590a2b20c298f"
     },
-    "local/stdio-autoimport.json.gz": {
-      "bytes": 3932,
-      "sha256": "5df221cfccf7064c4d3629d0cc4299e7acddb1325f27f8aeda92ca3ad985d2ec"
+    "native/before888/aarch64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479685,
+      "sha256": "865b0b175a9734d80c27941b3baf578ad17c3383fa267e2a5593f1583d37228a"
     },
-    "local/discovery-10000.json.gz": {
-      "bytes": 138458,
-      "sha256": "2e64ad6c5153652c420abdc12754624739a3c659b7a3ea0ebed22fb77c2bc76b"
+    "native/before888/aarch64-apple-darwin/baseline.json.gz": {
+      "bytes": 7018,
+      "sha256": "9bb147c9449a8081ee47947cbe095a6232a2cb0c9d0afb64d3ac6d7261bd882c"
     },
-    "hosted/created-exact-source-runs.json": {
-      "bytes": 1983,
-      "sha256": "44184bef4421f8e0af6a9a7b5bb251299cce07a207375b1a2b166b5a69237a50"
+    "native/before888/aarch64-apple-darwin/candidate.json.gz": {
+      "bytes": 6999,
+      "sha256": "fa0518becc413c88a2f812de83363c8e0b9ae9ef05c246476838bd06e3b236f4"
     },
-    "hosted/before888-dispatch.json": {
-      "bytes": 501,
-      "sha256": "1812ee8975cd248d7cd13c3bd53fac5d8749d634bd65551f381edf2403ea0c99"
+    "native/before888/aarch64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 110932,
+      "sha256": "693dc27df623cf41c905e7ea26b24001709f7a3f188c6b4f011ba266f45e2c2b"
+    },
+    "native/before888/aarch64-apple-darwin/latency-report.json.gz": {
+      "bytes": 4483,
+      "sha256": "1f14850107da994d0e82d82593274f4c62be1af2e129c421bdb0268a677df6e5"
+    },
+    "native/before888/aarch64-apple-darwin/provenance.json.gz": {
+      "bytes": 7800,
+      "sha256": "78c25e6d1eda2ccf1f7c750b5c2af0ce24f32a177974c233912c5655ff9ef261"
+    },
+    "native/before888/aarch64-apple-darwin/server-binary-sizes.json.gz": {
+      "bytes": 356,
+      "sha256": "c1c4579321a78fda3b546578dd30e42439e636e063f836ddd8563ce031c6a110"
+    },
+    "native/before888/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479692,
+      "sha256": "9c0cbb4af1af954d04669251e9e8ad615cf05408e91681d75a25fe091673cb24"
+    },
+    "native/before888/aarch64-pc-windows-msvc/baseline.json.gz": {
+      "bytes": 5867,
+      "sha256": "520376ccf055efa7a3974302b03224efa0e01e3652f465feeb85ac514c943fbf"
+    },
+    "native/before888/aarch64-pc-windows-msvc/candidate.json.gz": {
+      "bytes": 5848,
+      "sha256": "b3bb4442f2d4beab9d4317adfea340aaca939fe4d3f26aa313f91e0b9c44a3f6"
+    },
+    "native/before888/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 317132,
+      "sha256": "1afa8e51a3d95ed225d3974a001f1608685a5af4c06dd9c75936ce69037148bc"
+    },
+    "native/before888/aarch64-pc-windows-msvc/latency-report.json.gz": {
+      "bytes": 4131,
+      "sha256": "75ae9f815f44763ac35e95f1eb545fc8433de7542ce12cc37a7ea565a7a33152"
+    },
+    "native/before888/aarch64-pc-windows-msvc/provenance.json.gz": {
+      "bytes": 8154,
+      "sha256": "9a1179559d876d150213d0ae836641616455ac56d1f0b0557c6e07bb6edf104d"
+    },
+    "native/before888/aarch64-pc-windows-msvc/server-binary-sizes.json.gz": {
+      "bytes": 358,
+      "sha256": "e9fdd2808c280c7ccec86c632b53df67ce03976e4361aaaaca811040a0b99cad"
+    },
+    "native/before888/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479734,
+      "sha256": "4a3d6d16384d28143e497d0fe6e613758969af4a4aa055b3ced114b8c05e26ee"
+    },
+    "native/before888/aarch64-unknown-linux-gnu/baseline.json.gz": {
+      "bytes": 7665,
+      "sha256": "e421112af6cef9c02cbef32a5b067874375eecb121628bf5b54f165a9e363e1d"
+    },
+    "native/before888/aarch64-unknown-linux-gnu/candidate.json.gz": {
+      "bytes": 7698,
+      "sha256": "55fc20f41b78b45904a8c17c2f37dad4be349fec436e3914a3d989c858b53707"
+    },
+    "native/before888/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 336395,
+      "sha256": "f3c5a09635e3938570e38ca18abfbe129912f6e1f387bf7975c26681d13876b0"
+    },
+    "native/before888/aarch64-unknown-linux-gnu/latency-report.json.gz": {
+      "bytes": 4576,
+      "sha256": "8849325617439d878d09457af9613590d628fcc480fbdc8af6b8a743e2d2dfe5"
+    },
+    "native/before888/aarch64-unknown-linux-gnu/provenance.json.gz": {
+      "bytes": 8840,
+      "sha256": "08e6df81651f1fbbef92e848196414609daf9b53e2f5e2d5f34574c271bc9e88"
+    },
+    "native/before888/aarch64-unknown-linux-gnu/server-binary-sizes.json.gz": {
+      "bytes": 355,
+      "sha256": "043bdc8b7178134eeec2e09b8cd769d398d7f25d99cd0ddd5a27e905e0cc31fb"
+    },
+    "native/before888/original-collection-proof.json": {
+      "bytes": 63949,
+      "sha256": "04cb54869803e5dc2718949ff3b5ae6d15f0d70d42610fe5ab7451409bacd1fa"
+    },
+    "native/before888/x86_64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479695,
+      "sha256": "9b423ae83c728b7e95da1e1e0cc1db209c3efb366ed30915ed95c9f4393b8817"
+    },
+    "native/before888/x86_64-apple-darwin/baseline.json.gz": {
+      "bytes": 8386,
+      "sha256": "71028ebc7ea8267eb1d86fac70afb3b183586d3f65f0ed3142c4bc912181b138"
+    },
+    "native/before888/x86_64-apple-darwin/candidate.json.gz": {
+      "bytes": 8377,
+      "sha256": "5ae04dce62c0c6af5885a68af3c0d51024bab7435374ef43be5f55f49bfb5ef6"
+    },
+    "native/before888/x86_64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 159736,
+      "sha256": "836ae5465576a39ab09e7fbf7e35c40c7c0cb51245f977fa26a126c79215acb3"
+    },
+    "native/before888/x86_64-apple-darwin/latency-report.json.gz": {
+      "bytes": 4629,
+      "sha256": "517cb3aab7f18d4388d92eb6a6cc428babb88937d42f5a3970d3762daa9af384"
+    },
+    "native/before888/x86_64-apple-darwin/provenance.json.gz": {
+      "bytes": 7832,
+      "sha256": "452c3b5fbe51f5fbea4046a3d5eebb42d0d01bc2a0b21f03918146f884b0d37a"
+    },
+    "native/before888/x86_64-apple-darwin/server-binary-sizes.json.gz": {
+      "bytes": 355,
+      "sha256": "d5a3f1c224add114b8a3390935e2fe839eee3416abe38acadadba47d3412d114"
+    },
+    "native/before888/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479690,
+      "sha256": "f21e95eab4efc23315c4eb54671866cca1754c2723f853231ae1fbfe8c4809ea"
+    },
+    "native/before888/x86_64-pc-windows-msvc/baseline.json.gz": {
+      "bytes": 5870,
+      "sha256": "539731f389cd147cc765c24df7ed8191fb9a7330e5cf0bb9fe75d1787b644886"
+    },
+    "native/before888/x86_64-pc-windows-msvc/candidate.json.gz": {
+      "bytes": 5874,
+      "sha256": "e018e93445105095370c1ac4bf312bfb8f668f0d44d132c094570c694d7346c5"
+    },
+    "native/before888/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 323303,
+      "sha256": "8e3a9d8c2d2ea679b819b70b0ed6b753a5412481411907584c728da9e210a65c"
+    },
+    "native/before888/x86_64-pc-windows-msvc/latency-report.json.gz": {
+      "bytes": 4123,
+      "sha256": "2348466008477eb14b5e90fa0cd605bae5e9837e8ea474408d190734c0971918"
+    },
+    "native/before888/x86_64-pc-windows-msvc/provenance.json.gz": {
+      "bytes": 8157,
+      "sha256": "401455779447d3aecb53ffc2cdf477d086aea21320a2a5068ff4ef842d401a25"
+    },
+    "native/before888/x86_64-pc-windows-msvc/server-binary-sizes.json.gz": {
+      "bytes": 358,
+      "sha256": "cf2f2ab0811235b6999087de02f8aeec6889f1bab0aa770ebf7d4a841e0ec818"
+    },
+    "native/before888/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479735,
+      "sha256": "9d789355b5093e07838bde44673315f2c1bd4296bc99a21a5e0bd64611dde305"
+    },
+    "native/before888/x86_64-unknown-linux-gnu/baseline.json.gz": {
+      "bytes": 7940,
+      "sha256": "fbdc30550705a5ea631ac7a5966200af6d6bef4809d74308232b416696a4f6e5"
+    },
+    "native/before888/x86_64-unknown-linux-gnu/candidate.json.gz": {
+      "bytes": 7899,
+      "sha256": "1c81305e27b50c818037341b2f73d49ecf8c103aceddf4af72c7c94d399592ae"
+    },
+    "native/before888/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 337659,
+      "sha256": "a136013e538fbf3a26f207a36ccd0768ea9a0f45e5dc91e21b20820a13a57807"
+    },
+    "native/before888/x86_64-unknown-linux-gnu/latency-report.json.gz": {
+      "bytes": 4522,
+      "sha256": "16a8ea96e851e45a3e9caea0b7475a6f7753d9f3fd7ec460004ed1dc4dfed2bd"
+    },
+    "native/before888/x86_64-unknown-linux-gnu/provenance.json.gz": {
+      "bytes": 9430,
+      "sha256": "3bc5fbf1c34b610f73cd157de6d9492c06afb1931f124ecafb41371e6fc492f7"
+    },
+    "native/before888/x86_64-unknown-linux-gnu/server-binary-sizes.json.gz": {
+      "bytes": 359,
+      "sha256": "eb90bbfd7f3e4b89a77ce01e3d70185b84cc03bbaa3d00116d0b66d8bb596028"
+    },
+    "native/main/aarch64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479691,
+      "sha256": "11d246d5d23f5033a7159edb7bf3b15fc8af9af4c8f587377d58250d53f2b651"
+    },
+    "native/main/aarch64-apple-darwin/baseline.json.gz": {
+      "bytes": 6945,
+      "sha256": "7f3dac93dcb34c4602d2c1fd1bd78bd8b0cd2eed477e146e5a37b10f655b2da3"
+    },
+    "native/main/aarch64-apple-darwin/candidate.json.gz": {
+      "bytes": 6972,
+      "sha256": "5bb81862d83c044f7f3068e5a8cf6f8a198b96f51f7416314d8e37e5c12d0612"
+    },
+    "native/main/aarch64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 119614,
+      "sha256": "ed15a08e714606b096facd9d1c11ae06e2c9d0de3686ac2d91035618f6c2241a"
+    },
+    "native/main/aarch64-apple-darwin/latency-report.json.gz": {
+      "bytes": 4532,
+      "sha256": "95e6614eadb140b954394215d3968b8386c2d582bb0fc585e39a9519e03a2f7e"
+    },
+    "native/main/aarch64-apple-darwin/provenance.json.gz": {
+      "bytes": 7790,
+      "sha256": "8cb9c096903419a25909e885152d661d5fdfa715556846e6cd1b16722913fa8a"
+    },
+    "native/main/aarch64-apple-darwin/server-binary-sizes.json.gz": {
+      "bytes": 353,
+      "sha256": "c74c6a5931bd238c291d6a3a3bcf3e5f50322984a058138ef8930f8dee80a452"
+    },
+    "native/main/aarch64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479694,
+      "sha256": "0fde1e8476b570ae7f1169fa3aae52651fd6d176eb251839de52c10f678042a2"
+    },
+    "native/main/aarch64-pc-windows-msvc/baseline.json.gz": {
+      "bytes": 5788,
+      "sha256": "20fd45c4e474e5ff3c242f8a9e3479e08f352f7f12b9fca5d0daf84ca66f1669"
+    },
+    "native/main/aarch64-pc-windows-msvc/candidate.json.gz": {
+      "bytes": 5846,
+      "sha256": "f20103ba77febe1101af2a5042a838a27ec073627670127d5b4fe0548d3acc7c"
+    },
+    "native/main/aarch64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 317594,
+      "sha256": "d9354ce25f1393965167bf854fd616118725e76b8880941d71b2e9d405087d1c"
+    },
+    "native/main/aarch64-pc-windows-msvc/latency-report.json.gz": {
+      "bytes": 4071,
+      "sha256": "d711e045a1d3a7e122a12899ed002d7d69506aa08da7e7ef09bfa56dc6a7d0b4"
+    },
+    "native/main/aarch64-pc-windows-msvc/provenance.json.gz": {
+      "bytes": 8141,
+      "sha256": "fe2ab78a0e8c8c6af7b9ca495f13f798421060ee680f79227c0372a62a9868c6"
+    },
+    "native/main/aarch64-pc-windows-msvc/server-binary-sizes.json.gz": {
+      "bytes": 363,
+      "sha256": "1432f5372b48cfea8842ff7715cea24492ece622c0f509cb0bfb13c1d2e72b70"
+    },
+    "native/main/aarch64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479739,
+      "sha256": "d54ef903c4eef26839b90048ae64484d0bbb6b4421d38eefd8c4ac2708256b49"
+    },
+    "native/main/aarch64-unknown-linux-gnu/baseline.json.gz": {
+      "bytes": 7613,
+      "sha256": "20b61f62c52154b08741cef482435eba3e77aa29d41a6d079bf73fd6ead26d33"
+    },
+    "native/main/aarch64-unknown-linux-gnu/candidate.json.gz": {
+      "bytes": 7589,
+      "sha256": "9a3cf4a33cd99ccdaa586133eb7509771a6c5a1b9412b932da11ef12457de9a1"
+    },
+    "native/main/aarch64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 348074,
+      "sha256": "fdd01142cbddb7bf01f8cab172c7d6c63c49f1d0b93690ebce845e5dcf515d4f"
+    },
+    "native/main/aarch64-unknown-linux-gnu/latency-report.json.gz": {
+      "bytes": 4508,
+      "sha256": "90438457a499be95ffaa49175eb20f374f84b7d8e5f52f91ed3b73628e56501c"
+    },
+    "native/main/aarch64-unknown-linux-gnu/provenance.json.gz": {
+      "bytes": 8826,
+      "sha256": "015051a2f081b45e5621a86387ed46ed316bdef361bf8a73977ca5c7b10a8268"
+    },
+    "native/main/aarch64-unknown-linux-gnu/server-binary-sizes.json.gz": {
+      "bytes": 361,
+      "sha256": "e402c39d8e232020d39e02906509e555a76147c1281933492713ba0540648a27"
+    },
+    "native/main/original-collection-proof.json": {
+      "bytes": 61135,
+      "sha256": "b136d3fb6e6069978f2610e5ffea369e68e4e0a8a330b43c096e1cb4ccae8fdf"
+    },
+    "native/main/x86_64-apple-darwin/artifact-manifest.json.gz": {
+      "bytes": 479690,
+      "sha256": "789d0614b5708942eaa1ab1b6afc53203adfb1bde503646becc01dca9dcbb149"
+    },
+    "native/main/x86_64-apple-darwin/baseline.json.gz": {
+      "bytes": 8391,
+      "sha256": "2098e8734ada10a8aad8e0cb0ed1fcde2ab60bc2208750ac902451d7c7750638"
+    },
+    "native/main/x86_64-apple-darwin/candidate.json.gz": {
+      "bytes": 8437,
+      "sha256": "c599bc1aee49d9e1f9e77227818496230d2d54bb466eabeac10fe7ae940fe559"
+    },
+    "native/main/x86_64-apple-darwin/discovery/report.json.gz": {
+      "bytes": 179037,
+      "sha256": "0b88f6c333c565dd0712d0e62ab9f7d216015ed1cce088180a70bb507de9c485"
+    },
+    "native/main/x86_64-apple-darwin/latency-report.json.gz": {
+      "bytes": 4662,
+      "sha256": "34a12143b9a95f7c722af91f7169ecf99953c441da10e4f2392036356f841a80"
+    },
+    "native/main/x86_64-apple-darwin/provenance.json.gz": {
+      "bytes": 7819,
+      "sha256": "48da456c470a87aab2d7df89fcd02c4ea0cdfabea9eb2262c836ba50987ea29f"
+    },
+    "native/main/x86_64-apple-darwin/server-binary-sizes.json.gz": {
+      "bytes": 356,
+      "sha256": "3e83937ff47800fe651a70dc6c8f061399bcaf3f032ac4d33618f92c870c0f4f"
+    },
+    "native/main/x86_64-pc-windows-msvc/artifact-manifest.json.gz": {
+      "bytes": 479685,
+      "sha256": "a3f3b7a3a4aa0ffede1f7369c13d2703853cffb44ef4a09fa5b2dfa1c930948a"
+    },
+    "native/main/x86_64-pc-windows-msvc/baseline.json.gz": {
+      "bytes": 5990,
+      "sha256": "3830da01302f7e0dd3a9f4014bebdbb746466320349b45dad9cec40e637dab3d"
+    },
+    "native/main/x86_64-pc-windows-msvc/candidate.json.gz": {
+      "bytes": 6068,
+      "sha256": "561adc355e505db8d5ad40dac4ede351b629a83f231e2998dbbda9212c7adeed"
+    },
+    "native/main/x86_64-pc-windows-msvc/discovery/report.json.gz": {
+      "bytes": 340868,
+      "sha256": "ee785754979f73a4040fcc22313c32591fdcbf42668c79698aa106e966a4fb60"
+    },
+    "native/main/x86_64-pc-windows-msvc/latency-report.json.gz": {
+      "bytes": 4168,
+      "sha256": "6ef46bdc72eb828c91b2b9600e29984b2e31ebe80b53950c98dee32c118b3b73"
+    },
+    "native/main/x86_64-pc-windows-msvc/provenance.json.gz": {
+      "bytes": 8161,
+      "sha256": "88afd123b6b6c4169964a8825f94ec2760e786931a8f42a7176549eb57720ad3"
+    },
+    "native/main/x86_64-pc-windows-msvc/server-binary-sizes.json.gz": {
+      "bytes": 363,
+      "sha256": "06f12f41c212aba6b490a40fd6d25fdbe63707c4704d6727b7384e2e6d1cf83d"
+    },
+    "native/main/x86_64-unknown-linux-gnu/artifact-manifest.json.gz": {
+      "bytes": 479735,
+      "sha256": "c4a96ede371fb08684e343e126e570d123748693f719cd13a4d0e41bb2a0462c"
+    },
+    "native/main/x86_64-unknown-linux-gnu/baseline.json.gz": {
+      "bytes": 7908,
+      "sha256": "99c8f34332b24b784090cd34a50556503598d0d32aea97baa91a77d238df63a0"
+    },
+    "native/main/x86_64-unknown-linux-gnu/candidate.json.gz": {
+      "bytes": 7906,
+      "sha256": "23a8adda603721eb9f7e00b8ae1349607c62daa7df3864a05b59ce14d27b8d30"
+    },
+    "native/main/x86_64-unknown-linux-gnu/discovery/report.json.gz": {
+      "bytes": 334323,
+      "sha256": "6bd252c758ff78bc5aab8399f4cd8e0c631fbd7436aebf53ddd97a1220abe452"
+    },
+    "native/main/x86_64-unknown-linux-gnu/latency-report.json.gz": {
+      "bytes": 4566,
+      "sha256": "64fecc5ccbadc6e2f4daef49f4ae0d1d87bd249f941cce7552ef990730160bdb"
+    },
+    "native/main/x86_64-unknown-linux-gnu/provenance.json.gz": {
+      "bytes": 9545,
+      "sha256": "45d01b88c611a10ca5caea7ce431630cd37b116d9fb5adc0eb48d10945009fea"
+    },
+    "native/main/x86_64-unknown-linux-gnu/server-binary-sizes.json.gz": {
+      "bytes": 359,
+      "sha256": "e81009d66d2ce418bcf3ed2f8f22c511adcf976e43494705672c9197591581fe"
+    },
+    "native/parent-round-qualification.json": {
+      "bytes": 625,
+      "sha256": "ba70cc914ca17b75cc239ca47eca5ee5bbd2a0471ca5f990198c8380930ddc88"
+    },
+    "semantic/original-final-report.json": {
+      "bytes": 99,
+      "sha256": "a5317a9aba485f85a424b3f1be5b9668cadf77eabffd87d7e99f965ef404d0ed"
+    },
+    "semantic/projects-128/attempt-s0egz7n2/scaling-report.json.gz": {
+      "bytes": 108654,
+      "sha256": "35d35e9ae14921afdc8dcda47edc7b62876a34bce76d7942139ef59abb60fa7d"
+    },
+    "semantic/projects-128/attempt-s0egz7n2/worker-report.json.gz": {
+      "bytes": 188156,
+      "sha256": "113452e060c0d41c7747c8b1e9cf099471492d08ca099e1eef34cfae8ca13c69"
+    },
+    "semantic/projects-128/attempt-s0egz7n2/worker.log.gz": {
+      "bytes": 150,
+      "sha256": "755cdae6092c9a8c0883d4a5d221c9e97920e7cfbb433edf80f9bcb153498ac9"
+    },
+    "semantic/projects-256/attempt-tpc7h9g6/scaling-report.json.gz": {
+      "bytes": 200174,
+      "sha256": "da184ba4027a2d59862b8f1af0e800cd1fe262d9b6fa06a70b7d04ef86be1e4c"
+    },
+    "semantic/projects-256/attempt-tpc7h9g6/worker-report.json.gz": {
+      "bytes": 345986,
+      "sha256": "617624e2037ad6af11a94d262c392f204a682ed0c77767e462963a318172d6fb"
+    },
+    "semantic/projects-256/attempt-tpc7h9g6/worker.log.gz": {
+      "bytes": 150,
+      "sha256": "fcaf831c7dfd522e644ebe4a429e0918adc6b3501287258bb615c857d365fc99"
+    },
+    "semantic/projects-512/attempt-v98o4m42/scaling-report.json.gz": {
+      "bytes": 1299,
+      "sha256": "327818437e847a253e50924a332eb0fa4e64b19cedb04a127c23bd61dcb9a8ce"
+    },
+    "semantic/projects-512/attempt-v98o4m42/worker-report.json.gz": {
+      "bytes": 666222,
+      "sha256": "7fc7922a645893682ce70fd4180e363a8f94eb069db76eeff8dc4c6b42490d71"
+    },
+    "semantic/projects-512/attempt-v98o4m42/worker.log.gz": {
+      "bytes": 149,
+      "sha256": "875d4d3c5bac53b31fe6387146e66ee57287405748e631da89906ad5464fb12c"
+    },
+    "semantic/scaling-summary.json.gz": {
+      "bytes": 2434,
+      "sha256": "84c81cea9a4b1134bd9dd67ab045b78617b32572a1d5b473937713dd6b762fdc"
     }
   },
-  "source_pushed": true
+  "source_pushed": true,
+  "next_source_is_not_qualified_by_this_manifest": "420a77c5da3ae808204b506d6d78bb955cd1113e"
 }

@@ -1,0 +1,11 @@
+{
+  "source_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "source_tree": "b9975db790d0768011828bf282615e9cfce96334",
+  "artifacts": 12,
+  "all_dataset_completed_rounds": 7,
+  "every_workload_round_count": 7,
+  "original_success_status": "complete",
+  "checked_revisions_targets_manifest_bindings": true,
+  "collector_note": "Before888 collector dataset_rounds.rounds_observed=0 used a nonexistent dataset-level rounds array. Originals remain untouched; parent checked completed_rounds and every workload rounds array for all12 actual reports.",
+  "source_data": "hosted/884-native-12-paired-absolute-summary.json.gz"
+}

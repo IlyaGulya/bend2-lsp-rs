@@ -1,0 +1,42 @@
+{
+  "admission-measurement.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 2104875888,
+    "compressed": 380,
+    "uncompressed": 1926,
+    "offset": 4867120,
+    "sha256": "a90eab35e84ba260fa7a72dccd353e2ce9c2d290aef0ca8ff56b1d0fca927735",
+    "complete_crc_and_size_verified": true
+  },
+  "callgrind-policy.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 1418314480,
+    "compressed": 1275572,
+    "uncompressed": 8090319,
+    "offset": 4895296,
+    "sha256": "41786d67f0ecebd63888a2f580942ede583d37856338867477d25146f025b30a",
+    "complete_crc_and_size_verified": true
+  },
+  "callgrind-policy.md": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 1100355914,
+    "compressed": 4139,
+    "uncompressed": 29422,
+    "offset": 6170935,
+    "sha256": "8711f47e38161584fecad3a28d94675845303beb6b9642342f00dd8662fa7d41",
+    "complete_crc_and_size_verified": true
+  },
+  "paired-data.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 2336562941,
+    "compressed": 570675,
+    "uncompressed": 9494746,
+    "offset": 6204265,
+    "sha256": "b660bdfc873fa2605bc337dbe6ad2a663f58b4e088c1abd0f2fe46c69fdc2998",
+    "complete_crc_and_size_verified": true
+  }
+}
