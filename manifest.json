@@ -35,7 +35,7 @@
     "Align strict calibration reporter expectation with the predeclared102-workload inventory. Unchanged original884data re-report passed; all comparison/diagnostic rows identical; no new SUT measurement or next-source qualification inherited."
   ],
   "hosted_qualification": {
-    "state": "Quality, normal semantic and all14 installer jobs passed. Main numeric admission failed121/41/0; six original native reports complete. Calibration and before884comparison still awaited. IntelMac profiling failures75/76 separately nonblocking by narrow owner decision.",
+    "state": "Source420quality,semantic,14installer jobs passed;main121/41/0and before884274/31/1not admitted;sixnative reports for eachcomparison complete;calibration awaited. Frozen source11f1is separate and inherits no pass.",
     "required": "Exact-source ordinary main numeric admission and before884comparison for semantic workloads absent from main remain required; owner explicitly deferred only the two IntelMac diagnostic capture failures in recorded run41173453571, not numeric regressions or any other gate.",
     "semantic": {
       "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
@@ -305,7 +305,46 @@
       "native_rounds_each": 7,
       "native_summary": "420-native-main-absolute-summary.json",
       "native_collection_proof": "native-main-to-420a77c/collection-proof.json",
-      "causal_limit": "Main comparison measures the whole source change, not isolated attribution to the first-match peel. Its intended improvement was not demonstrated; direct-loop rollback is prepared separately and has no performance admission."
+      "causal_limit": "Main comparison measures the whole source change, not isolated attribution to the first-match peel. Its intended improvement was not demonstrated; direct-loop rollback is prepared separately and has no performance admission.",
+      "scale_context": "420-native-main-scale-context.json"
+    },
+    "before884_performance": {
+      "run_id": 41173450200,
+      "base_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+      "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "workflow_conclusion": "failure",
+      "policy_status": "inconclusive",
+      "numeric_admission": false,
+      "paired_workloads": 102,
+      "pairs": 105,
+      "metric_rows": 306,
+      "classification_counts": {
+        "passed": 274,
+        "regression": 31,
+        "inconclusive": 1
+      },
+      "by_metric": {
+        "Ir": {
+          "passed": 96,
+          "regression": 6
+        },
+        "I1mr": {
+          "passed": 85,
+          "regression": 16,
+          "inconclusive": 1
+        },
+        "ILmr": {
+          "passed": 93,
+          "regression": 9
+        }
+      },
+      "raw_median_table": "420-before884-all-counter-absolute-medians.json",
+      "native_six_targets_complete": true,
+      "native_rounds_each_dataset_arm_workload": 7,
+      "native_raw_summary": "420-native-before884-absolute-summary.json",
+      "native_collection_proof": "native-before884-to-420a77c/collection-proof.json",
+      "intended_results": "Rename preflight Ir -5.00to-11.77%;captureIr-3.63to-7.05%;not free:preparsedupdates+2.28to2.39%and 10kcoldRSS+1.16to2.68MiB versus884. Whole-source results, no isolated attribution to completion loop."
     }
   },
   "performance_admission": false,
@@ -332,6 +371,14 @@
   "same_retained_Cargo_target": "/workspace/target/semantic-approved-126952f6d048",
   "windows74": "Separately evidenced historical optional-lint case only; non-blocking by owner choice, not an exemption for fresh failures.",
   "files": {
+    "420-before884-all-counter-absolute-medians.json": {
+      "bytes": 164594,
+      "sha256": "7b03d664ed10ba8efbf8a9539154ada4b3eec76961e5b83fccf94d02e1de21d4"
+    },
+    "420-before884-completed-metadata.json": {
+      "bytes": 71806,
+      "sha256": "b2123ccfe2d913d80c5d308e9ff0921c6f964c57e39266b00f91c4d7759c9256"
+    },
     "420-issue-75-api-response.json": {
       "bytes": 10644,
       "sha256": "5098356f5a7e9df57419b2ab70ee79172659888a8df6289f751947363dba21a8"
@@ -372,6 +419,18 @@
       "bytes": 1829,
       "sha256": "df80f69e513e26240aeb80e561f123b8a5fe4f7a724550ce94514c8e79eb5367"
     },
+    "420-medium-baseline-static-annotation.json": {
+      "bytes": 10625,
+      "sha256": "d1e917e9560872a261a63a63ddbe329111455c80fe9b007e73c235a8cdacf9ac"
+    },
+    "420-medium-candidate-static-annotation.json": {
+      "bytes": 10893,
+      "sha256": "8f555bef2ecafe09ed37c6c86a42e186aba31f8105a3ab8d3bf8a9fe9d79be62"
+    },
+    "420-native-before884-absolute-summary.json": {
+      "bytes": 6514,
+      "sha256": "75c12821a60b7b3319347f78623c0e015bd418b0ebabe56f12ab90afefe0bf00"
+    },
     "420-native-installers-completed-metadata.json": {
       "bytes": 110535,
       "sha256": "32672d6e817b082a27410f70df4f2d980edb21a15d1b608f5eb7819a414bd63c"
@@ -379,6 +438,10 @@
     "420-native-main-absolute-summary.json": {
       "bytes": 4226,
       "sha256": "8707c26ec9ef1c4802ef21f24ad89571556499c1dccce103a7a5f166bb9c638b"
+    },
+    "420-native-main-scale-context.json": {
+      "bytes": 18090,
+      "sha256": "7ad8822de99c80ad546613ad549cd879593c492a1d28d0997b13fecefde4544e"
     },
     "attempts/bundle-full-sha-tip.json": {
       "bytes": 647,
@@ -391,6 +454,26 @@
     "attempts/pre-check-wrapper-not-started.json": {
       "bytes": 305,
       "sha256": "ff2a6a9d55d458a00eba6f9f0c9c785662ea1713072df097c21728eb7c1024fa"
+    },
+    "callgrind-before884-to-420-selected/admission-measurement.json": {
+      "bytes": 3775,
+      "sha256": "d5711101c9d7529056132c92a8f5afb560d7c1d966b6d0bf69b7b06eaf525987"
+    },
+    "callgrind-before884-to-420-selected/callgrind-policy.json": {
+      "bytes": 8092899,
+      "sha256": "57b9a6cd9a908846c188dbc62f60e0b4b45445aabd91a763a67b2457bf798240"
+    },
+    "callgrind-before884-to-420-selected/callgrind-policy.md": {
+      "bytes": 29365,
+      "sha256": "7dddca2fa1d9ec568e69a5f99c5392de871ca209a44759ad2ef340325e81e83a"
+    },
+    "callgrind-before884-to-420-selected/paired-data.json": {
+      "bytes": 9493683,
+      "sha256": "d46209ba1770c28a5d5773d4cb0f6f2e2b266993de294ab2fb8650dbcfd92c64"
+    },
+    "callgrind-before884-to-420-selected/selected-original-members.json": {
+      "bytes": 1166,
+      "sha256": "d333d52e6e17fd612e399ee5bc6afc0a082eaf3760367ae723ba41578775832d"
     },
     "callgrind-main-to-420-selected/admission-measurement.json": {
       "bytes": 4607,
@@ -624,6 +707,178 @@
       "bytes": 7553,
       "sha256": "2d87bcebe730083aea96674bbe1530a85ce6e6ba1a40c29cc2e2f91e662f87b7"
     },
+    "native-before884-to-420a77c/collection-proof.json": {
+      "bytes": 18879,
+      "sha256": "2b8c55bc0c490d33341d66b256a6f28a0ec74789fc40db524d2809feb2091c0c"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-apple-darwin/artifact-manifest.json": {
+      "bytes": 1930411,
+      "sha256": "01bd712ce3f2cb6ec430297be14abce60f83b6d612a0ab40451f2fb32d766030"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-apple-darwin/baseline.json": {
+      "bytes": 33090,
+      "sha256": "bb7d8517fe403b2be71f0163dcb49946b92efe528425f7a612a158ec6958ba26"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-apple-darwin/candidate.json": {
+      "bytes": 33114,
+      "sha256": "679432c9830e330e210ad89272adbcbaa26df38dfc17c9bc730c006c2351e8b3"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-apple-darwin/discovery/report.json": {
+      "bytes": 2544226,
+      "sha256": "bfabad35630020e3b7178089b9bc8f0909ce10b60a3f1ce116975df41bced716"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-apple-darwin/latency-report.json": {
+      "bytes": 24688,
+      "sha256": "126dccdfbf2619198bf24328c6a55518d243c771e45d4edf57a8f9c288b65332"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-apple-darwin/provenance.json": {
+      "bytes": 28820,
+      "sha256": "548942abc5355bde6515b1b11c9950e855078b4866af14972b339341b335d55c"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-apple-darwin/server-binary-sizes.json": {
+      "bytes": 567,
+      "sha256": "7be5bba6170765004608c7bb782dcd6f736e07c8f77ece9e23f14a0a18ac73fa"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-pc-windows-msvc/artifact-manifest.json": {
+      "bytes": 1930422,
+      "sha256": "6fd21093e9502b648379775d224cb09b3d184ab0b6258f7a4e8480905d7fb39a"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-pc-windows-msvc/baseline.json": {
+      "bytes": 33135,
+      "sha256": "438911654dceb697d599141bc61d5074b9c39c008a406e3c3f409002ee3512cc"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-pc-windows-msvc/candidate.json": {
+      "bytes": 33132,
+      "sha256": "e4c8ceb23bec7ada1e480a4a718833d2f04f8586795826fcc8578fff93ff0d48"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-pc-windows-msvc/discovery/report.json": {
+      "bytes": 12199219,
+      "sha256": "842f16a88dd0a0dd3794850903c23889cdece283291065b179d47e1c8afb9366"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24601,
+      "sha256": "66664d648c2eba5c25e45dec7a6ce489bf6cb926e55f20d9a40544c85a54b15d"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-pc-windows-msvc/provenance.json": {
+      "bytes": 29515,
+      "sha256": "9c142bda1f8253c12ca48d7af2069ae3aabb5d32d7ee222c8b1f74ea8499e28b"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-pc-windows-msvc/server-binary-sizes.json": {
+      "bytes": 587,
+      "sha256": "f3049f5ea296d8fc67912f5aa10e8f9a5fdbf0936b098d7b45e30ab7a1c5f20b"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-unknown-linux-gnu/artifact-manifest.json": {
+      "bytes": 1930449,
+      "sha256": "cd7c6f23f27cb456c18bc75ff76e52d05f55314eed64cb3d18f3e39b3ac9ec63"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-unknown-linux-gnu/baseline.json": {
+      "bytes": 32586,
+      "sha256": "9b3d8bf01742bf6557f59ac5c5adfb6239a8092063f8de9e4935707d035e9601"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-unknown-linux-gnu/candidate.json": {
+      "bytes": 32575,
+      "sha256": "1a2c7656029a4a013a5270c2617b36b9c137ca8fee661ba91a514fa4d11a0c44"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-unknown-linux-gnu/discovery/report.json": {
+      "bytes": 13719497,
+      "sha256": "261d156271882b51de6abf5f4eca168bab0aa1fd8a54a6fb87d726112b07fb7c"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24601,
+      "sha256": "6ef7605ebf9a411eb228aab660abf6a7ee7cc1a492350fda10193ce2893633c9"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-unknown-linux-gnu/provenance.json": {
+      "bytes": 31076,
+      "sha256": "9b7121fb79b8ee696c754fc4c55447c128c9fa97f7619d20687eda92ae0d210e"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-aarch64-unknown-linux-gnu/server-binary-sizes.json": {
+      "bytes": 572,
+      "sha256": "03c7e0673e5ac771ef309c58a0d3a99193d4199c61bdb0eb5f99e40212d6df16"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-apple-darwin/artifact-manifest.json": {
+      "bytes": 1930416,
+      "sha256": "89cd4018c77c41119694981bb98b5c41cd7d8f3357485744dec57bbff8624099"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-apple-darwin/baseline.json": {
+      "bytes": 33109,
+      "sha256": "f231be5a05d4ce4d01fcacfd97b5ce2b67a26c3fc1ae40ebd6fd4ac2be28ad79"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-apple-darwin/candidate.json": {
+      "bytes": 33168,
+      "sha256": "5e392147a9a634651eca9335cc5aebb337fc0a80289480d987347a141f95bd03"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-apple-darwin/discovery/report.json": {
+      "bytes": 3619831,
+      "sha256": "b887a8e7ae7e80a3db78108ac39c761628bbf3793b95f2dfd7aa03964693c5fc"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-apple-darwin/latency-report.json": {
+      "bytes": 24664,
+      "sha256": "430c3e1259b142cf8581d0f56612c48645b0aa0d7d85d65680ed28993f4f869d"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-apple-darwin/provenance.json": {
+      "bytes": 28835,
+      "sha256": "d49c84fb99e5751bcd01ac6c05957681f685d100e728621d07d7fe5e63300ac2"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-apple-darwin/server-binary-sizes.json": {
+      "bytes": 566,
+      "sha256": "ecaea01818bb217efb09a0d70c176cebadfc25efe202016e944e533974d415f9"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-pc-windows-msvc/artifact-manifest.json": {
+      "bytes": 1930419,
+      "sha256": "bc11eb78328c7121885813aa612be535e8b7e5fe678260117e000e822fdb89dd"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-pc-windows-msvc/baseline.json": {
+      "bytes": 33244,
+      "sha256": "8e1e611cc1e93a763adabdf403e5106c5cc6849677c83d6da50b48aa16ed7e20"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-pc-windows-msvc/candidate.json": {
+      "bytes": 33244,
+      "sha256": "7a71e1da622af74303c1e6583d22fc016e7e35f585a3ceb09c00c5920ef38790"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-pc-windows-msvc/discovery/report.json": {
+      "bytes": 14487713,
+      "sha256": "795af51ed0c51b736566f612388eed9080a633645e14e5ad2b7b21dfd420343f"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24695,
+      "sha256": "0d043e25b27eefd5a210de9b63207e811acd1a278e3d6e4ca566c373a31cf068"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-pc-windows-msvc/provenance.json": {
+      "bytes": 29532,
+      "sha256": "0756727b95817fc15bcfe2cbc89ead51fea8b6cf32de2811d19978a2e5551fdf"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-pc-windows-msvc/server-binary-sizes.json": {
+      "bytes": 586,
+      "sha256": "a401cd13800a30582f3fa5f6b3169dbcc1187723d950d55c41b2ae31a616d759"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-unknown-linux-gnu/artifact-manifest.json": {
+      "bytes": 1930444,
+      "sha256": "b409ce7126f24d7b1319e63ed05761cdd2b7c7f5dba49dd09b9a3bd8301e49d2"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-unknown-linux-gnu/baseline.json": {
+      "bytes": 33054,
+      "sha256": "ae62c88dcf4600db4b76d096852958698e39d4ee4e1da57952899bef560f3bf4"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-unknown-linux-gnu/candidate.json": {
+      "bytes": 32987,
+      "sha256": "1bdd1c764f937f1bd3515727685e6912d4acd73795ad4473cee2df629604e590"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-unknown-linux-gnu/discovery/report.json": {
+      "bytes": 13851982,
+      "sha256": "4d13cfd1ecc6db1694ea186c1a5352884598c50bff8ae951ad877f6f118358ba"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24683,
+      "sha256": "161f879791bb5df28298c460150588798a10dd93e197e7759ba478819f06f7b8"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-unknown-linux-gnu/provenance.json": {
+      "bytes": 32356,
+      "sha256": "407136e85a8b702e21fb4e770e1dbe9f5cb7def93eee4dc4364f86fe0bb46372"
+    },
+    "native-before884-to-420a77c/perf-pr-41173450200-1-x86_64-unknown-linux-gnu/server-binary-sizes.json": {
+      "bytes": 571,
+      "sha256": "e0ac6552f0147765b87a9b5a61804971ba73c56610fa00f8a72611170b311655"
+    },
     "native-main-to-420a77c/collection-proof.json": {
       "bytes": 74184,
       "sha256": "d086beaa42ae9499dfd6258addd8772c7f83ce551f5b390b2db8062f26acc4e9"
@@ -795,6 +1050,16 @@
     "native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/server-binary-sizes.json": {
       "bytes": 571,
       "sha256": "02cb845dc7cac75122704e3227ae64409fd73d4894a93b8764a7756c5678602c"
+    },
+    "native420-before884-collection-plan.json": {
+      "bytes": 6352,
+      "sha256": "445967688a0d1eb449ffb587400d4488b37ac716062e2ae2ed5f71dc12591204"
     }
+  },
+  "owner_stop_criterion": {
+    "selection": "Rollback and one final measurement/source CI cycle",
+    "final_source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+    "final_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+    "scope": "No further optimization variants; owner decides remaining exact-final-source costs after original results; no advance numerical approval or passing-gate inheritance."
   }
 }

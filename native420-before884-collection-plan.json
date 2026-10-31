@@ -1,0 +1,141 @@
+{
+  "repository": "IlyaGulya/bend2-lsp-rs",
+  "run_id": 41173450200,
+  "source_revision": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "expected_baseline": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "expected_candidate_revision": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "verified_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "output_root": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-before884-to-420a77c",
+  "selected_members": [
+    "artifact-manifest.json",
+    "baseline.json",
+    "candidate.json",
+    "discovery/report.json",
+    "latency-report.json",
+    "provenance.json",
+    "server-binary-sizes.json"
+  ],
+  "artifacts": [
+    {
+      "id": 13033465428,
+      "node_id": "MDg6QXJ0aWZhY3QxMzAzMzQ2NTQyOA==",
+      "name": "perf-pr-41173450200-1-aarch64-pc-windows-msvc",
+      "size_in_bytes": 12356394,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13033465428",
+      "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13033465428/zip",
+      "expired": false,
+      "digest": "sha256:79e933e99325bfd7de9531f111dfeca693da8befe0b6f4e9032a11d559a1ca06",
+      "created_at": "2026-10-31T06:17:59Z",
+      "updated_at": "2026-10-31T06:17:59Z",
+      "expires_at": "2026-11-14T07:17:48Z",
+      "workflow_run": {
+        "id": 41173450200,
+        "repository_id": 1399088559,
+        "head_repository_id": 1399088559,
+        "head_branch": "feat/semantic-conformance-main",
+        "head_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e"
+      }
+    },
+    {
+      "id": 13032741873,
+      "node_id": "MDg6QXJ0aWZhY3QxMzAzMjc0MTg3Mw==",
+      "name": "perf-pr-41173450200-1-x86_64-pc-windows-msvc",
+      "size_in_bytes": 12462585,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032741873",
+      "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032741873/zip",
+      "expired": false,
+      "digest": "sha256:0ec3c839fdee50432eb21060441a4d35849903166377422f3a39dd54007dfbf1",
+      "created_at": "2026-10-31T06:17:56Z",
+      "updated_at": "2026-10-31T06:17:56Z",
+      "expires_at": "2026-11-14T06:17:45Z",
+      "workflow_run": {
+        "id": 41173450200,
+        "repository_id": 1399088559,
+        "head_repository_id": 1399088559,
+        "head_branch": "feat/semantic-conformance-main",
+        "head_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e"
+      }
+    },
+    {
+      "id": 13032657357,
+      "node_id": "MDg6QXJ0aWZhY3QxMzAzMjY1NzM1Nw==",
+      "name": "perf-pr-41173450200-1-x86_64-apple-darwin",
+      "size_in_bytes": 11783650,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032657357",
+      "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032657357/zip",
+      "expired": false,
+      "digest": "sha256:64ae4e0db33aabbcf2c9cf5250eadf8bd3ca184c28f79885bea7b781cafae2f5",
+      "created_at": "2026-10-31T06:18:06Z",
+      "updated_at": "2026-10-31T06:18:06Z",
+      "expires_at": "2026-11-14T06:17:52Z",
+      "workflow_run": {
+        "id": 41173450200,
+        "repository_id": 1399088559,
+        "head_repository_id": 1399088559,
+        "head_branch": "feat/semantic-conformance-main",
+        "head_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e"
+      }
+    },
+    {
+      "id": 13032214745,
+      "node_id": "MDg6QXJ0aWZhY3QxMzAzMjIxNDc0NQ==",
+      "name": "perf-pr-41173450200-1-x86_64-unknown-linux-gnu",
+      "size_in_bytes": 12542157,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032214745",
+      "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032214745/zip",
+      "expired": false,
+      "digest": "sha256:e98322fc0419dda413afcd6b016bd45ba8434aeec1415b6ca062e535140216e1",
+      "created_at": "2026-10-31T06:04:27Z",
+      "updated_at": "2026-10-31T06:04:27Z",
+      "expires_at": "2026-11-14T06:04:20Z",
+      "workflow_run": {
+        "id": 41173450200,
+        "repository_id": 1399088559,
+        "head_repository_id": 1399088559,
+        "head_branch": "feat/semantic-conformance-main",
+        "head_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e"
+      }
+    },
+    {
+      "id": 13031664388,
+      "node_id": "MDg6QXJ0aWZhY3QxMzAzMTY2NDM4OA==",
+      "name": "perf-pr-41173450200-1-aarch64-unknown-linux-gnu",
+      "size_in_bytes": 12520741,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13031664388",
+      "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13031664388/zip",
+      "expired": false,
+      "digest": "sha256:886f291d3f77fca7f4a6c2ebdae08c10bd40aa339eb2dd14a7c754088b922827",
+      "created_at": "2026-10-31T06:04:49Z",
+      "updated_at": "2026-10-31T06:04:49Z",
+      "expires_at": "2026-11-14T06:04:42Z",
+      "workflow_run": {
+        "id": 41173450200,
+        "repository_id": 1399088559,
+        "head_repository_id": 1399088559,
+        "head_branch": "feat/semantic-conformance-main",
+        "head_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e"
+      }
+    },
+    {
+      "id": 13031574867,
+      "node_id": "MDg6QXJ0aWZhY3QxMzAzMTU3NDg2Nw==",
+      "name": "perf-pr-41173450200-1-aarch64-apple-darwin",
+      "size_in_bytes": 11647372,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13031574867",
+      "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13031574867/zip",
+      "expired": false,
+      "digest": "sha256:c4618f4bb73d8dedaabf5b27e22352c40746ba3bb4f05bcc7de97d8399144b2e",
+      "created_at": "2026-10-31T06:07:49Z",
+      "updated_at": "2026-10-31T06:07:49Z",
+      "expires_at": "2026-11-14T06:07:39Z",
+      "workflow_run": {
+        "id": 41173450200,
+        "repository_id": 1399088559,
+        "head_repository_id": 1399088559,
+        "head_branch": "feat/semantic-conformance-main",
+        "head_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e"
+      }
+    }
+  ]
+}

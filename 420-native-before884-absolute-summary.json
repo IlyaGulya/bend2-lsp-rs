@@ -1,0 +1,207 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "baseline_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "run_id": 41173450200,
+  "rows": [
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline_cold_ms": 4.9632,
+      "candidate_cold_ms": 4.9356,
+      "cold_ratio": 0.9944390715667312,
+      "baseline_retained_MiB": 9.77734375,
+      "candidate_retained_MiB": 9.8671875,
+      "retained_delta_MiB": 0.08984375
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline_cold_ms": 193.721,
+      "candidate_cold_ms": 193.3835,
+      "cold_ratio": 0.9982578037486901,
+      "baseline_retained_MiB": 27.15625,
+      "candidate_retained_MiB": 27.40234375,
+      "retained_delta_MiB": 0.24609375
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline_cold_ms": 1878.4592,
+      "candidate_cold_ms": 1870.2703,
+      "cold_ratio": 0.9956406292987359,
+      "baseline_retained_MiB": 160.87109375,
+      "candidate_retained_MiB": 163.26171875,
+      "retained_delta_MiB": 2.390625
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline_cold_ms": 5.7667,
+      "candidate_cold_ms": 5.386,
+      "cold_ratio": 0.9339830405604592,
+      "baseline_retained_MiB": 7.10546875,
+      "candidate_retained_MiB": 7.05078125,
+      "retained_delta_MiB": -0.0546875
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline_cold_ms": 191.9428,
+      "candidate_cold_ms": 195.1682,
+      "cold_ratio": 1.0168039645144282,
+      "baseline_retained_MiB": 23.140625,
+      "candidate_retained_MiB": 23.62109375,
+      "retained_delta_MiB": 0.48046875
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline_cold_ms": 2066.7726,
+      "candidate_cold_ms": 1978.4869,
+      "cold_ratio": 0.9572833024784634,
+      "baseline_retained_MiB": 151.99609375,
+      "candidate_retained_MiB": 154.6796875,
+      "retained_delta_MiB": 2.68359375
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline_cold_ms": 3.985309,
+      "candidate_cold_ms": 3.68524,
+      "cold_ratio": 0.9247062147502239,
+      "baseline_retained_MiB": 3.6484375,
+      "candidate_retained_MiB": 3.65234375,
+      "retained_delta_MiB": 0.00390625
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline_cold_ms": 113.916588,
+      "candidate_cold_ms": 114.33849,
+      "cold_ratio": 1.003703604605854,
+      "baseline_retained_MiB": 20.07421875,
+      "candidate_retained_MiB": 20.2578125,
+      "retained_delta_MiB": 0.18359375
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline_cold_ms": 1174.620496,
+      "candidate_cold_ms": 1132.671416,
+      "cold_ratio": 0.9642871206974069,
+      "baseline_retained_MiB": 159.484375,
+      "candidate_retained_MiB": 161.5859375,
+      "retained_delta_MiB": 2.1015625
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline_cold_ms": 2.149546,
+      "candidate_cold_ms": 2.027504,
+      "cold_ratio": 0.9432242901524321,
+      "baseline_retained_MiB": 8.40234375,
+      "candidate_retained_MiB": 8.39453125,
+      "retained_delta_MiB": -0.0078125
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline_cold_ms": 51.315462,
+      "candidate_cold_ms": 52.773279,
+      "cold_ratio": 1.0284089228310953,
+      "baseline_retained_MiB": 22.55078125,
+      "candidate_retained_MiB": 22.9140625,
+      "retained_delta_MiB": 0.36328125
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline_cold_ms": 560.815361,
+      "candidate_cold_ms": 561.366766,
+      "cold_ratio": 1.0009832202153248,
+      "baseline_retained_MiB": 151.125,
+      "candidate_retained_MiB": 152.2890625,
+      "retained_delta_MiB": 1.1640625
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline_cold_ms": 2.056467,
+      "candidate_cold_ms": 2.130639,
+      "cold_ratio": 1.036067683070042,
+      "baseline_retained_MiB": 6.73046875,
+      "candidate_retained_MiB": 6.7421875,
+      "retained_delta_MiB": 0.01171875
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline_cold_ms": 53.652892,
+      "candidate_cold_ms": 54.122509,
+      "cold_ratio": 1.0087528739364133,
+      "baseline_retained_MiB": 20.95703125,
+      "candidate_retained_MiB": 21.12109375,
+      "retained_delta_MiB": 0.1640625
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline_cold_ms": 570.460293,
+      "candidate_cold_ms": 577.69647,
+      "cold_ratio": 1.0126848039886274,
+      "baseline_retained_MiB": 148.078125,
+      "candidate_retained_MiB": 150.4296875,
+      "retained_delta_MiB": 2.3515625
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline_cold_ms": 11.384708,
+      "candidate_cold_ms": 11.320334,
+      "cold_ratio": 0.9943455730265547,
+      "baseline_retained_MiB": 5.453125,
+      "candidate_retained_MiB": 5.453125,
+      "retained_delta_MiB": 0.0
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline_cold_ms": 87.176959,
+      "candidate_cold_ms": 81.727167,
+      "cold_ratio": 0.9374858671085327,
+      "baseline_retained_MiB": 21.859375,
+      "candidate_retained_MiB": 22.5,
+      "retained_delta_MiB": 0.640625
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline_cold_ms": 872.972875,
+      "candidate_cold_ms": 877.705583,
+      "cold_ratio": 1.005421368905649,
+      "baseline_retained_MiB": 174.328125,
+      "candidate_retained_MiB": 175.703125,
+      "retained_delta_MiB": 1.375
+    }
+  ],
+  "limits": "Seven matched rounds per arm/dataset; measured cold readiness and sampled RSS, not exact peak; no cross-run synthetic pairs."
+}
