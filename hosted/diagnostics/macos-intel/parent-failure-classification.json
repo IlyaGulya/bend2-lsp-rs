@@ -1,0 +1,59 @@
+{
+  "source_head": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_merge": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "run_id": 41173453571,
+  "job_id": 124456402828,
+  "target": "x86_64-apple-darwin",
+  "overall": "failure",
+  "other_five_native_diagnostic_jobs": "success",
+  "not_issue74_exempt": true,
+  "source_unchanged": true,
+  "reruns": 0,
+  "deadline_or_resource_changes": false,
+  "dhat": {
+    "status": "failed",
+    "scenario": "discovery-10000",
+    "target_pid": 45617,
+    "profiled_binary_sha256": "7208fdad5cd5fd61674ea49736ecb910639b1bc4f65ae3bf3da2a338ecb1f058",
+    "initialize_and_local_completion": "completed",
+    "pending_phase": "cold_discovery",
+    "observed_error": "LSP channel wait failed: timed out waiting on channel",
+    "RPC_deadline_seconds": 30,
+    "heap_summary": null,
+    "live_sample": "request-timeout.sample.txt, original20902bytes; two observations/thread",
+    "observed_stack": "Discovery worker at admit_discovered_path/Url allocation/DHAT backtrace and sync_disk_snapshot_prepared/DHAT bookkeeping; main and other workers parked.",
+    "limit": "Not proof of deadlock, default-binary latency, overall CPU dominance or a source regression; sample sparse and allocation instrumentation active."
+  },
+  "native_heap": {
+    "status": "failed",
+    "target_pid": null,
+    "scenario_started": false,
+    "phases": [],
+    "actual_command": "xctrace record --template Time Profiler --time-limit1s --no-prompt --output tracing-preflight.trace --attach50236",
+    "attached_process": "bend2-perf helper, not LSP",
+    "observed_stdout": "Reached specified time limit, ending recording...",
+    "observed_error": "/Applications/Xcode_16.4.app/Contents/Developer/usr/bin/xctrace timed out after 300s; owned child is killed and reaped",
+    "actual_Allocations_capture_started": false,
+    "preflight_issue_database_rows": 0,
+    "earlier_same_job_command_template": "completed for another helperPID46001; process/output/state differ, so not identical-argv control",
+    "cause_limit": "Internal xctrace finalization locus unavailable; no hung-profiler stack captured. No repo orchestration defect or Apple bug established."
+  },
+  "source_review": {
+    "xctrace_lifecycle": [
+      "tools/perf/src/profiling.rs255preparebeforeexecute",
+      "tools/perf/src/profiling/sessions.rs354-371preflight",
+      "tools/perf/src/profiling/sessions.rs152-163boundedtry_wait",
+      "tools/perf/src/profiling/sessions.rs1552-1560OwnedCommandkillandwait"
+    ],
+    "no_source_fix_justified_yet": true,
+    "Dhat_review": "pending second independent read-only investigation"
+  },
+  "selected_member_coverage": {
+    "count": 19,
+    "whole_archive_sha_verified": false,
+    "original_member_CRC_and_size": true,
+    "manifest_SHA_and_size": true,
+    "full_job_log_retained": true
+  }
+}

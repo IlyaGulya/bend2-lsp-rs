@@ -1,0 +1,43 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "artifact_id": 13034850045,
+  "database_sha256": "1a2d887ee80799ce4509b5973a0eb6351caabb4909f0e9862fab210da5cb0ac5",
+  "database_bytes": 53248,
+  "wal_sibling_in_original_artifact": false,
+  "reader": "Python3.12stdlibsqlite3,mode=ro,immutable=1,query_only,length/SQLlimits;metadata-onlyquery",
+  "extension_loading": "not compiled into this Python sqlite3 module",
+  "fallback_reason": "REAproviderlacksrequiredNodeDatabaseSync.limits;file-readerdoesnotrecognizestoredataextension;noruntimeinstallationorchange",
+  "schema": [
+    [
+      "ZISSUE",
+      "CREATE TABLE ZISSUE ( Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, Z_OPT INTEGER, ZCOUNT INTEGER, ZRELATIVETIMESTAMP INTEGER, ZSUBTYPE INTEGER, ZTYPE INTEGER, ZPARENT INTEGER, Z_FOK_PARENT INTEGER, ZMESSAGE VARCHAR )"
+    ],
+    [
+      "Z_METADATA",
+      "CREATE TABLE Z_METADATA (Z_VERSION INTEGER PRIMARY KEY, Z_UUID VARCHAR(255), Z_PLIST BLOB)"
+    ],
+    [
+      "Z_MODELCACHE",
+      "CREATE TABLE Z_MODELCACHE (Z_CONTENT BLOB)"
+    ],
+    [
+      "Z_PRIMARYKEY",
+      "CREATE TABLE Z_PRIMARYKEY (Z_ENT INTEGER PRIMARY KEY, Z_NAME VARCHAR, Z_SUPER INTEGER, Z_MAX INTEGER)"
+    ]
+  ],
+  "table": "ZISSUE",
+  "columns": [
+    "Z_PK",
+    "ZCOUNT",
+    "ZRELATIVETIMESTAMP",
+    "ZSUBTYPE",
+    "ZTYPE",
+    "ZPARENT",
+    "ZMESSAGE"
+  ],
+  "row_count": 0,
+  "rows": [],
+  "row_limit": 20,
+  "truncated": false,
+  "coverage_limit": "Recorded closed DB only; absence of issue rows is not evidence of successful finalization or cause."
+}

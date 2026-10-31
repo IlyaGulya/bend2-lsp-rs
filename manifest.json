@@ -35,7 +35,7 @@
     "Align strict calibration reporter expectation with the predeclared102-workload inventory. Unchanged original884data re-report passed; all comparison/diagnostic rows identical; no new SUT measurement or next-source qualification inherited."
   ],
   "hosted_qualification": {
-    "state": "semantic and quality completed success; other five workflows pending/uncollected",
+    "state": "quality and semantic passed; diagnostics failed onIntelMac; calibration/two comparisons/installer pending or uncollected",
     "required": "Exact source ordinary main admission plus before884comparison for semantic workloads absent from main; all normal semantic, calibration, installer and diagnostics workflows remain mandatory.",
     "semantic": {
       "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
@@ -148,6 +148,65 @@
       "raw_quality_log_sha256": "1e644294343886b41d246cc7c26a510a79ceee2ee8f5476ebb94e8da5827468c",
       "raw_quality_log_bytes": 314716,
       "performance_admission": false
+    },
+    "diagnostics": {
+      "source_head": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "source_merge": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+      "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "run_id": 41173453571,
+      "job_id": 124456402828,
+      "target": "x86_64-apple-darwin",
+      "overall": "failure",
+      "other_five_native_diagnostic_jobs": "success",
+      "not_issue74_exempt": true,
+      "source_unchanged": true,
+      "reruns": 0,
+      "deadline_or_resource_changes": false,
+      "dhat": {
+        "status": "failed",
+        "scenario": "discovery-10000",
+        "target_pid": 45617,
+        "profiled_binary_sha256": "7208fdad5cd5fd61674ea49736ecb910639b1bc4f65ae3bf3da2a338ecb1f058",
+        "initialize_and_local_completion": "completed",
+        "pending_phase": "cold_discovery",
+        "observed_error": "LSP channel wait failed: timed out waiting on channel",
+        "RPC_deadline_seconds": 30,
+        "heap_summary": null,
+        "live_sample": "request-timeout.sample.txt, original20902bytes; two observations/thread",
+        "observed_stack": "Discovery worker at admit_discovered_path/Url allocation/DHAT backtrace and sync_disk_snapshot_prepared/DHAT bookkeeping; main and other workers parked.",
+        "limit": "Not proof of deadlock, default-binary latency, overall CPU dominance or a source regression; sample sparse and allocation instrumentation active."
+      },
+      "native_heap": {
+        "status": "failed",
+        "target_pid": null,
+        "scenario_started": false,
+        "phases": [],
+        "actual_command": "xctrace record --template Time Profiler --time-limit1s --no-prompt --output tracing-preflight.trace --attach50236",
+        "attached_process": "bend2-perf helper, not LSP",
+        "observed_stdout": "Reached specified time limit, ending recording...",
+        "observed_error": "/Applications/Xcode_16.4.app/Contents/Developer/usr/bin/xctrace timed out after 300s; owned child is killed and reaped",
+        "actual_Allocations_capture_started": false,
+        "preflight_issue_database_rows": 0,
+        "earlier_same_job_command_template": "completed for another helperPID46001; process/output/state differ, so not identical-argv control",
+        "cause_limit": "Internal xctrace finalization locus unavailable; no hung-profiler stack captured. No repo orchestration defect or Apple bug established."
+      },
+      "source_review": {
+        "xctrace_lifecycle": [
+          "tools/perf/src/profiling.rs255preparebeforeexecute",
+          "tools/perf/src/profiling/sessions.rs354-371preflight",
+          "tools/perf/src/profiling/sessions.rs152-163boundedtry_wait",
+          "tools/perf/src/profiling/sessions.rs1552-1560OwnedCommandkillandwait"
+        ],
+        "no_source_fix_justified_yet": true,
+        "Dhat_review": "pending second independent read-only investigation"
+      },
+      "selected_member_coverage": {
+        "count": 19,
+        "whole_archive_sha_verified": false,
+        "original_member_CRC_and_size": true,
+        "manifest_SHA_and_size": true,
+        "full_job_log_retained": true
+      }
     }
   },
   "performance_admission": false,
@@ -193,6 +252,110 @@
     "hosted/created-runs.json": {
       "bytes": 2292,
       "sha256": "5f229ddf5b0dddd588f840a006166a12014da8beb071812e6e9945f4a88bdfeb"
+    },
+    "hosted/diagnostics-completed-metadata.json.gz": {
+      "bytes": 5534,
+      "sha256": "0ff5c0674fb6f921f9bb567fb28dab0c0d1ae66ac5953831b40bcf47891ffbbc"
+    },
+    "hosted/diagnostics/macos-intel-job.log.gz": {
+      "bytes": 38027,
+      "sha256": "c41459556f6b700da1db07310d89eb1e649fd457733b3426b54f6eca1bde6ffa"
+    },
+    "hosted/diagnostics/macos-intel/artifact-manifest.json.gz": {
+      "bytes": 19618,
+      "sha256": "08287f990c6c9e39a5e9072680844b3c6e7b18d6642329e317fc31e792e2eed3"
+    },
+    "hosted/diagnostics/macos-intel/parent-failure-classification.json": {
+      "bytes": 2889,
+      "sha256": "0360236bb636ed343cce61744f01a6c8f2a62f397b737242346638a604372977"
+    },
+    "hosted/diagnostics/macos-intel/parent-member-qualification.json": {
+      "bytes": 7309,
+      "sha256": "ed1c77c2508d694719b19a85e813e949e91684c3ed5434a4efba70a1359e861c"
+    },
+    "hosted/diagnostics/macos-intel/preflight-sqlite-issues.json": {
+      "bytes": 1558,
+      "sha256": "748fc1e3b4afe37a8ccaf568d88f43f73da5c6b0da5bea57ced1d986509dff27"
+    },
+    "hosted/diagnostics/macos-intel/preflight-sqlite-schema.json": {
+      "bytes": 1210,
+      "sha256": "2a9a0c5b9b1d849323ec4ea2c670dee824af20daf09de71a902a22f90010df94"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/heap/command-1.stderr.log.gz": {
+      "bytes": 223,
+      "sha256": "ef9782e754f3b01b01057a02486a9eb96b49343222265aa47052564af1c9aca6"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/heap/command-1.stdout.log.gz": {
+      "bytes": 20,
+      "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/heap/profile-manifest.json.gz": {
+      "bytes": 1958,
+      "sha256": "97c9aa8e10ae204196bc2536a94f6f22273420bacc3abba01ddfc0165a78c9a3"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/heap/request-timeout.sample.txt.gz": {
+      "bytes": 5071,
+      "sha256": "4e18ca1c4e526a3a24d7bd65002c23593b48a5b5dfc7eedd78bf490cb90b1f49"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/heap/scenario/scenario.json.gz": {
+      "bytes": 432550,
+      "sha256": "276c4986cfe587a7be54bb65d6ded6f530bd8a30f1f6e04d2658dde6e226e4d9"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-1.stderr.log.gz": {
+      "bytes": 20,
+      "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-1.stdout.log.gz": {
+      "bytes": 49,
+      "sha256": "de7ef6654f4ef2c2a5f1e35e0313dc093fdd4c9681f2aec84f7766e2c7823b7b"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-2.stderr.log.gz": {
+      "bytes": 20,
+      "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-2.stdout.log.gz": {
+      "bytes": 25,
+      "sha256": "204dabd67a0bf52170e6cbc4127cdf9e51111a9330a179cb3643081683136907"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-3.stderr.log.gz": {
+      "bytes": 20,
+      "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-3.stdout.log.gz": {
+      "bytes": 72,
+      "sha256": "561fbc8ed65e488943f19a0409ec092f169f8bbad04e0c11a1036a670e0a137c"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-4.stderr.log.gz": {
+      "bytes": 20,
+      "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-4.stdout.log.gz": {
+      "bytes": 84,
+      "sha256": "4769b62ebd6c309ef46181b682b5da0cf489729fa43ce335d9c643c5b6ff4f14"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-5.stderr.log.gz": {
+      "bytes": 20,
+      "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/command-5.stdout.log.gz": {
+      "bytes": 152,
+      "sha256": "f5b1ee04bc13212cee685b8516331cd8797bcb58ad5f6153da5eaa079ba3157e"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/profile-manifest.json.gz": {
+      "bytes": 2667,
+      "sha256": "da5eb191a664b01880f5101e2b4e62f6d83a65ed6263bd53263a90f3545fd807"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native-heap/tracing-preflight.trace/Trace1.run/RunIssues.storedata.gz": {
+      "bytes": 4617,
+      "sha256": "ff14c2cf4922e03b3c5f93f11548847e97b01e6e7a1648d2e7c2bd08b3fe594d"
+    },
+    "hosted/diagnostics/macos-intel/profiles/discovery-10000/native/profile-manifest.json.gz": {
+      "bytes": 455953,
+      "sha256": "b773cb06e5a002b3c14da8f5174dcece0df4a931f562cb2ec7e9ba329419576a"
+    },
+    "hosted/diagnostics/macos-intel/selected-original-members.json": {
+      "bytes": 6093,
+      "sha256": "1f66f54cb67daae1989fda7cc9d2b01903f00dd34a83290e4300a9d4da52c8c8"
     },
     "hosted/merge-tree-identity.json": {
       "bytes": 2826,

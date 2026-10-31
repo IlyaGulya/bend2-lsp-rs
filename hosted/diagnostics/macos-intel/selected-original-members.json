@@ -1,0 +1,192 @@
+{
+  "artifact-manifest.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 3786841449,
+    "compressed": 19145,
+    "uncompressed": 115204,
+    "offset": 0,
+    "sha256": "dc6c03c7774eb27a319fd87c9212783970d9c5c366e183c3d2dc0c9b92ddea17",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/heap/command-1.stderr.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 1478424991,
+    "compressed": 205,
+    "uncompressed": 315,
+    "offset": 75299716,
+    "sha256": "0271278308f16fc7bee05b073e848329f21fc95228ac95306f2f99da9500e0b3",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/heap/command-1.stdout.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 0,
+    "compressed": 2,
+    "uncompressed": 0,
+    "offset": 75300017,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/heap/profile-manifest.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 3180577532,
+    "compressed": 1930,
+    "uncompressed": 6495,
+    "offset": 75300115,
+    "sha256": "93e696da0631a0d6a0cf47c3d45f93157f5497b5c4c9b5e11299f14c6def8222",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-1.stderr.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 0,
+    "compressed": 2,
+    "uncompressed": 0,
+    "offset": 118889905,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-1.stdout.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 2280828411,
+    "compressed": 32,
+    "uncompressed": 30,
+    "offset": 118890010,
+    "sha256": "a8be4f9af0a29137fe7e59b9928056d4a0df297bb46ba40f80eaa6b0ae982f12",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-2.stderr.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 0,
+    "compressed": 2,
+    "uncompressed": 0,
+    "offset": 118890145,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-2.stdout.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 3986763514,
+    "compressed": 7,
+    "uncompressed": 5,
+    "offset": 118890250,
+    "sha256": "521fbd942d19d4f08ee3ac22fe5e1fee54d05fb48db0d8d179461b8195d210eb",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-3.stderr.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 0,
+    "compressed": 2,
+    "uncompressed": 0,
+    "offset": 118890360,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-3.stdout.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 3961385791,
+    "compressed": 55,
+    "uncompressed": 66,
+    "offset": 118890465,
+    "sha256": "31fd674ddb951680692d7b68cafdeab5baa6b3e82aae843269dad73b53f25fc5",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-4.stderr.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 0,
+    "compressed": 2,
+    "uncompressed": 0,
+    "offset": 118890623,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-4.stdout.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 3008948884,
+    "compressed": 66,
+    "uncompressed": 64,
+    "offset": 118890728,
+    "sha256": "60f9e3f029085a0d60471555a0194adff70afd70839fe1f1537b1d283cbf568b",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-5.stderr.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 0,
+    "compressed": 2,
+    "uncompressed": 0,
+    "offset": 118890897,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/profile-manifest.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 1793613420,
+    "compressed": 2656,
+    "uncompressed": 9598,
+    "offset": 118891002,
+    "sha256": "05ce3a076265964373f5b7c61e892549bc540acf3fa219dbf1c9968f031bf826",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/command-5.stdout.log": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 3944017447,
+    "compressed": 134,
+    "uncompressed": 183,
+    "offset": 122218840,
+    "sha256": "00234f58846f0b1835ce88d04310ec060bcd6b6723041aedba5166d54741a882",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/heap/request-timeout.sample.txt": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 1518106010,
+    "compressed": 5071,
+    "uncompressed": 20902,
+    "offset": 75302142,
+    "sha256": "219cac385e4bab43b95078b1b4b2d93694964a1b7df1e0de36ad55c01928df8d",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/heap/scenario/scenario.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 130901666,
+    "compressed": 406202,
+    "uncompressed": 1512329,
+    "offset": 75307315,
+    "sha256": "d2d4371a74e925e910957cc0e18b8bb4993afb9294b1283559494d2c6e509cf4",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native-heap/tracing-preflight.trace/Trace1.run/RunIssues.storedata": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 4072525195,
+    "compressed": 4630,
+    "uncompressed": 53248,
+    "offset": 136837910,
+    "sha256": "1a2d887ee80799ce4509b5973a0eb6351caabb4909f0e9862fab210da5cb0ac5",
+    "complete_crc_and_size_verified": true
+  },
+  "profiles/discovery-10000/native/profile-manifest.json": {
+    "method": 8,
+    "flags": 8,
+    "crc32": 4006158731,
+    "compressed": 428877,
+    "uncompressed": 1765806,
+    "offset": 99128413,
+    "sha256": "b619bc92ccac1e0a651de3e4ac9b9043d942ec998da00380934eda04e6a8cba8",
+    "complete_crc_and_size_verified": true
+  }
+}
