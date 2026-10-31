@@ -1,0 +1,74 @@
+{
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "source_merge": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+  "run_id": 41188700875,
+  "workflow_conclusion": "success",
+  "all25jobs": "success",
+  "artifact": {
+    "id": 13045538772,
+    "node_id": "MDg6QXJ0aWZhY3QxMzA0NTUzODc3Mg==",
+    "name": "performance-calibration-report-41188700875-1",
+    "size_in_bytes": 21363439,
+    "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13045538772",
+    "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13045538772/zip",
+    "expired": false,
+    "digest": "sha256:440ccfa1ed682a9dcc91fc08c2ec80ed0c3754810d770548be0a80325f4b9429",
+    "created_at": "2026-10-31T14:29:53Z",
+    "updated_at": "2026-10-31T14:29:53Z",
+    "expires_at": "2026-11-14T14:29:48Z",
+    "workflow_run": {
+      "id": 41188700875,
+      "repository_id": 1399088559,
+      "head_repository_id": 1399088559,
+      "head_branch": "feat/semantic-conformance-main",
+      "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+    }
+  },
+  "whole_original_ZIP_bytes": 21363439,
+  "whole_original_ZIP_sha256": "440ccfa1ed682a9dcc91fc08c2ec80ed0c3754810d770548be0a80325f4b9429",
+  "metadata_digest_verified_before_open": true,
+  "members": [
+    {
+      "name": "report.json",
+      "uncompressed_bytes": 434141936,
+      "compressed_bytes": 21257634
+    },
+    {
+      "name": "report.md",
+      "uncompressed_bytes": 1585743,
+      "compressed_bytes": 103690
+    },
+    {
+      "name": "verification.json",
+      "uncompressed_bytes": 12541,
+      "compressed_bytes": 1743
+    }
+  ],
+  "selected_members": {
+    "report.md": {
+      "bytes": 1585743,
+      "sha256": "c9601367e4727611ed7a211ad4761f68a85cb47344843b6606c2049437cdd9bb",
+      "CRC32": 754644615,
+      "original_CRC_size_verified": true
+    },
+    "verification.json": {
+      "bytes": 12541,
+      "sha256": "c658c4b69062f0b9c85e98e5b8adf68e146ecd4b2f3ddcc2cef072c1d10f4cc4",
+      "CRC32": 2957916144,
+      "original_CRC_size_verified": true
+    }
+  },
+  "large_authoritative_JSON": "Retained in original whole digest-verified ZIP; never decompressed or parsed.",
+  "GitHub_step_summary_annotation": "Upload aborted at platform1MiBdisplaylimit (1548KiBsummary). Report job/workflow success; authoritative artifact complete. No report truncation or gate weakening.",
+  "performance_admission": "Control experiment never grants numeric/protected admission.",
+  "transport_readiness_failures": {
+    "artifact_id": 13045538772,
+    "run_id": 41188700875,
+    "error": "Boundedartifactrange readiness timedout",
+    "scope": "Original evidence download only; no SUT/CI rerun, policy change or control-verdict inference.",
+    "attempt": "Initial full originalZIP readiness timeout; retry only missing transport.",
+    "readiness_attempts_failed": 2
+  },
+  "bounded_successful_stream": "final-calibration-original-stream-transport.json"
+}

@@ -1,0 +1,7 @@
+{
+  "artifact_id": 13045538772,
+  "run_id": 41188700875,
+  "error": "Boundedartifactrange readiness timedout",
+  "scope": "Original evidence download only; no SUT/CI rerun, policy change or control-verdict inference.",
+  "attempt": "Initial full originalZIP readiness timeout; retry only missing transport."
+}

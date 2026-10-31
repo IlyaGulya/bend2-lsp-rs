@@ -76,7 +76,7 @@
   "same_retained_Docker_service_and_Cargo_volumes": true,
   "owner_stop_criterion": "Rollback and one final source-bound CI cycle. No further optimization variants; ask owner about exact final-source costs after complete results. No advance acceptance.",
   "hosted_qualification": {
-    "state": "Finalquality,semantic,installer,profilingpassed;main124/38/0denied;before420292/14/0deniedwithall102Irpassed;all12nativecollectionscomplete. Only finalstrictcalibration awaited. Owner hasnotacceptedremainingcosts.",
+    "state": "All seven finalsource workflows completed once. Quality/semantic/installer/profiling/strictcalibration passed. Main124/38/0andbefore420292/14/0 numericadmission denied; maintainer explicitly accepted reported exact11f1costs. Protectedreview/approval/merge notperformed; draftretained.",
     "created_workflows": [
       {
         "id": 41188774413,
@@ -192,7 +192,68 @@
       "original_integrity_proof": "semantic-11f1a76-report/original-artifact-proof.json",
       "performance_admission": false
     },
-    "calibration": "pending",
+    "calibration": {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "merge": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "run_id": 41188700875,
+      "workflow_conclusion": "success",
+      "all25jobs": "success",
+      "control_validation": {
+        "classification": "passed",
+        "coverage_sufficient": true,
+        "passed": true,
+        "repeatability_failures": [],
+        "repeatability_passed": true,
+        "sensitivity_failures": [],
+        "sensitivity_passed": true
+      },
+      "coverage": {
+        "balanced_execution_order": true,
+        "expectation_error": null,
+        "observed_jobs": {
+          "discovery": 3,
+          "validation": 3
+        },
+        "observed_pairs": {
+          "discovery-01": 105,
+          "discovery-02": 105,
+          "discovery-03": 105,
+          "validation-01": 105,
+          "validation-02": 105,
+          "validation-03": 105
+        },
+        "observed_shards": {
+          "discovery-01": 4,
+          "discovery-02": 4,
+          "discovery-03": 4,
+          "validation-01": 4,
+          "validation-02": 4,
+          "validation-03": 4
+        },
+        "planned_jobs": {
+          "discovery": 3,
+          "validation": 3
+        },
+        "planned_pairs_per_job": 105,
+        "planned_shards": 4,
+        "predeclared_coverage_met": true
+      },
+      "executed_scope": {
+        "benchmarks": {
+          "analysis": 99,
+          "reference_locations": 3
+        },
+        "evidence_format_version": 2,
+        "workloads": 102
+      },
+      "observed_compact_shards": 24,
+      "source_and_producer_revision_verified": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "original_report_proof": "calibration-11f1-original-report/original-artifact-proof.json",
+      "full_authoritative_report": "Compressed in original whole metadata-SHA-verified21363439BZIP;434141936BJSONnotexpanded.",
+      "step_summary_display_limit": "Non-failing1MiBGitHubsummaryannotation; completeoriginalartifact retained.",
+      "numeric_admission": false
+    },
     "main_performance": {
       "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
       "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
@@ -351,6 +412,22 @@
     "Owner75/76nonblock decision is limited to the two recorded IntelMac captures in run41173453571, not any fresh failure or numerical admission."
   ],
   "files": {
+    "calibration-11f1-original-report/original-artifact-proof.json": {
+      "bytes": 3012,
+      "sha256": "1924876dd55d24981edec6dc58b3f3d32cfdd4979e24ce923080f06af0ae4054"
+    },
+    "calibration-11f1-original-report/original-report-artifact.zip": {
+      "bytes": 21363439,
+      "sha256": "440ccfa1ed682a9dcc91fc08c2ec80ed0c3754810d770548be0a80325f4b9429"
+    },
+    "calibration-11f1-original-report/report.md": {
+      "bytes": 1585743,
+      "sha256": "c9601367e4727611ed7a211ad4761f68a85cb47344843b6606c2049437cdd9bb"
+    },
+    "calibration-11f1-original-report/verification.json": {
+      "bytes": 12541,
+      "sha256": "c658c4b69062f0b9c85e98e5b8adf68e146ecd4b2f3ddcc2cef072c1d10f4cc4"
+    },
     "callgrind-before420-to-11f1-selected/admission-measurement.json": {
       "bytes": 1849,
       "sha256": "addaddb2d6fe0f57ab69911f1bc21d0115aca5399116204fc831c57ae794cd30"
@@ -435,6 +512,18 @@
       "bytes": 218,
       "sha256": "8b23bfa27f10db430d3fec6a1c071fbad6150479991d57874a334c71cb5216cb"
     },
+    "final-calibration-completed-metadata.json": {
+      "bytes": 261883,
+      "sha256": "053f2a324149a836cf0dd7f508c11d00841993ea0c7c90c6f63b70bf79e6f4e4"
+    },
+    "final-calibration-original-stream-transport.json": {
+      "bytes": 680,
+      "sha256": "fa752c01a3bfc0004c4fa8f51d5500770ac07abdf7a6686b167b21cb6afa100d"
+    },
+    "final-calibration-original-transport-failure.json": {
+      "bytes": 310,
+      "sha256": "fdcd0f6349a6e1e2526d26b63408dfb0c4ee461d0a652bf11ecf0565adced677"
+    },
     "final-calibration-watch-network-failure.json": {
       "bytes": 495,
       "sha256": "548f6f5b9b615014f95c041e4338daca43451579a0570880aeda5254f65e29e2"
@@ -442,6 +531,10 @@
     "final-calibration-watch-network-failure.log": {
       "bytes": 1219318,
       "sha256": "6e2593f58aebea0d7481979f55a5c88ad77c012820f0c23e0ce24f5eb27d1e76"
+    },
+    "final-ci-observed-workflow-timings.json": {
+      "bytes": 2147,
+      "sha256": "c676ea3ac65df4cd76732559f8f5506d97394075bb61eb3bcce35cdbf5d3155b"
     },
     "final-diagnostics-completed-metadata.json": {
       "bytes": 73861,
@@ -486,6 +579,10 @@
     "final-native-main-absolute-summary.json": {
       "bytes": 26044,
       "sha256": "a420ba3d7e69bd847d2fc71529fbf185dc39d19267d3eb5e541f1e962bf94a09"
+    },
+    "final-owner-measured-cost-acceptance.json": {
+      "bytes": 2025,
+      "sha256": "75378e78f66a4a37d1f53b25a2becc886ca9dffd41e5983feca236969da34209"
     },
     "final-quality-completed-metadata.json": {
       "bytes": 78725,
@@ -887,5 +984,71 @@
     "tests/analysis.rs": "c283b96c1a35010a57d8e09e9630cedc866f7b9b14d93dd6c38af74a3d4101d2",
     "tests/semantic_workspace.rs": "119cd7f21e2593fa73141903bf06f1b5f7656f232135667712244f161deb74aa",
     "tests/lsp_protocol.rs": "20f40683174ef519718ac8366f566a093fb06ca45b15d4089a70fa478c270a86"
-  }
+  },
+  "owner_measured_cost_acceptance": {
+    "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+    "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+    "frozen_base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+    "decision": "Accept measured performance costs; no merge",
+    "verbatim_selected_option": "\u041f\u0440\u0438\u043d\u044f\u0442\u044c \u0438\u0437\u0434\u0435\u0440\u0436\u043a\u0438, \u0431\u0435\u0437 merge",
+    "scope": {
+      "ordinary_main_run_id": 41188700893,
+      "ordinary_main_rows": {
+        "passed": 124,
+        "regression": 38,
+        "inconclusive": 0
+      },
+      "ordinary_main_breakdown": {
+        "Ir": {
+          "passed": 53,
+          "regression": 1
+        },
+        "I1mr": {
+          "passed": 27,
+          "regression": 27
+        },
+        "ILmr": {
+          "passed": 44,
+          "regression": 10
+        }
+      },
+      "before420_run_id": 41188774413,
+      "before420_rows": {
+        "passed": 292,
+        "regression": 14,
+        "inconclusive": 0
+      },
+      "before420_breakdown": {
+        "Ir": {
+          "passed": 102
+        },
+        "I1mr": {
+          "passed": 89,
+          "regression": 13
+        },
+        "ILmr": {
+          "passed": 101,
+          "regression": 1
+        }
+      },
+      "native_cold_RSS_tradeoffs": "Accept described source-bound native reports,including substantial10k cold/RSS maincosts andpairedIntelMac13.09percentcoldincreasevs420. Do not sum metricrows acrossbaselines.",
+      "evidence_at_decision": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/d5f2faf8640b30e657480b163c229281081a0bc4/manifest.json"
+    },
+    "not_authorized": [
+      "GitHub review approval",
+      "merge",
+      "tag",
+      "release",
+      "changing CI metrics/limits/deadlines/retries/resource rules",
+      "automatic protected-review approval",
+      "waiving final calibration or any correctness failure",
+      "further source optimization variants or reruns"
+    ],
+    "CI_admission": "Still denied by ordinary numeric policy; chat maintainer cost acceptance is not a protected GitHub environment review.",
+    "PR_remains_draft": true,
+    "source_frozen": true
+  },
+  "performance_admission_meaning": "CI ordinary/protected admission, not the maintainer chat decision permitting these source costs; both numeric workflows remain failed.",
+  "qualification_complete": true,
+  "no_further_source_variants_or_measurement_reruns": true
 }

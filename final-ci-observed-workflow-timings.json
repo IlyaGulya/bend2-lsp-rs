@@ -1,0 +1,62 @@
+{
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "rows": [
+    {
+      "label": "quality",
+      "run_id": 41188700962,
+      "workflow_conclusion": "success",
+      "created_at": "2026-10-31T09:26:26Z",
+      "last_job_completed_at": "2026-10-31T11:03:45Z",
+      "created_to_last_job_completed_minutes": 97.31666666666666
+    },
+    {
+      "label": "normal_semantic",
+      "run_id": 41188700952,
+      "workflow_conclusion": "success",
+      "created_at": "2026-10-31T09:26:26Z",
+      "last_job_completed_at": "2026-10-31T11:12:09Z",
+      "created_to_last_job_completed_minutes": 105.71666666666667
+    },
+    {
+      "label": "installer",
+      "run_id": 41188700890,
+      "workflow_conclusion": "success",
+      "created_at": "2026-10-31T09:26:26Z",
+      "last_job_completed_at": "2026-10-31T11:12:38Z",
+      "created_to_last_job_completed_minutes": 106.2
+    },
+    {
+      "label": "profiling",
+      "run_id": 41188700948,
+      "workflow_conclusion": "success",
+      "created_at": "2026-10-31T09:26:26Z",
+      "last_job_completed_at": "2026-10-31T11:22:51Z",
+      "created_to_last_job_completed_minutes": 116.41666666666667
+    },
+    {
+      "label": "main_comparison",
+      "run_id": 41188700893,
+      "workflow_conclusion": "failure",
+      "created_at": "2026-10-31T09:26:26Z",
+      "last_job_completed_at": "2026-10-31T11:54:32Z",
+      "created_to_last_job_completed_minutes": 148.1
+    },
+    {
+      "label": "before420_comparison",
+      "run_id": 41188774413,
+      "workflow_conclusion": "failure",
+      "created_at": "2026-10-31T09:27:36Z",
+      "last_job_completed_at": "2026-10-31T13:45:54Z",
+      "created_to_last_job_completed_minutes": 258.3
+    },
+    {
+      "label": "strict_calibration",
+      "run_id": 41188700875,
+      "workflow_conclusion": "success",
+      "created_at": "2026-10-31T09:26:26Z",
+      "last_job_completed_at": "2026-10-31T14:29:56Z",
+      "created_to_last_job_completed_minutes": 303.5
+    }
+  ],
+  "limit": "Elapsed workflow includes dependency waits,runnerqueues,setup/build andmeasurements; not SUTlatency. Jobcreated-to-start is notpurequeue for dependentjobs."
+}

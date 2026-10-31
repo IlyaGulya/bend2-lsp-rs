@@ -1,0 +1,24 @@
+{
+  "command": [
+    "curl",
+    "--fail",
+    "--location",
+    "--silent",
+    "--show-error",
+    "--max-time",
+    "90",
+    "--connect-timeout",
+    "10",
+    "--max-filesize",
+    "33554432",
+    "--config",
+    "-",
+    "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13045538772/zip"
+  ],
+  "credentials": "Authorization supplied through curlstdin config; token not logged or persisted; not forwarded cross-host by curldefaultredirectpolicy.",
+  "returncode": 0,
+  "stderr": "",
+  "transport_deadline_seconds": 90,
+  "max_bytes": 33554432,
+  "scope": "Original artifact transport only. No benchmark/CI/SUT execution or CIresource/deadlinechange."
+}
