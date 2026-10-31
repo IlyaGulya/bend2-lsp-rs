@@ -1,0 +1,8 @@
+{
+  "run_id": 41173453526,
+  "job_id": 124456055455,
+  "returncode": 1,
+  "stderr": "the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway\n",
+  "SUT_failure": false,
+  "resolution": "Use documented gh api --allow-escape-sequences to preserve the original ANSI-containing completed log; no CI rerun."
+}

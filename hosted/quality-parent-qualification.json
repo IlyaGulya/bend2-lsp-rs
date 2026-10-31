@@ -1,0 +1,18 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "verified_PR_merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+  "run_id": 41173453526,
+  "conclusion": "success",
+  "all_eight_jobs": "success",
+  "six_current_native_compiler_stdio_E2E_jobs": "success",
+  "legacy_compiler_compatibility_job": "success",
+  "full_quality_gates": "success",
+  "actual_Neovim_LSP_E2E": "success",
+  "repeated_10000_file_lifecycle_stress": "success",
+  "fresh_Windows_x64_and_ARM64": "success; no issue74 exemption used",
+  "raw_quality_job_id": 124456055455,
+  "raw_quality_log_sha256": "1e644294343886b41d246cc7c26a510a79ceee2ee8f5476ebb94e8da5827468c",
+  "raw_quality_log_bytes": 314716,
+  "performance_admission": false
+}

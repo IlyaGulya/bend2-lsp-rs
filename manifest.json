@@ -35,8 +35,31 @@
     "Align strict calibration reporter expectation with the predeclared102-workload inventory. Unchanged original884data re-report passed; all comparison/diagnostic rows identical; no new SUT measurement or next-source qualification inherited."
   ],
   "hosted_qualification": {
-    "state": "semantic completed success; other six workflows pending/uncollected",
-    "runs": [
+    "state": "semantic and quality completed success; other five workflows pending/uncollected",
+    "required": "Exact source ordinary main admission plus before884comparison for semantic workloads absent from main; all normal semantic, calibration, installer and diagnostics workflows remain mandatory.",
+    "semantic": {
+      "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+      "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+      "observed_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+      "tree_identity_verified": true,
+      "run_id": 41173453529,
+      "result": "success",
+      "runs": 20,
+      "jobs": 5,
+      "evidence_complete": true,
+      "targets_met": true,
+      "policy_changed": false,
+      "p50_seconds": 88.76226591600005,
+      "p95_seconds": 98.99601313400001,
+      "max_seconds": 100.72978430700002,
+      "every_five_VM_128_256_512_supporting_stage_passed": true,
+      "performance_admission": false,
+      "raw_original_report": "semantic-420a77c-report/report.json"
+    },
+    "verified_merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+    "verified_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+    "created_runs_snapshot": [
       {
         "id": 41173453526,
         "name": "quality",
@@ -108,29 +131,24 @@
         "created_at": "2026-10-31T05:39:12Z"
       }
     ],
-    "required": "Exact source ordinary main admission plus before884comparison for semantic workloads absent from main; all normal semantic, calibration, installer and diagnostics workflows remain mandatory.",
-    "semantic": {
+    "quality": {
       "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
       "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
-      "merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
-      "observed_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
-      "tree_identity_verified": true,
-      "run_id": 41173453529,
-      "result": "success",
-      "runs": 20,
-      "jobs": 5,
-      "evidence_complete": true,
-      "targets_met": true,
-      "policy_changed": false,
-      "p50_seconds": 88.76226591600005,
-      "p95_seconds": 98.99601313400001,
-      "max_seconds": 100.72978430700002,
-      "every_five_VM_128_256_512_supporting_stage_passed": true,
-      "performance_admission": false,
-      "raw_original_report": "semantic-420a77c-report/report.json"
-    },
-    "verified_merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
-    "verified_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
+      "verified_PR_merge_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+      "run_id": 41173453526,
+      "conclusion": "success",
+      "all_eight_jobs": "success",
+      "six_current_native_compiler_stdio_E2E_jobs": "success",
+      "legacy_compiler_compatibility_job": "success",
+      "full_quality_gates": "success",
+      "actual_Neovim_LSP_E2E": "success",
+      "repeated_10000_file_lifecycle_stress": "success",
+      "fresh_Windows_x64_and_ARM64": "success; no issue74 exemption used",
+      "raw_quality_job_id": 124456055455,
+      "raw_quality_log_sha256": "1e644294343886b41d246cc7c26a510a79ceee2ee8f5476ebb94e8da5827468c",
+      "raw_quality_log_bytes": 314716,
+      "performance_admission": false
+    }
   },
   "performance_admission": false,
   "request_performance_exception": false,
@@ -160,6 +178,10 @@
       "bytes": 647,
       "sha256": "85f24762879893fcae750bade7cf12830888cd7a8ec8c1939c68c3ff8cced16f"
     },
+    "attempts/hosted-quality-log-terminal-protection.json": {
+      "bytes": 348,
+      "sha256": "770eb571897ba1fc623b89a5f3b37d9a4360aff02bc1a115cbfa621b7005a082"
+    },
     "attempts/pre-check-wrapper-not-started.json": {
       "bytes": 305,
       "sha256": "ff2a6a9d55d458a00eba6f9f0c9c785662ea1713072df097c21728eb7c1024fa"
@@ -175,6 +197,18 @@
     "hosted/merge-tree-identity.json": {
       "bytes": 2826,
       "sha256": "77942afc8052db424798b674c4dec4e655b63ab92a724817ffd47f0af510ff6e"
+    },
+    "hosted/quality-completed-metadata.json.gz": {
+      "bytes": 6186,
+      "sha256": "eb3fd9179e1bc5029522036dd9e086e16eed0f199bab11f12ef709ba511a2d94"
+    },
+    "hosted/quality-job.log.gz": {
+      "bytes": 68568,
+      "sha256": "d203b1e5bde6c40021a5b848ee6f7e6487fb974be0e2f45bdfd8e98fc7595248"
+    },
+    "hosted/quality-parent-qualification.json": {
+      "bytes": 787,
+      "sha256": "e300f81845806c7dfe49b1a7986b51a68917f35b8affb5417def709b8ec2bd7e"
     },
     "hosted/semantic-completed-metadata.json.gz": {
       "bytes": 4028,
