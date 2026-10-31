@@ -1,0 +1,30 @@
+{
+  "artifact": {
+    "id": 13040322616,
+    "node_id": "MDg6QXJ0aWZhY3QxMzA0MDMyMjYxNg==",
+    "name": "semantic-calibration-report-41188700952-1",
+    "size_in_bytes": 1596,
+    "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040322616",
+    "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040322616/zip",
+    "expired": false,
+    "digest": "sha256:b74c0a3f090441c03f463589c5ceb359c4bdab6ebcd7a5e9f31188f7956fa493",
+    "created_at": "2026-10-31T11:12:07Z",
+    "updated_at": "2026-10-31T11:12:07Z",
+    "expires_at": "2026-11-14T11:12:06Z",
+    "workflow_run": {
+      "id": 41188700952,
+      "repository_id": 1399088559,
+      "head_repository_id": 1399088559,
+      "head_branch": "feat/semantic-conformance-main",
+      "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+    }
+  },
+  "whole_original_ZIP_bytes": 1596,
+  "whole_original_ZIP_sha256": "b74c0a3f090441c03f463589c5ceb359c4bdab6ebcd7a5e9f31188f7956fa493",
+  "whole_metadata_digest_verified_before_open": true,
+  "report_member_CRC": 3851776756,
+  "report_member_bytes": 10895,
+  "report_member_sha256": "5b57288b85ad5b6ec1b168194a58b7b994895046bbf16b6a3d749f544b5436fd",
+  "source_merge_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+  "verified_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f"
+}

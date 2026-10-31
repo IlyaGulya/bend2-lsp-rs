@@ -76,7 +76,7 @@
   "same_retained_Docker_service_and_Cargo_volumes": true,
   "owner_stop_criterion": "Rollback and one final source-bound CI cycle. No further optimization variants; ask owner about exact final-source costs after complete results. No advance acceptance.",
   "hosted_qualification": {
-    "state": "Exact-final-source quality passed all8jobs; remaining six final workflows awaited. No performance admission.",
+    "state": "Exact finalquality8/8,normal20run/fiveVMsemantic andinstaller14/14passed. Four final performance/profiling workflows await original results; no numerical admission.",
     "created_workflows": [
       {
         "id": 41188774413,
@@ -167,13 +167,44 @@
       "main_quality_active_minutes": 16.75,
       "performance_admission": false,
       "watch_transport_failure_not_workflow_failure": true,
-      "observer_resume_did_not_rerun_CI_or_SUT": true
+      "observer_resume_did_not_rerun_CI_or_SUT": true,
+      "actual_Neovim_LSP_E2E": "success",
+      "repeated_10000_file_lifecycle_stress": "success"
     },
-    "normal_semantic": "pending",
+    "normal_semantic": {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "run_id": 41188700952,
+      "merge_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "verified_merge_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "conclusion": "success",
+      "runs": 20,
+      "VM_jobs": 5,
+      "evidence_complete": true,
+      "targets_met": true,
+      "policy_changed": false,
+      "p50_seconds": 74.15054886300001,
+      "p95_seconds": 95.07834451999997,
+      "max_seconds": 98.14810568399997,
+      "all_five_VM_128_256_512_scaling_steps": "success",
+      "supporting_report_paths_retained": 40,
+      "original_report": "semantic-11f1a76-report/report.json",
+      "original_integrity_proof": "semantic-11f1a76-report/original-artifact-proof.json",
+      "performance_admission": false
+    },
     "calibration": "pending",
     "main_performance": "pending",
     "before420_performance": "pending",
-    "installer_validation": "pending",
+    "installer_validation": {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "run_id": 41188700890,
+      "conclusion": "success",
+      "all_jobs": 14,
+      "six_native_release_test_build_jobs": "success",
+      "six_actual_installed_executable_real_compiler_E2E_jobs": "success",
+      "release_publication": false
+    },
     "diagnostics": "pending",
     "quality_watch_transport": {
       "watch_command": [
@@ -274,6 +305,10 @@
       "bytes": 1315,
       "sha256": "7eb9052925d601585b397e52f5a18d9bb41c0b044635f5bb51c9a2b4292f2600"
     },
+    "final-installer-completed-metadata.json": {
+      "bytes": 110523,
+      "sha256": "961afc2e9988226c785d8b49fe8bde7f0e7bd9104a6ce64026c772800432d007"
+    },
     "final-quality-completed-metadata.json": {
       "bytes": 78725,
       "sha256": "3272cef3bf57bc57dc135212f0af24a83bee5b3aab4dd42de07b993df9138604"
@@ -294,9 +329,25 @@
       "bytes": 157718,
       "sha256": "dc29f907ca97022ccb238f905620a747e626b0f2baba955ff8d4af00815c8c60"
     },
+    "final-semantic-completed-metadata.json": {
+      "bytes": 48492,
+      "sha256": "00ff9a4baf97bc8443a71fe9f2b5641ebc585a37793c6d8f2bcc2b11d4b23421"
+    },
     "module-completion-api-smoke.rs": {
       "bytes": 1752,
       "sha256": "f5bf243eb21269bd435057712e5dfae2f993dadcdb1a9390e4ccadb505ca038f"
+    },
+    "semantic-11f1a76-report/original-artifact-proof.json": {
+      "bytes": 1360,
+      "sha256": "6cf58ff9624efaa7b7f582877ede37faafb910347b644ad9409b037b77055780"
+    },
+    "semantic-11f1a76-report/original-artifact.zip": {
+      "bytes": 1596,
+      "sha256": "b74c0a3f090441c03f463589c5ceb359c4bdab6ebcd7a5e9f31188f7956fa493"
+    },
+    "semantic-11f1a76-report/report.json": {
+      "bytes": 10895,
+      "sha256": "5b57288b85ad5b6ec1b168194a58b7b994895046bbf16b6a3d749f544b5436fd"
     }
   },
   "pins": {

@@ -1,0 +1,2734 @@
+{
+  "run": {
+    "id": 41188700890,
+    "name": "installer-validation",
+    "node_id": "WFR_kwLOU2Rlr88AAAAJlwmy2g",
+    "head_branch": "feat/semantic-conformance-main",
+    "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+    "path": ".github/workflows/installer-validation.yml",
+    "display_title": "feat: add compiler-checked entry-scoped semantics",
+    "run_number": 128,
+    "event": "pull_request",
+    "status": "completed",
+    "conclusion": "success",
+    "workflow_id": 373804822,
+    "check_suite_id": 111649858953,
+    "check_suite_node_id": "CS_kwDOU2Rlr88AAAAZ_tmliQ",
+    "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+    "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+    "pull_requests": [
+      {
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls/62",
+        "id": 4877636731,
+        "number": 62,
+        "head": {
+          "ref": "feat/semantic-conformance-main",
+          "sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+          "repo": {
+            "id": 1399088559,
+            "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+            "name": "bend2-lsp-rs"
+          }
+        },
+        "base": {
+          "ref": "main",
+          "sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "repo": {
+            "id": 1399088559,
+            "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+            "name": "bend2-lsp-rs"
+          }
+        }
+      }
+    ],
+    "created_at": "2026-10-31T09:26:26Z",
+    "updated_at": "2026-10-31T11:12:39Z",
+    "actor": {
+      "login": "IlyaGulya",
+      "id": 668727,
+      "node_id": "MDQ6VXNlcjY2ODcyNw==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/IlyaGulya",
+      "html_url": "https://github.com/IlyaGulya",
+      "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+      "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+      "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+      "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+      "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+      "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "run_attempt": 1,
+    "referenced_workflows": [
+      {
+        "path": "IlyaGulya/bend2-lsp-rs/.github/workflows/release-binaries.yml@ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+        "sha": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+        "ref": "refs/pull/62/merge"
+      }
+    ],
+    "run_started_at": "2026-10-31T09:26:26Z",
+    "triggering_actor": {
+      "login": "IlyaGulya",
+      "id": 668727,
+      "node_id": "MDQ6VXNlcjY2ODcyNw==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/IlyaGulya",
+      "html_url": "https://github.com/IlyaGulya",
+      "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+      "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+      "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+      "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+      "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+      "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "jobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/jobs",
+    "logs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/logs",
+    "check_suite_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-suites/111649858953",
+    "artifacts_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/artifacts",
+    "cancel_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/cancel",
+    "rerun_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/rerun",
+    "previous_attempt_url": null,
+    "workflow_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/workflows/373804822",
+    "head_commit": {
+      "id": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "tree_id": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "message": "perf: restore direct indexed completion loop",
+      "timestamp": "2026-10-31T09:24:44Z",
+      "author": {
+        "name": "Ilya Gulya",
+        "email": "ilya@gulya.me"
+      },
+      "committer": {
+        "name": "Ilya Gulya",
+        "email": "ilya@gulya.me"
+      }
+    },
+    "repository": {
+      "id": 1399088559,
+      "node_id": "R_kgDOU2Rlrw",
+      "name": "bend2-lsp-rs",
+      "full_name": "IlyaGulya/bend2-lsp-rs",
+      "private": false,
+      "owner": {
+        "login": "IlyaGulya",
+        "id": 668727,
+        "node_id": "MDQ6VXNlcjY2ODcyNw==",
+        "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/IlyaGulya",
+        "html_url": "https://github.com/IlyaGulya",
+        "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+        "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+        "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+        "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+        "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+        "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+      "forks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/forks",
+      "keys_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/teams",
+      "hooks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/hooks",
+      "issue_events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/events",
+      "assignees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/tags",
+      "blobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/languages",
+      "stargazers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/stargazers",
+      "contributors_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contributors",
+      "subscribers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscribers",
+      "subscription_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscription",
+      "commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/merges",
+      "archive_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/downloads",
+      "issues_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/labels{/name}",
+      "releases_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/deployments"
+    },
+    "head_repository": {
+      "id": 1399088559,
+      "node_id": "R_kgDOU2Rlrw",
+      "name": "bend2-lsp-rs",
+      "full_name": "IlyaGulya/bend2-lsp-rs",
+      "private": false,
+      "owner": {
+        "login": "IlyaGulya",
+        "id": 668727,
+        "node_id": "MDQ6VXNlcjY2ODcyNw==",
+        "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/IlyaGulya",
+        "html_url": "https://github.com/IlyaGulya",
+        "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+        "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+        "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+        "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+        "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+        "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+      "forks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/forks",
+      "keys_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/teams",
+      "hooks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/hooks",
+      "issue_events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/events",
+      "assignees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/tags",
+      "blobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/languages",
+      "stargazers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/stargazers",
+      "contributors_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contributors",
+      "subscribers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscribers",
+      "subscription_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscription",
+      "commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/merges",
+      "archive_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/downloads",
+      "issues_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/labels{/name}",
+      "releases_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/deployments"
+    }
+  },
+  "jobs": {
+    "total_count": 14,
+    "jobs": [
+      {
+        "id": 124500816509,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NOyfQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500816509",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124500816509",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:27Z",
+        "started_at": "2026-10-31T09:26:29Z",
+        "completed_at": "2026-10-31T09:26:32Z",
+        "name": "prepare",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T09:26:30Z",
+            "completed_at": "2026-10-31T09:26:30Z"
+          },
+          {
+            "name": "Select isolated nightly identity for the exact PR merge SHA",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T09:26:30Z",
+            "completed_at": "2026-10-31T09:26:30Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T09:26:30Z",
+            "completed_at": "2026-10-31T09:26:30Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500816509",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018868,
+        "runner_name": "GitHub Actions 1000018868",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124500834196,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NP3lA",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500834196",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124500834196",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:32Z",
+        "started_at": "2026-10-31T09:40:51Z",
+        "completed_at": "2026-10-31T09:53:35Z",
+        "name": "native-installers / native (aarch64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T09:40:52Z",
+            "completed_at": "2026-10-31T09:40:53Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T09:40:53Z",
+            "completed_at": "2026-10-31T09:40:55Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T09:40:55Z",
+            "completed_at": "2026-10-31T09:40:55Z"
+          },
+          {
+            "name": "Verify release integrity regression cases",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T09:40:55Z",
+            "completed_at": "2026-10-31T09:40:59Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T09:40:59Z",
+            "completed_at": "2026-10-31T09:41:05Z"
+          },
+          {
+            "name": "Configure native CI cache identity",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T09:41:05Z",
+            "completed_at": "2026-10-31T09:41:05Z"
+          },
+          {
+            "name": "Restore Cargo downloads",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T09:41:05Z",
+            "completed_at": "2026-10-31T09:41:08Z"
+          },
+          {
+            "name": "Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T09:41:08Z",
+            "completed_at": "2026-10-31T09:41:09Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T09:41:09Z",
+            "completed_at": "2026-10-31T09:41:10Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T09:41:10Z",
+            "completed_at": "2026-10-31T09:41:10Z"
+          },
+          {
+            "name": "Build locked optimized binary",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T09:41:10Z",
+            "completed_at": "2026-10-31T09:44:00Z"
+          },
+          {
+            "name": "Stage direct release executable for E2E",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T09:44:00Z",
+            "completed_at": "2026-10-31T09:44:01Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for native compiler E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T09:44:01Z",
+            "completed_at": "2026-10-31T09:44:03Z"
+          },
+          {
+            "name": "Run full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T09:44:03Z",
+            "completed_at": "2026-10-31T09:50:17Z"
+          },
+          {
+            "name": "Run native Rust performance tooling correctness contracts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T09:50:17Z",
+            "completed_at": "2026-10-31T09:53:13Z"
+          },
+          {
+            "name": "Archive full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T09:53:13Z",
+            "completed_at": "2026-10-31T09:53:14Z"
+          },
+          {
+            "name": "Run native release documentation tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T09:53:14Z",
+            "completed_at": "2026-10-31T09:53:15Z"
+          },
+          {
+            "name": "Mandatory native E2Es against direct release executable",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-31T09:53:15Z",
+            "completed_at": "2026-10-31T09:53:26Z"
+          },
+          {
+            "name": "Upload tested executable, checksum, and internal release metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T09:53:26Z",
+            "completed_at": "2026-10-31T09:53:29Z"
+          },
+          {
+            "name": "Upload internal native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T09:53:29Z",
+            "completed_at": "2026-10-31T09:53:31Z"
+          },
+          {
+            "name": "Save Cargo downloads from trusted main",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 21,
+            "started_at": "2026-10-31T09:53:31Z",
+            "completed_at": "2026-10-31T09:53:31Z"
+          },
+          {
+            "name": "Post Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41,
+            "started_at": "2026-10-31T09:53:31Z",
+            "completed_at": "2026-10-31T09:53:31Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T09:53:31Z",
+            "completed_at": "2026-10-31T09:53:31Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T09:53:31Z",
+            "completed_at": "2026-10-31T09:53:33Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500834196",
+        "labels": [
+          "macos-15"
+        ],
+        "runner_id": 1000018883,
+        "runner_name": "GitHub Actions 1000018883",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124500834231,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NP3tw",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500834231",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124500834231",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:32Z",
+        "started_at": "2026-10-31T09:40:01Z",
+        "completed_at": "2026-10-31T09:54:12Z",
+        "name": "native-installers / native (aarch64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T09:40:02Z",
+            "completed_at": "2026-10-31T09:40:03Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T09:40:03Z",
+            "completed_at": "2026-10-31T09:40:15Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T09:40:15Z",
+            "completed_at": "2026-10-31T09:40:16Z"
+          },
+          {
+            "name": "Verify release integrity regression cases",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T09:40:16Z",
+            "completed_at": "2026-10-31T09:40:27Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T09:40:27Z",
+            "completed_at": "2026-10-31T09:40:36Z"
+          },
+          {
+            "name": "Configure native CI cache identity",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T09:40:36Z",
+            "completed_at": "2026-10-31T09:40:36Z"
+          },
+          {
+            "name": "Restore Cargo downloads",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T09:40:36Z",
+            "completed_at": "2026-10-31T09:40:48Z"
+          },
+          {
+            "name": "Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T09:40:48Z",
+            "completed_at": "2026-10-31T09:40:49Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T09:40:49Z",
+            "completed_at": "2026-10-31T09:40:50Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T09:40:50Z",
+            "completed_at": "2026-10-31T09:40:51Z"
+          },
+          {
+            "name": "Build locked optimized binary",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T09:40:51Z",
+            "completed_at": "2026-10-31T09:44:33Z"
+          },
+          {
+            "name": "Stage direct release executable for E2E",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T09:44:33Z",
+            "completed_at": "2026-10-31T09:44:34Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for native compiler E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T09:44:34Z",
+            "completed_at": "2026-10-31T09:44:44Z"
+          },
+          {
+            "name": "Run full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T09:44:44Z",
+            "completed_at": "2026-10-31T09:49:13Z"
+          },
+          {
+            "name": "Run native Rust performance tooling correctness contracts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T09:49:13Z",
+            "completed_at": "2026-10-31T09:53:48Z"
+          },
+          {
+            "name": "Archive full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T09:53:48Z",
+            "completed_at": "2026-10-31T09:53:49Z"
+          },
+          {
+            "name": "Run native release documentation tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T09:53:49Z",
+            "completed_at": "2026-10-31T09:53:50Z"
+          },
+          {
+            "name": "Mandatory native E2Es against direct release executable",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-31T09:53:50Z",
+            "completed_at": "2026-10-31T09:54:03Z"
+          },
+          {
+            "name": "Upload tested executable, checksum, and internal release metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T09:54:03Z",
+            "completed_at": "2026-10-31T09:54:05Z"
+          },
+          {
+            "name": "Upload internal native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T09:54:05Z",
+            "completed_at": "2026-10-31T09:54:07Z"
+          },
+          {
+            "name": "Save Cargo downloads from trusted main",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 21,
+            "started_at": "2026-10-31T09:54:07Z",
+            "completed_at": "2026-10-31T09:54:07Z"
+          },
+          {
+            "name": "Post Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41,
+            "started_at": "2026-10-31T09:54:07Z",
+            "completed_at": "2026-10-31T09:54:07Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T09:54:07Z",
+            "completed_at": "2026-10-31T09:54:11Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T09:54:11Z",
+            "completed_at": "2026-10-31T09:54:11Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500834231",
+        "labels": [
+          "windows-11-arm"
+        ],
+        "runner_id": 1000018882,
+        "runner_name": "GitHub Actions 1000018882",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124500834241,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NP3wQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500834241",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124500834241",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:32Z",
+        "started_at": "2026-10-31T10:35:58Z",
+        "completed_at": "2026-10-31T10:57:09Z",
+        "name": "native-installers / native (x86_64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:36:00Z",
+            "completed_at": "2026-10-31T10:36:02Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:36:02Z",
+            "completed_at": "2026-10-31T10:36:05Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:36:05Z",
+            "completed_at": "2026-10-31T10:36:06Z"
+          },
+          {
+            "name": "Verify release integrity regression cases",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:36:06Z",
+            "completed_at": "2026-10-31T10:36:11Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:36:11Z",
+            "completed_at": "2026-10-31T10:36:26Z"
+          },
+          {
+            "name": "Configure native CI cache identity",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:36:26Z",
+            "completed_at": "2026-10-31T10:36:26Z"
+          },
+          {
+            "name": "Restore Cargo downloads",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:36:26Z",
+            "completed_at": "2026-10-31T10:36:33Z"
+          },
+          {
+            "name": "Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:36:33Z",
+            "completed_at": "2026-10-31T10:36:34Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:36:34Z",
+            "completed_at": "2026-10-31T10:36:35Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:36:35Z",
+            "completed_at": "2026-10-31T10:36:35Z"
+          },
+          {
+            "name": "Build locked optimized binary",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:36:35Z",
+            "completed_at": "2026-10-31T10:41:14Z"
+          },
+          {
+            "name": "Stage direct release executable for E2E",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:41:14Z",
+            "completed_at": "2026-10-31T10:41:16Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for native compiler E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:41:16Z",
+            "completed_at": "2026-10-31T10:41:18Z"
+          },
+          {
+            "name": "Run full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:41:18Z",
+            "completed_at": "2026-10-31T10:51:37Z"
+          },
+          {
+            "name": "Run native Rust performance tooling correctness contracts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:51:37Z",
+            "completed_at": "2026-10-31T10:56:40Z"
+          },
+          {
+            "name": "Archive full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:56:40Z",
+            "completed_at": "2026-10-31T10:56:41Z"
+          },
+          {
+            "name": "Run native release documentation tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:56:41Z",
+            "completed_at": "2026-10-31T10:56:43Z"
+          },
+          {
+            "name": "Mandatory native E2Es against direct release executable",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-31T10:56:43Z",
+            "completed_at": "2026-10-31T10:56:58Z"
+          },
+          {
+            "name": "Upload tested executable, checksum, and internal release metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:56:58Z",
+            "completed_at": "2026-10-31T10:57:02Z"
+          },
+          {
+            "name": "Upload internal native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:57:02Z",
+            "completed_at": "2026-10-31T10:57:05Z"
+          },
+          {
+            "name": "Save Cargo downloads from trusted main",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 21,
+            "started_at": "2026-10-31T10:57:05Z",
+            "completed_at": "2026-10-31T10:57:05Z"
+          },
+          {
+            "name": "Post Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41,
+            "started_at": "2026-10-31T10:57:05Z",
+            "completed_at": "2026-10-31T10:57:05Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T10:57:05Z",
+            "completed_at": "2026-10-31T10:57:06Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T10:57:06Z",
+            "completed_at": "2026-10-31T10:57:06Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500834241",
+        "labels": [
+          "macos-15-intel"
+        ],
+        "runner_id": 1000018910,
+        "runner_name": "GitHub Actions 1000018910",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124500834250,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NP3yg",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500834250",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124500834250",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:32Z",
+        "started_at": "2026-10-31T10:24:26Z",
+        "completed_at": "2026-10-31T10:32:59Z",
+        "name": "native-installers / native (aarch64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:24:27Z",
+            "completed_at": "2026-10-31T10:24:28Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:24:28Z",
+            "completed_at": "2026-10-31T10:24:29Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:24:29Z",
+            "completed_at": "2026-10-31T10:24:29Z"
+          },
+          {
+            "name": "Verify release integrity regression cases",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:24:29Z",
+            "completed_at": "2026-10-31T10:24:30Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:24:30Z",
+            "completed_at": "2026-10-31T10:24:36Z"
+          },
+          {
+            "name": "Configure native CI cache identity",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:24:36Z",
+            "completed_at": "2026-10-31T10:24:36Z"
+          },
+          {
+            "name": "Restore Cargo downloads",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:24:36Z",
+            "completed_at": "2026-10-31T10:24:36Z"
+          },
+          {
+            "name": "Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:24:36Z",
+            "completed_at": "2026-10-31T10:24:37Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:24:37Z",
+            "completed_at": "2026-10-31T10:24:37Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:24:37Z",
+            "completed_at": "2026-10-31T10:24:37Z"
+          },
+          {
+            "name": "Build locked optimized binary",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:24:37Z",
+            "completed_at": "2026-10-31T10:26:52Z"
+          },
+          {
+            "name": "Stage direct release executable for E2E",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:26:52Z",
+            "completed_at": "2026-10-31T10:26:53Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for native compiler E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:26:53Z",
+            "completed_at": "2026-10-31T10:26:54Z"
+          },
+          {
+            "name": "Run full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:26:54Z",
+            "completed_at": "2026-10-31T10:31:02Z"
+          },
+          {
+            "name": "Run native Rust performance tooling correctness contracts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:31:02Z",
+            "completed_at": "2026-10-31T10:32:43Z"
+          },
+          {
+            "name": "Archive full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:32:43Z",
+            "completed_at": "2026-10-31T10:32:43Z"
+          },
+          {
+            "name": "Run native release documentation tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:32:43Z",
+            "completed_at": "2026-10-31T10:32:44Z"
+          },
+          {
+            "name": "Mandatory native E2Es against direct release executable",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-31T10:32:44Z",
+            "completed_at": "2026-10-31T10:32:54Z"
+          },
+          {
+            "name": "Upload tested executable, checksum, and internal release metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:32:54Z",
+            "completed_at": "2026-10-31T10:32:56Z"
+          },
+          {
+            "name": "Upload internal native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:32:56Z",
+            "completed_at": "2026-10-31T10:32:57Z"
+          },
+          {
+            "name": "Save Cargo downloads from trusted main",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 21,
+            "started_at": "2026-10-31T10:32:57Z",
+            "completed_at": "2026-10-31T10:32:57Z"
+          },
+          {
+            "name": "Post Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41,
+            "started_at": "2026-10-31T10:32:57Z",
+            "completed_at": "2026-10-31T10:32:57Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T10:32:57Z",
+            "completed_at": "2026-10-31T10:32:58Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T10:32:58Z",
+            "completed_at": "2026-10-31T10:32:58Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500834250",
+        "labels": [
+          "ubuntu-24.04-arm"
+        ],
+        "runner_id": 1000018901,
+        "runner_name": "GitHub Actions 1000018901",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124500834258,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NP30g",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500834258",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124500834258",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:32Z",
+        "started_at": "2026-10-31T10:44:18Z",
+        "completed_at": "2026-10-31T10:54:16Z",
+        "name": "native-installers / native (x86_64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:44:18Z",
+            "completed_at": "2026-10-31T10:44:19Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:44:19Z",
+            "completed_at": "2026-10-31T10:44:21Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:44:21Z",
+            "completed_at": "2026-10-31T10:44:21Z"
+          },
+          {
+            "name": "Verify release integrity regression cases",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:44:21Z",
+            "completed_at": "2026-10-31T10:44:22Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:44:22Z",
+            "completed_at": "2026-10-31T10:44:30Z"
+          },
+          {
+            "name": "Configure native CI cache identity",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:44:30Z",
+            "completed_at": "2026-10-31T10:44:30Z"
+          },
+          {
+            "name": "Restore Cargo downloads",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:44:30Z",
+            "completed_at": "2026-10-31T10:44:31Z"
+          },
+          {
+            "name": "Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:44:31Z",
+            "completed_at": "2026-10-31T10:44:32Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:44:32Z",
+            "completed_at": "2026-10-31T10:44:32Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:44:32Z",
+            "completed_at": "2026-10-31T10:44:32Z"
+          },
+          {
+            "name": "Build locked optimized binary",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:44:32Z",
+            "completed_at": "2026-10-31T10:46:47Z"
+          },
+          {
+            "name": "Stage direct release executable for E2E",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:46:47Z",
+            "completed_at": "2026-10-31T10:46:48Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for native compiler E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:46:48Z",
+            "completed_at": "2026-10-31T10:46:49Z"
+          },
+          {
+            "name": "Run full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:46:49Z",
+            "completed_at": "2026-10-31T10:51:42Z"
+          },
+          {
+            "name": "Run native Rust performance tooling correctness contracts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:51:42Z",
+            "completed_at": "2026-10-31T10:53:59Z"
+          },
+          {
+            "name": "Archive full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:53:59Z",
+            "completed_at": "2026-10-31T10:53:59Z"
+          },
+          {
+            "name": "Run native release documentation tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:53:59Z",
+            "completed_at": "2026-10-31T10:54:00Z"
+          },
+          {
+            "name": "Mandatory native E2Es against direct release executable",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-31T10:54:00Z",
+            "completed_at": "2026-10-31T10:54:11Z"
+          },
+          {
+            "name": "Upload tested executable, checksum, and internal release metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:54:11Z",
+            "completed_at": "2026-10-31T10:54:13Z"
+          },
+          {
+            "name": "Upload internal native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:54:13Z",
+            "completed_at": "2026-10-31T10:54:14Z"
+          },
+          {
+            "name": "Save Cargo downloads from trusted main",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 21,
+            "started_at": "2026-10-31T10:54:14Z",
+            "completed_at": "2026-10-31T10:54:14Z"
+          },
+          {
+            "name": "Post Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41,
+            "started_at": "2026-10-31T10:54:14Z",
+            "completed_at": "2026-10-31T10:54:14Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T10:54:14Z",
+            "completed_at": "2026-10-31T10:54:14Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T10:54:14Z",
+            "completed_at": "2026-10-31T10:54:15Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500834258",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018912,
+        "runner_name": "GitHub Actions 1000018912",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124500834279,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NP35w",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500834279",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124500834279",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:32Z",
+        "started_at": "2026-10-31T10:11:25Z",
+        "completed_at": "2026-10-31T10:29:10Z",
+        "name": "native-installers / native (x86_64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:11:26Z",
+            "completed_at": "2026-10-31T10:11:27Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:11:27Z",
+            "completed_at": "2026-10-31T10:11:35Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:11:35Z",
+            "completed_at": "2026-10-31T10:11:37Z"
+          },
+          {
+            "name": "Verify release integrity regression cases",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:11:37Z",
+            "completed_at": "2026-10-31T10:11:45Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:11:45Z",
+            "completed_at": "2026-10-31T10:11:55Z"
+          },
+          {
+            "name": "Configure native CI cache identity",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:11:55Z",
+            "completed_at": "2026-10-31T10:11:55Z"
+          },
+          {
+            "name": "Restore Cargo downloads",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:11:55Z",
+            "completed_at": "2026-10-31T10:12:06Z"
+          },
+          {
+            "name": "Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:12:06Z",
+            "completed_at": "2026-10-31T10:12:08Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:12:08Z",
+            "completed_at": "2026-10-31T10:12:09Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:12:09Z",
+            "completed_at": "2026-10-31T10:12:11Z"
+          },
+          {
+            "name": "Build locked optimized binary",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:12:11Z",
+            "completed_at": "2026-10-31T10:16:09Z"
+          },
+          {
+            "name": "Stage direct release executable for E2E",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:16:09Z",
+            "completed_at": "2026-10-31T10:16:10Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for native compiler E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:16:10Z",
+            "completed_at": "2026-10-31T10:16:17Z"
+          },
+          {
+            "name": "Run full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14,
+            "started_at": "2026-10-31T10:16:17Z",
+            "completed_at": "2026-10-31T10:23:37Z"
+          },
+          {
+            "name": "Run native Rust performance tooling correctness contracts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:23:37Z",
+            "completed_at": "2026-10-31T10:28:48Z"
+          },
+          {
+            "name": "Archive full native release test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:28:48Z",
+            "completed_at": "2026-10-31T10:28:49Z"
+          },
+          {
+            "name": "Run native release documentation tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:28:49Z",
+            "completed_at": "2026-10-31T10:28:50Z"
+          },
+          {
+            "name": "Mandatory native E2Es against direct release executable",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-31T10:28:50Z",
+            "completed_at": "2026-10-31T10:29:03Z"
+          },
+          {
+            "name": "Upload tested executable, checksum, and internal release metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:29:03Z",
+            "completed_at": "2026-10-31T10:29:04Z"
+          },
+          {
+            "name": "Upload internal native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:29:04Z",
+            "completed_at": "2026-10-31T10:29:06Z"
+          },
+          {
+            "name": "Save Cargo downloads from trusted main",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 21,
+            "started_at": "2026-10-31T10:29:06Z",
+            "completed_at": "2026-10-31T10:29:06Z"
+          },
+          {
+            "name": "Post Enable native compiler cache",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41,
+            "started_at": "2026-10-31T10:29:06Z",
+            "completed_at": "2026-10-31T10:29:07Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T10:29:07Z",
+            "completed_at": "2026-10-31T10:29:08Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T10:29:08Z",
+            "completed_at": "2026-10-31T10:29:09Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500834279",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000018896,
+        "runner_name": "GitHub Actions 1000018896",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124518758790,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_eV5hg",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124518758790",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124518758790",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T10:57:09Z",
+        "started_at": "2026-10-31T10:59:37Z",
+        "completed_at": "2026-10-31T10:59:45Z",
+        "name": "native-installers / installers",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:59:37Z",
+            "completed_at": "2026-10-31T10:59:38Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:59:38Z",
+            "completed_at": "2026-10-31T10:59:39Z"
+          },
+          {
+            "name": "Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:59:39Z",
+            "completed_at": "2026-10-31T10:59:40Z"
+          },
+          {
+            "name": "Install pinned global installer generator",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:59:40Z",
+            "completed_at": "2026-10-31T10:59:41Z"
+          },
+          {
+            "name": "Generate installers bound to all six native-tested archives",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:59:41Z",
+            "completed_at": "2026-10-31T10:59:43Z"
+          },
+          {
+            "name": "Upload checksum-bound installers and internal identity metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:59:43Z",
+            "completed_at": "2026-10-31T10:59:44Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-31T10:59:44Z",
+            "completed_at": "2026-10-31T10:59:44Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-31T10:59:44Z",
+            "completed_at": "2026-10-31T10:59:44Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124518758790",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018924,
+        "runner_name": "GitHub Actions 1000018924",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124519250239,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_ez5Pw",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124519250239",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124519250239",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T10:59:46Z",
+        "started_at": "2026-10-31T11:00:39Z",
+        "completed_at": "2026-10-31T11:01:18Z",
+        "name": "native-installers / installer E2E (aarch64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T11:00:40Z",
+            "completed_at": "2026-10-31T11:00:42Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T11:00:42Z",
+            "completed_at": "2026-10-31T11:00:44Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T11:00:44Z",
+            "completed_at": "2026-10-31T11:00:45Z"
+          },
+          {
+            "name": "Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T11:00:45Z",
+            "completed_at": "2026-10-31T11:00:47Z"
+          },
+          {
+            "name": "Download exact native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T11:00:47Z",
+            "completed_at": "2026-10-31T11:00:50Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:00:50Z",
+            "completed_at": "2026-10-31T11:00:58Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:00:58Z",
+            "completed_at": "2026-10-31T11:00:58Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:00:58Z",
+            "completed_at": "2026-10-31T11:00:59Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for installed-executable E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:00:59Z",
+            "completed_at": "2026-10-31T11:01:00Z"
+          },
+          {
+            "name": "Reject altered archive, install verified archive and exercise installed LSP",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T11:01:00Z",
+            "completed_at": "2026-10-31T11:01:15Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:01:15Z",
+            "completed_at": "2026-10-31T11:01:16Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:01:16Z",
+            "completed_at": "2026-10-31T11:01:16Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124519250239",
+        "labels": [
+          "macos-15"
+        ],
+        "runner_id": 1000018926,
+        "runner_name": "GitHub Actions 1000018926",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124519250253,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_ez5TQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124519250253",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124519250253",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T10:59:46Z",
+        "started_at": "2026-10-31T11:12:14Z",
+        "completed_at": "2026-10-31T11:12:38Z",
+        "name": "native-installers / installer E2E (aarch64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T11:12:14Z",
+            "completed_at": "2026-10-31T11:12:15Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T11:12:15Z",
+            "completed_at": "2026-10-31T11:12:16Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T11:12:16Z",
+            "completed_at": "2026-10-31T11:12:16Z"
+          },
+          {
+            "name": "Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T11:12:16Z",
+            "completed_at": "2026-10-31T11:12:17Z"
+          },
+          {
+            "name": "Download exact native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T11:12:17Z",
+            "completed_at": "2026-10-31T11:12:19Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:12:19Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for installed-executable E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:26Z"
+          },
+          {
+            "name": "Reject altered archive, install verified archive and exercise installed LSP",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T11:12:26Z",
+            "completed_at": "2026-10-31T11:12:37Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:12:37Z",
+            "completed_at": "2026-10-31T11:12:37Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:12:37Z",
+            "completed_at": "2026-10-31T11:12:37Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124519250253",
+        "labels": [
+          "ubuntu-24.04-arm"
+        ],
+        "runner_id": 1000018939,
+        "runner_name": "GitHub Actions 1000018939",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124519250265,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_ez5WQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124519250265",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124519250265",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T10:59:46Z",
+        "started_at": "2026-10-31T11:10:06Z",
+        "completed_at": "2026-10-31T11:10:38Z",
+        "name": "native-installers / installer E2E (x86_64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T11:10:07Z",
+            "completed_at": "2026-10-31T11:10:08Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T11:10:08Z",
+            "completed_at": "2026-10-31T11:10:10Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T11:10:10Z",
+            "completed_at": "2026-10-31T11:10:10Z"
+          },
+          {
+            "name": "Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T11:10:10Z",
+            "completed_at": "2026-10-31T11:10:12Z"
+          },
+          {
+            "name": "Download exact native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T11:10:12Z",
+            "completed_at": "2026-10-31T11:10:14Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:10:14Z",
+            "completed_at": "2026-10-31T11:10:21Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:10:21Z",
+            "completed_at": "2026-10-31T11:10:22Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:10:22Z",
+            "completed_at": "2026-10-31T11:10:22Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for installed-executable E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:10:22Z",
+            "completed_at": "2026-10-31T11:10:24Z"
+          },
+          {
+            "name": "Reject altered archive, install verified archive and exercise installed LSP",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T11:10:24Z",
+            "completed_at": "2026-10-31T11:10:36Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:10:36Z",
+            "completed_at": "2026-10-31T11:10:36Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:10:36Z",
+            "completed_at": "2026-10-31T11:10:36Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124519250265",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018934,
+        "runner_name": "GitHub Actions 1000018934",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124519250283,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_ez5aw",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124519250283",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124519250283",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T10:59:46Z",
+        "started_at": "2026-10-31T11:03:27Z",
+        "completed_at": "2026-10-31T11:04:18Z",
+        "name": "native-installers / installer E2E (x86_64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T11:03:28Z",
+            "completed_at": "2026-10-31T11:03:29Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T11:03:29Z",
+            "completed_at": "2026-10-31T11:03:35Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T11:03:35Z",
+            "completed_at": "2026-10-31T11:03:37Z"
+          },
+          {
+            "name": "Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T11:03:37Z",
+            "completed_at": "2026-10-31T11:03:38Z"
+          },
+          {
+            "name": "Download exact native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T11:03:38Z",
+            "completed_at": "2026-10-31T11:03:39Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:03:39Z",
+            "completed_at": "2026-10-31T11:03:49Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:03:49Z",
+            "completed_at": "2026-10-31T11:03:50Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:03:50Z",
+            "completed_at": "2026-10-31T11:03:51Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for installed-executable E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:03:51Z",
+            "completed_at": "2026-10-31T11:03:58Z"
+          },
+          {
+            "name": "Reject altered archive, install verified archive and exercise installed LSP",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T11:03:58Z",
+            "completed_at": "2026-10-31T11:04:15Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:04:15Z",
+            "completed_at": "2026-10-31T11:04:17Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:04:17Z",
+            "completed_at": "2026-10-31T11:04:17Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124519250283",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000018928,
+        "runner_name": "GitHub Actions 1000018928",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124519250403,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_ez54w",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124519250403",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124519250403",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T10:59:46Z",
+        "started_at": "2026-10-31T11:10:41Z",
+        "completed_at": "2026-10-31T11:11:58Z",
+        "name": "native-installers / installer E2E (aarch64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T11:10:43Z",
+            "completed_at": "2026-10-31T11:10:47Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T11:10:47Z",
+            "completed_at": "2026-10-31T11:11:02Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T11:11:02Z",
+            "completed_at": "2026-10-31T11:11:04Z"
+          },
+          {
+            "name": "Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T11:11:04Z",
+            "completed_at": "2026-10-31T11:11:07Z"
+          },
+          {
+            "name": "Download exact native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T11:11:07Z",
+            "completed_at": "2026-10-31T11:11:09Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:11:09Z",
+            "completed_at": "2026-10-31T11:11:19Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:11:19Z",
+            "completed_at": "2026-10-31T11:11:20Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:11:20Z",
+            "completed_at": "2026-10-31T11:11:21Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for installed-executable E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:11:21Z",
+            "completed_at": "2026-10-31T11:11:34Z"
+          },
+          {
+            "name": "Reject altered archive, install verified archive and exercise installed LSP",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T11:11:34Z",
+            "completed_at": "2026-10-31T11:11:52Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:11:52Z",
+            "completed_at": "2026-10-31T11:11:57Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:11:57Z",
+            "completed_at": "2026-10-31T11:11:57Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124519250403",
+        "labels": [
+          "windows-11-arm"
+        ],
+        "runner_id": 1000018935,
+        "runner_name": "GitHub Actions 1000018935",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124519250442,
+        "run_id": 41188700890,
+        "workflow_name": "installer-validation",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_ez6Cg",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124519250442",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700890/job/124519250442",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T10:59:46Z",
+        "started_at": "2026-10-31T11:04:22Z",
+        "completed_at": "2026-10-31T11:05:46Z",
+        "name": "native-installers / installer E2E (x86_64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T11:04:23Z",
+            "completed_at": "2026-10-31T11:04:25Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T11:04:25Z",
+            "completed_at": "2026-10-31T11:04:28Z"
+          },
+          {
+            "name": "Verify exact source and native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T11:04:28Z",
+            "completed_at": "2026-10-31T11:04:28Z"
+          },
+          {
+            "name": "Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T11:04:28Z",
+            "completed_at": "2026-10-31T11:04:31Z"
+          },
+          {
+            "name": "Download exact native release test archive",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T11:04:31Z",
+            "completed_at": "2026-10-31T11:04:34Z"
+          },
+          {
+            "name": "Install pinned native Rust toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:04:34Z",
+            "completed_at": "2026-10-31T11:04:46Z"
+          },
+          {
+            "name": "Install pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:04:46Z",
+            "completed_at": "2026-10-31T11:04:47Z"
+          },
+          {
+            "name": "Report pinned native test runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:04:47Z",
+            "completed_at": "2026-10-31T11:04:47Z"
+          },
+          {
+            "name": "Provision checksum-pinned genuine Bend 2.0.37 for installed-executable E2Es",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:04:47Z",
+            "completed_at": "2026-10-31T11:04:49Z"
+          },
+          {
+            "name": "Reject altered archive, install verified archive and exercise installed LSP",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T11:04:49Z",
+            "completed_at": "2026-10-31T11:05:43Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:05:43Z",
+            "completed_at": "2026-10-31T11:05:44Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:05:44Z",
+            "completed_at": "2026-10-31T11:05:44Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124519250442",
+        "labels": [
+          "macos-15-intel"
+        ],
+        "runner_id": 1000018930,
+        "runner_name": "GitHub Actions 1000018930",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      }
+    ]
+  },
+  "artifacts": {
+    "total_count": 13,
+    "artifacts": [
+      {
+        "id": 13040415117,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDQxNTExNw==",
+        "name": "native-tests-nightly-x86_64-apple-darwin",
+        "size_in_bytes": 14036760,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040415117",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040415117/zip",
+        "expired": false,
+        "digest": "sha256:73b74de47c40ba053e764fb5f46fcbb8a6620a078d50f6b8a9fc063a910c6494",
+        "created_at": "2026-10-31T10:57:04Z",
+        "updated_at": "2026-10-31T10:57:04Z",
+        "expires_at": "2026-11-14T10:57:02Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13040260347,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDI2MDM0Nw==",
+        "name": "nightly-x86_64-apple-darwin",
+        "size_in_bytes": 6005147,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040260347",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040260347/zip",
+        "expired": false,
+        "digest": "sha256:44a2b7ce557147af1d6f92113fb0846519164fcce95a5393de9f9d7ce767f541",
+        "created_at": "2026-10-31T10:57:01Z",
+        "updated_at": "2026-10-31T10:57:01Z",
+        "expires_at": "2026-11-14T10:56:59Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039761696,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTc2MTY5Ng==",
+        "name": "native-tests-nightly-x86_64-pc-windows-msvc",
+        "size_in_bytes": 13075203,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039761696",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039761696/zip",
+        "expired": false,
+        "digest": "sha256:4296c4a380f605ab492ef92d8f04b2989f7a8e030d92946a4f35a06037c9c2a0",
+        "created_at": "2026-10-31T10:29:06Z",
+        "updated_at": "2026-10-31T10:29:06Z",
+        "expires_at": "2026-11-14T10:29:05Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039672078,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTY3MjA3OA==",
+        "name": "nightly-x86_64-pc-windows-msvc",
+        "size_in_bytes": 6646598,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039672078",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039672078/zip",
+        "expired": false,
+        "digest": "sha256:892df1cb1543171bf6159ba6aa72d31caa5bcab1bbbc22093598374f55234ad9",
+        "created_at": "2026-10-31T10:29:04Z",
+        "updated_at": "2026-10-31T10:29:04Z",
+        "expires_at": "2026-11-14T10:29:03Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039582740,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTU4Mjc0MA==",
+        "name": "nightly-aarch64-unknown-linux-gnu",
+        "size_in_bytes": 5760072,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039582740",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039582740/zip",
+        "expired": false,
+        "digest": "sha256:dc7b14a0220030dd1baae74062ce991e54d62d7aae7cc8107a845a502db7effa",
+        "created_at": "2026-10-31T10:32:56Z",
+        "updated_at": "2026-10-31T10:32:56Z",
+        "expires_at": "2026-11-14T10:32:55Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039507919,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTUwNzkxOQ==",
+        "name": "native-tests-nightly-aarch64-unknown-linux-gnu",
+        "size_in_bytes": 15466751,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039507919",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039507919/zip",
+        "expired": false,
+        "digest": "sha256:4bc904d029daaac3297121400842154b2b71536c740716729022339a8f774e8c",
+        "created_at": "2026-10-31T10:32:57Z",
+        "updated_at": "2026-10-31T10:32:57Z",
+        "expires_at": "2026-11-14T10:32:56Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039414103,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTQxNDEwMw==",
+        "name": "nightly-x86_64-unknown-linux-gnu",
+        "size_in_bytes": 6137923,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039414103",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039414103/zip",
+        "expired": false,
+        "digest": "sha256:6d71e95b4a94e7d3513e71cd3fc7e0503454b822fd0599ee7963ba09d0665396",
+        "created_at": "2026-10-31T10:54:12Z",
+        "updated_at": "2026-10-31T10:54:12Z",
+        "expires_at": "2026-11-14T10:54:11Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039364667,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTM2NDY2Nw==",
+        "name": "nightly-installers",
+        "size_in_bytes": 24619,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039364667",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039364667/zip",
+        "expired": false,
+        "digest": "sha256:12ba568f8dab482f40bd3ed86b3d5b7d2a2d4d3a64b2541dd72bfe56eb5ead5a",
+        "created_at": "2026-10-31T10:59:44Z",
+        "updated_at": "2026-10-31T10:59:44Z",
+        "expires_at": "2026-11-14T10:59:43Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039204534,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTIwNDUzNA==",
+        "name": "native-tests-nightly-x86_64-unknown-linux-gnu",
+        "size_in_bytes": 16489982,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039204534",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039204534/zip",
+        "expired": false,
+        "digest": "sha256:9066ea12b08ad6ffc8dbcd538fe8c132bba8f9eedf9150df3f252ee658fe2be0",
+        "created_at": "2026-10-31T10:54:14Z",
+        "updated_at": "2026-10-31T10:54:14Z",
+        "expires_at": "2026-11-14T10:54:13Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13038756910,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzODc1NjkxMA==",
+        "name": "nightly-aarch64-apple-darwin",
+        "size_in_bytes": 5642581,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038756910",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038756910/zip",
+        "expired": false,
+        "digest": "sha256:4969bf5886198e66bb808d9f4d13eacdc29dd4b5f4fa07f42ce5533e1437c691",
+        "created_at": "2026-10-31T09:53:29Z",
+        "updated_at": "2026-10-31T09:53:29Z",
+        "expires_at": "2026-11-14T09:53:27Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13038712162,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzODcxMjE2Mg==",
+        "name": "native-tests-nightly-aarch64-apple-darwin",
+        "size_in_bytes": 13290175,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038712162",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038712162/zip",
+        "expired": false,
+        "digest": "sha256:e7ef24cd94ab26619894ca003642c6e4d42b7dbc48579285a7547cc48acd1db4",
+        "created_at": "2026-10-31T09:53:31Z",
+        "updated_at": "2026-10-31T09:53:31Z",
+        "expires_at": "2026-11-14T09:53:29Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13037764550,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzNzc2NDU1MA==",
+        "name": "nightly-aarch64-pc-windows-msvc",
+        "size_in_bytes": 6059779,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13037764550",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13037764550/zip",
+        "expired": false,
+        "digest": "sha256:1e95fb2b6ba3df0c7ad7cc84949b449350d939b94a7f7c04021db16ba1e8d6e8",
+        "created_at": "2026-10-31T09:54:04Z",
+        "updated_at": "2026-10-31T09:54:04Z",
+        "expires_at": "2026-11-14T10:54:03Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13037684658,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzNzY4NDY1OA==",
+        "name": "native-tests-nightly-aarch64-pc-windows-msvc",
+        "size_in_bytes": 11919893,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13037684658",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13037684658/zip",
+        "expired": false,
+        "digest": "sha256:9d692c13af053b9628ba647a8b3e5de9f1e5e226790b0a3820740f7aae9531f6",
+        "created_at": "2026-10-31T09:54:06Z",
+        "updated_at": "2026-10-31T09:54:06Z",
+        "expires_at": "2026-11-14T10:54:05Z",
+        "workflow_run": {
+          "id": 41188700890,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      }
+    ]
+  }
+}
