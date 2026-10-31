@@ -197,6 +197,12 @@ pub(crate) struct Build {
     pub(crate) metadata: Value,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct MeasurementScope<'a> {
+    pub(crate) build: &'a Build,
+    pub(crate) selected: &'a BTreeMap<&'static str, BTreeSet<super::Identity>>,
+}
+
 pub(crate) fn compile(
     checkout: PathBuf,
     variant: &str,
@@ -300,7 +306,7 @@ pub(crate) fn ensure_immutable(build: &Build) -> ToolResult<()> {
 }
 
 pub(crate) fn measure(
-    build: &Build,
+    scope: MeasurementScope<'_>,
     job_id: &str,
     pair: u64,
     variant: &str,
@@ -308,34 +314,32 @@ pub(crate) fn measure(
     output: &Path,
     environment: &Environment,
 ) -> ToolResult<Value> {
+    let MeasurementScope { build, selected } = scope;
     ensure_immutable(build)?;
     let name = format!("pair{pair:03}{}", variant.replace('_', ""));
     let raw = output.join("raw").join(name);
     fs::create_dir_all(&raw)?;
     let baseline = baseline_name(job_id, pair, variant);
-    let mut workloads = Vec::with_capacity(build.identities.len());
+    let executions = super::parallel::measure(build, &baseline, &raw, environment, selected)?;
+    let expected = selected.values().map(BTreeSet::len).sum::<usize>();
+    let mut workloads = Vec::with_capacity(expected);
     let mut benchmark_samples = serde_json::Map::new();
     for benchmark in BENCHMARKS {
+        let selected_identities = &selected[benchmark];
+        if selected_identities.is_empty() {
+            continue;
+        }
         let compiled = &build.benchmarks[benchmark];
         let benchmark_raw = raw.join(benchmark);
-        fs::create_dir(&benchmark_raw)?;
         let home = benchmark_raw.join("iai");
         let stdout = benchmark_raw.join("stdout.jsonl");
         let stderr = benchmark_raw.join("stderr.log");
-        let command = vec![
-            compiled.executable.as_os_str().to_owned(),
-            "--output-format=json".into(),
-            "--save-summary=pretty-json".into(),
-            format!("--save-baseline={baseline}").into(),
-            "--callgrind-args=--cache-sim=yes".into(),
-            format!("--home={}", home.display()).into(),
-        ];
-        let measured = run_logged(&command, &build.checkout, &stdout, &stderr, environment)?;
+        let measured = fs::read_to_string(&stdout)?;
         let (measured_workloads, summaries) = parse_measurement(
             &measured,
             &baseline,
             &compiled.executable,
-            &compiled.identities,
+            selected_identities,
         )?;
         let mut profile_count = 0_u64;
         for summary in summaries {
@@ -360,9 +364,24 @@ pub(crate) fn measure(
         workloads.extend(measured_workloads);
         benchmark_samples.insert(
             benchmark.to_owned(),
-            json!({"raw_stdout": stdout.strip_prefix(output)?, "raw_stderr": stderr.strip_prefix(output)?, "verified_callgrind_profiles": profile_count}),
+            json!({"raw_stdout": stdout.strip_prefix(output)?, "raw_stderr": stderr.strip_prefix(output)?, "verified_callgrind_profiles": profile_count, "execution": executions[benchmark]}),
         );
     }
+    let mut measured = BTreeSet::new();
+    for workload in &workloads {
+        require(
+            measured.insert(super::identity(workload)?),
+            "duplicate measured workload across benchmark executables",
+        )?;
+    }
+    require(
+        measured == selected.values().flatten().cloned().collect(),
+        "measurable workloads do not match the declared shard scope",
+    )?;
+    require(
+        workloads.len() == expected,
+        "fresh-process measurement count does not match the declared shard scope",
+    )?;
     ensure_immutable(build)?;
     let sample = json!({"pair": pair, "variant": variant, "order": order, "workloads": workloads, "benchmarks": benchmark_samples});
     write_json(&raw.join("sample.json"), &sample)?;

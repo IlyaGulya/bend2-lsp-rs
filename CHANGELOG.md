@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+### Features
+
+- Expose versioned `bend2/semanticDocument` metadata for written declarations, documentation, signatures, bodies, reference targets, and enclosing definitions. Extraction is scoped to an explicitly prepared entry and reports uncertain input rather than substituting a name-only target.
+- Keep useful navigation and completion while code is unfinished, without hiding
+  errors from the selected Bend compiler. Editor-only import links remain marked
+  as not compiler-resolved and do not establish the meaning of imported members.
+
+### Bug Fixes
+
+- Respect complete lexical names in navigation, hover, references, and rename.
+  A binding named `D` does not shadow the distinct name `D.member`; a binding
+  named `D.member` does.
+- Replace the complete existing name when accepting completion in its middle.
+- Go to Definition now finds local parameters and bindings, including tuple
+  destructuring and `do` bindings, without confusing them with same-name globals.
+- Suggest constructors in ordinary expressions as well as constructor patterns.
+  Keep constructors available when a function or local value has the same name,
+  including the `Pair` function supplied by `Base`.
+- Reject Rename names that would produce invalid Bend atoms before returning
+  edits. Preserve valid dotted names, including keyword and underscore segments,
+  while retaining capture and cross-entry conflict checks.
+- Avoid repeated incoming-call entries for the same shared caller when all
+  reachable callees resolve identically. Preserve different entry-specific
+  implementations, including differences reached through another callee.
+- Build callers and callees from entry-scoped import and binding indexes, including line-broken `!(` calls and the implementation body of a `law`. Hierarchy ranges point to the implementation's actual file when a law is declared elsewhere. Reject stale hierarchy handles with `ContentModified` instead of silently resolving a replacement by name.
+- Keep physical file identity separate from editor URIs; reject conflicting open overlays and unsafe rename capture instead of returning partial edits.
+- Keep existential signature domains separate from a following braced equality; require the compiler's adjacent `!(` spelling instead of inventing a call for rejected `! (` input.
+- Wait for compiler settings to finish changing before resolving names, so
+  immediate navigation uses the current compiler's `Base` module instead of
+  a stale or missing one.
+
+### Security
+
+- Update Tokio to 1.53.3, which addresses an I/O-safety flaw in its Unix
+  `AsyncFd` constructors ([RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)).
+
 ### Optional lint integration
 
 - Add off-by-default saved-file diagnostics from a user-installed standalone
@@ -28,9 +64,235 @@
   without making production queries wait for unrelated pending builds.
 - Acknowledge prior stdio document mutations before releasing held analyzer
   output, so tests cannot mistake pre-mutation results for stale publication.
+- Publish analyzer fixture socket addresses atomically before signaling readiness,
+  so descendant-cleanup checks cannot read partially written addresses. Keep the
+  timeout assertions and strict flaky-test policy unchanged.
 
 ### Under the hood
 
+- Keep Linux procfs teardown sentinels out of owned process-group IDs, so a
+  successful semantic worker is not rejected by an invalid cleanup signal.
+  Preserve real child reaping and all genuine cleanup failures.
+- Require all 102 current calibration workloads, including the three
+  shared-dependency cases. Correct the stale 99-workload expectation without
+  changing the sampled data, fixed-series method or admission limits.
+- Compact published entry-view capture receipts, generation/alias tables and
+  physical-URI ownership. Sort and freeze receipts outside the workspace read
+  lock. Move cold value/constructor registration tables into immutable lookup
+  indexes instead of searching namespace-sorted entities during rename checks.
+  Preserve precedence, conflicting-overlay safety, exact invalidation and
+  immutable warm queries. Keep cold alias registration hashed.
+- Reuse normalized discovery keys and capture their snapshot/generation guard in
+  one lookup. Avoid an immediately duplicated hub-import realpath check without
+  caching filesystem identities across files or weakening retarget detection.
+- Restore the direct indexed module-completion loop after the first-match peel
+  in `420a77c` failed hosted admission. That candidate used 7.35% more instructions
+  than main for medium completion and 2.38% more for large completion. Keep the
+  bounded first-match reservation, matching, ordering and owned results, with no
+  additional index pass or result-buffer allocation for a no-match query.
+- Reject excluded constructor declarations before slicing and matching names
+  for module completion. Preserve same-spelling functions, fuzzy matching,
+  recovery order and owned results without another index or semantic pass.
+- Avoid duplicate Windows import canonicalization when paths differ only by
+  the standard versus verbatim drive/UNC prefix. Keep fresh physical identity
+  checks and the original fallback for actual aliases or case differences.
+- Skip local-index sweep setup for empty or single-binding files and size its
+  name table from local bindings rather than unrelated globals. Preserve
+  shadowing, half-open lexical scopes and token-end/unfinished-body completion.
+- Retain small entry-view lookup tables in exact-size immutable storage while
+  keeping hashed lookup for larger tables. Project calls from the existing
+  occurrence arena instead of retaining duplicate call records and unused
+  per-site metadata; preserve prepared entry contexts and hierarchy handles.
+- Prepare discovered files with at most two owned walkers, preserving ignore
+  rules, tracing context, cancellation and revision-checked publication.
+  Add shared-dependency cold-view coverage without changing existing benchmark
+  workloads, event metrics or admission thresholds.
+- Await complete JSONL writes from the persistent semantic oracle instead of
+  dropping large replies when its stdout pipe is nonblocking. Verify a real
+  bounded OS pipe, UTF-8 frames and a follow-up request in the same process;
+  retain the compiler/runtime pins and existing resource limits.
+- Borrow reachable snapshots and editor identities while collecting workspace
+  symbols instead of allocating an owned document for every loaded file.
+  Preserve language filtering, Base inclusion, unsaved overlays and result ranges.
+  Measure the same borrowed enumeration in the existing workspace-symbol
+  benchmark cases, with their original fixtures, queries and result values.
+- Publish the pinned Windows compiler at its final owned path before running
+  validation, instead of renaming an executed image afterwards. Preserve failed
+  builds and their original validation/cleanup errors as evidence, never export
+  a failed compiler, and require private-workspace cleanup before installation.
+- Publish a compact, digest-bound report input after each sealed calibration
+  artifact and download only those compact inputs in the report job. A failed
+  multi-gigabyte raw download can no longer feed a partially extracted
+  `data.json` to the control report. Preserve full raw evidence and source,
+  runner and producer provenance; recover retained data through an isolated
+  exact-source replay instead of repeating measurements.
+- Establish a real cleanup verifier before the deliberately short macOS
+  supervisor test window, instead of assuming helper startup fits its reserve.
+  Preserve the original deadlines, distinct-stage identities and reaping checks.
+- Schedule dependency-triggered diagnostics only for open documents, while
+  traversing closed intermediate imports without cloning their documents.
+  Prepare required entry views in bounded batches with per-root capture and
+  provenance validation, stop between builds on shutdown, and skip reverse-import
+  traversal when every semantic root already has a current view. Keep the
+  original correctness, lifecycle and performance admission gates.
+- Retain compact snapshot identity and generation receipts after building an
+  entry view instead of keeping its complete build input. Share immutable URI
+  and physical-path ownership and release build-only lookup/import tables.
+  Preserve provenance validation and invalidation; queries continue borrowing
+  entry-owned facts, and retained-memory and cold/warm costs remain gated.
+- Store semantic occurrence records once per entry view, with compact file
+  indexes and contiguous target ranges instead of duplicate reference records.
+  `SemanticView::occurrences` now returns a borrowed exact-size iterator;
+  `references` retains its borrowed slice and original within-target order.
+  Compiler resolution and the LSP protocol are unchanged; retained memory and
+  cold/warm query costs remain subject to the original performance gates.
+- Group cold reference records with an in-place scatter instead of repeated
+  wide-record swaps and a permutation-buffer copy. Preserve source, target,
+  name and token lookup order without adding retained storage or warm-query work.
+- Reap terminated macOS process observers without waiting for another fixed RSS
+  sampling interval. Keep the original shutdown deadline and report cleanup
+  failures rather than hiding them after a work-stage timeout.
+- Merge already source-ordered per-name visibility ranges when constructing
+  the cold local-binding index. Keep half-open scope and shadowing behavior;
+  retain all original cold/warm benchmarks and performance admission limits.
+- Compare every native canonical chunk field directly without a per-chunk
+  callback. Keep full string equality, mutation/truncation detection, Base
+  coverage, batching bounds and the original resource/performance gates.
+- Retain randomized, collision-checked name lookup in immutable snapshots after
+  rejecting the byte-ordered lookup experiment's warm instruction regressions.
+  Move the completed cold table and seed without rebuilding or sorting names;
+  release growth-only hashes and preserve IDs, source ranges and spelling checks.
+  Keep the original source-bound cold/warm and memory qualification.
+- Share one source-backed name-table core between cold construction and immutable
+  snapshots, instead of maintaining duplicate lookup and token-slot readers.
+  Keep growth-only hashes construction-local, randomized full-spelling collision
+  checks and stable IDs; compiled-code and memory trade-offs remain gated.
+- Find analysis-comment boundaries in bulk and check ASCII once per comment,
+  preserving LF-only line boundaries, Unicode trivia, CRLF and EOF. Keep the
+  formatter's scanner separate.
+- Remove the duplicate per-token symbol-target array. Call linking and token
+  navigation derive targets from the existing reference index, preserving
+  qualified segments, synthetic-reference exclusions and zero-valued IDs.
+  Cold allocation savings and the extra warm indexed read remain gated.
+- Skip module-completion declaration walks when a query is longer than every
+  eligible declaration name. Prepare the bound during cold symbol registration;
+  preserve existing matching and snapshot isolation, with cold/memory costs
+  retained in the unchanged performance gates.
+- Select module-completion constructor exclusion once from the existing snapshot
+  index, retaining the general path for complete and recovered constructors.
+  Remove the rejected constructor-chunk traversal, keep its order/recovery test,
+  and retain all original performance gates without additional stored metadata.
+- Prepare per-file reachability membership during cold graph updates. Dependency
+  queries reuse the indexed flag without repeatedly hashing file identities;
+  preserve terminal frontiers, cycles, retirement and reimport behavior.
+  Performance qualification remains subject to the original source-bound gates.
+- Reuse the existing ASCII-line index for code-folding whitespace checks instead
+  of decoding ASCII as Unicode. Preserve vertical-tab and Unicode blank lines,
+  CRLF, comment boundaries and folding order without new snapshot storage.
+  The candidate still requires the unchanged source-bound performance gates.
+- Keep real-stdio conformance range checks on LF-delimited source lines when
+  comments contain Unicode whitespace. Preserve UTF-16 columns and UTF-8 byte
+  targets instead of treating non-LF separators as additional source lines.
+- Skip impossible keyword suggestions when the completion prefix is longer than
+  every keyword. Derive the bound from the keyword list; keep declaration,
+  case-insensitive subsequence and Unicode matching behavior unchanged.
+- Resolve snapshot call targets once, after token resolution, and keep call
+  lookup tables empty when a file has no calls. Preserve lexical shadowing,
+  declaration references and caller/callee query results; performance admission
+  still requires the unchanged source-bound gates.
+- Share indexed physical file URIs across semantic views instead of repeatedly
+  encoding unchanged paths, and avoid retaining a second URI buffer when its
+  logical and physical addresses are exactly equal. Share logical URI ownership
+  with workspace lookup keys as well. Preserve logical editor addresses,
+  escaped URI spellings and symlink-retarget invalidation; resolution
+  and performance gates are unchanged.
+- Avoid rebuilding unchanged import-watch paths after body-only edits. Keep
+  missing-import creation watches, refreshed symlink targets, Base-header
+  validity and semantic-view invalidation intact; performance admission still
+  uses the existing Linux Callgrind workloads and thresholds.
+- Add an independent, checksum-pinned official Bend 2.0.37 source oracle,
+  differential corpus and generated projects, replayable failures, bounded
+  shrinking, and required fail-closed semantic checks. Twenty correct normal
+  runs do not qualify the provisional PR resource profile while its latency
+  target and supporting scaling phases fail. Existing Callgrind metrics,
+  thresholds, and baseline selection are unchanged.
+- Bound independent Callgrind function collection to four original runner
+  processes while retaining every frozen benchmark case, original dispatch
+  index, cache setting, pair/control order, deadline and numeric gate.
+  Keep per-function descriptors and raw evidence; drain in-flight children
+  before reporting failure. The changed orchestration requires fresh
+  fixed-series qualification, not a local smoke or historical serial controls.
+- Replace repeated macOS process-table subprocesses in the semantic supervisor
+  with a bounded persistent native RSS observer. Count its resources and retain
+  terminal observation failures while verifying escaped-child cleanup within
+  the existing phase and shutdown budgets. Linux monitoring is unchanged.
+- Overlap complete forward and reversed semantic histories in two independent
+  persistent oracle sessions, retaining full reverse coverage and same-session
+  A/B/A, repeated-case, fresh-worker, and real stdio checks. Version the provisional
+  semantic resource profile for two native worker pairs without changing budgets
+  or the separate product Callgrind policy.
+- Store references contiguously by target while preserving source-order iteration
+  and token identities. Cache semantic coloring during cold indexing and reuse
+  prepared source identities instead of repeating path canonicalization.
+- Preserve completed native-history divergences alongside later failures.
+  Record and replay both native histories, minimize their required context, and
+  reject promotion of oracle-integrity failures as production semantic truth.
+- Stream oracle runtime authentication and load authenticated replies on demand
+  instead of retaining every decoded Base table. Collect short-lived native
+  allocations at idle Book boundaries without resetting ordered histories.
+  Batch small canonical components within the existing payload bound; preserve
+  complete Base comparison and all history and stdio checks. The v8 profile has
+  source-bound 20-run/five-VM qualification; earlier failed cohorts stay failed.
+- Generate native canonical keys with a non-mutating copy-on-write source-field
+  projection and native JSON serialization. Preserve official lowering, every
+  other own field/order, shared compiler terms and complete Base parity.
+- Adopt the maintainer-approved semantic v8 budget: p95 at most 120 seconds
+  and a uniform 240-second hard bound, including 512-project support. Keep
+  memory, GC/JIT, compiler, coverage and other resource limits unchanged;
+  require fresh complete calibration for changed measured inputs instead of
+  rescoring historical failures.
+- Compare pinned-Base targets through genuine compiler-configured stdio
+  consumers, including entry-rooted target/status metadata and direct
+  definition requests in the matching entry context. Reject stub contents and
+  foreign or decorated Base-document URIs; retain the compiler/Base hashes.
+- Bind real-stdio coverage to the exact selected plan identities. Reject
+  self-consistent partial counts, omitted or duplicate scenarios, foreign
+  receipt IDs, and empty consumer checks instead of accepting a smaller run.
+- Shard each of the six logical Callgrind controls across four physical runners.
+  Preserve all 105 balanced pairs per workload on one host, all nine counters,
+  the frozen baseline and positive-control sensitivity. Reject incomplete,
+  overlapping or identity-mismatched shard sets and retain physical provenance.
+- Isolate the semantic projection tool from the server's benchmark-only
+  dependencies during required release preparation. Preserve its protocol,
+  workspace lint policy, release optimization settings, and setup/run budgets.
+- Overlap Rust projection requests with native oracle execution. Enforce RPC
+  deadlines against complete reply arrival and preserve native evidence before
+  reporting an early candidate failure. Keep resource qualification provisional
+  and all workload, time, memory, and Callgrind limits unchanged.
+- Require fresh qualification of the expanded 99-workload performance scope.
+  Retain all 54 existing baseline workloads and the unchanged numeric limits.
+- Stop and reap owned Callgrind descendants before publishing CI evidence.
+  Publish completed samples and incomplete diagnostics through an atomic,
+  no-clobber snapshot instead of uploading a live measurement tree. Keep the
+  measurement deadlines, all 105 pairs, workload coverage and numeric gates
+  unchanged; interrupted or incomplete collection still blocks admission.
+- Avoid repeated declaration scans, path hashing and document metadata copies
+  when preparing references and call hierarchy information.
+- Reduce Linux semantic-gate sampling allocations without changing process
+  coverage, RSS accounting, sampling cadence, resource limits or cleanup.
+- Keep standalone reference-result copies separate from complete semantic
+  records without dropping linking or recovery information. Reuse cold grouping
+  buffers and semantic index tables, avoid redundant ASCII case-folding
+  allocations, and consume retired workspace reachability without an extra list.
+  Preserve query results, workload ownership and all performance gates; resource
+  and cache qualification remain blocking.
+- Skip redundant cleanup scans only after a complete observation proves that no
+  owned child remains live and the worker has exited with stdout closed.
+  Still signal owned groups, wait the direct worker and reap adopted Linux
+  children; poll once more without blocking before final CPU accounting.
+  Inject monitor failures after the test worker actually starts, rather than
+  racing startup with a fixed sample count. Resource limits and shutdown
+  deadlines remain unchanged.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
@@ -518,7 +780,6 @@ indexing and discovery remain deferred.
 ### Bug Fixes
 
 - Respect lexical parameter shadowing in declaration navigation and hover, including shadowed module qualifiers and scoped parameter annotations.
-- Reject unsupported module-alias rename instead of renaming an imported member under a different cursor.
 - Preserve body indentation after colonless declarations during newline formatting; handle comments, quoted delimiters, and incomplete literals safely.
 - Retain watched closed-file updates across concurrent document commits and preserve newer open-buffer import edges until close.
 - Wait for relevant imported-document revisions in cross-file queries without blocking unrelated documents during cold snapshot construction.

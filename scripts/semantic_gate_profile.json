@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "name": "semantic-pr-v8-full-reference-budget",
+  "runner": "ubuntu-24.04",
+  "candidate_build_profile": {
+    "name": "release",
+    "cargo_flags": ["--release", "--locked"],
+    "cargo_settings": {
+      "opt-level": 3,
+      "lto": "fat",
+      "codegen-units": 1,
+      "strip": "symbols"
+    },
+    "features": "default"
+  },
+  "calibration": "provisional; requires at least 20 runs on 5 independent CI jobs",
+  "seed": 5301,
+  "generated_projects": 256,
+  "workers": 2,
+  "hard_seconds": 240,
+  "success_p95_target_seconds": 120,
+  "setup_target_seconds": 300,
+  "shutdown_seconds": 2,
+  "rss_bytes": 1073741824,
+  "sample_seconds": 0.02,
+  "output_bytes": 1048576,
+  "report_bytes": 16777216,
+  "artifact_bytes": 33554432,
+  "artifact_files": 512,
+  "scheduled_artifact_bytes": 268435456,
+  "scheduled_artifact_files": 8192,
+  "scheduled_search_seconds": 2700,
+  "scheduled_shrink_seconds": 600,
+  "scheduled_hard_seconds": 3600
+}

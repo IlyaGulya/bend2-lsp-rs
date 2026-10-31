@@ -1,4 +1,4 @@
-use super::{BENCHMARKS, CollectArgs, PROBE, VARIANTS, require};
+use super::{BENCHMARKS, CollectArgs, PROBE, VARIANTS, require, shard};
 use crate::{
     ToolResult,
     callgrind::{
@@ -13,7 +13,7 @@ use crate::{
 };
 use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
-use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path, process::Command};
+use std::{collections::BTreeMap, env, fmt::Write as _, fs, path::Path, process::Command};
 
 const INLAY_ANCHOR: &str = "fn inlay_hints_warm(fixture: WarmSnapshot) -> Vec<analysis::InlayHint> {\n    std::hint::black_box(analysis::inlay_hints(\n        std::hint::black_box(fixture.snapshot),\n        analysis::TextRange::new(0, fixture.source.len()),\n    ))\n}";
 const SETUP_ANCHORS: [&str; 3] = [
@@ -133,13 +133,7 @@ fn independent_build(
     Ok(build)
 }
 
-fn collect_job(
-    args: &CollectArgs,
-    source: &Path,
-    work: &Path,
-    output: &Path,
-    dataset: &mut Value,
-) -> ToolResult<()> {
+fn record_provenance(source: &Path, output: &Path, dataset: &mut Value) -> ToolResult<Environment> {
     let environment = clean_environment();
     dataset["environment"] = environment_metadata(source, output, &environment)?;
     dataset["host"] = host_metadata()?;
@@ -153,11 +147,6 @@ fn collect_job(
     } else {
         "unknown".into()
     };
-    let excluded = [work.to_owned(), output.to_owned()];
-    let original = source_manifest(source, &excluded)?;
-    write_json(&output.join("source-manifest.json"), &original)?;
-    let harness_path = source.join("benches/analysis.rs");
-    let harness = fs::read_to_string(&harness_path)?;
     let mut harness_hashes = serde_json::Map::new();
     for benchmark in BENCHMARKS {
         harness_hashes.insert(
@@ -166,6 +155,22 @@ fn collect_job(
         );
     }
     dataset["harness_sha256"] = harness_hashes.into();
+    Ok(environment)
+}
+
+fn collect_job(
+    args: &CollectArgs,
+    source: &Path,
+    work: &Path,
+    output: &Path,
+    dataset: &mut Value,
+) -> ToolResult<()> {
+    let environment = record_provenance(source, output, dataset)?;
+    let excluded = [work.to_owned(), output.to_owned()];
+    let original = source_manifest(source, &excluded)?;
+    write_json(&output.join("source-manifest.json"), &original)?;
+    let harness_path = source.join("benches/analysis.rs");
+    let harness = fs::read_to_string(&harness_path)?;
     dataset["fixture_sha256"] =
         source_manifest(&source.join("benches/fixtures"), &excluded)?["sha256"].clone();
     let generated = VARIANTS
@@ -205,10 +210,29 @@ fn collect_job(
         dataset["variants"]["a"]["source_sha256"] == dataset["variants"]["b"]["source_sha256"],
         "A/A independent builds have different source manifests",
     )?;
+    let full: shard::Selection = BENCHMARKS
+        .iter()
+        .map(|benchmark| {
+            (
+                *benchmark,
+                builds["a"].benchmarks[*benchmark].identities.clone(),
+            )
+        })
+        .collect();
+    let selected = shard::selection(&full, args.shard_count, args.shard_index)?;
+    require(
+        shard::count(&selected) > 0,
+        "shard selects no workloads from the frozen manifest",
+    )?;
+    let host = dataset["host"].clone();
+    dataset["shard"] = shard_provenance(args, &full, &selected, &host)?;
     for pair in 1..=args.pairs {
         for (order, variant) in balanced_order(&args.job_id, pair)?.into_iter().enumerate() {
             let sample = measure(
-                &builds[variant],
+                callgrind::collect::MeasurementScope {
+                    build: &builds[variant],
+                    selected: &selected,
+                },
                 &args.job_id,
                 pair,
                 variant,
@@ -236,13 +260,69 @@ fn collect_job(
     println!(
         "Collected {} complete pairs / {} fresh-process measurements in {}",
         args.pairs,
-        dataset["samples"].as_array().map_or(0, Vec::len) * BENCHMARKS.len(),
+        dataset["samples"].as_array().map_or(0, Vec::len) * shard::count(&selected),
         output.join("data.json").display()
     );
     Ok(())
 }
 
+fn required_variable(key: &str) -> ToolResult<String> {
+    let value =
+        env::var(key).map_err(|error| format!("missing workflow environment {key}: {error}"))?;
+    require(
+        !value.trim().is_empty(),
+        &format!("workflow environment {key} must be nonempty"),
+    )?;
+    Ok(value)
+}
+
+fn shard_provenance(
+    args: &CollectArgs,
+    full: &shard::Selection,
+    selected: &shard::Selection,
+    host: &Value,
+) -> ToolResult<Value> {
+    let logical = &args.job_id;
+    let index = args.shard_index;
+    let physical_job = if args.shard_count == 1 {
+        logical.clone()
+    } else {
+        format!("{logical}-shard-{index}")
+    };
+    let matrix_job = required_variable("CALIBRATION_PHYSICAL_JOB")?;
+    require(
+        matrix_job == physical_job,
+        "CALIBRATION_PHYSICAL_JOB must identify the launched physical shard job",
+    )?;
+    let runner = host["runner_identity"]
+        .as_str()
+        .filter(|runner| !runner.trim().is_empty() && *runner != "unknown")
+        .ok_or("physical runner identity is missing")?
+        .to_owned();
+    Ok(json!({
+        "method": shard::METHOD,
+        "count": args.shard_count,
+        "index": args.shard_index,
+        "logical_job_id": args.job_id,
+        "physical_job_id": physical_job,
+        "matrix_job": matrix_job,
+        "run_id": required_variable("GITHUB_RUN_ID")?,
+        "run_attempt": required_variable("GITHUB_RUN_ATTEMPT")?,
+        "physical_runner": runner,
+        "full_manifest": shard::manifest(full)?,
+        "selected_units": shard::units(selected),
+    }))
+}
+
 pub(super) fn collect(args: &CollectArgs) -> ToolResult<()> {
+    require(
+        (1..=shard::MAX_COUNT).contains(&args.shard_count),
+        "shard count must be between 1 and 4",
+    )?;
+    require(
+        args.shard_index < args.shard_count,
+        "shard index must be less than shard count",
+    )?;
     let source = callgrind::resolve_path(&args.source)?;
     let work = callgrind::resolve_path(&args.work_dir)?;
     let output = callgrind::resolve_path(&args.output_dir)?;

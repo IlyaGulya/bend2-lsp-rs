@@ -1,19 +1,17 @@
 use super::super::{
     adapters,
-    features::{cursor_in_comment_or_string, static_hover},
+    features::{cursor_in_comment_or_string, static_hover, token_at},
     lsp::Backend,
 };
-use super::shared::{binding_at, declaration_token_at};
 use crate::analysis;
-use crate::workspace::Document;
+use crate::workspace::{Document, SemanticTarget};
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
         DocumentLink, DocumentLinkParams, GotoDefinitionParams, GotoDefinitionResponse, Hover,
-        HoverContents, HoverParams, Location, MarkupContent, MarkupKind, Range,
+        HoverContents, HoverParams, Location, MarkupContent, MarkupKind, Position, Range,
     },
 };
-use tracing::Instrument;
 use url::Url;
 
 impl Backend {
@@ -23,16 +21,67 @@ impl Backend {
             .available_import_targets(&document.uri)
     }
 
-    fn import_uri(&self, document: &Document, import: &analysis::IndexedImport) -> Option<Url> {
+    async fn document_read_with_editor_links(
+        &self,
+        uri: &Url,
+        position: Option<Position>,
+    ) -> tokio::sync::RwLockReadGuard<'_, ()> {
+        loop {
+            let read = self.document_read_with_prelude(uri).await;
+            let editor_paths_ready = self.workspace.read().editor_import_paths_ready(uri);
+            if !editor_paths_ready {
+                drop(read);
+                self.prepare_editor_import_paths(uri).await;
+                continue;
+            }
+            if !self.workspace.discovery_pending() {
+                return read;
+            }
+            let needs_editor_index = {
+                let database = self.workspace.read();
+                database.cached_document(uri).is_some_and(|document| {
+                    let offset = position.map(|position| adapters::offset_at(&document, position));
+                    document.syntax.imports().iter().any(|import| {
+                        import.path_text(&document.text) != "Base"
+                            && database.import_target(uri, import.path).is_none()
+                            && offset.is_none_or(|offset| {
+                                import.path.contains(offset)
+                                    || import.alias.is_some_and(|alias| alias.contains(offset))
+                            })
+                    })
+                })
+            };
+            if !needs_editor_index {
+                return read;
+            }
+            // These are uncertain editor links only. Discovery never adds
+            // compiler edges for extensionless or non-native module paths.
+            drop(read);
+            self.workspace.wait_for_discovery_worker().await;
+        }
+    }
+
+    fn import_uri(
+        &self,
+        document: &Document,
+        import: &analysis::IndexedImport,
+    ) -> Option<(Url, bool)> {
         tracing::info_span!("navigation.module_lookup").in_scope(|| {
             if import.path_text(&document.text) == "Base" {
-                self.prelude_module(document).map(|module| module.uri)
-            } else {
-                self.workspace
-                    .read()
-                    .import_target(&document.uri, import.path)
-                    .map(|target| target.uri)
+                return (import.valid_syntax && import.alias.is_none())
+                    .then(|| self.prelude_module(document))
+                    .flatten()
+                    .map(|module| (module.uri, false));
             }
+            let database = self.workspace.read();
+            if import.valid_syntax
+                && let Some(uri) = database.import_logical_uri(&document.uri, import.path)
+            {
+                return Some((uri, false));
+            }
+            database
+                .editor_import_uri(&document.uri, import.path)
+                .map(|uri| (uri, true))
         })
     }
 
@@ -41,7 +90,7 @@ impl Backend {
         document: &Document,
         import: &analysis::IndexedImport,
     ) -> Option<GotoDefinitionResponse> {
-        let uri = self.import_uri(document, import)?;
+        let (uri, _) = self.import_uri(document, import)?;
         Some(GotoDefinitionResponse::Scalar(Location {
             uri,
             range: Range::default(),
@@ -63,8 +112,21 @@ impl Backend {
         {
             return None;
         }
+        if self.semantic_view(&document.uri).is_some_and(|view| {
+            view.file_id(&document.uri)
+                .and_then(|file| view.resolve_at(file, offset))
+                .is_some_and(|occurrence| matches!(occurrence.target, SemanticTarget::Local(_)))
+        }) {
+            return None;
+        }
         let alias = document.syntax.token_text(&document.text, id)?;
-        self.module_document(document, alias).map(|(uri, _)| uri)
+        document
+            .syntax
+            .imports()
+            .iter()
+            .find(|import| import.alias_text(&document.text) == Some(alias))
+            .and_then(|import| self.import_uri(document, import).map(|(uri, _)| uri))
+            .or_else(|| self.module_document(document, alias).map(|(uri, _)| uri))
     }
 
     pub(in crate::server) async fn handle_document_link(
@@ -72,7 +134,7 @@ impl Backend {
         params: DocumentLinkParams,
     ) -> Result<Option<Vec<DocumentLink>>> {
         let _workspace_read = self
-            .document_read_with_prelude(&params.text_document.uri)
+            .document_read_with_editor_links(&params.text_document.uri, None)
             .await;
         let Some(doc) = self.document(&params.text_document.uri) else {
             return Ok(None);
@@ -83,12 +145,17 @@ impl Backend {
         let mut links = Vec::new();
         for import in analysis::imports(&doc) {
             let path = import.path_text(&doc.text);
-            if let Some(target) = self.import_uri(&doc, import) {
+            if let Some((target, uncertain)) = self.import_uri(&doc, import) {
                 links.push(DocumentLink {
                     range: adapters::range(&doc, import.path),
                     target: Some(target),
-                    tooltip: Some(format!("Open {path}")),
-                    data: None,
+                    tooltip: Some(if uncertain {
+                        format!("Open {path} (editor path; not compiler-resolved)")
+                    } else {
+                        format!("Open {path}")
+                    }),
+                    data: uncertain
+                        .then(|| serde_json::json!({"uncertain":true,"resolution":"editor-path"})),
                 });
             }
         }
@@ -100,7 +167,7 @@ impl Backend {
         params: HoverParams,
     ) -> Result<Option<Hover>> {
         let _workspace_read = self
-            .document_read_with_prelude(&params.text_document_position_params.text_document.uri)
+            .document_read(&params.text_document_position_params.text_document.uri)
             .await;
         let td = params.text_document_position_params;
         let Some(doc) = self.document(&td.text_document.uri) else {
@@ -110,7 +177,12 @@ impl Backend {
             return Ok(None);
         }
         let offset = adapters::offset_at(&doc, td.position);
-        if let Some(symbol) = binding_at(&doc, offset) {
+        let selection = self.semantic_selection(&doc, offset);
+        if let Some(SemanticTarget::Local(binding)) = selection
+            .as_ref()
+            .map(|selection| selection.occurrence.target)
+        {
+            let symbol = binding.symbol;
             let value = doc.syntax.binding_by_id(symbol).and_then(|binding| {
                 let ty = doc.syntax.binding_type_range(&doc.text, symbol)?;
                 let name = doc.syntax.name_text(&doc.text, binding.name);
@@ -125,21 +197,23 @@ impl Backend {
                 range: None,
             }));
         }
-        let Some(token) = declaration_token_at(&doc, adapters::offset_at(&doc, td.position)) else {
-            return Ok(None);
-        };
-        let imported = token.split_once('.').and_then(|(alias, member)| {
-            self.module_document(&doc, alias)
-                .and_then(|(_, source)| analysis::declaration_hover(&source, member))
-        });
-        let prelude = self
-            .prelude_declaration(&doc, &token)
-            .and_then(|module| analysis::declaration_hover(&module, &token));
-        let Some(value) = analysis::declaration_hover(&doc, &token)
-            .or(imported)
-            .or(prelude)
-            .or_else(|| static_hover(&token))
-        else {
+        let value = selection
+            .and_then(|selection| {
+                let SemanticTarget::Global(id) = selection.occurrence.target else {
+                    return None;
+                };
+                let entity = selection.view.entity(id)?;
+                let (source, symbol) =
+                    Self::semantic_symbol(&selection.view, entity.signature_owner)?;
+                analysis::declaration_hover_by_id(&source, symbol)
+            })
+            .or_else(|| {
+                if cursor_in_comment_or_string(&doc, offset) {
+                    return None;
+                }
+                static_hover(token_at(&doc, offset))
+            });
+        let Some(value) = value else {
             return Ok(None);
         };
         Ok(Some(Hover {
@@ -156,8 +230,10 @@ impl Backend {
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
         let _workspace_read = self
-            .document_read_with_prelude(&params.text_document_position_params.text_document.uri)
-            .instrument(tracing::info_span!("navigation.ensure_prelude"))
+            .document_read_with_editor_links(
+                &params.text_document_position_params.text_document.uri,
+                Some(params.text_document_position_params.position),
+            )
             .await;
         let td = params.text_document_position_params;
         let Some(doc) = tracing::info_span!("navigation.document_lookup")
@@ -193,62 +269,34 @@ impl Backend {
                 range: Range::default(),
             })));
         }
-        let Some(token) = tracing::info_span!("navigation.token_lookup")
-            .in_scope(|| declaration_token_at(&doc, offset))
-        else {
+        let Some(selection) = self.semantic_selection(&doc, offset) else {
             return Ok(None);
         };
-        let local_range = tracing::info_span!("navigation.declaration_lookup", scope = "local")
-            .in_scope(|| analysis::declaration_range(&doc, &token));
-        if let Some(range) = local_range {
-            let response =
-                tracing::info_span!("navigation.location", scope = "local").in_scope(|| {
-                    let range = adapters::range(&doc, range);
-                    GotoDefinitionResponse::Scalar(Location {
-                        uri: doc.uri,
-                        range,
-                    })
-                });
-            return Ok(Some(response));
+        let target = selection.occurrence.target;
+        if !matches!(target, SemanticTarget::Global(_) | SemanticTarget::Local(_)) {
+            return Ok(None);
         }
-        let prelude = tracing::info_span!("navigation.declaration_lookup", scope = "prelude")
-            .in_scope(|| {
-                let module = self.prelude_declaration(&doc, &token)?;
-                let range = analysis::declaration_range(&module, &token)?;
-                Some((module, range))
-            });
-        if let Some((module, range)) = prelude {
-            let response =
-                tracing::info_span!("navigation.location", scope = "prelude").in_scope(|| {
-                    let range = adapters::range(&module, range);
-                    GotoDefinitionResponse::Scalar(Location {
-                        uri: module.uri,
-                        range,
-                    })
-                });
-            return Ok(Some(response));
-        }
-        let Some((alias, name)) = token.split_once('.') else {
-            return Ok(None);
-        };
-        let target = tracing::info_span!("navigation.module_lookup")
-            .in_scope(|| self.module_document(&doc, alias));
-        let Some((target_uri, target_text)) = target else {
-            return Ok(None);
-        };
-        let range = tracing::info_span!("navigation.declaration_lookup", scope = "imported")
-            .in_scope(|| analysis::declaration_range(&target_text, name));
-        let Some(range) = range else {
-            return Ok(None);
-        };
-        let response =
-            tracing::info_span!("navigation.location", scope = "imported").in_scope(|| {
-                GotoDefinitionResponse::Scalar(Location {
-                    uri: target_uri,
-                    range: adapters::range(&target_text, range),
-                })
-            });
-        Ok(Some(response))
+        let location = selection.view.target_site(target).and_then(|site| {
+            let mut location = Self::semantic_location(&selection.view, site)?;
+            if matches!(target, SemanticTarget::Global(_)) {
+                let written = &doc.text
+                    [selection.occurrence.full_range.start..selection.occurrence.full_range.end];
+                if let Some((alias, _)) = written.split_once('.') {
+                    let database = self.workspace.read();
+                    if let Some(import) = analysis::imports(&doc)
+                        .iter()
+                        .find(|import| import.alias_text(&doc.text) == Some(alias))
+                        && let Some(target) = database.import_target(&doc.uri, import.path)
+                        && selection.view.file_id(&target.uri) == Some(site.file)
+                        && let Some(uri) = database.import_logical_uri(&doc.uri, import.path)
+                    {
+                        location.uri = uri;
+                    }
+                }
+            }
+            Some(location)
+        });
+        Ok(location.map(GotoDefinitionResponse::Scalar))
     }
 
     pub(in crate::server) async fn handle_goto_type_definition(
@@ -256,7 +304,7 @@ impl Backend {
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
         let _workspace_read = self
-            .document_read_with_prelude(&params.text_document_position_params.text_document.uri)
+            .document_read(&params.text_document_position_params.text_document.uri)
             .await;
         let td = params.text_document_position_params;
         let Some(doc) = self.document(&td.text_document.uri) else {
@@ -266,56 +314,28 @@ impl Backend {
             return Ok(None);
         }
         let offset = adapters::offset_at(&doc, td.position);
-        if let Some(symbol) = binding_at(&doc, offset) {
-            let range = doc
-                .syntax
-                .binding_type_range(&doc.text, symbol)
-                .and_then(|ty| {
-                    let expression = &doc.text[ty.start..ty.end];
-                    doc.syntax
-                        .symbols()
-                        .iter()
-                        .filter(|symbol| symbol.kind == analysis::SymbolKind::Struct)
-                        .find(|symbol| {
-                            expression
-                                .split(|character: char| {
-                                    !character.is_ascii_alphanumeric() && character != '_'
-                                })
-                                .any(|name| name == doc.syntax.name_text(&doc.text, symbol.name))
-                        })
-                        .map(|symbol| symbol.name_range)
-                });
-            return Ok(range.map(|range| {
-                GotoDefinitionResponse::Scalar(Location {
-                    uri: doc.uri.clone(),
-                    range: adapters::range(&doc, range),
-                })
-            }));
+        let selection = self.semantic_selection(&doc, offset);
+        if let Some(SemanticTarget::Local(binding)) = selection
+            .as_ref()
+            .map(|selection| selection.occurrence.target)
+        {
+            return Ok(self
+                .semantic_binding_type(&doc, binding.symbol)
+                .map(GotoDefinitionResponse::Scalar));
         }
-        let Some(token) = declaration_token_at(&doc, adapters::offset_at(&doc, td.position)) else {
+        let Some(selection) = selection else {
             return Ok(None);
         };
-        let imported = token.split_once('.').and_then(|(alias, member)| {
-            self.module_document(&doc, alias)
-                .map(|(uri, source)| (uri, source, member.to_owned()))
-        });
-        let local = analysis::type_declaration_range(&doc, &token)
-            .map(|_| (doc.uri.clone(), doc.snapshot.clone(), token.clone()));
-        let prelude = self
-            .prelude_module(&doc)
-            .filter(|module| analysis::type_declaration_range(module, &token).is_some())
-            .map(|module| (module.uri, module.snapshot, token.clone()));
-        let (target_uri, target_text, name) = imported
-            .or(local)
-            .or(prelude)
-            .unwrap_or_else(|| (doc.uri.clone(), doc.snapshot.clone(), token.clone()));
-        let range = analysis::type_declaration_range(&target_text, &name);
-        let Some(range) = range else {
+        let SemanticTarget::Global(id) = selection.occurrence.target else {
             return Ok(None);
         };
-        Ok(Some(GotoDefinitionResponse::Scalar(Location {
-            uri: target_uri,
-            range: adapters::range(&target_text, range),
-        })))
+        let Some(entity) = selection.view.entity(id) else {
+            return Ok(None);
+        };
+        if entity.kind != analysis::DeclarationKind::Type {
+            return Ok(None);
+        }
+        Ok(Self::semantic_location(&selection.view, entity.declaration)
+            .map(GotoDefinitionResponse::Scalar))
     }
 }

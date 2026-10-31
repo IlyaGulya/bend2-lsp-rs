@@ -1,7 +1,7 @@
 use super::{
     BENCHMARKS, Identity, METRICS, PROBE, ROLES, ReportArgs, VARIANTS, baseline_name,
     callgrind::{identity, parse_measurement, signals, strict_json},
-    require,
+    require, shard,
 };
 use crate::{ToolResult, common::write_json, policy};
 use serde_json::{Map, Value, json};
@@ -26,13 +26,15 @@ const ENVIRONMENT_FIELDS: [&str; 7] = [
 fn nonempty(value: &Value) -> bool {
     value.as_str().is_some_and(|text| !text.trim().is_empty())
 }
+fn digest_str(text: &str) -> bool {
+    text.len() == 64
+        && text
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn digest(value: &Value) -> bool {
-    value.as_str().is_some_and(|text| {
-        text.len() == 64
-            && text
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    })
+    value.as_str().is_some_and(digest_str)
 }
 
 fn validate_metadata(data: &Value) -> ToolResult<()> {
@@ -305,18 +307,75 @@ fn workload_identities(workloads: &Value) -> ToolResult<BTreeSet<Identity>> {
     Ok(current)
 }
 
+fn collection_runner(stdout: &Path, root: &Path, evidence: &Value) -> ToolResult<String> {
+    let collection = evidence["execution"]["collection"]
+        .as_str()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or("benchmark execution must retain its runner collection receipt")?;
+    // Producer layout: collection.json sits in the pair directory that contains
+    // every benchmark child directory and its stdout/stderr evidence.
+    let pair = stdout
+        .parent()
+        .ok_or("benchmark evidence has no benchmark directory")?
+        .parent()
+        .ok_or("benchmark evidence is not inside a pair directory")?;
+    let path = pair
+        .join(collection)
+        .canonicalize()
+        .map_err(|error| format!("benchmark collection receipt is missing: {error}"))?;
+    require(
+        path.starts_with(root.canonicalize()?) && path.is_file(),
+        "benchmark collection receipt is missing or escapes the dataset directory",
+    )?;
+    let receipt = strict_json(&fs::read_to_string(&path)?)?;
+    let runner = receipt["original_runner_sha256"]
+        .as_str()
+        .filter(|value| digest_str(value))
+        .ok_or("benchmark collection receipt has no pinned runner digest")?;
+    Ok(runner.to_owned())
+}
+
+#[derive(Clone, Copy)]
+struct EvidenceScope<'a> {
+    data: &'a Value,
+    root: &'a Path,
+    expected: &'a BTreeMap<&'static str, BTreeSet<Identity>>,
+    require_profiles: bool,
+}
+
 fn benchmark_measurements(
-    data: &Value,
+    scope: EvidenceScope<'_>,
     sample: &Value,
-    root: &Path,
     baseline: &str,
     variant: &str,
-    manifests: &BTreeMap<&str, BTreeSet<Identity>>,
     evidence_files: &mut BTreeSet<PathBuf>,
-) -> ToolResult<Vec<Value>> {
-    let benchmarks = benchmark_map(&sample["benchmarks"])?;
-    let mut measured = Vec::with_capacity(manifests.values().map(BTreeSet::len).sum());
+) -> ToolResult<(Vec<Value>, BTreeSet<String>)> {
+    let EvidenceScope {
+        data,
+        root,
+        expected,
+        require_profiles,
+    } = scope;
+    let benchmarks = sample["benchmarks"]
+        .as_object()
+        .ok_or("benchmark evidence must be an object")?;
+    let measured_benchmarks: BTreeSet<_> = BENCHMARKS
+        .into_iter()
+        .filter(|benchmark| !expected[*benchmark].is_empty())
+        .collect();
+    require(
+        benchmarks.len() == measured_benchmarks.len()
+            && benchmarks
+                .keys()
+                .all(|key| measured_benchmarks.contains(key.as_str())),
+        "benchmark evidence must cover exactly the shard's nonempty benchmarks",
+    )?;
+    let mut measured = Vec::with_capacity(expected.values().map(BTreeSet::len).sum());
+    let mut runners = BTreeSet::new();
     for benchmark in BENCHMARKS {
+        if expected[benchmark].is_empty() {
+            continue;
+        }
         let evidence = &benchmarks[benchmark];
         let stdout = evidence_path(root, evidence, "raw_stdout")?;
         let stderr = evidence_path(root, evidence, "raw_stderr")?;
@@ -324,23 +383,58 @@ fn benchmark_measurements(
             evidence_files.insert(stdout.clone()) && evidence_files.insert(stderr),
             "benchmark raw evidence files must be distinct for every execution",
         )?;
-        let expected = &manifests[benchmark];
         require(
             evidence["verified_callgrind_profiles"]
                 .as_u64()
-                .is_some_and(|count| count >= expected.len() as u64),
+                .is_some_and(|count| count >= expected[benchmark].len() as u64),
             "benchmark verified Callgrind profile count is missing or incomplete",
         )?;
+        if require_profiles {
+            runners.insert(collection_runner(&stdout, root, evidence)?);
+        }
         let executable = Path::new(
             data["variants"][variant]["benchmarks"][benchmark]["executable"]
                 .as_str()
                 .ok_or("executable missing")?,
         );
-        let (rows, _) =
-            parse_measurement(&fs::read_to_string(stdout)?, baseline, executable, expected)?;
+        let (rows, _) = parse_measurement(
+            &fs::read_to_string(stdout)?,
+            baseline,
+            executable,
+            &expected[benchmark],
+        )?;
         measured.extend(rows);
     }
-    Ok(measured)
+    Ok((measured, runners))
+}
+
+impl EvidenceScope<'_> {
+    fn measured(
+        &self,
+        sample: &Value,
+        baseline: &str,
+        variant: &str,
+        evidence_files: &mut BTreeSet<PathBuf>,
+    ) -> ToolResult<(Vec<Value>, BTreeSet<String>)> {
+        if self.data["format_version"] == 2 {
+            return benchmark_measurements(*self, sample, baseline, variant, evidence_files);
+        }
+        let expected: BTreeSet<_> = self.expected.values().flatten().cloned().collect();
+        let stdout = evidence_path(self.root, sample, "raw_stdout")?;
+        evidence_path(self.root, sample, "raw_stderr")?;
+        let executable = Path::new(
+            self.data["variants"][variant]["executable"]
+                .as_str()
+                .ok_or("executable missing")?,
+        );
+        let (rows, _) = parse_measurement(
+            &fs::read_to_string(stdout)?,
+            baseline,
+            executable,
+            &expected,
+        )?;
+        Ok((rows, BTreeSet::new()))
+    }
 }
 
 fn validate_sample_counts(sample: &Value, measured: &[Value]) -> ToolResult<()> {
@@ -360,21 +454,149 @@ fn validate_sample_counts(sample: &Value, measured: &[Value]) -> ToolResult<()> 
     )
 }
 
-pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
+fn selected_identities(value: &Value) -> ToolResult<BTreeSet<Identity>> {
+    let units = value.as_array().ok_or("selected units must be a list")?;
+    let mut names = BTreeSet::new();
+    let mut identities = BTreeSet::new();
+    for unit in units {
+        require(
+            unit.as_object().is_some_and(|unit| {
+                unit.len() == 2 && unit.contains_key("function_name") && unit.contains_key("ids")
+            }),
+            "selected unit must contain only function_name and ids",
+        )?;
+        let name = unit["function_name"]
+            .as_str()
+            .filter(|name| !name.trim().is_empty())
+            .ok_or("selected unit function_name must be nonempty")?;
+        require(
+            names.insert(name.to_owned()),
+            "duplicate selected function unit",
+        )?;
+        let cases = unit["ids"]
+            .as_array()
+            .filter(|cases| !cases.is_empty())
+            .ok_or("selected function unit must retain at least one case")?;
+        for id in cases {
+            let identifier = match id {
+                Value::Null => None,
+                Value::String(identifier) if !identifier.trim().is_empty() => {
+                    Some(identifier.clone())
+                }
+                _ => return Err("selected unit id must be null or a nonempty string".into()),
+            };
+            require(
+                identities.insert((name.to_owned(), identifier)),
+                "duplicate selected unit identity",
+            )?;
+        }
+    }
+    Ok(identities)
+}
+
+/// Validate one physical dataset and, when present, its deterministic shard
+/// declaration against the frozen manifest retained in every variant.
+fn shard_selection(
+    data: &Value,
+    full: &BTreeMap<&'static str, BTreeSet<Identity>>,
+) -> ToolResult<BTreeMap<&'static str, BTreeSet<Identity>>> {
+    let shard = data["shard"]
+        .as_object()
+        .ok_or("shard provenance must be an object")?;
+    require(
+        data["format_version"] == 2,
+        "sharded datasets require format_version 2",
+    )?;
+    require(
+        shard.len() == 11,
+        "shard provenance must contain exactly the declared fields",
+    )?;
+    require(
+        shard["method"] == shard::METHOD,
+        "shard provenance must declare the deterministic partition method",
+    )?;
+    let count = shard["count"]
+        .as_u64()
+        .ok_or("shard count must be an integer")?;
+    let index = shard["index"]
+        .as_u64()
+        .ok_or("shard index must be an integer")?;
+    require(
+        (1..=shard::MAX_COUNT).contains(&count),
+        "shard count must be between 1 and 4",
+    )?;
+    require(index < count, "shard index must be less than shard count")?;
+    for field in [
+        "logical_job_id",
+        "physical_job_id",
+        "matrix_job",
+        "run_id",
+        "run_attempt",
+        "physical_runner",
+    ] {
+        require(
+            shard.get(field).is_some_and(nonempty),
+            &format!("shard {field} must be a nonempty string"),
+        )?;
+    }
+    let logical = shard["logical_job_id"]
+        .as_str()
+        .ok_or("logical job missing")?;
+    require(
+        logical == data["job_id"].as_str().ok_or("job_id missing")?,
+        "shard logical job must equal job_id",
+    )?;
+    let physical = if count == 1 {
+        logical.to_owned()
+    } else {
+        format!("{logical}-shard-{index}")
+    };
+    require(
+        shard["physical_job_id"] == physical,
+        "physical job identity must match logical job and shard index",
+    )?;
+    require(
+        shard["matrix_job"] == physical,
+        "matrix job must identify the physical shard job",
+    )?;
+    require(
+        data["host"]["runner_identity"].as_str() == shard["physical_runner"].as_str(),
+        "physical runner identity must match retained host metadata",
+    )?;
+    require(
+        shard["full_manifest"] == shard::manifest(full)?,
+        "declared full manifest is stale or incomplete",
+    )?;
+    let selected = shard::selection(full, count, index)?;
+    require(
+        shard["selected_units"] == shard::units(&selected),
+        "selected units do not match the deterministic shard partition",
+    )?;
+    Ok(selected)
+}
+
+pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<Option<String>> {
     validate_metadata(data)?;
     let samples = data["samples"]
         .as_array()
         .filter(|samples| !samples.is_empty())
         .ok_or("samples must be a nonempty list")?;
+    let full = benchmark_identities(data)?;
+    let declared = data.get("shard").is_some();
+    let expected = if declared {
+        shard_selection(data, &full)?
+    } else {
+        full.clone()
+    };
+    let expected_identities: BTreeSet<_> = expected.values().flatten().cloned().collect();
+    require(
+        !expected_identities.is_empty(),
+        "declared workload scope must be nonempty",
+    )?;
     let mut seen = BTreeSet::new();
     let mut orders: BTreeMap<u64, BTreeSet<u64>> = BTreeMap::new();
-    let mut identities = None;
     let mut evidence_files = BTreeSet::new();
-    let manifests = if data["format_version"] == 2 {
-        Some(benchmark_identities(data)?)
-    } else {
-        None
-    };
+    let mut profiles = BTreeSet::new();
     for sample in samples {
         require(sample.is_object(), "sample must be an object")?;
         let pair = sample["pair"]
@@ -396,53 +618,48 @@ pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
             orders.entry(pair).or_default().insert(order),
             "duplicate execution order within pair",
         )?;
-        let current = workload_identities(&sample["workloads"])?;
-        if let Some(previous) = &identities {
-            require(
-                &current == previous,
-                "workload identities differ between samples",
-            )?;
-        }
         let baseline = baseline_name(
             data["job_id"].as_str().ok_or("job_id missing")?,
             pair,
             variant,
         );
-        let measured = if let Some(manifests) = &manifests {
-            benchmark_measurements(
-                data,
-                sample,
-                root,
-                &baseline,
-                variant,
-                manifests,
-                &mut evidence_files,
-            )?
-        } else {
-            let stdout = evidence_path(root, sample, "raw_stdout")?;
-            evidence_path(root, sample, "raw_stderr")?;
-            let executable = Path::new(
-                data["variants"][variant]["executable"]
-                    .as_str()
-                    .ok_or("executable missing")?,
-            );
-            parse_measurement(
-                &fs::read_to_string(stdout)?,
-                &baseline,
-                executable,
-                &current,
-            )?
-            .0
+        let scope = EvidenceScope {
+            data,
+            root,
+            expected: &expected,
+            require_profiles: declared,
         };
+        let (measured, runners) =
+            scope.measured(sample, &baseline, variant, &mut evidence_files)?;
+        if declared {
+            require(
+                runners.len() == 1,
+                "benchmark evidence must retain one pinned runner identity",
+            )?;
+            profiles.extend(runners);
+        }
         validate_sample_counts(sample, &measured)?;
-        identities = Some(current);
+        require(
+            workload_identities(&sample["workloads"])? == expected_identities,
+            "sample workloads do not match the declared scope",
+        )?;
     }
-    require(
-        identities
-            .as_ref()
-            .is_some_and(|identities| signals().is_subset(identities)),
-        "missing small/medium/large inlay_hints_warm controls",
-    )?;
+    if declared {
+        require(
+            profiles.len() == 1,
+            "all benchmark evidence must use the same pinned runner",
+        )?;
+    } else {
+        require(
+            signals().is_subset(&expected_identities),
+            "missing small/medium/large inlay_hints_warm controls",
+        )?;
+    }
+    validate_pairs(&seen)?;
+    Ok(profiles.into_iter().next())
+}
+
+fn validate_pairs(seen: &BTreeSet<(u64, &str)>) -> ToolResult<()> {
     let pairs: BTreeSet<_> = seen.iter().map(|(pair, _)| *pair).collect();
     require(
         pairs.first() == Some(&1) && pairs.last().copied() == Some(u64::try_from(pairs.len())?),
@@ -458,7 +675,7 @@ pub(super) fn validate_job(data: &Value, root: &Path) -> ToolResult<()> {
     )
 }
 
-fn benchmark_identities(data: &Value) -> ToolResult<BTreeMap<&str, BTreeSet<Identity>>> {
+fn benchmark_identities(data: &Value) -> ToolResult<BTreeMap<&'static str, BTreeSet<Identity>>> {
     if data["format_version"] == 1 {
         return Ok(BTreeMap::from([(
             "analysis",
@@ -505,19 +722,290 @@ fn dataset_paths(directory: &Path, root: &Path, paths: &mut Vec<PathBuf>) -> Too
     Ok(())
 }
 
+struct PhysicalDataset {
+    path: PathBuf,
+    data: Value,
+}
+
+fn relative_dataset(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn group_common(
+    ordered: &[&PhysicalDataset],
+    first: &Value,
+) -> ToolResult<BTreeMap<&'static str, BTreeSet<Identity>>> {
+    let role = first["role"].as_str().ok_or("role missing")?;
+    for member in ordered {
+        require(
+            member.data["role"].as_str() == Some(role),
+            "physical shards disagree on the logical role",
+        )?;
+        for field in [
+            "format_version",
+            "source_revision",
+            "fixture_sha256",
+            "harness_sha256",
+            "environment",
+        ] {
+            require(
+                member.data[field] == first[field],
+                &format!("incomparable {field} across physical shards"),
+            )?;
+        }
+        for variant in VARIANTS {
+            require(
+                member.data["variants"][variant]["source_sha256"]
+                    == first["variants"][variant]["source_sha256"],
+                &format!("incomparable {variant} source_sha256 across physical shards"),
+            )?;
+        }
+    }
+    let full = benchmark_identities(first)?;
+    for member in &ordered[1..] {
+        require(
+            benchmark_identities(&member.data)? == full,
+            "physical shards declare different full manifests",
+        )?;
+    }
+    Ok(full)
+}
+
+fn group_scope(
+    ordered: &[&PhysicalDataset],
+    root: &Path,
+    full: &BTreeMap<&'static str, BTreeSet<Identity>>,
+) -> ToolResult<Vec<Value>> {
+    let mut union: BTreeMap<&'static str, BTreeSet<Identity>> = BENCHMARKS
+        .into_iter()
+        .map(|benchmark| (benchmark, BTreeSet::new()))
+        .collect();
+    let mut workload_origin: BTreeMap<Identity, u64> = BTreeMap::new();
+    let mut physical_ids = BTreeSet::new();
+    let mut runs = BTreeSet::new();
+    let mut provenance = Vec::with_capacity(ordered.len());
+    for member in ordered {
+        let declaration = &member.data["shard"];
+        let index = declaration["index"].as_u64().ok_or("shard index missing")?;
+        let physical = declaration["physical_job_id"]
+            .as_str()
+            .ok_or("physical job missing")?;
+        require(
+            physical_ids.insert(physical.to_owned()),
+            "physical shard jobs must be unique",
+        )?;
+        runs.insert((
+            declaration["run_id"]
+                .as_str()
+                .ok_or("run id missing")?
+                .to_owned(),
+            declaration["run_attempt"]
+                .as_str()
+                .ok_or("run attempt missing")?
+                .to_owned(),
+        ));
+        for benchmark in BENCHMARKS {
+            for identity in selected_identities(&declaration["selected_units"][benchmark])? {
+                require(
+                    workload_origin.insert(identity.clone(), index).is_none(),
+                    "physical shards must not overlap workloads",
+                )?;
+                require(
+                    union
+                        .get_mut(benchmark)
+                        .ok_or("benchmark union missing")?
+                        .insert(identity),
+                    "physical shards must not duplicate selected units",
+                )?;
+            }
+        }
+        let mut record = declaration.clone();
+        record["dataset"] = json!(relative_dataset(root, &member.path));
+        record["host"] = member.data["host"].clone();
+        record["runner_sha256"] = member.data["runner_sha256"].clone();
+        provenance.push(record);
+    }
+    require(
+        runs.len() == 1,
+        "mixed workflow run or attempt across physical shards",
+    )?;
+    require(
+        &union == full,
+        "physical shards do not cover the complete frozen workload scope",
+    )?;
+    Ok(provenance)
+}
+
+struct MergedSample {
+    order: u64,
+    workloads: Vec<Value>,
+    identities: BTreeSet<Identity>,
+    origins: BTreeSet<u64>,
+}
+
+fn collect_merged(
+    ordered: &[&PhysicalDataset],
+    full: &BTreeMap<&'static str, BTreeSet<Identity>>,
+) -> ToolResult<Vec<Value>> {
+    let expected_identities: BTreeSet<_> = full.values().flatten().cloned().collect();
+    let all_indices: BTreeSet<u64> = ordered
+        .iter()
+        .filter_map(|member| member.data["shard"]["index"].as_u64())
+        .collect();
+    let mut merged: BTreeMap<(u64, usize), MergedSample> = BTreeMap::new();
+    for member in ordered {
+        let index = member.data["shard"]["index"]
+            .as_u64()
+            .ok_or("shard index missing")?;
+        for sample in member.data["samples"].as_array().ok_or("samples missing")? {
+            let pair = sample["pair"].as_u64().ok_or("pair missing")?;
+            let variant = sample["variant"].as_str().ok_or("variant missing")?;
+            let position = VARIANTS
+                .iter()
+                .position(|candidate| *candidate == variant)
+                .ok_or("variant unsupported")?;
+            let order = sample["order"].as_u64().ok_or("order missing")?;
+            let entry = merged
+                .entry((pair, position))
+                .or_insert_with(|| MergedSample {
+                    order,
+                    workloads: Vec::new(),
+                    identities: BTreeSet::new(),
+                    origins: BTreeSet::new(),
+                });
+            require(
+                entry.order == order,
+                "physical shards disagree on balanced execution order",
+            )?;
+            require(
+                entry.origins.insert(index),
+                "duplicate sample within a physical shard",
+            )?;
+            for row in sample["workloads"].as_array().ok_or("workloads missing")? {
+                require(
+                    entry.identities.insert(identity(row)?),
+                    "duplicate measurement across physical shards",
+                )?;
+                entry.workloads.push(row.clone());
+            }
+        }
+    }
+    let mut samples = Vec::with_capacity(merged.len());
+    for ((pair, position), sample) in merged {
+        require(
+            sample.origins == all_indices,
+            "every physical shard must contribute to every pair and variant",
+        )?;
+        require(
+            sample.identities == expected_identities,
+            "merged sample does not cover the complete frozen workload scope",
+        )?;
+        samples.push(json!({
+            "pair": pair,
+            "variant": VARIANTS[position],
+            "order": sample.order,
+            "workloads": sample.workloads,
+            "shards": sample.origins.into_iter().collect::<Vec<_>>(),
+        }));
+    }
+    Ok(samples)
+}
+
+fn merge_group(members: &[PhysicalDataset], root: &Path) -> ToolResult<Value> {
+    if members.len() == 1 {
+        let data = &members[0].data;
+        if data.get("shard").is_some() {
+            require(
+                data["shard"]["count"] == 1,
+                "a single dataset cannot declare multiple physical shards",
+            )?;
+        }
+        return Ok(data.clone());
+    }
+    require(
+        members
+            .iter()
+            .all(|member| member.data.get("shard").is_some()),
+        "duplicate job_id",
+    )?;
+    let mut ordered: Vec<&PhysicalDataset> = members.iter().collect();
+    ordered.sort_by_key(|member| member.data["shard"]["index"].as_u64().unwrap_or(u64::MAX));
+    let count = ordered[0].data["shard"]["count"]
+        .as_u64()
+        .ok_or("shard count missing")?;
+    require(
+        u64::try_from(ordered.len())? == count,
+        "logical job is missing or duplicates physical shards",
+    )?;
+    let indices: BTreeSet<u64> = ordered
+        .iter()
+        .filter_map(|member| member.data["shard"]["index"].as_u64())
+        .collect();
+    require(
+        indices == (0..count).collect::<BTreeSet<_>>(),
+        "physical shard indices must be unique, complete, and in range",
+    )?;
+    let first = &ordered[0].data;
+    let full = group_common(&ordered, first)?;
+    let provenance = group_scope(&ordered, root, &full)?;
+    let runner = first["runner_sha256"]
+        .as_str()
+        .ok_or("pinned runner identity missing")?;
+    for member in &ordered {
+        require(
+            member.data["runner_sha256"].as_str() == Some(runner),
+            "incomparable Callgrind runner identity across physical shards",
+        )?;
+    }
+    let samples = collect_merged(&ordered, &full)?;
+    require(
+        samples.len() == first["samples"].as_array().map_or(0, Vec::len),
+        "physical shards disagree on the number of balanced samples",
+    )?;
+    Ok(json!({
+        "format_version": first["format_version"],
+        "job_id": first["job_id"],
+        "role": first["role"],
+        "source_revision": first["source_revision"],
+        "fixture_sha256": first["fixture_sha256"],
+        "harness_sha256": first["harness_sha256"],
+        "environment": first["environment"],
+        "variants": first["variants"],
+        "host": {"logical_job_id": first["job_id"], "shards": provenance.iter().map(|record| json!({"index": record["index"], "physical_job_id": record["physical_job_id"], "physical_runner": record["physical_runner"], "host": record["host"]})).collect::<Vec<_>>()},
+        "shards": provenance,
+        "runner_sha256": runner,
+        "samples": samples,
+    }))
+}
+
 pub(super) fn read_datasets(root: &Path) -> ToolResult<Vec<Value>> {
     require(root.is_dir(), "input root must be a directory")?;
     let mut paths = Vec::new();
     dataset_paths(root, &root.canonicalize()?, &mut paths)?;
     paths.sort();
     require(!paths.is_empty(), "no data.json datasets found")?;
-    let mut jobs = Vec::with_capacity(paths.len());
+    let mut groups: BTreeMap<String, Vec<PhysicalDataset>> = BTreeMap::new();
     for path in paths {
-        let job = strict_json(&fs::read_to_string(&path)?)
+        let mut job = strict_json(&fs::read_to_string(&path)?)
             .map_err(|error| format!("{}: {error}", path.display()))?;
         let parent = path.parent().ok_or("dataset directory missing")?;
-        validate_job(&job, parent).map_err(|error| format!("{}: {error}", path.display()))?;
-        jobs.push(job);
+        let runner =
+            validate_job(&job, parent).map_err(|error| format!("{}: {error}", path.display()))?;
+        if let Some(runner) = runner {
+            job["runner_sha256"] = json!(runner);
+        }
+        let job_id = job["job_id"].as_str().ok_or("job_id missing")?.to_owned();
+        groups
+            .entry(job_id)
+            .or_default()
+            .push(PhysicalDataset { path, data: job });
+    }
+    let mut jobs = Vec::with_capacity(groups.len());
+    for members in groups.into_values() {
+        jobs.push(merge_group(&members, root)?);
     }
     validate_comparability(&jobs)?;
     Ok(jobs)
@@ -565,6 +1053,69 @@ pub(super) fn validate_comparability(jobs: &[Value]) -> ToolResult<()> {
             benchmark_identities(job)? == first_benchmarks,
             "incomparable benchmark workload ownership across jobs",
         )?;
+    }
+    let runners: BTreeSet<Option<&str>> = jobs
+        .iter()
+        .map(|job| job.get("runner_sha256").and_then(Value::as_str))
+        .collect();
+    require(
+        runners.len() == 1,
+        "incomparable Callgrind runner identity across jobs",
+    )?;
+    let mut runs = BTreeSet::new();
+    let mut sharded = 0_usize;
+    for job in jobs {
+        if let Some(shards) = job["shards"].as_array() {
+            sharded += 1;
+            for shard in shards {
+                runs.insert((
+                    shard["run_id"].as_str().ok_or("run id missing")?.to_owned(),
+                    shard["run_attempt"]
+                        .as_str()
+                        .ok_or("run attempt missing")?
+                        .to_owned(),
+                ));
+            }
+        } else if let Some(shard) = job.get("shard") {
+            sharded += 1;
+            runs.insert((
+                shard["run_id"].as_str().ok_or("run id missing")?.to_owned(),
+                shard["run_attempt"]
+                    .as_str()
+                    .ok_or("run attempt missing")?
+                    .to_owned(),
+            ));
+        }
+    }
+    require(
+        sharded == 0 || sharded == jobs.len(),
+        "mixed sharded and unsharded calibration datasets",
+    )?;
+    require(
+        runs.len() <= 1,
+        "mixed workflow run or attempt across physical shards",
+    )
+}
+
+pub(super) fn observed_shards(job: &Value) -> u64 {
+    job["shards"].as_array().map_or_else(
+        || job["shard"]["count"].as_u64().unwrap_or(1),
+        |shards| u64::try_from(shards.len()).unwrap_or(0),
+    )
+}
+
+pub(super) fn check_expected_shards(jobs: &[Value], expected: Option<u64>) -> ToolResult<()> {
+    if let Some(expected) = expected {
+        for job in jobs {
+            let observed = observed_shards(job);
+            require(
+                observed == expected,
+                &format!(
+                    "job {}: expected {expected} physical shards, found {observed}",
+                    job["job_id"]
+                ),
+            )?;
+        }
     }
     Ok(())
 }
@@ -811,6 +1362,9 @@ pub(super) fn build_report(jobs: &[Value]) -> ToolResult<Value> {
             "environment",
             "fixture_sha256",
             "harness_sha256",
+            "runner_sha256",
+            "shard",
+            "shards",
             "variants",
         ] {
             record.insert(key.to_owned(), job[key].clone());
@@ -1042,7 +1596,8 @@ pub(super) fn run(args: &ReportArgs) -> ToolResult<()> {
         args.expected_pairs,
     )?;
     let expected_scope =
-        check_expected_scope(&jobs, args.expected_workloads, args.require_all_benchmarks);
+        check_expected_scope(&jobs, args.expected_workloads, args.require_all_benchmarks)
+            .and_then(|()| check_expected_shards(&jobs, args.expected_shards));
     let mut report = build_report(&jobs)?;
     if let Err(error) = &expected_scope {
         report["coverage"]["expectation_error"] = json!(error.to_string());

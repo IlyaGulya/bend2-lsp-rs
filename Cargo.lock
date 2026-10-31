@@ -125,6 +125,7 @@ version = "0.6.2"
 dependencies = [
  "base64",
  "dhat",
+ "hashbrown 0.17.1",
  "iai-callgrind",
  "ignore",
  "nix",
@@ -146,9 +147,11 @@ dependencies = [
 name = "bend2-perf"
 version = "0.6.2"
 dependencies = [
+ "bincode",
  "clap",
  "ctrlc",
  "encoding_rs_io",
+ "iai-callgrind-runner",
  "libproc",
  "nix",
  "quick-xml",
@@ -158,6 +161,16 @@ dependencies = [
  "tempfile",
  "url",
  "winsafe",
+]
+
+[[package]]
+name = "bend2-semantic-probe"
+version = "0.6.2"
+dependencies = [
+ "bend2-lsp",
+ "serde_json",
+ "tempfile",
+ "url",
 ]
 
 [[package]]
@@ -1474,9 +1487,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.1"
+version = "1.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
+checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
 dependencies = [
  "bytes",
  "libc",

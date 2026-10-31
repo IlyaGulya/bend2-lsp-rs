@@ -1,14 +1,13 @@
 use super::{
     compiler::CompilerReapers,
     compiler_service::BaseModule,
-    features::named_document_symbol,
     lsp::Backend,
     revision::{RevisionStatus, RevisionTicket, wait_for_captured_revision},
     state::revision_result,
 };
 use crate::{
     analysis::{self, DocumentSnapshot, LineIndex, Revision},
-    workspace::{Document, FileId, SourceGraph, normalize_path},
+    workspace::{Document, FileId, PreparedImportTarget, SourceGraph},
 };
 use std::{
     collections::{HashMap, HashSet, hash_map::DefaultHasher},
@@ -17,10 +16,7 @@ use std::{
     sync::Arc,
 };
 use tokio::sync::{RwLockReadGuard, Semaphore, watch};
-use tower_lsp::{
-    Client,
-    lsp_types::{DidChangeTextDocumentParams, Location},
-};
+use tower_lsp::{Client, lsp_types::DidChangeTextDocumentParams};
 use tracing::Instrument;
 use url::Url;
 
@@ -34,7 +30,21 @@ struct WatchedFile {
 struct PreparedDiskUpdate {
     file: WatchedFile,
     snapshot: Option<Arc<DocumentSnapshot>>,
-    imports: Vec<(analysis::TextRange, PathBuf)>,
+    physical_path: PathBuf,
+    imports: Vec<PreparedImportTarget>,
+}
+
+struct WatchedImporter {
+    id: FileId,
+    path: PathBuf,
+    snapshot: Arc<DocumentSnapshot>,
+}
+
+struct PreparedImporter {
+    id: FileId,
+    snapshot: Arc<DocumentSnapshot>,
+    physical_path: PathBuf,
+    imports: Vec<PreparedImportTarget>,
 }
 
 pub(super) async fn run_staging<T, F>(semaphore: Arc<Semaphore>, operation: F) -> Option<T>
@@ -145,7 +155,7 @@ impl Backend {
         version: i32,
         text: String,
         path: Option<PathBuf>,
-    ) -> Option<bool> {
+    ) -> Option<()> {
         let (id, ticket, path) = self.begin_revision(&uri, path, Revision(version), true)?;
         tracing::Span::current().record("file_id", tracing::field::debug(&id));
         if !revision_result(ticket.wait_for_turn().await) {
@@ -155,16 +165,24 @@ impl Backend {
         let opened = run_staging(self.workspace.staging.clone(), move || {
             let snapshot = Arc::new(trace_document_snapshot(Revision(version), text));
             let document = Document::with_snapshot(uri, language_id, snapshot);
-            let needs_prelude = analysis::imports(&document)
-                .iter()
-                .any(|import| import.path_text(&document.text) == "Base");
-            let imports = build_path.as_deref().map_or_else(Vec::new, |path| {
-                crate::workspace::resolve_import_targets(path, &document.snapshot)
-            });
-            (document, imports, needs_prelude)
+            let physical_path = build_path
+                .as_deref()
+                .map(crate::workspace::canonical_source_path);
+            let imports = build_path
+                .as_deref()
+                .zip(physical_path.as_deref())
+                .map_or_else(Vec::new, |(path, physical_path)| {
+                    crate::workspace::resolve_import_targets(
+                        path,
+                        physical_path,
+                        &document.snapshot,
+                    )
+                });
+            let library_path = crate::workspace::canonical_library_path();
+            (document, imports, physical_path, library_path)
         })
         .await?;
-        let (document, imports, needs_prelude) = opened;
+        let (document, imports, physical_path, library_path) = opened;
         revision_result(ticket.store_staged_document(document.clone()));
         if !revision_result(ticket.is_current()) {
             return None;
@@ -181,7 +199,13 @@ impl Backend {
             );
             let root = commit_span.in_scope(|| {
                 self.workspace.commit(Some(&ticket), None, |database| {
-                    Some(database.set_open_document_prepared(document, path, imports))
+                    database.set_semantic_library_path(library_path);
+                    Some(database.set_open_document_prepared(
+                        document,
+                        path,
+                        physical_path,
+                        imports,
+                    ))
                 })
             })?;
             commit_span.record("file_id", tracing::field::debug(&root));
@@ -194,9 +218,10 @@ impl Backend {
         if !self.workspace.finish_revision(&ticket) {
             return None;
         }
+        self.prepare_semantic_views().await;
         tracing::Span::current().record("outcome", "committed");
         drop(ticket);
-        Some(needs_prelude)
+        Some(())
     }
 
     #[tracing::instrument(
@@ -272,37 +297,44 @@ impl Backend {
     pub(super) fn pending_revisions(
         &self,
         uri: Option<&Url>,
-    ) -> Vec<(watch::Receiver<RevisionStatus>, u64)> {
+    ) -> (Vec<(watch::Receiver<RevisionStatus>, u64)>, bool) {
         let state = self.workspace.state.read();
         let revisions = &state.revisions;
-        // Most queries have no pending updates. Avoid walking the import graph
-        // or allocating waiters on this warm path.
-        if !revisions
-            .values()
-            .any(|sync| revision_result(sync.status()).is_pending())
-        {
-            return Vec::new();
+        let database = &state.database;
+        // The normal path neither walks imports nor allocates waiters. Closing
+        // epochs use the existing status plus DB overlay, not a second lifecycle.
+        if !revisions.iter().any(|(file, sync)| {
+            let status = revision_result(sync.status());
+            status.is_pending() || (status.desired().is_none() && database.is_file_open(*file))
+        }) {
+            return (Vec::new(), false);
         }
         let dependencies = if let Some(uri) = uri {
-            let database = &state.database;
             let Some(root) = database.file_id_by_uri(uri) else {
-                return Vec::new();
+                return (Vec::new(), false);
             };
             Some(database.dependencies(root))
         } else {
             None
         };
-        revisions
+        let mut closing = false;
+        let pending = revisions
             .iter()
-            .filter_map(|(id, sync)| {
-                let state = revision_result(sync.status());
-                (state.is_pending()
-                    && dependencies
-                        .as_ref()
-                        .is_none_or(|dependencies| dependencies.contains(id)))
-                .then(|| (sync.subscribe(), state.generation()))
+            .filter_map(|(file, sync)| {
+                if dependencies
+                    .as_ref()
+                    .is_some_and(|dependencies| !dependencies.contains(file))
+                {
+                    return None;
+                }
+                let status = revision_result(sync.status());
+                closing |= status.desired().is_none() && database.is_file_open(*file);
+                status
+                    .is_pending()
+                    .then(|| (sync.subscribe(), status.generation()))
             })
-            .collect()
+            .collect();
+        (pending, closing)
     }
 
     pub(super) async fn ready_read(&self, uri: Option<&Url>) -> RwLockReadGuard<'_, ()> {
@@ -316,14 +348,43 @@ impl Backend {
     }
 
     async fn ready_read_inner(&self, uri: Option<&Url>) -> RwLockReadGuard<'_, ()> {
-        if uri.is_none() {
+        if uri.is_none_or(|uri| !self.workspace.read().is_document_open(uri)) {
             self.workspace.wait_for_discovery().await;
         }
         loop {
+            let changed = self.workspace.state_changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
             let read = self.workspace_read().await;
-            let pending = self.pending_revisions(uri);
+            let (pending, closing) = self.pending_revisions(uri);
             if pending.is_empty() {
-                return read;
+                if closing {
+                    drop(read);
+                    changed.await;
+                    continue;
+                }
+                let (ready, root) = {
+                    let database = self.workspace.read();
+                    let root = uri.and_then(|uri| database.file_id_by_uri(uri));
+                    let ready = match uri {
+                        Some(_) => {
+                            root.is_none_or(|root| database.semantic_views_ready_for(Some(root)))
+                        }
+                        None => true,
+                    };
+                    (ready, root)
+                };
+                if ready {
+                    return read;
+                }
+                drop(read);
+                // Discovery and superseding revisions can dirty a view after an
+                // update owner's preparation. Capture/build off-lock and recheck.
+                if let Some(root) = root {
+                    self.prepare_semantic_views_for_read(std::slice::from_ref(&root))
+                        .await;
+                }
+                continue;
             }
             drop(read);
             let span = tracing::info_span!(
@@ -346,14 +407,19 @@ impl Backend {
         self.ready_read(None).await
     }
 
+    /// Query source, including needed closed files and compiler-leased snapshots.
+    /// Overlay lifecycle decisions must use `open_document` / `is_document_open`.
     pub(super) fn document(&self, uri: &Url) -> Option<Document> {
         let database = self.workspace.read();
-        let document = database.open_document(uri)?;
+        let id = database.file_id_by_uri(uri)?;
+        if !database.is_needed(id) && !database.is_compiler_document(uri) {
+            return None;
+        }
+        let document = database.cached_document(uri)?;
         if tracing::enabled!(
             target: "bend2_lsp::server::lsp",
             tracing::Level::INFO
-        ) && let Some(id) = database.file_id_by_uri(uri)
-        {
+        ) {
             let span = tracing::Span::current();
             span.record("file_id", tracing::field::debug(&id));
             span.record("revision", document.revision.0);
@@ -361,18 +427,37 @@ impl Backend {
         Some(document)
     }
 
-    pub(super) fn cached_document(&self, uri: &Url) -> Option<Document> {
-        self.workspace.read().cached_document(uri)
+    pub(super) async fn prepare_editor_import_paths(&self, uri: &Url) {
+        let captured = {
+            let database = self.workspace.read();
+            if database.editor_import_paths_ready(uri) {
+                return;
+            }
+            database.file_id_by_uri(uri).and_then(|file| {
+                let document = database.cached_document(uri)?;
+                let path = database.document_path(uri)?;
+                Some((file, document.snapshot, path))
+            })
+        };
+        let Some((file, snapshot, path)) = captured else {
+            return;
+        };
+        let Some((snapshot, paths)) = run_staging(self.workspace.staging.clone(), move || {
+            let paths = crate::workspace::resolve_editor_import_paths(&path, &snapshot);
+            (snapshot, paths)
+        })
+        .await
+        else {
+            return;
+        };
+        let _update = self.workspace.updates.write().await;
+        self.workspace
+            .publish_editor_import_paths(file, &snapshot, paths);
     }
+
     #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "open_documents", result_count = tracing::field::Empty))]
     pub(super) fn workspace_documents(&self) -> Vec<Document> {
         let documents = self.workspace.read().open_documents();
-        tracing::Span::current().record("result_count", documents.len());
-        documents
-    }
-    #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "indexed_documents", result_count = tracing::field::Empty))]
-    pub(super) fn indexed_documents(&self) -> Vec<Document> {
-        let documents = self.workspace.read().indexed_documents();
         tracing::Span::current().record("result_count", documents.len());
         documents
     }
@@ -386,12 +471,21 @@ impl Backend {
         }
         let _serial = self.workspace.update_serial.lock().await;
         let generation = self.workspace.generation();
-        let Some((document, path, imports)) =
+        let Some((document, path, physical_path, library_path, imports)) =
             run_staging(self.workspace.staging.clone(), move || {
-                let imports = path.as_deref().map_or_else(Vec::new, |path| {
-                    crate::workspace::resolve_import_targets(path, &document.snapshot)
-                });
-                (document, path, imports)
+                let physical_path = path.as_deref().map(crate::workspace::canonical_source_path);
+                let imports = path.as_deref().zip(physical_path.as_deref()).map_or_else(
+                    Vec::new,
+                    |(path, physical_path)| {
+                        crate::workspace::resolve_import_targets(
+                            path,
+                            physical_path,
+                            &document.snapshot,
+                        )
+                    },
+                );
+                let library_path = crate::workspace::canonical_library_path();
+                (document, path, physical_path, library_path, imports)
             })
             .await
         else {
@@ -410,7 +504,13 @@ impl Backend {
             let Some(root) = commit_span.in_scope(|| {
                 self.workspace
                     .commit(Some(&ticket), Some(generation), |database| {
-                        Some(database.set_open_document_prepared(document, path, imports))
+                        database.set_semantic_library_path(library_path);
+                        Some(database.set_open_document_prepared(
+                            document,
+                            path,
+                            physical_path,
+                            imports,
+                        ))
                     })
             }) else {
                 return;
@@ -428,6 +528,7 @@ impl Backend {
         } else {
             tracing::Span::current().record("outcome", "superseded");
         }
+        self.prepare_semantic_views().await;
     }
 
     #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "revision", revision = params.text_document.version, file_id = tracing::field::Empty, outcome = tracing::field::Empty))]
@@ -444,13 +545,13 @@ impl Backend {
         if !revision_result(ticket.wait_for_turn().await) {
             return false;
         }
-        let Some(document) =
-            revision_result(ticket.staged_document()).or_else(|| self.document(&uri))
+        let Some(document) = revision_result(ticket.staged_document())
+            .or_else(|| self.workspace.read().open_document(&uri))
         else {
             return false;
         };
         let changes = params.content_changes;
-        let Some((updated_document, imports)) =
+        let Some((updated_document, physical_path, library_path, imports)) =
             run_staging(self.workspace.staging.clone(), move || {
                 let (text, line_index) =
                     super::document_text::DocumentText::apply_changes(&document, changes)
@@ -465,10 +566,15 @@ impl Backend {
                     document.language_id.clone(),
                     snapshot.clone(),
                 );
-                let imports = path.as_deref().map_or_else(Vec::new, |path| {
-                    crate::workspace::resolve_import_targets(path, &snapshot)
-                });
-                (updated_document, imports)
+                let physical_path = path.as_deref().map(crate::workspace::canonical_source_path);
+                let imports = path.as_deref().zip(physical_path.as_deref()).map_or_else(
+                    Vec::new,
+                    |(path, physical_path)| {
+                        crate::workspace::resolve_import_targets(path, physical_path, &snapshot)
+                    },
+                );
+                let library_path = crate::workspace::canonical_library_path();
+                (updated_document, physical_path, library_path, imports)
             })
             .await
         else {
@@ -489,9 +595,11 @@ impl Backend {
             );
             let result = commit_span.in_scope(|| {
                 self.workspace.commit(Some(&ticket), None, |database| {
+                    database.set_semantic_library_path(library_path);
                     let (_, imports_changed) = database.update_open_snapshot_prepared(
                         &uri,
                         updated_document.snapshot.clone(),
+                        physical_path,
                         imports,
                     )?;
                     Some(imports_changed)
@@ -512,6 +620,7 @@ impl Backend {
         if !self.workspace.finish_revision(&ticket) {
             return false;
         }
+        self.prepare_semantic_views().await;
         tracing::Span::current().record("outcome", "committed");
         true
     }
@@ -542,6 +651,7 @@ impl Backend {
         self.workspace
             .load_reachable_async(std::slice::from_ref(&id), None)
             .await;
+        self.prepare_semantic_views().await;
         tracing::Span::current().record("outcome", "committed");
         true
     }
@@ -569,12 +679,7 @@ impl Backend {
     ) -> Option<(Url, Arc<DocumentSnapshot>)> {
         let import = analysis::imports(source)
             .iter()
-            .find(|import| import.alias_text(&source.text) == Some(alias))?;
-        let imported = import.path_text(&source.text);
-        if imported == "Base" {
-            let base = self.compiler.base_module.read().clone()?;
-            return Some((base.uri, base.snapshot));
-        }
+            .find(|import| import.valid_syntax && import.alias_text(&source.text) == Some(alias))?;
         let document = self
             .workspace
             .read()
@@ -583,152 +688,14 @@ impl Backend {
     }
 
     pub(super) fn prelude_module(&self, source: &Document) -> Option<BaseModule> {
-        if !analysis::imports(source)
-            .iter()
-            .any(|import| import.path_text(&source.text) == "Base")
-        {
+        if !analysis::imports(source).iter().any(|import| {
+            import.valid_syntax
+                && import.alias.is_none()
+                && import.path_text(&source.text) == "Base"
+        }) {
             return None;
         }
         self.compiler.base_module.read().clone()
-    }
-
-    pub(super) fn prelude_declaration(&self, source: &Document, name: &str) -> Option<BaseModule> {
-        let module = self.prelude_module(source)?;
-        analysis::declaration_range(&module, name)?;
-        Some(module)
-    }
-
-    pub(super) fn symbol_source(
-        &self,
-        document: &Document,
-        name: &str,
-    ) -> (Url, Arc<DocumentSnapshot>, String) {
-        if let Some((alias, member)) = name.split_once('.')
-            && let Some((uri, snapshot)) = self.module_document(document, alias)
-        {
-            return (uri, snapshot, member.to_owned());
-        }
-        (
-            document.uri.clone(),
-            document.snapshot.clone(),
-            name.to_owned(),
-        )
-    }
-
-    pub(super) fn hierarchy_source(
-        &self,
-        document: &Document,
-        name: &str,
-    ) -> Option<(Url, Arc<DocumentSnapshot>, String)> {
-        let (uri, snapshot, member) = self.symbol_source(document, name);
-        if named_document_symbol(&snapshot, &member).is_some() {
-            return Some((uri, snapshot, member));
-        }
-        let module = self.prelude_module(document)?;
-        named_document_symbol(&module, name)?;
-        Some((module.uri, module.snapshot, name.to_owned()))
-    }
-
-    pub(super) fn hierarchy_document(&self, uri: &Url) -> Option<Document> {
-        self.cached_document(uri)
-    }
-
-    #[tracing::instrument(name = "analysis.query", skip_all, fields(kind = "symbol_references", result_count = tracing::field::Empty))]
-    pub(super) fn symbol_references(
-        &self,
-        target_uri: &Url,
-        name: &str,
-        include_declaration: bool,
-    ) -> Vec<Location> {
-        let span = tracing::Span::current();
-        let target_path = self
-            .document_path(target_uri)
-            .map(|path| normalize_path(&path));
-        let target_snapshot = self
-            .cached_document(target_uri)
-            .map(|document| document.snapshot);
-        let Some(target_snapshot) = target_snapshot else {
-            span.record("result_count", 0);
-            return Vec::new();
-        };
-        let Some(target_name_id) = target_snapshot.syntax.name_id(&target_snapshot.text, name)
-        else {
-            span.record("result_count", 0);
-            return Vec::new();
-        };
-        let Some(target_symbol) = target_snapshot.syntax.symbol_by_name(target_name_id) else {
-            span.record("result_count", 0);
-            return Vec::new();
-        };
-        let target_name = target_snapshot
-            .syntax
-            .name_text(&target_snapshot.text, target_symbol.name)
-            .to_owned();
-        let mut locations = Vec::new();
-        for candidate in self.indexed_documents() {
-            if !Self::supported(&candidate) {
-                continue;
-            }
-            let candidate_path = self
-                .document_path(&candidate.uri)
-                .map(|path| normalize_path(&path));
-            let same_target = candidate.uri == *target_uri
-                || target_path
-                    .as_ref()
-                    .is_some_and(|path| candidate_path.as_ref() == Some(path));
-            if same_target {
-                let Some(candidate_name) = candidate
-                    .syntax
-                    .name_id(&candidate.text, &target_name)
-                    .and_then(|name| candidate.syntax.symbol_by_name(name))
-                else {
-                    continue;
-                };
-                for reference in candidate.syntax.references(candidate_name.id) {
-                    if include_declaration || reference.kind != analysis::ReferenceKind::Declaration
-                    {
-                        locations.push(Location {
-                            uri: candidate.uri.clone(),
-                            range: super::adapters::range(&candidate, reference.range),
-                        });
-                    }
-                }
-                continue;
-            }
-            let Some(candidate_name) = candidate.syntax.name_id(&candidate.text, &target_name)
-            else {
-                continue;
-            };
-            for reference in candidate.syntax.references_named(candidate_name) {
-                let Some(qualifier) = reference.qualifier else {
-                    continue;
-                };
-                if reference.resolved.is_some()
-                    || reference
-                        .qualifier_token
-                        .is_some_and(|token| candidate.syntax.symbol_for_token(token).is_some())
-                {
-                    continue;
-                }
-                let alias = candidate.syntax.name_text(&candidate.text, qualifier);
-                let Some((module_uri, _)) = self.module_document(&candidate, alias) else {
-                    continue;
-                };
-                let module_path = self
-                    .document_path(&module_uri)
-                    .map(|path| normalize_path(&path));
-                if module_path != target_path {
-                    continue;
-                }
-                locations.push(Location {
-                    uri: candidate.uri.clone(),
-                    range: super::adapters::range(&candidate, reference.range),
-                });
-            }
-        }
-        super::reference_locations::sort_and_deduplicate(&mut locations);
-        span.record("result_count", locations.len());
-        locations
     }
 
     pub(super) fn supported(doc: &Document) -> bool {
@@ -759,6 +726,9 @@ impl Backend {
         )
     }
 
+    /// Dependents that can publish diagnostics: only open overlays own a
+    /// diagnostics task. `run_diagnostics` rejects a closed document after its
+    /// revision delay, so scheduling one would allocate and wake a late no-op.
     #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "dependents", file_id = tracing::field::Empty, result_count = tracing::field::Empty))]
     pub(super) async fn dependent_documents(&self, changed: &Url) -> Vec<Document> {
         let span = tracing::Span::current();
@@ -779,7 +749,7 @@ impl Backend {
                     });
                     let documents = id.map_or_else(Vec::new, |id| {
                         tracing::Span::current().record("file_id", tracing::field::debug(&id));
-                        database.dependents(id)
+                        database.open_dependents(id)
                     });
                     tracing::Span::current().record("result_count", documents.len());
                     documents
@@ -792,12 +762,26 @@ impl Backend {
     fn watched_snapshot_context(
         &self,
         events: Vec<(Url, PathBuf)>,
-    ) -> (Vec<WatchedFile>, HashMap<Url, i32>) {
+    ) -> (Vec<WatchedFile>, Vec<WatchedImporter>, HashMap<Url, i32>) {
         let database = self.workspace.read();
         let mut admitted = Vec::new();
         let mut seen = HashSet::new();
         let mut affected = HashMap::new();
+        let mut importers = HashMap::new();
         for (uri, path) in events {
+            for document in database.importer_documents_for_path(&path) {
+                let Some(id) = database.file_id_by_uri(&document.uri) else {
+                    continue;
+                };
+                let Some(path) = database.document_path(&document.uri) else {
+                    continue;
+                };
+                importers.entry(id).or_insert(WatchedImporter {
+                    id,
+                    path,
+                    snapshot: document.snapshot,
+                });
+            }
             let Some(id) = database
                 .file_id_by_uri(&uri)
                 .or_else(|| database.file_id_by_path(&path))
@@ -820,30 +804,63 @@ impl Backend {
                 affected.insert(document.uri.clone(), document.revision.0);
             }
         }
-        (admitted, affected)
+        (admitted, importers.into_values().collect(), affected)
     }
 
     async fn prepare_watched_updates(
         semaphore: Arc<Semaphore>,
         events: Vec<WatchedFile>,
-    ) -> Option<Vec<PreparedDiskUpdate>> {
+        importers: Vec<WatchedImporter>,
+    ) -> Option<(
+        Vec<PreparedDiskUpdate>,
+        Vec<PreparedImporter>,
+        Option<PathBuf>,
+    )> {
         run_staging(semaphore, move || {
-            events
+            let updates = events
                 .into_iter()
                 .map(|file| {
                     let snapshot = std::fs::read_to_string(&file.path)
                         .ok()
                         .map(|text| Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text)));
+                    let physical_path = crate::workspace::canonical_source_path(&file.path);
                     let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                        crate::workspace::resolve_import_targets(&file.path, snapshot)
+                        crate::workspace::resolve_import_targets(
+                            &file.path,
+                            &physical_path,
+                            snapshot,
+                        )
                     });
                     PreparedDiskUpdate {
                         file,
                         snapshot,
+                        physical_path,
                         imports,
                     }
                 })
-                .collect()
+                .collect();
+            let importers = importers
+                .into_iter()
+                .map(|importer| {
+                    let physical_path = crate::workspace::canonical_source_path(&importer.path);
+                    let imports = crate::workspace::resolve_import_targets(
+                        &importer.path,
+                        &physical_path,
+                        &importer.snapshot,
+                    );
+                    PreparedImporter {
+                        id: importer.id,
+                        physical_path,
+                        imports,
+                        snapshot: importer.snapshot,
+                    }
+                })
+                .collect();
+            (
+                updates,
+                importers,
+                crate::workspace::canonical_library_path(),
+            )
         })
         .await
     }
@@ -860,13 +877,14 @@ impl Backend {
         // Reserve watcher order before joining the initial scan. Completion may
         // bypass that scan, but must not bypass a preceding watcher update.
         self.workspace.wait_for_discovery_worker().await;
+        self.workspace.invalidate_editor_import_paths(&events).await;
         self.workspace.admit_watched_sources(&events).await;
-        let (events, mut affected) = self.watched_snapshot_context(events);
-        if events.is_empty() {
+        let (events, importers, mut affected) = self.watched_snapshot_context(events);
+        if events.is_empty() && importers.is_empty() {
             return HashMap::new();
         }
-        let Some(prepared) =
-            Self::prepare_watched_updates(self.workspace.staging.clone(), events).await
+        let Some((prepared, importers, library_path)) =
+            Self::prepare_watched_updates(self.workspace.staging.clone(), events, importers).await
         else {
             return HashMap::new();
         };
@@ -880,6 +898,7 @@ impl Backend {
             );
             let updates = commit_span.in_scope(|| {
                 self.workspace.commit(None, None, |database| {
+                    database.set_semantic_library_path(library_path);
                     let mut updates = Vec::with_capacity(prepared.len());
                     for update in prepared {
                         if !database.is_needed(update.file.id)
@@ -890,6 +909,7 @@ impl Backend {
                         }
                         let Some((id, imports_changed)) = database.sync_disk_snapshot_prepared(
                             &update.file.path,
+                            &update.physical_path,
                             update.snapshot,
                             update.imports,
                         ) else {
@@ -900,7 +920,17 @@ impl Backend {
                         }
                         updates.push((id, imports_changed));
                     }
-                    (!updates.is_empty()).then_some(updates)
+                    for importer in importers {
+                        if let Some(changed) = database.refresh_imports_prepared(
+                            importer.id,
+                            &importer.snapshot,
+                            &importer.physical_path,
+                            importer.imports,
+                        ) {
+                            updates.push((importer.id, changed));
+                        }
+                    }
+                    Some(updates)
                 })
             });
             let Some(updates) = updates else {
@@ -916,6 +946,7 @@ impl Backend {
                     .await;
             }
         }
+        self.prepare_semantic_views().await;
         let workspace_db = self.workspace.clone();
         let Some(affected) = run_staging(self.workspace.staging.clone(), move || {
             let database = workspace_db.read();
@@ -939,67 +970,5 @@ impl Backend {
         };
         tracing::Span::current().record("outcome", "committed");
         affected
-    }
-
-    pub(super) fn resolve_call_target(
-        &self,
-        source: &Document,
-        call: &analysis::CallSite,
-    ) -> Option<(Url, Arc<DocumentSnapshot>, analysis::SymbolId)> {
-        if let Some(callee) = call.callee {
-            let symbol = source.syntax.symbol_by_id(callee)?;
-            return (symbol.kind == analysis::SymbolKind::Function)
-                .then(|| (source.uri.clone(), source.snapshot.clone(), callee));
-        }
-        if let Some(qualifier) = call.qualifier {
-            if call
-                .qualifier_token
-                .is_some_and(|token| source.syntax.symbol_for_token(token).is_some())
-            {
-                return None;
-            }
-            let alias = source.syntax.name_text(&source.text, qualifier);
-            let imported = self.module_document(source, alias).or_else(|| {
-                (alias == "Base")
-                    .then(|| self.prelude_module(source))
-                    .flatten()
-                    .map(|module| (module.uri, module.snapshot))
-            })?;
-            let name = source.syntax.name_text(&source.text, call.name);
-            let id = imported
-                .1
-                .syntax
-                .name_id(&imported.1.text, name)
-                .and_then(|name| imported.1.syntax.symbol_by_name(name))
-                .filter(|symbol| symbol.kind == analysis::SymbolKind::Function)?
-                .id;
-            return Some((imported.0, imported.1, id));
-        }
-        let module = self.prelude_module(source)?;
-        let name = source.syntax.name_text(&source.text, call.name);
-        let id = module
-            .snapshot
-            .syntax
-            .name_id(&module.snapshot.text, name)
-            .and_then(|name| module.snapshot.syntax.symbol_by_name(name))
-            .filter(|symbol| symbol.kind == analysis::SymbolKind::Function)?
-            .id;
-        Some((module.uri, module.snapshot, id))
-    }
-
-    #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "hierarchy_documents", result_count = tracing::field::Empty))]
-    pub(super) fn hierarchy_documents(&self) -> Vec<Document> {
-        let mut documents = self.indexed_documents();
-        if let Some(module) = self.compiler.base_module.read().clone()
-            && !documents.iter().any(|document| document.uri == module.uri)
-        {
-            documents.push(Document::with_snapshot(
-                module.uri,
-                "bend".into(),
-                module.snapshot,
-            ));
-        }
-        tracing::Span::current().record("result_count", documents.len());
-        documents
     }
 }
