@@ -1,0 +1,38 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "source_parent": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "source_files": {
+    "src/analysis.rs": "cd87363091ef15802fced0051b55944cc6ea27bdca62cea31e2a387ff37743ad",
+    "src/workspace/semantic.rs": "e4b41765d11a3af1a6ea89d4ee6544c7530218f07d59492374c0b75f09e43061",
+    "src/workspace/semantic/build.rs": "76fe34d266f499c9bd734cae3f9716b46d71ebb839ee06b6352c56646a4cff82",
+    "src/workspace/semantic/rename.rs": "003ae1351ef61546af1fcaeda1fa9f590db3dde4eef8db41401ab5775d7357d5",
+    "scripts/semantic_gate.py": "4cc11b3b4ac44e03e3c0ee56efc160b249652aaf699adffa6e5f4af27ff29c25",
+    "scripts/test_semantic_gate.py": "eea72721a0e2556586f062198015ccd713728f3b1889146a7c14eac83a2caf01",
+    ".github/workflows/performance-calibration.yml": "07501096ce60eeaf1d65c042cffcf5a124172613fa377399190b9ab1625f7fd5",
+    "CHANGELOG.md": "9b325d78f286b038589c3469cd90840aaefaf69faaa43c15e006f887cf77aabf",
+    "docs/performance-policy.md": "a3ab4754599411a0c5d9b5690ba2c9800b73f55239ad6afd795c81707560fc71",
+    "docs/semantic-conformance.md": "a9e0d159e51c6ece91eb7e55bb9386421b6705d47134ca45786a06e2d3f30f5f"
+  },
+  "same_retained_QA_source": "/tmp/semantic-approved-126952f6d048",
+  "same_retained_Cargo_target": "/workspace/target/semantic-approved-126952f6d048",
+  "default_binary_sha256": "f3d459881078e7afea1ced9dfcbb17f04a52de88c646c0c124411ff0c6f2226c",
+  "six_actual_stdio_smokes_passed": true,
+  "module_completion_API_10_scenarios_passed": true,
+  "supervisor_red_green_proof": "supervisor-procfs-teardown-red-green.json",
+  "calibration_original_data_replay": "calibration-884-replay-report/parent-qualification.json",
+  "unchanged_contract_hashes": {
+    "benches/analysis.rs": "b296cfe0ebbd1e32a31cc10546827be7f03ab95b793540183fec7cd3eae88dbb",
+    "benches/fixtures/analyzer_input.bend": "d2f018dbc359ab0231fb19eb094c42a1298cd60a71416490fd05e3783dcab1f3",
+    "Cargo.toml": "17eb66037d4b9663e0943762934cfffc8bfa41d680df11032150ef47a054c0a2",
+    "Cargo.lock": "04df83cd1d808a8d1370990994496bd6e5e6d84945f79a9cb7291c286c2f54ee",
+    "rust-toolchain.toml": "8b43e8367cdb4d117cdaea1eaba8d2c526614d603c6e7ba8f30165f5a712c1c1",
+    "scripts/quality": "05fabdf32d7c58d3391bedd350009b81f7f0b9361f68612ba7b8bcd532adc9a6",
+    "scripts/install-tools.sh": "08de090b2b10b12f913e902832a9f95e7f10dfa996e7d3695146899ab40579e0",
+    "tests/analysis.rs": "c283b96c1a35010a57d8e09e9630cedc866f7b9b14d93dd6c38af74a3d4101d2",
+    "tests/semantic_workspace.rs": "119cd7f21e2593fa73141903bf06f1b5f7656f232135667712244f161deb74aa",
+    "tests/lsp_protocol.rs": "20f40683174ef519718ac8366f566a093fb06ca45b15d4089a70fa478c270a86"
+  },
+  "source_pushes": 0,
+  "full_quality": "not yet run for this exact commit"
+}

@@ -1,0 +1,33 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "previous_source": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "branch": "feat/semantic-conformance-main",
+  "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "draft": true,
+  "source_push_count_for_this_integrated_candidate": 1,
+  "quality": "pass",
+  "quality_wall_seconds": 331.16,
+  "six_real_stdio_smokes": "pass",
+  "module_API_smoke_scenarios": 10,
+  "default_binary_sha256": "f3d459881078e7afea1ced9dfcbb17f04a52de88c646c0c124411ff0c6f2226c",
+  "unchanged_contract_hashes": {
+    "benches/analysis.rs": "b296cfe0ebbd1e32a31cc10546827be7f03ab95b793540183fec7cd3eae88dbb",
+    "benches/fixtures/analyzer_input.bend": "d2f018dbc359ab0231fb19eb094c42a1298cd60a71416490fd05e3783dcab1f3",
+    "Cargo.toml": "17eb66037d4b9663e0943762934cfffc8bfa41d680df11032150ef47a054c0a2",
+    "Cargo.lock": "04df83cd1d808a8d1370990994496bd6e5e6d84945f79a9cb7291c286c2f54ee",
+    "rust-toolchain.toml": "8b43e8367cdb4d117cdaea1eaba8d2c526614d603c6e7ba8f30165f5a712c1c1",
+    "scripts/quality": "05fabdf32d7c58d3391bedd350009b81f7f0b9361f68612ba7b8bcd532adc9a6",
+    "scripts/install-tools.sh": "08de090b2b10b12f913e902832a9f95e7f10dfa996e7d3695146899ab40579e0",
+    "tests/analysis.rs": "c283b96c1a35010a57d8e09e9630cedc866f7b9b14d93dd6c38af74a3d4101d2",
+    "tests/semantic_workspace.rs": "119cd7f21e2593fa73141903bf06f1b5f7656f232135667712244f161deb74aa",
+    "tests/lsp_protocol.rs": "20f40683174ef519718ac8366f566a093fb06ca45b15d4089a70fa478c270a86"
+  },
+  "before_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/60089cb5bdb4c6d08a0727ad3d38c7e9a842c981/manifest.json",
+  "exception_request": false,
+  "approval_merge_tag_release": false,
+  "push": {
+    "stdout": "",
+    "stderr": "To github.com:IlyaGulya/bend2-lsp-rs.git\n   8842984..420a77c  420a77c5da3ae808204b506d6d78bb955cd1113e -> feat/semantic-conformance-main\n"
+  }
+}

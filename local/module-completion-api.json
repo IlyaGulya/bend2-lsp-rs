@@ -1,0 +1,31 @@
+{
+  "source_parent": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "source_files": {
+    "src/analysis.rs": "cd87363091ef15802fced0051b55944cc6ea27bdca62cea31e2a387ff37743ad",
+    "src/workspace/semantic.rs": "e4b41765d11a3af1a6ea89d4ee6544c7530218f07d59492374c0b75f09e43061",
+    "src/workspace/semantic/build.rs": "76fe34d266f499c9bd734cae3f9716b46d71ebb839ee06b6352c56646a4cff82",
+    "src/workspace/semantic/rename.rs": "003ae1351ef61546af1fcaeda1fa9f590db3dde4eef8db41401ab5775d7357d5"
+  },
+  "script_sha256": "f5bf243eb21269bd435057712e5dfae2f993dadcdb1a9390e4ccadb505ca038f",
+  "source_script": "module-completion-api-smoke.rs",
+  "observed_exit_code": 0,
+  "observed_stdout": "module completion API: 10 behavioral scenarios passed; ordered 32-result growth, late first match, both constructor-presence paths, ASCII case folding, Unicode no-match and empty input\n",
+  "checksum_command": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "bend2-lsp-rs",
+      "exec",
+      "-T",
+      "rust",
+      "sha256sum",
+      "/tmp/semantic-module-completion-884-next",
+      "/workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib"
+    ],
+    "returncode": 0,
+    "stdout": "11ee2af99087f3c5f33ee8a018441cdbf80a971d523785e51d8c75762ae8f543  /tmp/semantic-module-completion-884-next\nff831d5df64a450651d1f8ac2f5f1af7810b042f8197b4ed1973e90f534423b5  /workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib\n",
+    "stderr": ""
+  },
+  "performance_qualification": false
+}

@@ -1,0 +1,50 @@
+{
+  "original_source_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "original_gate_sha256": "7c0e7c96f7cbad039cb8bdf507e0ca9cd98b565e909c80d2d72cbc4eda917bd6",
+  "fixed_gate_sha256": "4cc11b3b4ac44e03e3c0ee56efc160b249652aaf699adffa6e5f4af27ff29c25",
+  "test_sha256": "eea72721a0e2556586f062198015ccd713728f3b1889146a7c14eac83a2caf01",
+  "kernel_boundary": "Known child identity receives one procfs teardown row: ppid0,pgid-1,stateX; later real child is reaped. Public supervise() executes a real worker and real forked child. No signal syscall mocked.",
+  "ci_root_cause_limit": "Same cleanup error reproduced; original CI did not retain the particular procfs row/PGID, so attribution of that CI event remains an inference.",
+  "red": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "bend2-lsp-rs",
+      "exec",
+      "-T",
+      "-w",
+      "/tmp/semantic-approved-126952f6d048/scripts",
+      "rust",
+      "python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_semantic_gate.SupervisorTests.test_disappearing_procfs_group_preserves_success_and_reaps_children"
+    ],
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "test_disappearing_procfs_group_preserves_success_and_reaps_children (test_semantic_gate.SupervisorTests.test_disappearing_procfs_group_preserves_success_and_reaps_children) ... FAIL\n\n======================================================================\nFAIL: test_disappearing_procfs_group_preserves_success_and_reaps_children (test_semantic_gate.SupervisorTests.test_disappearing_procfs_group_preserves_success_and_reaps_children)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/semantic-approved-126952f6d048/scripts/test_semantic_gate.py\", line 174, in test_disappearing_procfs_group_preserves_success_and_reaps_children\n    self.assertEqual(result[\"status\"], \"pass\", result)\nAssertionError: 'error' != 'pass'\n- error\n+ pass\n : {'status': 'error', 'error': 'initial tree kill failed: [Errno 22] Invalid argument', 'elapsed_seconds': 0.051868454087525606, 'cleanup_errors': ['initial tree kill failed: [Errno 22] Invalid argument'], 'observer_errors': [], 'shutdown_seconds': 0.00021441816352307796, 'output_bytes': 9, 'peak_process_tree_rss_bytes': 38297600, 'rss_samples': 7, 'max_rss_sample_seconds': 0.00039500207640230656, 'child_count': 2, 'child_cpu_seconds': 0.017151, 'returncode': 0}\n\n----------------------------------------------------------------------\nRan 1 test in 0.055s\n\nFAILED (failures=1)\n"
+  },
+  "green_related_suite": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "bend2-lsp-rs",
+      "exec",
+      "-T",
+      "-w",
+      "/tmp/semantic-approved-126952f6d048/scripts",
+      "rust",
+      "python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_semantic_gate.SupervisorTests"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "test_artifact_growth_fails_without_truncating_counterexample (test_semantic_gate.SupervisorTests.test_artifact_growth_fails_without_truncating_counterexample) ... ok\ntest_child_memory_is_aggregated_and_killed (test_semantic_gate.SupervisorTests.test_child_memory_is_aggregated_and_killed) ... ok\ntest_cleanup_reaps_a_child_exiting_after_the_first_nonblocking_wait (test_semantic_gate.SupervisorTests.test_cleanup_reaps_a_child_exiting_after_the_first_nonblocking_wait) ... ok\ntest_disappearing_procfs_group_preserves_success_and_reaps_children (test_semantic_gate.SupervisorTests.test_disappearing_procfs_group_preserves_success_and_reaps_children) ... ok\ntest_failed_work_observation_has_distinct_cleanup_verification_not_a_retry (test_semantic_gate.SupervisorTests.test_failed_work_observation_has_distinct_cleanup_verification_not_a_retry) ... skipped 'macOS native observer'\ntest_final_artifact_violation_survives_cleanup_observation_failure (test_semantic_gate.SupervisorTests.test_final_artifact_violation_survives_cleanup_observation_failure) ... ok\ntest_final_artifact_write_before_clean_exit_is_accounted (test_semantic_gate.SupervisorTests.test_final_artifact_write_before_clean_exit_is_accounted) ... ok\ntest_missing_executable_fails_with_report (test_semantic_gate.SupervisorTests.test_missing_executable_fails_with_report) ... ok\ntest_monitor_does_not_register_itself_as_a_workload_child (test_semantic_gate.SupervisorTests.test_monitor_does_not_register_itself_as_a_workload_child) ... ok\ntest_monitor_failure_still_kills_owned_group (test_semantic_gate.SupervisorTests.test_monitor_failure_still_kills_owned_group) ... ok\ntest_native_observer_is_counted_not_owned_and_reaped_after_transitions (test_semantic_gate.SupervisorTests.test_native_observer_is_counted_not_owned_and_reaped_after_transitions) ... skipped 'macOS native observer'\ntest_nonzero_worker_cannot_pass (test_semantic_gate.SupervisorTests.test_nonzero_worker_cannot_pass) ... ok\ntest_output_flood_is_bounded_and_kills_tree (test_semantic_gate.SupervisorTests.test_output_flood_is_bounded_and_kills_tree) ... ok\ntest_primary_output_failure_survives_cleanup_failure_and_worker_is_reaped (test_semantic_gate.SupervisorTests.test_primary_output_failure_survives_cleanup_failure_and_worker_is_reaped) ... ok\ntest_proc_command_parentheses_preserve_identity_and_rss_units (test_semantic_gate.SupervisorTests.test_proc_command_parentheses_preserve_identity_and_rss_units) ... ok\ntest_quiet_success_reaps_an_adopted_zombie (test_semantic_gate.SupervisorTests.test_quiet_success_reaps_an_adopted_zombie) ... ok\ntest_real_child_named_ps_remains_observed (test_semantic_gate.SupervisorTests.test_real_child_named_ps_remains_observed) ... ok\ntest_shutdown_signal_interrupts_stalled_observation_and_reaps_both_children (test_semantic_gate.SupervisorTests.test_shutdown_signal_interrupts_stalled_observation_and_reaps_both_children) ... skipped 'macOS native observer'\ntest_slow_sample_still_enforces_memory_budget (test_semantic_gate.SupervisorTests.test_slow_sample_still_enforces_memory_budget) ... skipped 'macOS native observer'\ntest_slow_valid_memory_sample_does_not_abort_work_with_budget_remaining (test_semantic_gate.SupervisorTests.test_slow_valid_memory_sample_does_not_abort_work_with_budget_remaining) ... skipped 'macOS native observer'\ntest_stalled_observer_cannot_outlive_phase_or_pass_without_measurement (test_semantic_gate.SupervisorTests.test_stalled_observer_cannot_outlive_phase_or_pass_without_measurement) ... skipped 'macOS native observer'\ntest_success_has_real_memory_and_output (test_semantic_gate.SupervisorTests.test_success_has_real_memory_and_output) ... ok\ntest_success_with_closed_child_stdout_still_terminates_the_child (test_semantic_gate.SupervisorTests.test_success_with_closed_child_stdout_still_terminates_the_child) ... ok\ntest_termination_signal_shuts_down_worker_before_reporting (test_semantic_gate.SupervisorTests.test_termination_signal_shuts_down_worker_before_reporting) ... ok\ntest_timeout_kills_descendants_in_a_separate_session (test_semantic_gate.SupervisorTests.test_timeout_kills_descendants_in_a_separate_session) ... ok\ntest_timeout_kills_grandchild_and_reaps_worker (test_semantic_gate.SupervisorTests.test_timeout_kills_grandchild_and_reaps_worker) ... ok\ntest_zombie_only_group_is_not_live_and_direct_child_is_reaped (test_semantic_gate.SupervisorTests.test_zombie_only_group_is_not_live_and_direct_child_is_reaped) ... ok\n\n----------------------------------------------------------------------\nRan 27 tests in 2.097s\n\nOK (skipped=6)\n"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "base_sha": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "workflow": "performance.yml",
+  "ref": "feat/semantic-conformance-main",
+  "exception_request": false,
+  "dispatch_count": 1,
+  "exit_code": 0,
+  "stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41173450200\n",
+  "stderr": "",
+  "purpose": "One original-workflow same-source comparison measures semantic capture/rename/cold workloads absent from main; never substitutes for ordinary main admission."
+}

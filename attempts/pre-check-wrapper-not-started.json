@@ -1,0 +1,7 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "exit_code": 127,
+  "observed_stderr": "env: '/usr/bin/time': No such file or directory\n",
+  "quality_started": false,
+  "resolution": "Retry only the failed launch without optional /usr/bin/time wrapper; no check was rerun or weakened."
+}

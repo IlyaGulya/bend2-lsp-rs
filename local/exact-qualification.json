@@ -1,0 +1,60 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "source_parent": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "full_quality": "pass",
+  "quality_raw_artifact": "artifact://7446",
+  "quality_log_sha256": "45d4b802f176d035713f537d311ef5ace54bc355af7fb0387fddba9157f04d6b",
+  "quality_command_observed_wall_seconds": 331.16,
+  "all_required_stages_exercised": true,
+  "six_stdio_scenarios": "pass",
+  "API_module_completion_scenarios": 10,
+  "default_binary_sha256": "f3d459881078e7afea1ced9dfcbb17f04a52de88c646c0c124411ff0c6f2226c",
+  "default_library_sha256": "ff831d5df64a450651d1f8ac2f5f1af7810b042f8197b4ed1973e90f534423b5",
+  "precommit_smoke_binary_and_library_identical_after_exact_commit_quality": true,
+  "production_source_hashes": {
+    "src/analysis.rs": "cd87363091ef15802fced0051b55944cc6ea27bdca62cea31e2a387ff37743ad",
+    "src/workspace/semantic.rs": "e4b41765d11a3af1a6ea89d4ee6544c7530218f07d59492374c0b75f09e43061",
+    "src/workspace/semantic/build.rs": "76fe34d266f499c9bd734cae3f9716b46d71ebb839ee06b6352c56646a4cff82",
+    "src/workspace/semantic/rename.rs": "003ae1351ef61546af1fcaeda1fa9f590db3dde4eef8db41401ab5775d7357d5"
+  },
+  "changed_file_hashes": {
+    "src/analysis.rs": "cd87363091ef15802fced0051b55944cc6ea27bdca62cea31e2a387ff37743ad",
+    "src/workspace/semantic.rs": "e4b41765d11a3af1a6ea89d4ee6544c7530218f07d59492374c0b75f09e43061",
+    "src/workspace/semantic/build.rs": "76fe34d266f499c9bd734cae3f9716b46d71ebb839ee06b6352c56646a4cff82",
+    "src/workspace/semantic/rename.rs": "003ae1351ef61546af1fcaeda1fa9f590db3dde4eef8db41401ab5775d7357d5",
+    "scripts/semantic_gate.py": "4cc11b3b4ac44e03e3c0ee56efc160b249652aaf699adffa6e5f4af27ff29c25",
+    "scripts/test_semantic_gate.py": "eea72721a0e2556586f062198015ccd713728f3b1889146a7c14eac83a2caf01",
+    ".github/workflows/performance-calibration.yml": "07501096ce60eeaf1d65c042cffcf5a124172613fa377399190b9ab1625f7fd5",
+    "CHANGELOG.md": "9b325d78f286b038589c3469cd90840aaefaf69faaa43c15e006f887cf77aabf",
+    "docs/performance-policy.md": "a3ab4754599411a0c5d9b5690ba2c9800b73f55239ad6afd795c81707560fc71",
+    "docs/semantic-conformance.md": "a9e0d159e51c6ece91eb7e55bb9386421b6705d47134ca45786a06e2d3f30f5f"
+  },
+  "postquality_build": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s\n"
+  },
+  "postquality_checksums": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "bend2-lsp-rs",
+      "exec",
+      "-T",
+      "rust",
+      "sha256sum",
+      "/workspace/target/semantic-approved-126952f6d048/debug/bend2-lsp",
+      "/workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib"
+    ],
+    "returncode": 0,
+    "stdout": "f3d459881078e7afea1ced9dfcbb17f04a52de88c646c0c124411ff0c6f2226c  /workspace/target/semantic-approved-126952f6d048/debug/bend2-lsp\nff831d5df64a450651d1f8ac2f5f1af7810b042f8197b4ed1973e90f534423b5  /workspace/target/semantic-approved-126952f6d048/debug/libbend2_lsp.rlib\n",
+    "stderr": ""
+  },
+  "performance_admission": false,
+  "request_performance_exception": false,
+  "hosted_qualification": "not yet created; source not yet pushed",
+  "same_QA_source": "/tmp/semantic-approved-126952f6d048",
+  "same_Cargo_target": "/workspace/target/semantic-approved-126952f6d048"
+}

@@ -1,9 +1,9 @@
 {
-  "source": "8842984d99f6a7f420bfde9301ff3994e597eb23",
-  "tree": "b9975db790d0768011828bf282615e9cfce96334",
   "command": [
     "docker",
     "compose",
+    "-p",
+    "bend2-lsp-rs",
     "exec",
     "-T",
     "-w",
@@ -15,11 +15,21 @@
     "cargo",
     "build",
     "--locked",
+    "--package",
+    "bend2-lsp",
+    "--lib",
     "--bin",
     "bend2-lsp"
   ],
-  "exit_code": 0,
+  "returncode": 0,
   "stdout": "",
-  "stderr": "   Compiling bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.66s\n",
-  "same_target": "/workspace/target/semantic-approved-126952f6d048"
+  "stderr": "   Compiling bend2-lsp v0.6.2 (/tmp/semantic-approved-126952f6d048)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.97s\n",
+  "source_parent": "8842984d99f6a7f420bfde9301ff3994e597eb23",
+  "source_files": {
+    "src/analysis.rs": "cd87363091ef15802fced0051b55944cc6ea27bdca62cea31e2a387ff37743ad",
+    "src/workspace/semantic.rs": "e4b41765d11a3af1a6ea89d4ee6544c7530218f07d59492374c0b75f09e43061",
+    "src/workspace/semantic/build.rs": "76fe34d266f499c9bd734cae3f9716b46d71ebb839ee06b6352c56646a4cff82",
+    "src/workspace/semantic/rename.rs": "003ae1351ef61546af1fcaeda1fa9f590db3dde4eef8db41401ab5775d7357d5"
+  },
+  "profile": "default debug functional smoke; not a performance measurement"
 }
