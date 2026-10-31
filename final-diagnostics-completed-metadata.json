@@ -1,0 +1,1756 @@
+{
+  "run": {
+    "id": 41188700948,
+    "name": "perf-diagnostics / pr-41188700948-1",
+    "node_id": "WFR_kwLOU2Rlr88AAAAJlwmzFA",
+    "head_branch": "feat/semantic-conformance-main",
+    "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+    "path": ".github/workflows/perf-diagnostics.yml",
+    "display_title": "perf-diagnostics / pr-41188700948-1",
+    "run_number": 136,
+    "event": "pull_request",
+    "status": "completed",
+    "conclusion": "success",
+    "workflow_id": 380691400,
+    "check_suite_id": 111649859094,
+    "check_suite_node_id": "CS_kwDOU2Rlr88AAAAZ_tmmFg",
+    "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+    "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+    "pull_requests": [
+      {
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls/62",
+        "id": 4877636731,
+        "number": 62,
+        "head": {
+          "ref": "feat/semantic-conformance-main",
+          "sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+          "repo": {
+            "id": 1399088559,
+            "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+            "name": "bend2-lsp-rs"
+          }
+        },
+        "base": {
+          "ref": "main",
+          "sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "repo": {
+            "id": 1399088559,
+            "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+            "name": "bend2-lsp-rs"
+          }
+        }
+      }
+    ],
+    "created_at": "2026-10-31T09:26:26Z",
+    "updated_at": "2026-10-31T11:22:52Z",
+    "actor": {
+      "login": "IlyaGulya",
+      "id": 668727,
+      "node_id": "MDQ6VXNlcjY2ODcyNw==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/IlyaGulya",
+      "html_url": "https://github.com/IlyaGulya",
+      "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+      "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+      "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+      "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+      "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+      "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "run_attempt": 1,
+    "referenced_workflows": [],
+    "run_started_at": "2026-10-31T09:26:26Z",
+    "triggering_actor": {
+      "login": "IlyaGulya",
+      "id": 668727,
+      "node_id": "MDQ6VXNlcjY2ODcyNw==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/IlyaGulya",
+      "html_url": "https://github.com/IlyaGulya",
+      "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+      "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+      "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+      "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+      "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+      "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "jobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/jobs",
+    "logs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/logs",
+    "check_suite_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-suites/111649859094",
+    "artifacts_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/artifacts",
+    "cancel_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/cancel",
+    "rerun_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/rerun",
+    "previous_attempt_url": null,
+    "workflow_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/workflows/380691400",
+    "head_commit": {
+      "id": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "tree_id": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "message": "perf: restore direct indexed completion loop",
+      "timestamp": "2026-10-31T09:24:44Z",
+      "author": {
+        "name": "Ilya Gulya",
+        "email": "ilya@gulya.me"
+      },
+      "committer": {
+        "name": "Ilya Gulya",
+        "email": "ilya@gulya.me"
+      }
+    },
+    "repository": {
+      "id": 1399088559,
+      "node_id": "R_kgDOU2Rlrw",
+      "name": "bend2-lsp-rs",
+      "full_name": "IlyaGulya/bend2-lsp-rs",
+      "private": false,
+      "owner": {
+        "login": "IlyaGulya",
+        "id": 668727,
+        "node_id": "MDQ6VXNlcjY2ODcyNw==",
+        "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/IlyaGulya",
+        "html_url": "https://github.com/IlyaGulya",
+        "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+        "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+        "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+        "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+        "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+        "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+      "forks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/forks",
+      "keys_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/teams",
+      "hooks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/hooks",
+      "issue_events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/events",
+      "assignees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/tags",
+      "blobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/languages",
+      "stargazers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/stargazers",
+      "contributors_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contributors",
+      "subscribers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscribers",
+      "subscription_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscription",
+      "commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/merges",
+      "archive_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/downloads",
+      "issues_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/labels{/name}",
+      "releases_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/deployments"
+    },
+    "head_repository": {
+      "id": 1399088559,
+      "node_id": "R_kgDOU2Rlrw",
+      "name": "bend2-lsp-rs",
+      "full_name": "IlyaGulya/bend2-lsp-rs",
+      "private": false,
+      "owner": {
+        "login": "IlyaGulya",
+        "id": 668727,
+        "node_id": "MDQ6VXNlcjY2ODcyNw==",
+        "avatar_url": "https://avatars.githubusercontent.com/u/668727?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/IlyaGulya",
+        "html_url": "https://github.com/IlyaGulya",
+        "followers_url": "https://api.github.com/users/IlyaGulya/followers",
+        "following_url": "https://api.github.com/users/IlyaGulya/following{/other_user}",
+        "gists_url": "https://api.github.com/users/IlyaGulya/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/IlyaGulya/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/IlyaGulya/subscriptions",
+        "organizations_url": "https://api.github.com/users/IlyaGulya/orgs",
+        "repos_url": "https://api.github.com/users/IlyaGulya/repos",
+        "events_url": "https://api.github.com/users/IlyaGulya/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/IlyaGulya/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs",
+      "forks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/forks",
+      "keys_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/teams",
+      "hooks_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/hooks",
+      "issue_events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/events",
+      "assignees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/tags",
+      "blobs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/languages",
+      "stargazers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/stargazers",
+      "contributors_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contributors",
+      "subscribers_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscribers",
+      "subscription_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/subscription",
+      "commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/merges",
+      "archive_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/downloads",
+      "issues_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/labels{/name}",
+      "releases_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/deployments"
+    }
+  },
+  "jobs": {
+    "total_count": 7,
+    "jobs": [
+      {
+        "id": 124500816887,
+        "run_id": 41188700948,
+        "workflow_name": "perf-diagnostics / pr-41188700948-1",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_NOz9w",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124500816887",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/job/124500816887",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:26:27Z",
+        "started_at": "2026-10-31T09:56:18Z",
+        "completed_at": "2026-10-31T09:58:03Z",
+        "name": "validate",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T09:56:19Z",
+            "completed_at": "2026-10-31T09:56:20Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T09:56:20Z",
+            "completed_at": "2026-10-31T09:56:25Z"
+          },
+          {
+            "name": "Build pinned Rust tooling before validating request source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T09:56:25Z",
+            "completed_at": "2026-10-31T09:58:00Z"
+          },
+          {
+            "name": "Validate unique request and exact repository source bounds",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T09:58:00Z",
+            "completed_at": "2026-10-31T09:58:00Z"
+          },
+          {
+            "name": "Preserve source validation including rejection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T09:58:00Z",
+            "completed_at": "2026-10-31T09:58:01Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T09:58:01Z",
+            "completed_at": "2026-10-31T09:58:01Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T09:58:01Z",
+            "completed_at": "2026-10-31T09:58:01Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124500816887",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018892,
+        "runner_name": "GitHub Actions 1000018892",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124507028785,
+        "run_id": 41188700948,
+        "workflow_name": "perf-diagnostics / pr-41188700948-1",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_TJ9MQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124507028785",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/job/124507028785",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:58:03Z",
+        "started_at": "2026-10-31T10:57:45Z",
+        "completed_at": "2026-10-31T11:22:51Z",
+        "name": "diagnostic evidence (x86_64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:57:46Z",
+            "completed_at": "2026-10-31T10:57:47Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:57:47Z",
+            "completed_at": "2026-10-31T10:57:56Z"
+          },
+          {
+            "name": "Identify download-only Cargo cache paths",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:57:56Z",
+            "completed_at": "2026-10-31T10:58:08Z"
+          },
+          {
+            "name": "Restore Cargo downloads, never measured objects",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:58:08Z",
+            "completed_at": "2026-10-31T10:58:18Z"
+          },
+          {
+            "name": "Build pinned native tooling from immutable workflow source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:58:18Z",
+            "completed_at": "2026-10-31T10:59:53Z"
+          },
+          {
+            "name": "Record expected evidence before checking the native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:59:53Z",
+            "completed_at": "2026-10-31T10:59:53Z"
+          },
+          {
+            "name": "Exercise portable tooling contracts on the actual native target",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:59:53Z",
+            "completed_at": "2026-10-31T11:02:43Z"
+          },
+          {
+            "name": "Install pinned profiling tools and Windows tracing toolkit",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:02:43Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Explicitly authorize Linux profiler permissions and install perf",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 9,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Explicitly authorize headless macOS sampler and verify Xcode tracing",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 10,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Verify explicitly privileged Windows tracing prerequisites",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Build independent clean timing binaries",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 12,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Collect clean latency comparison",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 13,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Collect discovery and actual process-memory timelines separately",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 14,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:12:24Z"
+          },
+          {
+            "name": "Build separate symbolized CPU and native executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T11:12:24Z",
+            "completed_at": "2026-10-31T11:15:31Z"
+          },
+          {
+            "name": "Build separate DHAT executables and all legacy examples in full mode",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T11:15:31Z",
+            "completed_at": "2026-10-31T11:18:35Z"
+          },
+          {
+            "name": "Collect requested profiles, retaining every backend failure",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T11:18:35Z",
+            "completed_at": "2026-10-31T11:22:02Z"
+          },
+          {
+            "name": "Retain all thirteen existing LSP, line-index and folding DHAT workloads",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 18,
+            "started_at": "2026-10-31T11:22:02Z",
+            "completed_at": "2026-10-31T11:22:02Z"
+          },
+          {
+            "name": "Generate unified report even after failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T11:22:02Z",
+            "completed_at": "2026-10-31T11:22:15Z"
+          },
+          {
+            "name": "Inventory all raw results, symbols, reports and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:22:15Z",
+            "completed_at": "2026-10-31T11:22:18Z"
+          },
+          {
+            "name": "Preserve complete raw evidence regardless of report success",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:22:18Z",
+            "completed_at": "2026-10-31T11:22:48Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T11:22:48Z",
+            "completed_at": "2026-10-31T11:22:50Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T11:22:50Z",
+            "completed_at": "2026-10-31T11:22:50Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124507028785",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000018922,
+        "runner_name": "GitHub Actions 1000018922",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124507028827,
+        "run_id": 41188700948,
+        "workflow_name": "perf-diagnostics / pr-41188700948-1",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_TJ9Ww",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124507028827",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/job/124507028827",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:58:03Z",
+        "started_at": "2026-10-31T10:58:45Z",
+        "completed_at": "2026-10-31T11:13:05Z",
+        "name": "diagnostic evidence (x86_64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:58:46Z",
+            "completed_at": "2026-10-31T10:58:47Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:58:47Z",
+            "completed_at": "2026-10-31T10:58:53Z"
+          },
+          {
+            "name": "Identify download-only Cargo cache paths",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:58:53Z",
+            "completed_at": "2026-10-31T10:59:04Z"
+          },
+          {
+            "name": "Restore Cargo downloads, never measured objects",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:59:04Z",
+            "completed_at": "2026-10-31T10:59:06Z"
+          },
+          {
+            "name": "Build pinned native tooling from immutable workflow source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:59:06Z",
+            "completed_at": "2026-10-31T11:00:37Z"
+          },
+          {
+            "name": "Record expected evidence before checking the native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T11:00:37Z",
+            "completed_at": "2026-10-31T11:00:37Z"
+          },
+          {
+            "name": "Exercise portable tooling contracts on the actual native target",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T11:00:37Z",
+            "completed_at": "2026-10-31T11:02:39Z"
+          },
+          {
+            "name": "Install pinned profiling tools and Windows tracing toolkit",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T11:02:39Z",
+            "completed_at": "2026-10-31T11:05:06Z"
+          },
+          {
+            "name": "Explicitly authorize Linux profiler permissions and install perf",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T11:05:06Z",
+            "completed_at": "2026-10-31T11:05:20Z"
+          },
+          {
+            "name": "Explicitly authorize headless macOS sampler and verify Xcode tracing",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 10,
+            "started_at": "2026-10-31T11:05:20Z",
+            "completed_at": "2026-10-31T11:05:20Z"
+          },
+          {
+            "name": "Verify explicitly privileged Windows tracing prerequisites",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 11,
+            "started_at": "2026-10-31T11:05:20Z",
+            "completed_at": "2026-10-31T11:05:20Z"
+          },
+          {
+            "name": "Build independent clean timing binaries",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 12,
+            "started_at": "2026-10-31T11:05:20Z",
+            "completed_at": "2026-10-31T11:05:20Z"
+          },
+          {
+            "name": "Collect clean latency comparison",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 13,
+            "started_at": "2026-10-31T11:05:20Z",
+            "completed_at": "2026-10-31T11:05:20Z"
+          },
+          {
+            "name": "Collect discovery and actual process-memory timelines separately",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 14,
+            "started_at": "2026-10-31T11:05:20Z",
+            "completed_at": "2026-10-31T11:05:20Z"
+          },
+          {
+            "name": "Build separate symbolized CPU and native executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T11:05:20Z",
+            "completed_at": "2026-10-31T11:08:12Z"
+          },
+          {
+            "name": "Build separate DHAT executables and all legacy examples in full mode",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T11:08:12Z",
+            "completed_at": "2026-10-31T11:11:12Z"
+          },
+          {
+            "name": "Collect requested profiles, retaining every backend failure",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T11:11:12Z",
+            "completed_at": "2026-10-31T11:12:48Z"
+          },
+          {
+            "name": "Retain all thirteen existing LSP, line-index and folding DHAT workloads",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 18,
+            "started_at": "2026-10-31T11:12:48Z",
+            "completed_at": "2026-10-31T11:12:48Z"
+          },
+          {
+            "name": "Generate unified report even after failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T11:12:48Z",
+            "completed_at": "2026-10-31T11:12:52Z"
+          },
+          {
+            "name": "Inventory all raw results, symbols, reports and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T11:12:52Z",
+            "completed_at": "2026-10-31T11:12:53Z"
+          },
+          {
+            "name": "Preserve complete raw evidence regardless of report success",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T11:12:53Z",
+            "completed_at": "2026-10-31T11:13:02Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T11:13:02Z",
+            "completed_at": "2026-10-31T11:13:02Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T11:13:02Z",
+            "completed_at": "2026-10-31T11:13:02Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124507028827",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000018923,
+        "runner_name": "GitHub Actions 1000018923",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124507028832,
+        "run_id": 41188700948,
+        "workflow_name": "perf-diagnostics / pr-41188700948-1",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_TJ9YA",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124507028832",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/job/124507028832",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:58:03Z",
+        "started_at": "2026-10-31T10:16:45Z",
+        "completed_at": "2026-10-31T10:28:58Z",
+        "name": "diagnostic evidence (aarch64-unknown-linux-gnu)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:16:46Z",
+            "completed_at": "2026-10-31T10:16:47Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:16:48Z",
+            "completed_at": "2026-10-31T10:16:52Z"
+          },
+          {
+            "name": "Identify download-only Cargo cache paths",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:16:52Z",
+            "completed_at": "2026-10-31T10:17:00Z"
+          },
+          {
+            "name": "Restore Cargo downloads, never measured objects",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:17:00Z",
+            "completed_at": "2026-10-31T10:17:01Z"
+          },
+          {
+            "name": "Build pinned native tooling from immutable workflow source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:17:01Z",
+            "completed_at": "2026-10-31T10:18:23Z"
+          },
+          {
+            "name": "Record expected evidence before checking the native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:18:23Z",
+            "completed_at": "2026-10-31T10:18:23Z"
+          },
+          {
+            "name": "Exercise portable tooling contracts on the actual native target",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:18:23Z",
+            "completed_at": "2026-10-31T10:19:57Z"
+          },
+          {
+            "name": "Install pinned profiling tools and Windows tracing toolkit",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:19:57Z",
+            "completed_at": "2026-10-31T10:21:38Z"
+          },
+          {
+            "name": "Explicitly authorize Linux profiler permissions and install perf",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-31T10:21:38Z",
+            "completed_at": "2026-10-31T10:21:50Z"
+          },
+          {
+            "name": "Explicitly authorize headless macOS sampler and verify Xcode tracing",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 10,
+            "started_at": "2026-10-31T10:21:50Z",
+            "completed_at": "2026-10-31T10:21:50Z"
+          },
+          {
+            "name": "Verify explicitly privileged Windows tracing prerequisites",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 11,
+            "started_at": "2026-10-31T10:21:50Z",
+            "completed_at": "2026-10-31T10:21:50Z"
+          },
+          {
+            "name": "Build independent clean timing binaries",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 12,
+            "started_at": "2026-10-31T10:21:50Z",
+            "completed_at": "2026-10-31T10:21:50Z"
+          },
+          {
+            "name": "Collect clean latency comparison",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 13,
+            "started_at": "2026-10-31T10:21:50Z",
+            "completed_at": "2026-10-31T10:21:50Z"
+          },
+          {
+            "name": "Collect discovery and actual process-memory timelines separately",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 14,
+            "started_at": "2026-10-31T10:21:50Z",
+            "completed_at": "2026-10-31T10:21:50Z"
+          },
+          {
+            "name": "Build separate symbolized CPU and native executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:21:50Z",
+            "completed_at": "2026-10-31T10:24:29Z"
+          },
+          {
+            "name": "Build separate DHAT executables and all legacy examples in full mode",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:24:29Z",
+            "completed_at": "2026-10-31T10:27:09Z"
+          },
+          {
+            "name": "Collect requested profiles, retaining every backend failure",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:27:09Z",
+            "completed_at": "2026-10-31T10:28:44Z"
+          },
+          {
+            "name": "Retain all thirteen existing LSP, line-index and folding DHAT workloads",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 18,
+            "started_at": "2026-10-31T10:28:44Z",
+            "completed_at": "2026-10-31T10:28:44Z"
+          },
+          {
+            "name": "Generate unified report even after failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:28:44Z",
+            "completed_at": "2026-10-31T10:28:49Z"
+          },
+          {
+            "name": "Inventory all raw results, symbols, reports and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:28:49Z",
+            "completed_at": "2026-10-31T10:28:49Z"
+          },
+          {
+            "name": "Preserve complete raw evidence regardless of report success",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T10:28:49Z",
+            "completed_at": "2026-10-31T10:28:55Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T10:28:55Z",
+            "completed_at": "2026-10-31T10:28:56Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T10:28:56Z",
+            "completed_at": "2026-10-31T10:28:56Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124507028832",
+        "labels": [
+          "ubuntu-24.04-arm"
+        ],
+        "runner_id": 1000018898,
+        "runner_name": "GitHub Actions 1000018898",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124507028842,
+        "run_id": 41188700948,
+        "workflow_name": "perf-diagnostics / pr-41188700948-1",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_TJ9ag",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124507028842",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/job/124507028842",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:58:03Z",
+        "started_at": "2026-10-31T10:29:13Z",
+        "completed_at": "2026-10-31T10:52:41Z",
+        "name": "diagnostic evidence (aarch64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:29:14Z",
+            "completed_at": "2026-10-31T10:29:16Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:29:16Z",
+            "completed_at": "2026-10-31T10:29:22Z"
+          },
+          {
+            "name": "Identify download-only Cargo cache paths",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:29:22Z",
+            "completed_at": "2026-10-31T10:29:32Z"
+          },
+          {
+            "name": "Restore Cargo downloads, never measured objects",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:29:32Z",
+            "completed_at": "2026-10-31T10:29:35Z"
+          },
+          {
+            "name": "Build pinned native tooling from immutable workflow source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:29:35Z",
+            "completed_at": "2026-10-31T10:31:34Z"
+          },
+          {
+            "name": "Record expected evidence before checking the native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:31:34Z",
+            "completed_at": "2026-10-31T10:31:34Z"
+          },
+          {
+            "name": "Exercise portable tooling contracts on the actual native target",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:31:34Z",
+            "completed_at": "2026-10-31T10:34:11Z"
+          },
+          {
+            "name": "Install pinned profiling tools and Windows tracing toolkit",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:34:11Z",
+            "completed_at": "2026-10-31T10:37:01Z"
+          },
+          {
+            "name": "Explicitly authorize Linux profiler permissions and install perf",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 9,
+            "started_at": "2026-10-31T10:37:01Z",
+            "completed_at": "2026-10-31T10:37:01Z"
+          },
+          {
+            "name": "Explicitly authorize headless macOS sampler and verify Xcode tracing",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:37:01Z",
+            "completed_at": "2026-10-31T10:37:04Z"
+          },
+          {
+            "name": "Verify explicitly privileged Windows tracing prerequisites",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 11,
+            "started_at": "2026-10-31T10:37:04Z",
+            "completed_at": "2026-10-31T10:37:04Z"
+          },
+          {
+            "name": "Build independent clean timing binaries",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 12,
+            "started_at": "2026-10-31T10:37:04Z",
+            "completed_at": "2026-10-31T10:37:04Z"
+          },
+          {
+            "name": "Collect clean latency comparison",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 13,
+            "started_at": "2026-10-31T10:37:04Z",
+            "completed_at": "2026-10-31T10:37:04Z"
+          },
+          {
+            "name": "Collect discovery and actual process-memory timelines separately",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 14,
+            "started_at": "2026-10-31T10:37:04Z",
+            "completed_at": "2026-10-31T10:37:04Z"
+          },
+          {
+            "name": "Build separate symbolized CPU and native executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:37:04Z",
+            "completed_at": "2026-10-31T10:44:11Z"
+          },
+          {
+            "name": "Build separate DHAT executables and all legacy examples in full mode",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:44:11Z",
+            "completed_at": "2026-10-31T10:47:27Z"
+          },
+          {
+            "name": "Collect requested profiles, retaining every backend failure",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:47:27Z",
+            "completed_at": "2026-10-31T10:51:51Z"
+          },
+          {
+            "name": "Retain all thirteen existing LSP, line-index and folding DHAT workloads",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 18,
+            "started_at": "2026-10-31T10:51:51Z",
+            "completed_at": "2026-10-31T10:51:51Z"
+          },
+          {
+            "name": "Generate unified report even after failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:51:51Z",
+            "completed_at": "2026-10-31T10:52:08Z"
+          },
+          {
+            "name": "Inventory all raw results, symbols, reports and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:52:08Z",
+            "completed_at": "2026-10-31T10:52:12Z"
+          },
+          {
+            "name": "Preserve complete raw evidence regardless of report success",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T10:52:12Z",
+            "completed_at": "2026-10-31T10:52:37Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T10:52:37Z",
+            "completed_at": "2026-10-31T10:52:38Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T10:52:38Z",
+            "completed_at": "2026-10-31T10:52:39Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124507028842",
+        "labels": [
+          "macos-15"
+        ],
+        "runner_id": 1000018904,
+        "runner_name": "GitHub Actions 1000018904",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124507028857,
+        "run_id": 41188700948,
+        "workflow_name": "perf-diagnostics / pr-41188700948-1",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_TJ9eQ",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124507028857",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/job/124507028857",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:58:03Z",
+        "started_at": "2026-10-31T10:25:03Z",
+        "completed_at": "2026-10-31T11:00:35Z",
+        "name": "diagnostic evidence (x86_64-apple-darwin)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:25:04Z",
+            "completed_at": "2026-10-31T10:25:07Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:25:07Z",
+            "completed_at": "2026-10-31T10:25:17Z"
+          },
+          {
+            "name": "Identify download-only Cargo cache paths",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:25:17Z",
+            "completed_at": "2026-10-31T10:25:32Z"
+          },
+          {
+            "name": "Restore Cargo downloads, never measured objects",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:25:32Z",
+            "completed_at": "2026-10-31T10:25:39Z"
+          },
+          {
+            "name": "Build pinned native tooling from immutable workflow source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:25:39Z",
+            "completed_at": "2026-10-31T10:29:11Z"
+          },
+          {
+            "name": "Record expected evidence before checking the native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:29:11Z",
+            "completed_at": "2026-10-31T10:29:12Z"
+          },
+          {
+            "name": "Exercise portable tooling contracts on the actual native target",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:29:12Z",
+            "completed_at": "2026-10-31T10:34:07Z"
+          },
+          {
+            "name": "Install pinned profiling tools and Windows tracing toolkit",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:34:07Z",
+            "completed_at": "2026-10-31T10:37:29Z"
+          },
+          {
+            "name": "Explicitly authorize Linux profiler permissions and install perf",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 9,
+            "started_at": "2026-10-31T10:37:29Z",
+            "completed_at": "2026-10-31T10:37:29Z"
+          },
+          {
+            "name": "Explicitly authorize headless macOS sampler and verify Xcode tracing",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-31T10:37:29Z",
+            "completed_at": "2026-10-31T10:37:33Z"
+          },
+          {
+            "name": "Verify explicitly privileged Windows tracing prerequisites",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 11,
+            "started_at": "2026-10-31T10:37:33Z",
+            "completed_at": "2026-10-31T10:37:33Z"
+          },
+          {
+            "name": "Build independent clean timing binaries",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 12,
+            "started_at": "2026-10-31T10:37:33Z",
+            "completed_at": "2026-10-31T10:37:34Z"
+          },
+          {
+            "name": "Collect clean latency comparison",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 13,
+            "started_at": "2026-10-31T10:37:34Z",
+            "completed_at": "2026-10-31T10:37:34Z"
+          },
+          {
+            "name": "Collect discovery and actual process-memory timelines separately",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 14,
+            "started_at": "2026-10-31T10:37:34Z",
+            "completed_at": "2026-10-31T10:37:34Z"
+          },
+          {
+            "name": "Build separate symbolized CPU and native executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:37:34Z",
+            "completed_at": "2026-10-31T10:48:29Z"
+          },
+          {
+            "name": "Build separate DHAT executables and all legacy examples in full mode",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:48:29Z",
+            "completed_at": "2026-10-31T10:53:20Z"
+          },
+          {
+            "name": "Collect requested profiles, retaining every backend failure",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:53:20Z",
+            "completed_at": "2026-10-31T10:59:34Z"
+          },
+          {
+            "name": "Retain all thirteen existing LSP, line-index and folding DHAT workloads",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 18,
+            "started_at": "2026-10-31T10:59:34Z",
+            "completed_at": "2026-10-31T10:59:34Z"
+          },
+          {
+            "name": "Generate unified report even after failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:59:34Z",
+            "completed_at": "2026-10-31T10:59:54Z"
+          },
+          {
+            "name": "Inventory all raw results, symbols, reports and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:59:54Z",
+            "completed_at": "2026-10-31T10:59:59Z"
+          },
+          {
+            "name": "Preserve complete raw evidence regardless of report success",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T10:59:59Z",
+            "completed_at": "2026-10-31T11:00:31Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T11:00:31Z",
+            "completed_at": "2026-10-31T11:00:31Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T11:00:31Z",
+            "completed_at": "2026-10-31T11:00:32Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124507028857",
+        "labels": [
+          "macos-15-intel"
+        ],
+        "runner_id": 1000018902,
+        "runner_name": "GitHub Actions 1000018902",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 124507029599,
+        "run_id": 41188700948,
+        "workflow_name": "perf-diagnostics / pr-41188700948-1",
+        "head_branch": "feat/semantic-conformance-main",
+        "run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOU2Rlr88AAAAc_TKAXw",
+        "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51",
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/jobs/124507029599",
+        "html_url": "https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41188700948/job/124507029599",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-31T09:58:03Z",
+        "started_at": "2026-10-31T10:14:38Z",
+        "completed_at": "2026-10-31T10:52:53Z",
+        "name": "diagnostic evidence (aarch64-pc-windows-msvc)",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-31T10:14:39Z",
+            "completed_at": "2026-10-31T10:14:41Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-31T10:14:41Z",
+            "completed_at": "2026-10-31T10:15:00Z"
+          },
+          {
+            "name": "Identify download-only Cargo cache paths",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-31T10:15:00Z",
+            "completed_at": "2026-10-31T10:15:14Z"
+          },
+          {
+            "name": "Restore Cargo downloads, never measured objects",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-31T10:15:14Z",
+            "completed_at": "2026-10-31T10:15:32Z"
+          },
+          {
+            "name": "Build pinned native tooling from immutable workflow source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-31T10:15:32Z",
+            "completed_at": "2026-10-31T10:18:08Z"
+          },
+          {
+            "name": "Record expected evidence before checking the native runner",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-31T10:18:08Z",
+            "completed_at": "2026-10-31T10:18:09Z"
+          },
+          {
+            "name": "Exercise portable tooling contracts on the actual native target",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-31T10:18:09Z",
+            "completed_at": "2026-10-31T10:23:33Z"
+          },
+          {
+            "name": "Install pinned profiling tools and Windows tracing toolkit",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-31T10:23:33Z",
+            "completed_at": "2026-10-31T10:37:59Z"
+          },
+          {
+            "name": "Explicitly authorize Linux profiler permissions and install perf",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 9,
+            "started_at": "2026-10-31T10:37:59Z",
+            "completed_at": "2026-10-31T10:37:59Z"
+          },
+          {
+            "name": "Explicitly authorize headless macOS sampler and verify Xcode tracing",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 10,
+            "started_at": "2026-10-31T10:37:59Z",
+            "completed_at": "2026-10-31T10:37:59Z"
+          },
+          {
+            "name": "Verify explicitly privileged Windows tracing prerequisites",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-31T10:37:59Z",
+            "completed_at": "2026-10-31T10:37:59Z"
+          },
+          {
+            "name": "Build independent clean timing binaries",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 12,
+            "started_at": "2026-10-31T10:37:59Z",
+            "completed_at": "2026-10-31T10:37:59Z"
+          },
+          {
+            "name": "Collect clean latency comparison",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 13,
+            "started_at": "2026-10-31T10:37:59Z",
+            "completed_at": "2026-10-31T10:37:59Z"
+          },
+          {
+            "name": "Collect discovery and actual process-memory timelines separately",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 14,
+            "started_at": "2026-10-31T10:37:59Z",
+            "completed_at": "2026-10-31T10:38:00Z"
+          },
+          {
+            "name": "Build separate symbolized CPU and native executables",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15,
+            "started_at": "2026-10-31T10:38:00Z",
+            "completed_at": "2026-10-31T10:42:27Z"
+          },
+          {
+            "name": "Build separate DHAT executables and all legacy examples in full mode",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-31T10:42:27Z",
+            "completed_at": "2026-10-31T10:46:57Z"
+          },
+          {
+            "name": "Collect requested profiles, retaining every backend failure",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-31T10:46:57Z",
+            "completed_at": "2026-10-31T10:51:19Z"
+          },
+          {
+            "name": "Retain all thirteen existing LSP, line-index and folding DHAT workloads",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 18,
+            "started_at": "2026-10-31T10:51:19Z",
+            "completed_at": "2026-10-31T10:51:19Z"
+          },
+          {
+            "name": "Generate unified report even after failed collection",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-31T10:51:19Z",
+            "completed_at": "2026-10-31T10:51:59Z"
+          },
+          {
+            "name": "Inventory all raw results, symbols, reports and failures",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-31T10:51:59Z",
+            "completed_at": "2026-10-31T10:52:09Z"
+          },
+          {
+            "name": "Preserve complete raw evidence regardless of report success",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-31T10:52:09Z",
+            "completed_at": "2026-10-31T10:52:46Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42,
+            "started_at": "2026-10-31T10:52:46Z",
+            "completed_at": "2026-10-31T10:52:50Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43,
+            "started_at": "2026-10-31T10:52:50Z",
+            "completed_at": "2026-10-31T10:52:50Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/check-runs/124507029599",
+        "labels": [
+          "windows-11-arm"
+        ],
+        "runner_id": 1000018897,
+        "runner_name": "GitHub Actions 1000018897",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      }
+    ]
+  },
+  "artifacts": {
+    "total_count": 7,
+    "artifacts": [
+      {
+        "id": 13040930991,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDkzMDk5MQ==",
+        "name": "perf-pr-41188700948-1-x86_64-unknown-linux-gnu",
+        "size_in_bytes": 75759040,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040930991",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040930991/zip",
+        "expired": false,
+        "digest": "sha256:b8ec5db12fc31fd483ae879a65dd9b9800d4bf6f9996eb976b4ddf90d6cf5e40",
+        "created_at": "2026-10-31T11:13:02Z",
+        "updated_at": "2026-10-31T11:13:02Z",
+        "expires_at": "2026-11-30T11:12:53Z",
+        "workflow_run": {
+          "id": 41188700948,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13040343839,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDM0MzgzOQ==",
+        "name": "perf-pr-41188700948-1-x86_64-pc-windows-msvc",
+        "size_in_bytes": 321026942,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040343839",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040343839/zip",
+        "expired": false,
+        "digest": "sha256:008dd2ac14e837c7d68163355b5773910945d8b6b29164eca7444e73618c066b",
+        "created_at": "2026-10-31T11:22:48Z",
+        "updated_at": "2026-10-31T11:22:48Z",
+        "expires_at": "2026-11-30T11:22:18Z",
+        "workflow_run": {
+          "id": 41188700948,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13040325196,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDMyNTE5Ng==",
+        "name": "perf-pr-41188700948-1-aarch64-apple-darwin",
+        "size_in_bytes": 246579779,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040325196",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040325196/zip",
+        "expired": false,
+        "digest": "sha256:935642d5205ba910f8f7688bf7766a6aa1edc3e7754233da86932bb435a6a05b",
+        "created_at": "2026-10-31T10:52:37Z",
+        "updated_at": "2026-10-31T10:52:37Z",
+        "expires_at": "2026-11-30T10:52:12Z",
+        "workflow_run": {
+          "id": 41188700948,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13040182929,
+        "node_id": "MDg6QXJ0aWZhY3QxMzA0MDE4MjkyOQ==",
+        "name": "perf-pr-41188700948-1-aarch64-pc-windows-msvc",
+        "size_in_bytes": 280967294,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040182929",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13040182929/zip",
+        "expired": false,
+        "digest": "sha256:edcd2149b43dc2b3f934b8645727d8c27b83f9cd158fc5ba9d97e5727cfcd769",
+        "created_at": "2026-10-31T10:52:45Z",
+        "updated_at": "2026-10-31T10:52:45Z",
+        "expires_at": "2026-11-30T11:52:09Z",
+        "workflow_run": {
+          "id": 41188700948,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039746714,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTc0NjcxNA==",
+        "name": "perf-pr-41188700948-1-aarch64-unknown-linux-gnu",
+        "size_in_bytes": 65411763,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039746714",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039746714/zip",
+        "expired": false,
+        "digest": "sha256:918934a27514fb9d781fe774bab026449e475eac9e99d87a1fbd9ff462b280ff",
+        "created_at": "2026-10-31T10:28:55Z",
+        "updated_at": "2026-10-31T10:28:55Z",
+        "expires_at": "2026-11-30T10:28:50Z",
+        "workflow_run": {
+          "id": 41188700948,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13039499218,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzOTQ5OTIxOA==",
+        "name": "perf-pr-41188700948-1-x86_64-apple-darwin",
+        "size_in_bytes": 250455387,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039499218",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13039499218/zip",
+        "expired": false,
+        "digest": "sha256:550825cf64272a974d1463ec23b8c243bdeaa7e8aa52f3447f86bdb8b537fd79",
+        "created_at": "2026-10-31T11:00:31Z",
+        "updated_at": "2026-10-31T11:00:31Z",
+        "expires_at": "2026-11-30T11:00:00Z",
+        "workflow_run": {
+          "id": 41188700948,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      },
+      {
+        "id": 13038772469,
+        "node_id": "MDg6QXJ0aWZhY3QxMzAzODc3MjQ2OQ==",
+        "name": "perf-request-41188700948-1",
+        "size_in_bytes": 1972,
+        "url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038772469",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13038772469/zip",
+        "expired": false,
+        "digest": "sha256:91485e1ea951224f3c9669f8a7e40d9de785fb5a7c839bf16cffae14881cf670",
+        "created_at": "2026-10-31T09:58:01Z",
+        "updated_at": "2026-10-31T09:58:01Z",
+        "expires_at": "2026-11-30T09:58:00Z",
+        "workflow_run": {
+          "id": 41188700948,
+          "repository_id": 1399088559,
+          "head_repository_id": 1399088559,
+          "head_branch": "feat/semantic-conformance-main",
+          "head_sha": "11f1a7618dd959f9133622b74f0e509b066ada51"
+        }
+      }
+    ]
+  }
+}

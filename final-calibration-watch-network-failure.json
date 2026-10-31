@@ -1,0 +1,10 @@
+{
+  "run_id": 41188700875,
+  "scope": "Watcher transport failed, not the calibration workflow; only observer restarted. No source/SUT/workflow rerun.",
+  "error": "error connecting to api.github.com",
+  "actual_run_state_on_recovery": "queued",
+  "actual_run_conclusion_on_recovery": null,
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "raw_log": "final-calibration-watch-network-failure.log",
+  "raw_log_sha256": "6e2593f58aebea0d7481979f55a5c88ad77c012820f0c23e0ce24f5eb27d1e76"
+}

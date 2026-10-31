@@ -76,7 +76,7 @@
   "same_retained_Docker_service_and_Cargo_volumes": true,
   "owner_stop_criterion": "Rollback and one final source-bound CI cycle. No further optimization variants; ask owner about exact final-source costs after complete results. No advance acceptance.",
   "hosted_qualification": {
-    "state": "Exact finalquality8/8,normal20run/fiveVMsemantic andinstaller14/14passed. Four final performance/profiling workflows await original results; no numerical admission.",
+    "state": "Finalquality8/8,normal20run/fiveVMsemantic,installer14/14andnativeprofiling6/6passed. Ordinarymain,before420andcalibrationnumeric/controlresults stillawaited; no admission.",
     "created_workflows": [
       {
         "id": 41188774413,
@@ -205,7 +205,20 @@
       "six_actual_installed_executable_real_compiler_E2E_jobs": "success",
       "release_publication": false
     },
-    "diagnostics": "pending",
+    "diagnostics": {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "merge": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "observed_merge_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "run_id": 41188700948,
+      "conclusion": "success",
+      "validation_job": "success",
+      "all_six_native_diagnostic_jobs": "success",
+      "fresh_IntelMac_and_Windows": "success",
+      "no_old_issue74_75_76_exemption_used": true,
+      "scope_limit": "Observed new-source profiling workflow passed. This does not establish a fix or unique cause for prior intermittent Mac capture failures75/76; issues remain unchanged.",
+      "numerical_performance_admission": false
+    },
     "quality_watch_transport": {
       "watch_command": [
         "gh",
@@ -239,6 +252,16 @@
       ],
       "observer_resumed_without_SUT_rerun": true,
       "resumed_observer_job": "bg_311"
+    },
+    "calibration_observer_transport": {
+      "run_id": 41188700875,
+      "scope": "Watcher transport failed, not the calibration workflow; only observer restarted. No source/SUT/workflow rerun.",
+      "error": "error connecting to api.github.com",
+      "actual_run_state_on_recovery": "queued",
+      "actual_run_conclusion_on_recovery": null,
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "raw_log": "final-calibration-watch-network-failure.log",
+      "raw_log_sha256": "6e2593f58aebea0d7481979f55a5c88ad77c012820f0c23e0ce24f5eb27d1e76"
     }
   },
   "previous420_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/3ceb71f84236d4c9ba35a4d0a80a2aa34f2fdffa/manifest.json",
@@ -284,6 +307,18 @@
     "completion-rollback-recovery-diagnostics-stdio.json": {
       "bytes": 29407,
       "sha256": "a4e346a14fc27ec580310a9b777970eb5499363cea5466017ec46a080b85b000"
+    },
+    "final-calibration-watch-network-failure.json": {
+      "bytes": 495,
+      "sha256": "548f6f5b9b615014f95c041e4338daca43451579a0570880aeda5254f65e29e2"
+    },
+    "final-calibration-watch-network-failure.log": {
+      "bytes": 1219318,
+      "sha256": "6e2593f58aebea0d7481979f55a5c88ad77c012820f0c23e0ce24f5eb27d1e76"
+    },
+    "final-diagnostics-completed-metadata.json": {
+      "bytes": 73861,
+      "sha256": "64abd2346c4462addbd6497975f044202b2264019bca6f6de5b0bd15ab9d8ca8"
     },
     "final-direct-completion-before420-dispatch.json": {
       "bytes": 683,
