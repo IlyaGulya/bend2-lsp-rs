@@ -1,0 +1,32 @@
+{
+  "watch_command": [
+    "gh",
+    "run",
+    "watch",
+    "41188700962",
+    "--repo",
+    "IlyaGulya/bend2-lsp-rs",
+    "--exit-status",
+    "--interval",
+    "60"
+  ],
+  "watch_exit_code": 1,
+  "observed_error": "dial tcp140.82.121.6:443:connect:network is unreachable",
+  "scope": "Local watcher transport failed; NOT evidence that hostedqualityworkflow failed. No SUT/source/CI rerun.",
+  "last_observed_workflow_state": "in_progress",
+  "last_observed_elapsed_minutes": 47,
+  "raw_log": "final-quality-watch-network-failure.log",
+  "raw_log_sha256": "dc29f907ca97022ccb238f905620a747e626b0f2baba955ff8d4af00815c8c60",
+  "last_observed_native_passes": [
+    "WindowsARM64",
+    "LinuxARM64",
+    "Linuxx64",
+    "IntelMac"
+  ],
+  "uncollected_jobs": [
+    "mainquality",
+    "legacycompatibility",
+    "Windowsx64",
+    "MacARM64"
+  ]
+}

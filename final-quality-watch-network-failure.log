@@ -1,0 +1,2883 @@
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 2 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+* native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  * Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+* native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 3 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+* native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 4 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+* native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 5 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 6 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 7 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 8 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 9 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 11 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 12 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 13 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 14 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 15 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 16 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 17 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 18 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 19 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 20 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 21 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 22 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 23 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 24 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 25 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 26 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 27 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 28 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  * Run mandatory real-compiler stdio E2Es
+  * Run saved-lint process and publication lifecycle E2Es
+  * Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 29 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+* native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 30 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 31 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 32 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  * Run mandatory real-compiler stdio E2Es
+  * Run saved-lint process and publication lifecycle E2Es
+  * Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 33 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  * Run mandatory real-compiler stdio E2Es
+  * Run saved-lint process and publication lifecycle E2Es
+  * Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 34 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  * Run mandatory real-compiler stdio E2Es
+  * Run saved-lint process and publication lifecycle E2Es
+  * Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 35 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  * Run mandatory real-compiler stdio E2Es
+  * Run saved-lint process and publication lifecycle E2Es
+  * Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 36 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  * Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 37 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 38 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 39 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  * Verify native macOS semantic supervision
+  * Provision checksum-pinned standalone bend-lint and native Bun
+  * Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 40 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 41 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+* native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  * Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  * Verify genuine Windows ARM native rule program
+  * Capture the genuine Windows ARM native exception
+  * Preserve genuine analyzer failure evidence
+  * Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 42 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+✓ native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) in 10m23s (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 43 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+✓ native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) in 10m23s (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 44 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+✓ native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) in 10m23s (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 45 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+✓ native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) in 10m23s (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 46 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+✓ native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) in 10m23s (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+Refreshing run status every 60 seconds. Press Ctrl+C to quit.
+
+* feat/semantic-conformance-main quality IlyaGulya/bend2-lsp-rs#62 · 41188700962
+Triggered via pull_request about 47 minutes ago
+
+JOBS
+* quality (ID 124500816589)
+✓ native-compiler-e2e (windows-11-arm, ARM64, aarch64-pc-windows-msvc, python) in 4m55s (ID 124500816670)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  ✓ Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+✓ native-compiler-e2e (ubuntu-24.04-arm, ARM64, aarch64-unknown-linux-gnu, python3) in 2m43s (ID 124500816711)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* legacy-native-compiler-e2e (ID 124500816750)
+✓ native-compiler-e2e (ubuntu-24.04, X64, x86_64-unknown-linux-gnu, python3) in 1m55s (ID 124500816770)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  - Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+* native-compiler-e2e (windows-2022, X64, x86_64-pc-windows-msvc, python) (ID 124500816796)
+* native-compiler-e2e (macos-15, ARM64, aarch64-apple-darwin, python3) (ID 124500816821)
+✓ native-compiler-e2e (macos-15-intel, X64, x86_64-apple-darwin, python3) in 10m23s (ID 124500816825)
+  ✓ Set up job
+  ✓ Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Verify native runner
+  ✓ Install pinned native Rust toolchain
+  ✓ Provision checksum-pinned genuine Bend 2.0.37
+  ✓ Preserve actual native compiler source and runtime identity
+  ✓ Run mandatory real-compiler stdio E2Es
+  ✓ Run saved-lint process and publication lifecycle E2Es
+  ✓ Verify notification ordering under contended lint cleanup
+  ✓ Verify native macOS semantic supervision
+  ✓ Provision checksum-pinned standalone bend-lint and native Bun
+  ✓ Preserve actual native linter package and runtime identity
+  ✓ Run genuine standalone lint diagnostics and explicit dangerous action E2E
+  - Verify genuine Windows ARM native rule program
+  - Capture the genuine Windows ARM native exception
+  - Preserve genuine analyzer failure evidence
+  ✓ Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  ✓ Complete job
+failed to get run: Get "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/runs/41188700962?exclude_pull_requests=true": dial tcp 140.82.121.6:443: connect: network is unreachable

@@ -1,0 +1,20 @@
+{
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "PR_merge_sha": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+  "verified_merge_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "run_id": 41188700962,
+  "conclusion": "success",
+  "all_eight_jobs": "success",
+  "six_native_real_compiler_E2Es": "success",
+  "legacy_Bend2.0.36": "success",
+  "fresh_Windows_x64_and_ARM64": "success; no issue74 exception used",
+  "main_quality_job_id": 124500816589,
+  "original_job_log_bytes": 314637,
+  "original_job_log_sha256": "75cf9b4a4eb4caa50639d99ed9cedbc4386292579e70dcf842394f36a1d57aa6",
+  "main_quality_queue_minutes": 80.56666666666666,
+  "main_quality_active_minutes": 16.75,
+  "performance_admission": false,
+  "watch_transport_failure_not_workflow_failure": true,
+  "observer_resume_did_not_rerun_CI_or_SUT": true
+}

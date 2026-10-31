@@ -76,7 +76,7 @@
   "same_retained_Docker_service_and_Cargo_volumes": true,
   "owner_stop_criterion": "Rollback and one final source-bound CI cycle. No further optimization variants; ask owner about exact final-source costs after complete results. No advance acceptance.",
   "hosted_qualification": {
-    "state": "All seven exact-source workflows created; no completion inherited.",
+    "state": "Exact-final-source quality passed all8jobs; remaining six final workflows awaited. No performance admission.",
     "created_workflows": [
       {
         "id": 41188774413,
@@ -149,13 +149,66 @@
         "created_at": "2026-10-31T09:26:26Z"
       }
     ],
-    "normal_quality": "pending",
+    "normal_quality": {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "PR_merge_sha": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "verified_merge_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "run_id": 41188700962,
+      "conclusion": "success",
+      "all_eight_jobs": "success",
+      "six_native_real_compiler_E2Es": "success",
+      "legacy_Bend2.0.36": "success",
+      "fresh_Windows_x64_and_ARM64": "success; no issue74 exception used",
+      "main_quality_job_id": 124500816589,
+      "original_job_log_bytes": 314637,
+      "original_job_log_sha256": "75cf9b4a4eb4caa50639d99ed9cedbc4386292579e70dcf842394f36a1d57aa6",
+      "main_quality_queue_minutes": 80.56666666666666,
+      "main_quality_active_minutes": 16.75,
+      "performance_admission": false,
+      "watch_transport_failure_not_workflow_failure": true,
+      "observer_resume_did_not_rerun_CI_or_SUT": true
+    },
     "normal_semantic": "pending",
     "calibration": "pending",
     "main_performance": "pending",
     "before420_performance": "pending",
     "installer_validation": "pending",
-    "diagnostics": "pending"
+    "diagnostics": "pending",
+    "quality_watch_transport": {
+      "watch_command": [
+        "gh",
+        "run",
+        "watch",
+        "41188700962",
+        "--repo",
+        "IlyaGulya/bend2-lsp-rs",
+        "--exit-status",
+        "--interval",
+        "60"
+      ],
+      "watch_exit_code": 1,
+      "observed_error": "dial tcp140.82.121.6:443:connect:network is unreachable",
+      "scope": "Local watcher transport failed; NOT evidence that hostedqualityworkflow failed. No SUT/source/CI rerun.",
+      "last_observed_workflow_state": "in_progress",
+      "last_observed_elapsed_minutes": 47,
+      "raw_log": "final-quality-watch-network-failure.log",
+      "raw_log_sha256": "dc29f907ca97022ccb238f905620a747e626b0f2baba955ff8d4af00815c8c60",
+      "last_observed_native_passes": [
+        "WindowsARM64",
+        "LinuxARM64",
+        "Linuxx64",
+        "IntelMac"
+      ],
+      "uncollected_jobs": [
+        "mainquality",
+        "legacycompatibility",
+        "Windowsx64",
+        "MacARM64"
+      ],
+      "observer_resumed_without_SUT_rerun": true,
+      "resumed_observer_job": "bg_311"
+    }
   },
   "previous420_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/3ceb71f84236d4c9ba35a4d0a80a2aa34f2fdffa/manifest.json",
   "previous884_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/60089cb5bdb4c6d08a0727ad3d38c7e9a842c981/manifest.json",
@@ -221,9 +274,45 @@
       "bytes": 1315,
       "sha256": "7eb9052925d601585b397e52f5a18d9bb41c0b044635f5bb51c9a2b4292f2600"
     },
+    "final-quality-completed-metadata.json": {
+      "bytes": 78725,
+      "sha256": "3272cef3bf57bc57dc135212f0af24a83bee5b3aab4dd42de07b993df9138604"
+    },
+    "final-quality-main-job-original.log": {
+      "bytes": 314637,
+      "sha256": "75cf9b4a4eb4caa50639d99ed9cedbc4386292579e70dcf842394f36a1d57aa6"
+    },
+    "final-quality-parent-proof.json": {
+      "bytes": 882,
+      "sha256": "dd00ea30d12e0c0231a872c8b7d3e5ce901ecef53f6225fa8fa2bc3463ecbec8"
+    },
+    "final-quality-watch-network-failure.json": {
+      "bytes": 844,
+      "sha256": "765592258693ba96341d1875ddf1f4edf3df8887425f7a423a62ae4ca2106c07"
+    },
+    "final-quality-watch-network-failure.log": {
+      "bytes": 157718,
+      "sha256": "dc29f907ca97022ccb238f905620a747e626b0f2baba955ff8d4af00815c8c60"
+    },
     "module-completion-api-smoke.rs": {
       "bytes": 1752,
       "sha256": "f5bf243eb21269bd435057712e5dfae2f993dadcdb1a9390e4ccadb505ca038f"
     }
+  },
+  "pins": {
+    "Bend": "2.0.37",
+    "Bun": "1.4.0"
+  },
+  "unchanged_contract_hashes": {
+    "benches/analysis.rs": "b296cfe0ebbd1e32a31cc10546827be7f03ab95b793540183fec7cd3eae88dbb",
+    "benches/fixtures/analyzer_input.bend": "d2f018dbc359ab0231fb19eb094c42a1298cd60a71416490fd05e3783dcab1f3",
+    "Cargo.toml": "17eb66037d4b9663e0943762934cfffc8bfa41d680df11032150ef47a054c0a2",
+    "Cargo.lock": "04df83cd1d808a8d1370990994496bd6e5e6d84945f79a9cb7291c286c2f54ee",
+    "rust-toolchain.toml": "8b43e8367cdb4d117cdaea1eaba8d2c526614d603c6e7ba8f30165f5a712c1c1",
+    "scripts/quality": "05fabdf32d7c58d3391bedd350009b81f7f0b9361f68612ba7b8bcd532adc9a6",
+    "scripts/install-tools.sh": "08de090b2b10b12f913e902832a9f95e7f10dfa996e7d3695146899ab40579e0",
+    "tests/analysis.rs": "c283b96c1a35010a57d8e09e9630cedc866f7b9b14d93dd6c38af74a3d4101d2",
+    "tests/semantic_workspace.rs": "119cd7f21e2593fa73141903bf06f1b5f7656f232135667712244f161deb74aa",
+    "tests/lsp_protocol.rs": "20f40683174ef519718ac8366f566a093fb06ca45b15d4089a70fa478c270a86"
   }
 }
