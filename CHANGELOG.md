@@ -85,11 +85,11 @@
 - Reuse normalized discovery keys and capture their snapshot/generation guard in
   one lookup. Avoid an immediately duplicated hub-import realpath check without
   caching filesystem identities across files or weakening retarget detection.
-- Reserve module-completion result storage once after finding the first match,
-  with an initial bound of sixteen indexed declarations. Continue from the same
-  iterator without repeating that match or checking reservation on every result.
-  Leave subsequent growth to `Vec::push`; preserve matching, ordering and owned
-  results without another index pass or an allocation for a no-match query.
+- Restore the direct indexed module-completion loop after the first-match peel
+  in `420a77c` failed hosted admission. That candidate used 7.35% more instructions
+  than main for medium completion and 2.38% more for large completion. Keep the
+  bounded first-match reservation, matching, ordering and owned results, with no
+  additional index pass or result-buffer allocation for a no-match query.
 - Reject excluded constructor declarations before slicing and matching names
   for module completion. Preserve same-spelling functions, fuzzy matching,
   recovery order and owned results without another index or semantic pass.

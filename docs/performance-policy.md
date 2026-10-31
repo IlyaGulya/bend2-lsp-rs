@@ -67,15 +67,21 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
-Module completion peels the first eligible match from the same indexed iterator
-before reserving result storage. Its first reservation is bounded by sixteen
-indexed declarations; subsequent growth belongs to `Vec::push`. The remaining
-loop does not repeat the first match or check for a first reservation on every
-result. No-match queries scan once without allocating a speculative result
+Module completion uses one direct indexed loop. Its first successful match
+reserves at most sixteen indexed declarations; subsequent growth belongs to
+`Vec::push`. No-match queries scan once without allocating a speculative result
 buffer, and selective queries do not reserve the whole document's declaration
-count. Matching, ordering and owned results remain unchanged. Fresh source-bound
-Callgrind results are still required; static annotation of an earlier hosted
-profile is attribution, not a new performance measurement or admission.
+count. Matching, ordering and owned results remain unchanged.
+
+The first-match peel in `420a77c` failed hosted admission in
+[run 41173453522](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41173453522):
+medium completion rose from 110,396 to 118,512 instructions (+7.35%) and large
+completion from 360,362 to 368,941 (+2.38%). That unsuccessful rewrite is removed,
+not presented as an optimization. Its full result remains 121 passed / 41
+regressions / 0 inconclusive event/workload rows. Restoring the direct loop is
+not admission of the next source: fresh source-bound results remain required.
+Static annotation of a hosted profile is attribution, not a new performance
+measurement or editor-latency evidence.
 
 The `semantic_view_cold.declarations_{100,1000,10000}` cases construct entry
 views from captured snapshot facts. Declaration-name occurrences reuse existing
