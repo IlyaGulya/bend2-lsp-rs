@@ -1,0 +1,495 @@
+# callgrind format
+version: 1
+creator: callgrind-3.27.1
+pid: 22063
+cmd:  /home/runner/work/_temp/paired-work/a/target/release/deps/analysis-5a4f4c9742db3588 --iai-run analysis_hot_paths 4 1 analysis::analysis_hot_paths::completion_warm
+part: 1
+thread: 1
+
+
+desc: I1 cache: 32768 B, 64 B, 8-way associative
+desc: D1 cache: 32768 B, 64 B, 8-way associative
+desc: LL cache: 8388608 B, 64 B, 16-way associative
+
+desc: Timerange: Basic block 0 - 2006106
+desc: Trigger: Program termination
+
+positions: line
+events: Ir Dr Dw I1mr D1mr D1mw ILmr DLmr DLmw
+summary: 110396 25177 14954 48 659 504 30 2 176
+
+
+ob=/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+fl=???
+fn=0x000000000001f540
+cob=/home/runner/work/_temp/paired-work/a/target/release/deps/analysis-5a4f4c9742db3588
+cfi=???
+cfn=(below main)
+calls=1 0 
+0 110396 25177 14954 48 659 504 30 2 176
+
+ob=/usr/lib/x86_64-linux-gnu/libc.so.6
+fl=???
+fn=(below main)
+cfn=0x000000000002a150
+calls=1 0 
+0 110396 25177 14954 48 659 504 30 2 176
+
+fn=malloc
+0 16050 4413 2009 0 4
+cfn=0x00000000000ab650
+calls=637 0 
+0 56895 11176 7315 6 20 112
+0 2793 399
+
+fn=realloc
+0 408 78 48 2
+cfn=0x00000000000ad030
+calls=108 0 
+0 4025 995 784 2 33 222 0 0 113
+0 72 12
+
+fn=0x0000000000188d80
+0 6283 1666 1249 1 13 214 0 0 112
+
+fn=0x00000000000a9bb0
+0 603 257 89 0 10
+
+fn=0x00000000000ab650
+0 44459 10333 4366 5 24 1
+cfn=0x00000000000a9bb0
+calls=95 0 
+0 570 243 84 0 9
+0 9347 96 2519 1 0 118
+cfn=0x00000000000a92d0
+calls=366 0 
+0 1008 504
+0 2064 0 516
+cfn=0x00000000000a92d0
+calls=191 0 
+0 516 258
+0 384 0 1
+cfn=0x00000000000a92d0
+calls=72 0 
+0 4 2
+0 17 0 3 0 0 1 0 0 1
+
+fn=0x000000000002a150
+cob=/home/runner/work/_temp/paired-work/a/target/release/deps/analysis-5a4f4c9742db3588
+cfi=???
+cfn=main
+calls=1 0 
+0 110396 25177 14954 48 659 504 30 2 176
+
+fn=0x00000000000ab250
+0 269 78 60
+cfn=0x00000000000a9bb0
+calls=9 0 
+0 33 14 5 0 1
+0 307 81 36 2 5
+
+fn=0x00000000000a92d0
+0 1528 764
+
+fn=0x00000000000ad030
+0 306 72 48
+cfn=0x00000000000ab650
+calls=81 0 
+0 1474 260 174 0 13 8 0 0 1
+0 108 18 6
+cob=???
+cfi=???
+cfn=0x00000000049da6b0
+calls=80 0 
+0 1495 472 449 0 14 214 0 0 112
+0 24 0 6
+cfn=0x00000000000ab250
+calls=80 0 
+0 609 173 101 2 6
+0 9
+
+fn=0x0000000000188620
+0 4229 705 0 4 49 0 0 1
+
+ob=???
+fl=???
+fn=0x00000000049da6b0
+0 12 6 0 0 1
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=0x0000000000188d80
+calls=127 0 
+0 1483 466 449 0 13 214 0 0 112
+
+ob=/home/runner/work/_temp/paired-work/a/target/release/deps/analysis-5a4f4c9742db3588
+fl=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+fn=<alloc::raw_vec::RawVecInner>::finish_grow
+544 63 0 42 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/uint_macros.rs
+3172 28
+0 28
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/intrinsics/mod.rs
+459 21
+0 14
+fe=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+635 7 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/alloc.rs
+155 6
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/alloc/unix.rs
+53 6
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/alloc.rs
+206 2 0 0 1
+101 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/alloc/unix.rs
+13 1
+54 18 6 6
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=realloc
+calls=88 0 
+54 4505 1085 832 4 33 222 0 0 113
+fe=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+564 12
+565 14 0 7
+0 14
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/alloc/unix.rs
+14 2 1 1
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=malloc
+calls=213 0 
+14 690 121 88 3 7 3
+fe=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+564 2
+0 14 0 14
+568 56 49
+
+fn=<alloc::raw_vec::RawVec<bend2_lsp::analysis::Completion>>::grow_one
+186 28 0 14 1 0 0 1
+493 7 7
+523 7
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/cmp.rs
+1038 21
+fe=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+529 42 7 7
+cfn=<alloc::raw_vec::RawVecInner>::finish_grow
+calls=7 544 
+529 5504 1262 990 10 40 225 0 0 113
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/result.rs
+2176 14 7
+2177 7 7 0 1 0 0 1
+fe=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+777 7 0 7
+778 7 0 7
+189 28 21
+
+fl=???
+fn=main
+cfi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs
+cfn=std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+calls=1 162 
+0 110396 25177 14954 48 659 504 30 2 176
+
+fn=(below main)
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=(below main)
+calls=1 0 
+0 110396 25177 14954 48 659 504 30 2 176
+
+fl=/home/runner/work/_temp/paired-work/a/benches/analysis.rs
+fn=analysis::completion_warm::__iai_callgrind_wrapper_mod::completion_warm
+379 5 0 3 1 0 0 1
+385 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/hint.rs
+491 2 0 1
+fe=/home/runner/work/_temp/paired-work/a/benches/analysis.rs
+386 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/hint.rs
+491 2 0 1
+fe=/home/runner/work/_temp/paired-work/a/benches/analysis.rs
+384 3 3 0 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/ascii.rs
+604 2
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/mod.rs
+2157 3
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/intrinsics/mod.rs
+2445 2
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+629 1 1 0 1 1 0 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+315 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+629 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+315 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+629 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+315 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+629 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+315 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+629 1 1 0 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+315 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+629 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+315 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+629 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+315 1
+0 1
+fi=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+707 3 0 1
+cfn=bend2_lsp::analysis::collect_module_completions_for_query::<true>
+calls=1 715 
+707 110147 25128 14896 33 658 503 15 1 176
+0 2 0 0 1 0 0 1
+573 5 0 1 1 0 0 1
+cfn=bend2_lsp::analysis::append_keyword_completions
+calls=1 624 
+573 181 31 49 9 0 0 9
+574 4 2 2 0 0 1
+fe=/home/runner/work/_temp/paired-work/a/benches/analysis.rs
+379 5 4
+
+fn=analysis::completion_warm::medium
+cfn=analysis::completion_warm::__iai_callgrind_wrapper_mod::completion_warm
+calls=1 379 
+379 110396 25177 14954 48 659 504 30 2 176
+
+fl=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs
+fn=std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/function.rs
+cfi=/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iai-callgrind-0.16.1/src/macros.rs
+cfn=analysis::main
+calls=1 444 
+250 110396 25177 14954 48 659 504 30 2 176
+fe=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs
+
+fl=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+fn=bend2_lsp::analysis::collect_module_completions_for_query::<true>
+715 8 0 7 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/vec/mod.rs
+462 3 0 3
+fi=/home/runner/work/_temp/paired-work/a/src/analysis/syntax.rs
+603 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1 0 0 1 0 0 1
+0 217 3 207 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/mut_ptr.rs
+970 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/mod.rs
+1939 1800 1000 800 0 0 168 0 0 63
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/vec/mod.rs
+1044 400 0 200
+0 600 400
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 200 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/vec/mod.rs
+0 3 2
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+723 402 402 0 1 100 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/str/traits.rs
+129 1005 0 0 1 0 0 1
+133 402
+145 402
+0 201 201
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+1226 201 201 0 0 199
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/str/traits.rs
+145 201
+146 402
+0 201 201
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+1226 402 201 0 0 36
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+518 402
+0 201 201 0 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/cmp.rs
+157 804 201 201
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=0x0000000000188620
+calls=201 0 
+157 4229 705 0 4 49 0 0 1
+157 201
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+521 201
+0 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+0 3 2
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/option.rs
+2141 1 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+614 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+855 4
+708 1 0 0 1 0 0 1
+889 4
+683 1
+0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+1650 8
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+180 8
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/iter/traits/iterator.rs
+2494 8 8
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs
+614 8
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+534 32
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs
+0 200 0 0 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/intrinsics/mod.rs
+459 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+461 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/alloc/unix.rs
+14 400 200 200
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=malloc
+calls=200 0 
+14 38190 7977 4656 2 16 7
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+470 400
+0 200 0 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/mod.rs
+549 800 200 200
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=0x0000000000188d80
+calls=200 0 
+549 2600 600 400
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+727 400 400
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/str/traits.rs
+129 800 0 0 1 0 0 1
+133 400
+145 400
+0 200 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+1226 200 200 0 0 13
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/str/traits.rs
+145 200 0 0 1 0 0 1
+146 400
+0 200 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/mod.rs
+1226 400 200 0 0 4
+0 400
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+461 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/alloc/unix.rs
+14 400 200 200
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=malloc
+calls=200 0 
+14 36858 7890 4580 1 1 102
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+470 400
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+727 200 200
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/mod.rs
+549 1000 200 200 1 0 0 1
+cob=/usr/lib/x86_64-linux-gnu/libc.so.6
+cfi=???
+cfn=0x0000000000188d80
+calls=200 0 
+549 2200 600 400 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/slice.rs
+452 200
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+763 200 200 0 0 200
+767 1600 200 1400 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/vec/mod.rs
+1038 400 200
+1039 14 0 7
+cfi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+cfn=<alloc::raw_vec::RawVec<bend2_lsp::analysis::Completion>>::grow_one
+calls=7 186 
+1039 5672 1311 1025 12 40 225 2 0 113
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/raw_vec/mod.rs
+615 21 7 7
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+732 7 4 3 1 0 1 1
+733 8 7
+
+fn=bend2_lsp::analysis::append_keyword_completions
+624 9 0 8 1 0 0 1
+625 39 0 27 5 0 0 5
+0 5 0 2 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/index_range.rs
+131 24
+0 12 0 0 1 0 0 1
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/num/uint_macros.rs
+973 12
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/index_range.rs
+63 12 0 12
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/index.rs
+219 12
+fi=/rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/mod.rs
+1731 24 12
+fe=/home/runner/work/_temp/paired-work/a/src/analysis.rs
+518 24 12
+639 8 7 0 1 0 0 1
+
+fl=/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iai-callgrind-0.16.1/src/macros.rs
+fn=analysis::main
+cfn=analysis::analysis_hot_paths::__run
+calls=1 1236 
+486 110396 25177 14954 48 659 504 30 2 176
+
+fn=analysis::analysis_hot_paths::__run
+cfi=/home/runner/work/_temp/paired-work/a/benches/analysis.rs
+cfn=analysis::completion_warm::medium
+calls=1 379 
+1237 110396 25177 14954 48 659 504 30 2 176
+
+totals: 110396 25177 14954 48 659 504 30 2 176

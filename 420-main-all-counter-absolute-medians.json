@@ -1,0 +1,3593 @@
+{
+  "source_sha": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "base_sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "run_id": 41173453522,
+  "fresh_pairs": 105,
+  "metric_rows": 162,
+  "classification_counts": {
+    "passed": 121,
+    "regression": 41
+  },
+  "by_metric": {
+    "Ir": {
+      "passed": 51,
+      "regression": 3
+    },
+    "I1mr": {
+      "passed": 28,
+      "regression": 26
+    },
+    "ILmr": {
+      "passed": 42,
+      "regression": 12
+    }
+  },
+  "method": "Medians from original a/b fresh-process counts; independent adjusted policy bounds retained separately; no new measurements.",
+  "details": [
+    {
+      "function_name": "ascii_offset_conversion",
+      "id": "prewarmed",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 3,
+      "candidate_median": 2,
+      "median_delta": -1,
+      "median_ratio": 0.6666666666666666,
+      "policy_residual_median": {
+        "denominator": 3,
+        "numerator": -4
+      },
+      "policy_lower": {
+        "denominator": 3,
+        "numerator": -4
+      },
+      "policy_upper": {
+        "denominator": 3,
+        "numerator": -4
+      }
+    },
+    {
+      "function_name": "ascii_offset_conversion",
+      "id": "prewarmed",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 3,
+      "candidate_median": 2,
+      "median_delta": -1,
+      "median_ratio": 0.6666666666666666,
+      "policy_residual_median": {
+        "denominator": 3,
+        "numerator": -4
+      },
+      "policy_lower": {
+        "denominator": 3,
+        "numerator": -4
+      },
+      "policy_upper": {
+        "denominator": 3,
+        "numerator": -4
+      }
+    },
+    {
+      "function_name": "ascii_offset_conversion",
+      "id": "prewarmed",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 61,
+      "candidate_median": 61,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 61,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 61,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 61,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "ascii_position_conversion",
+      "id": "prewarmed",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 2,
+      "candidate_median": 2,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 2,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "ascii_position_conversion",
+      "id": "prewarmed",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 2,
+      "candidate_median": 2,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 2,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "ascii_position_conversion",
+      "id": "prewarmed",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 141,
+      "candidate_median": 141,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 141,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 141,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 141,
+        "numerator": -2
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 17,
+      "candidate_median": 37,
+      "median_delta": 20,
+      "median_ratio": 2.176470588235294,
+      "policy_residual_median": {
+        "denominator": 17,
+        "numerator": 17
+      },
+      "policy_lower": {
+        "denominator": 17,
+        "numerator": 17
+      },
+      "policy_upper": {
+        "denominator": 17,
+        "numerator": 17
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 13,
+      "candidate_median": 9,
+      "median_delta": -4,
+      "median_ratio": 0.6923076923076923,
+      "policy_residual_median": {
+        "denominator": 13,
+        "numerator": -7
+      },
+      "policy_lower": {
+        "denominator": 13,
+        "numerator": -7
+      },
+      "policy_upper": {
+        "denominator": 13,
+        "numerator": -7
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 452404,
+      "candidate_median": 202511,
+      "median_delta": -249893,
+      "median_ratio": 0.4476330890089389,
+      "policy_residual_median": {
+        "denominator": 452404,
+        "numerator": -258941
+      },
+      "policy_lower": {
+        "denominator": 452404,
+        "numerator": -258941
+      },
+      "policy_upper": {
+        "denominator": 452404,
+        "numerator": -258941
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 18,
+      "candidate_median": 39,
+      "median_delta": 21,
+      "median_ratio": 2.1666666666666665,
+      "policy_residual_median": {
+        "denominator": 18,
+        "numerator": 18
+      },
+      "policy_lower": {
+        "denominator": 18,
+        "numerator": 18
+      },
+      "policy_upper": {
+        "denominator": 18,
+        "numerator": 18
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 13,
+      "candidate_median": 9,
+      "median_delta": -4,
+      "median_ratio": 0.6923076923076923,
+      "policy_residual_median": {
+        "denominator": 13,
+        "numerator": -7
+      },
+      "policy_lower": {
+        "denominator": 13,
+        "numerator": -7
+      },
+      "policy_upper": {
+        "denominator": 13,
+        "numerator": -7
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 151686,
+      "candidate_median": 68527,
+      "median_delta": -83159,
+      "median_ratio": 0.45176878551745053,
+      "policy_residual_median": {
+        "denominator": 151686,
+        "numerator": -86192
+      },
+      "policy_lower": {
+        "denominator": 151686,
+        "numerator": -86192
+      },
+      "policy_upper": {
+        "denominator": 151686,
+        "numerator": -86192
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 20,
+      "candidate_median": 31,
+      "median_delta": 11,
+      "median_ratio": 1.55,
+      "policy_residual_median": {
+        "denominator": 20,
+        "numerator": 8
+      },
+      "policy_lower": {
+        "denominator": 20,
+        "numerator": 8
+      },
+      "policy_upper": {
+        "denominator": 20,
+        "numerator": 8
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 19,
+      "candidate_median": 9,
+      "median_delta": -10,
+      "median_ratio": 0.47368421052631576,
+      "policy_residual_median": {
+        "denominator": 19,
+        "numerator": -13
+      },
+      "policy_lower": {
+        "denominator": 19,
+        "numerator": -13
+      },
+      "policy_upper": {
+        "denominator": 19,
+        "numerator": -13
+      }
+    },
+    {
+      "function_name": "call_hierarchy_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 2003,
+      "candidate_median": 1063,
+      "median_delta": -940,
+      "median_ratio": 0.5307039440838742,
+      "policy_residual_median": {
+        "denominator": 2003,
+        "numerator": -980
+      },
+      "policy_lower": {
+        "denominator": 2003,
+        "numerator": -980
+      },
+      "policy_upper": {
+        "denominator": 2003,
+        "numerator": -980
+      }
+    },
+    {
+      "function_name": "cold_completion_context_build",
+      "id": null,
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 675,
+      "candidate_median": 846,
+      "median_delta": 171,
+      "median_ratio": 1.2533333333333334,
+      "policy_residual_median": {
+        "denominator": 675,
+        "numerator": 150
+      },
+      "policy_lower": {
+        "denominator": 675,
+        "numerator": 150
+      },
+      "policy_upper": {
+        "denominator": 675,
+        "numerator": 152
+      }
+    },
+    {
+      "function_name": "cold_completion_context_build",
+      "id": null,
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 648,
+      "candidate_median": 820,
+      "median_delta": 172,
+      "median_ratio": 1.2654320987654322,
+      "policy_residual_median": {
+        "denominator": 648,
+        "numerator": 152
+      },
+      "policy_lower": {
+        "denominator": 648,
+        "numerator": 152
+      },
+      "policy_upper": {
+        "denominator": 648,
+        "numerator": 153
+      }
+    },
+    {
+      "function_name": "cold_completion_context_build",
+      "id": null,
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 66675,
+      "candidate_median": 55278,
+      "median_delta": -11397,
+      "median_ratio": 0.829066366704162,
+      "policy_residual_median": {
+        "denominator": 66649,
+        "numerator": -12713
+      },
+      "policy_lower": {
+        "denominator": 66662,
+        "numerator": -12723
+      },
+      "policy_upper": {
+        "denominator": 66649,
+        "numerator": -12706
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_large",
+      "id": null,
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 758,
+      "candidate_median": 1098,
+      "median_delta": 340,
+      "median_ratio": 1.4485488126649078,
+      "policy_residual_median": {
+        "denominator": 758,
+        "numerator": 317
+      },
+      "policy_lower": {
+        "denominator": 758,
+        "numerator": 317
+      },
+      "policy_upper": {
+        "denominator": 758,
+        "numerator": 317
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_large",
+      "id": null,
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 673,
+      "candidate_median": 807,
+      "median_delta": 134,
+      "median_ratio": 1.1991084695393759,
+      "policy_residual_median": {
+        "denominator": 673,
+        "numerator": 113
+      },
+      "policy_lower": {
+        "denominator": 673,
+        "numerator": 113
+      },
+      "policy_upper": {
+        "denominator": 673,
+        "numerator": 113
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_large",
+      "id": null,
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 28556903,
+      "candidate_median": 16989280,
+      "median_delta": -11567623,
+      "median_ratio": 0.594927258043353,
+      "policy_residual_median": {
+        "denominator": 28556903,
+        "numerator": -12139050
+      },
+      "policy_lower": {
+        "denominator": 28557608,
+        "numerator": -12139593
+      },
+      "policy_upper": {
+        "denominator": 28555966,
+        "numerator": -12138394
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_medium",
+      "id": null,
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 776,
+      "candidate_median": 1052,
+      "median_delta": 276,
+      "median_ratio": 1.3556701030927836,
+      "policy_residual_median": {
+        "denominator": 776,
+        "numerator": 252
+      },
+      "policy_lower": {
+        "denominator": 776,
+        "numerator": 252
+      },
+      "policy_upper": {
+        "denominator": 776,
+        "numerator": 252
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_medium",
+      "id": null,
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 679,
+      "candidate_median": 800,
+      "median_delta": 121,
+      "median_ratio": 1.1782032400589102,
+      "policy_residual_median": {
+        "denominator": 679,
+        "numerator": 100
+      },
+      "policy_lower": {
+        "denominator": 679,
+        "numerator": 100
+      },
+      "policy_upper": {
+        "denominator": 679,
+        "numerator": 100
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_medium",
+      "id": null,
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 7128512,
+      "candidate_median": 5481471,
+      "median_delta": -1647041,
+      "median_ratio": 0.7689502381422659,
+      "policy_residual_median": {
+        "denominator": 7128070,
+        "numerator": -1789492
+      },
+      "policy_lower": {
+        "denominator": 7128369,
+        "numerator": -1789642
+      },
+      "policy_upper": {
+        "denominator": 7128304,
+        "numerator": -1789435
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_small",
+      "id": null,
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 886,
+      "candidate_median": 1299,
+      "median_delta": 413,
+      "median_ratio": 1.4661399548532732,
+      "policy_residual_median": {
+        "denominator": 886,
+        "numerator": 386
+      },
+      "policy_lower": {
+        "denominator": 886,
+        "numerator": 386
+      },
+      "policy_upper": {
+        "denominator": 886,
+        "numerator": 386
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_small",
+      "id": null,
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 827,
+      "candidate_median": 1054,
+      "median_delta": 227,
+      "median_ratio": 1.2744860943168077,
+      "policy_residual_median": {
+        "denominator": 827,
+        "numerator": 202
+      },
+      "policy_lower": {
+        "denominator": 827,
+        "numerator": 202
+      },
+      "policy_upper": {
+        "denominator": 827,
+        "numerator": 202
+      }
+    },
+    {
+      "function_name": "cold_snapshot_build_small",
+      "id": null,
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 665527,
+      "candidate_median": 558090,
+      "median_delta": -107437,
+      "median_ratio": 0.8385685329070045,
+      "policy_residual_median": {
+        "denominator": 665539,
+        "numerator": -120757
+      },
+      "policy_lower": {
+        "denominator": 665374,
+        "numerator": -120789
+      },
+      "policy_upper": {
+        "denominator": 665436,
+        "numerator": -120686
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 50,
+      "candidate_median": 70,
+      "median_delta": 20,
+      "median_ratio": 1.4,
+      "policy_residual_median": {
+        "denominator": 50,
+        "numerator": 17
+      },
+      "policy_lower": {
+        "denominator": 50,
+        "numerator": 17
+      },
+      "policy_upper": {
+        "denominator": 50,
+        "numerator": 17
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 31,
+      "candidate_median": 44,
+      "median_delta": 13,
+      "median_ratio": 1.4193548387096775,
+      "policy_residual_median": {
+        "denominator": 31,
+        "numerator": 10
+      },
+      "policy_lower": {
+        "denominator": 31,
+        "numerator": 10
+      },
+      "policy_upper": {
+        "denominator": 31,
+        "numerator": 10
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "regression",
+      "baseline_median": 360362,
+      "candidate_median": 368941,
+      "median_delta": 8579,
+      "median_ratio": 1.023806616679894,
+      "policy_residual_median": {
+        "denominator": 360362,
+        "numerator": 1372
+      },
+      "policy_lower": {
+        "denominator": 360362,
+        "numerator": 1372
+      },
+      "policy_upper": {
+        "denominator": 360362,
+        "numerator": 1372
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 48,
+      "candidate_median": 68,
+      "median_delta": 20,
+      "median_ratio": 1.4166666666666667,
+      "policy_residual_median": {
+        "denominator": 48,
+        "numerator": 17
+      },
+      "policy_lower": {
+        "denominator": 48,
+        "numerator": 17
+      },
+      "policy_upper": {
+        "denominator": 48,
+        "numerator": 17
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 30,
+      "candidate_median": 44,
+      "median_delta": 14,
+      "median_ratio": 1.4666666666666666,
+      "policy_residual_median": {
+        "denominator": 30,
+        "numerator": 11
+      },
+      "policy_lower": {
+        "denominator": 30,
+        "numerator": 11
+      },
+      "policy_upper": {
+        "denominator": 30,
+        "numerator": 11
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "regression",
+      "baseline_median": 110396,
+      "candidate_median": 118512,
+      "median_delta": 8116,
+      "median_ratio": 1.073517156418711,
+      "policy_residual_median": {
+        "denominator": 110396,
+        "numerator": 5909
+      },
+      "policy_lower": {
+        "denominator": 110396,
+        "numerator": 5909
+      },
+      "policy_upper": {
+        "denominator": 110396,
+        "numerator": 5909
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 47,
+      "candidate_median": 50,
+      "median_delta": 3,
+      "median_ratio": 1.0638297872340425,
+      "policy_residual_median": {
+        "denominator": 47,
+        "numerator": 0
+      },
+      "policy_lower": {
+        "denominator": 47,
+        "numerator": 0
+      },
+      "policy_upper": {
+        "denominator": 47,
+        "numerator": 0
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 39,
+      "candidate_median": 42,
+      "median_delta": 3,
+      "median_ratio": 1.0769230769230769,
+      "policy_residual_median": {
+        "denominator": 39,
+        "numerator": 0
+      },
+      "policy_lower": {
+        "denominator": 39,
+        "numerator": 0
+      },
+      "policy_upper": {
+        "denominator": 39,
+        "numerator": 0
+      }
+    },
+    {
+      "function_name": "completion_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 19757,
+      "candidate_median": 20151,
+      "median_delta": 394,
+      "median_ratio": 1.0199422989320241,
+      "policy_residual_median": {
+        "denominator": 19757,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 19757,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 19757,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "empty",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 36,
+      "candidate_median": 33,
+      "median_delta": -3,
+      "median_ratio": 0.9166666666666666,
+      "policy_residual_median": {
+        "denominator": 36,
+        "numerator": -6
+      },
+      "policy_lower": {
+        "denominator": 36,
+        "numerator": -6
+      },
+      "policy_upper": {
+        "denominator": 36,
+        "numerator": -6
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "empty",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 32,
+      "candidate_median": 30,
+      "median_delta": -2,
+      "median_ratio": 0.9375,
+      "policy_residual_median": {
+        "denominator": 32,
+        "numerator": -5
+      },
+      "policy_lower": {
+        "denominator": 32,
+        "numerator": -5
+      },
+      "policy_upper": {
+        "denominator": 32,
+        "numerator": -5
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "empty",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1240,
+      "candidate_median": 955,
+      "median_delta": -285,
+      "median_ratio": 0.7701612903225806,
+      "policy_residual_median": {
+        "denominator": 1240,
+        "numerator": -309
+      },
+      "policy_lower": {
+        "denominator": 1240,
+        "numerator": -309
+      },
+      "policy_upper": {
+        "denominator": 1240,
+        "numerator": -309
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "prefix",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 36,
+      "candidate_median": 34,
+      "median_delta": -2,
+      "median_ratio": 0.9444444444444444,
+      "policy_residual_median": {
+        "denominator": 36,
+        "numerator": -5
+      },
+      "policy_lower": {
+        "denominator": 36,
+        "numerator": -5
+      },
+      "policy_upper": {
+        "denominator": 36,
+        "numerator": -5
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "prefix",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 33,
+      "candidate_median": 30,
+      "median_delta": -3,
+      "median_ratio": 0.9090909090909091,
+      "policy_residual_median": {
+        "denominator": 33,
+        "numerator": -6
+      },
+      "policy_lower": {
+        "denominator": 33,
+        "numerator": -6
+      },
+      "policy_upper": {
+        "denominator": 33,
+        "numerator": -6
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "prefix",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1286,
+      "candidate_median": 993,
+      "median_delta": -293,
+      "median_ratio": 0.7721617418351477,
+      "policy_residual_median": {
+        "denominator": 1286,
+        "numerator": -318
+      },
+      "policy_lower": {
+        "denominator": 1286,
+        "numerator": -318
+      },
+      "policy_upper": {
+        "denominator": 1286,
+        "numerator": -318
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "subsequence",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 36,
+      "candidate_median": 37,
+      "median_delta": 1,
+      "median_ratio": 1.0277777777777777,
+      "policy_residual_median": {
+        "denominator": 36,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 36,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 36,
+        "numerator": -2
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "subsequence",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 33,
+      "candidate_median": 34,
+      "median_delta": 1,
+      "median_ratio": 1.0303030303030303,
+      "policy_residual_median": {
+        "denominator": 33,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 33,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 33,
+        "numerator": -2
+      }
+    },
+    {
+      "function_name": "constructor_completion_warm",
+      "id": "subsequence",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1079,
+      "candidate_median": 907,
+      "median_delta": -172,
+      "median_ratio": 0.8405931417979611,
+      "policy_residual_median": {
+        "denominator": 1079,
+        "numerator": -193
+      },
+      "policy_lower": {
+        "denominator": 1079,
+        "numerator": -193
+      },
+      "policy_upper": {
+        "denominator": 1079,
+        "numerator": -193
+      }
+    },
+    {
+      "function_name": "constructor_definition_warm",
+      "id": "prewarmed",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 9,
+      "candidate_median": 17,
+      "median_delta": 8,
+      "median_ratio": 1.8888888888888888,
+      "policy_residual_median": {
+        "denominator": 9,
+        "numerator": 5
+      },
+      "policy_lower": {
+        "denominator": 9,
+        "numerator": 5
+      },
+      "policy_upper": {
+        "denominator": 9,
+        "numerator": 5
+      }
+    },
+    {
+      "function_name": "constructor_definition_warm",
+      "id": "prewarmed",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 8,
+      "candidate_median": 8,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 8,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 8,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 8,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "constructor_definition_warm",
+      "id": "prewarmed",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 555,
+      "candidate_median": 284,
+      "median_delta": -271,
+      "median_ratio": 0.5117117117117117,
+      "policy_residual_median": {
+        "denominator": 555,
+        "numerator": -282
+      },
+      "policy_lower": {
+        "denominator": 555,
+        "numerator": -282
+      },
+      "policy_upper": {
+        "denominator": 555,
+        "numerator": -282
+      }
+    },
+    {
+      "function_name": "folding_10000_lines",
+      "id": "ten_thousand_lines",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 34,
+      "candidate_median": 32,
+      "median_delta": -2,
+      "median_ratio": 0.9411764705882353,
+      "policy_residual_median": {
+        "denominator": 34,
+        "numerator": -5
+      },
+      "policy_lower": {
+        "denominator": 34,
+        "numerator": -5
+      },
+      "policy_upper": {
+        "denominator": 34,
+        "numerator": -5
+      }
+    },
+    {
+      "function_name": "folding_10000_lines",
+      "id": "ten_thousand_lines",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 34,
+      "candidate_median": 21,
+      "median_delta": -13,
+      "median_ratio": 0.6176470588235294,
+      "policy_residual_median": {
+        "denominator": 34,
+        "numerator": -16
+      },
+      "policy_lower": {
+        "denominator": 34,
+        "numerator": -16
+      },
+      "policy_upper": {
+        "denominator": 34,
+        "numerator": -16
+      }
+    },
+    {
+      "function_name": "folding_10000_lines",
+      "id": "ten_thousand_lines",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1454954,
+      "candidate_median": 822910,
+      "median_delta": -632044,
+      "median_ratio": 0.5655917644131705,
+      "policy_residual_median": {
+        "denominator": 1454954,
+        "numerator": -661143
+      },
+      "policy_lower": {
+        "denominator": 1454954,
+        "numerator": -661143
+      },
+      "policy_upper": {
+        "denominator": 1454954,
+        "numerator": -661143
+      }
+    },
+    {
+      "function_name": "folding_1000_lines",
+      "id": "thousand_lines",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 36,
+      "candidate_median": 28,
+      "median_delta": -8,
+      "median_ratio": 0.7777777777777778,
+      "policy_residual_median": {
+        "denominator": 36,
+        "numerator": -11
+      },
+      "policy_lower": {
+        "denominator": 36,
+        "numerator": -11
+      },
+      "policy_upper": {
+        "denominator": 36,
+        "numerator": -11
+      }
+    },
+    {
+      "function_name": "folding_1000_lines",
+      "id": "thousand_lines",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 28,
+      "candidate_median": 21,
+      "median_delta": -7,
+      "median_ratio": 0.75,
+      "policy_residual_median": {
+        "denominator": 28,
+        "numerator": -10
+      },
+      "policy_lower": {
+        "denominator": 28,
+        "numerator": -10
+      },
+      "policy_upper": {
+        "denominator": 28,
+        "numerator": -10
+      }
+    },
+    {
+      "function_name": "folding_1000_lines",
+      "id": "thousand_lines",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 146363,
+      "candidate_median": 83000,
+      "median_delta": -63363,
+      "median_ratio": 0.5670832109207928,
+      "policy_residual_median": {
+        "denominator": 146363,
+        "numerator": -66290
+      },
+      "policy_lower": {
+        "denominator": 146363,
+        "numerator": -66290
+      },
+      "policy_upper": {
+        "denominator": 146363,
+        "numerator": -66290
+      }
+    },
+    {
+      "function_name": "folding_100_lines",
+      "id": "hundred_lines",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 36,
+      "candidate_median": 24,
+      "median_delta": -12,
+      "median_ratio": 0.6666666666666666,
+      "policy_residual_median": {
+        "denominator": 36,
+        "numerator": -15
+      },
+      "policy_lower": {
+        "denominator": 36,
+        "numerator": -15
+      },
+      "policy_upper": {
+        "denominator": 36,
+        "numerator": -15
+      }
+    },
+    {
+      "function_name": "folding_100_lines",
+      "id": "hundred_lines",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 28,
+      "candidate_median": 22,
+      "median_delta": -6,
+      "median_ratio": 0.7857142857142857,
+      "policy_residual_median": {
+        "denominator": 28,
+        "numerator": -9
+      },
+      "policy_lower": {
+        "denominator": 28,
+        "numerator": -9
+      },
+      "policy_upper": {
+        "denominator": 28,
+        "numerator": -9
+      }
+    },
+    {
+      "function_name": "folding_100_lines",
+      "id": "hundred_lines",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 15372,
+      "candidate_median": 10112,
+      "median_delta": -5260,
+      "median_ratio": 0.6578194119177726,
+      "policy_residual_median": {
+        "denominator": 15372,
+        "numerator": -5567
+      },
+      "policy_lower": {
+        "denominator": 15372,
+        "numerator": -5567
+      },
+      "policy_upper": {
+        "denominator": 15372,
+        "numerator": -5567
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 14,
+      "candidate_median": 29,
+      "median_delta": 15,
+      "median_ratio": 2.0714285714285716,
+      "policy_residual_median": {
+        "denominator": 14,
+        "numerator": 12
+      },
+      "policy_lower": {
+        "denominator": 14,
+        "numerator": 12
+      },
+      "policy_upper": {
+        "denominator": 14,
+        "numerator": 12
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 7,
+      "candidate_median": 9,
+      "median_delta": 2,
+      "median_ratio": 1.2857142857142858,
+      "policy_residual_median": {
+        "denominator": 7,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 7,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 7,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 605,
+      "candidate_median": 397,
+      "median_delta": -208,
+      "median_ratio": 0.656198347107438,
+      "policy_residual_median": {
+        "denominator": 605,
+        "numerator": -220
+      },
+      "policy_lower": {
+        "denominator": 605,
+        "numerator": -220
+      },
+      "policy_upper": {
+        "denominator": 605,
+        "numerator": -220
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 11,
+      "candidate_median": 29,
+      "median_delta": 18,
+      "median_ratio": 2.6363636363636362,
+      "policy_residual_median": {
+        "denominator": 11,
+        "numerator": 15
+      },
+      "policy_lower": {
+        "denominator": 11,
+        "numerator": 15
+      },
+      "policy_upper": {
+        "denominator": 11,
+        "numerator": 15
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 7,
+      "candidate_median": 9,
+      "median_delta": 2,
+      "median_ratio": 1.2857142857142858,
+      "policy_residual_median": {
+        "denominator": 7,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 7,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 7,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 601,
+      "candidate_median": 397,
+      "median_delta": -204,
+      "median_ratio": 0.6605657237936772,
+      "policy_residual_median": {
+        "denominator": 601,
+        "numerator": -216
+      },
+      "policy_lower": {
+        "denominator": 601,
+        "numerator": -216
+      },
+      "policy_upper": {
+        "denominator": 601,
+        "numerator": -216
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 7,
+      "candidate_median": 28,
+      "median_delta": 21,
+      "median_ratio": 4.0,
+      "policy_residual_median": {
+        "denominator": 7,
+        "numerator": 18
+      },
+      "policy_lower": {
+        "denominator": 7,
+        "numerator": 18
+      },
+      "policy_upper": {
+        "denominator": 7,
+        "numerator": 18
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 7,
+      "candidate_median": 9,
+      "median_delta": 2,
+      "median_ratio": 1.2857142857142858,
+      "policy_residual_median": {
+        "denominator": 7,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 7,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 7,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "identifier_ranges_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 590,
+      "candidate_median": 386,
+      "median_delta": -204,
+      "median_ratio": 0.6542372881355932,
+      "policy_residual_median": {
+        "denominator": 590,
+        "numerator": -215
+      },
+      "policy_lower": {
+        "denominator": 590,
+        "numerator": -215
+      },
+      "policy_upper": {
+        "denominator": 590,
+        "numerator": -215
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "exact",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 131,
+      "candidate_median": 117,
+      "median_delta": -14,
+      "median_ratio": 0.8931297709923665,
+      "policy_residual_median": {
+        "denominator": 130,
+        "numerator": -17
+      },
+      "policy_lower": {
+        "denominator": 131,
+        "numerator": -18
+      },
+      "policy_upper": {
+        "denominator": 131,
+        "numerator": -17
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "exact",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 93,
+      "candidate_median": 92,
+      "median_delta": -1,
+      "median_ratio": 0.989247311827957,
+      "policy_residual_median": {
+        "denominator": 93,
+        "numerator": -4
+      },
+      "policy_lower": {
+        "denominator": 93,
+        "numerator": -4
+      },
+      "policy_upper": {
+        "denominator": 93,
+        "numerator": -4
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "exact",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 128056,
+      "candidate_median": 130337,
+      "median_delta": 2281,
+      "median_ratio": 1.0178125195227088,
+      "policy_residual_median": {
+        "denominator": 128060,
+        "numerator": -284
+      },
+      "policy_lower": {
+        "denominator": 128052,
+        "numerator": -285
+      },
+      "policy_upper": {
+        "denominator": 128052,
+        "numerator": -279
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "fuzzy",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 133,
+      "candidate_median": 124,
+      "median_delta": -9,
+      "median_ratio": 0.9323308270676691,
+      "policy_residual_median": {
+        "denominator": 133,
+        "numerator": -13
+      },
+      "policy_lower": {
+        "denominator": 133,
+        "numerator": -14
+      },
+      "policy_upper": {
+        "denominator": 133,
+        "numerator": -13
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "fuzzy",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 95,
+      "candidate_median": 96,
+      "median_delta": 1,
+      "median_ratio": 1.0105263157894737,
+      "policy_residual_median": {
+        "denominator": 95,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 95,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 95,
+        "numerator": -2
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "fuzzy",
+      "metric": "Ir",
+      "classification": "regression",
+      "baseline_median": 130290,
+      "candidate_median": 133383,
+      "median_delta": 3093,
+      "median_ratio": 1.023739350679254,
+      "policy_residual_median": {
+        "denominator": 130290,
+        "numerator": 495
+      },
+      "policy_lower": {
+        "denominator": 130290,
+        "numerator": 488
+      },
+      "policy_upper": {
+        "denominator": 130206,
+        "numerator": 503
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "no_match",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 34,
+      "candidate_median": 26,
+      "median_delta": -8,
+      "median_ratio": 0.7647058823529411,
+      "policy_residual_median": {
+        "denominator": 34,
+        "numerator": -11
+      },
+      "policy_lower": {
+        "denominator": 34,
+        "numerator": -11
+      },
+      "policy_upper": {
+        "denominator": 34,
+        "numerator": -11
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "no_match",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 34,
+      "candidate_median": 20,
+      "median_delta": -14,
+      "median_ratio": 0.5882352941176471,
+      "policy_residual_median": {
+        "denominator": 34,
+        "numerator": -17
+      },
+      "policy_lower": {
+        "denominator": 34,
+        "numerator": -17
+      },
+      "policy_upper": {
+        "denominator": 34,
+        "numerator": -17
+      }
+    },
+    {
+      "function_name": "import_completion_candidates_warm",
+      "id": "no_match",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 28619,
+      "candidate_median": 10309,
+      "median_delta": -18310,
+      "median_ratio": 0.3602152416226982,
+      "policy_residual_median": {
+        "denominator": 28619,
+        "numerator": -18882
+      },
+      "policy_lower": {
+        "denominator": 28619,
+        "numerator": -18882
+      },
+      "policy_upper": {
+        "denominator": 28619,
+        "numerator": -18882
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 7,
+      "candidate_median": 6,
+      "median_delta": -1,
+      "median_ratio": 0.8571428571428571,
+      "policy_residual_median": {
+        "denominator": 7,
+        "numerator": -4
+      },
+      "policy_lower": {
+        "denominator": 7,
+        "numerator": -4
+      },
+      "policy_upper": {
+        "denominator": 7,
+        "numerator": -4
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 7,
+      "candidate_median": 6,
+      "median_delta": -1,
+      "median_ratio": 0.8571428571428571,
+      "policy_residual_median": {
+        "denominator": 7,
+        "numerator": -4
+      },
+      "policy_lower": {
+        "denominator": 7,
+        "numerator": -4
+      },
+      "policy_upper": {
+        "denominator": 7,
+        "numerator": -4
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 58394,
+      "candidate_median": 58467,
+      "median_delta": 73,
+      "median_ratio": 1.0012501284378532,
+      "policy_residual_median": {
+        "denominator": 58394,
+        "numerator": -1094
+      },
+      "policy_lower": {
+        "denominator": 58394,
+        "numerator": -1094
+      },
+      "policy_upper": {
+        "denominator": 58394,
+        "numerator": -1094
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 9,
+      "candidate_median": 7,
+      "median_delta": -2,
+      "median_ratio": 0.7777777777777778,
+      "policy_residual_median": {
+        "denominator": 9,
+        "numerator": -5
+      },
+      "policy_lower": {
+        "denominator": 9,
+        "numerator": -5
+      },
+      "policy_upper": {
+        "denominator": 9,
+        "numerator": -5
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 7,
+      "candidate_median": 6,
+      "median_delta": -1,
+      "median_ratio": 0.8571428571428571,
+      "policy_residual_median": {
+        "denominator": 7,
+        "numerator": -4
+      },
+      "policy_lower": {
+        "denominator": 7,
+        "numerator": -4
+      },
+      "policy_upper": {
+        "denominator": 7,
+        "numerator": -4
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 20186,
+      "candidate_median": 20293,
+      "median_delta": 107,
+      "median_ratio": 1.005300703457842,
+      "policy_residual_median": {
+        "denominator": 20186,
+        "numerator": -296
+      },
+      "policy_lower": {
+        "denominator": 20186,
+        "numerator": -296
+      },
+      "policy_upper": {
+        "denominator": 20186,
+        "numerator": -296
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 14,
+      "candidate_median": 6,
+      "median_delta": -8,
+      "median_ratio": 0.42857142857142855,
+      "policy_residual_median": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_lower": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_upper": {
+        "denominator": 14,
+        "numerator": -11
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 13,
+      "candidate_median": 6,
+      "median_delta": -7,
+      "median_ratio": 0.46153846153846156,
+      "policy_residual_median": {
+        "denominator": 13,
+        "numerator": -10
+      },
+      "policy_lower": {
+        "denominator": 13,
+        "numerator": -10
+      },
+      "policy_upper": {
+        "denominator": 13,
+        "numerator": -10
+      }
+    },
+    {
+      "function_name": "inlay_hints_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1812,
+      "candidate_median": 1511,
+      "median_delta": -301,
+      "median_ratio": 0.8338852097130243,
+      "policy_residual_median": {
+        "denominator": 1812,
+        "numerator": -337
+      },
+      "policy_lower": {
+        "denominator": 1812,
+        "numerator": -337
+      },
+      "policy_upper": {
+        "denominator": 1812,
+        "numerator": -337
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "builtin",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 23,
+      "candidate_median": 2,
+      "median_delta": -21,
+      "median_ratio": 0.08695652173913043,
+      "policy_residual_median": {
+        "denominator": 23,
+        "numerator": -24
+      },
+      "policy_lower": {
+        "denominator": 23,
+        "numerator": -24
+      },
+      "policy_upper": {
+        "denominator": 23,
+        "numerator": -24
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "builtin",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 22,
+      "candidate_median": 2,
+      "median_delta": -20,
+      "median_ratio": 0.09090909090909091,
+      "policy_residual_median": {
+        "denominator": 22,
+        "numerator": -23
+      },
+      "policy_lower": {
+        "denominator": 22,
+        "numerator": -23
+      },
+      "policy_upper": {
+        "denominator": 22,
+        "numerator": -23
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "builtin",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 308,
+      "candidate_median": 20,
+      "median_delta": -288,
+      "median_ratio": 0.06493506493506493,
+      "policy_residual_median": {
+        "denominator": 308,
+        "numerator": -294
+      },
+      "policy_lower": {
+        "denominator": 308,
+        "numerator": -294
+      },
+      "policy_upper": {
+        "denominator": 308,
+        "numerator": -294
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "nested",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 22,
+      "candidate_median": 2,
+      "median_delta": -20,
+      "median_ratio": 0.09090909090909091,
+      "policy_residual_median": {
+        "denominator": 22,
+        "numerator": -23
+      },
+      "policy_lower": {
+        "denominator": 22,
+        "numerator": -23
+      },
+      "policy_upper": {
+        "denominator": 22,
+        "numerator": -23
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "nested",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 21,
+      "candidate_median": 2,
+      "median_delta": -19,
+      "median_ratio": 0.09523809523809523,
+      "policy_residual_median": {
+        "denominator": 21,
+        "numerator": -22
+      },
+      "policy_lower": {
+        "denominator": 21,
+        "numerator": -22
+      },
+      "policy_upper": {
+        "denominator": 21,
+        "numerator": -22
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "nested",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 367,
+      "candidate_median": 20,
+      "median_delta": -347,
+      "median_ratio": 0.05449591280653951,
+      "policy_residual_median": {
+        "denominator": 367,
+        "numerator": -354
+      },
+      "policy_lower": {
+        "denominator": 367,
+        "numerator": -354
+      },
+      "policy_upper": {
+        "denominator": 367,
+        "numerator": -354
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "qualified",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 23,
+      "candidate_median": 2,
+      "median_delta": -21,
+      "median_ratio": 0.08695652173913043,
+      "policy_residual_median": {
+        "denominator": 23,
+        "numerator": -24
+      },
+      "policy_lower": {
+        "denominator": 23,
+        "numerator": -24
+      },
+      "policy_upper": {
+        "denominator": 23,
+        "numerator": -24
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "qualified",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 22,
+      "candidate_median": 2,
+      "median_delta": -20,
+      "median_ratio": 0.09090909090909091,
+      "policy_residual_median": {
+        "denominator": 22,
+        "numerator": -23
+      },
+      "policy_lower": {
+        "denominator": 22,
+        "numerator": -23
+      },
+      "policy_upper": {
+        "denominator": 22,
+        "numerator": -23
+      }
+    },
+    {
+      "function_name": "parameter_annotation_warm",
+      "id": "qualified",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 372,
+      "candidate_median": 20,
+      "median_delta": -352,
+      "median_ratio": 0.053763440860215055,
+      "policy_residual_median": {
+        "denominator": 372,
+        "numerator": -359
+      },
+      "policy_lower": {
+        "denominator": 372,
+        "numerator": -359
+      },
+      "policy_upper": {
+        "denominator": 372,
+        "numerator": -359
+      }
+    },
+    {
+      "function_name": "pattern_completion_context_warm",
+      "id": "nested",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 4,
+      "candidate_median": 5,
+      "median_delta": 1,
+      "median_ratio": 1.25,
+      "policy_residual_median": {
+        "denominator": 4,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 4,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 4,
+        "numerator": -2
+      }
+    },
+    {
+      "function_name": "pattern_completion_context_warm",
+      "id": "nested",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 4,
+      "candidate_median": 5,
+      "median_delta": 1,
+      "median_ratio": 1.25,
+      "policy_residual_median": {
+        "denominator": 4,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 4,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 4,
+        "numerator": -2
+      }
+    },
+    {
+      "function_name": "pattern_completion_context_warm",
+      "id": "nested",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 52,
+      "candidate_median": 52,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 52,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 52,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 52,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 133,
+      "candidate_median": 136,
+      "median_delta": 3,
+      "median_ratio": 1.0225563909774436,
+      "policy_residual_median": {
+        "denominator": 133,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 133,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 133,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 133,
+      "candidate_median": 134,
+      "median_delta": 1,
+      "median_ratio": 1.0075187969924813,
+      "policy_residual_median": {
+        "denominator": 133,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 133,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 133,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 14216843,
+      "candidate_median": 14216843,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 14216843,
+        "numerator": -284336
+      },
+      "policy_lower": {
+        "denominator": 14216843,
+        "numerator": -284336
+      },
+      "policy_upper": {
+        "denominator": 14216843,
+        "numerator": -284336
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 138,
+      "candidate_median": 143,
+      "median_delta": 5,
+      "median_ratio": 1.036231884057971,
+      "policy_residual_median": {
+        "denominator": 138,
+        "numerator": 0
+      },
+      "policy_lower": {
+        "denominator": 138,
+        "numerator": 0
+      },
+      "policy_upper": {
+        "denominator": 138,
+        "numerator": 0
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 138,
+      "candidate_median": 139,
+      "median_delta": 1,
+      "median_ratio": 1.0072463768115942,
+      "policy_residual_median": {
+        "denominator": 138,
+        "numerator": -4
+      },
+      "policy_lower": {
+        "denominator": 138,
+        "numerator": -4
+      },
+      "policy_upper": {
+        "denominator": 138,
+        "numerator": -4
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 873518,
+      "candidate_median": 873518,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 873518,
+        "numerator": -17470
+      },
+      "policy_lower": {
+        "denominator": 873518,
+        "numerator": -17470
+      },
+      "policy_upper": {
+        "denominator": 873518,
+        "numerator": -17470
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 105,
+      "candidate_median": 107,
+      "median_delta": 2,
+      "median_ratio": 1.019047619047619,
+      "policy_residual_median": {
+        "denominator": 105,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 105,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 105,
+        "numerator": -2
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 105,
+      "candidate_median": 106,
+      "median_delta": 1,
+      "median_ratio": 1.0095238095238095,
+      "policy_residual_median": {
+        "denominator": 105,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 105,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 105,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "reference_location_order_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 34077,
+      "candidate_median": 34077,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 34077,
+        "numerator": -681
+      },
+      "policy_lower": {
+        "denominator": 34077,
+        "numerator": -681
+      },
+      "policy_upper": {
+        "denominator": 34077,
+        "numerator": -681
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 13,
+      "candidate_median": 40,
+      "median_delta": 27,
+      "median_ratio": 3.076923076923077,
+      "policy_residual_median": {
+        "denominator": 13,
+        "numerator": 24
+      },
+      "policy_lower": {
+        "denominator": 13,
+        "numerator": 24
+      },
+      "policy_upper": {
+        "denominator": 13,
+        "numerator": 24
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 9,
+      "candidate_median": 12,
+      "median_delta": 3,
+      "median_ratio": 1.3333333333333333,
+      "policy_residual_median": {
+        "denominator": 9,
+        "numerator": 0
+      },
+      "policy_lower": {
+        "denominator": 9,
+        "numerator": 0
+      },
+      "policy_upper": {
+        "denominator": 9,
+        "numerator": 0
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 106817,
+      "candidate_median": 80127,
+      "median_delta": -26690,
+      "median_ratio": 0.7501334057312975,
+      "policy_residual_median": {
+        "denominator": 106817,
+        "numerator": -28826
+      },
+      "policy_lower": {
+        "denominator": 106817,
+        "numerator": -28826
+      },
+      "policy_upper": {
+        "denominator": 106817,
+        "numerator": -28826
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 14,
+      "candidate_median": 41,
+      "median_delta": 27,
+      "median_ratio": 2.9285714285714284,
+      "policy_residual_median": {
+        "denominator": 14,
+        "numerator": 24
+      },
+      "policy_lower": {
+        "denominator": 14,
+        "numerator": 24
+      },
+      "policy_upper": {
+        "denominator": 14,
+        "numerator": 24
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 9,
+      "candidate_median": 12,
+      "median_delta": 3,
+      "median_ratio": 1.3333333333333333,
+      "policy_residual_median": {
+        "denominator": 9,
+        "numerator": 0
+      },
+      "policy_lower": {
+        "denominator": 9,
+        "numerator": 0
+      },
+      "policy_upper": {
+        "denominator": 9,
+        "numerator": 0
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 36499,
+      "candidate_median": 27743,
+      "median_delta": -8756,
+      "median_ratio": 0.7601030165210005,
+      "policy_residual_median": {
+        "denominator": 36499,
+        "numerator": -9485
+      },
+      "policy_lower": {
+        "denominator": 36499,
+        "numerator": -9485
+      },
+      "policy_upper": {
+        "denominator": 36499,
+        "numerator": -9485
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 16,
+      "candidate_median": 34,
+      "median_delta": 18,
+      "median_ratio": 2.125,
+      "policy_residual_median": {
+        "denominator": 16,
+        "numerator": 15
+      },
+      "policy_lower": {
+        "denominator": 16,
+        "numerator": 15
+      },
+      "policy_upper": {
+        "denominator": 16,
+        "numerator": 15
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 15,
+      "candidate_median": 12,
+      "median_delta": -3,
+      "median_ratio": 0.8,
+      "policy_residual_median": {
+        "denominator": 15,
+        "numerator": -6
+      },
+      "policy_lower": {
+        "denominator": 15,
+        "numerator": -6
+      },
+      "policy_upper": {
+        "denominator": 15,
+        "numerator": -6
+      }
+    },
+    {
+      "function_name": "references_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1797,
+      "candidate_median": 1175,
+      "median_delta": -622,
+      "median_ratio": 0.6538675570395103,
+      "policy_residual_median": {
+        "denominator": 1797,
+        "numerator": -657
+      },
+      "policy_lower": {
+        "denominator": 1797,
+        "numerator": -657
+      },
+      "policy_upper": {
+        "denominator": 1797,
+        "numerator": -657
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 90,
+      "candidate_median": 106,
+      "median_delta": 16,
+      "median_ratio": 1.1777777777777778,
+      "policy_residual_median": {
+        "denominator": 90,
+        "numerator": 13
+      },
+      "policy_lower": {
+        "denominator": 90,
+        "numerator": 13
+      },
+      "policy_upper": {
+        "denominator": 90,
+        "numerator": 13
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 68,
+      "candidate_median": 72,
+      "median_delta": 4,
+      "median_ratio": 1.0588235294117647,
+      "policy_residual_median": {
+        "denominator": 68,
+        "numerator": 1
+      },
+      "policy_lower": {
+        "denominator": 68,
+        "numerator": 1
+      },
+      "policy_upper": {
+        "denominator": 68,
+        "numerator": 1
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 408394,
+      "candidate_median": 358955,
+      "median_delta": -49439,
+      "median_ratio": 0.8789428835879077,
+      "policy_residual_median": {
+        "denominator": 408394,
+        "numerator": -57606
+      },
+      "policy_lower": {
+        "denominator": 408394,
+        "numerator": -57606
+      },
+      "policy_upper": {
+        "denominator": 408394,
+        "numerator": -57606
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 89,
+      "candidate_median": 100,
+      "median_delta": 11,
+      "median_ratio": 1.1235955056179776,
+      "policy_residual_median": {
+        "denominator": 89,
+        "numerator": 8
+      },
+      "policy_lower": {
+        "denominator": 89,
+        "numerator": 8
+      },
+      "policy_upper": {
+        "denominator": 89,
+        "numerator": 8
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 70,
+      "candidate_median": 72,
+      "median_delta": 2,
+      "median_ratio": 1.0285714285714285,
+      "policy_residual_median": {
+        "denominator": 70,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 70,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 70,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 131845,
+      "candidate_median": 120519,
+      "median_delta": -11326,
+      "median_ratio": 0.9140960976904698,
+      "policy_residual_median": {
+        "denominator": 131845,
+        "numerator": -13962
+      },
+      "policy_lower": {
+        "denominator": 131845,
+        "numerator": -13962
+      },
+      "policy_upper": {
+        "denominator": 131845,
+        "numerator": -13962
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 87,
+      "candidate_median": 92,
+      "median_delta": 5,
+      "median_ratio": 1.0574712643678161,
+      "policy_residual_median": {
+        "denominator": 87,
+        "numerator": 2
+      },
+      "policy_lower": {
+        "denominator": 87,
+        "numerator": 2
+      },
+      "policy_upper": {
+        "denominator": 87,
+        "numerator": 2
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 76,
+      "candidate_median": 72,
+      "median_delta": -4,
+      "median_ratio": 0.9473684210526315,
+      "policy_residual_median": {
+        "denominator": 76,
+        "numerator": -7
+      },
+      "policy_lower": {
+        "denominator": 76,
+        "numerator": -7
+      },
+      "policy_upper": {
+        "denominator": 76,
+        "numerator": -7
+      }
+    },
+    {
+      "function_name": "scoped_completion_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 32179,
+      "candidate_median": 30511,
+      "median_delta": -1668,
+      "median_ratio": 0.9481649522980826,
+      "policy_residual_median": {
+        "denominator": 32179,
+        "numerator": -2311
+      },
+      "policy_lower": {
+        "denominator": 32179,
+        "numerator": -2311
+      },
+      "policy_upper": {
+        "denominator": 32179,
+        "numerator": -2311
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "large",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 14,
+      "candidate_median": 6,
+      "median_delta": -8,
+      "median_ratio": 0.42857142857142855,
+      "policy_residual_median": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_lower": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_upper": {
+        "denominator": 14,
+        "numerator": -11
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "large",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 14,
+      "candidate_median": 6,
+      "median_delta": -8,
+      "median_ratio": 0.42857142857142855,
+      "policy_residual_median": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_lower": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_upper": {
+        "denominator": 14,
+        "numerator": -11
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "large",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 456332,
+      "candidate_median": 217348,
+      "median_delta": -238984,
+      "median_ratio": 0.476293575729951,
+      "policy_residual_median": {
+        "denominator": 456332,
+        "numerator": -248110
+      },
+      "policy_lower": {
+        "denominator": 456332,
+        "numerator": -248110
+      },
+      "policy_upper": {
+        "denominator": 456332,
+        "numerator": -248110
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "medium",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 16,
+      "candidate_median": 7,
+      "median_delta": -9,
+      "median_ratio": 0.4375,
+      "policy_residual_median": {
+        "denominator": 16,
+        "numerator": -12
+      },
+      "policy_lower": {
+        "denominator": 16,
+        "numerator": -12
+      },
+      "policy_upper": {
+        "denominator": 16,
+        "numerator": -12
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "medium",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 14,
+      "candidate_median": 6,
+      "median_delta": -8,
+      "median_ratio": 0.42857142857142855,
+      "policy_residual_median": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_lower": {
+        "denominator": 14,
+        "numerator": -11
+      },
+      "policy_upper": {
+        "denominator": 14,
+        "numerator": -11
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "medium",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 152835,
+      "candidate_median": 73204,
+      "median_delta": -79631,
+      "median_ratio": 0.4789740569895639,
+      "policy_residual_median": {
+        "denominator": 152835,
+        "numerator": -82687
+      },
+      "policy_lower": {
+        "denominator": 152835,
+        "numerator": -82687
+      },
+      "policy_upper": {
+        "denominator": 152835,
+        "numerator": -82687
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "small",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 21,
+      "candidate_median": 6,
+      "median_delta": -15,
+      "median_ratio": 0.2857142857142857,
+      "policy_residual_median": {
+        "denominator": 21,
+        "numerator": -18
+      },
+      "policy_lower": {
+        "denominator": 21,
+        "numerator": -18
+      },
+      "policy_upper": {
+        "denominator": 21,
+        "numerator": -18
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "small",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 20,
+      "candidate_median": 6,
+      "median_delta": -14,
+      "median_ratio": 0.3,
+      "policy_residual_median": {
+        "denominator": 20,
+        "numerator": -17
+      },
+      "policy_lower": {
+        "denominator": 20,
+        "numerator": -17
+      },
+      "policy_upper": {
+        "denominator": 20,
+        "numerator": -17
+      }
+    },
+    {
+      "function_name": "semantic_tokens_warm",
+      "id": "small",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 16083,
+      "candidate_median": 7230,
+      "median_delta": -8853,
+      "median_ratio": 0.44954299570975564,
+      "policy_residual_median": {
+        "denominator": 16083,
+        "numerator": -9174
+      },
+      "policy_lower": {
+        "denominator": 16083,
+        "numerator": -9174
+      },
+      "policy_upper": {
+        "denominator": 16083,
+        "numerator": -9174
+      }
+    },
+    {
+      "function_name": "unicode_offset_conversion",
+      "id": "prewarmed",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 3,
+      "candidate_median": 3,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 3,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 3,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 3,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "unicode_offset_conversion",
+      "id": "prewarmed",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 3,
+      "candidate_median": 3,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 3,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 3,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 3,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "unicode_offset_conversion",
+      "id": "prewarmed",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 110689,
+      "candidate_median": 110689,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 110689,
+        "numerator": -2213
+      },
+      "policy_lower": {
+        "denominator": 110689,
+        "numerator": -2213
+      },
+      "policy_upper": {
+        "denominator": 110689,
+        "numerator": -2213
+      }
+    },
+    {
+      "function_name": "unicode_position_conversion",
+      "id": "prewarmed",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 2,
+      "candidate_median": 2,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 2,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "unicode_position_conversion",
+      "id": "prewarmed",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 2,
+      "candidate_median": 2,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_lower": {
+        "denominator": 2,
+        "numerator": -3
+      },
+      "policy_upper": {
+        "denominator": 2,
+        "numerator": -3
+      }
+    },
+    {
+      "function_name": "unicode_position_conversion",
+      "id": "prewarmed",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 306,
+      "candidate_median": 306,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 306,
+        "numerator": -6
+      },
+      "policy_lower": {
+        "denominator": 306,
+        "numerator": -6
+      },
+      "policy_upper": {
+        "denominator": 306,
+        "numerator": -6
+      }
+    },
+    {
+      "function_name": "workspace_burst_revision_invalidation",
+      "id": "sixteen_revisions",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 11947,
+      "candidate_median": 17844,
+      "median_delta": 5897,
+      "median_ratio": 1.4935967188415502,
+      "policy_residual_median": {
+        "denominator": 11939,
+        "numerator": 5540
+      },
+      "policy_lower": {
+        "denominator": 11948,
+        "numerator": 5538
+      },
+      "policy_upper": {
+        "denominator": 11959,
+        "numerator": 5557
+      }
+    },
+    {
+      "function_name": "workspace_burst_revision_invalidation",
+      "id": "sixteen_revisions",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 187,
+      "candidate_median": 191,
+      "median_delta": 4,
+      "median_ratio": 1.0213903743315509,
+      "policy_residual_median": {
+        "denominator": 187,
+        "numerator": -2
+      },
+      "policy_lower": {
+        "denominator": 187,
+        "numerator": -2
+      },
+      "policy_upper": {
+        "denominator": 185,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "workspace_burst_revision_invalidation",
+      "id": "sixteen_revisions",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 5456250,
+      "candidate_median": 4777262,
+      "median_delta": -678988,
+      "median_ratio": 0.8755577548682704,
+      "policy_residual_median": {
+        "denominator": 5457130,
+        "numerator": -789815
+      },
+      "policy_lower": {
+        "denominator": 5395504,
+        "numerator": -794988
+      },
+      "policy_upper": {
+        "denominator": 5460888,
+        "numerator": -786861
+      }
+    },
+    {
+      "function_name": "workspace_incremental_invalidation",
+      "id": "hundred_files",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 868,
+      "candidate_median": 1293,
+      "median_delta": 425,
+      "median_ratio": 1.48963133640553,
+      "policy_residual_median": {
+        "denominator": 869,
+        "numerator": 397
+      },
+      "policy_lower": {
+        "denominator": 869,
+        "numerator": 395
+      },
+      "policy_upper": {
+        "denominator": 868,
+        "numerator": 398
+      }
+    },
+    {
+      "function_name": "workspace_incremental_invalidation",
+      "id": "hundred_files",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 150,
+      "candidate_median": 154,
+      "median_delta": 4,
+      "median_ratio": 1.0266666666666666,
+      "policy_residual_median": {
+        "denominator": 150,
+        "numerator": -1
+      },
+      "policy_lower": {
+        "denominator": 150,
+        "numerator": -1
+      },
+      "policy_upper": {
+        "denominator": 151,
+        "numerator": -1
+      }
+    },
+    {
+      "function_name": "workspace_incremental_invalidation",
+      "id": "hundred_files",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 679500,
+      "candidate_median": 685902,
+      "median_delta": 6402,
+      "median_ratio": 1.009421633554084,
+      "policy_residual_median": {
+        "denominator": 718119,
+        "numerator": -38741
+      },
+      "policy_lower": {
+        "denominator": 655677,
+        "numerator": -46531
+      },
+      "policy_upper": {
+        "denominator": 624100,
+        "numerator": -19806
+      }
+    },
+    {
+      "function_name": "workspace_initial_build",
+      "id": "hundred_files",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 101282,
+      "candidate_median": 152420,
+      "median_delta": 51138,
+      "median_ratio": 1.504907091092198,
+      "policy_residual_median": {
+        "denominator": 101272,
+        "numerator": 48046
+      },
+      "policy_lower": {
+        "denominator": 101250,
+        "numerator": 47993
+      },
+      "policy_upper": {
+        "denominator": 101245,
+        "numerator": 48086
+      }
+    },
+    {
+      "function_name": "workspace_initial_build",
+      "id": "hundred_files",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 1125,
+      "candidate_median": 1647,
+      "median_delta": 522,
+      "median_ratio": 1.464,
+      "policy_residual_median": {
+        "denominator": 1126,
+        "numerator": 487
+      },
+      "policy_lower": {
+        "denominator": 1126,
+        "numerator": 487
+      },
+      "policy_upper": {
+        "denominator": 1125,
+        "numerator": 487
+      }
+    },
+    {
+      "function_name": "workspace_initial_build",
+      "id": "hundred_files",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 38968777,
+      "candidate_median": 32869383,
+      "median_delta": -6099394,
+      "median_ratio": 0.8434799737235787,
+      "policy_residual_median": {
+        "denominator": 38964833,
+        "numerator": -6877968
+      },
+      "policy_lower": {
+        "denominator": 38970429,
+        "numerator": -6881911
+      },
+      "policy_upper": {
+        "denominator": 38962150,
+        "numerator": -6873632
+      }
+    },
+    {
+      "function_name": "workspace_orphan_graph_release",
+      "id": "hundred_files",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 101979,
+      "candidate_median": 153329,
+      "median_delta": 51350,
+      "median_ratio": 1.5035350415281579,
+      "policy_residual_median": {
+        "denominator": 101938,
+        "numerator": 48272
+      },
+      "policy_lower": {
+        "denominator": 101984,
+        "numerator": 48264
+      },
+      "policy_upper": {
+        "denominator": 101980,
+        "numerator": 48320
+      }
+    },
+    {
+      "function_name": "workspace_orphan_graph_release",
+      "id": "hundred_files",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 1219,
+      "candidate_median": 1817,
+      "median_delta": 598,
+      "median_ratio": 1.490566037735849,
+      "policy_residual_median": {
+        "denominator": 1219,
+        "numerator": 560
+      },
+      "policy_lower": {
+        "denominator": 1220,
+        "numerator": 560
+      },
+      "policy_upper": {
+        "denominator": 1220,
+        "numerator": 561
+      }
+    },
+    {
+      "function_name": "workspace_orphan_graph_release",
+      "id": "hundred_files",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 40067866,
+      "candidate_median": 34309250,
+      "median_delta": -5758616,
+      "median_ratio": 0.8562784451759922,
+      "policy_residual_median": {
+        "denominator": 40060575,
+        "numerator": -6554021
+      },
+      "policy_lower": {
+        "denominator": 40074045,
+        "numerator": -6562508
+      },
+      "policy_upper": {
+        "denominator": 40074470,
+        "numerator": -6555116
+      }
+    },
+    {
+      "function_name": "workspace_references",
+      "id": "hundred_files",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 252,
+      "candidate_median": 319,
+      "median_delta": 67,
+      "median_ratio": 1.2658730158730158,
+      "policy_residual_median": {
+        "denominator": 252,
+        "numerator": 58
+      },
+      "policy_lower": {
+        "denominator": 254,
+        "numerator": 58
+      },
+      "policy_upper": {
+        "denominator": 253,
+        "numerator": 59
+      }
+    },
+    {
+      "function_name": "workspace_references",
+      "id": "hundred_files",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 150,
+      "candidate_median": 168,
+      "median_delta": 18,
+      "median_ratio": 1.12,
+      "policy_residual_median": {
+        "denominator": 150,
+        "numerator": 13
+      },
+      "policy_lower": {
+        "denominator": 151,
+        "numerator": 13
+      },
+      "policy_upper": {
+        "denominator": 150,
+        "numerator": 13
+      }
+    },
+    {
+      "function_name": "workspace_references",
+      "id": "hundred_files",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1920461,
+      "candidate_median": 1634673,
+      "median_delta": -285788,
+      "median_ratio": 0.8511878137593005,
+      "policy_residual_median": {
+        "denominator": 1918683,
+        "numerator": -340424
+      },
+      "policy_lower": {
+        "denominator": 1981544,
+        "numerator": -382218
+      },
+      "policy_upper": {
+        "denominator": 1920916,
+        "numerator": -321515
+      }
+    },
+    {
+      "function_name": "workspace_symbol_response_warm",
+      "id": "ten_thousand_symbols",
+      "metric": "I1mr",
+      "classification": "passed",
+      "baseline_median": 131,
+      "candidate_median": 130,
+      "median_delta": -1,
+      "median_ratio": 0.9923664122137404,
+      "policy_residual_median": {
+        "denominator": 131,
+        "numerator": -5
+      },
+      "policy_lower": {
+        "denominator": 131,
+        "numerator": -5
+      },
+      "policy_upper": {
+        "denominator": 131,
+        "numerator": -5
+      }
+    },
+    {
+      "function_name": "workspace_symbol_response_warm",
+      "id": "ten_thousand_symbols",
+      "metric": "ILmr",
+      "classification": "passed",
+      "baseline_median": 130,
+      "candidate_median": 129,
+      "median_delta": -1,
+      "median_ratio": 0.9923076923076923,
+      "policy_residual_median": {
+        "denominator": 130,
+        "numerator": -5
+      },
+      "policy_lower": {
+        "denominator": 130,
+        "numerator": -5
+      },
+      "policy_upper": {
+        "denominator": 130,
+        "numerator": -5
+      }
+    },
+    {
+      "function_name": "workspace_symbol_response_warm",
+      "id": "ten_thousand_symbols",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 30346433,
+      "candidate_median": 30346433,
+      "median_delta": 0,
+      "median_ratio": 1.0,
+      "policy_residual_median": {
+        "denominator": 30346433,
+        "numerator": -606928
+      },
+      "policy_lower": {
+        "denominator": 30346433,
+        "numerator": -606928
+      },
+      "policy_upper": {
+        "denominator": 30346433,
+        "numerator": -606928
+      }
+    },
+    {
+      "function_name": "workspace_symbols_warm",
+      "id": "case_insensitive",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 181,
+      "candidate_median": 206,
+      "median_delta": 25,
+      "median_ratio": 1.138121546961326,
+      "policy_residual_median": {
+        "denominator": 182,
+        "numerator": 19
+      },
+      "policy_lower": {
+        "denominator": 182,
+        "numerator": 18
+      },
+      "policy_upper": {
+        "denominator": 179,
+        "numerator": 19
+      }
+    },
+    {
+      "function_name": "workspace_symbols_warm",
+      "id": "case_insensitive",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 117,
+      "candidate_median": 141,
+      "median_delta": 24,
+      "median_ratio": 1.205128205128205,
+      "policy_residual_median": {
+        "denominator": 117,
+        "numerator": 20
+      },
+      "policy_lower": {
+        "denominator": 117,
+        "numerator": 20
+      },
+      "policy_upper": {
+        "denominator": 117,
+        "numerator": 21
+      }
+    },
+    {
+      "function_name": "workspace_symbols_warm",
+      "id": "case_insensitive",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1696264,
+      "candidate_median": 1378736,
+      "median_delta": -317528,
+      "median_ratio": 0.8128074403512661,
+      "policy_residual_median": {
+        "denominator": 1696003,
+        "numerator": -351187
+      },
+      "policy_lower": {
+        "denominator": 1695980,
+        "numerator": -553023
+      },
+      "policy_upper": {
+        "denominator": 1696016,
+        "numerator": -327609
+      }
+    },
+    {
+      "function_name": "workspace_symbols_warm",
+      "id": "empty",
+      "metric": "I1mr",
+      "classification": "regression",
+      "baseline_median": 168,
+      "candidate_median": 206,
+      "median_delta": 38,
+      "median_ratio": 1.2261904761904763,
+      "policy_residual_median": {
+        "denominator": 166,
+        "numerator": 32
+      },
+      "policy_lower": {
+        "denominator": 166,
+        "numerator": 31
+      },
+      "policy_upper": {
+        "denominator": 170,
+        "numerator": 34
+      }
+    },
+    {
+      "function_name": "workspace_symbols_warm",
+      "id": "empty",
+      "metric": "ILmr",
+      "classification": "regression",
+      "baseline_median": 107,
+      "candidate_median": 134,
+      "median_delta": 27,
+      "median_ratio": 1.2523364485981308,
+      "policy_residual_median": {
+        "denominator": 107,
+        "numerator": 23
+      },
+      "policy_lower": {
+        "denominator": 107,
+        "numerator": 23
+      },
+      "policy_upper": {
+        "denominator": 107,
+        "numerator": 23
+      }
+    },
+    {
+      "function_name": "workspace_symbols_warm",
+      "id": "empty",
+      "metric": "Ir",
+      "classification": "passed",
+      "baseline_median": 1662229,
+      "candidate_median": 1348257,
+      "median_delta": -313972,
+      "median_ratio": 0.8111138717950415,
+      "policy_residual_median": {
+        "denominator": 1661622,
+        "numerator": -346462
+      },
+      "policy_lower": {
+        "denominator": 1662800,
+        "numerator": -347694
+      },
+      "policy_upper": {
+        "denominator": 1662368,
+        "numerator": -346126
+      }
+    }
+  ]
+}

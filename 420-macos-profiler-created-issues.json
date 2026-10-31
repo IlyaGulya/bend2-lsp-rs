@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "kind": "created-github-issues-receipt",
+  "repository": "IlyaGulya/bend2-lsp-rs",
+  "source": {
+    "head": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+    "merge": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+    "tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+    "tree_identity_verified": true
+  },
+  "run_id": 41173453571,
+  "job_id": 124456402828,
+  "artifact_id": 13034850045,
+  "owner_decision": {
+    "decision": "Create two separate non-blocking issues",
+    "scope": [
+      "IntelMacDHATcold10000workspace/symbol30sdeadline",
+      "IntelMacxctrace1spreflight300sfinalizationbeforeLSPlaunch"
+    ],
+    "limits": "Only these two failures in this recorded run; failed workflow remains failed; no CI/deadline/resource change; no performance-regression acceptance; no approval/merge."
+  },
+  "labels_or_milestone_applied": false,
+  "labels_or_milestone_reason": "No existing convention required labels or a milestone for these profiler investigation issues.",
+  "duplicate_search": {
+    "query": "DHAT OR xctrace OR \"Intel macOS\" in:title",
+    "state": "all",
+    "result": "only closed issue 52 (DHAT), no xctrace match; no duplicate created"
+  },
+  "verification": "Each created issue was fetched once through the GitHub REST API after creation; title/state/author/labels/milestone/body identity matched the local body file exactly.",
+  "created_issues": [
+    {
+      "kind": "DHAT",
+      "requested_title": "Investigate Intel macOS DHAT cold-discovery deadline in PR62 source420a77c",
+      "number": 75,
+      "id": 6132751973,
+      "node_id": "I_kwDOU2Rlr88AAAABbYpeZQ",
+      "title": "Investigate Intel macOS DHAT cold-discovery deadline in PR62 source420a77c",
+      "state": "open",
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/75",
+      "api_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/75",
+      "author": "IlyaGulya",
+      "created_at": "2026-10-31T08:13:54Z",
+      "labels": [],
+      "milestone": null,
+      "comments": 0,
+      "body_chars": 8197,
+      "body_sha256": "dbd7c5f4c934da27e29b05f63f750044df036c41328b21a2a8d1612e22d8ed21",
+      "local_body_file": "420-issue-dhat-body.md",
+      "local_body_bytes": 8209,
+      "api_body_exactly_equals_local_body": true,
+      "create_stdout_file": "420-issue-dhat-create-stdout.txt",
+      "create_stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/75",
+      "create_exit_code": 0,
+      "api_response_snapshot_file": "420-issue-75-api-response.json"
+    },
+    {
+      "kind": "xctrace",
+      "requested_title": "Investigate Intel macOS xctrace preflight finalization stall before LSP launch",
+      "number": 76,
+      "id": 6132752543,
+      "node_id": "I_kwDOU2Rlr88AAAABbYpgnw",
+      "title": "Investigate Intel macOS xctrace preflight finalization stall before LSP launch",
+      "state": "open",
+      "url": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/76",
+      "api_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/issues/76",
+      "author": "IlyaGulya",
+      "created_at": "2026-10-31T08:13:58Z",
+      "labels": [],
+      "milestone": null,
+      "comments": 0,
+      "body_chars": 8244,
+      "body_sha256": "528e78ebce8984f66ecb01f5511bfe7f196aa2e7ab15b5c57930e5fe3f55cfa4",
+      "local_body_file": "420-issue-xctrace-body.md",
+      "local_body_bytes": 8258,
+      "api_body_exactly_equals_local_body": true,
+      "create_stdout_file": "420-issue-xctrace-create-stdout.txt",
+      "create_stdout": "https://github.com/IlyaGulya/bend2-lsp-rs/issues/76",
+      "create_exit_code": 0,
+      "api_response_snapshot_file": "420-issue-76-api-response.json"
+    }
+  ],
+  "not_modified": [
+    "source",
+    "PR62 body",
+    "issue 52",
+    "issue 74",
+    "CI",
+    "labels",
+    "milestones"
+  ],
+  "immutable_evidence_manifest": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/bd3532658a42a4d9822c7955a9b16b2810cdc8f1/manifest.json",
+  "created_at": "2026-10-31"
+}

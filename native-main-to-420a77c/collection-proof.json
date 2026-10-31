@@ -1,0 +1,1377 @@
+{
+  "schema": 1,
+  "kind": "native420-main-comparison-artifact-collection-proof",
+  "plan_path": "local://native420-main-collection-plan.json",
+  "repository": "IlyaGulya/bend2-lsp-rs",
+  "run_id": 41173453522,
+  "source_revision": "420a77c5da3ae808204b506d6d78bb955cd1113e",
+  "source_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+  "expected": {
+    "baseline": "8ba06b117e8453959baa2157f857fa2e055fc887",
+    "candidate": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+    "verified_merge_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d",
+    "rounds": 7
+  },
+  "output_root": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c",
+  "selected_members": [
+    "artifact-manifest.json",
+    "baseline.json",
+    "candidate.json",
+    "discovery/report.json",
+    "latency-report.json",
+    "provenance.json",
+    "server-binary-sizes.json"
+  ],
+  "download_policy": {
+    "concurrency": 2,
+    "timeout_seconds": 90,
+    "single_download_per_artifact": true,
+    "verify_before_open": "whole-ZIP size+sha256 vs plan metadata",
+    "no_new_measurements": true
+  },
+  "artifacts": [
+    {
+      "artifact_id": 13033712048,
+      "artifact_name": "perf-pr-41173453522-1-aarch64-pc-windows-msvc",
+      "expected": {
+        "size_in_bytes": 12367811,
+        "sha256": "f69d11325545b7c892f59a67d573f704b4e74bbd64c3226c93e58425dc4e0716",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13033712048/zip",
+        "expires_at": "2026-11-14T07:31:17Z",
+        "created_at": "2026-10-31T06:31:28Z"
+      },
+      "transport": {
+        "attempts": 1,
+        "timeout_seconds": 90,
+        "max_bytes": 33554432,
+        "curl_exit": 0,
+        "http_status": "200",
+        "observed": {
+          "size_in_bytes": 12367811,
+          "sha256": "f69d11325545b7c892f59a67d573f704b4e74bbd64c3226c93e58425dc4e0716"
+        }
+      },
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/perf-pr-41173453522-1-aarch64-pc-windows-msvc.zip",
+        "size_in_bytes": 12367811,
+        "sha256": "f69d11325545b7c892f59a67d573f704b4e74bbd64c3226c93e58425dc4e0716",
+        "verified_against_metadata": true
+      },
+      "archive": {
+        "entries_total": 11030
+      },
+      "manifest_guards": {
+        "observed": {
+          "base_sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "candidate_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+          "target": "aarch64-pc-windows-msvc",
+          "repository": "IlyaGulya/bend2-lsp-rs",
+          "run_id": "41173453522",
+          "run_attempt": "1",
+          "workflow_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656"
+        },
+        "checks": {
+          "base_sha_expected": true,
+          "candidate_sha_expected": true,
+          "target_matches_artifact_name": true,
+          "repository_expected": true,
+          "run_id_expected": true,
+          "manifest_self_not_listed": true
+        }
+      },
+      "manifest_statuses": {
+        "cargo-downloads": "success",
+        "ci-cache": "success",
+        "discovery": "success",
+        "latency": "success",
+        "latency-binaries": "success",
+        "latency-report": "success",
+        "repeated-evidence": "success",
+        "report": "success",
+        "tools": "success"
+      },
+      "discovery_guards": {
+        "status": "complete",
+        "dataset_ids": [
+          "10",
+          "1000",
+          "10000"
+        ],
+        "arms": [
+          "baseline",
+          "candidate"
+        ],
+        "completed_rounds": 7,
+        "workload_rounds_length": 7,
+        "checks": {
+          "status_is_complete_not_pass": true,
+          "baseline_revision_expected": true,
+          "candidate_revision_expected": true,
+          "native_target_matches": true,
+          "run_id_expected": true,
+          "metadata_rounds_7": true,
+          "command_rounds_7": true,
+          "datasets_present": true,
+          "dataset_10_baseline_completed_rounds_7": true,
+          "dataset_10_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10_candidate_completed_rounds_7": true,
+          "dataset_10_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_baseline_completed_rounds_7": true,
+          "dataset_1000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_candidate_completed_rounds_7": true,
+          "dataset_1000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_baseline_completed_rounds_7": true,
+          "dataset_10000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_candidate_completed_rounds_7": true,
+          "dataset_10000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_workspace_symbol_warm_rounds_7": true
+        }
+      },
+      "provenance": {
+        "native_target": "aarch64-pc-windows-msvc",
+        "baseline_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+        "candidate_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+        "candidate_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
+      },
+      "selected_members": [
+        {
+          "path": "artifact-manifest.json",
+          "size_in_bytes": 1930422,
+          "sha256": "a66dce59fefcbbdb9fcefca5fe9a9f9e00bcd56334f63a54947bf4c0393b1903",
+          "crc32": "1c49158e",
+          "crc32_verified": true,
+          "manifest_binding": "whole-zip-sha256 (not self-listed)",
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/artifact-manifest.json"
+        },
+        {
+          "path": "baseline.json",
+          "size_in_bytes": 33078,
+          "sha256": "8093dac7b7a5987fc1b4b9b8c497c862b82f69bf087533ef9ea2efaa051dbc26",
+          "crc32": "e07e52a0",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "8093dac7b7a5987fc1b4b9b8c497c862b82f69bf087533ef9ea2efaa051dbc26",
+          "manifest_listed_size": 33078,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/baseline.json"
+        },
+        {
+          "path": "candidate.json",
+          "size_in_bytes": 33110,
+          "sha256": "df94e275204ec77dcb8f6de7342ea567cb64daa42ff9f3818a24cbfe42047e3b",
+          "crc32": "35edfe83",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "df94e275204ec77dcb8f6de7342ea567cb64daa42ff9f3818a24cbfe42047e3b",
+          "manifest_listed_size": 33110,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/candidate.json"
+        },
+        {
+          "path": "discovery/report.json",
+          "size_in_bytes": 12288201,
+          "sha256": "a2f13309596db121a8983f0c9c227f4058827cd02f7c5239fa5b30e8a1525fd8",
+          "crc32": "b764e5b6",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "a2f13309596db121a8983f0c9c227f4058827cd02f7c5239fa5b30e8a1525fd8",
+          "manifest_listed_size": 12288201,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/discovery/report.json"
+        },
+        {
+          "path": "latency-report.json",
+          "size_in_bytes": 24564,
+          "sha256": "f9f1c1ea9f2b63f9fef79a00501672e7e213f18baf05a7ca4d60b1bd53d7557d",
+          "crc32": "9376f082",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "f9f1c1ea9f2b63f9fef79a00501672e7e213f18baf05a7ca4d60b1bd53d7557d",
+          "manifest_listed_size": 24564,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/latency-report.json"
+        },
+        {
+          "path": "provenance.json",
+          "size_in_bytes": 29492,
+          "sha256": "b0b01230c5f1738dcd69c9c195b51362868f8a87226cec1965f42d2afc8fd586",
+          "crc32": "b66afcec",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "b0b01230c5f1738dcd69c9c195b51362868f8a87226cec1965f42d2afc8fd586",
+          "manifest_listed_size": 29492,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/provenance.json"
+        },
+        {
+          "path": "server-binary-sizes.json",
+          "size_in_bytes": 587,
+          "sha256": "2fbc672d485068eddc7ec2e4138f4fd2de93a3a582767bb975528e9edf6f7972",
+          "crc32": "08be54bd",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "2fbc672d485068eddc7ec2e4138f4fd2de93a3a582767bb975528e9edf6f7972",
+          "manifest_listed_size": 587,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-pc-windows-msvc/server-binary-sizes.json"
+        }
+      ],
+      "coverage": {
+        "selected_members_extracted": 7,
+        "selected_members_requested": 7,
+        "archive_entries_total": 11030,
+        "excluded_not_decompressed": {
+          "discovery/raw.json": "present",
+          "note": "raw.json, wire corpora, binaries, index HTML and unified-report.json were never read/decompressed"
+        },
+        "only_selected_written": true
+      },
+      "status": "collected"
+    },
+    {
+      "artifact_id": 13033537306,
+      "artifact_name": "perf-pr-41173453522-1-aarch64-unknown-linux-gnu",
+      "expected": {
+        "size_in_bytes": 12576828,
+        "sha256": "0ae1b8bccdbc823d46517727a4a09d4223ade746a2f040c9db8a988c676e102e",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13033537306/zip",
+        "expires_at": "2026-11-14T06:39:39Z",
+        "created_at": "2026-10-31T06:39:46Z"
+      },
+      "transport": {
+        "attempts": 1,
+        "timeout_seconds": 90,
+        "max_bytes": 33554432,
+        "curl_exit": 0,
+        "http_status": "200",
+        "observed": {
+          "size_in_bytes": 12576828,
+          "sha256": "0ae1b8bccdbc823d46517727a4a09d4223ade746a2f040c9db8a988c676e102e"
+        }
+      },
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/perf-pr-41173453522-1-aarch64-unknown-linux-gnu.zip",
+        "size_in_bytes": 12576828,
+        "sha256": "0ae1b8bccdbc823d46517727a4a09d4223ade746a2f040c9db8a988c676e102e",
+        "verified_against_metadata": true
+      },
+      "archive": {
+        "entries_total": 11030
+      },
+      "manifest_guards": {
+        "observed": {
+          "base_sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "candidate_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+          "target": "aarch64-unknown-linux-gnu",
+          "repository": "IlyaGulya/bend2-lsp-rs",
+          "run_id": "41173453522",
+          "run_attempt": "1",
+          "workflow_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656"
+        },
+        "checks": {
+          "base_sha_expected": true,
+          "candidate_sha_expected": true,
+          "target_matches_artifact_name": true,
+          "repository_expected": true,
+          "run_id_expected": true,
+          "manifest_self_not_listed": true
+        }
+      },
+      "manifest_statuses": {
+        "cargo-downloads": "success",
+        "ci-cache": "success",
+        "discovery": "success",
+        "latency": "success",
+        "latency-binaries": "success",
+        "latency-report": "success",
+        "repeated-evidence": "success",
+        "report": "success",
+        "tools": "success"
+      },
+      "discovery_guards": {
+        "status": "complete",
+        "dataset_ids": [
+          "10",
+          "1000",
+          "10000"
+        ],
+        "arms": [
+          "baseline",
+          "candidate"
+        ],
+        "completed_rounds": 7,
+        "workload_rounds_length": 7,
+        "checks": {
+          "status_is_complete_not_pass": true,
+          "baseline_revision_expected": true,
+          "candidate_revision_expected": true,
+          "native_target_matches": true,
+          "run_id_expected": true,
+          "metadata_rounds_7": true,
+          "command_rounds_7": true,
+          "datasets_present": true,
+          "dataset_10_baseline_completed_rounds_7": true,
+          "dataset_10_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10_candidate_completed_rounds_7": true,
+          "dataset_10_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_baseline_completed_rounds_7": true,
+          "dataset_1000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_candidate_completed_rounds_7": true,
+          "dataset_1000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_baseline_completed_rounds_7": true,
+          "dataset_10000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_candidate_completed_rounds_7": true,
+          "dataset_10000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_workspace_symbol_warm_rounds_7": true
+        }
+      },
+      "provenance": {
+        "native_target": "aarch64-unknown-linux-gnu",
+        "baseline_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+        "candidate_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+        "candidate_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
+      },
+      "selected_members": [
+        {
+          "path": "artifact-manifest.json",
+          "size_in_bytes": 1930449,
+          "sha256": "895d1898f48a1c68aceacca35cc19b26cba3530f7a93cd42be71b86ffca697ea",
+          "crc32": "efb530ab",
+          "crc32_verified": true,
+          "manifest_binding": "whole-zip-sha256 (not self-listed)",
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/artifact-manifest.json"
+        },
+        {
+          "path": "baseline.json",
+          "size_in_bytes": 32499,
+          "sha256": "7b4134403baba7115e87595ab877ba110f37064a3aa74c8695ec77fc84697acd",
+          "crc32": "b9e60d2a",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "7b4134403baba7115e87595ab877ba110f37064a3aa74c8695ec77fc84697acd",
+          "manifest_listed_size": 32499,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/baseline.json"
+        },
+        {
+          "path": "candidate.json",
+          "size_in_bytes": 32508,
+          "sha256": "9a27c45c06bc6b3e348cd7a042922d4a7efe2c6a6271504721ccf0e71a51118a",
+          "crc32": "568f2637",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "9a27c45c06bc6b3e348cd7a042922d4a7efe2c6a6271504721ccf0e71a51118a",
+          "manifest_listed_size": 32508,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/candidate.json"
+        },
+        {
+          "path": "discovery/report.json",
+          "size_in_bytes": 13782668,
+          "sha256": "605925300df78af11dc45b2ac6f63cb7f60a14d467c9dfe45d2c7078b20269f2",
+          "crc32": "29a717eb",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "605925300df78af11dc45b2ac6f63cb7f60a14d467c9dfe45d2c7078b20269f2",
+          "manifest_listed_size": 13782668,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/discovery/report.json"
+        },
+        {
+          "path": "latency-report.json",
+          "size_in_bytes": 24584,
+          "sha256": "3fde01093d8a4bcdb626de4826584193c8b861be7940f7db33d7686744795362",
+          "crc32": "9f952995",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "3fde01093d8a4bcdb626de4826584193c8b861be7940f7db33d7686744795362",
+          "manifest_listed_size": 24584,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/latency-report.json"
+        },
+        {
+          "path": "provenance.json",
+          "size_in_bytes": 31053,
+          "sha256": "3e52d61b4a1a52499820b1ee5ae1cfa32c9375a4348ba95b840d11a59070888d",
+          "crc32": "033f7d52",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "3e52d61b4a1a52499820b1ee5ae1cfa32c9375a4348ba95b840d11a59070888d",
+          "manifest_listed_size": 31053,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/provenance.json"
+        },
+        {
+          "path": "server-binary-sizes.json",
+          "size_in_bytes": 572,
+          "sha256": "6e1d2fc0ea14a3872dfafaf4dec4a341a637dba6e65b4d8106c42af334c47168",
+          "crc32": "e6db03bb",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "6e1d2fc0ea14a3872dfafaf4dec4a341a637dba6e65b4d8106c42af334c47168",
+          "manifest_listed_size": 572,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-unknown-linux-gnu/server-binary-sizes.json"
+        }
+      ],
+      "coverage": {
+        "selected_members_extracted": 7,
+        "selected_members_requested": 7,
+        "archive_entries_total": 11030,
+        "excluded_not_decompressed": {
+          "discovery/raw.json": "present",
+          "note": "raw.json, wire corpora, binaries, index HTML and unified-report.json were never read/decompressed"
+        },
+        "only_selected_written": true
+      },
+      "status": "collected"
+    },
+    {
+      "artifact_id": 13033118695,
+      "artifact_name": "perf-pr-41173453522-1-x86_64-pc-windows-msvc",
+      "expected": {
+        "size_in_bytes": 12499715,
+        "sha256": "b33d2e3ca9763ccb10b4e27d32857b7859b6f18807278d4a6fa0f58a2bc457b3",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13033118695/zip",
+        "expires_at": "2026-11-14T06:35:58Z",
+        "created_at": "2026-10-31T06:36:09Z"
+      },
+      "transport": {
+        "attempts": 1,
+        "timeout_seconds": 90,
+        "max_bytes": 33554432,
+        "curl_exit": 0,
+        "http_status": "200",
+        "observed": {
+          "size_in_bytes": 12499715,
+          "sha256": "b33d2e3ca9763ccb10b4e27d32857b7859b6f18807278d4a6fa0f58a2bc457b3"
+        }
+      },
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/perf-pr-41173453522-1-x86_64-pc-windows-msvc.zip",
+        "size_in_bytes": 12499715,
+        "sha256": "b33d2e3ca9763ccb10b4e27d32857b7859b6f18807278d4a6fa0f58a2bc457b3",
+        "verified_against_metadata": true
+      },
+      "archive": {
+        "entries_total": 11030
+      },
+      "manifest_guards": {
+        "observed": {
+          "base_sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "candidate_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+          "target": "x86_64-pc-windows-msvc",
+          "repository": "IlyaGulya/bend2-lsp-rs",
+          "run_id": "41173453522",
+          "run_attempt": "1",
+          "workflow_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656"
+        },
+        "checks": {
+          "base_sha_expected": true,
+          "candidate_sha_expected": true,
+          "target_matches_artifact_name": true,
+          "repository_expected": true,
+          "run_id_expected": true,
+          "manifest_self_not_listed": true
+        }
+      },
+      "manifest_statuses": {
+        "cargo-downloads": "success",
+        "ci-cache": "success",
+        "discovery": "success",
+        "latency": "success",
+        "latency-binaries": "success",
+        "latency-report": "success",
+        "repeated-evidence": "success",
+        "report": "success",
+        "tools": "success"
+      },
+      "discovery_guards": {
+        "status": "complete",
+        "dataset_ids": [
+          "10",
+          "1000",
+          "10000"
+        ],
+        "arms": [
+          "baseline",
+          "candidate"
+        ],
+        "completed_rounds": 7,
+        "workload_rounds_length": 7,
+        "checks": {
+          "status_is_complete_not_pass": true,
+          "baseline_revision_expected": true,
+          "candidate_revision_expected": true,
+          "native_target_matches": true,
+          "run_id_expected": true,
+          "metadata_rounds_7": true,
+          "command_rounds_7": true,
+          "datasets_present": true,
+          "dataset_10_baseline_completed_rounds_7": true,
+          "dataset_10_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10_candidate_completed_rounds_7": true,
+          "dataset_10_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_baseline_completed_rounds_7": true,
+          "dataset_1000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_candidate_completed_rounds_7": true,
+          "dataset_1000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_baseline_completed_rounds_7": true,
+          "dataset_10000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_candidate_completed_rounds_7": true,
+          "dataset_10000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_workspace_symbol_warm_rounds_7": true
+        }
+      },
+      "provenance": {
+        "native_target": "x86_64-pc-windows-msvc",
+        "baseline_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+        "candidate_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+        "candidate_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
+      },
+      "selected_members": [
+        {
+          "path": "artifact-manifest.json",
+          "size_in_bytes": 1930419,
+          "sha256": "5786c1ddcd4d2667e294e3c139dddcda29194aff1adfd2d95c780f5fb8a4b2ed",
+          "crc32": "a43484b4",
+          "crc32_verified": true,
+          "manifest_binding": "whole-zip-sha256 (not self-listed)",
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/artifact-manifest.json"
+        },
+        {
+          "path": "baseline.json",
+          "size_in_bytes": 33244,
+          "sha256": "724984f8403018816107d0d21a459944007b8157a68bfb4090182822c074d62b",
+          "crc32": "4ce7a978",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "724984f8403018816107d0d21a459944007b8157a68bfb4090182822c074d62b",
+          "manifest_listed_size": 33244,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/baseline.json"
+        },
+        {
+          "path": "candidate.json",
+          "size_in_bytes": 33244,
+          "sha256": "e3a8061a799453c2de348b38a4ed5a4e9b9bb8c8dc0fc6e0244766d99b1bf549",
+          "crc32": "33ca98b6",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "e3a8061a799453c2de348b38a4ed5a4e9b9bb8c8dc0fc6e0244766d99b1bf549",
+          "manifest_listed_size": 33244,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/candidate.json"
+        },
+        {
+          "path": "discovery/report.json",
+          "size_in_bytes": 14132925,
+          "sha256": "55dae424f210e6ad3ecc6bd2b206831c06954ef6a8261ea06f6eaa445f89c342",
+          "crc32": "f11ea205",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "55dae424f210e6ad3ecc6bd2b206831c06954ef6a8261ea06f6eaa445f89c342",
+          "manifest_listed_size": 14132925,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/discovery/report.json"
+        },
+        {
+          "path": "latency-report.json",
+          "size_in_bytes": 24671,
+          "sha256": "611147fd206660ef6cbf175ffe6e5688d57e294981ed7b945336a9bf7e741c89",
+          "crc32": "88724da8",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "611147fd206660ef6cbf175ffe6e5688d57e294981ed7b945336a9bf7e741c89",
+          "manifest_listed_size": 24671,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/latency-report.json"
+        },
+        {
+          "path": "provenance.json",
+          "size_in_bytes": 29509,
+          "sha256": "3fbdd8e605529959c4134aa5e4ac0b851dafd51a911394f4b03650fb9a7ec6e3",
+          "crc32": "a5c2aa84",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "3fbdd8e605529959c4134aa5e4ac0b851dafd51a911394f4b03650fb9a7ec6e3",
+          "manifest_listed_size": 29509,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/provenance.json"
+        },
+        {
+          "path": "server-binary-sizes.json",
+          "size_in_bytes": 586,
+          "sha256": "1a7e7e71a1b4e4f770976f4aa7714c280f86288b88498770eeb065ead427251c",
+          "crc32": "591cadc4",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "1a7e7e71a1b4e4f770976f4aa7714c280f86288b88498770eeb065ead427251c",
+          "manifest_listed_size": 586,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-pc-windows-msvc/server-binary-sizes.json"
+        }
+      ],
+      "coverage": {
+        "selected_members_extracted": 7,
+        "selected_members_requested": 7,
+        "archive_entries_total": 11030,
+        "excluded_not_decompressed": {
+          "discovery/raw.json": "present",
+          "note": "raw.json, wire corpora, binaries, index HTML and unified-report.json were never read/decompressed"
+        },
+        "only_selected_written": true
+      },
+      "status": "collected"
+    },
+    {
+      "artifact_id": 13032728439,
+      "artifact_name": "perf-pr-41173453522-1-x86_64-apple-darwin",
+      "expected": {
+        "size_in_bytes": 11855527,
+        "sha256": "76926c96c2498b35e6247f90f869532c22897cc09833a24ad08ad635cfb93dc5",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032728439/zip",
+        "expires_at": "2026-11-14T06:28:42Z",
+        "created_at": "2026-10-31T06:29:02Z"
+      },
+      "transport": {
+        "attempts": 1,
+        "timeout_seconds": 90,
+        "max_bytes": 33554432,
+        "curl_exit": 0,
+        "http_status": "200",
+        "observed": {
+          "size_in_bytes": 11855527,
+          "sha256": "76926c96c2498b35e6247f90f869532c22897cc09833a24ad08ad635cfb93dc5"
+        }
+      },
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/perf-pr-41173453522-1-x86_64-apple-darwin.zip",
+        "size_in_bytes": 11855527,
+        "sha256": "76926c96c2498b35e6247f90f869532c22897cc09833a24ad08ad635cfb93dc5",
+        "verified_against_metadata": true
+      },
+      "archive": {
+        "entries_total": 11030
+      },
+      "manifest_guards": {
+        "observed": {
+          "base_sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "candidate_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+          "target": "x86_64-apple-darwin",
+          "repository": "IlyaGulya/bend2-lsp-rs",
+          "run_id": "41173453522",
+          "run_attempt": "1",
+          "workflow_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656"
+        },
+        "checks": {
+          "base_sha_expected": true,
+          "candidate_sha_expected": true,
+          "target_matches_artifact_name": true,
+          "repository_expected": true,
+          "run_id_expected": true,
+          "manifest_self_not_listed": true
+        }
+      },
+      "manifest_statuses": {
+        "cargo-downloads": "success",
+        "ci-cache": "success",
+        "discovery": "success",
+        "latency": "success",
+        "latency-binaries": "success",
+        "latency-report": "success",
+        "repeated-evidence": "success",
+        "report": "success",
+        "tools": "success"
+      },
+      "discovery_guards": {
+        "status": "complete",
+        "dataset_ids": [
+          "10",
+          "1000",
+          "10000"
+        ],
+        "arms": [
+          "baseline",
+          "candidate"
+        ],
+        "completed_rounds": 7,
+        "workload_rounds_length": 7,
+        "checks": {
+          "status_is_complete_not_pass": true,
+          "baseline_revision_expected": true,
+          "candidate_revision_expected": true,
+          "native_target_matches": true,
+          "run_id_expected": true,
+          "metadata_rounds_7": true,
+          "command_rounds_7": true,
+          "datasets_present": true,
+          "dataset_10_baseline_completed_rounds_7": true,
+          "dataset_10_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10_candidate_completed_rounds_7": true,
+          "dataset_10_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_baseline_completed_rounds_7": true,
+          "dataset_1000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_candidate_completed_rounds_7": true,
+          "dataset_1000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_baseline_completed_rounds_7": true,
+          "dataset_10000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_candidate_completed_rounds_7": true,
+          "dataset_10000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_workspace_symbol_warm_rounds_7": true
+        }
+      },
+      "provenance": {
+        "native_target": "x86_64-apple-darwin",
+        "baseline_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+        "candidate_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+        "candidate_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
+      },
+      "selected_members": [
+        {
+          "path": "artifact-manifest.json",
+          "size_in_bytes": 1930416,
+          "sha256": "d705f5105323e78ffefbfe3e1ac7071ede8c6ba235e2252af17b19d6b31bd13a",
+          "crc32": "648b6d51",
+          "crc32_verified": true,
+          "manifest_binding": "whole-zip-sha256 (not self-listed)",
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/artifact-manifest.json"
+        },
+        {
+          "path": "baseline.json",
+          "size_in_bytes": 33234,
+          "sha256": "3d0dd54420866ac005a972bbfddfbf7eaf73f8afc764fe91c91e0d8e458c88ad",
+          "crc32": "60a67524",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "3d0dd54420866ac005a972bbfddfbf7eaf73f8afc764fe91c91e0d8e458c88ad",
+          "manifest_listed_size": 33234,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/baseline.json"
+        },
+        {
+          "path": "candidate.json",
+          "size_in_bytes": 33206,
+          "sha256": "7ecafb2f43789c0996dcb9f49f0ff0ec10bafa8ec23293b52863b75b9c1ac881",
+          "crc32": "e5a57723",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "7ecafb2f43789c0996dcb9f49f0ff0ec10bafa8ec23293b52863b75b9c1ac881",
+          "manifest_listed_size": 33206,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/candidate.json"
+        },
+        {
+          "path": "discovery/report.json",
+          "size_in_bytes": 3960325,
+          "sha256": "b94f7648e90e488340b323e81d3c0ee3246c5fc49761054d47a001b8501a6832",
+          "crc32": "0bfcfa80",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "b94f7648e90e488340b323e81d3c0ee3246c5fc49761054d47a001b8501a6832",
+          "manifest_listed_size": 3960325,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/discovery/report.json"
+        },
+        {
+          "path": "latency-report.json",
+          "size_in_bytes": 24748,
+          "sha256": "663feafdc7c9b278d58465ce9839c316761b2e03aae301186f61a95a5c019a23",
+          "crc32": "3511df0a",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "663feafdc7c9b278d58465ce9839c316761b2e03aae301186f61a95a5c019a23",
+          "manifest_listed_size": 24748,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/latency-report.json"
+        },
+        {
+          "path": "provenance.json",
+          "size_in_bytes": 28812,
+          "sha256": "938e549a4ca1abfcbde984730475286cf27f2dbd70764ae7b06cd17c87868d88",
+          "crc32": "67b4caf2",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "938e549a4ca1abfcbde984730475286cf27f2dbd70764ae7b06cd17c87868d88",
+          "manifest_listed_size": 28812,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/provenance.json"
+        },
+        {
+          "path": "server-binary-sizes.json",
+          "size_in_bytes": 566,
+          "sha256": "433fa565fb03e1e15c59c7afcc5d15499a678b9d42b35837487a4b664dac49cb",
+          "crc32": "ffbf7f79",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "433fa565fb03e1e15c59c7afcc5d15499a678b9d42b35837487a4b664dac49cb",
+          "manifest_listed_size": 566,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-apple-darwin/server-binary-sizes.json"
+        }
+      ],
+      "coverage": {
+        "selected_members_extracted": 7,
+        "selected_members_requested": 7,
+        "archive_entries_total": 11030,
+        "excluded_not_decompressed": {
+          "discovery/raw.json": "present",
+          "note": "raw.json, wire corpora, binaries, index HTML and unified-report.json were never read/decompressed"
+        },
+        "only_selected_written": true
+      },
+      "status": "collected"
+    },
+    {
+      "artifact_id": 13032702514,
+      "artifact_name": "perf-pr-41173453522-1-aarch64-apple-darwin",
+      "expected": {
+        "size_in_bytes": 11675178,
+        "sha256": "f33c58d2272346f5754df695b4818d75a3b47ef77da7ce1a71357394c1e3a520",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032702514/zip",
+        "expires_at": "2026-11-14T06:20:52Z",
+        "created_at": "2026-10-31T06:20:59Z"
+      },
+      "transport": {
+        "attempts": 1,
+        "timeout_seconds": 90,
+        "max_bytes": 33554432,
+        "curl_exit": 0,
+        "http_status": "200",
+        "observed": {
+          "size_in_bytes": 11675178,
+          "sha256": "f33c58d2272346f5754df695b4818d75a3b47ef77da7ce1a71357394c1e3a520"
+        }
+      },
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/perf-pr-41173453522-1-aarch64-apple-darwin.zip",
+        "size_in_bytes": 11675178,
+        "sha256": "f33c58d2272346f5754df695b4818d75a3b47ef77da7ce1a71357394c1e3a520",
+        "verified_against_metadata": true
+      },
+      "archive": {
+        "entries_total": 11030
+      },
+      "manifest_guards": {
+        "observed": {
+          "base_sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "candidate_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+          "target": "aarch64-apple-darwin",
+          "repository": "IlyaGulya/bend2-lsp-rs",
+          "run_id": "41173453522",
+          "run_attempt": "1",
+          "workflow_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656"
+        },
+        "checks": {
+          "base_sha_expected": true,
+          "candidate_sha_expected": true,
+          "target_matches_artifact_name": true,
+          "repository_expected": true,
+          "run_id_expected": true,
+          "manifest_self_not_listed": true
+        }
+      },
+      "manifest_statuses": {
+        "cargo-downloads": "success",
+        "ci-cache": "success",
+        "discovery": "success",
+        "latency": "success",
+        "latency-binaries": "success",
+        "latency-report": "success",
+        "repeated-evidence": "success",
+        "report": "success",
+        "tools": "success"
+      },
+      "discovery_guards": {
+        "status": "complete",
+        "dataset_ids": [
+          "10",
+          "1000",
+          "10000"
+        ],
+        "arms": [
+          "baseline",
+          "candidate"
+        ],
+        "completed_rounds": 7,
+        "workload_rounds_length": 7,
+        "checks": {
+          "status_is_complete_not_pass": true,
+          "baseline_revision_expected": true,
+          "candidate_revision_expected": true,
+          "native_target_matches": true,
+          "run_id_expected": true,
+          "metadata_rounds_7": true,
+          "command_rounds_7": true,
+          "datasets_present": true,
+          "dataset_10_baseline_completed_rounds_7": true,
+          "dataset_10_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10_candidate_completed_rounds_7": true,
+          "dataset_10_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_baseline_completed_rounds_7": true,
+          "dataset_1000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_candidate_completed_rounds_7": true,
+          "dataset_1000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_baseline_completed_rounds_7": true,
+          "dataset_10000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_candidate_completed_rounds_7": true,
+          "dataset_10000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_workspace_symbol_warm_rounds_7": true
+        }
+      },
+      "provenance": {
+        "native_target": "aarch64-apple-darwin",
+        "baseline_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+        "candidate_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+        "candidate_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
+      },
+      "selected_members": [
+        {
+          "path": "artifact-manifest.json",
+          "size_in_bytes": 1930411,
+          "sha256": "00f58dfb9e95fc9b131a40334825829b8b709df14623e23b5c65ccd507820297",
+          "crc32": "2dbc17b1",
+          "crc32_verified": true,
+          "manifest_binding": "whole-zip-sha256 (not self-listed)",
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/artifact-manifest.json"
+        },
+        {
+          "path": "baseline.json",
+          "size_in_bytes": 33153,
+          "sha256": "6719ee9cc670f7fe5d7dad95edb828dfbfde5b1bef2d33416390ed8ef0433a8d",
+          "crc32": "77d851b9",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "6719ee9cc670f7fe5d7dad95edb828dfbfde5b1bef2d33416390ed8ef0433a8d",
+          "manifest_listed_size": 33153,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/baseline.json"
+        },
+        {
+          "path": "candidate.json",
+          "size_in_bytes": 33135,
+          "sha256": "841709761e52772f02fee699f51ff34352d8f1f73bff60f2009e62bc127b614e",
+          "crc32": "07cf97b3",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "841709761e52772f02fee699f51ff34352d8f1f73bff60f2009e62bc127b614e",
+          "manifest_listed_size": 33135,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/candidate.json"
+        },
+        {
+          "path": "discovery/report.json",
+          "size_in_bytes": 2635828,
+          "sha256": "e7c5e8e85a9f404a6a916b9615b8e7cb33676c07c1926ae68aef611b3c6dbb79",
+          "crc32": "e2e1d3d2",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "e7c5e8e85a9f404a6a916b9615b8e7cb33676c07c1926ae68aef611b3c6dbb79",
+          "manifest_listed_size": 2635828,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/discovery/report.json"
+        },
+        {
+          "path": "latency-report.json",
+          "size_in_bytes": 24667,
+          "sha256": "7006662413f0f9303e41c2a1d3027e225ec683d3f5a4103228684c016f9f1a05",
+          "crc32": "c0554405",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "7006662413f0f9303e41c2a1d3027e225ec683d3f5a4103228684c016f9f1a05",
+          "manifest_listed_size": 24667,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/latency-report.json"
+        },
+        {
+          "path": "provenance.json",
+          "size_in_bytes": 28797,
+          "sha256": "2ca6764ef2e4daf404fa7d572be19c725bdfe003b1d755de2c5629a46591a950",
+          "crc32": "bc8b3c6a",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "2ca6764ef2e4daf404fa7d572be19c725bdfe003b1d755de2c5629a46591a950",
+          "manifest_listed_size": 28797,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/provenance.json"
+        },
+        {
+          "path": "server-binary-sizes.json",
+          "size_in_bytes": 567,
+          "sha256": "e828bd9e4c59f873bfef49962ed9422a1fc39285629da30524524c4906498f9b",
+          "crc32": "287a447c",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "e828bd9e4c59f873bfef49962ed9422a1fc39285629da30524524c4906498f9b",
+          "manifest_listed_size": 567,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-aarch64-apple-darwin/server-binary-sizes.json"
+        }
+      ],
+      "coverage": {
+        "selected_members_extracted": 7,
+        "selected_members_requested": 7,
+        "archive_entries_total": 11030,
+        "excluded_not_decompressed": {
+          "discovery/raw.json": "present",
+          "note": "raw.json, wire corpora, binaries, index HTML and unified-report.json were never read/decompressed"
+        },
+        "only_selected_written": true
+      },
+      "status": "collected"
+    },
+    {
+      "artifact_id": 13032404534,
+      "artifact_name": "perf-pr-41173453522-1-x86_64-unknown-linux-gnu",
+      "expected": {
+        "size_in_bytes": 12599148,
+        "sha256": "d0929f5919696cb0e65621141fb4f684558581c22114d91fb82c69844a222524",
+        "archive_download_url": "https://api.github.com/repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/13032404534/zip",
+        "expires_at": "2026-11-14T06:05:52Z",
+        "created_at": "2026-10-31T06:06:00Z"
+      },
+      "transport": {
+        "attempts": 1,
+        "timeout_seconds": 90,
+        "max_bytes": 33554432,
+        "curl_exit": 0,
+        "http_status": "200",
+        "observed": {
+          "size_in_bytes": 12599148,
+          "sha256": "d0929f5919696cb0e65621141fb4f684558581c22114d91fb82c69844a222524"
+        }
+      },
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/perf-pr-41173453522-1-x86_64-unknown-linux-gnu.zip",
+        "size_in_bytes": 12599148,
+        "sha256": "d0929f5919696cb0e65621141fb4f684558581c22114d91fb82c69844a222524",
+        "verified_against_metadata": true
+      },
+      "archive": {
+        "entries_total": 11030
+      },
+      "manifest_guards": {
+        "observed": {
+          "base_sha": "8ba06b117e8453959baa2157f857fa2e055fc887",
+          "candidate_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+          "target": "x86_64-unknown-linux-gnu",
+          "repository": "IlyaGulya/bend2-lsp-rs",
+          "run_id": "41173453522",
+          "run_attempt": "1",
+          "workflow_sha": "ccca016a83ea61148c231d6caa1ea0bf8e21e656"
+        },
+        "checks": {
+          "base_sha_expected": true,
+          "candidate_sha_expected": true,
+          "target_matches_artifact_name": true,
+          "repository_expected": true,
+          "run_id_expected": true,
+          "manifest_self_not_listed": true
+        }
+      },
+      "manifest_statuses": {
+        "cargo-downloads": "success",
+        "ci-cache": "success",
+        "discovery": "success",
+        "latency": "success",
+        "latency-binaries": "success",
+        "latency-report": "success",
+        "repeated-evidence": "success",
+        "report": "success",
+        "tools": "success"
+      },
+      "discovery_guards": {
+        "status": "complete",
+        "dataset_ids": [
+          "10",
+          "1000",
+          "10000"
+        ],
+        "arms": [
+          "baseline",
+          "candidate"
+        ],
+        "completed_rounds": 7,
+        "workload_rounds_length": 7,
+        "checks": {
+          "status_is_complete_not_pass": true,
+          "baseline_revision_expected": true,
+          "candidate_revision_expected": true,
+          "native_target_matches": true,
+          "run_id_expected": true,
+          "metadata_rounds_7": true,
+          "command_rounds_7": true,
+          "datasets_present": true,
+          "dataset_10_baseline_completed_rounds_7": true,
+          "dataset_10_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10_candidate_completed_rounds_7": true,
+          "dataset_10_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_baseline_completed_rounds_7": true,
+          "dataset_1000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_1000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_1000_candidate_completed_rounds_7": true,
+          "dataset_1000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_1000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_1000_candidate_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_baseline_completed_rounds_7": true,
+          "dataset_10000_baseline_workload_definition_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_baseline_workload_hover_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_references_warm_rounds_7": true,
+          "dataset_10000_baseline_workload_workspace_symbol_warm_rounds_7": true,
+          "dataset_10000_candidate_completed_rounds_7": true,
+          "dataset_10000_candidate_workload_definition_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_dependency_edit_to_correct_hover_rounds_7": true,
+          "dataset_10000_candidate_workload_hover_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_references_warm_rounds_7": true,
+          "dataset_10000_candidate_workload_workspace_symbol_warm_rounds_7": true
+        }
+      },
+      "provenance": {
+        "native_target": "x86_64-unknown-linux-gnu",
+        "baseline_revision": "8ba06b117e8453959baa2157f857fa2e055fc887",
+        "candidate_revision": "ccca016a83ea61148c231d6caa1ea0bf8e21e656",
+        "candidate_tree": "642cbe20a98089bb991b9b77f6134af60ae43e3d"
+      },
+      "selected_members": [
+        {
+          "path": "artifact-manifest.json",
+          "size_in_bytes": 1930444,
+          "sha256": "6880aa5f579075f3e0402c727e1b8a62f18e635f7f288e8b1e53848f7dc97351",
+          "crc32": "2bebdd6a",
+          "crc32_verified": true,
+          "manifest_binding": "whole-zip-sha256 (not self-listed)",
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/artifact-manifest.json"
+        },
+        {
+          "path": "baseline.json",
+          "size_in_bytes": 32939,
+          "sha256": "4570c61c6e38a45057f46ed1162dc4b9ed129da6768335dadefd2f6ebc7fddcd",
+          "crc32": "1b824539",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "4570c61c6e38a45057f46ed1162dc4b9ed129da6768335dadefd2f6ebc7fddcd",
+          "manifest_listed_size": 32939,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/baseline.json"
+        },
+        {
+          "path": "candidate.json",
+          "size_in_bytes": 32911,
+          "sha256": "12da72b9d462258d8f027c19a2c87463f518cc4a9e2dfad2f6d888356694d290",
+          "crc32": "4d1a2b13",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "12da72b9d462258d8f027c19a2c87463f518cc4a9e2dfad2f6d888356694d290",
+          "manifest_listed_size": 32911,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/candidate.json"
+        },
+        {
+          "path": "discovery/report.json",
+          "size_in_bytes": 13933387,
+          "sha256": "bec0e2baf6f20dfd71e1f97544b83e6f31d019e0345fd04ba2298a64e15321df",
+          "crc32": "4fa063b6",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "bec0e2baf6f20dfd71e1f97544b83e6f31d019e0345fd04ba2298a64e15321df",
+          "manifest_listed_size": 13933387,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/discovery/report.json"
+        },
+        {
+          "path": "latency-report.json",
+          "size_in_bytes": 24614,
+          "sha256": "57996f1df8241e86093a822c6cc4dc0e4ee886c9edad066deceac2f16aa93383",
+          "crc32": "94271b74",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "57996f1df8241e86093a822c6cc4dc0e4ee886c9edad066deceac2f16aa93383",
+          "manifest_listed_size": 24614,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/latency-report.json"
+        },
+        {
+          "path": "provenance.json",
+          "size_in_bytes": 32069,
+          "sha256": "c85221f2042b951b9ca3260918e8151c52a2e591e6fc4353c72a8af37e07a038",
+          "crc32": "0c7191cf",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "c85221f2042b951b9ca3260918e8151c52a2e591e6fc4353c72a8af37e07a038",
+          "manifest_listed_size": 32069,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/provenance.json"
+        },
+        {
+          "path": "server-binary-sizes.json",
+          "size_in_bytes": 571,
+          "sha256": "02cb845dc7cac75122704e3227ae64409fd73d4894a93b8764a7756c5678602c",
+          "crc32": "25f77f85",
+          "crc32_verified": true,
+          "manifest_listed_sha256": "02cb845dc7cac75122704e3227ae64409fd73d4894a93b8764a7756c5678602c",
+          "manifest_listed_size": 571,
+          "manifest_verified": true,
+          "write": "created",
+          "output_path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-420a77c/perf-pr-41173453522-1-x86_64-unknown-linux-gnu/server-binary-sizes.json"
+        }
+      ],
+      "coverage": {
+        "selected_members_extracted": 7,
+        "selected_members_requested": 7,
+        "archive_entries_total": 11030,
+        "excluded_not_decompressed": {
+          "discovery/raw.json": "present",
+          "note": "raw.json, wire corpora, binaries, index HTML and unified-report.json were never read/decompressed"
+        },
+        "only_selected_written": true
+      },
+      "status": "collected"
+    }
+  ],
+  "summary": {
+    "artifacts_requested": 6,
+    "collected": 6,
+    "transport_failures": 0,
+    "integrity_failures": 0,
+    "rejected": 0
+  },
+  "plan_sha256": "f419b523c09765c5c91bed4fc17d689ca8f251b21e66dde06af54476a29c2315",
+  "plan_size_bytes": 6347,
+  "original_zip_retention": "verified original ZIP retained beside the flat selected-member directory in each artifact folder",
+  "coverage_statement": "6/6 originals verified before opening; 7/7 selected members per artifact CRC-32 and manifest SHA-256/size verified; excluded members never decompressed"
+}

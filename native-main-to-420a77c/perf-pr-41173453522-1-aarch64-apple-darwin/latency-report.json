@@ -1,0 +1,983 @@
+{
+  "baseline_metadata": {
+    "binary_sha256": "bff5ca8cb18e62cd3e4c8e141de478d1a9234ea4a8fb6c54a4c437a083b16e5c",
+    "collection_status": "complete",
+    "compiler_configuration": {
+      "HOME": "<fresh-workspace>/empty-home",
+      "PATH": "<fresh-workspace>/empty-path",
+      "USERPROFILE": "<fresh-workspace>/empty-home",
+      "compilerArguments": [],
+      "compilerPath": "<fresh-workspace>/unavailable-compiler/bend (does not exist)",
+      "readiness": "semantic response plus compiler-unavailable diagnostics for exact revision",
+      "real_compiler_execution": false,
+      "removed_environment": [
+        "BEND*"
+      ]
+    },
+    "fixture_bytes": 260429,
+    "fixture_repetitions": 4,
+    "fixture_sha256": "3a031f0c3ca50a4bf5e84955afb45edc2caf37b048af6f96fac07af8bdbb6472",
+    "generated_adt_source": "type LatencyTerm is Data:\n  TermVar{index: Nat}\n  TermRef{name: String}\n",
+    "harness": "bend2-perf/0.6.2",
+    "harness_binary_sha256": "d7d3550e7708bb7a300000b97610f11e01dc2c6a5a1bcc5ad4d952e7ed455e35",
+    "harness_sha256": "eaf9bee0d06ee15809f5f68b8d449a08191e6d9a05be1cb1a53433d23949db4f",
+    "large_body_bytes": 1041716,
+    "machine": "aarch64",
+    "platform": "macos",
+    "round_order": [
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ]
+    ],
+    "rounds": 7,
+    "samples": 32,
+    "target": "aarch64-apple-darwin",
+    "timing": {
+      "busy_requests": "per-request hover latency; large notification precedes pipelined burst",
+      "clock": "std::time::Instant",
+      "end": "immediately after full response body read, before JSON parsing",
+      "initialization_measured": false,
+      "request_timeout_seconds": 30,
+      "start": "before frame write; causal open/edit include notification frame write"
+    },
+    "warmup": 8
+  },
+  "candidate_metadata": {
+    "binary_sha256": "d42908df52f67c0803403c1dfb1f2601aba1af3dea931c910ebecc34a149e846",
+    "collection_status": "complete",
+    "compiler_configuration": {
+      "HOME": "<fresh-workspace>/empty-home",
+      "PATH": "<fresh-workspace>/empty-path",
+      "USERPROFILE": "<fresh-workspace>/empty-home",
+      "compilerArguments": [],
+      "compilerPath": "<fresh-workspace>/unavailable-compiler/bend (does not exist)",
+      "readiness": "semantic response plus compiler-unavailable diagnostics for exact revision",
+      "real_compiler_execution": false,
+      "removed_environment": [
+        "BEND*"
+      ]
+    },
+    "fixture_bytes": 260429,
+    "fixture_repetitions": 4,
+    "fixture_sha256": "3a031f0c3ca50a4bf5e84955afb45edc2caf37b048af6f96fac07af8bdbb6472",
+    "generated_adt_source": "type LatencyTerm is Data:\n  TermVar{index: Nat}\n  TermRef{name: String}\n",
+    "harness": "bend2-perf/0.6.2",
+    "harness_binary_sha256": "d7d3550e7708bb7a300000b97610f11e01dc2c6a5a1bcc5ad4d952e7ed455e35",
+    "harness_sha256": "eaf9bee0d06ee15809f5f68b8d449a08191e6d9a05be1cb1a53433d23949db4f",
+    "large_body_bytes": 1041716,
+    "machine": "aarch64",
+    "platform": "macos",
+    "round_order": [
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ]
+    ],
+    "rounds": 7,
+    "samples": 32,
+    "target": "aarch64-apple-darwin",
+    "timing": {
+      "busy_requests": "per-request hover latency; large notification precedes pipelined burst",
+      "clock": "std::time::Instant",
+      "end": "immediately after full response body read, before JSON parsing",
+      "initialization_measured": false,
+      "request_timeout_seconds": 30,
+      "start": "before frame write; causal open/edit include notification frame write"
+    },
+    "warmup": 8
+  },
+  "format_version": 1,
+  "mode": "report-only",
+  "workload_digest": "f7d03cf69e7133da140866fe601c4e3786f5d55cd3148c158e7e5fb2f06423c6",
+  "workloads": {
+    "completion_warm": {
+      "baseline": {
+        "p50_ns": 158875,
+        "p95_ns": 185958,
+        "rounds": [
+          {
+            "p50_ns": 135333,
+            "p95_ns": 185625
+          },
+          {
+            "p50_ns": 160750,
+            "p95_ns": 178584
+          },
+          {
+            "p50_ns": 172875,
+            "p95_ns": 196750
+          },
+          {
+            "p50_ns": 164083,
+            "p95_ns": 204125
+          },
+          {
+            "p50_ns": 158875,
+            "p95_ns": 186333
+          },
+          {
+            "p50_ns": 157959,
+            "p95_ns": 185958
+          },
+          {
+            "p50_ns": 96417,
+            "p95_ns": 175292
+          }
+        ]
+      },
+      "candidate": {
+        "p50_ns": 149334,
+        "p95_ns": 192917,
+        "rounds": [
+          {
+            "p50_ns": 106792,
+            "p95_ns": 239375
+          },
+          {
+            "p50_ns": 157000,
+            "p95_ns": 186333
+          },
+          {
+            "p50_ns": 131250,
+            "p95_ns": 175041
+          },
+          {
+            "p50_ns": 149334,
+            "p95_ns": 216792
+          },
+          {
+            "p50_ns": 158958,
+            "p95_ns": 195542
+          },
+          {
+            "p50_ns": 102834,
+            "p95_ns": 179583
+          },
+          {
+            "p50_ns": 166458,
+            "p95_ns": 192917
+          }
+        ]
+      },
+      "delta": {
+        "p50_ns": -9541,
+        "p50_percent": -6.00535011801731,
+        "p95_ns": 6959,
+        "p95_percent": 3.742242872046376,
+        "rounds": [
+          {
+            "p50_ns": -28541,
+            "p50_percent": -21.08946081147983,
+            "p95_ns": 53750,
+            "p95_percent": 28.95622895622896
+          },
+          {
+            "p50_ns": -3750,
+            "p50_percent": -2.332814930015552,
+            "p95_ns": 7749,
+            "p95_percent": 4.339134524929445
+          },
+          {
+            "p50_ns": -41625,
+            "p50_percent": -24.07809110629067,
+            "p95_ns": -21709,
+            "p95_percent": -11.033799237611182
+          },
+          {
+            "p50_ns": -14749,
+            "p50_percent": -8.98874350176435,
+            "p95_ns": 12667,
+            "p95_percent": 6.205511328842621
+          },
+          {
+            "p50_ns": 83,
+            "p50_percent": 0.05224232887490165,
+            "p95_ns": 9209,
+            "p95_percent": 4.9422270880627694
+          },
+          {
+            "p50_ns": -55125,
+            "p50_percent": -34.8982963933679,
+            "p95_ns": -6375,
+            "p95_percent": -3.4281934630400412
+          },
+          {
+            "p50_ns": 70041,
+            "p50_percent": 72.64382837051558,
+            "p95_ns": 17625,
+            "p95_percent": 10.05465166693289
+          }
+        ]
+      }
+    },
+    "definition_warm": {
+      "baseline": {
+        "p50_ns": 142750,
+        "p95_ns": 181583,
+        "rounds": [
+          {
+            "p50_ns": 115958,
+            "p95_ns": 142958
+          },
+          {
+            "p50_ns": 142250,
+            "p95_ns": 175583
+          },
+          {
+            "p50_ns": 153125,
+            "p95_ns": 189500
+          },
+          {
+            "p50_ns": 151125,
+            "p95_ns": 190625
+          },
+          {
+            "p50_ns": 142750,
+            "p95_ns": 181583
+          },
+          {
+            "p50_ns": 146583,
+            "p95_ns": 176334
+          },
+          {
+            "p50_ns": 139500,
+            "p95_ns": 211750
+          }
+        ]
+      },
+      "candidate": {
+        "p50_ns": 140333,
+        "p95_ns": 199125,
+        "rounds": [
+          {
+            "p50_ns": 140125,
+            "p95_ns": 293083
+          },
+          {
+            "p50_ns": 140333,
+            "p95_ns": 170542
+          },
+          {
+            "p50_ns": 183333,
+            "p95_ns": 235000
+          },
+          {
+            "p50_ns": 150042,
+            "p95_ns": 203500
+          },
+          {
+            "p50_ns": 141125,
+            "p95_ns": 174042
+          },
+          {
+            "p50_ns": 130667,
+            "p95_ns": 199125
+          },
+          {
+            "p50_ns": 138250,
+            "p95_ns": 173500
+          }
+        ]
+      },
+      "delta": {
+        "p50_ns": -2417,
+        "p50_percent": -1.6931698774080561,
+        "p95_ns": 17542,
+        "p95_percent": 9.660595980901295,
+        "rounds": [
+          {
+            "p50_ns": 24167,
+            "p50_percent": 20.841166629296815,
+            "p95_ns": 150125,
+            "p95_percent": 105.01336056743939
+          },
+          {
+            "p50_ns": -1917,
+            "p50_percent": -1.347627416520211,
+            "p95_ns": -5041,
+            "p95_percent": -2.8710068742418113
+          },
+          {
+            "p50_ns": 30208,
+            "p50_percent": 19.727673469387756,
+            "p95_ns": 45500,
+            "p95_percent": 24.010554089709764
+          },
+          {
+            "p50_ns": -1083,
+            "p50_percent": -0.7166253101736973,
+            "p95_ns": 12875,
+            "p95_percent": 6.754098360655737
+          },
+          {
+            "p50_ns": -1625,
+            "p50_percent": -1.138353765323993,
+            "p95_ns": -7541,
+            "p95_percent": -4.152921804353932
+          },
+          {
+            "p50_ns": -15916,
+            "p50_percent": -10.858012184223274,
+            "p95_ns": 22791,
+            "p95_percent": 12.924903875599714
+          },
+          {
+            "p50_ns": -1250,
+            "p50_percent": -0.8960573476702508,
+            "p95_ns": -38250,
+            "p95_percent": -18.06375442739079
+          }
+        ]
+      }
+    },
+    "edit_to_hover_large": {
+      "baseline": {
+        "p50_ns": 30739625,
+        "p95_ns": 36507959,
+        "rounds": [
+          {
+            "p50_ns": 31137000,
+            "p95_ns": 36294417
+          },
+          {
+            "p50_ns": 30918333,
+            "p95_ns": 34249000
+          },
+          {
+            "p50_ns": 30671292,
+            "p95_ns": 37316083
+          },
+          {
+            "p50_ns": 29995750,
+            "p95_ns": 36507959
+          },
+          {
+            "p50_ns": 30739625,
+            "p95_ns": 35108333
+          },
+          {
+            "p50_ns": 29656667,
+            "p95_ns": 38919458
+          },
+          {
+            "p50_ns": 30833250,
+            "p95_ns": 37296792
+          }
+        ]
+      },
+      "candidate": {
+        "p50_ns": 36904500,
+        "p95_ns": 46282959,
+        "rounds": [
+          {
+            "p50_ns": 36904500,
+            "p95_ns": 51464916
+          },
+          {
+            "p50_ns": 37622167,
+            "p95_ns": 45668459
+          },
+          {
+            "p50_ns": 36332417,
+            "p95_ns": 43674958
+          },
+          {
+            "p50_ns": 37434709,
+            "p95_ns": 48497542
+          },
+          {
+            "p50_ns": 36130125,
+            "p95_ns": 46282959
+          },
+          {
+            "p50_ns": 37580625,
+            "p95_ns": 53370000
+          },
+          {
+            "p50_ns": 36701750,
+            "p95_ns": 41272667
+          }
+        ]
+      },
+      "delta": {
+        "p50_ns": 6164875,
+        "p50_percent": 20.055140555553297,
+        "p95_ns": 9775000,
+        "p95_percent": 26.774983504281902,
+        "rounds": [
+          {
+            "p50_ns": 5767500,
+            "p50_percent": 18.522979092398113,
+            "p95_ns": 15170499,
+            "p95_percent": 41.79843693315146
+          },
+          {
+            "p50_ns": 6703834,
+            "p50_percent": 21.68239147951476,
+            "p95_ns": 11419459,
+            "p95_percent": 33.34245963385792
+          },
+          {
+            "p50_ns": 5661125,
+            "p50_percent": 18.457406359014808,
+            "p95_ns": 6358875,
+            "p95_percent": 17.040574703406037
+          },
+          {
+            "p50_ns": 7438959,
+            "p50_percent": 24.800043339473092,
+            "p95_ns": 11989583,
+            "p95_percent": 32.84101146273337
+          },
+          {
+            "p50_ns": 5390500,
+            "p50_percent": 17.535997917996724,
+            "p95_ns": 11174626,
+            "p95_percent": 31.828984873762025
+          },
+          {
+            "p50_ns": 7923958,
+            "p50_percent": 26.71897688300577,
+            "p95_ns": 14450542,
+            "p95_percent": 37.129350568037204
+          },
+          {
+            "p50_ns": 5868500,
+            "p50_percent": 19.033024413579497,
+            "p95_ns": 3975875,
+            "p95_percent": 10.660099131314029
+          }
+        ]
+      }
+    },
+    "hover_during_large_edit": {
+      "baseline": {
+        "p50_ns": 1357042,
+        "p95_ns": 1503917,
+        "rounds": [
+          {
+            "p50_ns": 1432875,
+            "p95_ns": 1587334
+          },
+          {
+            "p50_ns": 992666,
+            "p95_ns": 1165667
+          },
+          {
+            "p50_ns": 1479000,
+            "p95_ns": 1586542
+          },
+          {
+            "p50_ns": 1250875,
+            "p95_ns": 1348917
+          },
+          {
+            "p50_ns": 1472500,
+            "p95_ns": 1534542
+          },
+          {
+            "p50_ns": 1289458,
+            "p95_ns": 1372333
+          },
+          {
+            "p50_ns": 1357042,
+            "p95_ns": 1503917
+          }
+        ]
+      },
+      "candidate": {
+        "p50_ns": 1621667,
+        "p95_ns": 2107625,
+        "rounds": [
+          {
+            "p50_ns": 1621667,
+            "p95_ns": 1718625
+          },
+          {
+            "p50_ns": 1413166,
+            "p95_ns": 1486458
+          },
+          {
+            "p50_ns": 3178084,
+            "p95_ns": 3343375
+          },
+          {
+            "p50_ns": 2636500,
+            "p95_ns": 2768916
+          },
+          {
+            "p50_ns": 2805542,
+            "p95_ns": 2985250
+          },
+          {
+            "p50_ns": 210500,
+            "p95_ns": 2107625
+          },
+          {
+            "p50_ns": 1476792,
+            "p95_ns": 1580666
+          }
+        ]
+      },
+      "delta": {
+        "p50_ns": 264625,
+        "p50_percent": 19.500133378333167,
+        "p95_ns": 603708,
+        "p95_percent": 40.14237487840087,
+        "rounds": [
+          {
+            "p50_ns": 188792,
+            "p50_percent": 13.175748058972344,
+            "p95_ns": 131291,
+            "p95_percent": 8.27116410282902
+          },
+          {
+            "p50_ns": 420500,
+            "p50_percent": 42.36067317708071,
+            "p95_ns": 320791,
+            "p95_percent": 27.519952096096056
+          },
+          {
+            "p50_ns": 1699084,
+            "p50_percent": 114.88059499661934,
+            "p95_ns": 1756833,
+            "p95_percent": 110.73346939444401
+          },
+          {
+            "p50_ns": 1385625,
+            "p50_percent": 110.77245927850505,
+            "p95_ns": 1419999,
+            "p95_percent": 105.26956069202183
+          },
+          {
+            "p50_ns": 1333042,
+            "p50_percent": 90.52916808149406,
+            "p95_ns": 1450708,
+            "p95_percent": 94.5368715877441
+          },
+          {
+            "p50_ns": -1078958,
+            "p50_percent": -83.6753116425661,
+            "p95_ns": 735292,
+            "p95_percent": 53.57970696616638
+          },
+          {
+            "p50_ns": 119750,
+            "p50_percent": 8.824339998319875,
+            "p95_ns": 76749,
+            "p95_percent": 5.103273651404964
+          }
+        ]
+      }
+    },
+    "hover_during_large_open": {
+      "baseline": {
+        "p50_ns": 1449541,
+        "p95_ns": 1508292,
+        "rounds": [
+          {
+            "p50_ns": 2161584,
+            "p95_ns": 2233208
+          },
+          {
+            "p50_ns": 546625,
+            "p95_ns": 695500
+          },
+          {
+            "p50_ns": 1694709,
+            "p95_ns": 1800875
+          },
+          {
+            "p50_ns": 2336375,
+            "p95_ns": 2607917
+          },
+          {
+            "p50_ns": 1314459,
+            "p95_ns": 1438875
+          },
+          {
+            "p50_ns": 1449541,
+            "p95_ns": 1508292
+          },
+          {
+            "p50_ns": 1238167,
+            "p95_ns": 1333625
+          }
+        ]
+      },
+      "candidate": {
+        "p50_ns": 2436792,
+        "p95_ns": 2498500,
+        "rounds": [
+          {
+            "p50_ns": 2509583,
+            "p95_ns": 2616375
+          },
+          {
+            "p50_ns": 1821750,
+            "p95_ns": 1892750
+          },
+          {
+            "p50_ns": 2436792,
+            "p95_ns": 2498500
+          },
+          {
+            "p50_ns": 2831458,
+            "p95_ns": 2991625
+          },
+          {
+            "p50_ns": 1198000,
+            "p95_ns": 1301791
+          },
+          {
+            "p50_ns": 1188875,
+            "p95_ns": 1313417
+          },
+          {
+            "p50_ns": 3800542,
+            "p95_ns": 3957375
+          }
+        ]
+      },
+      "delta": {
+        "p50_ns": 987251,
+        "p50_percent": 68.10783551482848,
+        "p95_ns": 990208,
+        "p95_percent": 65.65094822487953,
+        "rounds": [
+          {
+            "p50_ns": 347999,
+            "p50_percent": 16.09925869177418,
+            "p95_ns": 383167,
+            "p95_percent": 17.157694222839968
+          },
+          {
+            "p50_ns": 1275125,
+            "p50_percent": 233.27235307569177,
+            "p95_ns": 1197250,
+            "p95_percent": 172.14234363767073
+          },
+          {
+            "p50_ns": 742083,
+            "p50_percent": 43.788225589171944,
+            "p95_ns": 697625,
+            "p95_percent": 38.73811341708892
+          },
+          {
+            "p50_ns": 495083,
+            "p50_percent": 21.190219891926596,
+            "p95_ns": 383708,
+            "p95_percent": 14.71319831114257
+          },
+          {
+            "p50_ns": -116459,
+            "p50_percent": -8.859842718563304,
+            "p95_ns": -137084,
+            "p95_percent": -9.527165320128573
+          },
+          {
+            "p50_ns": -260666,
+            "p50_percent": -17.982657958622763,
+            "p95_ns": -194875,
+            "p95_percent": -12.920243560265519
+          },
+          {
+            "p50_ns": 2562375,
+            "p50_percent": 206.94906260625586,
+            "p95_ns": 2623750,
+            "p95_percent": 196.7382135157934
+          }
+        ]
+      }
+    },
+    "hover_warm": {
+      "baseline": {
+        "p50_ns": 135916,
+        "p95_ns": 187250,
+        "rounds": [
+          {
+            "p50_ns": 121458,
+            "p95_ns": 147333
+          },
+          {
+            "p50_ns": 134500,
+            "p95_ns": 187667
+          },
+          {
+            "p50_ns": 149208,
+            "p95_ns": 233167
+          },
+          {
+            "p50_ns": 149500,
+            "p95_ns": 189458
+          },
+          {
+            "p50_ns": 135916,
+            "p95_ns": 181333
+          },
+          {
+            "p50_ns": 138542,
+            "p95_ns": 187250
+          },
+          {
+            "p50_ns": 116209,
+            "p95_ns": 162250
+          }
+        ]
+      },
+      "candidate": {
+        "p50_ns": 143000,
+        "p95_ns": 179167,
+        "rounds": [
+          {
+            "p50_ns": 79500,
+            "p95_ns": 177333
+          },
+          {
+            "p50_ns": 143000,
+            "p95_ns": 166917
+          },
+          {
+            "p50_ns": 230042,
+            "p95_ns": 333625
+          },
+          {
+            "p50_ns": 149542,
+            "p95_ns": 179167
+          },
+          {
+            "p50_ns": 139000,
+            "p95_ns": 190208
+          },
+          {
+            "p50_ns": 143000,
+            "p95_ns": 168416
+          },
+          {
+            "p50_ns": 150458,
+            "p95_ns": 185416
+          }
+        ]
+      },
+      "delta": {
+        "p50_ns": 7084,
+        "p50_percent": 5.212042732275817,
+        "p95_ns": -8083,
+        "p95_percent": -4.316688918558078,
+        "rounds": [
+          {
+            "p50_ns": -41958,
+            "p50_percent": -34.54527490984538,
+            "p95_ns": 30000,
+            "p95_percent": 20.362037018183297
+          },
+          {
+            "p50_ns": 8500,
+            "p50_percent": 6.319702602230483,
+            "p95_ns": -20750,
+            "p95_percent": -11.056818726787341
+          },
+          {
+            "p50_ns": 80834,
+            "p50_percent": 54.17537933622862,
+            "p95_ns": 100458,
+            "p95_percent": 43.084141409376116
+          },
+          {
+            "p50_ns": 42,
+            "p50_percent": 0.02809364548494983,
+            "p95_ns": -10291,
+            "p95_percent": -5.431810744333836
+          },
+          {
+            "p50_ns": 3084,
+            "p50_percent": 2.2690485299743957,
+            "p95_ns": 8875,
+            "p95_percent": 4.894310467482477
+          },
+          {
+            "p50_ns": 4458,
+            "p50_percent": 3.217796769210781,
+            "p95_ns": -18834,
+            "p95_percent": -10.058210947930574
+          },
+          {
+            "p50_ns": 34249,
+            "p50_percent": 29.471899766799474,
+            "p95_ns": 23166,
+            "p95_percent": 14.277966101694913
+          }
+        ]
+      }
+    },
+    "open_to_hover_large": {
+      "baseline": {
+        "p50_ns": 30420750,
+        "p95_ns": 35912375,
+        "rounds": [
+          {
+            "p50_ns": 30036125,
+            "p95_ns": 41946458
+          },
+          {
+            "p50_ns": 30519792,
+            "p95_ns": 35210458
+          },
+          {
+            "p50_ns": 30420750,
+            "p95_ns": 35280834
+          },
+          {
+            "p50_ns": 30504333,
+            "p95_ns": 35252625
+          },
+          {
+            "p50_ns": 30328166,
+            "p95_ns": 35912375
+          },
+          {
+            "p50_ns": 30678500,
+            "p95_ns": 40776875
+          },
+          {
+            "p50_ns": 30078041,
+            "p95_ns": 37658417
+          }
+        ]
+      },
+      "candidate": {
+        "p50_ns": 34952375,
+        "p95_ns": 41620583,
+        "rounds": [
+          {
+            "p50_ns": 34893792,
+            "p95_ns": 41620583
+          },
+          {
+            "p50_ns": 35048542,
+            "p95_ns": 43007125
+          },
+          {
+            "p50_ns": 34634417,
+            "p95_ns": 41224958
+          },
+          {
+            "p50_ns": 35213250,
+            "p95_ns": 39178459
+          },
+          {
+            "p50_ns": 34949250,
+            "p95_ns": 43305666
+          },
+          {
+            "p50_ns": 34952375,
+            "p95_ns": 40996250
+          },
+          {
+            "p50_ns": 35276375,
+            "p95_ns": 43229917
+          }
+        ]
+      },
+      "delta": {
+        "p50_ns": 4531625,
+        "p50_percent": 14.896493347468423,
+        "p95_ns": 5708208,
+        "p95_percent": 15.894821771046889,
+        "rounds": [
+          {
+            "p50_ns": 4857667,
+            "p50_percent": 16.172748648502427,
+            "p95_ns": -325875,
+            "p95_percent": -0.7768832352900928
+          },
+          {
+            "p50_ns": 4528750,
+            "p50_percent": 14.838731535260791,
+            "p95_ns": 7796667,
+            "p95_percent": 22.14304341056853
+          },
+          {
+            "p50_ns": 4213667,
+            "p50_percent": 13.851292292267614,
+            "p95_ns": 5944124,
+            "p95_percent": 16.848025758121253
+          },
+          {
+            "p50_ns": 4708917,
+            "p50_percent": 15.436879082063523,
+            "p95_ns": 3925834,
+            "p95_percent": 11.136288432421699
+          },
+          {
+            "p50_ns": 4621084,
+            "p50_percent": 15.236938494731266,
+            "p95_ns": 7393291,
+            "p95_percent": 20.587028844513906
+          },
+          {
+            "p50_ns": 4273875,
+            "p50_percent": 13.931173297260296,
+            "p95_ns": 219375,
+            "p95_percent": 0.5379887497509311
+          },
+          {
+            "p50_ns": 5198334,
+            "p50_percent": 17.282821045426463,
+            "p95_ns": 5571500,
+            "p95_percent": 14.794833250691338
+          }
+        ]
+      }
+    }
+  }
+}
