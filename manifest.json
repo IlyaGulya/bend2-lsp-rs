@@ -76,7 +76,7 @@
   "same_retained_Docker_service_and_Cargo_volumes": true,
   "owner_stop_criterion": "Rollback and one final source-bound CI cycle. No further optimization variants; ask owner about exact final-source costs after complete results. No advance acceptance.",
   "hosted_qualification": {
-    "state": "Finalquality8/8,normal20run/fiveVMsemantic,installer14/14andnativeprofiling6/6passed. Ordinarymain,before420andcalibrationnumeric/controlresults stillawaited; no admission.",
+    "state": "Finalquality,semantic,installer,profilingpassed; ordinarymainnumericadmissiondenied124/38/0(1Ir27I1mr10ILmr). Sixnative originalscomplete. Before420andstrictfinalcalibration awaited; owner hasnotacceptedremainingcosts.",
     "created_workflows": [
       {
         "id": 41188774413,
@@ -193,7 +193,44 @@
       "performance_admission": false
     },
     "calibration": "pending",
-    "main_performance": "pending",
+    "main_performance": {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "merge": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "run_id": 41188700893,
+      "workflow_conclusion": "failure",
+      "measurement_job": "success",
+      "all_six_native_measurement_jobs": "success",
+      "numeric_admission": "denied",
+      "paired_workloads": 54,
+      "fresh_pairs": 105,
+      "metric_rows": 162,
+      "classification_counts": {
+        "passed": 124,
+        "regression": 38
+      },
+      "by_metric": {
+        "Ir": {
+          "passed": 53,
+          "regression": 1
+        },
+        "I1mr": {
+          "passed": 27,
+          "regression": 27
+        },
+        "ILmr": {
+          "passed": 44,
+          "regression": 10
+        }
+      },
+      "counter_originals": "callgrind-main-to-11f1-selected",
+      "raw_medians": "final-main-all-counter-absolute-medians.json",
+      "native_collection_proof": "native-main-to-11f1a76/collection-proof.json",
+      "native_absolute_summary": "final-native-main-absolute-summary.json",
+      "native_rounds_each_dataset_arm_workload": 7,
+      "scope_limit": "Actual source-bound main results,not editor-latency percentages or acceptance; separate before420semantic comparison and final calibration still required."
+    },
     "before420_performance": "pending",
     "installer_validation": {
       "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
@@ -264,7 +301,7 @@
       "raw_log_sha256": "6e2593f58aebea0d7481979f55a5c88ad77c012820f0c23e0ce24f5eb27d1e76"
     }
   },
-  "previous420_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/3ceb71f84236d4c9ba35a4d0a80a2aa34f2fdffa/manifest.json",
+  "previous420_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/af512490dd40050185ba7524a0f5565d5e1edf66/manifest.json",
   "previous884_complete_evidence": "https://github.com/IlyaGulya/bend2-lsp-rs/blob/60089cb5bdb4c6d08a0727ad3d38c7e9a842c981/manifest.json",
   "performance_admission": false,
   "request_performance_exception": false,
@@ -276,6 +313,26 @@
     "Owner75/76nonblock decision is limited to the two recorded IntelMac captures in run41173453571, not any fresh failure or numerical admission."
   ],
   "files": {
+    "callgrind-main-to-11f1-selected/admission-measurement.json": {
+      "bytes": 4325,
+      "sha256": "b30e4dc88ebc60347c008d92bbc6f853aa7a1fc9a07af15e873859a2170e640e"
+    },
+    "callgrind-main-to-11f1-selected/callgrind-policy.json": {
+      "bytes": 6119163,
+      "sha256": "4a0e8560500b3594df6adf9dab4028fb6d4c361fa6ccc86fb9b9fb415d6eaa24"
+    },
+    "callgrind-main-to-11f1-selected/callgrind-policy.md": {
+      "bytes": 17806,
+      "sha256": "d0ef0d456c38396358f2dcbfb39a226b7b90e0b7c211e82e91057987ec5fdc85"
+    },
+    "callgrind-main-to-11f1-selected/paired-data.json": {
+      "bytes": 7352076,
+      "sha256": "0bdd5f327a0970adcc8dc23361a0194691cbe63591db5682320e762716d9c243"
+    },
+    "callgrind-main-to-11f1-selected/selected-original-members.json": {
+      "bytes": 1164,
+      "sha256": "e46eca41c368015783b8e2f8b27ef8029dc23082f414d5f232363892059856ed"
+    },
     "completion-rollback-autoimport-stdio.json": {
       "bytes": 12166,
       "sha256": "9ceb2e92b8402a5f1d2d0fcb2871dc7d63974c1b7fbd3c74b7f9a505c1739be0"
@@ -344,6 +401,18 @@
       "bytes": 110523,
       "sha256": "961afc2e9988226c785d8b49fe8bde7f0e7bd9104a6ce64026c772800432d007"
     },
+    "final-main-all-counter-absolute-medians.json": {
+      "bytes": 88389,
+      "sha256": "cc7ec22d676e1e7655e5998f6054e8c124a70033862a8b286cc2508070a8d4f4"
+    },
+    "final-main-completed-metadata.json": {
+      "bytes": 71827,
+      "sha256": "f023bcf162361e39ae8ff27f00ca57b450748f02260c8e30ea77aaee612afd9c"
+    },
+    "final-native-main-absolute-summary.json": {
+      "bytes": 26044,
+      "sha256": "a420ba3d7e69bd847d2fc71529fbf185dc39d19267d3eb5e541f1e962bf94a09"
+    },
     "final-quality-completed-metadata.json": {
       "bytes": 78725,
       "sha256": "3272cef3bf57bc57dc135212f0af24a83bee5b3aab4dd42de07b993df9138604"
@@ -371,6 +440,178 @@
     "module-completion-api-smoke.rs": {
       "bytes": 1752,
       "sha256": "f5bf243eb21269bd435057712e5dfae2f993dadcdb1a9390e4ccadb505ca038f"
+    },
+    "native-main-to-11f1a76/collection-proof.json": {
+      "bytes": 19520,
+      "sha256": "9f814cedc6960ecc47ac0dcad928812be321e65dcf4e60d8b7330d676e863ab0"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/artifact-manifest.json": {
+      "bytes": 1930411,
+      "sha256": "5b278fd017e4a354ce8c87a0d623b2356bc44c28819ad5e0ee3f7cfb7e3a4521"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/baseline.json": {
+      "bytes": 33131,
+      "sha256": "95684bbf26a1118b56c4de89dbb9414eb5403a24515bfca0a8a1d10b3a525f85"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/candidate.json": {
+      "bytes": 33188,
+      "sha256": "da452d03e7e4abb5c6b429fe55e52cb1ae6ea4610596d26060498de26968287f"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/discovery/report.json": {
+      "bytes": 2570820,
+      "sha256": "56b09d3c04ed959eb760d5c35543e187bc8fec725b3fbcff819414537aac2fd9"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/latency-report.json": {
+      "bytes": 24655,
+      "sha256": "6452db2c1501a83992e61a5a61c4cb14bc78973f3aa34a8d75b4336c61b2fd42"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/provenance.json": {
+      "bytes": 28797,
+      "sha256": "a7846d9a3a5ac5ad9404cd8c314362b482fca6478b8c4495792957862d97a1ad"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/server-binary-sizes.json": {
+      "bytes": 567,
+      "sha256": "43adc41ea3368e6537589f34c3ceea85c2cdb229c08a0c24fa2196fd402a12aa"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/artifact-manifest.json": {
+      "bytes": 1930422,
+      "sha256": "ead08cfc5f1c33539930ae5a919e27a6ef69fe37ed6c1ab8807f455e8fa6c011"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/baseline.json": {
+      "bytes": 33056,
+      "sha256": "16e855ca34f312482a57a0e273bc85947fb823b088e2b2644f4d403c79ca95bf"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/candidate.json": {
+      "bytes": 33123,
+      "sha256": "ef32efa92e6944ce8a402ef2a71cf241d8a85e848524778e57e95ae5015d0fb2"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/discovery/report.json": {
+      "bytes": 12192481,
+      "sha256": "a54538ac1e7e9b0a35643516cba9aa09b1815a8447baf41c01a5518fedceea30"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24560,
+      "sha256": "933108149b8efec91466878d7fd5fffc24a3657263235821108ac4e6930a2f8a"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/provenance.json": {
+      "bytes": 29492,
+      "sha256": "f5ccc77c145db550bde37808009898ef5e355294dfc3a785df5aebdbc332374a"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/server-binary-sizes.json": {
+      "bytes": 587,
+      "sha256": "57d6452c54318f2397d11dc4ef6b709a920543df2ef9c11832ffa1a482f1d44c"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/artifact-manifest.json": {
+      "bytes": 1930449,
+      "sha256": "300bcb0ee2e47e8b68a6e6d574554dbb6e07ca0bcd98ffa70fc3b99034d07feb"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/baseline.json": {
+      "bytes": 32469,
+      "sha256": "c66746cfd42214139a6a1d242848f43a3c6637dbad01636108adedc5be01067e"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/candidate.json": {
+      "bytes": 32527,
+      "sha256": "7686fdaf384a83e45de8c224fe52c476a59fecdf5df5ba76a1235e80e90daf38"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/discovery/report.json": {
+      "bytes": 13793081,
+      "sha256": "5e38c246ce4364145ad77f7ed87c8525a1ee8878981b4f04a78d764faac1fce7"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24578,
+      "sha256": "8c30a7b8e1b434ee44c163b2c54b2884413448e7654c0df12ebf2d571af25069"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/provenance.json": {
+      "bytes": 31053,
+      "sha256": "a5531767c194e5d319766693e59ba670d167e49dc1f50c888a020c305b42d73c"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/server-binary-sizes.json": {
+      "bytes": 572,
+      "sha256": "96c87197ccb40e930c0198a7618f8dc241b64eea84d53514e2af30f33239b79d"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/artifact-manifest.json": {
+      "bytes": 1930416,
+      "sha256": "92ab8e08c062dd02f0cab2f9516d1bfcec892d8e7c53870abfe37688c19db4e0"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/baseline.json": {
+      "bytes": 33261,
+      "sha256": "b432b8006f2751791e74a45fc1875d46bc1e2045ca33591a4b735d88727c9b27"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/candidate.json": {
+      "bytes": 33167,
+      "sha256": "e602ff6370978222836a16e216424807c4711a225f499c20e34480b521edad1e"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/discovery/report.json": {
+      "bytes": 4045313,
+      "sha256": "3050d6f846a7fbe96c825ed98d1c83e77fa88a4e3799910ae0ee4c537f3191bd"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/latency-report.json": {
+      "bytes": 24743,
+      "sha256": "18a990ba4ddb7f0d3b84aa368b628438ac517dbbbec8ae0f8a76cfdc4f04d23f"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/provenance.json": {
+      "bytes": 28812,
+      "sha256": "1d5f7716e28422354cddc2ea033e7a6ca5f9eb45be38bcd21e5a84f151f83874"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/server-binary-sizes.json": {
+      "bytes": 566,
+      "sha256": "00a724390c4e2369a759c28abc8d3b1a7569f2a42894929e82a67cbdb4ec5032"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/artifact-manifest.json": {
+      "bytes": 1930419,
+      "sha256": "996658e86472aa3bf438b57f3bc909a81d38467a71a3ecdcef37a3c85a22d6ee"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/baseline.json": {
+      "bytes": 33232,
+      "sha256": "47d6199f1575116842896e20d56e981c4f7e8db1a6e82c4b722e38fc3fec797e"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/candidate.json": {
+      "bytes": 33239,
+      "sha256": "784dbe618697385c2a74b5cb3a30993f25f3498bbe4cae7874bed481551d4870"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/discovery/report.json": {
+      "bytes": 13509026,
+      "sha256": "26af645db9b9bc52b311947347da3b88f1fc5aa3f262e18265e4bb7b3da9125e"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/latency-report.json": {
+      "bytes": 24619,
+      "sha256": "9e7d13dc0adc92b33447bcbd2ca14b863e8c662fd0b5c3f34508da5b4f6411a4"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/provenance.json": {
+      "bytes": 29509,
+      "sha256": "078aa55027de35b5715d61e5a10d90502a0a8d2f9cb1384bee2f39f56c56afea"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/server-binary-sizes.json": {
+      "bytes": 586,
+      "sha256": "b6c03e3defc53365696fe7b5943f7cdcf62fe05e580a5b41fcfff1221a99bd62"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/artifact-manifest.json": {
+      "bytes": 1930444,
+      "sha256": "379cbfefc59175a57625d51e7b1bab984a33fe8420c234090fa5d447ee5f3a0c"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/baseline.json": {
+      "bytes": 33034,
+      "sha256": "fdcee492990840532676a612585a7f4cab18976da12adfd0ac0a736e0c37af72"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/candidate.json": {
+      "bytes": 32862,
+      "sha256": "eab99bbfa5cd1d0b5ce970c56dbedbd98a293579470b622dbff0416beb6e107e"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/discovery/report.json": {
+      "bytes": 14017685,
+      "sha256": "937ab81c7e37992ecc49a53326e86e3c8a78d498bed4ab78aa31de8ac12201f5"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/latency-report.json": {
+      "bytes": 24659,
+      "sha256": "e064e117e1c6ef73c37762f61ad10c9a087e47fc21509a14dd3ad38212849e02"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/provenance.json": {
+      "bytes": 32069,
+      "sha256": "c026b19b8f5ee4cb94261ba88c52271bfcc3a775ca1f21d033dd69898be60165"
+    },
+    "native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/server-binary-sizes.json": {
+      "bytes": 571,
+      "sha256": "61a0edd6c01411b0eecb8869a972fae81f669e7cbed9fb1441c3091247105277"
     },
     "semantic-11f1a76-report/original-artifact-proof.json": {
       "bytes": 1360,

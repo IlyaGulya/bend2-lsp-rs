@@ -1,0 +1,854 @@
+{
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+  "run_id": 41188700893,
+  "large_workspace_rows": [
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 519.698132,
+        "retained_MiB": 90.91015625,
+        "references_warm_p50_ms": 30.974574
+      },
+      "candidate": {
+        "cold_ms": 682.613623,
+        "retained_MiB": 152.91796875,
+        "references_warm_p50_ms": 23.105458
+      },
+      "cold_ratio": 1.3134810016981164,
+      "retained_delta_MiB": 62.0078125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 650.589209,
+        "retained_MiB": 103.53125,
+        "references_warm_p50_ms": 36.890958
+      },
+      "candidate": {
+        "cold_ms": 738.566458,
+        "retained_MiB": 177.765625,
+        "references_warm_p50_ms": 13.122458
+      },
+      "cold_ratio": 1.1352270338686175,
+      "retained_delta_MiB": 74.234375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 812.0679,
+        "retained_MiB": 100.66796875,
+        "references_warm_p50_ms": 51.3213
+      },
+      "candidate": {
+        "cold_ms": 1818.3216,
+        "retained_MiB": 163.4375,
+        "references_warm_p50_ms": 14.6214
+      },
+      "cold_ratio": 2.239125078087682,
+      "retained_delta_MiB": 62.76953125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 672.3297,
+        "retained_MiB": 92.63671875,
+        "references_warm_p50_ms": 44.4415
+      },
+      "candidate": {
+        "cold_ms": 1192.3925,
+        "retained_MiB": 154.41015625,
+        "references_warm_p50_ms": 22.1402
+      },
+      "cold_ratio": 1.7735234662398522,
+      "retained_delta_MiB": 61.7734375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1249.148553,
+        "retained_MiB": 101.83984375,
+        "references_warm_p50_ms": 64.791969
+      },
+      "candidate": {
+        "cold_ms": 1815.901466,
+        "retained_MiB": 161.15625,
+        "references_warm_p50_ms": 34.219061
+      },
+      "cold_ratio": 1.4537113793542538,
+      "retained_delta_MiB": 59.31640625
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 412.547397,
+        "retained_MiB": 88.29296875,
+        "references_warm_p50_ms": 30.625269
+      },
+      "candidate": {
+        "cold_ms": 547.651069,
+        "retained_MiB": 151.19140625,
+        "references_warm_p50_ms": 18.152105
+      },
+      "cold_ratio": 1.327486424547723,
+      "retained_delta_MiB": 62.8984375
+    }
+  ],
+  "all_scale_rows": [
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1.469219,
+        "retained_MiB": 7.16796875,
+        "references_warm_p50_ms": 0.111289
+      },
+      "candidate": {
+        "cold_ms": 2.044214,
+        "retained_MiB": 8.29296875,
+        "references_warm_p50_ms": 0.10276
+      },
+      "cold_ratio": 1.3913609883890694,
+      "retained_delta_MiB": 1.125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 46.188021,
+        "retained_MiB": 15.8125,
+        "references_warm_p50_ms": 2.321985
+      },
+      "candidate": {
+        "cold_ms": 64.144506,
+        "retained_MiB": 22.66015625,
+        "references_warm_p50_ms": 1.69682
+      },
+      "cold_ratio": 1.3887693088214368,
+      "retained_delta_MiB": 6.84765625
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 519.698132,
+        "retained_MiB": 90.91015625,
+        "references_warm_p50_ms": 30.974574
+      },
+      "candidate": {
+        "cold_ms": 682.613623,
+        "retained_MiB": 152.91796875,
+        "references_warm_p50_ms": 23.105458
+      },
+      "cold_ratio": 1.3134810016981164,
+      "retained_delta_MiB": 62.0078125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1.057209,
+        "retained_MiB": 4.84375,
+        "references_warm_p50_ms": 0.159375
+      },
+      "candidate": {
+        "cold_ms": 12.64575,
+        "retained_MiB": 5.421875,
+        "references_warm_p50_ms": 0.075333
+      },
+      "cold_ratio": 11.961447547268325,
+      "retained_delta_MiB": 0.578125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 38.600167,
+        "retained_MiB": 14.8125,
+        "references_warm_p50_ms": 2.964833
+      },
+      "candidate": {
+        "cold_ms": 82.499208,
+        "retained_MiB": 21.78125,
+        "references_warm_p50_ms": 1.245916
+      },
+      "cold_ratio": 2.137275934583392,
+      "retained_delta_MiB": 6.96875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 650.589209,
+        "retained_MiB": 103.53125,
+        "references_warm_p50_ms": 36.890958
+      },
+      "candidate": {
+        "cold_ms": 738.566458,
+        "retained_MiB": 177.765625,
+        "references_warm_p50_ms": 13.122458
+      },
+      "cold_ratio": 1.1352270338686175,
+      "retained_delta_MiB": 74.234375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 3.574,
+        "retained_MiB": 9.34375,
+        "references_warm_p50_ms": 0.1561
+      },
+      "candidate": {
+        "cold_ms": 4.9384,
+        "retained_MiB": 9.83203125,
+        "references_warm_p50_ms": 0.1292
+      },
+      "cold_ratio": 1.3817571348628988,
+      "retained_delta_MiB": 0.48828125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 84.6547,
+        "retained_MiB": 19.875,
+        "references_warm_p50_ms": 3.9298
+      },
+      "candidate": {
+        "cold_ms": 186.2749,
+        "retained_MiB": 27.19921875,
+        "references_warm_p50_ms": 1.1052
+      },
+      "cold_ratio": 2.2004082466773847,
+      "retained_delta_MiB": 7.32421875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 812.0679,
+        "retained_MiB": 100.66796875,
+        "references_warm_p50_ms": 51.3213
+      },
+      "candidate": {
+        "cold_ms": 1818.3216,
+        "retained_MiB": 163.4375,
+        "references_warm_p50_ms": 14.6214
+      },
+      "cold_ratio": 2.239125078087682,
+      "retained_delta_MiB": 62.76953125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 2.2137,
+        "retained_MiB": 6.53515625,
+        "references_warm_p50_ms": 0.1061
+      },
+      "candidate": {
+        "cold_ms": 3.8117,
+        "retained_MiB": 7.02734375,
+        "references_warm_p50_ms": 0.0894
+      },
+      "cold_ratio": 1.7218683651804674,
+      "retained_delta_MiB": 0.4921875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 56.3668,
+        "retained_MiB": 16.37890625,
+        "references_warm_p50_ms": 3.0933
+      },
+      "candidate": {
+        "cold_ms": 108.0007,
+        "retained_MiB": 23.66015625,
+        "references_warm_p50_ms": 1.2912
+      },
+      "cold_ratio": 1.9160339064839587,
+      "retained_delta_MiB": 7.28125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 672.3297,
+        "retained_MiB": 92.63671875,
+        "references_warm_p50_ms": 44.4415
+      },
+      "candidate": {
+        "cold_ms": 1192.3925,
+        "retained_MiB": 154.41015625,
+        "references_warm_p50_ms": 22.1402
+      },
+      "cold_ratio": 1.7735234662398522,
+      "retained_delta_MiB": 61.7734375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 3.344985,
+        "retained_MiB": 3.1640625,
+        "references_warm_p50_ms": 0.288903
+      },
+      "candidate": {
+        "cold_ms": 4.228068,
+        "retained_MiB": 3.625,
+        "references_warm_p50_ms": 0.259945
+      },
+      "cold_ratio": 1.2640020807268195,
+      "retained_delta_MiB": 0.4609375
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 90.662503,
+        "retained_MiB": 12.890625,
+        "references_warm_p50_ms": 5.909518
+      },
+      "candidate": {
+        "cold_ms": 126.558168,
+        "retained_MiB": 20.24609375,
+        "references_warm_p50_ms": 2.771563
+      },
+      "cold_ratio": 1.3959262518926925,
+      "retained_delta_MiB": 7.35546875
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1249.148553,
+        "retained_MiB": 101.83984375,
+        "references_warm_p50_ms": 64.791969
+      },
+      "candidate": {
+        "cold_ms": 1815.901466,
+        "retained_MiB": 161.15625,
+        "references_warm_p50_ms": 34.219061
+      },
+      "cold_ratio": 1.4537113793542538,
+      "retained_delta_MiB": 59.31640625
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 1.265776,
+        "retained_MiB": 5.98046875,
+        "references_warm_p50_ms": 0.088819
+      },
+      "candidate": {
+        "cold_ms": 1.886708,
+        "retained_MiB": 6.73828125,
+        "references_warm_p50_ms": 0.079139
+      },
+      "cold_ratio": 1.4905544108910265,
+      "retained_delta_MiB": 0.7578125
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 1000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 37.852283,
+        "retained_MiB": 14.671875,
+        "references_warm_p50_ms": 2.669029
+      },
+      "candidate": {
+        "cold_ms": 52.828767,
+        "retained_MiB": 21.078125,
+        "references_warm_p50_ms": 1.681125
+      },
+      "cold_ratio": 1.395656029518748,
+      "retained_delta_MiB": 6.40625
+    },
+    {
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "rounds": 7,
+      "baseline": {
+        "cold_ms": 412.547397,
+        "retained_MiB": 88.29296875,
+        "references_warm_p50_ms": 30.625269
+      },
+      "candidate": {
+        "cold_ms": 547.651069,
+        "retained_MiB": 151.19140625,
+        "references_warm_p50_ms": 18.152105
+      },
+      "cold_ratio": 1.327486424547723,
+      "retained_delta_MiB": 62.8984375
+    }
+  ],
+  "large_workspace_memory_lifecycle": [
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "after_dependency_revisions.rss_bytes",
+      "baseline_MiB": 270.23828125,
+      "candidate_MiB": 163.97265625,
+      "delta_MiB": -106.265625
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal.rss_bytes",
+      "baseline_MiB": 295.390625,
+      "candidate_MiB": 168.39453125,
+      "delta_MiB": -126.99609375
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal_settled.rss_bytes",
+      "baseline_MiB": 277.5078125,
+      "candidate_MiB": 168.39453125,
+      "delta_MiB": -109.11328125
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "before_root_removal.rss_bytes",
+      "baseline_MiB": 295.390625,
+      "candidate_MiB": 168.26953125,
+      "delta_MiB": -127.12109375
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "cold_discovery_observed.rss_bytes",
+      "baseline_MiB": 90.91015625,
+      "candidate_MiB": 152.91796875,
+      "delta_MiB": 62.0078125
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "entry_loaded.rss_bytes",
+      "baseline_MiB": 95.375,
+      "candidate_MiB": 158.10546875,
+      "delta_MiB": 62.73046875
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "initial_completion_response.rss_bytes",
+      "baseline_MiB": 7.11328125,
+      "candidate_MiB": 7.78125,
+      "delta_MiB": 0.66796875
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "initialize_response.rss_bytes",
+      "baseline_MiB": 6.11328125,
+      "candidate_MiB": 6.41015625,
+      "delta_MiB": 0.296875
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "after_dependency_revisions.rss_bytes",
+      "baseline_MiB": 231.84375,
+      "candidate_MiB": 190.703125,
+      "delta_MiB": -41.140625
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal.rss_bytes",
+      "baseline_MiB": 200.703125,
+      "candidate_MiB": 162.171875,
+      "delta_MiB": -38.53125
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal_settled.rss_bytes",
+      "baseline_MiB": 151.46875,
+      "candidate_MiB": 162.171875,
+      "delta_MiB": 10.703125
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "before_root_removal.rss_bytes",
+      "baseline_MiB": 220.859375,
+      "candidate_MiB": 200.8125,
+      "delta_MiB": -20.046875
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "cold_discovery_observed.rss_bytes",
+      "baseline_MiB": 103.53125,
+      "candidate_MiB": 177.765625,
+      "delta_MiB": 74.234375
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "entry_loaded.rss_bytes",
+      "baseline_MiB": 109.09375,
+      "candidate_MiB": 184.46875,
+      "delta_MiB": 75.375
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "initial_completion_response.rss_bytes",
+      "baseline_MiB": 4.75,
+      "candidate_MiB": 7.34375,
+      "delta_MiB": 2.59375
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "initialize_response.rss_bytes",
+      "baseline_MiB": 3.3125,
+      "candidate_MiB": 3.453125,
+      "delta_MiB": 0.140625
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "after_dependency_revisions.rss_bytes",
+      "baseline_MiB": 192.8046875,
+      "candidate_MiB": 91.58984375,
+      "delta_MiB": -101.21484375
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal.rss_bytes",
+      "baseline_MiB": 275.6875,
+      "candidate_MiB": 157.65234375,
+      "delta_MiB": -118.03515625
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal_settled.rss_bytes",
+      "baseline_MiB": 269.92578125,
+      "candidate_MiB": 156.8203125,
+      "delta_MiB": -113.10546875
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "before_root_removal.rss_bytes",
+      "baseline_MiB": 275.65234375,
+      "candidate_MiB": 157.60546875,
+      "delta_MiB": -118.046875
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "cold_discovery_observed.rss_bytes",
+      "baseline_MiB": 100.66796875,
+      "candidate_MiB": 163.4375,
+      "delta_MiB": 62.76953125
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "entry_loaded.rss_bytes",
+      "baseline_MiB": 99.24609375,
+      "candidate_MiB": 159.33203125,
+      "delta_MiB": 60.0859375
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "initial_completion_response.rss_bytes",
+      "baseline_MiB": 9.24609375,
+      "candidate_MiB": 11.296875,
+      "delta_MiB": 2.05078125
+    },
+    {
+      "target": "aarch64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "initialize_response.rss_bytes",
+      "baseline_MiB": 7.28515625,
+      "candidate_MiB": 7.33203125,
+      "delta_MiB": 0.046875
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "after_dependency_revisions.rss_bytes",
+      "baseline_MiB": 194.28515625,
+      "candidate_MiB": 103.046875,
+      "delta_MiB": -91.23828125
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal.rss_bytes",
+      "baseline_MiB": 138.140625,
+      "candidate_MiB": 35.55078125,
+      "delta_MiB": -102.58984375
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal_settled.rss_bytes",
+      "baseline_MiB": 26.78125,
+      "candidate_MiB": 35.55078125,
+      "delta_MiB": 8.76953125
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "before_root_removal.rss_bytes",
+      "baseline_MiB": 192.91015625,
+      "candidate_MiB": 104.30859375,
+      "delta_MiB": -88.6015625
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "cold_discovery_observed.rss_bytes",
+      "baseline_MiB": 92.63671875,
+      "candidate_MiB": 154.41015625,
+      "delta_MiB": 61.7734375
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "entry_loaded.rss_bytes",
+      "baseline_MiB": 93.359375,
+      "candidate_MiB": 154.91796875,
+      "delta_MiB": 61.55859375
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "initial_completion_response.rss_bytes",
+      "baseline_MiB": 6.2265625,
+      "candidate_MiB": 7.66796875,
+      "delta_MiB": 1.44140625
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "dataset_files": 10000,
+      "checkpoint": "initialize_response.rss_bytes",
+      "baseline_MiB": 4.87890625,
+      "candidate_MiB": 4.94140625,
+      "delta_MiB": 0.0625
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "after_dependency_revisions.rss_bytes",
+      "baseline_MiB": 223.1328125,
+      "candidate_MiB": 159.50390625,
+      "delta_MiB": -63.62890625
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal.rss_bytes",
+      "baseline_MiB": 135.93359375,
+      "candidate_MiB": 132.1328125,
+      "delta_MiB": -3.80078125
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal_settled.rss_bytes",
+      "baseline_MiB": 135.93359375,
+      "candidate_MiB": 132.1328125,
+      "delta_MiB": -3.80078125
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "before_root_removal.rss_bytes",
+      "baseline_MiB": 170.88671875,
+      "candidate_MiB": 169.43359375,
+      "delta_MiB": -1.453125
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "cold_discovery_observed.rss_bytes",
+      "baseline_MiB": 101.83984375,
+      "candidate_MiB": 161.15625,
+      "delta_MiB": 59.31640625
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "entry_loaded.rss_bytes",
+      "baseline_MiB": 104.125,
+      "candidate_MiB": 165.9921875,
+      "delta_MiB": 61.8671875
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "initial_completion_response.rss_bytes",
+      "baseline_MiB": 2.9609375,
+      "candidate_MiB": 4.30859375,
+      "delta_MiB": 1.34765625
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "dataset_files": 10000,
+      "checkpoint": "initialize_response.rss_bytes",
+      "baseline_MiB": 1.9296875,
+      "candidate_MiB": 2.0234375,
+      "delta_MiB": 0.09375
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "after_dependency_revisions.rss_bytes",
+      "baseline_MiB": 275.19921875,
+      "candidate_MiB": 162.0546875,
+      "delta_MiB": -113.14453125
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal.rss_bytes",
+      "baseline_MiB": 297.78515625,
+      "candidate_MiB": 167.59765625,
+      "delta_MiB": -130.1875
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "after_root_removal_settled.rss_bytes",
+      "baseline_MiB": 297.78515625,
+      "candidate_MiB": 167.59765625,
+      "delta_MiB": -130.1875
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "before_root_removal.rss_bytes",
+      "baseline_MiB": 297.78515625,
+      "candidate_MiB": 167.59765625,
+      "delta_MiB": -130.1875
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "cold_discovery_observed.rss_bytes",
+      "baseline_MiB": 88.29296875,
+      "candidate_MiB": 151.19140625,
+      "delta_MiB": 62.8984375
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "entry_loaded.rss_bytes",
+      "baseline_MiB": 92.1796875,
+      "candidate_MiB": 155.671875,
+      "delta_MiB": 63.4921875
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "initial_completion_response.rss_bytes",
+      "baseline_MiB": 5.890625,
+      "candidate_MiB": 6.55078125,
+      "delta_MiB": 0.66015625
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "dataset_files": 10000,
+      "checkpoint": "initialize_response.rss_bytes",
+      "baseline_MiB": 4.73828125,
+      "candidate_MiB": 5.0703125,
+      "delta_MiB": 0.33203125
+    }
+  ],
+  "limits": "Seven verified rounds; medians at defined checkpoints,not exact peak; independent VMs cannot form synthetic source-to-source pairs. No local SUT execution."
+}

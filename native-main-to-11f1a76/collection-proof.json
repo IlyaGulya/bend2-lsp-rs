@@ -1,0 +1,426 @@
+{
+  "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+  "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+  "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+  "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+  "run_id": 41188700893,
+  "status": "complete",
+  "artifacts": [
+    {
+      "artifact_id": 13041245651,
+      "artifact_name": "perf-pr-41188700893-1-x86_64-unknown-linux-gnu",
+      "target": "x86_64-unknown-linux-gnu",
+      "run_id": 41188700893,
+      "expected_metadata_size": 12604063,
+      "expected_metadata_digest": "sha256:9ef9300bb7b40e68ca412c984fe10db66ed2f7e6702d63fe326491961f974293",
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-unknown-linux-gnu/perf-pr-41188700893-1-x86_64-unknown-linux-gnu.zip",
+        "bytes": 12604063,
+        "sha256": "9ef9300bb7b40e68ca412c984fe10db66ed2f7e6702d63fe326491961f974293",
+        "whole_archive_digest_verified_before_open": true,
+        "reused": false
+      },
+      "archive_entries_safety_checked": 11030,
+      "members": {
+        "artifact-manifest.json": {
+          "bytes": 1930444,
+          "sha256": "379cbfefc59175a57625d51e7b1bab984a33fe8420c234090fa5d447ee5f3a0c",
+          "CRC32": 3453690424,
+          "original_CRC_and_size_verified": true
+        },
+        "baseline.json": {
+          "bytes": 33034,
+          "sha256": "fdcee492990840532676a612585a7f4cab18976da12adfd0ac0a736e0c37af72",
+          "CRC32": 2129449690,
+          "original_CRC_and_size_verified": true
+        },
+        "candidate.json": {
+          "bytes": 32862,
+          "sha256": "eab99bbfa5cd1d0b5ce970c56dbedbd98a293579470b622dbff0416beb6e107e",
+          "CRC32": 3712583274,
+          "original_CRC_and_size_verified": true
+        },
+        "discovery/report.json": {
+          "bytes": 14017685,
+          "sha256": "937ab81c7e37992ecc49a53326e86e3c8a78d498bed4ab78aa31de8ac12201f5",
+          "CRC32": 4275195702,
+          "original_CRC_and_size_verified": true
+        },
+        "latency-report.json": {
+          "bytes": 24659,
+          "sha256": "e064e117e1c6ef73c37762f61ad10c9a087e47fc21509a14dd3ad38212849e02",
+          "CRC32": 3174699568,
+          "original_CRC_and_size_verified": true
+        },
+        "provenance.json": {
+          "bytes": 32069,
+          "sha256": "c026b19b8f5ee4cb94261ba88c52271bfcc3a775ca1f21d033dd69898be60165",
+          "CRC32": 941255666,
+          "original_CRC_and_size_verified": true
+        },
+        "server-binary-sizes.json": {
+          "bytes": 571,
+          "sha256": "61a0edd6c01411b0eecb8869a972fae81f669e7cbed9fb1441c3091247105277",
+          "CRC32": 2047213558,
+          "original_CRC_and_size_verified": true
+        }
+      },
+      "all_selected_manifest_SHA_size_verified": true,
+      "manifest_self_listing": false,
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "discovery_status": "complete",
+      "rounds_each_dataset_arm_workload": 7,
+      "excluded_members_not_decompressed": true
+    },
+    {
+      "artifact_id": 13040945820,
+      "artifact_name": "perf-pr-41188700893-1-aarch64-apple-darwin",
+      "target": "aarch64-apple-darwin",
+      "run_id": 41188700893,
+      "expected_metadata_size": 11666539,
+      "expected_metadata_digest": "sha256:a1ca3e95ea78a5a8e22c57885513c68848205277ce021a19e49063525a30094e",
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-apple-darwin/perf-pr-41188700893-1-aarch64-apple-darwin.zip",
+        "bytes": 11666539,
+        "sha256": "a1ca3e95ea78a5a8e22c57885513c68848205277ce021a19e49063525a30094e",
+        "whole_archive_digest_verified_before_open": true,
+        "reused": false
+      },
+      "archive_entries_safety_checked": 11030,
+      "members": {
+        "artifact-manifest.json": {
+          "bytes": 1930411,
+          "sha256": "5b278fd017e4a354ce8c87a0d623b2356bc44c28819ad5e0ee3f7cfb7e3a4521",
+          "CRC32": 2274255571,
+          "original_CRC_and_size_verified": true
+        },
+        "baseline.json": {
+          "bytes": 33131,
+          "sha256": "95684bbf26a1118b56c4de89dbb9414eb5403a24515bfca0a8a1d10b3a525f85",
+          "CRC32": 4087745022,
+          "original_CRC_and_size_verified": true
+        },
+        "candidate.json": {
+          "bytes": 33188,
+          "sha256": "da452d03e7e4abb5c6b429fe55e52cb1ae6ea4610596d26060498de26968287f",
+          "CRC32": 2903652891,
+          "original_CRC_and_size_verified": true
+        },
+        "discovery/report.json": {
+          "bytes": 2570820,
+          "sha256": "56b09d3c04ed959eb760d5c35543e187bc8fec725b3fbcff819414537aac2fd9",
+          "CRC32": 2950936252,
+          "original_CRC_and_size_verified": true
+        },
+        "latency-report.json": {
+          "bytes": 24655,
+          "sha256": "6452db2c1501a83992e61a5a61c4cb14bc78973f3aa34a8d75b4336c61b2fd42",
+          "CRC32": 2987008436,
+          "original_CRC_and_size_verified": true
+        },
+        "provenance.json": {
+          "bytes": 28797,
+          "sha256": "a7846d9a3a5ac5ad9404cd8c314362b482fca6478b8c4495792957862d97a1ad",
+          "CRC32": 649160516,
+          "original_CRC_and_size_verified": true
+        },
+        "server-binary-sizes.json": {
+          "bytes": 567,
+          "sha256": "43adc41ea3368e6537589f34c3ceea85c2cdb229c08a0c24fa2196fd402a12aa",
+          "CRC32": 1426287513,
+          "original_CRC_and_size_verified": true
+        }
+      },
+      "all_selected_manifest_SHA_size_verified": true,
+      "manifest_self_listing": false,
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "discovery_status": "complete",
+      "rounds_each_dataset_arm_workload": 7,
+      "excluded_members_not_decompressed": true
+    },
+    {
+      "artifact_id": 13039742078,
+      "artifact_name": "perf-pr-41188700893-1-aarch64-pc-windows-msvc",
+      "target": "aarch64-pc-windows-msvc",
+      "run_id": 41188700893,
+      "expected_metadata_size": 12355738,
+      "expected_metadata_digest": "sha256:be4b2dd3f4c9255dbdf18ac9e7ddbe788321fe934f2598bd95a938eccd8fe0ef",
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-pc-windows-msvc/perf-pr-41188700893-1-aarch64-pc-windows-msvc.zip",
+        "bytes": 12355738,
+        "sha256": "be4b2dd3f4c9255dbdf18ac9e7ddbe788321fe934f2598bd95a938eccd8fe0ef",
+        "whole_archive_digest_verified_before_open": true,
+        "reused": false
+      },
+      "archive_entries_safety_checked": 11030,
+      "members": {
+        "artifact-manifest.json": {
+          "bytes": 1930422,
+          "sha256": "ead08cfc5f1c33539930ae5a919e27a6ef69fe37ed6c1ab8807f455e8fa6c011",
+          "CRC32": 165204074,
+          "original_CRC_and_size_verified": true
+        },
+        "baseline.json": {
+          "bytes": 33056,
+          "sha256": "16e855ca34f312482a57a0e273bc85947fb823b088e2b2644f4d403c79ca95bf",
+          "CRC32": 2399175243,
+          "original_CRC_and_size_verified": true
+        },
+        "candidate.json": {
+          "bytes": 33123,
+          "sha256": "ef32efa92e6944ce8a402ef2a71cf241d8a85e848524778e57e95ae5015d0fb2",
+          "CRC32": 4079140457,
+          "original_CRC_and_size_verified": true
+        },
+        "discovery/report.json": {
+          "bytes": 12192481,
+          "sha256": "a54538ac1e7e9b0a35643516cba9aa09b1815a8447baf41c01a5518fedceea30",
+          "CRC32": 52185860,
+          "original_CRC_and_size_verified": true
+        },
+        "latency-report.json": {
+          "bytes": 24560,
+          "sha256": "933108149b8efec91466878d7fd5fffc24a3657263235821108ac4e6930a2f8a",
+          "CRC32": 176272688,
+          "original_CRC_and_size_verified": true
+        },
+        "provenance.json": {
+          "bytes": 29492,
+          "sha256": "f5ccc77c145db550bde37808009898ef5e355294dfc3a785df5aebdbc332374a",
+          "CRC32": 188699344,
+          "original_CRC_and_size_verified": true
+        },
+        "server-binary-sizes.json": {
+          "bytes": 587,
+          "sha256": "57d6452c54318f2397d11dc4ef6b709a920543df2ef9c11832ffa1a482f1d44c",
+          "CRC32": 2770608749,
+          "original_CRC_and_size_verified": true
+        }
+      },
+      "all_selected_manifest_SHA_size_verified": true,
+      "manifest_self_listing": false,
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "discovery_status": "complete",
+      "rounds_each_dataset_arm_workload": 7,
+      "excluded_members_not_decompressed": true
+    },
+    {
+      "artifact_id": 13039606659,
+      "artifact_name": "perf-pr-41188700893-1-x86_64-pc-windows-msvc",
+      "target": "x86_64-pc-windows-msvc",
+      "run_id": 41188700893,
+      "expected_metadata_size": 12419483,
+      "expected_metadata_digest": "sha256:114649ce0edd8fc7fd0caeb607668a2265fd0fe637aa556581af06aed5bcbb4b",
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-pc-windows-msvc/perf-pr-41188700893-1-x86_64-pc-windows-msvc.zip",
+        "bytes": 12419483,
+        "sha256": "114649ce0edd8fc7fd0caeb607668a2265fd0fe637aa556581af06aed5bcbb4b",
+        "whole_archive_digest_verified_before_open": true,
+        "reused": false
+      },
+      "archive_entries_safety_checked": 11030,
+      "members": {
+        "artifact-manifest.json": {
+          "bytes": 1930419,
+          "sha256": "996658e86472aa3bf438b57f3bc909a81d38467a71a3ecdcef37a3c85a22d6ee",
+          "CRC32": 2649882700,
+          "original_CRC_and_size_verified": true
+        },
+        "baseline.json": {
+          "bytes": 33232,
+          "sha256": "47d6199f1575116842896e20d56e981c4f7e8db1a6e82c4b722e38fc3fec797e",
+          "CRC32": 3975523869,
+          "original_CRC_and_size_verified": true
+        },
+        "candidate.json": {
+          "bytes": 33239,
+          "sha256": "784dbe618697385c2a74b5cb3a30993f25f3498bbe4cae7874bed481551d4870",
+          "CRC32": 1230886248,
+          "original_CRC_and_size_verified": true
+        },
+        "discovery/report.json": {
+          "bytes": 13509026,
+          "sha256": "26af645db9b9bc52b311947347da3b88f1fc5aa3f262e18265e4bb7b3da9125e",
+          "CRC32": 4061773205,
+          "original_CRC_and_size_verified": true
+        },
+        "latency-report.json": {
+          "bytes": 24619,
+          "sha256": "9e7d13dc0adc92b33447bcbd2ca14b863e8c662fd0b5c3f34508da5b4f6411a4",
+          "CRC32": 1913602682,
+          "original_CRC_and_size_verified": true
+        },
+        "provenance.json": {
+          "bytes": 29509,
+          "sha256": "078aa55027de35b5715d61e5a10d90502a0a8d2f9cb1384bee2f39f56c56afea",
+          "CRC32": 3673191423,
+          "original_CRC_and_size_verified": true
+        },
+        "server-binary-sizes.json": {
+          "bytes": 586,
+          "sha256": "b6c03e3defc53365696fe7b5943f7cdcf62fe05e580a5b41fcfff1221a99bd62",
+          "CRC32": 1913304154,
+          "original_CRC_and_size_verified": true
+        }
+      },
+      "all_selected_manifest_SHA_size_verified": true,
+      "manifest_self_listing": false,
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "discovery_status": "complete",
+      "rounds_each_dataset_arm_workload": 7,
+      "excluded_members_not_decompressed": true
+    },
+    {
+      "artifact_id": 13039470463,
+      "artifact_name": "perf-pr-41188700893-1-x86_64-apple-darwin",
+      "target": "x86_64-apple-darwin",
+      "run_id": 41188700893,
+      "expected_metadata_size": 11862408,
+      "expected_metadata_digest": "sha256:76917a614c64e0ca2000fb745fc4eb18c84ee1da175433ae2537a1c300b2ac34",
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-11f1a76/perf-pr-41188700893-1-x86_64-apple-darwin/perf-pr-41188700893-1-x86_64-apple-darwin.zip",
+        "bytes": 11862408,
+        "sha256": "76917a614c64e0ca2000fb745fc4eb18c84ee1da175433ae2537a1c300b2ac34",
+        "whole_archive_digest_verified_before_open": true,
+        "reused": false
+      },
+      "archive_entries_safety_checked": 11030,
+      "members": {
+        "artifact-manifest.json": {
+          "bytes": 1930416,
+          "sha256": "92ab8e08c062dd02f0cab2f9516d1bfcec892d8e7c53870abfe37688c19db4e0",
+          "CRC32": 2741177384,
+          "original_CRC_and_size_verified": true
+        },
+        "baseline.json": {
+          "bytes": 33261,
+          "sha256": "b432b8006f2751791e74a45fc1875d46bc1e2045ca33591a4b735d88727c9b27",
+          "CRC32": 3496820357,
+          "original_CRC_and_size_verified": true
+        },
+        "candidate.json": {
+          "bytes": 33167,
+          "sha256": "e602ff6370978222836a16e216424807c4711a225f499c20e34480b521edad1e",
+          "CRC32": 1260224203,
+          "original_CRC_and_size_verified": true
+        },
+        "discovery/report.json": {
+          "bytes": 4045313,
+          "sha256": "3050d6f846a7fbe96c825ed98d1c83e77fa88a4e3799910ae0ee4c537f3191bd",
+          "CRC32": 1602341592,
+          "original_CRC_and_size_verified": true
+        },
+        "latency-report.json": {
+          "bytes": 24743,
+          "sha256": "18a990ba4ddb7f0d3b84aa368b628438ac517dbbbec8ae0f8a76cfdc4f04d23f",
+          "CRC32": 534621602,
+          "original_CRC_and_size_verified": true
+        },
+        "provenance.json": {
+          "bytes": 28812,
+          "sha256": "1d5f7716e28422354cddc2ea033e7a6ca5f9eb45be38bcd21e5a84f151f83874",
+          "CRC32": 3352245597,
+          "original_CRC_and_size_verified": true
+        },
+        "server-binary-sizes.json": {
+          "bytes": 566,
+          "sha256": "00a724390c4e2369a759c28abc8d3b1a7569f2a42894929e82a67cbdb4ec5032",
+          "CRC32": 1609530942,
+          "original_CRC_and_size_verified": true
+        }
+      },
+      "all_selected_manifest_SHA_size_verified": true,
+      "manifest_self_listing": false,
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "discovery_status": "complete",
+      "rounds_each_dataset_arm_workload": 7,
+      "excluded_members_not_decompressed": true
+    },
+    {
+      "artifact_id": 13038238685,
+      "artifact_name": "perf-pr-41188700893-1-aarch64-unknown-linux-gnu",
+      "target": "aarch64-unknown-linux-gnu",
+      "run_id": 41188700893,
+      "expected_metadata_size": 12578159,
+      "expected_metadata_digest": "sha256:9e67219b8d4affb42888bbb4bba14ce327ca840e8074210d3779cb81626a7ac9",
+      "original_zip": {
+        "path": "/Users/ilyagulya/Projects/My/bend2-lsp-rs-semantic-main/target/semantic-main-evidence/parallel-candidates/native-readiness-investigation/terminal-performance-triage/canonical-key-qualification/regression-repair-b1a2d462/native-main-to-11f1a76/perf-pr-41188700893-1-aarch64-unknown-linux-gnu/perf-pr-41188700893-1-aarch64-unknown-linux-gnu.zip",
+        "bytes": 12578159,
+        "sha256": "9e67219b8d4affb42888bbb4bba14ce327ca840e8074210d3779cb81626a7ac9",
+        "whole_archive_digest_verified_before_open": true,
+        "reused": false
+      },
+      "archive_entries_safety_checked": 11030,
+      "members": {
+        "artifact-manifest.json": {
+          "bytes": 1930449,
+          "sha256": "300bcb0ee2e47e8b68a6e6d574554dbb6e07ca0bcd98ffa70fc3b99034d07feb",
+          "CRC32": 1131092953,
+          "original_CRC_and_size_verified": true
+        },
+        "baseline.json": {
+          "bytes": 32469,
+          "sha256": "c66746cfd42214139a6a1d242848f43a3c6637dbad01636108adedc5be01067e",
+          "CRC32": 230908524,
+          "original_CRC_and_size_verified": true
+        },
+        "candidate.json": {
+          "bytes": 32527,
+          "sha256": "7686fdaf384a83e45de8c224fe52c476a59fecdf5df5ba76a1235e80e90daf38",
+          "CRC32": 3952680700,
+          "original_CRC_and_size_verified": true
+        },
+        "discovery/report.json": {
+          "bytes": 13793081,
+          "sha256": "5e38c246ce4364145ad77f7ed87c8525a1ee8878981b4f04a78d764faac1fce7",
+          "CRC32": 994460608,
+          "original_CRC_and_size_verified": true
+        },
+        "latency-report.json": {
+          "bytes": 24578,
+          "sha256": "8c30a7b8e1b434ee44c163b2c54b2884413448e7654c0df12ebf2d571af25069",
+          "CRC32": 1459327448,
+          "original_CRC_and_size_verified": true
+        },
+        "provenance.json": {
+          "bytes": 31053,
+          "sha256": "a5531767c194e5d319766693e59ba670d167e49dc1f50c888a020c305b42d73c",
+          "CRC32": 1089236862,
+          "original_CRC_and_size_verified": true
+        },
+        "server-binary-sizes.json": {
+          "bytes": 572,
+          "sha256": "96c87197ccb40e930c0198a7618f8dc241b64eea84d53514e2af30f33239b79d",
+          "CRC32": 384309439,
+          "original_CRC_and_size_verified": true
+        }
+      },
+      "all_selected_manifest_SHA_size_verified": true,
+      "manifest_self_listing": false,
+      "source": "11f1a7618dd959f9133622b74f0e509b066ada51",
+      "source_tree": "423806c1cecbd88863ac949f4b22a5b2b393844f",
+      "candidate_revision": "ad93dbc052995d7714d685d0f92ef1c3dae785a9",
+      "base": "8ba06b117e8453959baa2157f857fa2e055fc887",
+      "discovery_status": "complete",
+      "rounds_each_dataset_arm_workload": 7,
+      "excluded_members_not_decompressed": true
+    }
+  ],
+  "coverage": "Full original nativeZIPmetadataSHA/size verified before opening; allentrypath/symlink/duplicate checks. Only7selectedmembers decompressed,CRC/size/manifestSHA verified. Raw corpus/binaries/HTML neverdecompressed. No SUTexecution.",
+  "download_bound": "EachZIPunder32MiB; atmosttwo simultaneous original transports; reuse existing validated bytes."
+}
