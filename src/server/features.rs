@@ -1,27 +1,9 @@
 use super::adapters;
 use crate::analysis::{DiagnosticKind, DocumentSnapshot, TextRange, TokenKind};
 use tower_lsp::lsp_types::{
-    CallHierarchyItem, Diagnostic, DiagnosticSeverity, DocumentSymbol, NumberOrString, SymbolKind,
-    TypeHierarchyItem,
+    CallHierarchyItem, Diagnostic, DiagnosticSeverity, DocumentSymbol, NumberOrString,
 };
 use url::Url;
-pub(super) fn named_document_symbol(
-    snapshot: &DocumentSnapshot,
-    name: &str,
-) -> Option<DocumentSymbol> {
-    for symbol in adapters::document_symbols(snapshot) {
-        if symbol.name == name {
-            return Some(symbol);
-        }
-        if let Some(child) = symbol
-            .children
-            .and_then(|children| children.into_iter().find(|child| child.name == name))
-        {
-            return Some(child);
-        }
-    }
-    None
-}
 
 pub(super) fn call_hierarchy_item(uri: Url, symbol: DocumentSymbol) -> CallHierarchyItem {
     CallHierarchyItem {
@@ -36,37 +18,6 @@ pub(super) fn call_hierarchy_item(uri: Url, symbol: DocumentSymbol) -> CallHiera
     }
 }
 
-pub(super) fn type_hierarchy_symbol(
-    snapshot: &DocumentSnapshot,
-    name: &str,
-) -> Option<(DocumentSymbol, Option<DocumentSymbol>)> {
-    for symbol in adapters::document_symbols(snapshot) {
-        if symbol.kind == SymbolKind::STRUCT && symbol.name == name {
-            return Some((symbol, None));
-        }
-        if let Some(child) = symbol
-            .children
-            .as_ref()
-            .and_then(|children| children.iter().find(|child| child.name == name))
-        {
-            return Some((child.clone(), Some(symbol)));
-        }
-    }
-    None
-}
-
-pub(super) fn type_hierarchy_item(uri: Url, symbol: DocumentSymbol) -> TypeHierarchyItem {
-    TypeHierarchyItem {
-        name: symbol.name,
-        kind: symbol.kind,
-        tags: None,
-        detail: symbol.detail,
-        uri,
-        range: symbol.range,
-        selection_range: symbol.selection_range,
-        data: None,
-    }
-}
 pub(super) fn cursor_in_comment_or_string(snapshot: &DocumentSnapshot, offset: usize) -> bool {
     snapshot.syntax.is_in_comment_or_string(offset)
 }
@@ -174,11 +125,11 @@ pub(super) fn static_hover(token: &str) -> Option<String> {
     };
     Some(format!("**{token}**\n\n{description}"))
 }
-pub(super) fn token_at(snapshot: &DocumentSnapshot, offset: usize) -> String {
+pub(super) fn token_at(snapshot: &DocumentSnapshot, offset: usize) -> &str {
     let text = &snapshot.text;
     let tokens = snapshot.syntax.tokens();
     if tokens.is_empty() {
-        return String::new();
+        return "";
     }
     let insertion = tokens.partition_point(|token| token.range.start <= offset);
     let first = insertion.saturating_sub(4);
@@ -197,16 +148,16 @@ pub(super) fn token_at(snapshot: &DocumentSnapshot, offset: usize) -> String {
                     "{==}" | "<&>" | "->" | "=>" | "==" | "!=" | "&0" | "&1" | "&2"
                 )
             {
-                return text[range.start..range.end].to_owned();
+                return &text[range.start..range.end];
             }
         }
     }
     let Some(index) = insertion.checked_sub(1) else {
-        return String::new();
+        return "";
     };
     let token = tokens[index];
     if token.range.start > offset || offset > token.range.end {
-        return String::new();
+        return "";
     }
     if matches!(token.kind, TokenKind::Identifier | TokenKind::Number)
         || token.kind == TokenKind::Punctuation
@@ -232,7 +183,7 @@ pub(super) fn token_at(snapshot: &DocumentSnapshot, offset: usize) -> String {
         {
             end += 1;
         }
-        return text[tokens[start].range.start..tokens[end - 1].range.end].to_owned();
+        return &text[tokens[start].range.start..tokens[end - 1].range.end];
     }
-    text[token.range.start..token.range.end].to_owned()
+    &text[token.range.start..token.range.end]
 }

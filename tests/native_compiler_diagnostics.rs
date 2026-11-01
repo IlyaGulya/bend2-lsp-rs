@@ -310,3 +310,240 @@ fn transitive_import_links_original_cause_and_keeps_independent_source_error() {
     );
     client.finish();
 }
+
+#[test]
+fn malformed_main_header_keeps_real_error_and_recovery_navigation() {
+    let compiler = compiler();
+    let directory = tempdir().must_be("native recovery workspace");
+    let root = directory.path().join("main.bend");
+    let source = "import Base\ndef add(x: U32, y: U32) -> U32:\n  (x + y : U32)\ndef main: U32\n  add(1, 2)\n";
+    fs::write(&root, source).must_be("write recovery root before discovery");
+    let mut command = server_command();
+    command.stderr(Stdio::null()).env("PATH", directory.path());
+    let mut client = LspClient::spawn(command);
+    client.initialize(directory.path());
+    client.notify(
+        "workspace/didChangeConfiguration",
+        json!({"settings":{"bend2-lsp":{"compilerPath":compiler}}}),
+    );
+    let root_uri = uri(&root);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{"uri":root_uri,"languageId":"bend","version":1,"text":source}}),
+    );
+    let errors = diagnostics(&mut client, &root_uri, Some(1));
+    let header_range = json!({"start":{"line":3,"character":8},"end":{"line":3,"character":8}});
+    let compiler_errors = errors
+        .iter()
+        .filter(|error| {
+            error["code"] == "compiler" && error["severity"] == 1 && error["range"] == header_range
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        compiler_errors.len(),
+        1,
+        "exactly one genuine compiler diagnostic must stay visible at the malformed header; got {errors:#?}"
+    );
+    let message = compiler_errors[0]["message"]
+        .as_str()
+        .must_be("genuine parser cause");
+    assert!(
+        message.contains("expected") && message.contains('('),
+        "retain the compiler's parser cause: {errors:#?}"
+    );
+    let position = json!({"line":4,"character":4});
+    let hover = client.request(
+        "textDocument/hover",
+        json!({"textDocument":{"uri":root_uri},"position":position}),
+    );
+    assert_eq!(
+        hover["result"]["contents"]["value"], "```bend\ndef add(x: U32, y: U32) -> U32\n```",
+        "recovery keeps the indexed declaration hover available"
+    );
+    let definition = client.request(
+        "textDocument/definition",
+        json!({"textDocument":{"uri":root_uri},"position":position}),
+    );
+    assert_eq!(definition["result"]["uri"], root_uri);
+    assert_eq!(
+        definition["result"]["range"],
+        json!({"start":{"line":1,"character":4},"end":{"line":1,"character":7}}),
+        "recovery points at the indexed declaration name, not a compiler-verified use"
+    );
+    let repaired = "import Base\ndef add(x: U32, y: U32) -> U32:\n  (x + y : U32)\ndef main() -> U32:\n  add(1, 2)\n";
+    client.notify(
+        "textDocument/didChange",
+        json!({
+            "textDocument":{"uri":root_uri,"version":2},
+            "contentChanges":[{"text":repaired}]
+        }),
+    );
+    assert_eq!(
+        diagnostics(&mut client, &root_uri, Some(2)),
+        Vec::<Value>::new(),
+        "an unsaved repair clears the current version's compiler error"
+    );
+    let hover = client.request(
+        "textDocument/hover",
+        json!({"textDocument":{"uri":root_uri},"position":position}),
+    );
+    assert_eq!(
+        hover["result"]["contents"]["value"],
+        "```bend\ndef add(x: U32, y: U32) -> U32\n```"
+    );
+    let definition = client.request(
+        "textDocument/definition",
+        json!({"textDocument":{"uri":root_uri},"position":position}),
+    );
+    assert_eq!(definition["result"]["uri"], root_uri);
+    assert_eq!(
+        definition["result"]["range"],
+        json!({"start":{"line":1,"character":4},"end":{"line":1,"character":7}})
+    );
+    client.finish();
+}
+
+fn assert_editor_only_import(
+    client: &mut LspClient,
+    root_uri: &str,
+    imported: &str,
+    target_uri: &str,
+    alias: &str,
+    version: i32,
+) {
+    let links = client.request(
+        "textDocument/documentLink",
+        json!({"textDocument":{"uri":root_uri}}),
+    );
+    let links = links["result"].as_array().must_be("editor import links");
+    assert_eq!(links.len(), 1, "only the explicit import becomes a link");
+    assert_eq!(links[0]["target"], target_uri);
+    assert_eq!(
+        links[0]["data"],
+        json!({"uncertain":true,"resolution":"editor-path"}),
+        "compiler rejection keeps the editor link explicitly uncertain"
+    );
+    let tooltip = links[0]["tooltip"]
+        .as_str()
+        .must_be("editor import visible warning");
+    assert!(
+        tooltip.contains("editor path") && tooltip.contains("not compiler-resolved"),
+        "the editor link must visibly warn that it is not compiler-resolved: {tooltip}"
+    );
+    let path_end = 7 + imported.encode_utf16().count();
+    assert_eq!(
+        links[0]["range"],
+        json!({
+            "start":{"line":0,"character":7},
+            "end":{"line":0,"character":path_end}
+        })
+    );
+    let path_definition = client.request(
+        "textDocument/definition",
+        json!({"textDocument":{"uri":root_uri},"position":{"line":0,"character":8}}),
+    );
+    assert_eq!(path_definition["result"]["uri"], target_uri);
+    assert_eq!(
+        path_definition["result"]["range"],
+        json!({"start":{"line":0,"character":0},"end":{"line":0,"character":0}})
+    );
+    let member_definition = client.request(
+        "textDocument/definition",
+        json!({
+            "textDocument":{"uri":root_uri},
+            "position":{"line":2,"character":2 + alias.len() + 1}
+        }),
+    );
+    assert_eq!(
+        member_definition["result"],
+        Value::Null,
+        "the editor path must not manufacture a native member entity"
+    );
+    let semantic = client.request(
+        "bend2/semanticDocument",
+        json!({"textDocument":{"uri":root_uri}}),
+    );
+    assert_eq!(semantic["result"]["complete"], false);
+    assert_eq!(semantic["result"]["document"]["version"], version);
+}
+
+#[test]
+fn compiler_rejected_editor_imports_stay_uncertain_without_native_entities() {
+    let compiler = compiler();
+    let directory = tempdir().must_be("native editor import workspace");
+    for name in ["module", "dé😀.bend"] {
+        fs::write(directory.path().join(name), "def value() -> U32:\n  3\n")
+            .must_be("write editor import target");
+    }
+    let root = directory.path().join("main.bend");
+    let extensionless = "import ./module as Module\ndef main() -> U32:\n  Module.value\n";
+    fs::write(&root, extensionless).must_be("write editor import root before discovery");
+    let mut command = server_command();
+    command.stderr(Stdio::null()).env("PATH", directory.path());
+    let mut client = LspClient::spawn(command);
+    client.initialize(directory.path());
+    client.notify(
+        "workspace/didChangeConfiguration",
+        json!({"settings":{"bend2-lsp":{"compilerPath":compiler}}}),
+    );
+    let root_uri = uri(&root);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{"uri":root_uri,"languageId":"bend","version":1,"text":extensionless}}),
+    );
+    let cases: [(i32, &str, &str, &str, &[&str]); 2] = [
+        (1, "./module", "module", "Module", &["import", ".bend"]),
+        (
+            2,
+            "./dé😀.bend",
+            "dé😀.bend",
+            "Dep",
+            &["import", "plain names"],
+        ),
+    ];
+    for (version, imported, target_name, alias, causes) in cases {
+        if version > 1 {
+            let source =
+                format!("import {imported} as {alias}\ndef main() -> U32:\n  {alias}.value\n");
+            client.notify(
+                "textDocument/didChange",
+                json!({
+                    "textDocument":{"uri":root_uri,"version":version},
+                    "contentChanges":[{"text":source}]
+                }),
+            );
+        }
+        let errors = diagnostics(&mut client, &root_uri, Some(version));
+        let import_range = json!({"start":{"line":0,"character":7},"end":{"line":0,"character":7}});
+        let compiler_errors = errors
+            .iter()
+            .filter(|error| {
+                error["code"] == "compiler"
+                    && error["severity"] == 1
+                    && error["range"] == import_range
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            compiler_errors.len(),
+            1,
+            "exactly one genuine compiler import error must stay visible; got {errors:#?}"
+        );
+        let message = compiler_errors[0]["message"]
+            .as_str()
+            .must_be("genuine import cause");
+        assert!(
+            causes.iter().all(|cause| message.contains(*cause)),
+            "retain the compiler's import cause: {errors:#?}"
+        );
+        let target_uri = uri(&directory.path().join(target_name));
+        assert_editor_only_import(
+            &mut client,
+            &root_uri,
+            imported,
+            &target_uri,
+            alias,
+            version,
+        );
+    }
+    client.finish();
+}

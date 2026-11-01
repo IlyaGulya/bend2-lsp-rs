@@ -2,7 +2,10 @@ use super::super::{adapters, features::code_end_offset, lsp::Backend};
 use super::import_edits::{
     auto_import_edits, organize_imports, unresolved_reference, versioned_edit,
 };
-use crate::{analysis, workspace::Document};
+use crate::{
+    analysis,
+    workspace::{Document, SemanticTarget},
+};
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
@@ -108,34 +111,38 @@ impl Backend {
         position: Position,
         actions: &mut Vec<CodeActionOrCommand>,
     ) {
-        if let Some(reference) = unresolved_reference(doc, adapters::offset_at(doc, position)) {
-            let name = doc.syntax.name_text(&doc.text, reference.name);
-            if reference.qualifier.is_some() || self.prelude_declaration(doc, name).is_none() {
-                let workspace = self.workspace.read();
-                let base = self
-                    .compiler
-                    .base_module
-                    .read()
-                    .as_ref()
-                    .filter(|module| analysis::declaration_range(&module.snapshot, name).is_some())
-                    .map(|module| (module.uri.clone(), "Base".to_owned()));
-                let candidates = workspace
-                    .import_candidates(&doc.uri, name)
-                    .into_iter()
-                    .map(|(target, path)| (target.uri, path))
-                    .chain(base);
-                for (target, path) in candidates {
-                    if let Some(edits) =
-                        auto_import_edits(doc, &workspace, &target, &path, reference)
-                    {
-                        actions.push(CodeActionOrCommand::CodeAction(CodeAction {
-                            title: format!("Import {name} from {path}"),
-                            kind: Some(CodeActionKind::QUICKFIX),
-                            edit: Some(versioned_edit(doc, edits)),
-                            ..Default::default()
-                        }));
-                    }
-                }
+        let offset = adapters::offset_at(doc, position);
+        if !self
+            .semantic_selection(doc, offset)
+            .is_some_and(|selection| selection.occurrence.target == SemanticTarget::Unresolved)
+        {
+            return;
+        }
+        let Some(reference) = unresolved_reference(doc, offset) else {
+            return;
+        };
+        let name = doc.syntax.name_text(&doc.text, reference.name);
+        let workspace = self.workspace.read();
+        let base = self
+            .compiler
+            .base_module
+            .read()
+            .as_ref()
+            .filter(|module| analysis::declaration_range(&module.snapshot, name).is_some())
+            .map(|module| (module.uri.clone(), "Base".to_owned()));
+        let candidates = workspace
+            .import_candidates(&doc.uri, name)
+            .into_iter()
+            .map(|(target, path)| (target.uri, path))
+            .chain(base);
+        for (target, path) in candidates {
+            if let Some(edits) = auto_import_edits(doc, &workspace, &target, &path, reference) {
+                actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                    title: format!("Import {name} from {path}"),
+                    kind: Some(CodeActionKind::QUICKFIX),
+                    edit: Some(versioned_edit(doc, edits)),
+                    ..Default::default()
+                }));
             }
         }
     }

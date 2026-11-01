@@ -43,6 +43,9 @@ fn main() -> std::process::ExitCode {
 }
 
 fn run() -> ToolResult<()> {
+    if callgrind::descriptor::capture_if_requested()? {
+        return Ok(());
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some((command, args)) = args.split_first() else {
         return Err(

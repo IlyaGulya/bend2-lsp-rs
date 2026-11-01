@@ -345,9 +345,16 @@ fn owner_cleanup_contracts() -> ToolResult<()> {
         fixture_status(&client, if operation == "finalization" { "ready-to-shutdown" } else { "not-reading" })?;
         client.defer_abort_to_owner();
         client.timeout = Duration::from_millis(100);
+        // The transport's I/O deadline starts after framing. Prepare the same
+        // eight-MiB write before timing ownership, not debug JSON serialization.
+        let prepared_write = if operation == "write" {
+            Some(client.prepare_request("large", json!({"text":"x".repeat(8 * 1024 * 1024)}))?)
+        } else {
+            None
+        };
         let started = Instant::now();
         let outcome = match operation {
-            "write" => client.notify("large", json!({"text":"x".repeat(8 * 1024 * 1024)})),
+            "write" => client.send_request(prepared_write.ok_or("missing owned write fixture")?, None).map(|_| ()),
             "cancellation" => {
                 client.set_cancellation_flag(&CANCEL_OWNED_REQUEST);
                 CANCEL_OWNED_REQUEST.store(true, Ordering::Relaxed);

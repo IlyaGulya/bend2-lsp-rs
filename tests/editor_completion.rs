@@ -176,6 +176,66 @@ mod protocol {
     }
 
     #[test]
+    fn expression_completion_keeps_value_and_constructor_namespaces_separate() {
+        let source = "type Shape is Data:\n  Pair{value: U32}\ndef Pair() -> U32:\n  7\ndef make() -> Shape:\n  Pa\n";
+        let mut editor = Editor::new(source, None);
+        let items = editor.complete("def make() -> Shape:\n  Pa");
+        let mut kinds: Vec<_> = items
+            .iter()
+            .filter(|item| item["label"] == "Pair")
+            .map(|item| item["kind"].as_u64().must_be("completion kind"))
+            .collect();
+        kinds.sort_unstable();
+        assert_eq!(
+            kinds,
+            vec![3, 4],
+            "both Bend namespaces must be offered: {items:?}"
+        );
+        let constructor = items
+            .iter()
+            .find(|item| item["label"] == "Pair" && item["kind"] == 4)
+            .must_be("constructor completion");
+        assert_eq!(
+            apply(source, constructor),
+            "type Shape is Data:\n  Pair{value: U32}\ndef Pair() -> U32:\n  7\ndef make() -> Shape:\n  Pair\n"
+        );
+        editor.finish();
+    }
+
+    #[test]
+    fn local_value_shadowing_keeps_constructor_completion_in_expressions_and_patterns() {
+        let declarations = "type Shape is Data:\n  Pair{value: U32}\ndef Pair() -> U32:\n  7\n";
+        let mut editor = Editor::new(
+            &format!("{declarations}def make(Pair: U32) -> Shape:\n  Pa\n"),
+            None,
+        );
+        let items = editor.complete("def make(Pair: U32) -> Shape:\n  Pa");
+        let mut kinds: Vec<_> = items
+            .iter()
+            .filter(|item| item["label"] == "Pair")
+            .map(|item| item["kind"].as_u64().must_be("completion kind"))
+            .collect();
+        kinds.sort_unstable();
+        assert_eq!(
+            kinds,
+            vec![4, 6],
+            "the local shadows the value function, not the constructor: {items:?}"
+        );
+        editor.replace(&format!(
+            "{declarations}def take(Pair: U32, value: Shape) -> U32:\n  match value:\n    case Pa"
+        ));
+        let items = editor.complete("case Pa");
+        let pairs: Vec<_> = items
+            .iter()
+            .filter(|item| item["label"] == "Pair")
+            .collect();
+        assert_eq!(pairs.len(), 1, "one constructor pattern: {items:?}");
+        assert_eq!(pairs[0]["kind"], 4);
+        assert!(items.iter().all(|item| item["kind"] == 4));
+        editor.finish();
+    }
+
+    #[test]
     fn fuzzy_ranking_and_lexical_shadowing_are_deterministic() {
         let mut editor = Editor::new(
             "def add:\n  1\ndef alpha_delta:\n  2\ndef main(ad, adder):\n  ad",
@@ -234,7 +294,11 @@ mod protocol {
         editor.replace("import tools.bend as Tools\ndef main:\n  Tls");
         assert_eq!(item(&editor.complete("\n  Tls"), "Tools")["kind"], 9);
         editor.replace("import tools.bend as Tools\ndef main(Tools):\n  Tools.ap");
-        assert!(editor.complete("Tools.ap").is_empty());
+        assert_eq!(item(&editor.complete("\n  Tools.ap"), "append")["kind"], 3);
+        editor.replace("import tools.bend as Tools\ndef main(Tools.append):\n  Tools.ap");
+        let shadowed = editor.complete("\n  Tools.ap");
+        assert_eq!(item(&shadowed, "Tools.append")["kind"], 6);
+        assert!(!shadowed.iter().any(|entry| entry["label"] == "append"));
         editor.finish();
     }
 
@@ -267,6 +331,42 @@ mod protocol {
         let unknown = editor.complete("case ");
         assert!(unknown.iter().any(|item| item["label"] == "Circle"));
         assert!(unknown.iter().any(|item| item["label"] == "Square"));
+        editor.replace(&format!("{declarations}def Circa:\n  1\ndef main:\n  Ci"));
+        let expression = editor.complete("def main:\n  Ci");
+        assert_eq!(item(&expression, "Circle")["kind"], 4);
+        assert_eq!(item(&expression, "Circa")["kind"], 3);
+        editor.replace(&format!(
+            "{declarations}def Circa:\n  1\ndef main(value: Shape):\n  match value:\n    case Ci"
+        ));
+        let known_expression = editor.complete("case Ci");
+        assert_eq!(item(&known_expression, "Circle")["kind"], 4);
+        assert!(!known_expression.iter().any(|item| item["label"] == "Circa"));
+        editor.finish();
+    }
+
+    #[test]
+    fn expression_completion_offers_same_file_constructor_with_exact_edit() {
+        let source = "type Shape is Data:\n  Pair{value: U32}\ndef make() -> Shape:\n  Pa";
+        let mut editor = Editor::new(source, None);
+        let items = editor.complete("def make() -> Shape:\n  Pa");
+        let pair = item(&items, "Pair");
+        assert_eq!(
+            items
+                .iter()
+                .filter(|entry| entry["label"] == "Pair")
+                .count(),
+            1
+        );
+        assert_eq!(pair["kind"], 4);
+        assert_eq!(pair["textEdit"]["newText"], "Pair");
+        assert_eq!(
+            pair["textEdit"]["range"],
+            json!({"start":{"line":3,"character":2},"end":{"line":3,"character":4}})
+        );
+        assert_eq!(
+            apply(source, pair),
+            "type Shape is Data:\n  Pair{value: U32}\ndef make() -> Shape:\n  Pair"
+        );
         editor.finish();
     }
 
@@ -868,6 +968,11 @@ mod protocol {
             "import tools.bend as Kit\ndef main(Kit):\n  value\n",
             Some("def value:\n  1\n"),
         );
+        let prefix_binding = editor.complete("\n  value");
+        let reused = imported_item(&prefix_binding, "value", "./tools.bend");
+        assert_eq!(reused["textEdit"]["newText"], "Kit.value");
+        assert!(reused["additionalTextEdits"].is_null());
+        editor.replace("import tools.bend as Kit\ndef main(Kit.value):\n  value\n");
         assert!(!editor.complete("\n  value").iter().any(|item| {
             item["label"] == "value" && item["labelDetails"]["description"] == "./tools.bend"
         }));

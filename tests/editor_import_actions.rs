@@ -284,9 +284,26 @@ mod protocol {
         let shadowed =
             "import ./dep.bend as Existing # preserve this\ndef main(Existing: U32):\n  value\n";
         change(&mut client, &uri, shadowed, 3);
-        assert!(actions(&mut client, &uri, shadowed, "value", "quickfix").is_empty());
+        let prefix_binding = actions(&mut client, &uri, shadowed, "value", "quickfix");
+        assert_eq!(prefix_binding.len(), 1);
+        assert_eq!(
+            apply(shadowed, &prefix_binding[0], &uri, 3),
+            shadowed.replace("  value", "  Existing.value")
+        );
+        let complete_name_binding = "import ./dep.bend as Existing # preserve this\ndef main(Existing.value: U32):\n  value\n";
+        change(&mut client, &uri, complete_name_binding, 4);
+        assert!(
+            actions(
+                &mut client,
+                &uri,
+                complete_name_binding,
+                "value",
+                "quickfix"
+            )
+            .is_empty()
+        );
         let unaliased = "import ./dep.bend\ndef main: U32\n  value\n";
-        change(&mut client, &uri, unaliased, 4);
+        change(&mut client, &uri, unaliased, 5);
         assert!(actions(&mut client, &uri, unaliased, "value", "quickfix").is_empty());
         client.finish();
     }

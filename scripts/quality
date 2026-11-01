@@ -27,12 +27,15 @@ printf '== policy ==\n'
 python3 scripts/check-policy.py
 python3 -m unittest discover -s scripts -p test_check_policy.py
 python3 -m unittest discover -s scripts -p test_tool_versions.py
+python3 -m unittest discover -s scripts -p test_calibration_report_input.py
 printf '== workflow security ==\n'
 ./scripts/check-workflows
 printf '== Rust performance infrastructure contract tests ==\n'
 cargo test --package bend2-perf --all-features --locked
 printf '== release integrity ==\n'
 python3 -m unittest discover -s scripts -p test_release.py
+printf '== semantic supervisor contract tests ==\n'
+python3 -m unittest discover -s scripts -p 'test_semantic*.py'
 python3 -m unittest discover -s scripts -p test_bootstrap_bend_lint.py
 
 printf '== format ==\n'
@@ -59,3 +62,15 @@ cargo hack check --workspace --feature-powerset --locked
 
 printf '== dependencies ==\n'
 cargo deny check --deny index-failure
+
+# CI provisions with a step-scoped download token before this script. Keep cold
+# local runs self-contained without replacing CI's recorded installation cost.
+if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
+    printf '== pinned semantic runtime installation ==\n'
+    python3 scripts/semantic_gate.py install
+fi
+
+printf '== semantic tools and candidate preparation (separately measured) ==\n'
+python3 scripts/semantic_gate.py setup
+printf '== required bounded semantic conformance ==\n'
+python3 scripts/semantic_gate.py run

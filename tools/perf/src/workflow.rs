@@ -1,4 +1,8 @@
 //! Hosted workflow source validation and failure-aware artifact inventories.
+mod collection;
+mod observer;
+mod snapshot;
+
 use crate::{
     ToolResult, callgrind, common,
     repeated::{METHOD, PAIRS},
@@ -592,15 +596,24 @@ fn status(arguments: &[String]) -> ToolResult<()> {
 }
 
 pub(crate) fn run(arguments: &[String]) -> ToolResult<()> {
-    common::require_ci()?;
     let (command, rest) = arguments
         .split_first()
-        .ok_or("Expected workflow validate, prepare, finalize or status")?;
+        .ok_or("Expected workflow validate, prepare, finalize, status, supervise or seal")?;
     match command.as_str() {
-        "validate" if rest.is_empty() => validate(),
-        "prepare" if rest.is_empty() => manifest(false),
-        "finalize" if rest.is_empty() => manifest(true),
-        "status" => status(rest),
-        _ => Err(format!("Unknown workflow command or unexpected arguments: {command}").into()),
+        "observe-processes" => observer::run(rest),
+        "supervise" => collection::run(rest),
+        "seal" => snapshot::run(rest),
+        _ => {
+            common::require_ci()?;
+            match command.as_str() {
+                "validate" if rest.is_empty() => validate(),
+                "prepare" if rest.is_empty() => manifest(false),
+                "finalize" if rest.is_empty() => manifest(true),
+                "status" => status(rest),
+                _ => Err(
+                    format!("Unknown workflow command or unexpected arguments: {command}").into(),
+                ),
+            }
+        }
     }
 }

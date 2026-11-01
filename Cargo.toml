@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = [".", "tools/perf", "vendor/tower-lsp"]
+members = [".", "tools/perf", "tools/semantic-probe", "vendor/tower-lsp"]
 default-members = ["."]
 
 [workspace.package]
@@ -51,6 +51,7 @@ native-trace-stdio = ["dep:nix"]
 [dependencies]
 base64 = "0.22.1"
 dhat = { version = "0.3.3", optional = true }
+hashbrown = { version = "0.17.1", default-features = false }
 ignore = "0.4.33"
 tower-lsp = "0.20"
 tower = { version = "0.4", default-features = false }

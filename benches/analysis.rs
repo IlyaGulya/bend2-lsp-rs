@@ -48,6 +48,31 @@ static COMPLETION_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::new
     analysis::DocumentSnapshot::new(analysis::Revision(0), COMPLETION_SOURCE.to_owned())
 });
 
+const METADATA_SOURCE: &str = concat!(
+    "# Choose a dependent function. 🦀\n",
+    "# Keep the written multiline return annotation.\n",
+    "def choose(\n",
+    "  ~A: Type,\n",
+    "  value: A,\n",
+    "  project: (A -> A),\n",
+    ") ->\n",
+    "  (A -> A):\n",
+    "  project\n",
+    "# This belongs to next, not choose.\n",
+    "def next() -> Type:\n",
+    "  Type\n",
+);
+static METADATA_SNAPSHOT: LazyLock<analysis::DocumentSnapshot> = LazyLock::new(|| {
+    analysis::DocumentSnapshot::new(analysis::Revision(0), METADATA_SOURCE.to_owned())
+});
+
+fn metadata_case() -> (&'static analysis::DocumentSnapshot, analysis::SymbolId) {
+    let snapshot = LazyLock::force(&METADATA_SNAPSHOT);
+    let declaration =
+        analysis::declaration_metadata_by_name(snapshot, "choose").must_be("choose metadata");
+    (snapshot, declaration.symbol)
+}
+
 fn parameter_annotation_case(
     index: usize,
 ) -> (&'static analysis::DocumentSnapshot, analysis::SymbolId) {
@@ -627,9 +652,8 @@ fn workspace_symbols_warm(
     query: &str,
 ) -> Vec<(usize, String, analysis::SymbolKind, analysis::TextRange)> {
     let query = analysis::WorkspaceSymbolQuery::new(std::hint::black_box(query));
-    let documents = fixture.database.indexed_documents();
     let mut symbols = Vec::new();
-    for (document_index, document) in documents.iter().enumerate() {
+    for (document_index, (_, _, document)) in fixture.database.indexed_snapshots().enumerate() {
         symbols.extend(query.symbols(document).map(|symbol| {
             (
                 document_index,
@@ -756,6 +780,14 @@ fn cold_completion_context_build() -> analysis::DocumentSnapshot {
 }
 
 #[library_benchmark]
+fn cold_snapshot_build_metadata() -> analysis::DocumentSnapshot {
+    std::hint::black_box(analysis::DocumentSnapshot::new(
+        analysis::Revision(0),
+        std::hint::black_box(METADATA_SOURCE).to_owned(),
+    ))
+}
+
+#[library_benchmark]
 #[bench::nested(LazyLock::force(&COMPLETION_SNAPSHOT))]
 fn pattern_completion_context_warm(
     snapshot: &analysis::DocumentSnapshot,
@@ -815,6 +847,411 @@ fn workspace_symbol_response_warm(
     std::hint::black_box(response.to_json_bytes().must_be("JSON-RPC wire response"))
 }
 
+#[library_benchmark]
+#[bench::prewarmed(metadata_case())]
+fn declaration_metadata_warm(
+    (snapshot, declaration): (&'static analysis::DocumentSnapshot, analysis::SymbolId),
+) -> Option<&'static analysis::DeclarationSite> {
+    std::hint::black_box(analysis::declaration_metadata(
+        std::hint::black_box(snapshot),
+        std::hint::black_box(declaration),
+    ))
+}
+
+#[library_benchmark]
+#[bench::prewarmed(metadata_case())]
+fn declaration_documentation_warm(
+    (snapshot, declaration): (&'static analysis::DocumentSnapshot, analysis::SymbolId),
+) -> Option<&'static str> {
+    std::hint::black_box(analysis::declaration_documentation(
+        std::hint::black_box(snapshot),
+        std::hint::black_box(declaration),
+    ))
+}
+
+#[library_benchmark]
+#[bench::prewarmed(metadata_case())]
+fn declaration_hover_warm(
+    (snapshot, declaration): (&analysis::DocumentSnapshot, analysis::SymbolId),
+) -> Option<String> {
+    std::hint::black_box(analysis::declaration_hover_by_id(
+        std::hint::black_box(snapshot),
+        std::hint::black_box(declaration),
+    ))
+}
+
+#[library_benchmark]
+#[bench::prewarmed(metadata_case())]
+fn signature_help_warm(
+    (snapshot, declaration): (&analysis::DocumentSnapshot, analysis::SymbolId),
+) -> Option<analysis::SignatureHelp> {
+    std::hint::black_box(analysis::signature_help_for_symbol(
+        std::hint::black_box(snapshot),
+        std::hint::black_box(declaration),
+        std::hint::black_box(2),
+    ))
+}
+
+// These fixtures prepare file facts and views outside the measured warm calls.
+// Owned cold inputs become returned views; update fixtures are returned as well,
+// so neither benchmark includes database/source teardown in its measured body.
+struct SemanticFixture {
+    database: workspace::WorkspaceDb,
+    roots: Vec<workspace::FileId>,
+    views: Vec<std::sync::Arc<workspace::SemanticView>>,
+    dependency: url::Url,
+    next_snapshot: std::sync::Arc<analysis::DocumentSnapshot>,
+    offset: usize,
+    target: workspace::SemanticTarget,
+    caller: workspace::SemanticEntityId,
+}
+
+impl SemanticFixture {
+    fn new(declarations: usize, roots: usize, export_change: bool) -> Self {
+        let directory = std::env::temp_dir().join("bend2-semantic-benchmark");
+        let dependency_path = directory.join("dep.bend");
+        let dependency =
+            url::Url::from_file_path(&dependency_path).must_be("semantic dependency URI");
+        let mut source = String::from("def target(value: U32) -> U32:\n  value\n");
+        for index in 0..declarations {
+            writeln!(source, "def unused_{index}(value: U32) -> U32:\n  value")
+                .must_be("semantic declaration");
+        }
+        let mut database = workspace::WorkspaceDb::default();
+        let mut entries = Vec::with_capacity(roots);
+        let entry_source =
+            "import ./dep.bend as D\ndef main(value: U32) -> U32:\n  D.target!(value)\n";
+        for index in 0..roots {
+            let path = directory.join(format!("entry_{index}.bend"));
+            let root = database.set_open_document(
+                workspace::Document::new(
+                    url::Url::from_file_path(&path).must_be("semantic entry URI"),
+                    "bend".into(),
+                    analysis::Revision(1),
+                    entry_source.to_owned(),
+                ),
+                Some(path),
+            );
+            entries.push(root);
+        }
+        database.set_open_document(
+            workspace::Document::new(
+                dependency.clone(),
+                "bend".into(),
+                analysis::Revision(1),
+                source.clone(),
+            ),
+            Some(dependency_path),
+        );
+        let mut views = Vec::with_capacity(roots);
+        for root in &entries {
+            let view = std::sync::Arc::new(
+                database
+                    .capture_semantic_view(*root, None)
+                    .must_be("semantic input")
+                    .build(),
+            );
+            assert!(database.publish_semantic_view(view.clone(), None));
+            views.push(view);
+        }
+        let offset = entry_source
+            .find("D.target")
+            .must_be("semantic call offset");
+        let target = views[0]
+            .resolve_at(entries[0], offset)
+            .must_be("semantic call")
+            .target;
+        let caller = views[0]
+            .resolve_at(entries[0], offset)
+            .must_be("semantic caller")
+            .enclosing
+            .must_be("caller entity");
+        assert!(matches!(target, workspace::SemanticTarget::Global(_)));
+        // Construct the next file facts before measuring an update; no parser
+        // or source-generation work is hidden inside the view-update row.
+        let revised = if export_change {
+            source.replacen("def target", "def replacement", 1)
+        } else {
+            source.replacen("\n  value\n", "\n  0\n", 1)
+        };
+        Self {
+            database,
+            roots: entries,
+            views,
+            dependency,
+            offset,
+            target,
+            caller,
+            next_snapshot: std::sync::Arc::new(analysis::DocumentSnapshot::new(
+                analysis::Revision(2),
+                revised,
+            )),
+        }
+    }
+
+    fn with_unrelated_files(mut self, count: usize) -> Self {
+        for index in 0..count {
+            let path = std::env::temp_dir()
+                .join("bend2-semantic-benchmark")
+                .join(format!("unrelated_{index}.bend"));
+            self.database.set_open_document(
+                workspace::Document::new(
+                    url::Url::from_file_path(&path).must_be("unrelated source URI"),
+                    "bend".into(),
+                    analysis::Revision(1),
+                    "def noise(x):\n  x\n".to_owned(),
+                ),
+                Some(path),
+            );
+        }
+        self
+    }
+}
+
+static SEMANTIC_100: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(100, 1, false));
+static SEMANTIC_1000: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(1_000, 1, false));
+static SEMANTIC_10000: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(10_000, 1, false));
+static SEMANTIC_ROOTS_2: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(100, 2, false));
+static SEMANTIC_ROOTS_8: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(100, 8, false));
+static SEMANTIC_ROOTS_64: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(100, 64, false));
+static SEMANTIC_SPARSE_100: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(1, 1, false).with_unrelated_files(100));
+static SEMANTIC_SPARSE_1000: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(1, 1, false).with_unrelated_files(1_000));
+static SEMANTIC_SPARSE_10000: LazyLock<SemanticFixture> =
+    LazyLock::new(|| SemanticFixture::new(1, 1, false).with_unrelated_files(10_000));
+
+fn semantic_input(declarations: usize) -> workspace::SemanticViewInput {
+    let fixture = match declarations {
+        100 => LazyLock::force(&SEMANTIC_100),
+        1_000 => LazyLock::force(&SEMANTIC_1000),
+        _ => LazyLock::force(&SEMANTIC_10000),
+    };
+    fixture
+        .database
+        .capture_semantic_view(fixture.roots[0], None)
+        .must_be("captured facts")
+}
+
+#[library_benchmark]
+#[bench::declarations_100(semantic_input(100))]
+#[bench::declarations_1000(semantic_input(1_000))]
+#[bench::declarations_10000(semantic_input(10_000))]
+fn semantic_view_cold(input: workspace::SemanticViewInput) -> workspace::SemanticView {
+    std::hint::black_box(input.build())
+}
+
+fn semantic_root_inputs(fixture: &SemanticFixture) -> Vec<workspace::SemanticViewInput> {
+    fixture
+        .roots
+        .iter()
+        .map(|root| {
+            fixture
+                .database
+                .capture_semantic_view(*root, None)
+                .must_be("captured shared dependency")
+        })
+        .collect()
+}
+
+#[library_benchmark]
+#[bench::shared_dependency_2(semantic_root_inputs(LazyLock::force(&SEMANTIC_ROOTS_2)))]
+#[bench::shared_dependency_8(semantic_root_inputs(LazyLock::force(&SEMANTIC_ROOTS_8)))]
+#[bench::shared_dependency_64(semantic_root_inputs(LazyLock::force(&SEMANTIC_ROOTS_64)))]
+fn semantic_views_cold(inputs: Vec<workspace::SemanticViewInput>) -> Vec<workspace::SemanticView> {
+    std::hint::black_box(
+        inputs
+            .into_iter()
+            .map(workspace::SemanticViewInput::build)
+            .collect(),
+    )
+}
+
+#[library_benchmark]
+#[bench::one_view(SemanticFixture::new(100, 1, false))]
+#[bench::two_views(SemanticFixture::new(100, 2, false))]
+#[bench::eight_views(SemanticFixture::new(100, 8, false))]
+#[bench::export_change(SemanticFixture::new(100, 1, true))]
+fn semantic_views_preparsed_update(mut fixture: SemanticFixture) -> SemanticFixture {
+    fixture
+        .database
+        .update_open_snapshot(&fixture.dependency, fixture.next_snapshot.clone())
+        .must_be("apply prepared semantic revision");
+    fixture.views.clear();
+    for root in &fixture.roots {
+        let view = std::sync::Arc::new(
+            fixture
+                .database
+                .capture_semantic_view(*root, None)
+                .must_be("capture changed context")
+                .build(),
+        );
+        assert!(fixture.database.publish_semantic_view(view.clone(), None));
+        fixture.views.push(view);
+    }
+    let occurrence = fixture.views[0]
+        .resolve_at(fixture.roots[0], fixture.offset)
+        .must_be("changed semantic occurrence");
+    fixture.target = occurrence.target;
+    fixture.caller = occurrence.enclosing.must_be("changed caller");
+    std::hint::black_box(fixture)
+}
+
+#[library_benchmark]
+#[bench::unrelated_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::unrelated_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::unrelated_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_resolve_warm(
+    fixture: &'static SemanticFixture,
+) -> Option<&'static workspace::SemanticOccurrence> {
+    std::hint::black_box(fixture.views[0].resolve_at(
+        std::hint::black_box(fixture.roots[0]),
+        std::hint::black_box(fixture.offset),
+    ))
+}
+
+#[library_benchmark]
+#[bench::unrelated_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::unrelated_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::unrelated_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_references_warm(
+    fixture: &'static SemanticFixture,
+) -> &'static [workspace::SemanticOccurrence] {
+    std::hint::black_box(fixture.views[0].references(std::hint::black_box(fixture.target)))
+}
+
+#[library_benchmark]
+#[bench::unrelated_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::unrelated_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::unrelated_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_incoming_calls_warm(fixture: &SemanticFixture) -> usize {
+    std::hint::black_box(
+        fixture.views[0]
+            .calls_to(std::hint::black_box(fixture.target))
+            .fold(0, |count, call| {
+                std::hint::black_box(call);
+                count + 1
+            }),
+    )
+}
+
+#[library_benchmark]
+#[bench::unrelated_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::unrelated_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::unrelated_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_outgoing_calls_warm(fixture: &SemanticFixture) -> usize {
+    std::hint::black_box(
+        fixture.views[0]
+            .calls_from(std::hint::black_box(fixture.caller))
+            .fold(0, |count, call| {
+                std::hint::black_box(call);
+                count + 1
+            }),
+    )
+}
+
+#[library_benchmark]
+#[bench::unrelated_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::unrelated_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::unrelated_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_view_reuse_warm(
+    fixture: &SemanticFixture,
+) -> Option<std::sync::Arc<workspace::SemanticView>> {
+    std::hint::black_box(
+        fixture
+            .database
+            .semantic_view(std::hint::black_box(fixture.roots[0])),
+    )
+}
+
+#[library_benchmark]
+#[bench::declarations_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::declarations_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::declarations_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_view_capture(fixture: &SemanticFixture) -> workspace::SemanticViewInput {
+    std::hint::black_box(
+        fixture
+            .database
+            .capture_semantic_view(fixture.roots[0], None)
+            .must_be("captured context"),
+    )
+}
+
+#[library_benchmark]
+#[bench::unrelated_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::unrelated_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::unrelated_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_completion_warm(fixture: &SemanticFixture) -> Vec<workspace::SemanticCompletion> {
+    std::hint::black_box(fixture.views[0].completion_candidates(
+        std::hint::black_box(fixture.roots[0]),
+        std::hint::black_box("D.tar"),
+    ))
+}
+
+#[library_benchmark]
+#[bench::declarations_100(LazyLock::force(&SEMANTIC_100))]
+#[bench::declarations_1000(LazyLock::force(&SEMANTIC_1000))]
+#[bench::declarations_10000(LazyLock::force(&SEMANTIC_10000))]
+fn semantic_rename_preflight_warm(fixture: &SemanticFixture) -> bool {
+    std::hint::black_box(fixture.views[0].rename_is_safe(
+        std::hint::black_box(fixture.target),
+        std::hint::black_box("renamed"),
+    ))
+}
+
+#[library_benchmark]
+#[bench::unrelated_files_100(LazyLock::force(&SEMANTIC_SPARSE_100))]
+#[bench::unrelated_files_1000(LazyLock::force(&SEMANTIC_SPARSE_1000))]
+#[bench::unrelated_files_10000(LazyLock::force(&SEMANTIC_SPARSE_10000))]
+fn semantic_sparse_view_reuse_warm(
+    fixture: &SemanticFixture,
+) -> Option<std::sync::Arc<workspace::SemanticView>> {
+    std::hint::black_box(
+        fixture
+            .database
+            .semantic_view(std::hint::black_box(fixture.roots[0])),
+    )
+}
+
+#[library_benchmark]
+#[bench::unrelated_files_100(LazyLock::force(&SEMANTIC_SPARSE_100))]
+#[bench::unrelated_files_1000(LazyLock::force(&SEMANTIC_SPARSE_1000))]
+#[bench::unrelated_files_10000(LazyLock::force(&SEMANTIC_SPARSE_10000))]
+fn semantic_sparse_relevant_views_warm(
+    fixture: &SemanticFixture,
+) -> Vec<std::sync::Arc<workspace::SemanticView>> {
+    let file = fixture
+        .database
+        .file_id_by_uri(&fixture.dependency)
+        .must_be("dependency identity");
+    std::hint::black_box(fixture.database.views_for_file(std::hint::black_box(file)))
+}
+
+#[library_benchmark]
+#[bench::one_view(LazyLock::force(&SEMANTIC_100))]
+#[bench::two_views(LazyLock::force(&SEMANTIC_ROOTS_2))]
+#[bench::eight_views(LazyLock::force(&SEMANTIC_ROOTS_8))]
+fn semantic_shared_source_ownership(fixture: &SemanticFixture) -> (usize, usize) {
+    let mut snapshots = std::collections::HashSet::new();
+    let mut unique_source_bytes = 0;
+    let mut logical_source_bytes = 0;
+    for view in &fixture.views {
+        for document in view.documents() {
+            logical_source_bytes += document.text.len();
+            if snapshots.insert(std::sync::Arc::as_ptr(&document.snapshot)) {
+                unique_source_bytes += document.text.len();
+            }
+        }
+    }
+    std::hint::black_box((unique_source_bytes, logical_source_bytes))
+}
+
 library_benchmark_group!(
     name = analysis_hot_paths;
     benchmarks = cold_snapshot_build_small, cold_snapshot_build_medium, cold_snapshot_build_large,
@@ -827,7 +1264,14 @@ library_benchmark_group!(
         workspace_references, workspace_burst_revision_invalidation, workspace_orphan_graph_release,
         constructor_definition_warm, constructor_completion_warm, parameter_annotation_warm,
         cold_completion_context_build, pattern_completion_context_warm,
-        import_completion_candidates_warm, workspace_symbols_warm, workspace_symbol_response_warm
+        import_completion_candidates_warm, workspace_symbols_warm, workspace_symbol_response_warm,
+        cold_snapshot_build_metadata, declaration_metadata_warm,
+        declaration_documentation_warm, declaration_hover_warm, signature_help_warm,
+        semantic_view_cold, semantic_views_cold, semantic_views_preparsed_update, semantic_resolve_warm,
+        semantic_references_warm, semantic_incoming_calls_warm, semantic_outgoing_calls_warm,
+        semantic_view_reuse_warm, semantic_view_capture, semantic_shared_source_ownership,
+        semantic_completion_warm, semantic_rename_preflight_warm,
+        semantic_sparse_view_reuse_warm, semantic_sparse_relevant_views_warm
 );
 
 main!(library_benchmark_groups = analysis_hot_paths);

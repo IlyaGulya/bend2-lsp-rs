@@ -8,6 +8,7 @@ on:
       - .github/workflows/performance.yml
       - benches/**
       - scripts/ci-cache.sh
+      - scripts/calibration_report_input.py
       - scripts/install-tools.sh
       - scripts/install-valgrind.sh
       - rust-toolchain.toml
@@ -26,20 +27,35 @@ jobs:
     timeout-minutes: 360
     strategy:
       fail-fast: false
+      # Complete preplanned inventory: 6 logical jobs x 4 deterministic shards of
+      # whole frozen function units. Every workload series still comes from
+      # exactly one physical runner; case indices are never filtered or reindexed.
       matrix:
         include:
-          - job: discovery-01
-            role: discovery
-          - job: discovery-02
-            role: discovery
-          - job: discovery-03
-            role: discovery
-          - job: validation-01
-            role: validation
-          - job: validation-02
-            role: validation
-          - job: validation-03
-            role: validation
+          - { job: discovery-01, role: discovery, shard: 0 }
+          - { job: discovery-01, role: discovery, shard: 1 }
+          - { job: discovery-01, role: discovery, shard: 2 }
+          - { job: discovery-01, role: discovery, shard: 3 }
+          - { job: discovery-02, role: discovery, shard: 0 }
+          - { job: discovery-02, role: discovery, shard: 1 }
+          - { job: discovery-02, role: discovery, shard: 2 }
+          - { job: discovery-02, role: discovery, shard: 3 }
+          - { job: discovery-03, role: discovery, shard: 0 }
+          - { job: discovery-03, role: discovery, shard: 1 }
+          - { job: discovery-03, role: discovery, shard: 2 }
+          - { job: discovery-03, role: discovery, shard: 3 }
+          - { job: validation-01, role: validation, shard: 0 }
+          - { job: validation-01, role: validation, shard: 1 }
+          - { job: validation-01, role: validation, shard: 2 }
+          - { job: validation-01, role: validation, shard: 3 }
+          - { job: validation-02, role: validation, shard: 0 }
+          - { job: validation-02, role: validation, shard: 1 }
+          - { job: validation-02, role: validation, shard: 2 }
+          - { job: validation-02, role: validation, shard: 3 }
+          - { job: validation-03, role: validation, shard: 0 }
+          - { job: validation-03, role: validation, shard: 1 }
+          - { job: validation-03, role: validation, shard: 2 }
+          - { job: validation-03, role: validation, shard: 3 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -96,32 +112,93 @@ jobs:
       - name: Check Rust calibration contracts
         run: |
           cargo test --locked --release -p bend2-perf --bin bend2-perf calibration:: --target-dir "$RUNNER_TEMP/perf-tools-target"
-      - name: Collect exactly 105 balanced independent-build pairs
-        timeout-minutes: 330
+      - name: Collect exactly 105 balanced independent-build pairs for this shard
+        # Keep the original 330-minute measurement budget and 360-minute job bound.
+        timeout-minutes: 332
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
           CALIBRATION_ROLE: ${{ matrix.role }}
+          CALIBRATION_SHARD_INDEX: ${{ matrix.shard }}
+          CALIBRATION_SHARD_COUNT: 4
+          CALIBRATION_PHYSICAL_JOB: ${{ matrix.job }}-shard-${{ matrix.shard }}
         run: |
-          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
+          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow supervise \
+            --timeout-seconds 19800 \
+            --receipt "$RUNNER_TEMP/calibration-collection-lifecycle.json" -- \
+            "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \
             --source "$GITHUB_WORKSPACE" \
-            --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_JOB" \
-            --output-dir "target/performance-calibration/$CALIBRATION_JOB" \
-            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 105
+            --work-dir "$RUNNER_TEMP/calibration-$CALIBRATION_PHYSICAL_JOB" \
+            --output-dir "target/performance-calibration/$CALIBRATION_JOB/shard-$CALIBRATION_SHARD_INDEX" \
+            --job-id "$CALIBRATION_JOB" --role "$CALIBRATION_ROLE" --pairs 105 \
+            --shard-index "$CALIBRATION_SHARD_INDEX" --shard-count "$CALIBRATION_SHARD_COUNT"
       - name: Preserve installed profiler provenance
         if: always() && steps.valgrind.outcome == 'success'
         env:
           CALIBRATION_JOB: ${{ matrix.job }}
+          CALIBRATION_SHARD_INDEX: ${{ matrix.shard }}
         run: |
-          output="target/performance-calibration/$CALIBRATION_JOB"
+          output="target/performance-calibration/$CALIBRATION_JOB/shard-$CALIBRATION_SHARD_INDEX"
           mkdir -p "$output"
           "$VALGRIND_INSTALL_ROOT/bin/valgrind" --version > "$output/valgrind-version.txt"
           cp "$VALGRIND_INSTALL_ROOT/provenance.json" "$output/valgrind-provenance.json"
+      - name: Seal stopped calibration evidence
+        if: always()
+        env:
+          CALIBRATION_JOB: ${{ matrix.job }}
+          CALIBRATION_SHARD_INDEX: ${{ matrix.shard }}
+        run: |
+          output="target/performance-calibration/$CALIBRATION_JOB/shard-$CALIBRATION_SHARD_INDEX"
+          if [[ -f "$RUNNER_TEMP/calibration-collection-lifecycle.json" ]]; then
+            mkdir -p "$output"
+            cp "$RUNNER_TEMP/calibration-collection-lifecycle.json" \
+              "$output/collection-lifecycle.json"
+          fi
+          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow seal \
+            --source "$output" \
+            --output "$RUNNER_TEMP/calibration-artifact"
       - name: Preserve every collected result and failure diagnostic
+        id: publish-raw
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}
-          path: target/performance-calibration/${{ matrix.job }}/
+          name: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/calibration-artifact/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish compact report input after the full raw evidence is sealed
+        id: report-input
+        if: always() && steps.publish-raw.outcome == 'success'
+        env:
+          CALIBRATION_JOB: ${{ matrix.job }}
+          CALIBRATION_SHARD_INDEX: ${{ matrix.shard }}
+          CALIBRATION_SHARD_COUNT: 4
+          CALIBRATION_SOURCE_REVISION: ${{ github.sha }}
+          CALIBRATION_PRODUCER_REVISION: ${{ github.workflow_sha }}
+          CALIBRATION_RAW_ARTIFACT_ID: ${{ steps.publish-raw.outputs.artifact-id }}
+          CALIBRATION_RAW_ARTIFACT_DIGEST: ${{ steps.publish-raw.outputs.artifact-digest }}
+        run: |
+          python3 scripts/calibration_report_input.py build \
+            --sealed "$RUNNER_TEMP/calibration-artifact" \
+            --output "$RUNNER_TEMP/calibration-report-input" \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --logical-job "$CALIBRATION_JOB" \
+            --shard-index "$CALIBRATION_SHARD_INDEX" \
+            --shard-count "$CALIBRATION_SHARD_COUNT" \
+            --expected-source-revision "$CALIBRATION_SOURCE_REVISION" \
+            --expected-runner "$RUNNER_NAME" \
+            --source-artifact-id "$CALIBRATION_RAW_ARTIFACT_ID" \
+            --source-artifact-digest "$CALIBRATION_RAW_ARTIFACT_DIGEST" \
+            --producer-workflow .github/workflows/performance-calibration.yml \
+            --producer-revision "$CALIBRATION_PRODUCER_REVISION" \
+            --producer-run-id "$GITHUB_RUN_ID" \
+            --producer-run-attempt "$GITHUB_RUN_ATTEMPT"
+      - name: Preserve compact report input
+        if: always() && steps.report-input.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: performance-calibration-report-input-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job }}-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/calibration-report-input/
           if-no-files-found: error
           retention-days: 14
       - name: Save trusted Cargo downloads
@@ -162,19 +239,39 @@ jobs:
       - name: Prepare report input even when collection fails
         if: always()
         run: mkdir -p target/performance-calibration-input
-      - name: Download independent runner datasets
+      - name: Download compact report inputs only
         if: always()
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: performance-calibration-${{ github.run_id }}-${{ github.run_attempt }}-*
+          pattern: performance-calibration-report-input-${{ github.run_id }}-${{ github.run_attempt }}-*
           path: target/performance-calibration-input
+          merge-multiple: false
+          digest-mismatch: error
+      - name: Verify compact report inputs before the authoritative report
+        if: always()
+        env:
+          CALIBRATION_SOURCE_REVISION: ${{ github.sha }}
+          CALIBRATION_PRODUCER_REVISION: ${{ github.workflow_sha }}
+        run: |
+          python3 scripts/calibration_report_input.py verify \
+            --root target/performance-calibration-input \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --source-revision "$CALIBRATION_SOURCE_REVISION" \
+            --expected-producer-run-id "$GITHUB_RUN_ID" \
+            --expected-producer-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --expected-producer-workflow .github/workflows/performance-calibration.yml \
+            --expected-producer-revision "$CALIBRATION_PRODUCER_REVISION" \
+            --expected-discovery-jobs 3 --expected-validation-jobs 3 \
+            --expected-shards 4 --expected-source-format sealed-tree \
+            --json-output target/performance-calibration-report/verification.json
       - name: Validate A/A repeatability and positive-control sensitivity
         if: always()
         run: |
           "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration report target/performance-calibration-input \
             --method paired-median-105-v1 \
             --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-            --expected-workloads 54 --require-all-benchmarks \
+            --expected-shards 4 --expected-workloads 102 --require-all-benchmarks \
             --require-control-validation \
             --json-output target/performance-calibration-report/report.json \
             --markdown-output target/performance-calibration-report/report.md

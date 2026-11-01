@@ -203,14 +203,16 @@ pub(super) async fn run() -> io::Result<()> {
     let server_diagnostics = diagnostics.clone();
     let server_reapers = compiler_reapers.clone();
     let server_workspace = workspace.clone();
-    let (service, socket) = LspService::new(move |client| {
+    let (service, socket) = LspService::build(move |client| {
         Backend::new(
             client,
             server_workspace.clone(),
             server_diagnostics.clone(),
             server_reapers.clone(),
         )
-    });
+    })
+    .custom_method("bend2/semanticDocument", Backend::semantic_document)
+    .finish();
     let (exit, mut exit_rx) = tokio::sync::watch::channel(false);
     let mut diagnostics_failure = diagnostics.fatal_receiver();
     let mut discovery_failure = workspace.discovery_failure.subscribe();
