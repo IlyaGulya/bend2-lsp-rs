@@ -875,15 +875,45 @@ fn imported_compiler_and_lint_findings_coexist_and_disable_preserves_imported_er
 #[test]
 fn editing_saved_document_clears_published_lint_until_next_real_save() {
     let mut session = Session::new(SOURCE, &[]);
+    fs::write(session.control.join("compiler.stderr"), COMPILER_ERROR)
+        .must_be("selected compiler rejection");
+    fs::write(session.control.join("compiler-block"), "").must_be("hold selected compiler");
     session.standard_response();
     session.configure(true, false, 10_000);
     session.open(SOURCE);
+    session.wait_file("compiler-address");
     session.save();
-    session.lint();
-    session.change(2, "def main(x: U32) -> U32:\n  x\n");
-    let cleared = session
+    // Retain a genuine lint packet before releasing the compiler. Waiting for
+    // its completion must not turn that earlier packet into a post-edit result.
+    let compiler = session
         .client
         .receive_matching(TIMEOUT, |message| {
+            if message["method"] != "textDocument/publishDiagnostics"
+                || message["params"]["uri"] != session.document
+                || message["params"]["version"] != 1
+            {
+                return false;
+            }
+            let compiler_finished =
+                message["params"]["diagnostics"]
+                    .as_array()
+                    .is_some_and(|items| {
+                        items
+                            .iter()
+                            .any(|item| item["message"] == "selected compiler rejection")
+                    });
+            if !compiler_finished && has_lint(message) {
+                fs::write(session.control.join("compiler-release"), "")
+                    .must_be("release selected compiler after retaining lint");
+            }
+            compiler_finished
+        })
+        .must_be("compiler completion after retained lint");
+    assert!(has_lint(&compiler), "late compiler preserves saved lint");
+    session.change(2, "def main(x: U32) -> U32:\n  x\n");
+    let (cleared, cleared_at) = session
+        .client
+        .receive_matching_timed(TIMEOUT, |message| {
             message["method"] == "textDocument/publishDiagnostics"
                 && message["params"]["uri"] == session.document
                 && message["params"]["version"] == 2
@@ -891,7 +921,16 @@ fn editing_saved_document_clears_published_lint_until_next_real_save() {
         })
         .must_be("unsaved edit immediately removes disk diagnostics");
     assert!(!has_lint(&cleared));
-    session.no_lint();
+    let deadline = Instant::now() + QUIET;
+    while let Some((message, received)) = session
+        .client
+        .receive_matching_timed(deadline.saturating_duration_since(Instant::now()), has_lint)
+    {
+        assert!(
+            received < cleared_at,
+            "disk findings published after the dirty-document clear: {message}"
+        );
+    }
     assert_eq!(
         session.wait_file("calls").lines().count(),
         1,

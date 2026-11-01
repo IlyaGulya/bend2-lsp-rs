@@ -28,6 +28,10 @@
   without making production queries wait for unrelated pending builds.
 - Acknowledge prior stdio document mutations before releasing held analyzer
   output, so tests cannot mistake pre-mutation results for stale publication.
+- Retain a real pre-edit compiler/lint publication in the dirty-buffer regression
+  and assert transport receipt order, so buffered older packets cannot be
+  mistaken for post-clear findings. Keep rejecting every lint packet received
+  after the clear, including stale-version packets.
 
 ### Under the hood
 
