@@ -7,7 +7,7 @@ use crate::{
 use serde_json::{Value, json};
 use std::{fs, path::Path};
 
-fn dataset_v2(job_id: &str, role: &str) -> ToolResult<Value> {
+pub(super) fn dataset_v2(job_id: &str, role: &str) -> ToolResult<Value> {
     let mut job = dataset(job_id, role, 1);
     job["format_version"] = json!(2);
     job["harness_sha256"] =
@@ -65,9 +65,16 @@ fn dataset_v2(job_id: &str, role: &str) -> ToolResult<Value> {
     Ok(job)
 }
 
-fn write_v2(root: &Path, job: &Value) -> ToolResult<()> {
+pub(super) fn write_v2(root: &Path, job: &Value) -> ToolResult<()> {
     // Reuse the established real JSONL summary fixture writer, once per executable.
     for benchmark in ["analysis", "reference_locations"] {
+        if job["samples"]
+            .as_array()
+            .and_then(|samples| samples.first())
+            .is_none_or(|sample| sample["benchmarks"].get(benchmark).is_none())
+        {
+            continue;
+        }
         let mut projected = job.clone();
         for variant in VARIANTS {
             projected["variants"][variant] =
@@ -121,7 +128,7 @@ fn v2_evidence_rejects_missing_misattributed_and_forged_measurements() -> ToolRe
     let directory = tempfile::tempdir()?;
     let job = dataset_v2("training", "discovery")?;
     write_v2(directory.path(), &job)?;
-    report::validate_job(&job, directory.path())?;
+    assert!(report::validate_job(&job, directory.path())?.is_none());
     let reference = &job["samples"][0]["benchmarks"]["reference_locations"];
     let stdout = directory
         .path()
@@ -169,7 +176,7 @@ fn v2_manifests_bind_complete_disjoint_identity_ownership() -> ToolResult<()> {
     let directory = tempfile::tempdir()?;
     let job = dataset_v2("training", "discovery")?;
     write_v2(directory.path(), &job)?;
-    report::validate_job(&job, directory.path())?;
+    assert!(report::validate_job(&job, directory.path())?.is_none());
     let mut mutations = Vec::new();
     let mut missing = job.clone();
     missing["variants"]["b"]["benchmarks"]

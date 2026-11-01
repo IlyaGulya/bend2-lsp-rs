@@ -67,9 +67,144 @@ shadowing and keyword suppression. Import candidates compare `FileId` values
 and reuse the already selected effective snapshot. All existing workload
 bodies, result ownership, cache geometry and numeric limits remain unchanged.
 
+Module completion uses one direct indexed loop. Its first successful match
+reserves at most sixteen indexed declarations; subsequent growth belongs to
+`Vec::push`. No-match queries scan once without allocating a speculative result
+buffer, and selective queries do not reserve the whole document's declaration
+count. Matching, ordering and owned results remain unchanged.
+
+The first-match peel in `420a77c` failed hosted admission in
+[run 41173453522](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41173453522):
+medium completion rose from 110,396 to 118,512 instructions (+7.35%) and large
+completion from 360,362 to 368,941 (+2.38%). That unsuccessful rewrite is removed,
+not presented as an optimization. Its full result remains 121 passed / 41
+regressions / 0 inconclusive event/workload rows. Restoring the direct loop is
+not admission of the next source: fresh source-bound results remain required.
+Static annotation of a hosted profile is attribution, not a new performance
+measurement or editor-latency evidence.
+
+The `semantic_view_cold.declarations_{100,1000,10000}` cases construct entry
+views from captured snapshot facts. Declaration-name occurrences reuse existing
+snapshot-local IDs with an exact range check. Construction caches each file's
+generation/conflict facts and each entity's signature template arity; it borrows
+shared snapshots and preallocates qualified names rather than repeatedly
+searching declarations, hashing paths or cloning document metadata.
+
+The `semantic_views_cold.shared_dependency_{2,8,64}` cases capture all root
+inputs outside measurement, then construct and retain every entry view in the
+measured body. They reuse the existing 100-declaration shared-dependency fixture.
+Unlike a single large entry, this exposes repeated per-view table and record
+ownership. Existing workloads, result ownership, profiler geometry, event metrics
+and numeric limits remain unchanged. These additional cases are explicitly
+unpaired when a baseline does not contain them; they do not replace any required
+baseline comparison or establish admission on their own.
+
+Small immutable entry-view tables retain at most eight exact-size key/value
+records and use bounded equality lookup; larger tables keep the original
+randomized hash table. Construction still uses hash tables and freezes them once.
+Calls borrow the target-grouped occurrence arena, with incoming/outgoing indices
+translated during cold grouping rather than through a second warm indirection.
+Unused per-site target tables and duplicate entity-site lists are removed;
+declaration metadata, entry serials, generations and all prepared contexts remain.
+These storage choices do not permit rebuilding closed contexts on warm requests.
+
+Published entry captures keep validation receipts rather than build-only document
+metadata and semantic-import copies. Physical generations use a sorted immutable
+slice; cold build sorts and freezes the captured construction maps outside the
+workspace read guard. Both capture and build costs remain separately measured.
+Conflict paths remain build-only after their issues and conflict flag are
+published. Physical document URIs share the document index instead of retaining
+another keyed table. Optional Base ownership is boxed rather than paid inline by
+every view.
+
+Canonical values and constructors move their existing cold registration tables
+into the published `CompactMap` indexes. This avoids repeated namespace/entity
+binary searches during rename checks without cloning the name keys again.
+Value/constructor precedence and ambiguous overlay names remain explicit.
+Retaining those keys is a memory trade-off, not free compaction: cold build,
+`semantic_completion_warm`, `semantic_rename_preflight_warm` and native retained
+RSS still require exact-source qualification. Alias registration stays hashed
+during cold construction; published alias tables are sorted immutable slices.
+
+Cold discovery may use at most two owned walkers, retaining tracing context,
+ignore/symlink rules, cancellation and final generation checks.
+Discovery obtains snapshot ownership and the exact file/generation admission guard
+with one lookup of its already-normalized path. Snapshot commit reuses known
+normalized keys, and a hub import reuses the physical spelling just computed in
+that same resolution. Independent source/import resolutions still observe the
+filesystem afresh; a long walk does not memoize target identities across files.
+
+Correctness smoke on 10,000 files checks every symbol/reference location, an
+unsaved dependency revision, root removal and clean process shutdown. This is
+not a latency or resident-memory measurement. Fresh source-bound hosted
+Callgrind and native comparisons remain required before claiming a performance
+improvement or admission; earlier-source measurements do not qualify changed source.
+
+Windows native-import resolution compares parsed standard/verbatim drive and
+UNC prefixes without changing stored paths or case-folding path components.
+It still canonicalizes the physical target afresh. Only equality checks that
+would repeat canonicalization for the same spelling are bypassed; actual aliases,
+case differences and directory-entry rename checks retain their original
+fallback. No filesystem cache or existence probe is added.
+Cold local-index construction skips sweep events for empty and single-binding
+inputs. The name table ends at the highest eligible local binding name, not the
+last unrelated global name. Raw lexical visibility remains half-open; caret
+completion still includes token-end insertion points and unfinished bodies
+through its existing separate metadata. These paths remain covered by cold
+snapshot benchmarks, the native 10,000-file discovery scenario, and boundary/
+shadowing correctness checks; local smoke is not performance qualification.
+
+A local Linux ARM64 diagnostic against `19ec528`, using pinned Valgrind 3.27.1
+and the unchanged 32 KiB I1/D1 and 8 MiB LL geometry, exercised all 96 analysis
+workloads once per revision with positive instruction counters throughout:
+
+| Cold-view declarations | Before instructions | After instructions |
+| --- | ---: | ---: |
+| 100 | 2,752,351 | 1,832,008 |
+| 1,000 | 30,952,226 | 19,115,829 |
+| 10,000 | 574,473,391 | 186,083,914 |
+
+This is diagnostic evidence, not admission: it is not the 105-pair hosted
+comparison, does not include the separate reference-order binary, and does not
+establish editor latency or native-oracle resource qualification. Four workloads
+had instruction increases above 5% in this single local comparison; they are not
+waived or hidden by the lower aggregate. Existing CI gates remain authoritative
+for every instruction and independent cache metric.
+
+The subsequent hosted comparison of `6ee0f23` (tested merge `ca105e33`) completed
+all 105 fresh pairs in run
+[39208885069](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39208885069).
+Collection succeeded within the unchanged 210-minute measurement deadline, but
+numeric admission did not: 22 of the 54 baseline workloads passed and 32 failed.
+The exact-run exception was rejected; this comparison remains blocking. In
+particular, larger standalone reference records introduced per-record copy
+calls; instruction-cache regressions also remain independently blocking.
+
+Reference queries now project borrowed compact headers while semantic linking
+retains complete indexed records in the same arena. A throwaway program against
+actual Rust 1.98.1 ARM64 release metadata observed:
+
+| Representation | Copied reference bytes | Retained full-record bytes |
+| --- | ---: | ---: |
+| Expanded record in `6ee0f23` | 160 | 160 |
+| Compact projection | 104 | 168 |
+
+The extra full-record padding is an explicit retention trade-off, not omitted
+metadata or a memory-budget exception. Frozen `Vec` buckets also retain their
+capacity metadata instead of slice-only metadata; avoiding table reconstruction
+does not waive retained-memory qualification. The projection preserves target grouping
+and order; full source facts are still prepared cold. Final semantic-view bucket
+compaction reuses existing hash tables, cold grouping reuses span cursors, and
+ASCII workspace-symbol matching avoids allocating lowercase names while keeping
+the Unicode path. All workload bodies, ownership/teardown boundaries and gates
+remain unchanged. Correctness smoke and layout sizes are not hosted performance
+admission.
+
 Module completion scans indexed declarations once, reading names from indexed
 source ranges. It selects the existing ASCII or non-ASCII query path once;
-the two specialized loops stay separate in generated code. Result buffers use
+the two specialized loops stay separate in generated code. Module completion
+rejects constructor declarations before slicing or matching their names; the
+independent constructor-completion path is unchanged. Result buffers use
 ordinary `Vec` growth only after a match, without a capacity prepass, new snapshot
 metadata, or allocations on a miss. Materialization preserves declaration order,
 subsequence matching, keyword suppression and result ownership; it does not
@@ -369,6 +504,56 @@ No approval is universal or inferred from an earlier acceptance. In particular,
 the accepted ordinary cache exception for PR #42 does not authorize PR #43 or
 any later candidate/run. Existing historical failed compares remain failed.
 
+## Collection lifetime and artifact publication
+
+The ordinary and qualification collectors run under `bend2-perf workflow
+supervise`. Each invocation owns a new POSIX process group. Linux supervision
+also adopts orphaned descendants as a child subreaper and reaps only that
+owned group, never unrelated children. A leader exiting does not prove its
+writers have stopped. Unexpected surviving descendants make collection fail,
+even when their leader returned zero and subsequent cleanup succeeds.
+
+The measurement deadlines remain 210 minutes for ordinary paired collection
+and 330 minutes for qualification. Their outer steps reserve two additional
+minutes for termination, reaping and report handling, not additional samples
+or measurement time. Deadline expiry remains a nonzero collection result;
+TERM is followed by bounded KILL escalation when needed. Unknown process
+states count as present, not absent.
+
+The lifecycle receipt is checkpointed outside the measurement output, because
+collectors require fresh output directories. After collection, the always-run
+publication step copies it to `collection-lifecycle.json`. A pending receipt,
+incomplete cleanup, inconsistent lifecycle or never-spawned command cannot
+authorize raw publication. Completed cleanup after a timeout or interruption
+can permit evidence retention, never a successful measurement verdict.
+Sealing independently checks that the recorded group is absent, including
+zombies, before walking the raw tree and again before publication.
+
+`bend2-perf workflow seal --source ROOT --output DESTINATION` creates an
+independent, write-finished snapshot. Publication currently requires Linux GNU
+and atomic `renameat2(RENAME_NOREPLACE)`; unsupported platforms fail closed.
+Existing destinations and overlapping source/output paths are never replaced.
+Links, special files, changed inputs and copy errors are rejected rather than
+followed, skipped or retried into apparent success.
+
+A committed `sample.json` identifies a completed measurement. Its files retain
+their original `raw/...` paths. Uncommitted samples are retained only under
+`incomplete/raw/...`, with source-to-snapshot paths and hashes in
+`snapshot-publication.json`. Original dataset, command and provenance metadata
+are copied verbatim. This diagnostic namespace cannot supply missing samples
+or make partial coverage admissible.
+
+Cleanup or copy failures publish only a bounded failure envelope, without
+partially copied raw evidence, and return nonzero. Successful snapshot
+publication says nothing about the measurement verdict. The original full
+105-pair, workload, source, uncertainty and admission checks remain authoritative;
+the final admission job also requires the measurement job itself to succeed.
+No permissions, approval, benchmark input, metric or numeric allowance changes.
+
+Local Linux correctness checks may exercise the supervisor with controlled
+child processes and the sealer with fixture files. They are not hosted
+Callgrind measurements, performance admission or a semantic compiler oracle.
+
 ## Historical single-pair calibration
 
 The historical raw calibration protocol ran on host Ubuntu 24.04, like
@@ -480,22 +665,66 @@ manually dispatched. Passing controls qualify the measurement method; they do
 not automatically admit a candidate, change a baseline or rewrite historical
 raw verdicts. Ordinary admission separately measures the original sources.
 
-The fixed experiment has three discovery jobs (`discovery-01` through
-`discovery-03`) and three independently assigned validation jobs
-(`validation-01` through `validation-03`), each collecting exactly 105 pairs.
-Every pair measures the existing five variants (`a`, `b`, `layout`, `extra_work`,
-`extra_alloc`) in the collector's balanced five-position order, with a fresh
-process and isolated output for every measurement. The odd sample count is
-divisible by five. There is no adaptive stopping, retry-for-luck, best-sample
-selection, outlier deletion, or pooling of jobs, hosts or builds. Discovery
-and validation both use the predeclared method; neither trains an allowance.
+The fixed experiment has three logical discovery jobs (`discovery-01` through
+`discovery-03`) and three independently assigned logical validation jobs
+(`validation-01` through `validation-03`). Each logical job uses four physical
+workload shards, for 24 collection jobs. Every workload retains exactly 105
+pairs on one physical runner and one independently built variant set.
+Each pair measures the existing five variants (`a`, `b`, `layout`, `extra_work`,
+`extra_alloc`) in the balanced five-position order, with a fresh process and
+isolated output for every measurement. There is no adaptive stopping,
+retry-for-luck, best-sample selection, outlier deletion, or pooling of one
+workload's samples across hosts/builds. Neither role trains an allowance.
 
-Every independently built variant now contains both benchmark executables:
-`analysis` (51 workloads) and `reference_locations` (three workloads). Each
-logical sample runs them in that order, in two distinct fresh processes with
-separate output directories. The fixed experiment therefore contains 1,050
-benchmark-process executions per job, without changing the 105 paired samples
-used for each workload/event comparison.
+Every independently built variant declares both benchmark executables:
+`analysis` (99 workloads) and `reference_locations` (three workloads). Within
+each executable, sorted frozen function identities are assigned by position
+modulo four. Every selected function keeps its complete original case vector,
+including all parameter IDs. The assignment is identical across all five variants;
+the complete preplanned manifest and exact selected identities are retained.
+A physical shard measures only whole assigned functions. Within one side of a
+pair, independent selected functions still run through at most four original
+`iai-callgrind-runner 0.16.1` processes. All 102 workloads, 105 pairs per workload,
+five variants, balanced order, cache settings, counters, limits and deadlines
+remain required across the complete logical job. No next side or variant starts
+until all current runners in that shard finish.
+
+The collector captures each frozen executable's original bincode descriptor
+through a private PATH shim, without recompiling the benchmark or replacing the
+installed runner. Capture validates the complete original `--list` manifest
+before selecting whole shard-owned functions. Outer slots, original dispatch
+indices, configuration, argv and every original case payload/order remain
+unchanged; case vectors are never compacted or renumbered. Main/group setup or teardown and
+cross-function comparisons are rejected; per-case setup remains in the original child.
+Measurement runners receive the original environment, not the capture PATH.
+The runtime shim stays outside retained evidence and is removed before sampling.
+
+Each function retains its descriptor, command and raw stdout/stderr. Benchmark
+stdout/stderr aggregates preserve target/function order; profiles remain in each
+benchmark's fresh `iai` home. Runner errors stop new dispatch and join every
+in-flight child before returning. The existing supervisor still owns the process
+group and deadline; incomplete output cannot acquire a `sample.json` commit
+marker. This orchestration requires fresh fixed-series qualification; a local
+frozen-binary smoke or historical serial controls do not qualify it.
+
+Semantic extraction added 45 workloads to the original 54-workload scope. The
+three shared-dependency cold-view cases extend that scope to 102 workloads.
+Qualification requires all 102; the earlier 54- and 99-workload controls do not
+qualify this expanded scope. Ordinary source admission still compares every
+existing baseline workload and reports candidate-only workloads as unpaired
+until a later baseline contains them. No existing workload, metric, numeric
+allowance, or benchmark guard boundary changes.
+
+The complete 102-workload collection in
+[run 41111209224](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/41111209224)
+was rejected by the stale reporter expectation of 99. All 24 compact inputs were
+recovered with original ZIP digests, CRCs and source/producer identities verified.
+Re-reporting that unchanged data with the strict 102-workload expectation passes
+full 3/3/105/4 coverage, A/A repeatability and positive-control sensitivity.
+Every per-job comparison and diagnostic Markdown row is byte-identical to the
+original failed report. This adds no SUT measurements, does not retroactively
+change the GitHub run, and grants neither performance admission nor qualification
+to a later source revision.
 
 Evidence format v2 binds each benchmark's actual `--list` identities, executable
 hash and raw stdout/stderr to its frozen variant source. Both original harness
@@ -503,7 +732,7 @@ hashes are retained; the reference-location harness is not modified. Workload
 sets must be complete, disjoint and consistent across variants. Reports expose
 the benchmark scope and reparse both raw outputs before accepting merged counts.
 Historical v1 evidence remains explicitly analysis-only and cannot be mixed
-with v2 evidence or used to establish complete 54-workload control coverage.
+with v2 evidence or used to qualify the expanded all-benchmark scope.
 
 For each job, variant, workload and event separately, the reporter sorts the
 105 exact signed paired residuals:
@@ -539,9 +768,15 @@ reliability, whole-editor latency, or the probability of a future raw failure.
 There are no tail-confidence or zero-tail-failure claims, even when every
 observed A/A comparison passes.
 
-Control validation requires complete 3/3/105 coverage of all 54 workloads across
-both executables, enforced with `--expected-workloads 54 --require-all-benchmarks`,
-and all of the following:
+Control validation requires complete 3/3/105 coverage of all 102 workloads across
+both executables, enforced with `--expected-workloads 102 --require-all-benchmarks`
+and `--expected-shards 4`. Each logical job must contain every shard exactly once,
+with disjoint/exhaustive deterministic selection and one physical host per
+workload series. Source, full-manifest digest, method, role, variant sources,
+scope/profile and run/attempt must match; physical runner and evidence identities
+remain explicit instead of being silently pooled. Missing, overlapping, duplicate,
+unknown, shuffled, stale or mixed-identity shards reject the logical job.
+All of the following are still required:
 
 - Every source-identical `b` versus `a` workload/event comparison passes in
   every discovery and validation job independently.
@@ -561,19 +796,83 @@ control-validation command exits unsuccessfully.
 
 The workflow uses native Ubuntu 24.04, Rust 1.98.1, Iai-Callgrind runner 0.16.1,
 and checksum/provenance-bound Valgrind 3.27.1, matching the raw collector.
-Each collection job has a fixed 360-minute timeout; collection itself is limited
-to 330 minutes, leaving time for failure evidence and uploads. This allows the
-full predeclared sample count rather than reducing it to fit a shorter deadline.
+Each collection job has a fixed 360-minute timeout; measurement itself remains
+limited to 330 minutes. The 332-minute collection step includes a separate
+cleanup reserve before sealed evidence and uploads. Missing pairs still fail
+coverage; the reserve neither extends measurement time nor qualifies a scope.
+
+The expanded-scope [run 39103430549](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/39103430549)
+hit that 330-minute measurement limit on all six jobs, and all six raw uploads
+failed. Its official report rejects `no data.json datasets found` as
+`insufficient_evidence`. In-progress directory names are not completed-pair
+counts. This is not qualification of the 99-workload scope or a reason to
+reduce coverage, pool hosts or widen limits.
 Actions are SHA-pinned; checkouts do not persist credentials; permissions are
 read-only; only trusted manual main runs save tool/download caches, never
 benchmark object caches.
 There is no privileged PR-code execution, environment approval, release or
 nightly schedule. The always-run report job downloads only this run and
-attempt's six collection artifacts and checks full coverage even after
-collection or download failure. Raw results, failure diagnostics, profiler
-provenance and reports are retained for 14 days. Existing Rust control contracts
-remain mandatory. The obsolete prospective-only workflow has been replaced by
-this single qualified control workflow.
+attempt's 24 compact report inputs and checks full logical coverage even after
+collection or download failure. Raw results, per-shard provenance, failure
+diagnostics and reports are retained for 14 days. Existing Rust control
+contracts remain mandatory. Legacy unsharded evidence remains readable, but it
+cannot satisfy a report requesting four shards or turn old partial coverage green.
+
+### Report transport and original-evidence replay
+
+On [run 40545135794 attempt 1](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40545135794),
+all 24 physical collections and their sealed full raw artifacts succeeded. Its
+report job then asked `actions/download-artifact@v8.0.1` for all 24 raw ZIPs
+(138–233 MB each, about 4.5 GB total) and extracted them while streaming. The
+retained log shows 24 download starts and no successful completion; the action
+reported `Artifact download failed after 5 retries.` The action did not reach
+digest validation, whose failure has a different message. Because extraction is
+streamed, a partially extracted
+`performance-calibration-40545135794-1-discovery-01-shard-0/data.json` remained.
+The unchanged reporter parsed that truncated JSON, rejected it as an
+`unterminated JSON string`, and correctly wrote `insufficient_evidence`. No
+control verdict exists for that attempt, and the run remains failed. The exact
+network cause of the action's five stream retries is not in the retained log;
+the full-raw batch is the observed operating condition, not a proven root cause.
+
+The permanent workflow separates transport from the authoritative validator.
+After each full raw artifact is sealed and successfully uploaded, the collecting
+job publishes a second, separate artifact named
+`performance-calibration-report-input-RUN-ATTEMPT-JOB-shard-N`. It contains the
+original `data.json` bytes, every referenced `raw_stdout`/`raw_stderr`, every
+referenced pair `collection.json` receipt, `collection-lifecycle.json`, a copy of
+the sealed `snapshot-publication.json`, and `report-input.json`. The last file
+records the retained raw artifact's name, numeric id and server digest, the source
+run/attempt/runner/source revision,
+producer workflow revision and run, SHA-256 and size of every copied file, the
+publication-manifest digest, and a canonical input digest. The helper copies only
+this dependency closure; Callgrind profiles remain only in the full raw artifact.
+The report job downloads these compact inputs only, verifies their structure,
+closure, digests, unique shard coverage, producer revision and pinned run before
+running the unchanged Rust report. Missing, duplicate, extra, truncated or
+mismatched inputs fail closed, and the Rust report still runs to retain an honest
+diagnostic. Raw artifacts remain uploaded and failure-preserving.
+
+The completed, unprivileged
+[`performance-calibration-report-replay`](https://github.com/IlyaGulya/bend2-lsp-rs/blob/ca9ee1148ef77b9c2ff1bb2e726992524a4b04b9/.github/workflows/performance-calibration-report-replay.yml)
+is retained on its immutable diagnostic revision, not in the permanent workflow
+set: it pins historical artifacts with finite retention. Its
+[successful replay](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40748160733)
+uses empty top-level permissions and records the original repository, run
+`40545135794` attempt `1`, collected source
+`12afbf96e8e5ed18462de42bdc1b265791673ff9`, and actual wrapper revision
+separately; it never spoofs `GITHUB_SHA`. Six bounded export jobs each download
+their original four ZIP byte streams with `skip-decompress: true` and
+`digest-mismatch: error`. Before publishing any compact input, export verifies
+the whole GitHub artifact digest and every original member's CRC, including
+omitted profiles, without bulk extraction. The report job builds the unchanged
+historical Rust reporter, verifies all 24 compact inputs, and runs the original
+3/3/105/4/99 method. Independent replay reproduces all 748,440 raw policy
+comparisons and 7,128 repeated comparisons: all 1,782 A/A rows pass and all
+18 required held-out controls classify regression. This is new evidence over
+the original complete data, not retroactive success for the failed transport.
+The generic transport CLI remains available for future retained-evidence
+recovery; no permanently stale, hardcoded historical-run workflow is shipped.
 
 A maintainer can dispatch the controls on a reviewed source revision:
 
@@ -581,15 +880,20 @@ A maintainer can dispatch the controls on a reviewed source revision:
 gh workflow run performance-calibration.yml --ref <reviewed-ref>
 ```
 
-For retained artifacts, the equivalent report command is:
+For retained artifacts from the current 102-workload scope, the report command is:
 
 ```bash
 bend2-perf calibration report INPUT \
   --method paired-median-105-v1 --require-control-validation \
   --expected-discovery-jobs 3 --expected-validation-jobs 3 --expected-pairs 105 \
-  --expected-workloads 54 --require-all-benchmarks \
+  --expected-workloads 102 --require-all-benchmarks --expected-shards 4 \
   --json-output report.json --markdown-output report.md
 ```
+
+Historical replay keeps its original predeclared scope: the 99-workload source
+above still requires 99, not 102. A current 102-workload collection must not be
+rejected by that stale count, and an older partial collection cannot be admitted
+by changing its expected count after observing missing results.
 
 Collection remains hosted-only. The default raw report method is retained for
 historical datasets; the active workflow explicitly selects the qualified
@@ -968,8 +1272,9 @@ recorder. Linux ARM64 software-clock DWARF capture requests the complete
 baseline register set, excluding hardware-only SVE VG.
 
 Before creating the cold LSP, native Instruments preparation starts a one-second
-Time Profiler run on `/usr/bin/true` to initialize Apple's tracing and
-authorization services, under the existing 300-second preparation-command bound.
+Time Profiler run attached to the already-live profiling harness PID to initialize
+Apple's tracing and authorization services, under the existing 300-second
+preparation-command bound. This avoids a throwaway target exiting during recorder startup.
 Its trace and command logs are preparation evidence, not scenario samples.
 The actual LSP capture still requires its own tracing-started notification
 within 60 seconds.
@@ -1486,4 +1791,72 @@ measured 26.8% less peak live heap and 19.6% less allocation traffic; it does
 not isolate the later editor completion features. Quality passed locally
 (184 tests, one skip) and in hosted run 37815011492.
 Instruction, cache, baseline, retry, and benchmark policies remain unchanged.
+
+## Maintainer-approved semantic qualification contract
+
+The maintainer explicitly accepted the bounded trade-off recorded in the
+[35-row acceptance report](https://github.com/IlyaGulya/bend2-lsp-rs/pull/62#issuecomment-6445993215)
+for application source `a2eaa2255e5baa3e012e9796e4d1cd51bee72334` against
+`8ba06b117e8453959baa2157f857fa2e055fc887`. The original
+[comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40449759671)
+remains a numerical regression: one Ir, 25 I1mr and nine ILmr rows. The report
+retains all 105 pairs, authoritative counts/bounds, actual seven-round LSP-process
+observations, higher cold/readiness costs, memory observations and causal limits.
+It does not claim that cache pressure is free or that editors universally improve.
+
+This approval is not an automatic waiver. Infrastructure-only qualification
+changes must prove unchanged application and benchmark SUT inputs; the complete
+Rust infrastructure fingerprint may change and must be reported honestly.
+A fresh ordinary comparison still uses the frozen baseline, original workloads,
+all nine counters, `paired-median-105-v1` and unchanged numeric allowances.
+Only the existing explicitly requested, protected exact-source/run owner review
+can admit a valid regression after its bounded acceptance report is published.
+Additional failed rows or larger unapproved bounds require a new decision.
+Missing, inconclusive, corrupt or incomplete evidence never becomes reviewable.
+No prior environment approval can authorize a later run or attempt.
+
+The fresh exact-source [105-pair comparison](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40545135412)
+for `12afbf96e8e5ed18462de42bdc1b265791673ff9` retains the same 35
+regression identities. The maintainer explicitly approved only these five
+updated finite I1mr upper bounds in the
+[fresh bound report](https://github.com/IlyaGulya/bend2-lsp-rs/pull/62#issuecomment-6477326197):
+
+| Workload | Case | Approved I1mr relative upper bound |
+|---|---|---:|
+| `workspace_burst_revision_invalidation` | `sixteen_revisions` | `5149/11942` |
+| `workspace_incremental_invalidation` | `hundred_files` | `407/871` |
+| `workspace_orphan_graph_release` | `hundred_files` | `21104/50979` |
+| `workspace_symbols_warm` | `case_insensitive` | `3/13` |
+| `workspace_symbols_warm` | `empty` | `13/42` |
+
+The other 30 caps were not expanded. After complete runtime/control
+qualification, the protected owner review admitted this exact source/run,
+attempt 1; all nine performance jobs completed successfully.
+The [final admission record](https://github.com/IlyaGulya/bend2-lsp-rs/pull/62#issuecomment-6486467451)
+does not authorize another source or attempt, hide the strict numerical
+regressions, or bypass a later PR's checks.
+
+The maintainer separately approved semantic profile
+`semantic-pr-v8-full-reference-budget`: successful-run p95 at most 120 seconds
+and a uniform 240-second hard supervisor bound, including the fixed
+128/256/512-project support phases. Setup, shutdown reserve, aggregate RSS,
+artifact/output limits, corpus, compiler/Base bytes, GC/JIT policy, parity,
+histories and isolation remain unchanged. The outer calibration job has enough
+orchestration headroom for these measured bounds; it does not enlarge them.
+The fresh [v8 qualification](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40545168208)
+completed all 20 normal runs on five VMs and every supporting phase for
+source `12afbf96e8e5ed18462de42bdc1b265791673ff9`. Independent replay of the
+original report command reproduced all 16 stage distributions.
+
+| Measured runtime quantity | Observed | Accepted bound |
+|---|---:|---:|
+| Normal successful-run p95 | 101.163 seconds | 120 seconds |
+| Maximum fixed 512-project run | 181.321 seconds | 240-second hard limit |
+
+The earlier [v7 calibration](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/40506476317)
+remains failed under its then-current 60-second p95 target and 120-second hard
+bound. Its 20 successful normal runs and five failed 512-project support phases
+cannot be rescored or mixed with v8 reports. Neither this runtime decision nor
+the bounded application-cost decision waives complete control qualification,
+quality, source identity, review protection, or any release/publication gate.
 

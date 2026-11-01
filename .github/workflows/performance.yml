@@ -125,10 +125,14 @@ jobs:
         # Collection, regression and uncertainty retain distinct exit codes.
         # Only the post-inventory validator may classify the retained evidence.
         continue-on-error: true
-        timeout-minutes: 210
+        # Keep the 210-minute measurement budget; reserve separate cleanup time.
+        timeout-minutes: 212
         run: |
           benchmark_status=0
-          "$RUNNER_TEMP/bend2-perf" paired collect \
+          "$RUNNER_TEMP/bend2-perf" workflow supervise \
+            --timeout-seconds 12600 \
+            --receipt "$RUNNER_TEMP/paired-collection-lifecycle.json" -- \
+            "$RUNNER_TEMP/bend2-perf" paired collect \
             --baseline-source "$RUNNER_TEMP/paired-main" \
             --candidate-source "$GITHUB_WORKSPACE" \
             --work-dir "$RUNNER_TEMP/paired-work" \
@@ -232,12 +236,22 @@ jobs:
             printf 'environment_id=%s\nprior_approval_count=%s\n' \
               "$environment_id" "$prior_approval_count" >> "$GITHUB_OUTPUT"
           fi
+      - name: Seal stopped Callgrind evidence
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/paired-collection-lifecycle.json" ]]; then
+            mkdir -p "$PERF_ROOT"
+            cp "$RUNNER_TEMP/paired-collection-lifecycle.json" "$PERF_ROOT/collection-lifecycle.json"
+          fi
+          "$RUNNER_TEMP/bend2-perf" workflow seal \
+            --source "$PERF_ROOT" \
+            --output "$RUNNER_TEMP/callgrind-artifact"
       - name: Preserve raw baseline and candidate Callgrind evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: callgrind-${{ github.run_id }}-${{ github.run_attempt }}
-          path: target/iai/bend2-lsp/analysis/
+          path: ${{ runner.temp }}/callgrind-artifact/
           if-no-files-found: error
           retention-days: 14
 
@@ -456,6 +470,39 @@ jobs:
             --baseline-revision "$BASE_SHA" --candidate-revision "$CANDIDATE_SHA" \
             --commands-file "$PERF_ROOT/commands.txt" --binary-dir "$TIMING_BIN_DIR" \
             --output "$PERF_ROOT/provenance.json"
+      - name: Record exact server binary sizes for bounded owner review
+        run: |
+          python=python3
+          if [[ "$RUNNER_OS" == Windows ]]; then python=python; fi
+          "$python" - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          binaries = {}
+          for arm, filename, revision in (
+              ("baseline", "main", os.environ["BASE_SHA"]),
+              ("candidate", "candidate", os.environ["CANDIDATE_SHA"]),
+          ):
+              path = Path(os.environ["TIMING_BIN_DIR"]) / (filename + os.environ["EXE_SUFFIX"])
+              with path.open("rb") as stream:
+                  digest = hashlib.file_digest(stream, "sha256").hexdigest()
+              binaries[arm] = {
+                  "source_revision": revision,
+                  "bytes": path.stat().st_size,
+                  "sha256": digest,
+              }
+          report = {
+              "schema": 1,
+              "target": os.environ["PERF_TARGET"],
+              "scope": "Server binary identity and size; not a new performance metric or allowance.",
+              "binaries": binaries,
+          }
+          (Path(os.environ["PERF_ROOT"]) / "server-binary-sizes.json").write_text(
+              json.dumps(report, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
       - name: Measure alternating baseline and candidate LSP latency on this runner
         id: latency
         run: |

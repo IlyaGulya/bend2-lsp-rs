@@ -125,6 +125,7 @@ version = "0.6.2"
 dependencies = [
  "base64",
  "dhat",
+ "hashbrown 0.17.1",
  "iai-callgrind",
  "ignore",
  "nix",
@@ -146,9 +147,11 @@ dependencies = [
 name = "bend2-perf"
 version = "0.6.2"
 dependencies = [
+ "bincode",
  "clap",
  "ctrlc",
  "encoding_rs_io",
+ "iai-callgrind-runner",
  "libproc",
  "nix",
  "quick-xml",
@@ -158,6 +161,16 @@ dependencies = [
  "tempfile",
  "url",
  "winsafe",
+]
+
+[[package]]
+name = "bend2-semantic-probe"
+version = "0.6.2"
+dependencies = [
+ "bend2-lsp",
+ "serde_json",
+ "tempfile",
+ "url",
 ]
 
 [[package]]

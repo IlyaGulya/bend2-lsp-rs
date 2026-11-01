@@ -729,10 +729,10 @@ mod protocol {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
-        fs::write(workspace.join("dep.bend"), "def shared():\n  0\n")
+        fs::write(workspace.join("dep.bend"), "def shared() -> U32:\n  0\n")
             .must_be("write imported module");
         let main_path = workspace.join("main.bend");
-        let source = "import ./dep.bend as Dep\ndef shadowed(Dep: U32) -> U32:\n  Dep.sh\ndef unshadowed() -> U32:\n  Dep.sh\n";
+        let source = "import ./dep.bend as Dep\ndef shadowed(Dep.shared: U32) -> U32:\n  Dep.sh\ndef unshadowed() -> U32:\n  Dep.sh\ndef prefix_only(Dep: U32) -> U32:\n  Dep.sh\n";
         fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let uri = Url::from_file_path(&main_path)
@@ -745,12 +745,21 @@ mod protocol {
             "textDocument/completion",
             json!({"textDocument":{"uri":uri},"position":{"line":2,"character":8}}),
         );
+        let shadowed_items = shadowed["result"]
+            .as_array()
+            .or_else(|| shadowed["result"]["items"].as_array())
+            .must_be("shadowed completion items");
         assert!(
-            shadowed["result"]
-                .as_array()
-                .or_else(|| shadowed["result"]["items"].as_array())
-                .must_be("shadowed completion items")
-                .is_empty()
+            !shadowed_items
+                .iter()
+                .any(|item| item["label"] == "shared" && item["kind"] == 3),
+            "a complete-atom binding must hide the imported function: {shadowed}"
+        );
+        assert!(
+            shadowed_items
+                .iter()
+                .any(|item| item["label"] == "Dep.shared" && item["kind"] == 6),
+            "the complete local binding must remain available: {shadowed}"
         );
         let unshadowed = client.request(
             "textDocument/completion",
@@ -764,6 +773,19 @@ mod protocol {
                 .iter()
                 .any(|item| item["label"] == "shared" && item["kind"] == 3),
             "the unshadowed import must still offer its members: {unshadowed}"
+        );
+        let prefix_only = client.request(
+            "textDocument/completion",
+            json!({"textDocument":{"uri":uri},"position":{"line":6,"character":8}}),
+        );
+        assert!(
+            prefix_only["result"]
+                .as_array()
+                .or_else(|| prefix_only["result"]["items"].as_array())
+                .must_be("prefix-binding module completion result")
+                .iter()
+                .any(|item| item["label"] == "shared" && item["kind"] == 3),
+            "a prefix-only binder must not shadow the complete imported name: {prefix_only}"
         );
         client.finish();
     }
@@ -807,7 +829,16 @@ mod protocol {
             .or_else(|| body["result"]["items"].as_array())
             .must_be("completion result");
         assert!(items.iter().any(|item| item["label"] == "PairFactory"));
-        assert!(!items.iter().any(|item| item["kind"] == 4));
+        let mut pairs = items.iter().filter(|item| item["label"] == "Pair");
+        let pair = pairs.next().must_be("expression completion offers Pair");
+        assert!(
+            pairs.next().is_none(),
+            "body offers the constructor once: {body}"
+        );
+        assert_eq!(
+            pair["kind"], 4,
+            "constructors are ordinary expression names too: {body}"
+        );
         client.finish();
     }
     #[test]
@@ -832,7 +863,7 @@ mod protocol {
         let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         open_clean_document(&mut client, &uri, source);
-        for (line, expected) in [(3, Vec::new()), (6, vec![json!("Pair")])] {
+        for (line, expected) in [(3, vec![json!("Pair")]), (6, vec![json!("Pair")])] {
             let response = client.request(
                 "textDocument/completion",
                 json!({"textDocument":{"uri":uri},"position":{"line":line,"character":15}}),
@@ -850,7 +881,7 @@ mod protocol {
             );
             assert!(items.iter().all(|item| item["kind"] == 4));
         }
-        let revised = "type Local is Data:\n  Fresh\n  Other\ndef main(value: U32):\n  match value:\n    case ";
+        let revised = "type Local is Data:\n  Fresh{}\n  Other{}\ndef main(value: U32):\n  match value:\n    case ";
         client.notify(
             "textDocument/didChange",
             json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":revised}]}),
@@ -875,7 +906,7 @@ mod protocol {
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
         let main_path = workspace.join("main.bend");
-        let source = "def inspect(outer: U32):\n  match outer:\n    case Pair(inner):\n      in\n    case Empty:\n      in\n";
+        let source = "def inspect(outer: U32):\n  match outer:\n    case Pair{inner}:\n      in\n    case Empty{}:\n      in\n";
         fs::write(&main_path, source).must_be("write source");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let uri = Url::from_file_path(&main_path)
@@ -897,7 +928,7 @@ mod protocol {
                 .any(|item| item["label"] == "inner" && item["kind"] == 6);
             assert_eq!(has_inner, visible, "case bindings must stay in their arm");
         }
-        let revised = "def inspect(updated_outer: U32):\n  match updated_outer:\n    case Pair(latest):\n      ";
+        let revised = "def inspect(updated_outer: U32):\n  match updated_outer:\n    case Pair{latest}:\n      ";
         client.notify(
             "textDocument/didChange",
             json!({"textDocument":{"uri":uri,"version":2},"contentChanges":[{"text":revised}]}),
@@ -1049,19 +1080,20 @@ mod protocol {
     }
     const PENDING_IMPORT_CALLS: usize = 1_200;
 
-    fn open_pending_importer_fixture() -> (tempfile::TempDir, LspClient, String, String) {
+    fn open_pending_importer_fixture() -> (tempfile::TempDir, LspClient, String, String, Value) {
         let temp = tempdir().must_be("temporary workspace");
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
         let importer_path = workspace.join("main.bend");
         let module_path = workspace.join("dep.bend");
         let module = "def clamp(x: U32) -> U32:\n  x\n";
-        let mut importer = String::from("import dep.bend as Dep\n");
+        let mut importer = String::from("import ./dep.bend as Dep\n");
         for index in 0..PENDING_IMPORT_CALLS {
-            write!(importer, "def use_{index}: U32\n  Dep.clamp(1)\n")
+            write!(importer, "def use_{index}() -> U32:\n  Dep.clamp(1)\n")
                 .must_be("append importing call");
         }
-        fs::write(&importer_path, &importer).must_be("write importing source");
+        fs::write(&importer_path, "def disk_only() -> U32:\n  0\n")
+            .must_be("write unopened source without pending calls");
         fs::write(&module_path, module).must_be("write declaration module");
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let importer_uri = Url::from_file_path(&importer_path)
@@ -1075,21 +1107,33 @@ mod protocol {
         client.notify(
             "textDocument/didOpen",
             json!({"textDocument":{
-                "uri":importer_uri,"languageId":"bend","version":1,"text":importer
+                "uri":module_uri,"languageId":"bend","version":1,"text":module
             }}),
+        );
+        let prepared = client.request(
+            "textDocument/prepareCallHierarchy",
+            json!({"textDocument":{"uri":module_uri},"position":{"line":0,"character":5}}),
+        );
+        let item = prepared["result"][0].clone();
+        assert_eq!(item["name"], "clamp", "prepare a real context-owned handle");
+        let before_open = client.request("callHierarchy/incomingCalls", json!({"item":item}));
+        assert_eq!(
+            before_open["result"],
+            json!([]),
+            "the pending caller overlay must not already be present on disk"
         );
         client.notify(
             "textDocument/didOpen",
             json!({"textDocument":{
-                "uri":module_uri,"languageId":"bend","version":1,"text":module
+                "uri":importer_uri,"languageId":"bend","version":1,"text":importer
             }}),
         );
-        (temp, client, importer_uri, module_uri)
+        (temp, client, importer_uri, module_uri, item)
     }
 
     #[test]
     fn immediate_workspace_symbols_include_preceding_pending_importer() {
-        let (_temp, mut client, importer_uri, _module_uri) = open_pending_importer_fixture();
+        let (_temp, mut client, importer_uri, _module_uri, _item) = open_pending_importer_fixture();
         let response = client.request("workspace/symbol", json!({"query":"use_1199"}));
         assert!(
             response["result"]
@@ -1104,14 +1148,7 @@ mod protocol {
 
     #[test]
     fn immediate_incoming_calls_include_preceding_pending_importer() {
-        let (_temp, mut client, importer_uri, module_uri) = open_pending_importer_fixture();
-        let item = json!({
-            "name":"clamp",
-            "kind":12,
-            "uri":module_uri,
-            "range":{"start":{"line":0,"character":0},"end":{"line":1,"character":3}},
-            "selectionRange":{"start":{"line":0,"character":4},"end":{"line":0,"character":9}}
-        });
+        let (_temp, mut client, importer_uri, _module_uri, item) = open_pending_importer_fixture();
         let response = client.request("callHierarchy/incomingCalls", json!({"item":item}));
         let callers = response["result"]
             .as_array()
@@ -1170,7 +1207,25 @@ mod protocol {
             "textDocument/didOpen",
             json!({"textDocument":{"uri":target_uri,"languageId":"bend","version":1,"text":target}}),
         );
-        let response = client.request("callHierarchy/outgoingCalls", json!({"item":caller_item}));
+        let stale_id =
+            client.send_request("callHierarchy/outgoingCalls", json!({"item":caller_item}));
+        let stale = client
+            .receive_matching(Duration::from_secs(10), |response| {
+                response["id"] == stale_id
+            })
+            .must_be("stale caller response after pending dependency update");
+        assert_eq!(
+            stale["error"]["code"], -32801,
+            "dependency updates invalidate old context handles"
+        );
+        let prepared = client.request(
+            "textDocument/prepareCallHierarchy",
+            json!({"textDocument":{"uri":caller_uri},"position":{"line":1,"character":5}}),
+        );
+        let response = client.request(
+            "callHierarchy/outgoingCalls",
+            json!({"item":prepared["result"][0]}),
+        );
         assert!(
             response["result"].as_array().is_some_and(|calls| calls
                 .iter()
@@ -1182,7 +1237,7 @@ mod protocol {
 
     #[test]
     fn immediate_references_include_preceding_pending_importer() {
-        let (_temp, mut client, importer_uri, module_uri) = open_pending_importer_fixture();
+        let (_temp, mut client, importer_uri, module_uri, _item) = open_pending_importer_fixture();
         let params = json!({
             "textDocument":{"uri":module_uri},
             "position":{"line":0,"character":6},
@@ -1228,7 +1283,7 @@ mod protocol {
 
     #[test]
     fn immediate_rename_includes_preceding_pending_importer() {
-        let (_temp, mut client, importer_uri, module_uri) = open_pending_importer_fixture();
+        let (_temp, mut client, importer_uri, module_uri, _item) = open_pending_importer_fixture();
         let response = client.request(
             "textDocument/rename",
             json!({
@@ -1598,7 +1653,7 @@ mod protocol {
                 ),
                 (
                     "entry.bend".to_owned(),
-                    "import ./common.bend as Common\ndef main: U32\n  Common.identity(1)\n"
+                    "import ./common.bend as Common\ndef main() -> U32:\n  Common.identity(1)\n"
                         .to_owned(),
                 ),
             ]);
@@ -1648,6 +1703,21 @@ mod protocol {
             for expected in &expected_symbols {
                 assert!(actual_symbols.contains(expected), "{symbols}");
             }
+            for root in [&common_uri, &entry_uri] {
+                let semantic = client.request(
+                    "bend2/semanticDocument",
+                    json!({"textDocument":{"uri":common_uri},"rootUri":root}),
+                );
+                assert_eq!(semantic["result"]["rootUri"], *root, "{semantic}");
+                assert_eq!(
+                    semantic["result"]["document"]["uri"], common_uri,
+                    "{semantic}"
+                );
+                assert_eq!(
+                    semantic["result"]["declarations"][0]["target"]["uri"], common_uri,
+                    "a cached unopened document must retain the selected entry context: {semantic}"
+                );
+            }
             // Neither the declaration nor any importer has received didOpen.
             // Both cursor sources must address the same full workspace identity.
             for (uri, line, character) in [(&common_uri, 0, 7), (&entry_uri, 2, 12)] {
@@ -1681,12 +1751,13 @@ mod protocol {
         let common_path = workspace.join("common.bend");
         let entry_path = workspace.join("entry.bend");
         let unopened_path = workspace.join("unopened.bend");
-        fs::write(&common_path, "def project_value = 1\n").must_be("write declaration");
-        let entry = "import ./common.bend as Common\ndef entry = Common.project_value\n";
+        fs::write(&common_path, "def project_value() -> U32:\n  1\n").must_be("write declaration");
+        let entry =
+            "import ./common.bend as Common\ndef entry() -> U32:\n  Common.project_value()\n";
         fs::write(&entry_path, entry).must_be("write entry");
         fs::write(
             &unopened_path,
-            "import ./common.bend as Common\ndef unopened = Common.project_value\n",
+            "import ./common.bend as Common\ndef unopened() -> U32:\n  Common.project_value()\n",
         )
         .must_be("write unopened importer");
         let common_uri = regression_file_uri(&common_path);
@@ -1696,7 +1767,7 @@ mod protocol {
         let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
         open_clean_document(&mut client, &entry_uri, entry);
-        let params = json!({"textDocument":{"uri":entry_uri},"position":{"line":1,"character":20},
+        let params = json!({"textDocument":{"uri":entry_uri},"position":{"line":2,"character":10},
             "context":{"includeDeclaration":true}});
         let references = client.request("textDocument/references", params.clone());
         let locations = references["result"]
@@ -1704,8 +1775,8 @@ mod protocol {
             .must_be("reference locations");
         let expected = [
             (common_uri.as_str(), 0, 4, 17),
-            (entry_uri.as_str(), 1, 19, 32),
-            (unopened_uri.as_str(), 1, 22, 35),
+            (entry_uri.as_str(), 2, 9, 22),
+            (unopened_uri.as_str(), 2, 9, 22),
         ];
         for (uri, line, start, end) in expected {
             let range = json!({"start":{"line":line,"character":start},"end":{"line":line,"character":end}});
@@ -1716,7 +1787,7 @@ mod protocol {
         }
         assert_eq!(locations.len(), 3, "each declaration/use appears once");
         let rename = client.request("textDocument/rename", json!({
-            "textDocument":{"uri":entry_uri},"position":{"line":1,"character":20},"newName":"project_replaced"
+            "textDocument":{"uri":entry_uri},"position":{"line":2,"character":10},"newName":"project_replaced"
         }));
         for (uri, line, start, end) in expected {
             assert_eq!(
@@ -1761,12 +1832,11 @@ mod protocol {
             let path = workspace.join(relative);
             fs::create_dir_all(path.parent().must_be("source parent"))
                 .must_be("create source directory");
-            fs::write(path, format!("def {name} = 1\n")).must_be("write source");
+            fs::write(path, format!("def {name}() -> U32:\n  1\n")).must_be("write source");
         }
         let entry_path = workspace.join("entry.bend");
-        let entry =
-            "import ./ignored/library.bend as Ignored\ndef entry = Ignored.project_ignored\n";
-        fs::write(&entry_path, "def entry = 1\n").must_be("write unopened entry");
+        let entry = "import ./ignored/library.bend as Ignored\ndef entry() -> U32:\n  Ignored.project_ignored()\n";
+        fs::write(&entry_path, "def entry() -> U32:\n  1\n").must_be("write unopened entry");
         let entry_uri = regression_file_uri(&entry_path);
         let ignored_uri = regression_file_uri(&workspace.join("ignored/library.bend"));
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
@@ -1784,7 +1854,7 @@ mod protocol {
         let definition = client.request(
             "textDocument/definition",
             json!({
-                "textDocument":{"uri":entry_uri},"position":{"line":1,"character":21}
+                "textDocument":{"uri":entry_uri},"position":{"line":2,"character":12}
             }),
         );
         assert_eq!(definition["result"]["uri"], ignored_uri, "{definition}");
@@ -1879,30 +1949,50 @@ mod protocol {
         let workspace = temp.path().join("workspace");
         fs::create_dir_all(&workspace).must_be("create workspace");
         let path = workspace.join("library.bend");
-        let mut source = "def project_after_cancel = 1\n".to_owned();
-        source.push_str(&"# source indexing work\n".repeat(200_000));
-        fs::write(&path, source).must_be("write source awaiting discovery");
+        fs::write(&path, "def project_after_cancel() -> U32:\n  1\n")
+            .must_be("write source awaiting discovery");
+        // Hold the real ignore-file reader open: discovery cannot complete
+        // until the cancellation response has been observed.
+        let ignore_path = workspace.join(".ignore");
+        create_fifo(&ignore_path);
+        let (opened, waiting) = mpsc::channel();
+        let writer = thread::spawn(move || {
+            let file = fs::OpenOptions::new()
+                .write(true)
+                .open(ignore_path)
+                .must_be("open discovery synchronization FIFO");
+            opened.send(file).must_be("signal discovery reader");
+        });
         let uri = regression_file_uri(&path);
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
         let mut client = spawn_client(&compiler_dir);
         client.initialize(&workspace);
+        let discovery_release = waiting
+            .recv_timeout(Duration::from_secs(5))
+            .must_be("discovery must enter the ignore-file read");
+        writer
+            .join()
+            .must_be("join discovery synchronization writer");
+        let open_uri = regression_file_uri(&temp.path().join("ready.bend"));
+        open_clean_document(&mut client, &open_uri, "def ready() -> U32:\n  0\n");
         let pending =
             client.send_request("workspace/symbol", json!({"query":"project_after_cancel"}));
         client.request(
             "textDocument/documentSymbol",
-            json!({"textDocument":{"uri":uri}}),
+            json!({"textDocument":{"uri":open_uri}}),
         );
         client.notify("$/cancelRequest", json!({"id":pending}));
+        let cancelled = client
+            .receive_matching(Duration::from_secs(5), |message| message["id"] == pending)
+            .must_be("cancelled request response");
+        assert_eq!(cancelled["error"]["code"], -32800, "{cancelled}");
+        drop(discovery_release);
         let response = client.request("workspace/symbol", json!({"query":"project_after_cancel"}));
         assert_eq!(
             response["result"][0]["name"], "project_after_cancel",
             "{response}"
         );
         assert_eq!(response["result"][0]["location"]["uri"], uri);
-        let cancelled = client
-            .receive_matching(Duration::from_secs(5), |message| message["id"] == pending)
-            .must_be("cancelled request response");
-        assert_eq!(cancelled["error"]["code"], -32800, "{cancelled}");
         client.finish();
     }
     #[test]
@@ -4092,11 +4182,12 @@ mod protocol {
             "rename should update the declaration and local use: {rename}"
         );
         assert_eq!(
-            rename["result"]["changes"][&main_uri]
-                .as_array()
-                .map(Vec::len),
-            Some(1),
-            "rename should update only qualified code, not comments or strings: {rename}"
+            rename["result"]["changes"][&main_uri],
+            json!([
+                {"range":{"start":{"line":2,"character":6},"end":{"line":2,"character":11}},"newText":"renamed"},
+                {"range":{"start":{"line":7,"character":6},"end":{"line":7,"character":11}},"newText":"renamed"}
+            ]),
+            "comments and strings are excluded; a Dep parameter does not bind the dotted atom Dep.value: {rename}"
         );
         client.finish();
     }
@@ -5979,7 +6070,7 @@ mod protocol {
     fn b1_navigation_respects_parameter_shadowing_and_annotation_scope() {
         let temp = tempdir().must_be("temporary workspace");
         let main_path = temp.path().join("main.bend");
-        let source = "def target(value):\n  value\ndef shadow(target):\n  target(1)\ndef annotated(target: U32):\n  target\ntype Hidden:\n  One\ndef named(invisible: Hidden):\n  invisible\ndef unknown:\n  invisible\n";
+        let source = "def target(value):\n  value\ndef shadow(target):\n  target(1)\ndef annotated(target: U32):\n  target\ntype Hidden:\n  One{}\ndef named(invisible: Hidden):\n  invisible\ndef unknown:\n  invisible\n";
         fs::write(&main_path, source).must_be("write source");
         let uri = Url::from_file_path(&main_path)
             .must_be("source URI")
@@ -5994,11 +6085,16 @@ mod protocol {
             }}),
         );
         let position = json!({"textDocument":{"uri":uri},"position":{"line":3,"character":3}});
-        for method in [
-            "textDocument/definition",
-            "textDocument/hover",
-            "textDocument/typeDefinition",
-        ] {
+        let definition = client.request("textDocument/definition", position.clone());
+        assert_eq!(
+            definition["result"],
+            json!({
+                "uri":uri,
+                "range":{"start":{"line":2,"character":11},"end":{"line":2,"character":17}}
+            }),
+            "an untyped local parameter shadows the global definition"
+        );
+        for method in ["textDocument/hover", "textDocument/typeDefinition"] {
             let response = client.request(method, position.clone());
             assert_eq!(
                 response["result"],
@@ -6006,7 +6102,11 @@ mod protocol {
                 "shadowed untyped parameter: {method}"
             );
         }
-        for method in ["textDocument/hover", "textDocument/typeDefinition"] {
+        for method in [
+            "textDocument/definition",
+            "textDocument/hover",
+            "textDocument/typeDefinition",
+        ] {
             let response = client.request(
                 method,
                 json!({"textDocument":{"uri":uri},"position":{"line":11,"character":3}}),
@@ -6069,15 +6169,15 @@ mod protocol {
                 "textDocument":{"uri":uri,"version":1},
                 "edits":[
                     {"range":{"start":{"line":0,"character":21},"end":{"line":0,"character":25}},"newText":"NewLeft"},
+                    {"range":{"start":{"line":2,"character":2},"end":{"line":2,"character":6}},"newText":"NewLeft"},
                     {"range":{"start":{"line":4,"character":2},"end":{"line":4,"character":6}},"newText":"NewLeft"}
                 ]
             }]),
-            "rename must preserve the shadowed parameter and its member access"
+            "rename must edit actual qualified names even under a prefix-only binder"
         );
     }
 
-    #[test]
-    fn b2_b3_module_cursor_resolution_rejects_shadowed_members_and_renames_aliases() {
+    fn open_dotted_alias_fixture() -> (tempfile::TempDir, LspClient, String, String) {
         let temp = tempdir().must_be("temporary workspace");
         let main_path = temp.path().join("main.bend");
         let dep_path = temp.path().join("dep.bend");
@@ -6094,6 +6194,12 @@ mod protocol {
         let mut client = spawn_client(&compiler_dir);
         client.initialize(temp.path());
         open_clean_document(&mut client, &uri, source);
+        (temp, client, uri, dep_uri)
+    }
+
+    #[test]
+    fn b2_module_cursor_preserves_dotted_names_under_prefix_bindings() {
+        let (_temp, mut client, uri, dep_uri) = open_dotted_alias_fixture();
         for method in [
             "textDocument/definition",
             "textDocument/hover",
@@ -6109,12 +6215,43 @@ mod protocol {
                     "newName":"changed","context":{"includeDeclaration":true}
                 }),
             );
+            let expected = match method {
+                "textDocument/definition" => json!({
+                    "uri":dep_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}
+                }),
+                "textDocument/hover" => json!({
+                    "contents":{"kind":"markdown","value":"```bend\ndef shared(x: U32) -> U32\n```"}
+                }),
+                "textDocument/rename" => json!({"changes":{
+                    (uri.as_str()):[
+                        {"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}},"newText":"changed"},
+                        {"range":{"start":{"line":4,"character":7},"end":{"line":4,"character":13}},"newText":"changed"}
+                    ],
+                    (dep_uri.as_str()):[{"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}},"newText":"changed"}]
+                }}),
+                "textDocument/references" => json!([
+                    {"uri":dep_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}},
+                    {"uri":uri,"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}}},
+                    {"uri":uri,"range":{"start":{"line":4,"character":7},"end":{"line":4,"character":13}}}
+                ]),
+                "textDocument/documentHighlight" => json!([
+                    {"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}},"kind":1},
+                    {"range":{"start":{"line":4,"character":7},"end":{"line":4,"character":13}},"kind":1}
+                ]),
+                "textDocument/typeDefinition" => Value::Null,
+                _ => panic!("unexpected semantic request"),
+            };
             assert_eq!(
-                response["result"],
-                Value::Null,
-                "shadowed qualifier member: {method}"
+                response["result"], expected,
+                "a binder named Left must not shadow the complete name Left.shared: {method}"
             );
         }
+        client.finish();
+    }
+
+    #[test]
+    fn b3_module_cursor_navigates_and_safely_renames_aliases() {
+        let (_temp, mut client, uri, dep_uri) = open_dotted_alias_fixture();
         for (line, character) in [(0, 21), (4, 3)] {
             for method in [
                 "textDocument/hover",
@@ -6170,7 +6307,10 @@ mod protocol {
         assert_eq!(
             renamed["result"],
             json!({"changes":{
-                (uri):[{"range":{"start":{"line":4,"character":7},"end":{"line":4,"character":13}},"newText":"renamed"}],
+                (uri):[
+                    {"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}},"newText":"renamed"},
+                    {"range":{"start":{"line":4,"character":7},"end":{"line":4,"character":13}},"newText":"renamed"}
+                ],
                 (dep_uri):[{"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}},"newText":"renamed"}]
             }})
         );
@@ -6324,7 +6464,10 @@ mod protocol {
         let main_source = "import ./dep.bend as Dep\nimport ./consumer.bend as Consumer\ndef main: U32\n  Dep.shared(1)\n";
         let dep_source = "def shared(x: U32) -> U32:\n  x\n";
         let consumer_source = "import ./dep.bend as Dep\ndef consume: U32\n  Dep.shared(2)\n";
-        let updated_consumer = format!("{consumer_source}  Dep.shared(3)\n");
+        let updated_consumer = consumer_source.replace(
+            "  Dep.shared(2)\n",
+            "  _ = Dep.shared(2)\n  Dep.shared(3)\n",
+        );
         for (path, source) in [
             (&main_path, main_source),
             (&dep_path, dep_source),
@@ -6388,7 +6531,7 @@ mod protocol {
         let expected = [
             json!({"uri":dep_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}}),
             json!({"uri":main_uri,"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}}}),
-            json!({"uri":consumer_uri,"range":{"start":{"line":2,"character":6},"end":{"line":2,"character":12}}}),
+            json!({"uri":consumer_uri,"range":{"start":{"line":2,"character":10},"end":{"line":2,"character":16}}}),
             json!({"uri":consumer_uri,"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}}}),
         ];
         assert_reference_locations(locations, &expected);
@@ -6405,7 +6548,7 @@ mod protocol {
                     {"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}},"newText":"renamed"}
                 ],
                 (consumer_uri):[
-                    {"range":{"start":{"line":2,"character":6},"end":{"line":2,"character":12}},"newText":"renamed"},
+                    {"range":{"start":{"line":2,"character":10},"end":{"line":2,"character":16}},"newText":"renamed"},
                     {"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}},"newText":"renamed"}
                 ]
             }})
@@ -6613,7 +6756,7 @@ mod protocol {
     fn parameter_annotation_navigation_keeps_nested_type_boundaries() {
         let temp = tempdir().must_be("temporary workspace");
         let path = temp.path().join("main.bend");
-        let source = "type Hidden:\n  One\ndef typed(simple: U32, nested: (Hidden, List(U32)), tail: Hidden):\n  simple\n  nested\n  tail\n";
+        let source = "type Hidden is Data:\n  One{}\ndef typed(simple: U32, nested: (Hidden, List(U32)), tail: Hidden):\n  _ = simple\n  _ = nested\n  tail\n";
         fs::write(&path, source).must_be("write annotation source");
         let uri = regression_file_uri(&path);
         let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
@@ -6627,7 +6770,7 @@ mod protocol {
         ] {
             let hover = client.request(
                 "textDocument/hover",
-                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":3}}),
+                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":if line < 5 { 7 } else { 3 }}}),
             );
             assert_eq!(
                 hover["result"],
@@ -6636,12 +6779,788 @@ mod protocol {
         }
         let definition = client.request(
             "textDocument/typeDefinition",
-            json!({"textDocument":{"uri":uri},"position":{"line":4,"character":3}}),
+            json!({"textDocument":{"uri":uri},"position":{"line":4,"character":7}}),
         );
         assert_eq!(
             definition["result"],
             json!({"uri":uri,"range":{"start":{"line":0,"character":5},"end":{"line":0,"character":11}}}),
         );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_scopes_exclude_higher_order_locals_from_global_references() {
+        let temp = tempdir().must_be("temporary semantic workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def target(x):\n  x\ndef other(x):\n  x\ndef wrap:\n  target => target(1)\ndef main:\n  target = other\n  target(1)\n";
+        fs::write(&path, source).must_be("write semantic source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let references = client.request(
+            "textDocument/references",
+            json!({"textDocument":{"uri":uri},"position":{"line":0,"character":5},
+                "context":{"includeDeclaration":true}}),
+        );
+        assert_eq!(
+            references["result"],
+            json!([{"uri":uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}}}]),
+            "lambda and sequential-let bindings must not reference the global target"
+        );
+        let renamed = client.request(
+            "textDocument/rename",
+            json!({"textDocument":{"uri":uri},"position":{"line":5,"character":13},"newName":"local"}),
+        );
+        assert_eq!(
+            renamed["result"],
+            json!({"changes":{(uri):[
+                {"range":{"start":{"line":5,"character":2},"end":{"line":5,"character":8}},"newText":"local"},
+                {"range":{"start":{"line":5,"character":12},"end":{"line":5,"character":18}},"newText":"local"}
+            ]}}),
+            "lambda rename must include exactly its binder and bound use"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_call_hierarchy_links_law_body_and_offload_calls() {
+        let temp = tempdir().must_be("temporary call workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def helper(x):\n  x\nlaw identity:\n  for x: U32\n  U32\ndef identity(x):\n  helper!(x)\ndef main:\n  identity(1)\n";
+        fs::write(&path, source).must_be("write call source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let prepared = client.request(
+            "textDocument/prepareCallHierarchy",
+            json!({"textDocument":{"uri":uri},"position":{"line":2,"character":5}}),
+        );
+        let item = prepared["result"]
+            .as_array()
+            .and_then(|items| items.first())
+            .must_be("prepare law semantic entity")
+            .clone();
+        let outgoing = client.request("callHierarchy/outgoingCalls", json!({"item":item}));
+        let edges = outgoing["result"].as_array().must_be("outgoing call array");
+        assert_eq!(edges.len(), 1, "law must use its implementation body");
+        assert_eq!(edges[0]["to"]["name"], "helper");
+        assert_eq!(
+            edges[0]["fromRanges"],
+            json!([{"start":{"line":6,"character":2},"end":{"line":6,"character":8}}]),
+            "offload call retains its written callee range"
+        );
+        let incoming = client.request(
+            "callHierarchy/incomingCalls",
+            json!({"item":edges[0]["to"]}),
+        );
+        let callers = incoming["result"].as_array().must_be("incoming call array");
+        assert_eq!(callers.len(), 1);
+        assert_eq!(callers[0]["from"]["name"], "identity");
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":uri,"version":2},
+                "contentChanges":[{"text":source.replace("helper!(x)", "helper(x)")}]
+            }),
+        );
+        let stale = client.send_request("callHierarchy/outgoingCalls", json!({"item":item}));
+        let stale = client
+            .receive_matching(Duration::from_secs(10), |response| response["id"] == stale)
+            .must_be("stale hierarchy response");
+        assert_eq!(
+            stale["error"]["code"], -32801,
+            "stale view must not rebind by name"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_document_exposes_written_ranges_and_entry_context() {
+        let temp = tempdir().must_be("temporary metadata workspace");
+        let path = temp.path().join("main.bend");
+        let source = "# 🦀 Choose.\ndef choose(\n  x: U32,\n  y: U32\n) -> U32:\n  x\n\n# Next.\ndef main() -> U32:\n  choose(1, 2)\n";
+        fs::write(&path, source).must_be("write metadata source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request(
+            "bend2/semanticDocument",
+            json!({"textDocument":{"uri":uri}}),
+        );
+        let result = &response["result"];
+        assert_eq!(result["schemaVersion"], 1);
+        assert_eq!(result["rootUri"], uri);
+        assert_eq!(result["document"]["version"], 1);
+        let declarations = result["declarations"]
+            .as_array()
+            .must_be("metadata declarations");
+        let choose = declarations
+            .iter()
+            .find(|declaration| declaration["name"] == "choose")
+            .must_be("choose metadata");
+        assert_eq!(
+            choose["nameRange"],
+            json!({"start":{"line":1,"character":4},"end":{"line":1,"character":10}})
+        );
+        assert_eq!(
+            choose["signatureRange"],
+            json!({"start":{"line":1,"character":0},"end":{"line":4,"character":8}})
+        );
+        assert_eq!(
+            choose["bodyRange"],
+            json!({"start":{"line":5,"character":2},"end":{"line":5,"character":3}})
+        );
+        assert_eq!(
+            choose["documentationRange"],
+            json!({"start":{"line":0,"character":0},"end":{"line":0,"character":12}})
+        );
+        assert_eq!(
+            choose["range"]["end"],
+            json!({"line":5,"character":3}),
+            "next declaration docs are not choose's body"
+        );
+        let occurrences = result["occurrences"]
+            .as_array()
+            .must_be("metadata occurrences");
+        let call = occurrences
+            .iter()
+            .find(|occurrence| {
+                occurrence["role"] == "call" && occurrence["range"]["start"]["line"] == 9
+            })
+            .must_be("written choose call");
+        assert_eq!(
+            call["target"],
+            json!({"uri":uri,"range":{"start":{"line":1,"character":4},"end":{"line":1,"character":10}}})
+        );
+        assert_eq!(
+            call["enclosing"],
+            json!({"uri":uri,"range":{"start":{"line":8,"character":4},"end":{"line":8,"character":8}}})
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_versions_open_edits_and_rejects_capture() {
+        let temp = tempdir().must_be("temporary rename workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  target(1)\n";
+        fs::write(&path, source).must_be("write rename source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        let root = Url::from_directory_path(temp.path()).must_be("root URI");
+        client.request(
+            "initialize",
+            json!({
+                "processId":null,"rootUri":root,
+                "capabilities":{"workspace":{"workspaceEdit":{"documentChanges":true}}}
+            }),
+        );
+        client.notify("initialized", json!({}));
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{
+                "uri":uri,"languageId":"bend","version":7,"text":source
+            }}),
+        );
+        let renamed = client.request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":0,"character":5},"newName":"changed"
+            }),
+        );
+        assert_eq!(
+            renamed["result"],
+            json!({"documentChanges":[{
+                "textDocument":{"uri":uri,"version":7},"edits":[
+                    {"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}},"newText":"changed"},
+                    {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}},"newText":"changed"}
+                ]
+            }]})
+        );
+        let capture = client.send_request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":0,"character":5},"newName":"main"
+            }),
+        );
+        let capture = client
+            .receive_matching(Duration::from_secs(10), |response| {
+                response["id"] == capture
+            })
+            .must_be("capture rejection response");
+        assert_eq!(capture["error"]["code"], -32602);
+        assert!(
+            capture.get("result").is_none(),
+            "conflicting rename must not return partial edits"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_malformed_new_atom_without_edits() {
+        let temp = tempdir().must_be("temporary rename-atom workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def foo(x: U32) -> U32:\n  x\ndef main() -> U32:\n  foo(1)\n";
+        fs::write(&path, source).must_be("write rename-atom source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request_response(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":0,"character":5},"newName":"bad name"
+            }),
+        );
+        assert_eq!(
+            response["error"]["code"], -32602,
+            "a name with a space is not one Bend atom: {response}"
+        );
+        assert!(
+            response.get("result").is_none(),
+            "malformed rename must not return a WorkspaceEdit: {response}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_incomplete_new_atoms_before_availability_checks() {
+        let temp = tempdir().must_be("temporary rename-atom workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def foo(x: U32) -> U32:\n  x\ndef main() -> U32:\n  foo(1)\n";
+        fs::write(&path, source).must_be("write rename-atom source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for new_name in [
+            "",
+            "bad\nname",
+            "1bad",
+            "bad-name",
+            "import",
+            "_",
+            "bad..name",
+        ] {
+            let response = client.request_response(
+                "textDocument/rename",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":0,"character":5},
+                    "newName":new_name
+                }),
+            );
+            assert_eq!(
+                response["error"]["code"], -32602,
+                "newName {new_name:?} is not one complete Bend atom: {response}"
+            );
+            assert!(
+                response.get("result").is_none(),
+                "malformed rename must not return a WorkspaceEdit: {response}"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_keeps_dotted_global_terminals_as_name_segments() {
+        let temp = tempdir().must_be("temporary dotted-terminal workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def Foo.target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  Foo.target(1)\n";
+        fs::write(&path, source).must_be("write dotted-terminal source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        let root = Url::from_directory_path(temp.path()).must_be("root URI");
+        client.request(
+            "initialize",
+            json!({
+                "processId":null,"rootUri":root,
+                "capabilities":{"workspace":{"workspaceEdit":{"documentChanges":true}}}
+            }),
+        );
+        client.notify("initialized", json!({}));
+        open_clean_document(&mut client, &uri, source);
+        for new_name in ["def", "_"] {
+            let renamed = client.request(
+                "textDocument/rename",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":0,"character":10},
+                    "newName":new_name
+                }),
+            );
+            assert_eq!(
+                renamed["result"],
+                json!({"documentChanges":[{
+                    "textDocument":{"uri":uri,"version":1},
+                    "edits":[
+                        {"range":{"start":{"line":0,"character":8},"end":{"line":0,"character":14}},"newText":new_name},
+                        {"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}},"newText":new_name}
+                    ]
+                }]}),
+                "a renamed terminal in Foo.target keeps its dotted prefix: {new_name:?}"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_accepts_valid_dotted_global_atoms() {
+        let temp = tempdir().must_be("temporary dotted-rename workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  target(1)\n";
+        fs::write(&path, source).must_be("write dotted-rename source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        let root = Url::from_directory_path(temp.path()).must_be("root URI");
+        client.request(
+            "initialize",
+            json!({
+                "processId":null,"rootUri":root,
+                "capabilities":{"workspace":{"workspaceEdit":{"documentChanges":true}}}
+            }),
+        );
+        client.notify("initialized", json!({}));
+        open_clean_document(&mut client, &uri, source);
+        let renamed = client.request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":0,"character":5},
+                "newName":"renamed.atom"
+            }),
+        );
+        assert_eq!(
+            renamed["result"],
+            json!({"documentChanges":[{
+                "textDocument":{"uri":uri,"version":1},
+                "edits":[
+                    {"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":10}},"newText":"renamed.atom"},
+                    {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}},"newText":"renamed.atom"}
+                ]
+            }]}),
+            "a whole dotted atom is a complete Bend name"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_accepts_valid_local_dotted_and_contextual_atoms() {
+        let temp = tempdir().must_be("temporary local-atom workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def main(x: U32) -> U32:\n  x\n";
+        fs::write(&path, source).must_be("write local-atom source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for new_name in ["local.atom", "as"] {
+            let renamed = client.request(
+                "textDocument/rename",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":1,"character":2},
+                    "newName":new_name
+                }),
+            );
+            assert_eq!(
+                renamed["result"],
+                json!({"changes":{(uri.as_str()):[
+                    {"range":{"start":{"line":0,"character":9},"end":{"line":0,"character":10}},"newText":new_name},
+                    {"range":{"start":{"line":1,"character":2},"end":{"line":1,"character":3}},"newText":new_name}
+                ]}}),
+                "local {new_name:?} is a complete Bend atom, including contextual keywords"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_complete_dotted_atom_conflicts() {
+        let temp = tempdir().must_be("temporary dotted-conflict workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def Foo.target(x: U32) -> U32:\n  x\ndef target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  target(1)\n";
+        fs::write(&path, source).must_be("write dotted-conflict source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request_response(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":2,"character":5},
+                "newName":"Foo.target"
+            }),
+        );
+        assert_eq!(
+            response["error"]["code"], -32602,
+            "an existing complete dotted atom must stay rejected: {response}"
+        );
+        assert!(
+            response.get("result").is_none(),
+            "conflicting rename must not return partial edits: {response}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_rename_rejects_new_atoms_that_capture_an_import_alias_prefix() {
+        let temp = tempdir().must_be("temporary alias-capture workspace");
+        let path = temp.path().join("main.bend");
+        let source = "import ./dep.bend as D\ndef target(x: U32) -> U32:\n  x\ndef main() -> U32:\n  target(1)\n";
+        fs::write(&path, source).must_be("write alias-capture source");
+        fs::write(
+            temp.path().join("dep.bend"),
+            "def target(x: U32) -> U32:\n  x\n",
+        )
+        .must_be("write alias-capture dependency");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let response = client.request_response(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri},"position":{"line":1,"character":5},
+                "newName":"D.target"
+            }),
+        );
+        assert_eq!(
+            response["error"]["code"], -32602,
+            "a declaration cannot start with an import alias: {response}"
+        );
+        assert!(
+            response.get("result").is_none(),
+            "capturing rename must not return partial edits: {response}"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_dotted_definition_prefixes_and_reference_lenses_keep_entity_identity() {
+        let temp = tempdir().must_be("temporary dotted workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def Foo.target(x):\n  x\ndef main:\n  Foo.target(1)\n";
+        fs::write(&path, source).must_be("write dotted source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for (line, character) in [(0, 4), (3, 2)] {
+            let definition = client.request(
+                "textDocument/definition",
+                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":character}}),
+            );
+            assert_eq!(
+                definition["result"],
+                json!({"uri":uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":14}}}),
+                "a non-alias prefix is part of the dotted entity name"
+            );
+        }
+        let lenses = client.request("textDocument/codeLens", json!({"textDocument":{"uri":uri}}));
+        assert_eq!(
+            lenses["result"],
+            json!([{
+                "range":{"start":{"line":0,"character":8},"end":{"line":0,"character":14}},
+                "command":{
+                    "title":"1 reference","command":"editor.action.showReferences",
+                    "arguments":[uri,{"line":0,"character":8},[
+                        {"uri":uri,"range":{"start":{"line":3,"character":6},"end":{"line":3,"character":12}}}
+                    ]]
+                }
+            }])
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_completion_replaces_existing_name_at_middle_and_delimiter_boundary() {
+        let temp = tempdir().must_be("temporary completion workspace");
+        let path = temp.path().join("main.bend");
+        let source = "def target(x):\n  x\ndef target_extra(x):\n  x\ndef main:\n  target(1)\n";
+        fs::write(&path, source).must_be("write completion source");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for character in [5, 8] {
+            let completion = client.request(
+                "textDocument/completion",
+                json!({"textDocument":{"uri":uri},"position":{"line":5,"character":character}}),
+            );
+            let item = completion["result"]
+                .as_array()
+                .or_else(|| completion["result"]["items"].as_array())
+                .must_be("completion items")
+                .iter()
+                .find(|item| item["label"] == "target_extra")
+                .must_be("matching target");
+            assert_eq!(
+                item["textEdit"],
+                json!({
+                    "range":{"start":{"line":5,"character":2},"end":{"line":5,"character":8}},
+                    "newText":"target_extra"
+                })
+            );
+            let edit = &item["textEdit"];
+            let start = usize::try_from(
+                edit["range"]["start"]["character"]
+                    .as_u64()
+                    .must_be("start"),
+            )
+            .must_be("start offset");
+            let end = usize::try_from(edit["range"]["end"]["character"].as_u64().must_be("end"))
+                .must_be("end offset");
+            let mut line = source.lines().nth(5).must_be("call line").to_owned();
+            line.replace_range(
+                start..end,
+                edit["newText"].as_str().must_be("inserted text"),
+            );
+            assert_eq!(
+                line, "  target_extra(1)",
+                "completion must not duplicate the old suffix"
+            );
+        }
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_cross_file_law_call_ranges_belong_to_the_implementation_document() {
+        let temp = tempdir().must_be("temporary law workspace");
+        let main_path = temp.path().join("main.bend");
+        let claims_path = temp.path().join("claims.bend");
+        let source = "import Base\nimport ./claims.bend as C\ndef helper(x: U32) -> U32:\n  x\ndef C.identity(x):\n  helper(x)\ndef main: U32\n  C.identity(1)\n";
+        fs::write(&main_path, source).must_be("write law implementation");
+        fs::write(&claims_path, "law identity:\n  for x: U32\n  U32\n").must_be("write claim");
+        let uri = regression_file_uri(&main_path);
+        let claims_uri = regression_file_uri(&claims_path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        for (line, character) in [(7, 8), (4, 4), (4, 8)] {
+            let definition = client.request(
+                "textDocument/definition",
+                json!({"textDocument":{"uri":uri},"position":{"line":line,"character":character}}),
+            );
+            assert_eq!(
+                definition["result"],
+                json!({"uri":claims_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":12}}}),
+                "the whole qualified declaration selects its law, including its alias-shaped prefix"
+            );
+        }
+        let references = client.request(
+            "textDocument/references",
+            json!({"textDocument":{"uri":uri},"position":{"line":4,"character":4},"context":{"includeDeclaration":true}}),
+        );
+        assert_eq!(
+            references["result"],
+            json!([
+                {"uri":claims_uri,"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":12}}},
+                {"uri":uri,"range":{"start":{"line":4,"character":6},"end":{"line":4,"character":14}}},
+                {"uri":uri,"range":{"start":{"line":7,"character":4},"end":{"line":7,"character":12}}}
+            ])
+        );
+        let prepared = client.request(
+            "textDocument/prepareCallHierarchy",
+            json!({"textDocument":{"uri":uri},"position":{"line":4,"character":4}}),
+        );
+        let item = &prepared["result"][0];
+        assert_eq!(item["name"], "identity");
+        assert_eq!(
+            item["uri"], uri,
+            "call ranges use the implementation document"
+        );
+        assert_eq!(
+            item["selectionRange"],
+            json!({
+                "start":{"line":4,"character":4},"end":{"line":4,"character":14}
+            })
+        );
+        assert_eq!(
+            item["range"],
+            json!({
+                "start":{"line":4,"character":0},"end":{"line":5,"character":11}
+            })
+        );
+        let outgoing = client.request("callHierarchy/outgoingCalls", json!({"item":item}));
+        let edges = outgoing["result"].as_array().must_be("outgoing edges");
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0]["to"]["name"], "helper");
+        assert_eq!(edges[0]["to"]["uri"], uri);
+        assert_eq!(
+            edges[0]["fromRanges"],
+            json!([{
+                "start":{"line":5,"character":2},"end":{"line":5,"character":8}
+            }])
+        );
+        let incoming = client.request(
+            "callHierarchy/incomingCalls",
+            json!({"item":edges[0]["to"]}),
+        );
+        let callers = incoming["result"].as_array().must_be("incoming edges");
+        assert_eq!(callers.len(), 1);
+        assert_eq!(
+            callers[0]["from"], *item,
+            "incoming and outgoing retain the same body-owned handle"
+        );
+        assert_eq!(callers[0]["fromRanges"], edges[0]["fromRanges"]);
+        client.finish();
+    }
+
+    #[test]
+    fn semantic_alias_rename_preserves_complete_atoms_and_rejects_capture() {
+        let temp = tempdir().must_be("temporary alias workspace");
+        let path = temp.path().join("main.bend");
+        let source = "import ./dep.bend as D\ndef prefix(D, E):\n  D.target(1)\ndef complete(D.target):\n  D.target(1)\ndef ordinary:\n  Dotted.target(1)\n";
+        fs::write(&path, source).must_be("write alias source");
+        fs::write(temp.path().join("dep.bend"), "def target(x):\n  x\n")
+            .must_be("write alias dependency");
+        let uri = regression_file_uri(&path);
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, source);
+        let renamed = client.request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri}, "position":{"line":0,"character":21}, "newName":"E"
+            }),
+        );
+        assert_eq!(
+            renamed["result"],
+            json!({"documentChanges":[{
+                "textDocument":{"uri":uri,"version":1},
+                "edits":[
+                    {"range":{"start":{"line":0,"character":21},"end":{"line":0,"character":22}},"newText":"E"},
+                    {"range":{"start":{"line":2,"character":2},"end":{"line":2,"character":3}},"newText":"E"}
+                ]
+            }]}),
+            "only real alias uses are edited; bare D/E binders do not shadow D.target"
+        );
+        let changed = format!("{source}def captured(E.target):\n  D.target(1)\n");
+        client.notify(
+            "textDocument/didChange",
+            json!({
+                "textDocument":{"uri":uri,"version":2},
+                "contentChanges":[{"text":changed}]
+            }),
+        );
+        let rejected = client.send_request(
+            "textDocument/rename",
+            json!({
+                "textDocument":{"uri":uri}, "position":{"line":0,"character":21}, "newName":"E"
+            }),
+        );
+        let rejected = client
+            .receive_matching(Duration::from_secs(10), |response| {
+                response["id"] == rejected
+            })
+            .must_be("alias capture rejection");
+        assert_eq!(rejected["error"]["code"], -32602);
+        assert!(
+            rejected.get("result").is_none(),
+            "capturing rename returns no partial edits"
+        );
+        client.finish();
+    }
+
+    #[test]
+    fn editor_only_import_links_do_not_resolve_native_entities() {
+        let temp = tempdir().must_be("temporary editor-link workspace");
+        let path = temp.path().join("main.bend");
+        for name in ["dep.bend", "déjà.bend"] {
+            fs::write(temp.path().join(name), "def target(x):\n  x\n")
+                .must_be("write editor-link dependency");
+        }
+        let uri = regression_file_uri(&path);
+        let initial = "import ./dep as M\ndef main:\n  M.target(1)\n";
+        fs::write(&path, initial).must_be("write editor-link root");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        open_clean_document(&mut client, &uri, initial);
+        for (version, imported, target) in
+            [(1, "./dep", "dep.bend"), (2, "./déjà.bend", "déjà.bend")]
+        {
+            if version > 1 {
+                client.notify("textDocument/didChange", json!({
+                    "textDocument":{"uri":uri,"version":version},
+                    "contentChanges":[{"text":format!("import {imported} as M\ndef main:\n  M.target(1)\n")}]
+                }));
+            }
+            let target_uri = regression_file_uri(&temp.path().join(target));
+            let links = client.request(
+                "textDocument/documentLink",
+                json!({"textDocument":{"uri":uri}}),
+            );
+            let link = links["result"]
+                .as_array()
+                .and_then(|links| links.first())
+                .must_be("uncertain editor import link");
+            assert_eq!(link["target"], target_uri);
+            assert_eq!(link["data"]["uncertain"], true);
+            assert_eq!(link["data"]["resolution"], "editor-path");
+            assert!(
+                link["tooltip"]
+                    .as_str()
+                    .is_some_and(|tooltip| tooltip.contains("not compiler-resolved"))
+            );
+            let path_definition = client.request(
+                "textDocument/definition",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":0,"character":8}
+                }),
+            );
+            assert_eq!(path_definition["result"]["uri"], target_uri);
+            let entity_definition = client.request(
+                "textDocument/definition",
+                json!({
+                    "textDocument":{"uri":uri},"position":{"line":2,"character":5}
+                }),
+            );
+            assert_eq!(
+                entity_definition["result"],
+                Value::Null,
+                "editor path convenience must not manufacture a native entity"
+            );
+            let semantic = client.request(
+                "bend2/semanticDocument",
+                json!({"textDocument":{"uri":uri}}),
+            );
+            assert_eq!(semantic["result"]["complete"], false);
+            assert_eq!(semantic["result"]["document"]["version"], version);
+            if version == 2 {
+                let completion = client.request(
+                    "textDocument/completion",
+                    json!({
+                        "textDocument":{"uri":uri},"position":{"line":0,"character":11}
+                    }),
+                );
+                let item = completion["result"]["items"]
+                    .as_array()
+                    .and_then(|items| items.iter().find(|item| item["label"] == "déjà.bend"))
+                    .must_be("Unicode editor filename completion");
+                assert_eq!(item["data"]["uncertain"], true);
+                assert!(
+                    item["textEdit"]["newText"]
+                        .as_str()
+                        .is_some_and(|text| text.contains("déjà.bend"))
+                );
+            }
+        }
         client.finish();
     }
 }

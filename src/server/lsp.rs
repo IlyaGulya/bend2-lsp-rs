@@ -1,14 +1,14 @@
+mod semantic;
+
 use super::capabilities::server_capabilities;
 use super::compiler::CompilerConfig;
 #[cfg(test)]
 use super::diagnostics::{
     diagnostics_revision_is_current, publish_if_current, replace_imported_diagnostics_if_current,
 };
-#[cfg(test)]
 use super::orchestration::run_staging;
 #[cfg(test)]
 use super::revision::{DocumentRevisionSync, wait_for_captured_revision};
-use crate::analysis;
 #[cfg(test)]
 use crate::analysis::Revision;
 use crate::workspace::normalize_path;
@@ -88,6 +88,13 @@ impl LanguageServer for Backend {
             let mut registration = self.registration.write();
             registration.type_hierarchy = supports_type_hierarchy_registration;
             registration.watch = supports_watch_registration;
+            registration.versioned_edits = params
+                .capabilities
+                .workspace
+                .as_ref()
+                .and_then(|workspace| workspace.workspace_edit.as_ref())
+                .and_then(|edit| edit.document_changes)
+                .unwrap_or(false);
         }
         let mut result = InitializeResult {
             capabilities: server_capabilities(),
@@ -199,12 +206,22 @@ impl LanguageServer for Backend {
         let invalidation = self.configure_lint(&params.settings);
         let operation = async {
             self.diagnostics.invalidate_context();
-            let _operation = self.workspace.document_operation().await;
+            let _operation = self.workspace.file_operations.write().await;
             let (config, warnings) = CompilerConfig::from_settings(&params.settings);
+            let Some(library_path) = run_staging(
+                self.workspace.staging.clone(),
+                crate::workspace::canonical_library_path,
+            )
+            .await
+            else {
+                return;
+            };
             {
                 let _load = self.compiler.base_module_load.lock().await;
                 let _workspace_update = self.workspace.updates.write().await;
-                self.workspace.commit(None, None, |_database| {
+                self.workspace.commit(None, None, |database| {
+                    database.invalidate_semantic_base();
+                    database.set_semantic_library_path(library_path);
                     *self.compiler.config.write() = config;
                     *self.compiler.base_module.write() = None;
                     *self.compiler.base_module_attempted.write() = false;
@@ -220,13 +237,7 @@ impl LanguageServer for Backend {
                 self.client.log_message(MessageType::WARNING, warning).await;
             }
             let documents = self.workspace_documents();
-            if documents.iter().any(|document| {
-                analysis::imports(document)
-                    .iter()
-                    .any(|import| import.path_text(&document.text) == "Base")
-            }) {
-                self.load_prelude_module().await;
-            }
+            self.prepare_semantic_views().await;
             for document in documents {
                 let revision = document.revision.0;
                 self.schedule_diagnostics(document.uri, revision).await;
@@ -249,15 +260,12 @@ impl LanguageServer for Backend {
             let uri = item.uri;
             let version = item.version;
             let path = self.document_path(&uri);
-            let Some(needs_prelude) = self
+            let Some(()) = self
                 .open_workspace_text(uri.clone(), item.language_id, version, item.text, path)
                 .await
             else {
                 return;
             };
-            if needs_prelude {
-                self.load_prelude_module().await;
-            }
             let dependents = self.dependent_documents(&uri).await;
             self.schedule_diagnostics(uri, version).await;
             for document in dependents {
@@ -276,13 +284,6 @@ impl LanguageServer for Backend {
             let version = params.text_document.version;
             if !self.change_workspace_document(params).await {
                 return;
-            }
-            if self.document(&uri).is_some_and(|document| {
-                analysis::imports(&document)
-                    .iter()
-                    .any(|import| import.path_text(&document.text) == "Base")
-            }) {
-                self.load_prelude_module().await;
             }
             let dependents = self.dependent_documents(&uri).await;
             self.schedule_diagnostics(uri, version).await;
@@ -604,6 +605,95 @@ mod workspace_readiness_tests {
         let wait = wait_for_captured_revision(closed.subscribe(), ticket.generation());
         closed.close()?;
         tokio::time::timeout(Duration::from_secs(1), wait).await??;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn definition_waits_for_compiler_configuration_and_uses_new_base()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use super::Backend;
+        use crate::server::{
+            compiler::CompilerReapers, diagnostics::DiagnosticsService,
+            workspace_service::WorkspaceService,
+        };
+        use std::{
+            future::{Future, poll_fn},
+            os::unix::fs::PermissionsExt,
+            task::Poll,
+        };
+        use tower_lsp::{
+            LanguageServer, LspService,
+            lsp_types::{
+                DidChangeConfigurationParams, GotoDefinitionParams, GotoDefinitionResponse,
+            },
+        };
+        use url::Url;
+
+        let root = tempfile::tempdir()?;
+        let compiler = root.path().join("compiler");
+        std::fs::write(
+            &compiler,
+            "#!/bin/sh\ncase \"$1\" in\nversion) printf 'Bend test\\n';;\n--help) printf 'Bend\\nusage: bend <file> --check-only\\nbend base\\n';;\nbase) printf 'def builtin: U32\\n  1\\n';;\nesac\n",
+        )?;
+        std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755))?;
+        let mut backend = None;
+        let (_service, _socket) = LspService::new(|client| {
+            let server = Backend::new(
+                client,
+                Arc::new(WorkspaceService::default()),
+                Arc::new(DiagnosticsService::default()),
+                Arc::new(CompilerReapers::default()),
+            );
+            backend = Some(server.clone());
+            server
+        });
+        let backend = backend.ok_or_else(|| std::io::Error::other("service backend"))?;
+        backend.compiler.config.write().path = root
+            .path()
+            .join("unavailable")
+            .to_string_lossy()
+            .into_owned();
+        let path = root.path().join("main.bend");
+        let uri = Url::from_file_path(&path).map_err(|()| std::io::Error::other("main URI"))?;
+        backend
+            .open_workspace_text(
+                uri.clone(),
+                "bend".into(),
+                1,
+                "import Base\ndef main: U32\n  builtin\n".into(),
+                Some(path),
+            )
+            .await
+            .ok_or_else(|| std::io::Error::other("open main document"))?;
+        backend.prepare_semantic_views().await;
+        let params: GotoDefinitionParams = serde_json::from_value(serde_json::json!({
+            "textDocument":{"uri":uri}, "position":{"line":2,"character":2}
+        }))?;
+        assert!(backend.goto_definition(params.clone()).await?.is_none());
+
+        let staging = backend.workspace.staging.clone();
+        let held = staging
+            .clone()
+            .acquire_many_owned(u32::try_from(staging.available_permits())?)
+            .await?;
+        let configuration = backend.did_change_configuration(DidChangeConfigurationParams {
+            settings: serde_json::json!({"bend2-lsp":{"compilerPath":compiler}}),
+        });
+        tokio::pin!(configuration);
+        assert!(poll_fn(|cx| Poll::Ready(configuration.as_mut().poll(cx).is_pending())).await);
+        let definition = backend.goto_definition(params);
+        tokio::pin!(definition);
+        assert!(poll_fn(|cx| Poll::Ready(definition.as_mut().poll(cx).is_pending())).await);
+        drop(held);
+        let ((), result) = tokio::join!(configuration, definition);
+        let Some(GotoDefinitionResponse::Scalar(location)) = result? else {
+            return Err(std::io::Error::other("configured Base definition").into());
+        };
+        assert_ne!(location.uri, uri);
+        assert_eq!(location.range.start.line, 0);
+        assert_eq!(location.range.start.character, 4);
+        assert_eq!(location.range.end.character, 11);
         Ok(())
     }
 }

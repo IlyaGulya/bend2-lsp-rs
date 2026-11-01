@@ -1,6 +1,6 @@
 use crate::{
     analysis::{DocumentSnapshot, Revision},
-    workspace::{Document, SourceGraph, resolve_import_targets},
+    workspace::{Document, PreparedImportTarget, SourceGraph, resolve_import_targets},
 };
 use sha2::{Digest, Sha256};
 use std::{
@@ -257,9 +257,12 @@ impl SavedProject {
                 .ok_or_else(|| io::Error::other("missing saved source"))?;
             let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text));
             pending.extend(
-                resolve_import_targets(&path, &snapshot)
+                resolve_import_targets(&path, &path, &snapshot)
                     .into_iter()
-                    .map(|(_, path)| path),
+                    .map(|target| match target {
+                        PreparedImportTarget::Native { path, .. }
+                        | PreparedImportTarget::Editor { path, .. } => path,
+                    }),
             );
             sources.insert(path, snapshot);
         }

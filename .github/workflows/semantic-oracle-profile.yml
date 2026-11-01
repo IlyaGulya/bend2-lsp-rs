@@ -1,0 +1,65 @@
+name: semantic-oracle-profile
+run-name: semantic-oracle-profile / accepted-7bdd49a / ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [diagnostic/semantic-dual-cpu-7bdd49a]
+
+permissions: {}
+
+jobs:
+  capture:
+    if: github.repository == 'IlyaGulya/bend2-lsp-rs'
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Configure isolated diagnostic tool and Cargo paths
+        run: |
+          {
+            printf 'CARGO_INSTALL_ROOT=%s/oracle-profile-tools/cargo\n' "$RUNNER_TEMP"
+            printf 'GOBIN=%s/oracle-profile-tools/go/bin\n' "$RUNNER_TEMP"
+            printf 'CARGO_TARGET_DIR=%s/oracle-profile-target\n' "$RUNNER_TEMP"
+          } >> "$GITHUB_ENV"
+          printf '%s/oracle-profile-tools/cargo/bin\n%s/oracle-profile-tools/go/bin\n' "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Install pinned toolchain and quality tools
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/oracle-profile-tool-build
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --component llvm-tools-preview
+          ./scripts/install-tools.sh
+      - name: Provision genuine compiler and pinned oracle runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/bootstrap_bend.py --target x86_64-unknown-linux-gnu --destination "$RUNNER_TEMP/bend-2.0.37" --github-env "$GITHUB_ENV"
+          python3 scripts/semantic_gate.py install --output target/semantic-gate
+      - name: Run the unchanged complete quality gate
+        run: ./scripts/quality
+      - name: Fetch exact accepted full-corpus reference data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/IlyaGulya/bend2-lsp-rs/actions/artifacts/12710147809/zip > "$RUNNER_TEMP/reference-semantic-gate.zip"
+      - name: Capture both VMs under the separate 240-second diagnostic deadline
+        run: |
+          python3 scripts/diagnostics/oracle_cpu.py \
+            --reference "$RUNNER_TEMP/reference-semantic-gate.zip" \
+            --output target/oracle-cpu
+      - name: Preserve complete diagnostics and failed attempts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-oracle-dual-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/oracle-cpu/
+            target/semantic-gate/
+          if-no-files-found: error
+          retention-days: 14

@@ -167,12 +167,9 @@ pub(super) fn import_completion_match(target: &str, prefix: &str) -> Option<(u8,
     } else {
         target.strip_suffix(".bend").unwrap_or(target)
     };
-    let path = if prefix.starts_with("./") {
-        path
-    } else {
-        path.strip_prefix("./").unwrap_or(path)
-    };
-    let path_match = analysis::completion_match(path, prefix);
+    let path = path.strip_prefix("./").unwrap_or(path);
+    let path_prefix = prefix.strip_prefix("./").unwrap_or(prefix);
+    let path_match = analysis::completion_match(path, path_prefix);
     if prefix.contains('/') {
         path_match
     } else {
@@ -239,13 +236,13 @@ pub(super) fn finish_import_completion_items(
 
 pub(super) fn inlay_hints(
     snapshot: &DocumentSnapshot,
-    hints: Vec<analysis::InlayHint>,
+    hints: Vec<(usize, String)>,
 ) -> Vec<InlayHint> {
     hints
         .into_iter()
-        .map(|hint| InlayHint {
-            position: position_at(snapshot, hint.position),
-            label: InlayHintLabel::String(hint.label(&snapshot.text)),
+        .map(|(position, label)| InlayHint {
+            position: position_at(snapshot, position),
+            label: InlayHintLabel::String(label),
             kind: Some(InlayHintKind::PARAMETER),
             text_edits: None,
             tooltip: None,

@@ -40,23 +40,15 @@ pub(super) fn unresolved_reference(document: &Document, offset: usize) -> Option
     {
         return None;
     }
-    let reference = syntax.reference_for_token(token)?;
-    if reference.kind == ReferenceKind::Declaration
-        || reference.resolved.is_some()
-        || syntax.is_keyword(reference.name)
-    {
+    let reference = &syntax.reference_for_token(token)?.reference;
+    if reference.kind == ReferenceKind::Declaration {
         return None;
     }
     if let Some(qualifier) = reference.qualifier {
         let qualifier = syntax.name_text(&document.text, qualifier);
-        if syntax
-            .imports()
-            .iter()
-            .any(|import| import.alias_text(&document.text) == Some(qualifier))
-            || reference
-                .qualifier_token
-                .is_some_and(|token| syntax.symbol_for_token(token).is_some())
-        {
+        if syntax.imports().iter().any(|import| {
+            import.valid_syntax && import.alias_text(&document.text) == Some(qualifier)
+        }) {
             return None;
         }
     }
@@ -66,6 +58,15 @@ pub(super) fn unresolved_reference(document: &Document, offset: usize) -> Option
 pub(super) struct AutoImportPlan {
     pub(super) qualified_name: String,
     pub(super) import_edit: Option<TextEdit>,
+}
+
+fn same_import_path(left: &str, right: &str) -> bool {
+    std::path::Path::new(left)
+        .components()
+        .filter(|component| *component != std::path::Component::CurDir)
+        .eq(std::path::Path::new(right)
+            .components()
+            .filter(|component| *component != std::path::Component::CurDir))
 }
 
 pub(super) fn auto_import_plan(
@@ -91,12 +92,20 @@ pub(super) fn auto_import_plan(
     let mut already_imported = false;
     let mut alias = None;
     for import in syntax.imports() {
-        if (path == "Base" && import.path_text(&document.text) == "Base")
+        if same_import_path(import.path_text(&document.text), path)
             || workspace
                 .import_target(&document.uri, import.path)
                 .is_some_and(|doc| &doc.uri == target)
+            || workspace
+                .editor_import_uri(&document.uri, import.path)
+                .as_ref()
+                == Some(target)
         {
             already_imported = true;
+            // Do not repair an unfinished import by adding a second namespace.
+            if !import.valid_syntax {
+                return None;
+            }
             if path == "Base" && import.alias.is_none() {
                 return Some(AutoImportPlan {
                     qualified_name: name.to_owned(),
@@ -105,16 +114,17 @@ pub(super) fn auto_import_plan(
             }
             if let Some(existing) = import.alias_text(&document.text)
                 && !syntax
-                    .bindings_at(offset)
-                    .any(|binding| syntax.name_text(&document.text, binding.name) == existing)
-                && syntax
-                    .name_id(&document.text, existing)
-                    .and_then(|name| syntax.symbol_by_name(name))
-                    .is_none()
+                    .name_id(&document.text, &format!("{existing}.{name}"))
+                    .is_some_and(|qualified| {
+                        syntax.binding_named_at(qualified, offset).is_some()
+                            || syntax.symbol_by_name(qualified).is_some()
+                    })
                 && syntax
                     .imports()
                     .iter()
-                    .find(|entry| entry.alias_text(&document.text) == Some(existing))
+                    .find(|entry| {
+                        entry.valid_syntax && entry.alias_text(&document.text) == Some(existing)
+                    })
                     .is_some_and(|entry| entry.path == import.path)
             {
                 alias = Some(existing.to_owned());
@@ -255,13 +265,9 @@ pub(super) fn import_path_edit(
         // Reusing the namespace of an already imported file keeps repeated
         // imports valid under Bend's one-namespace-per-file rule.
         let existing = syntax.imports().iter().find_map(|import| {
-            (import.path != path
-                && std::path::Path::new(import.path_text(&document.text))
-                    .components()
-                    .filter(|component| *component != std::path::Component::CurDir)
-                    .eq(std::path::Path::new(target)
-                        .components()
-                        .filter(|component| *component != std::path::Component::CurDir)))
+            (import.valid_syntax
+                && import.path != path
+                && same_import_path(import.path_text(&document.text), target))
             .then(|| import.alias_text(&document.text))
             .flatten()
         });

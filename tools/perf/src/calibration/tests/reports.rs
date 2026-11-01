@@ -14,6 +14,7 @@ use std::{
 
 mod multibench;
 mod repeated;
+mod sharding;
 
 fn dataset(job_id: &str, role: &str, pairs: u64) -> Value {
     let identities = [
