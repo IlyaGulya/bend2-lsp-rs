@@ -12,6 +12,9 @@
   related information; reject obsolete revisions and clear only retired results.
 - Keep unsaved editor buffers out of disk-based lint results. Cancel stale jobs,
   bound output/work, and contain analyzer descendants on Unix and Windows.
+- Keep first-save lint findings available when the compiler's Base library is
+  still loading. Finish prelude readiness before capturing lint inputs, without
+  holding the workspace read barrier during external analysis.
 - Reject in-flight lint results and requested fixes after source/configuration
   symlink retargeting, including changes in parent directories.
 - Keep Linux lint diagnostics working for UTF-8 aliases to non-UTF-8 filenames;

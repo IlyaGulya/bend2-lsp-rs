@@ -271,7 +271,10 @@ impl Backend {
     }
 
     async fn run_lint(&self, uri: Url, config: LintConfig, epoch: u64) -> std::io::Result<()> {
-        self.workspace.wait_for_discovery().await;
+        // A cold Base load in any document can advance global workspace generation.
+        // Finish shared readiness, but release the view before source-graph I/O
+        // and external analyzer execution.
+        drop(self.workspace_read_with_prelude(None).await);
         let Some(document) = self.document(&uri).filter(Self::supported) else {
             return Ok(());
         };
