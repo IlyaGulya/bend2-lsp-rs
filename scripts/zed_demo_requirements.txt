@@ -1,0 +1,11 @@
+# Optional dependency for zed_demo_render.py (movie composition only).
+#
+# Nothing else in this scripts/ toolchain needs it: capture verification,
+# project preparation, recording and publication metadata are stdlib-only.
+# Install explicitly, never implicitly:
+#
+#   python3 -m pip install -r scripts/zed_demo_requirements.txt
+#
+# Tested with Pillow 13.0.0. Movie encoding itself needs ffmpeg/ffprobe
+# (H.264, libx264, yuv420p) available on PATH or passed explicitly.
+Pillow==13.0.0

@@ -1,0 +1,1 @@
+{"packages":{"bend-lint-rules":"0.2.1.0"},"rules":{"bend-lint-rules/performance/unused_result":{},"bend-lint-rules/language/unneeded_plus":{},"bend-lint-rules/layout/format":{}}}

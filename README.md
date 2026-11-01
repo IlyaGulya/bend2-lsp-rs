@@ -865,6 +865,11 @@ file index rather than rebuilding the same graph during each query.
 
 Further details:
 
+- [Input-driven Zed demo scripts](docs/editor-demos.md) — record isolated, real
+  editor sessions with pointer/key overlays, verify MP4s, and explicitly attach
+  them to a PR without automating your desktop.
+  The [zed-demo skill](.agents/skills/zed-demo/SKILL.md) defines the expected
+  presentation style and agent handoff.
 - [Performance policy, Callgrind gates, calibration, and LSP latency reports](docs/performance-policy.md) —
   tracks analysis costs, report-only CI calibration, and paired real-process p50/p95; not editor rendering latency.
 - [Tracing with Chrome/Perfetto](docs/tracing.md) — opt-in through `BEND2_LSP_TRACE`.

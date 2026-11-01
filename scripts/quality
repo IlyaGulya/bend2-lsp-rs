@@ -35,8 +35,15 @@ printf '== release integrity ==\n'
 python3 -m unittest discover -s scripts -p test_release.py
 python3 -m unittest discover -s scripts -p test_bootstrap_bend_lint.py
 
+printf '== editor demo capture authority ==\n'
+python3 -S -m unittest discover -s scripts -p 'test_zed_demo*.py'
+
 printf '== format ==\n'
 cargo fmt --all -- --check
+rustfmt --edition 2024 --check \
+    scripts/zed_demo_assets/zed-source/crates/zed/src/bend2_lint_demo.rs \
+    scripts/zed_demo_assets/zed-source/crates/zed/src/bend2_lint_demo_scenes.rs \
+    scripts/zed_demo_assets/zed-source/crates/zed/src/bend2_lint_demo_interactions.rs
 
 printf '== rustc ==\n'
 cargo check --workspace --all-targets --all-features --locked

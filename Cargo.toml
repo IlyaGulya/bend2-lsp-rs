@@ -54,7 +54,7 @@ dhat = { version = "0.3.3", optional = true }
 ignore = "0.4.33"
 tower-lsp = "0.20"
 tower = { version = "0.4", default-features = false }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "io-util", "sync", "signal"] }
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread", "process", "time", "io-std", "io-util", "sync", "signal"] }
 url = "2"
 tempfile = "3"
 serde = { version = "1", features = ["derive"] }

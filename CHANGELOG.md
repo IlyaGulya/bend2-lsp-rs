@@ -31,6 +31,15 @@
 
 ### Under the hood
 
+- Add reusable developer scripts for isolated, input-driven headless Zed demos,
+  recorded mouse/key overlays, source-integrity checks, verified MP4 rendering,
+  and explicit GitHub PR attachments. Add a project-local `zed-demo` skill with
+  automatic agent routing and presentation rules. This does not change the
+  released LSP.
+- Contain editor and cold-build subprocesses in owned process groups; stop them
+  on interruption so Cargo cannot keep compiling after the recorder exits.
+- Require Tokio 1.53.3 or newer and update the lockfile to address the upstream
+  `AsyncFd` I/O-safety advisory RUSTSEC-2026-0386 without audit exclusions.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
