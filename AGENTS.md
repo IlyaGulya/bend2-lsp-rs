@@ -18,6 +18,13 @@ pull-request code. Trusted `workflow_run` jobs must validate repository identity
 event, branch, and exact source SHA before privileged operations. Privileged
 jobs must never execute PR code or consume PR artifacts.
 
+## Editor demo videos
+
+For requests to record, improve, review, or publish an editor-feature demo/video,
+read `.agents/skills/zed-demo/SKILL.md` first. It defines the expected presentation,
+real-input evidence, and isolation/publication rules. Use `scripts/zed_demo.py`
+and `docs/editor-demos.md`; do not automate the user's installed editor.
+
 ## Policy boundaries
 
 Never:

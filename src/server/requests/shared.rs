@@ -30,7 +30,7 @@ impl Backend {
         }
     }
 
-    pub(super) async fn workspace_read_with_prelude(
+    pub(in crate::server) async fn workspace_read_with_prelude(
         &self,
         uri: Option<&Url>,
     ) -> RwLockReadGuard<'_, ()> {

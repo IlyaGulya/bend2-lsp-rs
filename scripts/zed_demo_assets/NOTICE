@@ -1,0 +1,13 @@
+The custom capture harness and demo fixtures are part of bend2-lsp-rs and
+use this repository's Apache-2.0 license. The bend2_lint_demo*.rs files are
+custom harness sources, not files vendored from Zed's upstream tree.
+
+The harness is compiled as an additional binary in a separate, caller-supplied
+Zed checkout. The tested upstream revision is
+76659a55a8c10ed355a070f8764a0b1733e3c115 (Zed 1.22.0).
+The crates/zed package is GPL-3.0-or-later. Building or redistributing that
+combined Zed binary must comply with Zed's licenses, including:
+https://github.com/zed-industries/zed/blob/76659a55a8c10ed355a070f8764a0b1733e3c115/LICENSE-GPL
+
+No upstream Zed source or binary is included here. The optional recorder is
+not linked into bend2-lsp or shipped in its release artifacts.

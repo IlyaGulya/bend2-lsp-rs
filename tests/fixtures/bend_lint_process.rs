@@ -40,6 +40,17 @@ fn run() -> io::Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
     if arguments.iter().any(|arg| arg == "base") {
+        if control.join("base-block").exists() {
+            fs::write(control.join("base-started"), b"ready")?;
+            let deadline = Instant::now() + Duration::from_secs(30);
+            while !control.join("base-release").exists() {
+                if Instant::now() >= deadline {
+                    return Err(io::Error::other("Base fixture gate deadline exceeded"));
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            io::stdout().write_all(&fs::read(control.join("base.stdout"))?)?;
+        }
         return Ok(ExitCode::SUCCESS);
     }
     if arguments.iter().any(|arg| arg == "--check-only") {

@@ -48,6 +48,9 @@
   related information; reject obsolete revisions and clear only retired results.
 - Keep unsaved editor buffers out of disk-based lint results. Cancel stale jobs,
   bound output/work, and contain analyzer descendants on Unix and Windows.
+- Keep first-save lint findings available when the compiler's Base library is
+  still loading. Finish prelude readiness before capturing lint inputs, without
+  holding the workspace read barrier during external analysis.
 - Reject in-flight lint results and requested fixes after source/configuration
   symlink retargeting, including changes in parent directories.
 - Keep Linux lint diagnostics working for UTF-8 aliases to non-UTF-8 filenames;
@@ -64,6 +67,10 @@
   without making production queries wait for unrelated pending builds.
 - Acknowledge prior stdio document mutations before releasing held analyzer
   output, so tests cannot mistake pre-mutation results for stale publication.
+- Retain a real pre-edit compiler/lint publication in the dirty-buffer regression
+  and assert transport receipt order, so buffered older packets cannot be
+  mistaken for post-clear findings. Keep rejecting every lint packet received
+  after the clear, including stale-version packets.
 - Publish analyzer fixture socket addresses atomically before signaling readiness,
   so descendant-cleanup checks cannot read partially written addresses. Keep the
   timeout assertions and strict flaky-test policy unchanged.
@@ -293,6 +300,15 @@
   Inject monitor failures after the test worker actually starts, rather than
   racing startup with a fixed sample count. Resource limits and shutdown
   deadlines remain unchanged.
+- Add reusable developer scripts for isolated, input-driven headless Zed demos,
+  recorded mouse/key overlays, source-integrity checks, verified MP4 rendering,
+  and explicit GitHub PR attachments. Add a project-local `zed-demo` skill with
+  automatic agent routing and presentation rules. This does not change the
+  released LSP.
+- Contain editor and cold-build subprocesses in owned process groups; stop them
+  on interruption so Cargo cannot keep compiling after the recorder exits.
+- Require Tokio 1.53.3 or newer in the manifest as well as the existing lockfile,
+  excluding RUSTSEC-2026-0386 without audit exclusions.
 - Reduce autocomplete lookup and matching overhead using indexed declaration
   name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
   pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
