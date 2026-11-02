@@ -16,6 +16,30 @@ fn document_symbols(session: &mut Session, document: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn workspace_symbols(session: &mut Session, query: &str) -> Vec<Value> {
+    session
+        .client
+        .request("workspace/symbol", json!({"query":query}))["result"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn symbol_named<'a>(symbols: &'a [Value], name: &str) -> Option<&'a Value> {
+    symbols.iter().find(|symbol| symbol["name"] == name)
+}
+
+fn required_symbol_at<'a>(symbols: &'a [Value], name: &str, document: &str) -> &'a Value {
+    symbols
+        .iter()
+        .find(|symbol| {
+            symbol["name"] == name && symbol["location"]["uri"].as_str() == Some(document)
+        })
+        .unwrap_or_else(|| {
+            panic!("workspace symbols must include {name} at {document}: {symbols:?}")
+        })
+}
+
 // Two editor spellings of one file are independent open buffers. Percent-encoded
 // unreserved letters keep distinct URI strings while decoding to the same
 // normalized lexical path, and neither spelling may replace the other's text,
@@ -755,6 +779,382 @@ fn dangerous_fix_refuses_every_uri_of_one_physically_aliased_target() {
             "edits":[{"range":range(0, 9, 10),"newText":""}]
         }]),
         "the fix targets the remaining URI and its own version"
+    );
+    session.finish();
+}
+
+fn assert_same_file_spellings(canonical_text: &str, alias_text: &str) {
+    assert_ne!(canonical_text, alias_text);
+    assert_eq!(
+        Url::parse(alias_text)
+            .must_be("alias URI")
+            .to_file_path()
+            .must_be("alias path"),
+        Url::parse(canonical_text)
+            .must_be("canonical URI")
+            .to_file_path()
+            .must_be("canonical path"),
+        "both spellings decode to one physical path"
+    );
+}
+
+fn advance_reopened_alias_versions(session: &mut Session, canonical_text: &str, alias_text: &str) {
+    // The alias stream was not renumbered or retired by the canonical close and
+    // reopen: it advances to 12 while the reopened canonical commits version 6.
+    let alias_later = "def alias_later(x: U32) -> U32:\n  x\n";
+    let canonical_later = "def canonical_later(x: U32) -> U32:\n  x\n";
+    session.client.notify(
+        "textDocument/didChange",
+        json!({"textDocument":{"uri":alias_text,"version":12},
+            "contentChanges":[{"text":alias_later}]}),
+    );
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"].as_str() == Some(alias_text)
+                && message["params"]["version"] == 12_i64
+        })
+        .must_be("the surviving alias keeps its own editor version stream");
+    session.client.notify(
+        "textDocument/didChange",
+        json!({"textDocument":{"uri":canonical_text,"version":6},
+            "contentChanges":[{"text":canonical_later}]}),
+    );
+    session
+        .client
+        .receive_matching(TIMEOUT, |message| {
+            message["method"] == "textDocument/publishDiagnostics"
+                && message["params"]["uri"].as_str() == Some(canonical_text)
+                && message["params"]["version"] == 6_i64
+        })
+        .must_be("the reopened spelling commits its older version independently");
+
+    assert_eq!(document_symbols(session, alias_text), ["alias_later"]);
+    assert_eq!(
+        document_symbols(session, canonical_text),
+        ["canonical_later"]
+    );
+    let symbols = workspace_symbols(session, "");
+    assert_eq!(
+        required_symbol_at(&symbols, "alias_later", alias_text)["location"]["range"],
+        range(0, 4, 15)
+    );
+    assert_eq!(
+        required_symbol_at(&symbols, "canonical_later", canonical_text)["location"]["range"],
+        range(0, 4, 19)
+    );
+    assert!(
+        symbol_named(&symbols, "main").is_none(),
+        "both open views still replace the shared disk row: {symbols:?}"
+    );
+}
+
+// Two spellings that decode to one physical path are both open editor views
+// over that input. Each overlay must be indexed under its own URI, while the
+// closed spelling's disk row stays hidden behind the still-open one. Reopening
+// the closed spelling restores the pair without renumbering the surviving
+// alias URI or its editor version stream.
+#[test]
+fn physical_alias_open_buffers_keep_both_views_and_hide_only_the_closed_disk_row() {
+    let mut session = Session::new(SOURCE, &[]);
+    let canonical_text = session.document.clone();
+    let alias_text = session.document.replacen("/main.bend", "/%6Dain.bend", 1);
+    assert_same_file_spellings(&canonical_text, &alias_text);
+
+    let canonical_first = "def canonical_view(x: U32) -> U32:\n  x\n";
+    let alias_first = "def alias_view(x: U32) -> U32:\n  x\n";
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":canonical_text,"languageId":"bend","version":3,"text":canonical_first}}),
+    );
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":alias_text,"languageId":"bend","version":9,"text":alias_first}}),
+    );
+    assert_eq!(
+        document_symbols(&mut session, &canonical_text),
+        ["canonical_view"]
+    );
+    assert_eq!(document_symbols(&mut session, &alias_text), ["alias_view"]);
+
+    let symbols = workspace_symbols(&mut session, "");
+    let canonical = required_symbol_at(&symbols, "canonical_view", &canonical_text);
+    assert_eq!(
+        canonical["location"]["range"],
+        range(0, 4, 18),
+        "{canonical}"
+    );
+    let alias = required_symbol_at(&symbols, "alias_view", &alias_text);
+    assert_eq!(alias["location"]["range"], range(0, 4, 14), "{alias}");
+    assert!(
+        symbol_named(&symbols, "main").is_none(),
+        "an open overlay replaces its physical disk row, not joins it: {symbols:?}"
+    );
+
+    // Only the closed spelling's open view goes away. Its disk row must stay
+    // hidden because the alias is still an open spelling of the same input.
+    session.client.notify(
+        "textDocument/didClose",
+        json!({"textDocument":{"uri":canonical_text}}),
+    );
+    assert_eq!(document_symbols(&mut session, &alias_text), ["alias_view"]);
+    let symbols = workspace_symbols(&mut session, "");
+    assert!(
+        symbol_named(&symbols, "canonical_view").is_none(),
+        "the closed overlay is no longer an index view: {symbols:?}"
+    );
+    required_symbol_at(&symbols, "alias_view", &alias_text);
+    assert!(
+        symbol_named(&symbols, "main").is_none(),
+        "closing one spelling must not expose the shared disk declaration: {symbols:?}"
+    );
+
+    let canonical_reopened = "def canonical_reopened(x: U32) -> U32:\n  x\n";
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":canonical_text,"languageId":"bend","version":5,"text":canonical_reopened}}),
+    );
+    assert_eq!(
+        document_symbols(&mut session, &canonical_text),
+        ["canonical_reopened"]
+    );
+    assert_eq!(document_symbols(&mut session, &alias_text), ["alias_view"]);
+    let symbols = workspace_symbols(&mut session, "");
+    required_symbol_at(&symbols, "canonical_reopened", &canonical_text);
+    required_symbol_at(&symbols, "alias_view", &alias_text);
+    assert!(
+        symbol_named(&symbols, "main").is_none(),
+        "the reopened pair still hides the disk row: {symbols:?}"
+    );
+
+    advance_reopened_alias_versions(&mut session, &canonical_text, &alias_text);
+    session.finish();
+}
+
+// A still-open importer demands the physical dependency. While any overlay
+// spelling of that dependency is open the disk declarations stay hidden; only
+// after the last spelling closes must the demanded disk symbols return under
+// the import's logical URI, including navigation through the importer.
+#[test]
+fn closing_last_physical_spelling_restores_open_importer_disk_symbols() {
+    let importer = "import ./dep.bend as Dep\ndef main() -> U32:\n  Dep.disk_value\n";
+    let disk = "def disk_value() -> U32:\n  1\n";
+    let mut session = Session::new(importer, &[("dep.bend", disk)]);
+    let importer_text = session.document.clone();
+    let dep_path = session.project().join("dep.bend");
+    let dep_text = uri(&dep_path);
+    let alias_text = dep_text.replacen("/dep.bend", "/%64ep.bend", 1);
+    assert_same_file_spellings(&dep_text, &alias_text);
+
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":importer_text,"languageId":"bend","version":1,"text":importer}}),
+    );
+    assert_eq!(document_symbols(&mut session, &importer_text), ["main"]);
+    let symbols = workspace_symbols(&mut session, "");
+    assert_eq!(
+        required_symbol_at(&symbols, "disk_value", &dep_text)["location"]["range"],
+        range(0, 4, 14)
+    );
+
+    let buffer = "def buffer_value() -> U32:\n  2\n";
+    let alias_buffer = "def alias_value() -> U32:\n  3\n";
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":dep_text,"languageId":"bend","version":2,"text":buffer}}),
+    );
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":alias_text,"languageId":"bend","version":7,"text":alias_buffer}}),
+    );
+    assert_eq!(document_symbols(&mut session, &dep_text), ["buffer_value"]);
+    assert_eq!(document_symbols(&mut session, &alias_text), ["alias_value"]);
+    let symbols = workspace_symbols(&mut session, "");
+    assert_eq!(
+        required_symbol_at(&symbols, "buffer_value", &dep_text)["location"]["range"],
+        range(0, 4, 16)
+    );
+    assert_eq!(
+        required_symbol_at(&symbols, "alias_value", &alias_text)["location"]["range"],
+        range(0, 4, 15)
+    );
+    assert!(
+        symbol_named(&symbols, "disk_value").is_none(),
+        "open dependency spellings replace the demanded disk row: {symbols:?}"
+    );
+
+    session.client.notify(
+        "textDocument/didClose",
+        json!({"textDocument":{"uri":dep_text}}),
+    );
+    assert_eq!(document_symbols(&mut session, &alias_text), ["alias_value"]);
+    let symbols = workspace_symbols(&mut session, "");
+    assert!(
+        symbol_named(&symbols, "buffer_value").is_none(),
+        "the closed overlay is no longer indexed: {symbols:?}"
+    );
+    required_symbol_at(&symbols, "alias_value", &alias_text);
+    assert!(
+        symbol_named(&symbols, "disk_value").is_none(),
+        "the remaining alias still hides the demanded disk row: {symbols:?}"
+    );
+
+    session.client.notify(
+        "textDocument/didClose",
+        json!({"textDocument":{"uri":alias_text}}),
+    );
+    assert_eq!(document_symbols(&mut session, &importer_text), ["main"]);
+    let symbols = workspace_symbols(&mut session, "");
+    assert!(
+        symbol_named(&symbols, "alias_value").is_none(),
+        "no closed alias overlay may remain indexed: {symbols:?}"
+    );
+    let disk_symbol = required_symbol_at(&symbols, "disk_value", &dep_text);
+    assert_eq!(disk_symbol["location"]["range"], range(0, 4, 14));
+
+    let definition = session.client.request(
+        "textDocument/definition",
+        json!({
+            "textDocument":{"uri":importer_text},
+            "position":{"line":2,"character":6}
+        }),
+    );
+    assert_eq!(
+        definition["result"]["uri"], dep_text,
+        "the open importer navigates to the restored disk symbol: {definition}"
+    );
+    assert_eq!(
+        definition["result"]["range"]["start"],
+        json!({"line":0,"character":4}),
+        "navigation targets the disk declaration, not an overlay: {definition}"
+    );
+    session.finish();
+}
+
+// A symlink spelling and its target are one physical input. Retargeting the
+// symlink at an open destination must move the open spelling's group on the
+// watcher update, so the old target's disk row reappears when its own spelling
+// closes and the new target's disk row is hidden only while the moved spelling
+// is open.
+#[cfg(unix)]
+#[test]
+fn symlink_retarget_moves_open_spelling_between_physical_shadow_groups() {
+    use std::os::unix::fs::symlink;
+
+    let mut session = Session::new(
+        SOURCE,
+        &[
+            ("a.bend", "def old_disk() -> U32:\n  1\n"),
+            ("c.bend", "def new_disk() -> U32:\n  2\n"),
+        ],
+    );
+    let project = session.project().to_path_buf();
+    let a_path = project.join("a.bend");
+    let c_path = project.join("c.bend");
+    let link_path = project.join("link.bend");
+    symlink(&a_path, &link_path).must_be("create symlink spelling of the old target");
+    let a_text = uri(&a_path);
+    let c_text = uri(&c_path);
+    let link_text = uri(&link_path);
+
+    let symbols = workspace_symbols(&mut session, "");
+    assert_eq!(
+        required_symbol_at(&symbols, "old_disk", &a_text)["location"]["range"],
+        range(0, 4, 12)
+    );
+    assert_eq!(
+        required_symbol_at(&symbols, "new_disk", &c_text)["location"]["range"],
+        range(0, 4, 12)
+    );
+
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":a_text,"languageId":"bend","version":2,
+            "text":"def old_buffer(x: U32) -> U32:\n  x\n"}}),
+    );
+    session.client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":link_text,"languageId":"bend","version":7,
+            "text":"def link_buffer(x: U32) -> U32:\n  x\n"}}),
+    );
+    assert_eq!(document_symbols(&mut session, &a_text), ["old_buffer"]);
+    assert_eq!(document_symbols(&mut session, &link_text), ["link_buffer"]);
+
+    let symbols = workspace_symbols(&mut session, "");
+    required_symbol_at(&symbols, "old_buffer", &a_text);
+    required_symbol_at(&symbols, "link_buffer", &link_text);
+    assert!(
+        symbol_named(&symbols, "old_disk").is_none(),
+        "the open target spelling hides its old physical disk row: {symbols:?}"
+    );
+    assert_eq!(
+        required_symbol_at(&symbols, "new_disk", &c_text)["location"]["range"],
+        range(0, 4, 12),
+        "the untouched new target stays indexed: {symbols:?}"
+    );
+
+    // Retarget the symlink at c.bend and report it through the watcher. The open
+    // link spelling must move to c's physical group, hiding c's disk row without
+    // leaving stale membership in a's group.
+    fs::remove_file(&link_path).must_be("remove the old symlink");
+    symlink(&c_path, &link_path).must_be("retarget the symlink at the new target");
+    session.client.notify(
+        "workspace/didChangeWatchedFiles",
+        json!({"changes":[{"uri":link_text,"type":2}]}),
+    );
+    assert_eq!(document_symbols(&mut session, &link_text), ["link_buffer"]);
+    let symbols = workspace_symbols(&mut session, "");
+    required_symbol_at(&symbols, "link_buffer", &link_text);
+    required_symbol_at(&symbols, "old_buffer", &a_text);
+    assert!(
+        symbol_named(&symbols, "new_disk").is_none(),
+        "the moved open spelling now hides the new target's disk row: {symbols:?}"
+    );
+    assert!(
+        symbol_named(&symbols, "old_disk").is_none(),
+        "the still-open old target keeps its disk row hidden: {symbols:?}"
+    );
+
+    // Closing the old target after the retarget must reveal its disk row: the
+    // moved symlink is no longer a spelling of a.bend.
+    session.client.notify(
+        "textDocument/didClose",
+        json!({"textDocument":{"uri":a_text}}),
+    );
+    assert_eq!(document_symbols(&mut session, &link_text), ["link_buffer"]);
+    let symbols = workspace_symbols(&mut session, "");
+    assert_eq!(
+        required_symbol_at(&symbols, "old_disk", &a_text)["location"]["range"],
+        range(0, 4, 12),
+        "no stale physical hiding may survive the retarget: {symbols:?}"
+    );
+    assert!(
+        symbol_named(&symbols, "new_disk").is_none(),
+        "the moved open spelling still hides the new disk row: {symbols:?}"
+    );
+
+    session.client.notify(
+        "textDocument/didClose",
+        json!({"textDocument":{"uri":link_text}}),
+    );
+    let symbols = workspace_symbols(&mut session, "");
+    assert!(
+        symbol_named(&symbols, "link_buffer").is_none(),
+        "the closed moved spelling no longer indexes its overlay: {symbols:?}"
+    );
+    assert_eq!(
+        required_symbol_at(&symbols, "new_disk", &c_text)["location"]["range"],
+        range(0, 4, 12),
+        "closing the moved spelling reveals the new target's disk row: {symbols:?}"
     );
     session.finish();
 }

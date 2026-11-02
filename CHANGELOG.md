@@ -19,6 +19,9 @@
 - Keep workspace symbols responsive after closing one of several URI spellings
   of a file. Index the remaining open buffer rather than the closed spelling's
   different disk contents.
+- Maintain closed-alias visibility during workspace input updates instead of
+  resolving physical alias groups again for each workspace query. Preserve
+  independent open buffers, disk restoration and symlink-retarget transitions.
 - Keep overlapping edits, saves and configuration changes from leaving live lint
   stuck on a pre-edit frozen view.
 - Cancel a manual lint request without losing queued automatic checks. Manual

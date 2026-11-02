@@ -18,27 +18,43 @@ impl WorkspaceDb {
             (previous != next).then(|| physical_source_uri(&entry.uri, next))
         };
         self.invalidate_semantic_file(file);
-        if let Some(previous) = self.entries[file.0].physical_path.take()
-            && self
+        if let Some(previous) = self.entries[file.0].physical_path.take() {
+            if self
                 .physical_files
                 .get_mut(&previous)
                 .is_some_and(|files| files.remove(file))
-        {
-            self.physical_files.remove(&previous);
+            {
+                self.physical_files.remove(&previous);
+            } else if let Some(files) = self.physical_files.get(&previous) {
+                files.refresh_index_visibility(&mut self.entries);
+            }
         }
+        self.entries[file.0].is_index_shadowed = false;
         self.entries[file.0].physical_path.clone_from(&path);
         if let Some(uri) = physical_uri {
             self.entries[file.0].physical_uri = uri;
         }
         if let Some(path) = path {
-            self.physical_files
+            let files = self
+                .physical_files
                 .entry(path)
                 .and_modify(|files| files.others.push(file))
                 .or_insert_with(|| PhysicalAliases {
                     first: file,
                     others: Vec::new(),
                 });
+            files.refresh_index_visibility(&mut self.entries);
             self.invalidate_physical_file(file);
+        }
+    }
+
+    pub(in crate::workspace) fn refresh_physical_spelling_visibility(&mut self, file: FileId) {
+        self.entries[file.0].is_index_shadowed = false;
+        let Some(path) = self.entries[file.0].physical_path.as_ref() else {
+            return;
+        };
+        if let Some(files) = self.physical_files.get(path) {
+            files.refresh_index_visibility(&mut self.entries);
         }
     }
 

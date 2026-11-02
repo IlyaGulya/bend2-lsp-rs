@@ -305,6 +305,20 @@ impl PhysicalAliases {
         }
         false
     }
+
+    fn refresh_index_visibility(&self, entries: &mut [FileEntry]) {
+        if self.others.is_empty() {
+            entries[self.first.0].is_index_shadowed = false;
+            return;
+        }
+        let has_open = self
+            .iter()
+            .any(|file| entries[file.0].open_snapshot.is_some());
+        for file in self.iter() {
+            let entry = &mut entries[file.0];
+            entry.is_index_shadowed = has_open && entry.open_snapshot.is_none();
+        }
+    }
 }
 struct ImportWatchDependents {
     first: FileId,
@@ -349,6 +363,8 @@ struct FileEntry {
     retired: bool,
     // Warm-query membership; cold graph mutation uses the authoritative reachable set.
     is_reachable: bool,
+    // Cold physical/open-state mutations maintain closed-spelling visibility.
+    is_index_shadowed: bool,
     imports: Box<[ImportEdge]>,
     // One logical resolved path per edge; physical target identities may alias.
     import_paths: Box<[PathBuf]>,
@@ -1147,6 +1163,7 @@ impl WorkspaceDb {
         self.clear_import_watch_paths(retired);
         self.update_physical_path(retired, None);
         self.dirty_semantic_roots.remove(&retired);
+        self.refresh_physical_spelling_visibility(canonical);
     }
 
     pub(crate) fn source_graph(&self, root: FileId) -> Option<SourceGraph> {
@@ -1214,6 +1231,7 @@ impl WorkspaceDb {
         let entry = &mut self.entries[id.0];
         entry.language_id = document.language_id;
         entry.open_snapshot = Some(document.snapshot);
+        self.refresh_physical_spelling_visibility(id);
         self.dirty_semantic_roots.insert(id);
         self.refresh_imports_with_targets(id, imports, None);
         self.extend_reachable(id);
@@ -1276,6 +1294,7 @@ impl WorkspaceDb {
         let imports_changed =
             self.refresh_imports_with_targets(id, imports, previous_editor_paths.as_ref());
         if !was_open {
+            self.refresh_physical_spelling_visibility(id);
             self.extend_reachable(id);
         }
         Some((id, imports_changed))
@@ -1300,6 +1319,7 @@ impl WorkspaceDb {
         }
         entry.disk_generation = entry.disk_generation.wrapping_add(1);
         entry.language_id = "bend".into();
+        self.refresh_physical_spelling_visibility(id);
         self.invalidate_semantic_file(id);
         self.dirty_semantic_roots.remove(&id);
         // Restore cold compiler disk imports rather than the closing overlay's
@@ -1514,30 +1534,12 @@ impl WorkspaceDb {
     pub fn indexed_snapshots(&self) -> impl Iterator<Item = (&Url, &str, &Arc<DocumentSnapshot>)> {
         self.reachable.iter().filter_map(|id| {
             let entry = &self.entries[id.0];
-            let snapshot = entry.snapshot()?;
-            if entry.open_snapshot.is_none() && self.shadowed_by_open_spelling(*id) {
+            if entry.is_index_shadowed {
                 return None;
             }
+            let snapshot = entry.snapshot()?;
             Some((entry.uri.as_ref(), entry.language_id.as_str(), snapshot))
         })
-    }
-
-    /// Whether another spelling of this exact physical input is open.
-    fn shadowed_by_open_spelling(&self, file: FileId) -> bool {
-        let Some(path) = self.entries[file.0].physical_path.as_deref() else {
-            return false;
-        };
-        let Some(files) = self.physical_files.get(path) else {
-            return false;
-        };
-        // The common single-owner input needs no URI/alias scan at all.
-        if files.first == file && files.others.is_empty() {
-            return false;
-        }
-        files
-            .iter()
-            .copied()
-            .any(|other| other != file && self.entries[other.0].open_snapshot.is_some())
     }
 
     #[must_use]
@@ -1779,6 +1781,7 @@ impl WorkspaceDb {
             disk_snapshot: None,
             retired: false,
             is_reachable: false,
+            is_index_shadowed: false,
             imports: Box::default(),
             import_paths: Box::default(),
             import_rename_paths: Box::default(),
