@@ -11,6 +11,19 @@
 
 ### Bug Fixes
 
+- Keep `import Base` first when organizing imports, matching bend-lint's ordering.
+- Keep manual dangerous lint fixes available when an editor omits optional
+  trigger metadata. Explicitly automatic requests still receive no dangerous fixes.
+- Keep unrelated document updates and semantic queries responsive while a lint
+  Code Action waits for another project's analyzer.
+- Keep workspace symbols responsive after closing one of several URI spellings
+  of a file. Index the remaining open buffer rather than the closed spelling's
+  different disk contents.
+- Keep overlapping edits, saves and configuration changes from leaving live lint
+  stuck on a pre-edit frozen view.
+- Cancel a manual lint request without losing queued automatic checks. Manual
+  Run no longer waits for the compiler's `Base` warmup, and canceled cleanup
+  still restores pending work and finishes retired progress.
 - Respect complete lexical names in navigation, hover, references, and rename.
   A binding named `D` does not shadow the distinct name `D.member`; a binding
   named `D.member` does.
@@ -40,43 +53,66 @@
 
 ### Optional lint integration
 
-- Add off-by-default saved-file diagnostics from a user-installed standalone
-  bend-lint executable. Explicit opt-in trusts both the tool and project rules;
-  upstream may fetch its own pinned compiler/dependencies and build rule programs.
-- Merge lexical, selected-compiler, imported, and lint diagnostics without late
-  publications erasing other providers. Preserve compiler source identifiers and
-  related information; reject obsolete revisions and clear only retired results.
-- Keep unsaved editor buffers out of disk-based lint results. Cancel stale jobs,
-  bound output/work, and contain analyzer descendants on Unix and Windows.
-- Keep first-save lint findings available when the compiler's Base library is
-  still loading. Finish prelude readiness before capturing lint inputs, without
-  holding the workspace read barrier during external analysis.
-- Reject in-flight lint results and requested fixes after source/configuration
-  symlink retargeting, including changes in parent directories.
-- Keep Linux lint diagnostics working for UTF-8 aliases to non-UTF-8 filenames;
-  retain lossless file URIs without serializing native paths into JSON metadata.
-- Offer separately enabled, explicitly requested **dangerous** lint Code Actions
-  with saved-content, UTF-16, overlap, and version checks for every touched file.
-  Never run automatic fixes, safe fix-all, or a replacement formatter.
-- Require real-stdio process/publication regressions and genuine standalone
-  analyzer diagnostics and explicit-action E2Es on all six native CI targets.
-  Pin the npm package and Bun archives and retain runtime identity evidence.
-  The standalone JSON contract targets upstream
-  `02ef84b38b8c06cbd607e270c4930e633e9dab0f`, not the older bundled PR #1389 tool.
-- Synchronize import-completion fixtures with their indexed unsaved candidates,
-  without making production queries wait for unrelated pending builds.
-- Acknowledge prior stdio document mutations before releasing held analyzer
-  output, so tests cannot mistake pre-mutation results for stale publication.
-- Retain a real pre-edit compiler/lint publication in the dirty-buffer regression
-  and assert transport receipt order, so buffered older packets cannot be
-  mistaken for post-clear findings. Keep rejecting every lint packet received
-  after the clear, including stale-version packets.
-- Publish analyzer fixture socket addresses atomically before signaling readiness,
-  so descendant-cleanup checks cannot read partially written addresses. Keep the
-  timeout assertions and strict flaky-test policy unchanged.
+- Add off-by-default diagnostics from user-installed standalone bend-lint 0.2.1,
+  Bun 1.4.4 and matching rules/API 0.2.1.0. Explicit opt-in trusts the tool and
+  executable project rules; upstream may fetch dependencies and build programs.
+  Its pinned compiler remains independent of the selected LSP compiler.
+- Check unsaved buffers, edited imports and named files not yet on disk without
+  writing editor text to the filesystem. Reuse one immutable project view per
+  revision, including entries reached through directory symlinks.
+- Prepare rule runners separately from checks, with a ten-minute preparation
+  deadline. Typing does not restart a cold build. Each project keeps independent
+  queues, cancellation and prepared runners, subject to global resource limits.
+- Start live lint after editor inputs commit, without waiting for cold `Base`
+  preparation. Registering compiler-owned `Base` does not invalidate unchanged
+  findings or their versioned fixes.
+- Merge lexical, compiler, imported and lint diagnostics without one provider
+  erasing another. Project fences immediately hide obsolete lint findings and
+  fixes; cleanup cannot remove newer results.
+- Automatically check open files when lint is enabled. Follow newly created,
+  removed and nested configurations; recheck watched dependencies and external
+  saved-rule helpers even during a project's first preparation.
+- Keep equivalent editor URI buffers and their versions independent. Publish
+  matching findings at each URI's own version; identify conflicting physical
+  inputs before executing rules, without blocking unrelated projects.
+- Offer separately enabled, explicitly requested **dangerous** Code Actions for
+  matching open versions, including unsaved text. Validate UTF-16 ranges,
+  overlaps, exact input bytes and every target; refuse ambiguous aliases or
+  unverifiable multi-file edits as a whole. Never auto-fix or replace the formatter.
+- Show rule documentation links, Run/Status actions, preparation progress and
+  structured setup/partial-check explanations without inventing source ranges
+  or document-wide error-count banners.
+- Bound captured input, analyzer output and work; reap process trees on timeout,
+  cancellation, disable and shutdown. Keep alias, missing-import, CRLF and
+  non-BMP range guards, including saved Linux entries reached through UTF-8 aliases.
+- Require genuine published-analyzer and real-stdio lifecycle/action E2Es on all
+  six native CI targets. Retain pinned runtime/package identity evidence and
+  publish fixture socket readiness atomically, without test retries.
+- Report upstream 0.2.1 limitations rather than concealing them: overlay-only
+  configured `entries` ([#5](https://github.com/MattCozendey/bend-lint/issues/5)),
+  CRLF diagnostic projection ([#6](https://github.com/MattCozendey/bend-lint/issues/6))
+  and custom-rule cache keys for bare/absolute helper imports
+  ([#7](https://github.com/MattCozendey/bend-lint/issues/7)).
 
 ### Under the hood
 
+- Keep one workspace input authority: per-URI `FileId` and revision streams,
+  immutable editor-input receipts, entry-scoped semantic views and project-scoped
+  lint snapshots. Do not introduce a second editor VFS or global lint generation
+  barrier. Route known path events to every logical/physical input spelling.
+- Schedule independent analyzers after VFS commit and before semantic warmup.
+  Prepare lint Code Actions and revalidate filesystem inputs outside workspace
+  guards; finalize edits under a short, purely in-memory freshness check.
+- Carry captured `FileId`, spelling and disk generation through cold I/O and
+  validated publication instead of reselecting the latest path owner.
+- Seal a committed lint change with a fresh project revision if its fence was
+  superseded or used before the commit. Preserve queued work without global
+  mutation locks or cancellation-prone ownership counters.
+- Keep fenced lint work, retired task handles, progress tokens and pending
+  diagnostic publication under scoped cancellation recovery until scheduling
+  completes. Progress End has exclusive ownership and restores unsent tokens.
+- Retain an unpaired 32-entry/128-target lint-publication collector for optimized
+  native CI builds, without changing Callgrind metrics, admission or limits.
 - Keep Linux procfs teardown sentinels out of owned process-group IDs, so a
   successful semantic worker is not rejected by an invalid cleanup signal.
   Preserve real child reaping and all genuine cleanup failures.

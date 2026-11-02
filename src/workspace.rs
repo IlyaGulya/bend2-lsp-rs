@@ -8,7 +8,9 @@ use std::{
 use crate::analysis::{self, DocumentSnapshot, Revision};
 use url::Url;
 
+mod input;
 mod semantic;
+pub use input::EditorInputs;
 pub use semantic::{
     SemanticBase, SemanticBindingId, SemanticCall, SemanticCompletion, SemanticDeclaration,
     SemanticEntity, SemanticEntityId, SemanticIssue, SemanticOccurrence, SemanticSite,
@@ -448,7 +450,7 @@ impl WorkspaceDb {
         imports: Vec<PreparedImportTarget>,
     ) -> Option<FileId> {
         let id = self.admit_discovered_path(path.to_path_buf())?;
-        self.sync_disk_snapshot_prepared(path, physical_path, Some(snapshot), imports)?;
+        self.sync_disk_snapshot_prepared(id, path, physical_path, Some(snapshot), imports)?;
         Some(id)
     }
     pub(crate) fn retain_discovered_roots(&mut self, roots: &[PathBuf]) {
@@ -569,10 +571,6 @@ impl WorkspaceDb {
 
     pub(crate) fn source_snapshot(&self, id: FileId) -> Option<&Arc<DocumentSnapshot>> {
         self.entries.get(id.0)?.snapshot()
-    }
-
-    pub(crate) fn open_snapshot(&self, id: FileId) -> Option<&Arc<DocumentSnapshot>> {
-        self.entries.get(id.0)?.open_snapshot.as_ref()
     }
 
     #[must_use]
@@ -1331,39 +1329,43 @@ impl WorkspaceDb {
         let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
             resolve_import_targets(&path, &physical_path, snapshot)
         });
-        self.sync_disk_snapshot_prepared(&path, &physical_path, snapshot, imports)
+        self.sync_disk_snapshot_prepared(id, &path, &physical_path, snapshot, imports)
     }
 
+    /// Publish a prepared disk payload to the exact identity the caller
+    /// captured before staging. The spelling and demand are validated here:
+    /// another logical URI may map the same lexical path, so selecting a row
+    /// from `by_path` after the fact could publish to an unrelated spelling.
     pub(crate) fn sync_disk_snapshot_prepared(
         &mut self,
+        file: FileId,
         path: &Path,
         physical_path: &Path,
         snapshot: Option<Arc<DocumentSnapshot>>,
         imports: Vec<PreparedImportTarget>,
     ) -> Option<(FileId, bool)> {
-        // Most callers pass a spelling that is already interned in normalized
-        // form; only pay normalization for a spelling the map does not know.
-        let id = if let Some(&id) = self.by_path.get(path) {
-            id
-        } else {
+        let entry_path = self.entries.get(file.0)?.path.as_deref()?;
+        if entry_path != path {
             let normalized = normalize_path(path);
-            *self.by_path.get(&normalized)?
-        };
-        if !self.is_needed(id) {
+            if entry_path != normalized.as_path() {
+                return None;
+            }
+        }
+        if !self.is_needed(file) {
             return None;
         }
-        if self.entries[id.0].physical_path.as_deref() != Some(physical_path) {
-            self.update_physical_path(id, Some(physical_path.to_path_buf()));
+        if self.entries[file.0].physical_path.as_deref() != Some(physical_path) {
+            self.update_physical_path(file, Some(physical_path.to_path_buf()));
         }
-        self.invalidate_semantic_file(id);
-        self.entries[id.0].disk_snapshot = snapshot;
-        self.entries[id.0].disk_generation = self.entries[id.0].disk_generation.wrapping_add(1);
-        self.refresh_semantic_root(id);
+        self.invalidate_semantic_file(file);
+        self.entries[file.0].disk_snapshot = snapshot;
+        self.entries[file.0].disk_generation = self.entries[file.0].disk_generation.wrapping_add(1);
+        self.refresh_semantic_root(file);
         // The prepared imports belong to the disk snapshot, not an open overlay
         // that may have changed while the disk snapshot was being constructed.
-        let imports_changed = self.entries[id.0].open_snapshot.is_none()
-            && self.refresh_imports_with_targets(id, imports, None);
-        Some((id, imports_changed))
+        let imports_changed = self.entries[file.0].open_snapshot.is_none()
+            && self.refresh_imports_with_targets(file, imports, None);
+        Some((file, imports_changed))
     }
 
     pub(crate) fn document_path(&self, uri: &Url) -> Option<PathBuf> {
@@ -1386,14 +1388,18 @@ impl WorkspaceDb {
             })
     }
 
-    pub(crate) fn missing_disk_paths(&self, roots: &[FileId]) -> Vec<PathBuf> {
+    /// Exact identities that carry demand but have no editor or disk payload,
+    /// paired with the spelling captured while traversing imports. Disk work
+    /// must stay bound to this identity: another logical URI can own the same
+    /// lexical path in `by_path` while this input is closed.
+    pub(crate) fn missing_disk_inputs(&self, roots: &[FileId]) -> Vec<(FileId, PathBuf)> {
         let mut pending: Vec<_> = roots
             .iter()
             .copied()
             .filter(|id| self.is_needed(*id))
             .collect();
         let mut visited = HashSet::new();
-        let mut paths = Vec::new();
+        let mut inputs = Vec::new();
         while let Some(id) = pending.pop() {
             if !self.is_needed(id) || !visited.insert(id) {
                 continue;
@@ -1404,13 +1410,15 @@ impl WorkspaceDb {
             if entry.snapshot().is_none()
                 && let Some(path) = &entry.path
             {
-                paths.push(path.clone());
+                inputs.push((id, path.clone()));
             }
             pending.extend(entry.imports.iter().map(|edge| edge.target));
         }
-        paths.sort_unstable();
-        paths.dedup();
-        paths
+        inputs.sort_unstable_by(|left, right| {
+            left.1.cmp(&right.1).then_with(|| left.0.cmp(&right.0))
+        });
+        inputs.dedup();
+        inputs
     }
 
     pub fn load_reachable(&mut self, roots: &[FileId]) {
@@ -1497,15 +1505,39 @@ impl WorkspaceDb {
     }
 
     /// Reachable loaded snapshots with their borrowed editor identities.
+    ///
+    /// A closed spelling whose physical input another spelling currently has
+    /// open is not an index view: the open overlay is that input's single
+    /// visible text. Keeping the disk row reachable preserves disk-backed
+    /// imports and a later all-closed reload, but enumerating it beside the
+    /// open spelling would present one file twice under two different URIs.
     pub fn indexed_snapshots(&self) -> impl Iterator<Item = (&Url, &str, &Arc<DocumentSnapshot>)> {
         self.reachable.iter().filter_map(|id| {
             let entry = &self.entries[id.0];
-            Some((
-                entry.uri.as_ref(),
-                entry.language_id.as_str(),
-                entry.snapshot()?,
-            ))
+            let snapshot = entry.snapshot()?;
+            if entry.open_snapshot.is_none() && self.shadowed_by_open_spelling(*id) {
+                return None;
+            }
+            Some((entry.uri.as_ref(), entry.language_id.as_str(), snapshot))
         })
+    }
+
+    /// Whether another spelling of this exact physical input is open.
+    fn shadowed_by_open_spelling(&self, file: FileId) -> bool {
+        let Some(path) = self.entries[file.0].physical_path.as_deref() else {
+            return false;
+        };
+        let Some(files) = self.physical_files.get(path) else {
+            return false;
+        };
+        // The common single-owner input needs no URI/alias scan at all.
+        if files.first == file && files.others.is_empty() {
+            return false;
+        }
+        files
+            .iter()
+            .copied()
+            .any(|other| other != file && self.entries[other.0].open_snapshot.is_some())
     }
 
     #[must_use]
@@ -2619,7 +2651,7 @@ mod tests {
         assert!(database.publish_semantic_view(view.clone(), None));
         assert!(database.semantic_views_ready_for(None));
         database
-            .sync_disk_snapshot_prepared(&path, &physical, None, Vec::new())
+            .sync_disk_snapshot_prepared(root, &path, &physical, None, Vec::new())
             .ok_or_else(|| io::Error::other("deleted source"))?;
         assert!(database.semantic_view(root).is_none());
         assert!(database.semantic_roots().is_empty());

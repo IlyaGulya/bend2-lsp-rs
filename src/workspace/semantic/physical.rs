@@ -58,7 +58,7 @@ impl WorkspaceDb {
         }
     }
 
-    pub(super) fn physical_overlay_conflict(&self, path: &Path) -> bool {
+    pub(crate) fn physical_overlay_conflict(&self, path: &Path) -> bool {
         let mut snapshots = self
             .physical_files
             .get(path)

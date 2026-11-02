@@ -2,7 +2,7 @@ use super::super::{adapters, lsp::Backend, orchestration::run_staging};
 use crate::{
     analysis::{DocumentSnapshot, Revision},
     workspace::{
-        Document, PathRename, PreparedImportTarget, WorkspaceDb, import_rename_edits,
+        Document, FileId, PathRename, PreparedImportTarget, WorkspaceDb, import_rename_edits,
         normalize_path, renamed_path, resolve_import_targets,
     },
 };
@@ -353,6 +353,7 @@ fn will_source_edits(
 }
 
 struct RenameSource {
+    id: FileId,
     uri: Url,
     old_uri: Url,
     path: PathBuf,
@@ -384,6 +385,7 @@ fn rename_sources(
             if database.is_compiler_document(&document.uri) {
                 return None;
             }
+            let id = database.file_id_by_uri(&document.uri)?;
             let path = database.document_path(&document.uri)?;
             let new_path = renamed_path(&path, renames);
             let open = database.is_document_open(&document.uri);
@@ -396,6 +398,7 @@ fn rename_sources(
                 return None;
             }
             Some(RenameSource {
+                id,
                 uri: Url::from_file_path(&new_path).ok()?,
                 old_uri: document.uri,
                 path: new_path,
@@ -559,7 +562,6 @@ impl Backend {
                 .collect()
         };
         self.workspace.load_reachable_async(&roots, None).await;
-        self.prepare_semantic_views().await;
         for document in documents {
             let version = document.revision.0;
             self.schedule_diagnostics(document.uri, version).await;
@@ -636,7 +638,12 @@ impl Backend {
                     disk_imports,
                 } in prepared
                 {
+                    let id = merged
+                        .iter()
+                        .find(|(retired, _)| *retired == source.id)
+                        .map_or(source.id, |(_, canonical)| *canonical);
                     database.sync_disk_snapshot_prepared(
+                        id,
                         &source.path,
                         &physical_path,
                         disk_snapshot,

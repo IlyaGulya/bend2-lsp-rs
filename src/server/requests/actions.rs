@@ -22,8 +22,12 @@ impl Backend {
         if kind_requested(params.context.only.as_deref(), &CodeActionKind::QUICKFIX) {
             self.workspace.wait_for_discovery().await;
         }
+        self.wait_for_document_revision(&params.text_document.uri)
+            .await;
+        let prepared = self.prepare_lint_code_actions(&params).await;
         let _workspace_read = self.document_read(&params.text_document.uri).await;
-        let mut actions = self.lint_code_actions(&params).await;
+        let mut actions = self.finalize_lint_code_actions(&params, prepared);
+        actions.extend(self.lint_control_actions(&params));
         let uri = params.text_document.uri;
         let Some(doc) = self.document(&uri) else {
             return Ok(None);

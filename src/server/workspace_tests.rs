@@ -340,17 +340,20 @@ mod tests {
         assert!(
             database
                 .sync_disk_snapshot_prepared(
+                    dep_id,
                     &unknown_path,
                     &crate::workspace::canonical_source_path(&unknown_path),
                     Some(late_snapshot.clone()),
                     Vec::new()
                 )
-                .is_none()
+                .is_none(),
+            "a captured identity only accepts its own prepared spelling"
         );
         assert!(database.file_id_by_path(&unknown_path).is_none());
         assert!(
             database
                 .sync_disk_snapshot_prepared(
+                    dep_id,
                     &dep_path,
                     &crate::workspace::canonical_source_path(&dep_path),
                     Some(late_snapshot.clone()),
@@ -387,6 +390,7 @@ mod tests {
         assert!(
             database
                 .sync_disk_snapshot_prepared(
+                    dep_id,
                     &dep_path,
                     &crate::workspace::canonical_source_path(&dep_path),
                     Some(late_snapshot),

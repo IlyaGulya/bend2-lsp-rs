@@ -145,7 +145,7 @@ fn reimport_reads_updated_disk_with_stable_dependency_identity() {
     );
     let dependents = db.dependents(id);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, uri(&root));
+    assert_eq!(&dependents[0].uri, &uri(&root));
 }
 
 #[test]
@@ -200,7 +200,7 @@ fn reimport_during_unfinished_load_discards_retired_disk_and_import_edges() {
     assert!(weak.upgrade().is_none());
     let dependents = db.dependents(dep_id);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, uri(&root));
+    assert_eq!(&dependents[0].uri, &uri(&root));
 }
 
 #[test]
@@ -311,7 +311,7 @@ fn closing_unsaved_dependency_overlay_reloads_fresh_disk_for_open_importer() {
     assert_eq!(db.file_id_by_path(&root), Some(root_id));
     let dependents = db.dependents(dep_id);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, uri(&root));
+    assert_eq!(&dependents[0].uri, &uri(&root));
 }
 
 #[test]
@@ -549,7 +549,7 @@ fn assert_shared_root_retained(
     );
     let dependents = db.dependents(identities[STRESS_OVERLAY]);
     assert_eq!(dependents.len(), 1);
-    assert_eq!(dependents[0].uri, fixture.uris[STRESS_SHARED_ROOT]);
+    assert_eq!(&dependents[0].uri, &fixture.uris[STRESS_SHARED_ROOT]);
     drop(dependents);
     assert_candidate(
         db,

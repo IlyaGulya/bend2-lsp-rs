@@ -122,6 +122,20 @@ jobs:
         run: cargo nextest run --workspace --exclude bend2-perf --all-features --locked --release --profile ci
       - name: Run native Rust performance tooling correctness contracts
         run: cargo test --package bend2-perf --all-features --locked --release
+      - name: Collect unpaired multi-entry lint publication baseline
+        id: lint-publication
+        run: |
+          cargo run --package bend2-perf --locked --release -- lint-publication \
+            --binary "$BEND2_LSP_TEST_BINARY" --source-sha "$RELEASE_SHA" \
+            --output target/lint-publication.json
+      - name: Preserve multi-entry lint publication evidence
+        if: ${{ always() && steps.lint-publication.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lint-publication-baseline-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/lint-publication.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Archive full native release test suite
         run: cargo nextest archive --workspace --exclude bend2-perf --all-features --locked --release --archive-file target/release-tests.tar.zst
       - name: Run native release documentation tests
