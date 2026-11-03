@@ -7,6 +7,7 @@ mod doctor;
 mod hosted;
 mod latency;
 mod lifecycle_stress;
+mod lint_publication;
 mod native;
 mod paired;
 mod platform_memory;
@@ -49,7 +50,7 @@ fn run() -> ToolResult<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some((command, args)) = args.split_first() else {
         return Err(
-            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|admission|calibration|paired|reports|native|lifecycle-stress> [arguments]"
+            "Usage: cargo perf <doctor|compare|profile|open|dashboard|policy|admission|calibration|paired|reports|native|lifecycle-stress|lint-publication> [arguments]"
                 .into(),
         );
     };
@@ -61,6 +62,7 @@ fn run() -> ToolResult<()> {
         "collect-profile" => profiling::run(args),
         "collect-scenario" => scenario::run(args),
         "lifecycle-stress" => lifecycle_stress::run(args),
+        "lint-publication" => lint_publication::run(args),
         "workflow" => workflow::run(args),
         "policy" => policy::run(args),
         "admission" => admission::run(args),
@@ -82,6 +84,8 @@ fn run() -> ToolResult<()> {
                  Internal CI commands: collect-profile, collect-scenario, native, dashboard, workflow, reports, policy, admission, calibration, paired.\n\
                  lifecycle-stress --binary PATH --output PATH\n\
                                                 Run local 10000-file repeated LSP correctness stress\n\
+                 lint-publication --binary PATH --source-sha SHA --output PATH\n\
+                                                Collect an unpaired hosted multi-entry lint baseline\n\
                  All measurements require hosted CI. Doctor, report/admission validation, and lifecycle correctness stress are safe locally."
             );
             Ok(())

@@ -317,16 +317,15 @@ impl WorkspaceService {
             if discovery_epoch.is_some_and(|epoch| !self.discovery_is_current(epoch)) {
                 break;
             }
-            let paths = {
+            let inputs = {
                 let database = self.read();
                 database
-                    .missing_disk_paths(roots)
+                    .missing_disk_inputs(roots)
                     .into_iter()
-                    .filter_map(|path| {
-                        if attempted.contains(&path) {
+                    .filter_map(|(id, path)| {
+                        if attempted.contains(&(id, path.clone())) {
                             return None;
                         }
-                        let id = database.file_id_by_path(&path)?;
                         if !database.is_needed(id) {
                             return None;
                         }
@@ -334,12 +333,12 @@ impl WorkspaceService {
                     })
                     .collect::<Vec<_>>()
             };
-            if paths.is_empty() {
+            if inputs.is_empty() {
                 break;
             }
             let discovery = discovery_epoch.map(|epoch| (self.clone(), epoch));
             let Some(prepared) = run_staging(self.staging.clone(), move || {
-                paths
+                inputs
                     .into_iter()
                     .take_while(|_| {
                         discovery
@@ -391,11 +390,16 @@ impl WorkspaceService {
                             continue;
                         }
                         let missing = snapshot.is_none();
-                        committed |= database
-                            .sync_disk_snapshot_prepared(&path, &physical_path, snapshot, imports)
-                            .is_some();
-                        if missing {
-                            attempted.insert(path);
+                        let synced = database.sync_disk_snapshot_prepared(
+                            id,
+                            &path,
+                            &physical_path,
+                            snapshot,
+                            imports,
+                        );
+                        committed |= synced.is_some();
+                        if missing || synced.is_none() {
+                            attempted.insert((id, path));
                         }
                     }
                     committed.then_some(())

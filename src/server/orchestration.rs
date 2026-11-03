@@ -218,7 +218,6 @@ impl Backend {
         if !self.workspace.finish_revision(&ticket) {
             return None;
         }
-        self.prepare_semantic_views().await;
         tracing::Span::current().record("outcome", "committed");
         drop(ticket);
         Some(())
@@ -528,7 +527,6 @@ impl Backend {
         } else {
             tracing::Span::current().record("outcome", "superseded");
         }
-        self.prepare_semantic_views().await;
     }
 
     #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "revision", revision = params.text_document.version, file_id = tracing::field::Empty, outcome = tracing::field::Empty))]
@@ -620,7 +618,6 @@ impl Backend {
         if !self.workspace.finish_revision(&ticket) {
             return false;
         }
-        self.prepare_semantic_views().await;
         tracing::Span::current().record("outcome", "committed");
         true
     }
@@ -651,7 +648,6 @@ impl Backend {
         self.workspace
             .load_reachable_async(std::slice::from_ref(&id), None)
             .await;
-        self.prepare_semantic_views().await;
         tracing::Span::current().record("outcome", "committed");
         true
     }
@@ -743,14 +739,20 @@ impl Backend {
                 span.in_scope(|| {
                     let _permit = permit;
                     let database = workspace_db.read();
-                    let id = database.file_id_by_uri(&uri).or_else(|| {
-                        path.as_deref()
-                            .and_then(|path| database.file_id_by_path(path))
-                    });
-                    let documents = id.map_or_else(Vec::new, |id| {
+                    let documents = if let Some(id) = database.file_id_by_uri(&uri) {
                         tracing::Span::current().record("file_id", tracing::field::debug(&id));
                         database.open_dependents(id)
-                    });
+                    } else if let Some(path) = path {
+                        let mut seen = HashSet::new();
+                        database
+                            .input_files(&path)
+                            .into_iter()
+                            .flat_map(|id| database.open_dependents(id))
+                            .filter(|document| seen.insert(document.uri.clone()))
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
                     tracing::Span::current().record("result_count", documents.len());
                     documents
                 })
@@ -781,6 +783,16 @@ impl Backend {
                     path,
                     snapshot: document.snapshot,
                 });
+            }
+            for id in database.input_files(&path) {
+                if let Some(document) = database.open_document_by_id(id) {
+                    let revision = document.revision.0;
+                    affected.insert(document.uri, revision);
+                }
+                for document in database.open_dependents(id) {
+                    let revision = document.revision.0;
+                    affected.insert(document.uri, revision);
+                }
             }
             let Some(id) = database
                 .file_id_by_uri(&uri)
@@ -908,6 +920,7 @@ impl Backend {
                             continue;
                         }
                         let Some((id, imports_changed)) = database.sync_disk_snapshot_prepared(
+                            update.file.id,
                             &update.file.path,
                             &update.physical_path,
                             update.snapshot,
@@ -946,7 +959,6 @@ impl Backend {
                     .await;
             }
         }
-        self.prepare_semantic_views().await;
         let workspace_db = self.workspace.clone();
         let Some(affected) = run_staging(self.workspace.staging.clone(), move || {
             let database = workspace_db.read();

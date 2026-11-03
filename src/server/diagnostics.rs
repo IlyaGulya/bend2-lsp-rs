@@ -47,7 +47,13 @@ pub(super) struct DocumentDiagnostics {
 
 struct DiagnosticsContext {
     epoch: u64,
+    root: Option<DiagnosticRoot>,
     sources: Vec<SourceIdentity>,
+}
+
+struct DiagnosticRoot {
+    uri: Url,
+    generation: u64,
 }
 
 struct SourceIdentity {
@@ -279,9 +285,7 @@ impl Backend {
             return;
         };
 
-        if let Some(path) = self.document_path(&uri)
-            && let Some(source_graph) = self.compiler_source_graph(uri.clone()).await
-        {
+        if let Some((path, source_graph)) = self.compiler_input_graph(&uri, &span).await {
             let root_matches = source_graph
                 .root_node()
                 .and_then(|root| root.snapshot.as_ref())
@@ -291,7 +295,7 @@ impl Backend {
                 return;
             }
             let Some(captured_context) =
-                self.capture_diagnostics_context(context_epoch, &source_graph)
+                self.capture_diagnostics_context(context_epoch, &source_graph, &uri)
             else {
                 return;
             };
@@ -316,7 +320,13 @@ impl Backend {
                     if normalize_path(&source_path) == root_path {
                         diagnostics.push(item);
                     } else if let Ok(source_uri) = Url::from_file_path(&source_path)
-                        && !self.workspace.read().is_document_open(&source_uri)
+                        && {
+                            let database = self.workspace.read();
+                            database
+                                .input_files(&source_path)
+                                .into_iter()
+                                .all(|file| !database.is_file_open(file))
+                        }
                     {
                         imported.entry(source_uri).or_default().push(item);
                     }
@@ -335,6 +345,7 @@ impl Backend {
         let context = context.unwrap_or_else(|| {
             Arc::new(DiagnosticsContext {
                 epoch: context_epoch,
+                root: None,
                 sources: Vec::new(),
             })
         });
@@ -356,6 +367,37 @@ impl Backend {
         );
         self.publish_coordinated_locked(HashSet::from([uri])).await;
         span.record("outcome", "published");
+    }
+
+    async fn compiler_input_graph(
+        &self,
+        uri: &Url,
+        span: &tracing::Span,
+    ) -> Option<(PathBuf, SourceGraph)> {
+        let conflict = self.workspace.read().source_input_conflict(uri);
+        if let Some((_, spellings)) = conflict {
+            let mut names = String::new();
+            for spelling in spellings {
+                if !names.is_empty() {
+                    names.push_str(", ");
+                }
+                names.push_str(spelling.as_str());
+            }
+            span.record("outcome", "ambiguous_inputs");
+            self.client
+                .log_message(
+                    tower_lsp::lsp_types::MessageType::WARNING,
+                    format!(
+                        "bend2-lsp: compiler check skipped because open buffers disagree; \
+                         unify or close one buffer and retry ({names})"
+                    ),
+                )
+                .await;
+            return None;
+        }
+        let path = self.document_path(uri)?;
+        let graph = self.compiler_source_graph(uri.clone()).await?;
+        Some((path, graph))
     }
 
     async fn lexical_errors(
@@ -495,17 +537,23 @@ impl Backend {
         &self,
         epoch: u64,
         graph: &SourceGraph,
+        root_uri: &Url,
     ) -> Option<Arc<DiagnosticsContext>> {
-        let database = self.workspace.read();
-        if graph
-            .nodes
-            .iter()
-            .any(|node| database.file_id_by_path(&node.path) != Some(node.id))
+        let state = self.workspace.state.read();
+        let database = &state.database;
+        if database.file_id_by_uri(root_uri) != Some(graph.root)
+            || !database.is_document_open(root_uri)
+            || database.source_input_conflict(root_uri).is_some()
         {
             return None;
         }
+        let generation = state.revision_generation(root_uri)?;
         Some(Arc::new(DiagnosticsContext {
             epoch,
+            root: Some(DiagnosticRoot {
+                uri: root_uri.clone(),
+                generation,
+            }),
             sources: graph
                 .nodes
                 .iter()
@@ -528,6 +576,12 @@ impl Backend {
         state: &super::workspace_service::WorkspaceState,
     ) -> bool {
         if self.diagnostics.context_epoch.load(Ordering::SeqCst) != context.epoch {
+            return false;
+        }
+        if context.root.as_ref().is_some_and(|root| {
+            !state.revision_current(&root.uri, root.generation)
+                || state.database.source_input_conflict(&root.uri).is_some()
+        }) {
             return false;
         }
         context.sources.iter().all(|source| {

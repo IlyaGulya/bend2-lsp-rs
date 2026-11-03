@@ -51,6 +51,10 @@ pub(crate) fn check_cancelled() -> ToolResult<()> {
     }
 }
 
+pub(crate) fn bind_cancellation(client: &mut LspProcess) {
+    client.set_cancellation_flag(&CANCELLED);
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Scenario {
     Discovery10,
@@ -677,7 +681,7 @@ pub(crate) fn execute(
         record_phase(&mut result, started, "process_spawn.after")?;
         let client = owner.client.as_mut().ok_or("Missing spawned LSP")?;
         client.defer_abort_to_owner();
-        client.set_cancellation_flag(&CANCELLED);
+        bind_cancellation(client);
         client.check_cancelled()?;
         result["pid"] = json!(client.pid());
         record_phase(&mut result, started, "profiler_start.before")?;

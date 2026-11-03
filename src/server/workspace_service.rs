@@ -1,10 +1,10 @@
 use super::{
-    revision::{DocumentRevisionSync, RevisionTicket},
+    revision::{DocumentRevisionSync, RevisionStatus, RevisionTicket},
     state::{State, revision_result},
 };
 use crate::{
     analysis::{DocumentSnapshot, Revision},
-    workspace::{FileId, SemanticBase, SemanticView, WorkspaceDb},
+    workspace::{EditorInputs, FileId, SemanticBase, SemanticView, WorkspaceDb},
 };
 use std::{
     collections::HashMap,
@@ -31,15 +31,66 @@ pub(super) struct ClosedRevision {
 }
 
 impl WorkspaceState {
-    pub(super) fn generation(&self) -> u64 {
-        self.generation
-    }
-
     pub(super) fn is_closed(&self, closed: ClosedRevision) -> bool {
         self.revisions.get(&closed.file).is_some_and(|sync| {
             let status = revision_result(sync.status());
             status.generation() == closed.generation && status.desired().is_none()
         })
+    }
+
+    /// Raw revision status of one exact-URI identity. A closed spelling keeps
+    /// its last generation and reports `desired == None`.
+    pub(super) fn revision_status(&self, uri: &Url) -> Option<RevisionStatus> {
+        let file = self.database.file_id_by_uri(uri)?;
+        self.revisions
+            .get(&file)
+            .map(|sync| revision_result(sync.status()))
+    }
+
+    /// Raw sampled generation, including a pending edit. Fences sample this
+    /// before a capture and validate it with `revision_current` afterwards.
+    pub(super) fn revision_generation(&self, uri: &Url) -> Option<u64> {
+        Some(self.revision_status(uri)?.generation())
+    }
+
+    /// Whether a captured generation still describes the current input. The
+    /// exact URI must be open and settled, its desired revision must still be
+    /// the committed snapshot's revision, and the generation must match. A
+    /// close or reopen always advances the generation, so stale authority
+    /// cannot be reused.
+    pub(super) fn revision_current(&self, uri: &Url, generation: u64) -> bool {
+        let Some(document) = self.database.open_document(uri) else {
+            return false;
+        };
+        let Some(file) = self.database.file_id_by_uri(uri) else {
+            return false;
+        };
+        let Some(sync) = self.revisions.get(&file) else {
+            return false;
+        };
+        let status = revision_result(sync.status());
+        !status.is_pending()
+            && status.generation() == generation
+            && status.desired() == Some(document.revision)
+    }
+
+    /// One coherent editor-input sample: the immutable open snapshots and the
+    /// raw generation of each spelling, both taken under this single state
+    /// read. A pending edit keeps its generation here; publication pairs it
+    /// with the captured snapshot text, so a later commit is still fenced.
+    pub(super) fn capture_editor_inputs(&self) -> EditorInputs {
+        let documents = self.database.open_documents();
+        let generations = documents
+            .iter()
+            .filter_map(|document| {
+                self.revision_generation(&document.uri)
+                    .map(|generation| (document.uri.clone(), generation))
+            })
+            .collect();
+        EditorInputs {
+            documents,
+            generations,
+        }
     }
 
     fn apply<T>(&mut self, operation: impl FnOnce(&mut WorkspaceDb) -> Option<T>) -> Option<T> {
@@ -271,6 +322,15 @@ pub(super) struct RegistrationState {
     pub(super) watch: bool,
     pub(super) type_hierarchy: bool,
     pub(super) versioned_edits: bool,
+    pub(super) lint: LintClientCapabilities,
+}
+
+/// Client capabilities the live-lint provider consults when it decides
+/// whether an operation may advertise control surface.
+#[derive(Default)]
+pub(super) struct LintClientCapabilities {
+    pub(super) disabled_code_actions: bool,
+    pub(super) work_done_progress: bool,
 }
 
 #[cfg(test)]
@@ -333,7 +393,12 @@ mod tests {
                 .file_id_by_path(&temp.path().join("old.bend"))
                 .ok_or_else(|| io::Error::other("old target"))?;
             assert!(!database.dependencies(id).contains(&old));
-            assert!(database.missing_disk_paths(&[id]).contains(&path));
+            assert!(
+                database
+                    .missing_disk_inputs(&[id])
+                    .iter()
+                    .any(|(file, missing)| *file == id && missing == &path)
+            );
         }
         service
             .state
