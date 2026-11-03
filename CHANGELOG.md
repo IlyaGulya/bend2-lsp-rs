@@ -2,360 +2,127 @@
 
 ## Unreleased
 
-### Features
+### Lint checks while you edit
 
-- Expose versioned `bend2/semanticDocument` metadata for written declarations, documentation, signatures, bodies, reference targets, and enclosing definitions. Extraction is scoped to an explicitly prepared entry and reports uncertain input rather than substituting a name-only target.
-- Keep useful navigation and completion while code is unfinished, without hiding
-  errors from the selected Bend compiler. Editor-only import links remain marked
-  as not compiler-resolved and do not establish the meaning of imported members.
+- Get style and performance warnings from optional `bend-lint` as you type.
+  This feature is off by default.
+- Check unsaved files, unsaved imports, and named files before their first save.
+  The server does not save your buffers to run lint.
+- See lint warnings together with compiler errors. One check does not remove
+  another check's diagnostics.
+- Open rule documentation from a warning. Use Run and Status actions to check
+  lint progress and setup problems. Partial checks are not reported as clean.
+- Enable lint for files that are already open. Saved changes to
+  `bend-lint.json`, imports, and rule helpers trigger new checks.
 
-### Bug Fixes
+### Manual lint fixes
 
-- Keep `import Base` first when organizing imports, matching bend-lint's ordering.
-- Keep manual dangerous lint fixes available when an editor omits optional
-  trigger metadata. Explicitly automatic requests still receive no dangerous fixes.
-- Keep unrelated document updates and semantic queries responsive while a lint
-  Code Action waits for another project's analyzer.
-- Keep workspace symbols responsive after closing one of several URI spellings
-  of a file. Index the remaining open buffer rather than the closed spelling's
-  different disk contents.
-- Maintain closed-alias visibility during workspace input updates instead of
-  resolving physical alias groups again for each workspace query. Preserve
-  independent open buffers, disk restoration and symlink-retarget transitions.
-- Keep overlapping edits, saves and configuration changes from leaving live lint
-  stuck on a pre-edit frozen view.
-- Cancel a manual lint request without losing queued automatic checks. Manual
-  Run no longer waits for the compiler's `Base` warmup, and canceled cleanup
-  still restores pending work and finishes retired progress.
-- Respect complete lexical names in navigation, hover, references, and rename.
-  A binding named `D` does not shadow the distinct name `D.member`; a binding
-  named `D.member` does.
-- Replace the complete existing name when accepting completion in its middle.
-- Go to Definition now finds local parameters and bindings, including tuple
-  destructuring and `do` bindings, without confusing them with same-name globals.
-- Suggest constructors in ordinary expressions as well as constructor patterns.
-  Keep constructors available when a function or local value has the same name,
-  including the `Pair` function supplied by `Base`.
-- Reject Rename names that would produce invalid Bend atoms before returning
-  edits. Preserve valid dotted names, including keyword and underscore segments,
-  while retaining capture and cross-entry conflict checks.
-- Avoid repeated incoming-call entries for the same shared caller when all
-  reachable callees resolve identically. Preserve different entry-specific
-  implementations, including differences reached through another callee.
-- Build callers and callees from entry-scoped import and binding indexes, including line-broken `!(` calls and the implementation body of a `law`. Hierarchy ranges point to the implementation's actual file when a law is declared elsewhere. Reject stale hierarchy handles with `ContentModified` instead of silently resolving a replacement by name.
-- Keep physical file identity separate from editor URIs; reject conflicting open overlays and unsafe rename capture instead of returning partial edits.
-- Keep existential signature domains separate from a following braced equality; require the compiler's adjacent `!(` spelling instead of inventing a call for rejected `! (` input.
-- Wait for compiler settings to finish changing before resolving names, so
-  immediate navigation uses the current compiler's `Base` module instead of
-  a stale or missing one.
+- Enable dangerous Code Actions separately to use lint fixes. Each fix requires
+  an explicit action and can change program behavior.
+- Apply fixes to the current unsaved text. Every file changed by a fix must be
+  open and must still match the text that was checked.
+- Refuse the whole fix if a target is stale, edits overlap, or a file has more
+  than one open view. Close extra views of the same file before applying a fix.
+- Keep manual fixes available in editors that omit optional request metadata.
+  Never apply lint fixes automatically or replace the existing formatter.
+
+### Better navigation and completion
+
+- Go to Definition finds local parameters and bindings, including tuple
+  destructuring and `do` bindings. It does not confuse them with globals that
+  have the same name.
+- Navigation, hover, references, and Rename use the complete Bend name.
+  For example, a local `D` does not hide the separate name `D.member`.
+- Use the selected compiler's `Base` module after a compiler settings change.
+  Navigation no longer uses a stale or missing copy.
+- Keep local navigation and completion useful in unfinished code. Errors from
+  the selected Bend compiler remain visible.
+- Accept completion in the middle of a name without leaving its old suffix.
+- Get constructor suggestions in expressions as well as case patterns.
+  Constructors remain available when a function or local value has the same
+  name, including `Pair` from `Base`.
+- Reject invalid Rename names and changes that would capture another binding.
+  Valid dotted names can still contain keyword or underscore parts.
+- Handle existential types followed by `{...}` equality expressions without
+  confusing their source ranges.
+- Hover and type navigation use written declarations and annotations.
+  This update does not add type inference for arbitrary expressions.
+
+### More accurate Call Hierarchy
+
+- Follow calls in the correct import context. Keep different implementations
+  separate when different files resolve a name differently.
+- Include multi-line `!(` calls and the implementation bodies of laws.
+  Use the implementation's file when the law is declared in another file.
+  As in Bend itself, `!(` must stay together; `! (` is not treated as a call.
+- Show one Incoming Calls entry for a shared caller when it resolves to the
+  same target.
+- Reject a hierarchy item if an edit makes its target invalid. Do not silently
+  select another declaration with the same name.
+
+### More reliable editing
+
+- Keep lint results current when edits, saves, and settings changes overlap.
+  Canceling a manual Run no longer loses pending automatic checks.
+- Keep checks and rule builds separate for each project. Typing in one project
+  does not cancel another project's work.
+- Start lint without waiting for the compiler's first `Base` load. Typing does
+  not restart a rule build, and loading `Base` does not discard valid lint fixes.
+- Keep editing and navigation in other projects available while a lint check
+  or a lint fix request waits.
+- Keep open views of the same file independent, including their text and
+  document versions. Closing one view no longer replaces another view's text
+  with saved contents.
+- Update workspace symbols after closing a view or changing a symlink target.
+  Restore saved imports after their last open view closes.
+- Put `import Base` first when you run Organize Imports, matching bend-lint's
+  import order.
+- Stop pending lint work when you disable it or close the server. A timed-out
+  analyzer does not leave its child processes running.
+
+### Setup and current limitations
+
+- Install standalone `bend-lint` **0.2.1** and Bun **1.4.4** yourself.
+  Use `bend-lint-rules` **0.2.1.0** and the matching rule API. The older linter
+  bundled with Bend 2.0.37 is not supported.
+- Enable lint only in projects you trust. It runs an external program and
+  executable project rules. The external tool can download dependencies and
+  build rules; the LSP does not install it or rewrite your configuration.
+- Lint uses its own compiler, not the compiler selected for LSP diagnostics.
+  Configuration and rule code must be saved; editing a rule buffer does not
+  execute its unsaved contents.
+- On Windows ARM64, native rule builds need a compatible Clang version.
+  See the [setup instructions](README.md#optional-bend-lint-disabled-by-default).
+- A new file listed in `bend-lint.json`'s `entries` must be saved before lint
+  can check it ([upstream issue #5](https://github.com/MattCozendey/bend-lint/issues/5)).
+  Other named files and imports can be checked before their first save.
+- Map upstream CRLF diagnostic endpoints to the editor's line end, but reject
+  fix ranges that cannot be verified
+  ([upstream issue #6](https://github.com/MattCozendey/bend-lint/issues/6)).
+- Use `./` or `../` for imports in local custom rule helpers. Upstream cache
+  keys can miss changes reached through bare or absolute helper imports
+  ([upstream issue #7](https://github.com/MattCozendey/bend-lint/issues/7)).
+  This limitation does not affect ordinary application imports.
 
 ### Security
 
-- Update Tokio to 1.53.3, which addresses an I/O-safety flaw in its Unix
-  `AsyncFd` constructors ([RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)).
-
-### Optional lint integration
-
-- Add off-by-default diagnostics from user-installed standalone bend-lint 0.2.1,
-  Bun 1.4.4 and matching rules/API 0.2.1.0. Explicit opt-in trusts the tool and
-  executable project rules; upstream may fetch dependencies and build programs.
-  Its pinned compiler remains independent of the selected LSP compiler.
-- Check unsaved buffers, edited imports and named files not yet on disk without
-  writing editor text to the filesystem. Reuse one immutable project view per
-  revision, including entries reached through directory symlinks.
-- Prepare rule runners separately from checks, with a ten-minute preparation
-  deadline. Typing does not restart a cold build. Each project keeps independent
-  queues, cancellation and prepared runners, subject to global resource limits.
-- Start live lint after editor inputs commit, without waiting for cold `Base`
-  preparation. Registering compiler-owned `Base` does not invalidate unchanged
-  findings or their versioned fixes.
-- Merge lexical, compiler, imported and lint diagnostics without one provider
-  erasing another. Project fences immediately hide obsolete lint findings and
-  fixes; cleanup cannot remove newer results.
-- Automatically check open files when lint is enabled. Follow newly created,
-  removed and nested configurations; recheck watched dependencies and external
-  saved-rule helpers even during a project's first preparation.
-- Keep equivalent editor URI buffers and their versions independent. Publish
-  matching findings at each URI's own version; identify conflicting physical
-  inputs before executing rules, without blocking unrelated projects.
-- Offer separately enabled, explicitly requested **dangerous** Code Actions for
-  matching open versions, including unsaved text. Validate UTF-16 ranges,
-  overlaps, exact input bytes and every target; refuse ambiguous aliases or
-  unverifiable multi-file edits as a whole. Never auto-fix or replace the formatter.
-- Show rule documentation links, Run/Status actions, preparation progress and
-  structured setup/partial-check explanations without inventing source ranges
-  or document-wide error-count banners.
-- Bound captured input, analyzer output and work; reap process trees on timeout,
-  cancellation, disable and shutdown. Keep alias, missing-import, CRLF and
-  non-BMP range guards, including saved Linux entries reached through UTF-8 aliases.
-- Require genuine published-analyzer and real-stdio lifecycle/action E2Es on all
-  six native CI targets. Retain pinned runtime/package identity evidence and
-  publish fixture socket readiness atomically, without test retries.
-- Report upstream 0.2.1 limitations rather than concealing them: overlay-only
-  configured `entries` ([#5](https://github.com/MattCozendey/bend-lint/issues/5)),
-  CRLF diagnostic projection ([#6](https://github.com/MattCozendey/bend-lint/issues/6))
-  and custom-rule cache keys for bare/absolute helper imports
-  ([#7](https://github.com/MattCozendey/bend-lint/issues/7)).
+- Update Tokio to 1.53.3 to fix a Unix I/O-safety issue
+  ([RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)).
 
 ### Under the hood
 
-- Keep one workspace input authority: per-URI `FileId` and revision streams,
-  immutable editor-input receipts, entry-scoped semantic views and project-scoped
-  lint snapshots. Do not introduce a second editor VFS or global lint generation
-  barrier. Route known path events to every logical/physical input spelling.
-- Schedule independent analyzers after VFS commit and before semantic warmup.
-  Prepare lint Code Actions and revalidate filesystem inputs outside workspace
-  guards; finalize edits under a short, purely in-memory freshness check.
-- Carry captured `FileId`, spelling and disk generation through cold I/O and
-  validated publication instead of reselecting the latest path owner.
-- Seal a committed lint change with a fresh project revision if its fence was
-  superseded or used before the commit. Preserve queued work without global
-  mutation locks or cancellation-prone ownership counters.
-- Keep fenced lint work, retired task handles, progress tokens and pending
-  diagnostic publication under scoped cancellation recovery until scheduling
-  completes. Progress End has exclusive ownership and restores unsent tokens.
-- Retain an unpaired 32-entry/128-target lint-publication collector for optimized
-  native CI builds, without changing Callgrind metrics, admission or limits.
-- Keep Linux procfs teardown sentinels out of owned process-group IDs, so a
-  successful semantic worker is not rejected by an invalid cleanup signal.
-  Preserve real child reaping and all genuine cleanup failures.
-- Require all 102 current calibration workloads, including the three
-  shared-dependency cases. Correct the stale 99-workload expectation without
-  changing the sampled data, fixed-series method or admission limits.
-- Compact published entry-view capture receipts, generation/alias tables and
-  physical-URI ownership. Sort and freeze receipts outside the workspace read
-  lock. Move cold value/constructor registration tables into immutable lookup
-  indexes instead of searching namespace-sorted entities during rename checks.
-  Preserve precedence, conflicting-overlay safety, exact invalidation and
-  immutable warm queries. Keep cold alias registration hashed.
-- Reuse normalized discovery keys and capture their snapshot/generation guard in
-  one lookup. Avoid an immediately duplicated hub-import realpath check without
-  caching filesystem identities across files or weakening retarget detection.
-- Restore the direct indexed module-completion loop after the first-match peel
-  in `420a77c` failed hosted admission. That candidate used 7.35% more instructions
-  than main for medium completion and 2.38% more for large completion. Keep the
-  bounded first-match reservation, matching, ordering and owned results, with no
-  additional index pass or result-buffer allocation for a no-match query.
-- Reject excluded constructor declarations before slicing and matching names
-  for module completion. Preserve same-spelling functions, fuzzy matching,
-  recovery order and owned results without another index or semantic pass.
-- Avoid duplicate Windows import canonicalization when paths differ only by
-  the standard versus verbatim drive/UNC prefix. Keep fresh physical identity
-  checks and the original fallback for actual aliases or case differences.
-- Skip local-index sweep setup for empty or single-binding files and size its
-  name table from local bindings rather than unrelated globals. Preserve
-  shadowing, half-open lexical scopes and token-end/unfinished-body completion.
-- Retain small entry-view lookup tables in exact-size immutable storage while
-  keeping hashed lookup for larger tables. Project calls from the existing
-  occurrence arena instead of retaining duplicate call records and unused
-  per-site metadata; preserve prepared entry contexts and hierarchy handles.
-- Prepare discovered files with at most two owned walkers, preserving ignore
-  rules, tracing context, cancellation and revision-checked publication.
-  Add shared-dependency cold-view coverage without changing existing benchmark
-  workloads, event metrics or admission thresholds.
-- Await complete JSONL writes from the persistent semantic oracle instead of
-  dropping large replies when its stdout pipe is nonblocking. Verify a real
-  bounded OS pipe, UTF-8 frames and a follow-up request in the same process;
-  retain the compiler/runtime pins and existing resource limits.
-- Borrow reachable snapshots and editor identities while collecting workspace
-  symbols instead of allocating an owned document for every loaded file.
-  Preserve language filtering, Base inclusion, unsaved overlays and result ranges.
-  Measure the same borrowed enumeration in the existing workspace-symbol
-  benchmark cases, with their original fixtures, queries and result values.
-- Publish the pinned Windows compiler at its final owned path before running
-  validation, instead of renaming an executed image afterwards. Preserve failed
-  builds and their original validation/cleanup errors as evidence, never export
-  a failed compiler, and require private-workspace cleanup before installation.
-- Publish a compact, digest-bound report input after each sealed calibration
-  artifact and download only those compact inputs in the report job. A failed
-  multi-gigabyte raw download can no longer feed a partially extracted
-  `data.json` to the control report. Preserve full raw evidence and source,
-  runner and producer provenance; recover retained data through an isolated
-  exact-source replay instead of repeating measurements.
-- Establish a real cleanup verifier before the deliberately short macOS
-  supervisor test window, instead of assuming helper startup fits its reserve.
-  Preserve the original deadlines, distinct-stage identities and reaping checks.
-- Schedule dependency-triggered diagnostics only for open documents, while
-  traversing closed intermediate imports without cloning their documents.
-  Prepare required entry views in bounded batches with per-root capture and
-  provenance validation, stop between builds on shutdown, and skip reverse-import
-  traversal when every semantic root already has a current view. Keep the
-  original correctness, lifecycle and performance admission gates.
-- Retain compact snapshot identity and generation receipts after building an
-  entry view instead of keeping its complete build input. Share immutable URI
-  and physical-path ownership and release build-only lookup/import tables.
-  Preserve provenance validation and invalidation; queries continue borrowing
-  entry-owned facts, and retained-memory and cold/warm costs remain gated.
-- Store semantic occurrence records once per entry view, with compact file
-  indexes and contiguous target ranges instead of duplicate reference records.
-  `SemanticView::occurrences` now returns a borrowed exact-size iterator;
-  `references` retains its borrowed slice and original within-target order.
-  Compiler resolution and the LSP protocol are unchanged; retained memory and
-  cold/warm query costs remain subject to the original performance gates.
-- Group cold reference records with an in-place scatter instead of repeated
-  wide-record swaps and a permutation-buffer copy. Preserve source, target,
-  name and token lookup order without adding retained storage or warm-query work.
-- Reap terminated macOS process observers without waiting for another fixed RSS
-  sampling interval. Keep the original shutdown deadline and report cleanup
-  failures rather than hiding them after a work-stage timeout.
-- Merge already source-ordered per-name visibility ranges when constructing
-  the cold local-binding index. Keep half-open scope and shadowing behavior;
-  retain all original cold/warm benchmarks and performance admission limits.
-- Compare every native canonical chunk field directly without a per-chunk
-  callback. Keep full string equality, mutation/truncation detection, Base
-  coverage, batching bounds and the original resource/performance gates.
-- Retain randomized, collision-checked name lookup in immutable snapshots after
-  rejecting the byte-ordered lookup experiment's warm instruction regressions.
-  Move the completed cold table and seed without rebuilding or sorting names;
-  release growth-only hashes and preserve IDs, source ranges and spelling checks.
-  Keep the original source-bound cold/warm and memory qualification.
-- Share one source-backed name-table core between cold construction and immutable
-  snapshots, instead of maintaining duplicate lookup and token-slot readers.
-  Keep growth-only hashes construction-local, randomized full-spelling collision
-  checks and stable IDs; compiled-code and memory trade-offs remain gated.
-- Find analysis-comment boundaries in bulk and check ASCII once per comment,
-  preserving LF-only line boundaries, Unicode trivia, CRLF and EOF. Keep the
-  formatter's scanner separate.
-- Remove the duplicate per-token symbol-target array. Call linking and token
-  navigation derive targets from the existing reference index, preserving
-  qualified segments, synthetic-reference exclusions and zero-valued IDs.
-  Cold allocation savings and the extra warm indexed read remain gated.
-- Skip module-completion declaration walks when a query is longer than every
-  eligible declaration name. Prepare the bound during cold symbol registration;
-  preserve existing matching and snapshot isolation, with cold/memory costs
-  retained in the unchanged performance gates.
-- Select module-completion constructor exclusion once from the existing snapshot
-  index, retaining the general path for complete and recovered constructors.
-  Remove the rejected constructor-chunk traversal, keep its order/recovery test,
-  and retain all original performance gates without additional stored metadata.
-- Prepare per-file reachability membership during cold graph updates. Dependency
-  queries reuse the indexed flag without repeatedly hashing file identities;
-  preserve terminal frontiers, cycles, retirement and reimport behavior.
-  Performance qualification remains subject to the original source-bound gates.
-- Reuse the existing ASCII-line index for code-folding whitespace checks instead
-  of decoding ASCII as Unicode. Preserve vertical-tab and Unicode blank lines,
-  CRLF, comment boundaries and folding order without new snapshot storage.
-  The candidate still requires the unchanged source-bound performance gates.
-- Keep real-stdio conformance range checks on LF-delimited source lines when
-  comments contain Unicode whitespace. Preserve UTF-16 columns and UTF-8 byte
-  targets instead of treating non-LF separators as additional source lines.
-- Skip impossible keyword suggestions when the completion prefix is longer than
-  every keyword. Derive the bound from the keyword list; keep declaration,
-  case-insensitive subsequence and Unicode matching behavior unchanged.
-- Resolve snapshot call targets once, after token resolution, and keep call
-  lookup tables empty when a file has no calls. Preserve lexical shadowing,
-  declaration references and caller/callee query results; performance admission
-  still requires the unchanged source-bound gates.
-- Share indexed physical file URIs across semantic views instead of repeatedly
-  encoding unchanged paths, and avoid retaining a second URI buffer when its
-  logical and physical addresses are exactly equal. Share logical URI ownership
-  with workspace lookup keys as well. Preserve logical editor addresses,
-  escaped URI spellings and symlink-retarget invalidation; resolution
-  and performance gates are unchanged.
-- Avoid rebuilding unchanged import-watch paths after body-only edits. Keep
-  missing-import creation watches, refreshed symlink targets, Base-header
-  validity and semantic-view invalidation intact; performance admission still
-  uses the existing Linux Callgrind workloads and thresholds.
-- Add an independent, checksum-pinned official Bend 2.0.37 source oracle,
-  differential corpus and generated projects, replayable failures, bounded
-  shrinking, and required fail-closed semantic checks. Twenty correct normal
-  runs do not qualify the provisional PR resource profile while its latency
-  target and supporting scaling phases fail. Existing Callgrind metrics,
-  thresholds, and baseline selection are unchanged.
-- Bound independent Callgrind function collection to four original runner
-  processes while retaining every frozen benchmark case, original dispatch
-  index, cache setting, pair/control order, deadline and numeric gate.
-  Keep per-function descriptors and raw evidence; drain in-flight children
-  before reporting failure. The changed orchestration requires fresh
-  fixed-series qualification, not a local smoke or historical serial controls.
-- Replace repeated macOS process-table subprocesses in the semantic supervisor
-  with a bounded persistent native RSS observer. Count its resources and retain
-  terminal observation failures while verifying escaped-child cleanup within
-  the existing phase and shutdown budgets. Linux monitoring is unchanged.
-- Overlap complete forward and reversed semantic histories in two independent
-  persistent oracle sessions, retaining full reverse coverage and same-session
-  A/B/A, repeated-case, fresh-worker, and real stdio checks. Version the provisional
-  semantic resource profile for two native worker pairs without changing budgets
-  or the separate product Callgrind policy.
-- Store references contiguously by target while preserving source-order iteration
-  and token identities. Cache semantic coloring during cold indexing and reuse
-  prepared source identities instead of repeating path canonicalization.
-- Preserve completed native-history divergences alongside later failures.
-  Record and replay both native histories, minimize their required context, and
-  reject promotion of oracle-integrity failures as production semantic truth.
-- Stream oracle runtime authentication and load authenticated replies on demand
-  instead of retaining every decoded Base table. Collect short-lived native
-  allocations at idle Book boundaries without resetting ordered histories.
-  Batch small canonical components within the existing payload bound; preserve
-  complete Base comparison and all history and stdio checks. The v8 profile has
-  source-bound 20-run/five-VM qualification; earlier failed cohorts stay failed.
-- Generate native canonical keys with a non-mutating copy-on-write source-field
-  projection and native JSON serialization. Preserve official lowering, every
-  other own field/order, shared compiler terms and complete Base parity.
-- Adopt the maintainer-approved semantic v8 budget: p95 at most 120 seconds
-  and a uniform 240-second hard bound, including 512-project support. Keep
-  memory, GC/JIT, compiler, coverage and other resource limits unchanged;
-  require fresh complete calibration for changed measured inputs instead of
-  rescoring historical failures.
-- Compare pinned-Base targets through genuine compiler-configured stdio
-  consumers, including entry-rooted target/status metadata and direct
-  definition requests in the matching entry context. Reject stub contents and
-  foreign or decorated Base-document URIs; retain the compiler/Base hashes.
-- Bind real-stdio coverage to the exact selected plan identities. Reject
-  self-consistent partial counts, omitted or duplicate scenarios, foreign
-  receipt IDs, and empty consumer checks instead of accepting a smaller run.
-- Shard each of the six logical Callgrind controls across four physical runners.
-  Preserve all 105 balanced pairs per workload on one host, all nine counters,
-  the frozen baseline and positive-control sensitivity. Reject incomplete,
-  overlapping or identity-mismatched shard sets and retain physical provenance.
-- Isolate the semantic projection tool from the server's benchmark-only
-  dependencies during required release preparation. Preserve its protocol,
-  workspace lint policy, release optimization settings, and setup/run budgets.
-- Overlap Rust projection requests with native oracle execution. Enforce RPC
-  deadlines against complete reply arrival and preserve native evidence before
-  reporting an early candidate failure. Keep resource qualification provisional
-  and all workload, time, memory, and Callgrind limits unchanged.
-- Require fresh qualification of the expanded 99-workload performance scope.
-  Retain all 54 existing baseline workloads and the unchanged numeric limits.
-- Stop and reap owned Callgrind descendants before publishing CI evidence.
-  Publish completed samples and incomplete diagnostics through an atomic,
-  no-clobber snapshot instead of uploading a live measurement tree. Keep the
-  measurement deadlines, all 105 pairs, workload coverage and numeric gates
-  unchanged; interrupted or incomplete collection still blocks admission.
-- Avoid repeated declaration scans, path hashing and document metadata copies
-  when preparing references and call hierarchy information.
-- Reduce Linux semantic-gate sampling allocations without changing process
-  coverage, RSS accounting, sampling cadence, resource limits or cleanup.
-- Keep standalone reference-result copies separate from complete semantic
-  records without dropping linking or recovery information. Reuse cold grouping
-  buffers and semantic index tables, avoid redundant ASCII case-folding
-  allocations, and consume retired workspace reachability without an extra list.
-  Preserve query results, workload ownership and all performance gates; resource
-  and cache qualification remain blocking.
-- Skip redundant cleanup scans only after a complete observation proves that no
-  owned child remains live and the worker has exited with stdout closed.
-  Still signal owned groups, wait the direct worker and reap adopted Linux
-  children; poll once more without blocking before final CPU accounting.
-  Inject monitor failures after the test worker actually starts, rather than
-  racing startup with a fixed sample count. Resource limits and shutdown
-  deadlines remain unchanged.
-- Add reusable developer scripts for isolated, input-driven headless Zed demos,
-  recorded mouse/key overlays, source-integrity checks, verified MP4 rendering,
-  and explicit GitHub PR attachments. Add a project-local `zed-demo` skill with
-  automatic agent routing and presentation rules. This does not change the
-  released LSP.
-- Contain editor and cold-build subprocesses in owned process groups; stop them
-  on interruption so Cargo cannot keep compiling after the recorder exits.
-- Require Tokio 1.53.3 or newer in the manifest as well as the existing lockfile,
-  excluding RUSTSEC-2026-0386 without audit exclusions.
-- Reduce autocomplete lookup and matching overhead using indexed declaration
-  name ranges and query-wide ASCII/non-ASCII specialization. Keep one matching
-  pass, ordinary result-buffer growth and existing snapshot metadata. Preserve
-  suggestion contents, order, fuzzy matching and keyword suppression.
-- Fail ordinary performance admission on regressions without automatically
-  requesting approval. Protected exact-run owner review is available only after
-  an explicitly requested manual comparison; numeric limits remain unchanged.
+- Reuse document data so editor features and lint checks use the same unsaved
+  text. Keep the formatter separate.
+- Add compiler comparison tests and real compiler/linter E2E coverage on Linux,
+  macOS, and Windows, on both x64 and ARM64.
+- Add an experimental [declaration details API](docs/semantic-api.md) for editor
+  integrations. It exposes written documentation, signatures, bodies, and
+  reference targets.
+- Add repeatable Zed demo tools with visible keyboard and mouse input.
+  These are developer tools, not new editor features.
 
+Engineering details and measured trade-offs remain in the
+[performance policy](docs/performance-policy.md) and linked PR reports.
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 
