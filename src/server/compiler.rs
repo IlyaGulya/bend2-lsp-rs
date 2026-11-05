@@ -18,7 +18,7 @@ use tokio::{
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticRelatedInformation, Location, Url};
 
 use super::{
-    compiler_backend::{BackendSource, CompilerIdentity, should_probe_native},
+    compiler_backend::{BackendSource, CompilerIdentity, diagnostic_message, should_probe_native},
     compiler_backend_driver::NativeRun,
     features::diag,
 };
@@ -1252,7 +1252,13 @@ fn append_compiler_error(
     } else {
         "checking"
     };
-    let diagnostic = diag(snapshot, start, end, message, code);
+    let diagnostic = diag(
+        snapshot,
+        start,
+        end,
+        diagnostic_message(message.to_owned()),
+        code,
+    );
     if !diagnostics
         .iter()
         .any(|(path, existing)| path == source_path && *existing == diagnostic)

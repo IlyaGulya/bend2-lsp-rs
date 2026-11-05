@@ -380,7 +380,7 @@ pub(super) fn decode_check(
                 severity: Some(DiagnosticSeverity::ERROR),
                 code: Some(NumberOrString::String("compiler".to_owned())),
                 source: Some("bend2".to_owned()),
-                message: diagnostic.message,
+                message: diagnostic_message(diagnostic.message),
                 ..Diagnostic::default()
             },
         ));
@@ -398,6 +398,56 @@ pub(super) fn decode_check(
         incomplete,
         backend_failure,
     })
+}
+
+pub(super) fn diagnostic_message(message: String) -> String {
+    let mut lines = message
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty());
+    let first = lines.next().unwrap_or_default();
+    if first != "Error:" && !first.starts_with("- expected") && !first.starts_with("- observed") {
+        return message;
+    }
+    let mut expected = None;
+    let mut observed = None;
+    let mut cause = None;
+    for line in std::iter::once(first).chain(lines) {
+        if line.starts_with("Location:") || line.starts_with("Context:") {
+            break;
+        }
+        if let Some(value) = line
+            .strip_prefix("- expected")
+            .and_then(|rest| rest.trim_start().strip_prefix(':'))
+        {
+            expected = Some(value.trim()).filter(|value| !value.is_empty());
+        } else if let Some(value) = line
+            .strip_prefix("- observed")
+            .and_then(|rest| rest.trim_start().strip_prefix(':'))
+        {
+            observed = Some(value.trim()).filter(|value| !value.is_empty());
+        } else if line != "Error:" && !line.is_empty() && cause.is_none() {
+            cause = Some(line);
+        }
+    }
+    // Inline diagnostics in clients such as Zed show only the first line.
+    // Keep the original compiler report below a self-contained summary.
+    let parts = match (expected, observed, cause) {
+        (Some(expected), Some(observed), _) => ["Expected ", expected, "; observed ", observed],
+        (Some(expected), None, _) => ["Expected ", expected, "", ""],
+        (None, Some(observed), _) => ["Observed ", observed, "", ""],
+        (None, None, Some(cause)) => [cause, "", "", ""],
+        (None, None, None) => return message,
+    };
+    let mut formatted = String::with_capacity(
+        message.len() + 2 + parts.iter().map(|part| part.len()).sum::<usize>(),
+    );
+    for part in parts {
+        formatted.push_str(part);
+    }
+    formatted.push_str("\n\n");
+    formatted.push_str(&message);
+    formatted
 }
 
 fn validate_check_state(envelope: &CheckEnvelope) -> io::Result<()> {
