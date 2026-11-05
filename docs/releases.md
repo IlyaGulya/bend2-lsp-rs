@@ -96,6 +96,9 @@ The unpublished performance tooling has its own native Cargo-test contract gate,
 including its custom portable subprocess fixture. It is not shipped or included
 in installer test archives; all server test coverage and flaky-test policy remain
 unchanged.
+Windows console-finalization coverage compiles its C# fixture during preparation,
+before launching the owned console. Its unchanged readiness and `CTRL_BREAK`
+exit deadlines cover the running fixture, not compilation.
 
 Every native target additionally runs `native_compiler_diagnostics`,
 `native_law_ranges`, and `compiler_multi_error` against its staged release
