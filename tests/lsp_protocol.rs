@@ -3272,6 +3272,75 @@ mod protocol {
         );
         client.finish();
     }
+
+    #[test]
+    fn cli_compiler_errors_explain_expected_and_observed_values_on_the_first_line() {
+        let temp = tempdir().must_be("CLI summary workspace");
+        let source = "def main() -> Type:\n  Missing.Type\n";
+        let path = temp.path().join("main.bend");
+        fs::write(&path, source).must_be("write CLI summary source");
+        let compiler_dir = install_compiler_stub(&temp.path().join("bin"));
+        let compiler = temp.path().join("summary-bend");
+        fs::write(
+            &compiler,
+            compiler_fixture_script(
+                "#!/bin/sh\nprintf 'Error:\\n- expected : a defined name\\n- observed : Missing.Type\\nContext:\\n  main\\nLocation: main\\n1 | def main() -> Type:\\n2>|   Missing.Type\\n  |   ^^^^^^^^^^^^\\n' >&2\nexit 1\n",
+            ),
+        )
+        .must_be("write multiline CLI compiler fixture");
+        fs::set_permissions(&compiler, fs::Permissions::from_mode(0o755))
+            .must_be("make CLI compiler executable");
+        let document = Url::from_file_path(&path)
+            .must_be("CLI summary document URI")
+            .to_string();
+        let mut client = spawn_client(&compiler_dir);
+        client.initialize(temp.path());
+        client.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings":{"bend2-lsp":{"compilerPath":compiler}}}),
+        );
+        client.notify(
+            "textDocument/didOpen",
+            json!({"textDocument":{"uri":document,"languageId":"bend","version":1,"text":source}}),
+        );
+        let publication = client
+            .receive_matching(Duration::from_secs(5), |message| {
+                message["method"] == "textDocument/publishDiagnostics"
+                    && message["params"]["uri"] == document
+                    && message["params"]["version"] == 1
+            })
+            .must_be("receive CLI compiler summary");
+        let errors = publication["params"]["diagnostics"]
+            .as_array()
+            .must_be("CLI compiler diagnostic array");
+        assert_eq!(errors.len(), 1);
+        let error = &errors[0];
+        let message = error["message"].as_str().must_be("CLI compiler details");
+        let summary = message.lines().next().must_be("CLI inline summary");
+        assert!(
+            summary.contains("defined name") && summary.contains("Missing.Type"),
+            "inline clients must see both the expectation and the offending name: {message}"
+        );
+        assert!(
+            message
+                .lines()
+                .skip(1)
+                .any(|line| { line.contains("expected") && line.contains("defined name") })
+                && message
+                    .lines()
+                    .skip(1)
+                    .any(|line| { line.contains("observed") && line.contains("Missing.Type") })
+                && message.contains("Context:\n  main"),
+            "the summary must not discard the compiler details: {message}"
+        );
+        assert_eq!(error["code"], "checking");
+        assert_eq!(error["severity"], 1);
+        assert_eq!(
+            error["range"],
+            json!({"start":{"line":1,"character":2},"end":{"line":1,"character":14}})
+        );
+        client.finish();
+    }
     #[test]
     fn missing_configured_compiler_publishes_actionable_diagnostic() {
         let temp = tempdir().must_be("temporary workspace");

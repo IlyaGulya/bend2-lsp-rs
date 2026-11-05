@@ -273,11 +273,26 @@ fn transitive_import_links_original_cause_and_keeps_independent_source_error() {
         independent["range"],
         json!({"start":{"line":4,"character":2},"end":{"line":4,"character":14}})
     );
+    let message = independent["message"]
+        .as_str()
+        .must_be("independent error message");
+    assert!(message.contains("Missing.Type"));
+    let summary = message.lines().next().must_be("inline diagnostic summary");
     assert!(
-        independent["message"]
-            .as_str()
-            .must_be("independent error message")
-            .contains("Missing.Type")
+        summary.contains("Missing.Type") && summary.contains("defined name"),
+        "the first line must explain the undefined name without opening details: {message}"
+    );
+    assert!(
+        message
+            .lines()
+            .skip(1)
+            .any(|line| { line.contains("expected") && line.contains("defined name") })
+            && message
+                .lines()
+                .skip(1)
+                .any(|line| { line.contains("observed") && line.contains("Missing.Type") })
+            && message.contains("Location: independent"),
+        "keep the compiler's expected/observed details and source context: {message}"
     );
     assert_eq!(dependency_errors.len(), 1);
     assert_eq!(

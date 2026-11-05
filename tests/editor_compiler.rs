@@ -101,8 +101,15 @@ mod compiler {
             items[0]["range"],
             json!({"start":{"line":3,"character":2},"end":{"line":3,"character":15}})
         );
+        let message = items[0]["message"]
+            .as_str()
+            .must_be("compiler error message");
+        let (summary, details) = message
+            .split_once("\n\n")
+            .must_be("inline summary followed by the original compiler details");
+        assert!(summary.contains("defined name") && summary.contains("missing_first"));
         assert_eq!(
-            items[0]["message"],
+            details,
             "- expected : a defined name\n- observed : missing_first\nContext:\n- value : U32"
         );
         client.finish();

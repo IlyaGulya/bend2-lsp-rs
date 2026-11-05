@@ -62,6 +62,8 @@
 
 ### More reliable editing
 
+- Show expected and observed values in inline compiler errors instead of only
+  `Error:`. Keep the compiler's detailed explanation below the summary.
 - Keep lint results current when edits, saves, and settings changes overlap.
   Canceling a manual Run no longer loses pending automatic checks.
 - Keep checks and rule builds separate for each project. Typing in one project
