@@ -126,6 +126,20 @@
 Engineering details and measured trade-offs remain in the
 [performance policy](docs/performance-policy.md) and linked PR reports.
 
+## [0.7.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.2...v0.7.0) (2026-11-05)
+
+
+### Features
+
+* add compiler-checked entry-scoped semantics ([#62](https://github.com/IlyaGulya/bend2-lsp-rs/issues/62)) ([63be3d8](https://github.com/IlyaGulya/bend2-lsp-rs/commit/63be3d8e0b40eadc9351b86e424411261f26f82b))
+* integrate optional saved-file bend-lint diagnostics and explicit fixes ([#59](https://github.com/IlyaGulya/bend2-lsp-rs/issues/59)) ([8ba06b1](https://github.com/IlyaGulya/bend2-lsp-rs/commit/8ba06b117e8453959baa2157f857fa2e055fc887))
+* live bend-lint diagnostics for unsaved buffers ([#67](https://github.com/IlyaGulya/bend2-lsp-rs/issues/67)) ([342f98d](https://github.com/IlyaGulya/bend2-lsp-rs/commit/342f98d03868b78c5b651282f0f4cc539712885d))
+
+
+### Bug Fixes
+
+* show meaningful compiler errors inline ([#82](https://github.com/IlyaGulya/bend2-lsp-rs/issues/82)) ([39a2e01](https://github.com/IlyaGulya/bend2-lsp-rs/commit/39a2e0157a18cc9a37519bb5441a9e41eb006eed))
+
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 
 ### Bug Fixes
