@@ -534,9 +534,20 @@ fn configured_overlay_only_entry_is_analyzed_without_a_disk_file() {
     let entry = project.join("src/main.bend");
     let source = "import Base\n\ndef main(+x: U32) -> U32:\n  x\n";
     assert!(!entry.exists(), "the configured entry starts virtual");
+    // TempDir may use a Windows 8.3 alias. The native runner and Bun must receive
+    // one physical source view; keep the original editor URI below to exercise
+    // the provider independently of the CLI oracle's path normalization.
+    let oracle_project = canonical_cli_path(&project);
+    let oracle_entry = oracle_project.join("src/main.bend");
     let mut overlays = BTreeMap::new();
-    overlays.insert(entry.clone(), source.to_owned());
-    let report = genuine_overlay_report(&executable, &arguments, &project, &entry, &overlays);
+    overlays.insert(oracle_entry.clone(), source.to_owned());
+    let report = genuine_overlay_report(
+        &executable,
+        &arguments,
+        &oracle_project,
+        &oracle_entry,
+        &overlays,
+    );
     finding(&report["findings"], UNNEEDED_PLUS);
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
@@ -696,6 +707,9 @@ fn custom_rule_workspace(arguments: &[String]) -> (tempfile::TempDir, PathBuf, V
     let directory = tempdir().must_be("custom-rule workspace");
     let project = directory.path().join("project");
     fs::create_dir(&project).must_be("create custom-rule project");
+    // Construct the CLI module and rule paths from one physical root: Windows
+    // temporary directories may otherwise retain an 8.3 alias on just one side.
+    let project = canonical_cli_path(&project);
     let installed = project.join("node_modules/bend-lint");
     copy_shipped_package(shipped, &installed).must_be("copy the shipped package into the project");
     let seam = installed.join("src/linter/seam.ts");
@@ -1487,6 +1501,15 @@ fn rule_docs(code: &str) -> String {
 
 fn canonical(path: &Path) -> PathBuf {
     fs::canonicalize(path).must_be("canonical genuine source path")
+}
+
+// Use ordinary native CLI paths, not Rust's Windows verbatim prefix. Resolving
+// the existing directory first also expands a temporary directory's 8.3 alias.
+fn canonical_cli_path(path: &Path) -> PathBuf {
+    Url::from_file_path(canonical(path))
+        .must_be("physical CLI file URL")
+        .to_file_path()
+        .must_be("ordinary native CLI path")
 }
 
 // A genuine finding path may be the UTF-8 alias spelling or the native name.
