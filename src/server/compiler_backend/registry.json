@@ -93,6 +93,168 @@
         "bun": "1.4.0",
         "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
       }
+    },
+    "05ed8ae6692658acebc460bada981056f2165d37706b263a39a9c5c579531143": {
+      "version": "2.0.40",
+      "family": "colon-map",
+      "targets": ["darwin-x64"],
+      "runtime": {
+        "bun": "1.3.14",
+        "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+      }
+    },
+    "100a0b51578866c934a981aeee552a37dbfff73dd966acbe0eb2e3569ece986e": {
+      "version": "2.0.39",
+      "family": "colon-map",
+      "targets": ["linux-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "15db15832ec8242d0e19aee9cf59575c7b85305206c6ec4ba19933cc0b74e884": {
+      "version": "2.0.40",
+      "family": "colon-map",
+      "targets": ["linux-x64"],
+      "runtime": {
+        "bun": "1.3.14",
+        "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+      }
+    },
+    "1acf2ad8e979e7142020fc8403754cf51acf2758a581079759529db8c611ed2f": {
+      "version": "2.0.38",
+      "family": "colon-map",
+      "targets": ["linux-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "2528481bd234b9b01a07812b9ab029f9d870f6184f3dd4d04ed9b7bc5bff300f": {
+      "version": "2.0.38",
+      "family": "colon-map",
+      "targets": ["darwin-arm64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "2b3d24a3ffd3c3a3fc3d5182e6a039de5aee498798bd72b35d17ed060b075a67": {
+      "version": "2.0.40",
+      "family": "colon-map",
+      "targets": ["linux-arm64"],
+      "runtime": {
+        "bun": "1.3.14",
+        "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+      }
+    },
+    "50ccb4f1671af6f7da72e707904fbaadcadafee7dccdc5027016ffe3b5ce1ea9": {
+      "version": "2.0.38",
+      "family": "colon-map",
+      "targets": ["win32-arm64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "5efbe201b7ab44338455c5e9363d724b14d762fca45acbfb97543d75e0696d5e": {
+      "version": "2.0.39",
+      "family": "colon-map",
+      "targets": ["linux-arm64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "6bbb99e79a67b78f7c53bd3d30d38331e2309301ff5868096e27d2926c1ed026": {
+      "version": "2.0.38",
+      "family": "colon-map",
+      "targets": ["win32-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "7cce8a7261cd517af6b1cb4891c781a3dd03091c00222faa3bf682b2cefee673": {
+      "version": "2.0.40",
+      "family": "colon-map",
+      "targets": ["win32-arm64"],
+      "runtime": {
+        "bun": "1.3.14",
+        "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+      }
+    },
+    "8b0fa913da2dfddf5c2563ea2a9071660f339e5a98a756c22962a4ad0f20de2c": {
+      "version": "2.0.40",
+      "family": "colon-map",
+      "targets": ["win32-x64"],
+      "runtime": {
+        "bun": "1.3.14",
+        "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+      }
+    },
+    "918fcc263fec4a58822cb42a27249c986b3638ca76f76ae0e53c1cdc79878759": {
+      "version": "2.0.38",
+      "family": "colon-map",
+      "targets": ["linux-arm64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "95045e000e0df3b644aa5408f9910cf7d9f5a6307810f2d531db12427bad8949": {
+      "version": "2.0.38",
+      "family": "colon-map",
+      "targets": ["darwin-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "951f43b4c62d2edf35ddabadcc62d884fb112ccad07090429817e6a5d539fc5f": {
+      "version": "2.0.39",
+      "family": "colon-map",
+      "targets": ["win32-arm64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "96470e22f2b1753f6b03515afd3d9ed03fd7a26b4fd0fd4f9b3c5d49f1e9a4ee": {
+      "version": "2.0.39",
+      "family": "colon-map",
+      "targets": ["darwin-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "a974c68230c126b73c05a204af6d1015cda934085c5653ecd1e21ff01999e47c": {
+      "version": "2.0.39",
+      "family": "colon-map",
+      "targets": ["darwin-arm64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
+    },
+    "cae19c0e63aa501bfec4257f130f9b2ceb8f210400e0e7a25dd016ae646e2180": {
+      "version": "2.0.40",
+      "family": "colon-map",
+      "targets": ["darwin-arm64"],
+      "runtime": {
+        "bun": "1.3.14",
+        "revision": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+      }
+    },
+    "ee04bc7a01260fe7e4a2b507d109b5a23d2af1395b98fc82e79c1ad1bfc34653": {
+      "version": "2.0.39",
+      "family": "colon-map",
+      "targets": ["win32-x64"],
+      "runtime": {
+        "bun": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      }
     }
   }
 }

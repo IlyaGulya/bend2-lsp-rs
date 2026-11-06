@@ -12,14 +12,17 @@ import subprocess
 import tempfile
 import zipfile
 
-from bootstrap_bend import PINS, compiler_environment, download, download_asset, extract_tar, probe_compiler_identity
+from bootstrap_bend import (
+    PINS, compiler_environment, download, download_asset, extract_tar,
+    pinned_runtime, probe_compiler_identity, release_pin,
+)
 
 
 PUBLICATION_FILE = "compiler-publication.json"
 
 
-def install_bun(destination: Path, target: str) -> Path:
-    pin = PINS["bun"]["archives"][target]
+def install_bun(destination: Path, target: str, runtime: dict) -> Path:
+    pin = runtime["archives"][target]
     data = download_asset("oven-sh/bun", pin)
     root = pin["name"]
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
@@ -48,16 +51,16 @@ def install_bun(destination: Path, target: str) -> Path:
     return output
 
 
-def adjust_windows_locator(checkout: Path) -> None:
+def adjust_windows_locator(checkout: Path, source_pin: dict) -> None:
     # Identify compiled modules by Bun's native virtual entry (argv[1]).
     # URL spelling differs across platforms; keep adjacent physical executable
     # resources and the original source branch, without touching the kernel.
     source = checkout / "bend2/bend.ts"
     content = source.read_bytes()
-    original_size, original_digest = PINS["source"]["files"]["bend2/bend.ts"]
+    original_size, original_digest = source_pin["files"]["bend2/bend.ts"]
     if len(content) != original_size or hashlib.sha256(content).hexdigest() != original_digest:
         raise ValueError("unexpected original Bend resource-locator source")
-    locator = PINS["source"]["windows_locator"]
+    locator = source_pin["windows_locator"]
     anchor = locator["anchor"].encode("utf-8")
     if content.count(anchor) != 1:
         raise ValueError("Bend resource-locator anchor must occur exactly once")
@@ -68,7 +71,7 @@ def adjust_windows_locator(checkout: Path) -> None:
     source.write_bytes(adjusted)
 
 
-def write_publication(destination: Path, target: str, state: str, error: str | None = None) -> None:
+def write_publication(destination: Path, target: str, version: str, state: str, error: str | None = None) -> None:
     # The requested destination is the only evidence location. A failed build
     # stays there with an explicit non-installable state; success is never
     # inferred from the existence of the directory or the executable.
@@ -76,8 +79,8 @@ def write_publication(destination: Path, target: str, state: str, error: str | N
         "state": state,
         "destination": str(destination),
         "target": target,
-        "bend_version": PINS["version"],
-        "source_commit": PINS["source_commit"],
+        "bend_version": version,
+        "source_commit": release_pin(version).get("source_commit", PINS["source_commit"]),
     }
     if error is not None:
         record["error"] = error[:4000]
@@ -157,20 +160,24 @@ def observe_owned_processes(roots: tuple[Path, ...]) -> dict:
     }
 
 
-def build_windows(destination: Path, target: str) -> Path:
+def build_windows(destination: Path, target: str, version: str) -> Path:
     if os.name != "nt":
         raise ValueError("Windows compiler source bootstrap must run on a native Windows runner")
     if destination.exists() or destination.is_symlink():
         raise ValueError(f"installation destination must not exist: {destination}")
-    commit = PINS["source_commit"]
-    pin = PINS["source"]
+    release = release_pin(version)
+    commit = release.get("source_commit", PINS["source_commit"])
+    pin = release.get("source", PINS["source"])
+    runtime = pinned_runtime(version)
+    if target not in runtime["archives"]:
+        raise ValueError(f"no pinned Bun runtime for native target {target}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     # Publish in place. The requested destination is created exactly once and
     # the compiled image never leaves it after execution: Windows can deny a
     # directory move while an executed image is still mapped, so a successful
     # build must not depend on relocating the compiler.
     destination.mkdir()
-    write_publication(destination, target, "pending")
+    write_publication(destination, target, version, "pending")
     identity_file = destination / "compiler-build-identity.json"
     identity = None
     failure = None
@@ -183,15 +190,17 @@ def build_windows(destination: Path, target: str) -> Path:
             pin["size"], pin["sha256"],
         )
         checkout = root / "source"
-        extract_tar(source, checkout, f"bend-{commit}", {**pin["files"], **PINS["resources"]})
-        adjust_windows_locator(checkout)
-        bun = install_bun(root / "bun", target)
+        extract_tar(source, checkout, f"bend-{commit}", {
+            **pin["files"], **release.get("resources", PINS["resources"]),
+        })
+        adjust_windows_locator(checkout, pin)
+        bun = install_bun(root / "bun", target, runtime)
         # Credentials are scoped only to the fixed download requests, never the
         # reviewed source's subprocesses. Build has no package install/network
         # resolution: upstream CLI imports only local TS and built-in modules.
         environment = compiler_environment()
         revision = subprocess.check_output([str(bun), "--revision"], cwd=root, env=environment, text=True).strip()
-        if revision != f"{PINS['bun']['version']}+{PINS['bun']['revision'][:9]}":
+        if revision != f"{runtime['version']}+{runtime['revision'][:9]}":
             raise ValueError(f"unexpected pinned Bun revision: {revision}")
         runtime_host = subprocess.check_output([
             str(bun), "-e", "console.log(process.platform + ':' + process.arch)",
@@ -220,15 +229,15 @@ def build_windows(destination: Path, target: str) -> Path:
         with output.open("rb") as executable:
             executable_digest = hashlib.file_digest(executable, "sha256").hexdigest()
         identity = {
-            "bend_version": PINS["version"],
+            "bend_version": version,
             "source_commit": commit,
             "source_archive_sha256": pin["sha256"],
             "original_locator_sha256": pin["files"]["bend2/bend.ts"][1],
             "adjusted_locator_sha256": pin["windows_locator"]["patched_file"][1],
             "bun_revision": revision,
             "bun_host": runtime_host,
-            "bun_asset": PINS["bun"]["archives"][target]["asset"],
-            "bun_archive_sha256": PINS["bun"]["archives"][target]["sha256"],
+            "bun_asset": runtime["archives"][target]["asset"],
+            "bun_archive_sha256": runtime["archives"][target]["sha256"],
             "target": target,
             "executable_size": output.stat().st_size,
             "executable_sha256": executable_digest,
@@ -246,11 +255,16 @@ def build_windows(destination: Path, target: str) -> Path:
         identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
         if (
             observed["host"] != expected_host
-            or observed["bun"] != PINS["bun"]["version"]
-            or observed["revision"] != PINS["bun"]["revision"]
+            or observed["bun"] != runtime["version"]
+            or observed["revision"] != runtime["revision"]
             or Path(observed["exec_path"]).resolve() != output.resolve()
         ):
             raise ValueError(f"unexpected embedded native compiler runtime: {observed}")
+        expected_fingerprint = release.get("windows", {}).get("fingerprints", {}).get(target)
+        if expected_fingerprint is not None and observed["fingerprint"] != expected_fingerprint:
+            raise ValueError(
+                f"source-built compiler fingerprint differs from its pin: {observed['fingerprint']}"
+            )
         # Both real CLI probes remain mandatory before installation. Never use
         # the preload to fake a successful version or resource check.
         for name, arguments in (("version", ["version"]), ("base", ["base", "--types"])):
@@ -265,7 +279,7 @@ def build_windows(destination: Path, target: str) -> Path:
             }
             identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
             completed.check_returncode()
-            if name == "version" and completed.stdout.strip() != f"bend {PINS['version']}":
+            if name == "version" and completed.stdout.strip() != f"bend {version}":
                 raise ValueError(f"unexpected source-built Bend version: {completed.stdout}")
         with output.open("rb") as executable:
             if hashlib.file_digest(executable, "sha256").hexdigest() != executable_digest:
@@ -286,7 +300,7 @@ def build_windows(destination: Path, target: str) -> Path:
             identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
         # This is evidence, not an installation. The failed compiler is never
         # exposed through BEND2_COMPILER_TEST_PATH.
-        write_publication(destination, target, "failed", error=str(error))
+        write_publication(destination, target, version, "failed", error=str(error))
         raise
     finally:
         # The private source/Bun workspace is reclaimed exactly once. A
@@ -296,13 +310,13 @@ def build_windows(destination: Path, target: str) -> Path:
             if failure is None:
                 identity["validation"] = {"status": "failed", "error": cleanup_error}
                 identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
-                write_publication(destination, target, "failed", error=cleanup_error)
+                write_publication(destination, target, version, "failed", error=cleanup_error)
                 raise RuntimeError(cleanup_error)
             if identity is not None:
                 identity["validation"]["cleanup_error"] = cleanup_error
                 identity_file.write_text(json.dumps(identity, indent=2) + "\n", encoding="utf-8")
-            write_publication(destination, target, "failed", error=f"{failure}; {cleanup_error}")
+            write_publication(destination, target, version, "failed", error=f"{failure}; {cleanup_error}")
         elif failure is None:
-            write_publication(destination, target, "installed")
-    print(f"Built genuine Bend {PINS['version']} source {commit} with native {target} Bun {revision}: {output}")
+            write_publication(destination, target, version, "installed")
+    print(f"Built genuine Bend {version} source {commit} with native {target} Bun {revision}: {output}")
     return output

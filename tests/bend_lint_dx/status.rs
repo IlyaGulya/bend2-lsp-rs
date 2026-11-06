@@ -41,7 +41,7 @@ fn explicit_run_checks_open_document_and_reports_prepared_identity() {
         status["result"]["toolIdentity"]
             .as_str()
             .must_be("prepared identity")
-            .contains("bend-lint 0.2.1 prepared"),
+            .contains("bend-lint 0.3.0"),
         "status reports the real preparation identity: {status}"
     );
     assert!(

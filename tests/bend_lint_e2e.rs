@@ -34,8 +34,9 @@ static GENUINE_ANALYZER: LazyLock<Result<(PathBuf, Vec<String>), String>> =
 // For Bun, BEND2_LINT_TEST_ARGUMENTS is a JSON string array containing the
 // installed or officially shipped src/linter/seam.ts path, not the raw checkout,
 // bunx or a package manager. Shipping preserves the published rule API identity.
-// The tested upstream schema is standalone 0.2.1 at revision
-// 8eaa9b84a74b8e1c54c55d396a585d26bd1d41e0, with rule API 0.2.1.0.
+// The tested upstream schema is standalone 0.3.0 at revision
+// c6f31c0c2ef4587368dd6a5443a6d42e22e975fc, with rule API 0.3.0.0. Its npm
+// tarball is pinned by bootstrap_bend_lint and matches the published SRI.
 #[test]
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
@@ -50,7 +51,7 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
     fs::write(&root, source).must_be("write genuine Bend source");
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
     )
     .must_be("enable genuine upstream rules");
     let report = match std::panic::catch_unwind(|| genuine_report(&executable, &arguments, &root)) {
@@ -137,7 +138,7 @@ fn genuine_entry_through_utf8_alias_of_non_utf8_filename_matches_cli() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNNEEDED_PLUS:{},FORMAT:{}}
         }))
         .must_be("serialize genuine alias-rule config"),
@@ -240,7 +241,7 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{IMPORTS:{},CANONICAL_PATH:{}}
         }))
         .must_be("serialize real import rules"),
@@ -346,7 +347,7 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{},FORMAT:{}}
         }))
         .must_be("serialize genuine semantic rule config"),
@@ -432,7 +433,7 @@ fn virtual_nonexistent_import_analyses_without_creating_disk_files() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{}}
         }))
         .must_be("serialize genuine virtual rule config"),
@@ -480,7 +481,7 @@ fn virtual_nonexistent_entry_analyses_without_creating_disk_files() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNNEEDED_PLUS:{}}
         }))
         .must_be("serialize genuine virtual entry config"),
@@ -511,6 +512,359 @@ fn virtual_nonexistent_entry_analyses_without_creating_disk_files() {
     client.finish();
 }
 
+// 0.3.0 validates configured `entries` against the overlay view (upstream #5),
+// so an unsaved entry named in bend-lint.json is analyzed without a disk copy.
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn configured_overlay_only_entry_is_analyzed_without_a_disk_file() {
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("configured virtual entry workspace");
+    let project = directory.path().join("configured virtual entry 🦀");
+    fs::create_dir_all(project.join("src")).must_be("create the entry folder");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "entries":["src/main.bend"],
+            "packages":{"bend-lint-rules":"0.3.0.0"},
+            "rules":{UNNEEDED_PLUS:{}}
+        }))
+        .must_be("serialize configured virtual entry config"),
+    )
+    .must_be("enable genuine rule");
+    let entry = project.join("src/main.bend");
+    let source = "import Base\n\ndef main(+x: U32) -> U32:\n  x\n";
+    assert!(!entry.exists(), "the configured entry starts virtual");
+    // TempDir may use a Windows 8.3 alias. The native runner and Bun must receive
+    // one physical source view; keep the original editor URI below to exercise
+    // the provider independently of the CLI oracle's path normalization.
+    let oracle_project = canonical_cli_path(&project);
+    let oracle_entry = oracle_project.join("src/main.bend");
+    let mut overlays = BTreeMap::new();
+    overlays.insert(oracle_entry.clone(), source.to_owned());
+    let report = genuine_overlay_report(
+        &executable,
+        &arguments,
+        &oracle_project,
+        &oracle_entry,
+        &overlays,
+    );
+    finding(&report["findings"], UNNEEDED_PLUS);
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&entry);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":source
+        }}),
+    );
+    let packet = wait_for_lint_diagnostics(&mut client, &document, started, 1);
+    assert_eq!(
+        finding(&packet["params"]["diagnostics"], UNNEEDED_PLUS)["range"],
+        json!({
+            "start":{"line":2,"character":10},
+            "end":{"line":2,"character":11}
+        })
+    );
+    assert!(
+        !entry.exists(),
+        "a configured overlay-only entry never creates a disk file"
+    );
+    client.finish();
+}
+
+// Upstream 0.3.0 follows every local import when it keys a rules build
+// (issue #7). This scenario proves it through the real stdio provider: each
+// helper change is prepared by the genuine CLI first (oracle and cache warmup),
+// then a watched-file event must make the LSP publish the new rule messages
+// from the same open, unsaved source. It runs both a bare and a `/`-rooted
+// absolute helper import; 0.2.1 keyed the build without either and kept the
+// stale runner. The shipped package is copied to the project's node_modules,
+// as a per-project install lays it out, because Bend imports project rules only
+// by a plain relative path from the build.
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn custom_rule_build_cache_follows_bare_and_absolute_helper_imports() {
+    let (executable, arguments) = configured_analyzer();
+    let (_directory, project, arguments) = custom_rule_workspace(&arguments);
+    let rules = project.join("bend-lint-rules");
+    let entry = project.join("main.bend");
+    let bare_helper = rules.join("bare_helper.bend");
+    #[cfg(unix)]
+    let absolute_helper = rules.join("absolute_helper.bend");
+
+    // Every helper change is prepared by the genuine CLI first: that report is
+    // the independent oracle, and the native runner it builds is reused by the
+    // provider's preparation after the watcher event instead of being rebuilt.
+    let report_path = project.join("cache-report.json");
+    let document = uri(&entry);
+    let source = fs::read_to_string(&entry).must_be("read the saved entry");
+    #[cfg(unix)]
+    let initial_absolute = Some(1);
+    #[cfg(not(unix))]
+    let initial_absolute: Option<u32> = None;
+    #[cfg(unix)]
+    let changes: Vec<(u32, Option<u32>, &Path)> = vec![
+        (2, initial_absolute, bare_helper.as_path()),
+        (2, Some(2), absolute_helper.as_path()),
+    ];
+    #[cfg(not(unix))]
+    let changes: Vec<(u32, Option<u32>, &Path)> =
+        vec![(2, initial_absolute, bare_helper.as_path())];
+
+    // Each CLI prepare builds the runner before the watcher event, so the
+    // provider's own preparation reuses that build instead of duplicating it.
+    fs::write(&bare_helper, helper_source(1)).must_be("write the initial bare helper");
+    #[cfg(unix)]
+    fs::write(&absolute_helper, helper_source(1)).must_be("write the initial absolute helper");
+    let report = prepare_custom_rules(&executable, &arguments, &project, &report_path);
+    eprintln!("custom-rule cache initial: prepared {}", report["program"]);
+    let findings = genuine_report(&executable, &arguments, &entry);
+    assert_cli_probes(&findings["findings"], 1, initial_absolute);
+
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":source
+        }}),
+    );
+    let packet = wait_for_lint_diagnostics(&mut client, &document, started, 1);
+    assert_lsp_probes(&packet["params"]["diagnostics"], 1, initial_absolute);
+
+    for (bare, absolute, changed) in changes {
+        fs::write(&bare_helper, helper_source(bare)).must_be("update the bare helper");
+        #[cfg(unix)]
+        {
+            if let Some(version) = absolute {
+                fs::write(&absolute_helper, helper_source(version))
+                    .must_be("update the absolute helper");
+            }
+        }
+        #[cfg(not(unix))]
+        assert!(absolute.is_none(), "absolute imports are Unix-only");
+        let report = prepare_custom_rules(&executable, &arguments, &project, &report_path);
+        eprintln!(
+            "custom-rule cache bare={bare} absolute={absolute:?}: prepared {}",
+            report["program"]
+        );
+        let findings = genuine_report(&executable, &arguments, &entry);
+        assert_cli_probes(&findings["findings"], bare, absolute);
+        client.notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes":[{"uri":uri(changed),"type":2}]}),
+        );
+        let expected_bare = format!("helper v{bare}");
+        let expected_absolute = absolute.map(|version| format!("helper v{version}"));
+        let packet = wait_for_root_packet(&mut client, &document, 1, move |packet| {
+            let diagnostics = &packet["params"]["diagnostics"];
+            code_message(diagnostics, "bare_probe").as_deref() == Some(expected_bare.as_str())
+                && match &expected_absolute {
+                    Some(expected) => {
+                        code_message(diagnostics, "absolute_probe").as_deref()
+                            == Some(expected.as_str())
+                    }
+                    None => code_message(diagnostics, "absolute_probe").is_none(),
+                }
+        });
+        assert_lsp_probes(&packet["params"]["diagnostics"], bare, absolute);
+    }
+    assert_eq!(
+        fs::read_to_string(&entry).must_be("saved entry after live updates"),
+        source,
+        "the open source is never changed or saved by helper edits"
+    );
+    client.finish();
+}
+
+fn custom_rule_workspace(arguments: &[String]) -> (tempfile::TempDir, PathBuf, Vec<String>) {
+    let shipped_seam = arguments
+        .first()
+        .must_be("this scenario needs the shipped seam (Bun with BEND2_LINT_TEST_ARGUMENTS)");
+    let shipped_seam = shipped_seam.as_str();
+    let shipped_seam = Path::new(shipped_seam);
+    assert!(
+        shipped_seam.is_absolute(),
+        "the shipped seam path must be absolute"
+    );
+    let linter = shipped_seam.parent().must_be("shipped seam folder");
+    let shipped = linter
+        .parent()
+        .and_then(Path::parent)
+        .must_be("shipped package root");
+    assert!(shipped.join("package.json").is_file());
+    assert!(shipped.join("src/linter/cli.bend").is_file());
+    // Bend accepts an absolute import only as a `/`-rooted path of plain names,
+    // so the Unix project lives in a plain absolute folder; bare imports need no
+    // such spelling.
+    #[cfg(unix)]
+    let directory = tempfile::Builder::new()
+        .prefix("bend-lint-cache-")
+        .tempdir_in("/tmp")
+        .must_be("plain absolute custom-rule workspace");
+    #[cfg(not(unix))]
+    let directory = tempdir().must_be("custom-rule workspace");
+    let project = directory.path().join("project");
+    fs::create_dir(&project).must_be("create custom-rule project");
+    // Construct the CLI module and rule paths from one physical root: Windows
+    // temporary directories may otherwise retain an 8.3 alias on just one side.
+    let project = canonical_cli_path(&project);
+    let installed = project.join("node_modules/bend-lint");
+    copy_shipped_package(shipped, &installed).must_be("copy the shipped package into the project");
+    let seam = installed.join("src/linter/seam.ts");
+    let arguments = vec![seam.to_string_lossy().into_owned()];
+
+    let rules = project.join("bend-lint-rules");
+    fs::create_dir(&rules).must_be("create the project rules folder");
+    let entry = project.join("main.bend");
+    fs::write(&entry, "import Base\n\ndef main() -> U32:\n  1\n").must_be("write the linted entry");
+    fs::write(
+        rules.join("bare_probe.bend"),
+        probe_rule("import bare_helper.bend as Helper"),
+    )
+    .must_be("write the bare-import probe rule");
+    #[cfg(unix)]
+    {
+        let absolute_helper = rules.join("absolute_helper.bend");
+        let written = absolute_helper.to_string_lossy().replace('\\', "/");
+        assert!(
+            !written.chars().any(char::is_whitespace),
+            "Bend import paths cannot contain whitespace: {written}"
+        );
+        fs::write(
+            rules.join("absolute_probe.bend"),
+            probe_rule(&format!("import {written} as Helper")),
+        )
+        .must_be("write the absolute-import probe rule");
+    }
+    let mut configured = serde_json::Map::new();
+    configured.insert("bare_probe".to_owned(), json!("warning"));
+    #[cfg(unix)]
+    {
+        configured.insert("absolute_probe".to_owned(), json!("warning"));
+    }
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({"rules": Value::Object(configured)}))
+            .must_be("serialize custom-rule config"),
+    )
+    .must_be("write custom-rule config");
+    (directory, project, arguments)
+}
+
+fn copy_shipped_package(source: &Path, destination: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(destination)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let target = destination.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_shipped_package(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
+fn helper_source(version: u32) -> String {
+    format!("import Base\n\ndef message() -> String:\n  \"helper v{version}\"\n")
+}
+
+fn probe_rule(import: &str) -> String {
+    format!(
+        "import Base\nimport bend-lint-api@0.3.0.0/linter/api/impl.bend as LintImpl\nimport bend-lint-api@0.3.0.0/linter/api/spec.bend as Lint\n{import}\n\ndef run(+here: Lint.Here) -> Lint.Ask(List<&2, Lint.Finding>):\n  Lint.done(\n    [\n      Lint.Finding{{\n        Lint.Warning{{}},\n        Lint.Span{{Lint.Here.path(here), 0, 1}},\n        Helper.message(),\n        []\n      }}\n    ]\n  )\n\ndef rule() -> Lint.Rule:\n  Lint.Rule{{Lint.Needs{{False{{}}, False{{}}}}, [], Lint.OnFile{{run}}}}\n"
+    )
+}
+
+fn prepare_custom_rules(
+    executable: &Path,
+    arguments: &[String],
+    project: &Path,
+    report_path: &Path,
+) -> Value {
+    let (status, stdout, stderr) =
+        run_prepare_contained(executable, arguments, project, report_path)
+            .must_be("prepare the custom rules");
+    assert!(
+        status.success(),
+        "custom-rule preparation failed: {}",
+        String::from_utf8_lossy(&stderr)
+    );
+    assert!(
+        stdout.is_empty(),
+        "custom-rule preparation wrote unexpected stdout"
+    );
+    let report: Value =
+        serde_json::from_slice(&fs::read(report_path).must_be("read the custom-rule report"))
+            .must_be("parse the custom-rule report");
+    assert_eq!(
+        report["bendLint"], "0.3.0",
+        "genuine 0.3.0 report: {report}"
+    );
+    assert_eq!(report["exitCode"], 0);
+    if env::var("BEND2_LINT_REQUIRE_NATIVE").is_ok_and(|value| value == "1" || value == "true") {
+        assert_eq!(
+            report["backend"], "native",
+            "the native custom-rule build: {report}"
+        );
+    }
+    report
+}
+
+fn code_message(findings: &Value, code: &str) -> Option<String> {
+    findings
+        .as_array()?
+        .iter()
+        .find(|finding| finding["code"] == code)
+        .and_then(|finding| finding["message"].as_str())
+        .map(str::to_owned)
+}
+
+fn probe_range() -> Value {
+    json!({"start":{"line":0,"character":0},"end":{"line":0,"character":1}})
+}
+
+fn assert_cli_probes(findings: &Value, bare: u32, absolute: Option<u32>) {
+    let bare_finding = finding(findings, "bare_probe");
+    assert_eq!(bare_finding["message"], format!("helper v{bare}"));
+    assert_eq!(bare_finding["severity"], "warning");
+    assert_eq!(bare_finding["range"], probe_range());
+    match absolute {
+        Some(version) => {
+            let absolute_finding = finding(findings, "absolute_probe");
+            assert_eq!(absolute_finding["message"], format!("helper v{version}"));
+            assert_eq!(absolute_finding["severity"], "warning");
+            assert_eq!(absolute_finding["range"], probe_range());
+        }
+        None => assert!(
+            code_message(findings, "absolute_probe").is_none(),
+            "no absolute-import probe rule outside Unix"
+        ),
+    }
+}
+
+fn assert_lsp_probes(diagnostics: &Value, bare: u32, absolute: Option<u32>) {
+    let bare_finding = finding(diagnostics, "bare_probe");
+    assert_eq!(bare_finding["source"], "bend-lint");
+    assert_eq!(bare_finding["message"], format!("helper v{bare}"));
+    assert_eq!(bare_finding["severity"], 2, "Warning stays LSP Warning");
+    assert_eq!(bare_finding["range"], probe_range());
+    match absolute {
+        Some(version) => {
+            let absolute_finding = finding(diagnostics, "absolute_probe");
+            assert_eq!(absolute_finding["source"], "bend-lint");
+            assert_eq!(absolute_finding["message"], format!("helper v{version}"));
+            assert_eq!(absolute_finding["severity"], 2, "Warning stays LSP Warning");
+            assert_eq!(absolute_finding["range"], probe_range());
+        }
+        None => assert!(
+            code_message(diagnostics, "absolute_probe").is_none(),
+            "no absolute-import probe rule outside Unix"
+        ),
+    }
+}
+
 #[test]
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
@@ -525,7 +879,7 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{FORMAT:{"endOfLine":"crlf"}}
         }))
         .must_be("serialize genuine format config"),
@@ -535,6 +889,13 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
     overlays.insert(canonical(&main), unsaved.to_owned());
     let report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
     let reported = finding(&report["findings"], FORMAT);
+    // 0.3.0 skips the CR column before an LF (upstream #6), so the genuine JSON
+    // range ends at the last editable unit instead of between CR and LF.
+    assert_eq!(
+        reported["range"]["end"],
+        json!({"line":3,"character":11}),
+        "the genuine CRLF boundary is already LSP-representable"
+    );
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&main);
@@ -560,7 +921,7 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
     assert_eq!(
         format["range"]["end"],
         json!({"line":3,"character":11}),
-        "diagnostics project the raw CRLF boundary; edits below remain byte-exact"
+        "the provider publishes the same representable CRLF boundary; edits below remain byte-exact"
     );
     assert_eq!(format["message"], reported["message"]);
     assert_eq!(reported["docs"], rule_docs(FORMAT));
@@ -633,7 +994,7 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNNEEDED_PLUS:{}}
         }))
         .must_be("serialize genuine skip rule config"),
@@ -716,7 +1077,7 @@ fn genuine_structured_project_errors_are_attributable_without_diagnostics() {
     fs::write(&main, "import Base\n\ndef main() -> U32:\n  1\n").must_be("write saved entry");
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":42}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":42}",
     )
     .must_be("write genuinely invalid rule settings");
     let mut client = configured_client(&project, &executable, &arguments);
@@ -766,7 +1127,7 @@ fn genuine_structured_project_errors_are_attributable_without_diagnostics() {
     client.finish();
 }
 
-// The analyzer is the published 0.2.1 CLI with its matching 0.2.1.0 rule
+// The analyzer is the published 0.3.0 CLI with its matching 0.3.0.0 rule
 // package, so an unsaved buffer must reach analysis instead of the saved copy.
 // The saved source is formatted and still carries an unneeded unary plus; only
 // the unsaved buffer removes the plus and introduces four-space indentation.
@@ -785,9 +1146,9 @@ fn unsaved_change_republishes_genuine_findings_without_touching_disk() {
     fs::write(&root, saved).must_be("write genuine saved source");
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
     )
-    .must_be("enable matching 0.2.1 genuine upstream rules");
+    .must_be("enable matching 0.3.0 genuine upstream rules");
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&root);
@@ -915,7 +1276,7 @@ fn setup_genuine_analyzer() -> Result<(PathBuf, Vec<String>), String> {
     Ok((executable, arguments))
 }
 
-// A trusted temporary project with a standard 0.2.1 rule selects the one shared
+// A trusted temporary project with a standard 0.3.0 rule selects the one shared
 // standard-rule program; preparation builds/downloads it at most once here.
 const PREPARE_TIMEOUT: Duration = Duration::from_secs(600);
 
@@ -925,7 +1286,7 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
     let project = directory.path();
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{}}}",
     )
     .map_err(|error| format!("could not write the preparation config: {error}"))?;
     let report_path = project.join("report.json");
@@ -944,7 +1305,7 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
         ));
     }
     if !stdout.is_empty() {
-        return Err("genuine analyzer prepare wrote unexpected stdout; the 0.2.1 contract writes only its report".to_owned());
+        return Err("genuine analyzer prepare wrote unexpected stdout; the 0.3.0 contract writes only its report".to_owned());
     }
     let metadata = fs::metadata(&report_path)
         .map_err(|error| format!("genuine analyzer prepare did not write its report: {error}"))?;
@@ -955,7 +1316,7 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
         .map_err(|error| format!("could not read the preparation report: {error}"))?;
     let report: Value = serde_json::from_slice(&bytes)
         .map_err(|error| format!("preparation report is not JSON: {error}"))?;
-    if report["bendLint"] != "0.2.1" || report["exitCode"] != 0 {
+    if report["bendLint"] != "0.3.0" || report["exitCode"] != 0 {
         return Err(format!("unsupported preparation report identity: {report}"));
     }
     let backend = report["backend"]
@@ -1135,11 +1496,20 @@ fn genuine_overlay_report(
 }
 
 fn rule_docs(code: &str) -> String {
-    format!("https://github.com/MattCozendey/bend-lint/blob/main/{code}.bend")
+    format!("https://github.com/MattCozendey/bend-lint/blob/main/src/{code}.bend")
 }
 
 fn canonical(path: &Path) -> PathBuf {
     fs::canonicalize(path).must_be("canonical genuine source path")
+}
+
+// Use ordinary native CLI paths, not Rust's Windows verbatim prefix. Resolving
+// the existing directory first also expands a temporary directory's 8.3 alias.
+fn canonical_cli_path(path: &Path) -> PathBuf {
+    Url::from_file_path(canonical(path))
+        .must_be("physical CLI file URL")
+        .to_file_path()
+        .must_be("ordinary native CLI path")
 }
 
 // A genuine finding path may be the UTF-8 alias spelling or the native name.

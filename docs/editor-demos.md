@@ -17,10 +17,10 @@ settings, or record global mouse/keyboard input.
   driver; they are not claimed to be supported merely because a version matches.
 - The already-installed Rust 1.98.1 toolchain, Git and macOS build prerequisites
   for Zed. Rustup auto-install is disabled. Cargo may fetch build dependencies.
-- A built `bend2-lsp` with live bend-lint SDK 0.2.1 support, Bun 1.4.4 and the
+- A built `bend2-lsp` with live bend-lint SDK 0.3.0 support, Bun 1.4.4 and the
   matching SDK `src/linter/seam.ts`, a **complete** Bend compiler distribution,
   and the Bend Zed extension checkout with `grammars/bend2.wasm` already built.
-  The fixtures select `bend-lint-rules` 0.2.1.0. These scripts do not build,
+  The fixtures select `bend-lint-rules` 0.3.0.0. These scripts do not build,
   download or install the LSP, SDK, compiler or extension.
 - Rendering: FFmpeg, FFprobe and the explicitly installed optional dependency
   from `scripts/zed_demo_requirements.txt`. Use an external virtual environment:

@@ -131,6 +131,14 @@ corrections, declaration spans, and compiler-owned `Base`. Quality CI requires
 the same three suites on all six native hosts; a separate macOS ARM64 job retains
 genuine Bend 2.0.36 compatibility coverage. Bend is not bundled with the LSP.
 
+Quality CI additionally provisions every newer compiler in
+`scripts/bend_compiler_pins.json`'s compatibility matrix (2.0.38, 2.0.39 and
+2.0.40) on those same six native hosts and runs the three stdio suites against
+each version. The server and Rust test executables are compiled once per host
+and reused between versions. Both provisioning and E2E setup check the actual
+reported Bend version; archive, runtime and embedded-source pins bind its build.
+Release/installer E2Es retain 2.0.37 as their baseline.
+
 The full release suite is compiled once per native target. Nextest archives
 those same test binaries with the identical workspace, feature, lockfile, and
 release flags; the mandatory direct-executable E2E runs from that archive, not

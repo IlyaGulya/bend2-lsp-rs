@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Compatibility fixes
+
+- Support enhanced compiler diagnostics with verified Bend 2.0.38, 2.0.39 and
+  2.0.40 builds. Keep existing verified compiler support.
+- Support standalone bend-lint **0.3.0** with matching **0.3.0.0** rule packages.
+  See the [upgrade instructions](README.md#optional-bend-lint-disabled-by-default).
+- Check configured new lint entries before their first save. Preserve correct
+  CRLF ranges and update custom-rule findings after saved helper changes.
+- Accept newer bend-lint releases when they keep the supported CLI and JSON
+  format. A package-version change alone no longer disables lint.
+
+### Under the hood
+
+- Run genuine compiler E2Es for all three newer Bend releases on the six native
+  platforms, reusing Rust builds and checking the actual compiler identity.
+- Exercise bend-lint 0.3.0 with real unsaved-source, fix, configured-entry and
+  custom-helper cache scenarios.
+
 ## [0.7.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.2...v0.7.0) (2026-11-05)
 
 ### Lint warnings while you edit
