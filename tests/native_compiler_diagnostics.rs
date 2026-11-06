@@ -583,16 +583,26 @@ fn compiler_rejected_editor_imports_stay_uncertain_without_native_entities() {
 fn newer_release_base_symbols_navigate_to_the_selected_compiler_base() {
     let compiler = compiler();
     let reported = compiler_version(&compiler);
-    if reported != "bend 2.0.40" {
-        eprintln!(
-            "skip selected-Base navigation for {reported}: U32.popcount and U32.ctz are 2.0.40 Base definitions"
-        );
-        return;
-    }
     let directory = tempdir().must_be("newer Base navigation workspace");
     let root = directory.path().join("main.bend");
-    let source = "import Base\n\ndef count(x: U32) -> Nat:\n  U32.popcount(x)\n\ndef trailing(x: U32) -> Nat:\n  U32.ctz(x)\n";
+    let (source, members) = if reported == "bend 2.0.40" {
+        (
+            "import Base\n\ndef count(x: U32) -> Nat:\n  U32.popcount(x)\n\ndef trailing(x: U32) -> Nat:\n  U32.ctz(x)\n",
+            ["U32.popcount", "U32.ctz"],
+        )
+    } else {
+        (
+            "import Base\n\ndef count(x: U32, y: U32) -> U32:\n  U32.add(x, y)\n\ndef trailing(x: U32, y: U32) -> U32:\n  U32.sub(x, y)\n",
+            ["U32.add", "U32.sub"],
+        )
+    };
     fs::write(&root, source).must_be("write selected-Base consumer before discovery");
+    let base = Command::new(&compiler)
+        .arg("base")
+        .output()
+        .must_be("read the selected compiler Base");
+    assert!(base.status.success(), "selected compiler must provide Base");
+    let expected_base = String::from_utf8(base.stdout).must_be("selected Base UTF-8");
     let mut command = server_command();
     command.stderr(Stdio::null()).env("PATH", directory.path());
     let mut client = LspClient::spawn(command);
@@ -609,9 +619,9 @@ fn newer_release_base_symbols_navigate_to_the_selected_compiler_base() {
     assert_eq!(
         diagnostics(&mut client, &root_uri, Some(1)),
         Vec::<Value>::new(),
-        "the selected 2.0.40 Base must accept its new symbols"
+        "the selected compiler Base must accept its own symbols"
     );
-    for (line, member) in [(3_u64, "U32.popcount"), (6_u64, "U32.ctz")] {
+    for (line, member) in [(3_u64, members[0]), (6_u64, members[1])] {
         let definition = client.request(
             "textDocument/definition",
             json!({"textDocument":{"uri":root_uri},"position":{"line":line,"character":6}}),
@@ -623,16 +633,19 @@ fn newer_release_base_symbols_navigate_to_the_selected_compiler_base() {
             .must_be("selected Base URL")
             .to_file_path()
             .must_be("selected Base file");
-        assert!(
-            path.ends_with("bend2/base.bend"),
-            "definition must resolve in the selected compiler's own Base: {path:?}"
+        let actual_base = fs::read_to_string(&path).must_be("open the navigated Base source");
+        assert_eq!(
+            actual_base, expected_base,
+            "navigation must open the source returned by the selected compiler"
         );
-        let located = definition["result"]["range"]["start"]["line"]
-            .as_u64()
-            .must_be("selected Base definition line") as usize;
+        let located = usize::try_from(
+            definition["result"]["range"]["start"]["line"]
+                .as_u64()
+                .must_be("selected Base definition line"),
+        )
+        .must_be("selected Base definition line fits the platform");
         assert!(
-            fs::read_to_string(&path)
-                .must_be("read selected compiler Base")
+            actual_base
                 .lines()
                 .nth(located)
                 .must_be("selected Base definition line")

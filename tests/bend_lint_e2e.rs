@@ -575,78 +575,12 @@ fn configured_overlay_only_entry_is_analyzed_without_a_disk_file() {
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn custom_rule_build_cache_follows_bare_and_absolute_helper_imports() {
     let (executable, arguments) = configured_analyzer();
-    let shipped_seam = arguments
-        .first()
-        .must_be("this scenario needs the shipped seam (Bun with BEND2_LINT_TEST_ARGUMENTS)");
-    let shipped_seam = shipped_seam.as_str();
-    let shipped_seam = Path::new(shipped_seam);
-    assert!(
-        shipped_seam.is_absolute(),
-        "the shipped seam path must be absolute"
-    );
-    let linter = shipped_seam.parent().must_be("shipped seam folder");
-    let shipped = linter
-        .parent()
-        .and_then(Path::parent)
-        .must_be("shipped package root");
-    assert!(shipped.join("package.json").is_file());
-    assert!(shipped.join("src/linter/cli.bend").is_file());
-    // Bend accepts an absolute import only as a `/`-rooted path of plain names,
-    // so the Unix project lives in a plain absolute folder; bare imports need no
-    // such spelling.
-    #[cfg(unix)]
-    let directory = tempfile::Builder::new()
-        .prefix("bend-lint-cache-")
-        .tempdir_in("/tmp")
-        .must_be("plain absolute custom-rule workspace");
-    #[cfg(not(unix))]
-    let directory = tempdir().must_be("custom-rule workspace");
-    let project = directory.path().join("project");
-    fs::create_dir(&project).must_be("create custom-rule project");
-    let installed = project.join("node_modules/bend-lint");
-    copy_shipped_package(shipped, &installed)
-        .must_be("copy the shipped package into the project");
-    let seam = installed.join("src/linter/seam.ts");
-    let arguments = vec![seam.to_string_lossy().into_owned()];
-
+    let (_directory, project, arguments) = custom_rule_workspace(&arguments);
     let rules = project.join("bend-lint-rules");
-    fs::create_dir(&rules).must_be("create the project rules folder");
     let entry = project.join("main.bend");
-    fs::write(&entry, "import Base\n\ndef main() -> U32:\n  1\n")
-        .must_be("write the linted entry");
-    fs::write(
-        rules.join("bare_probe.bend"),
-        probe_rule("import bare_helper.bend as Helper"),
-    )
-    .must_be("write the bare-import probe rule");
     let bare_helper = rules.join("bare_helper.bend");
     #[cfg(unix)]
     let absolute_helper = rules.join("absolute_helper.bend");
-    #[cfg(unix)]
-    {
-        let written = absolute_helper.to_string_lossy().replace('\\', "/");
-        assert!(
-            !written.chars().any(char::is_whitespace),
-            "Bend import paths cannot contain whitespace: {written}"
-        );
-        fs::write(
-            rules.join("absolute_probe.bend"),
-            probe_rule(&format!("import {written} as Helper")),
-        )
-        .must_be("write the absolute-import probe rule");
-    }
-    let mut configured = serde_json::Map::new();
-    configured.insert("bare_probe".to_owned(), json!("warning"));
-    #[cfg(unix)]
-    {
-        configured.insert("absolute_probe".to_owned(), json!("warning"));
-    }
-    fs::write(
-        project.join("bend-lint.json"),
-        serde_json::to_vec(&json!({"rules": Value::Object(configured)}))
-            .must_be("serialize custom-rule config"),
-    )
-    .must_be("write custom-rule config");
 
     // Every helper change is prepared by the genuine CLI first: that report is
     // the independent oracle, and the native runner it builds is reused by the
@@ -673,10 +607,7 @@ fn custom_rule_build_cache_follows_bare_and_absolute_helper_imports() {
     #[cfg(unix)]
     fs::write(&absolute_helper, helper_source(1)).must_be("write the initial absolute helper");
     let report = prepare_custom_rules(&executable, &arguments, &project, &report_path);
-    eprintln!(
-        "custom-rule cache initial: prepared {}",
-        report["program"]
-    );
+    eprintln!("custom-rule cache initial: prepared {}", report["program"]);
     let findings = genuine_report(&executable, &arguments, &entry);
     assert_cli_probes(&findings["findings"], 1, initial_absolute);
 
@@ -736,6 +667,78 @@ fn custom_rule_build_cache_follows_bare_and_absolute_helper_imports() {
     client.finish();
 }
 
+fn custom_rule_workspace(arguments: &[String]) -> (tempfile::TempDir, PathBuf, Vec<String>) {
+    let shipped_seam = arguments
+        .first()
+        .must_be("this scenario needs the shipped seam (Bun with BEND2_LINT_TEST_ARGUMENTS)");
+    let shipped_seam = shipped_seam.as_str();
+    let shipped_seam = Path::new(shipped_seam);
+    assert!(
+        shipped_seam.is_absolute(),
+        "the shipped seam path must be absolute"
+    );
+    let linter = shipped_seam.parent().must_be("shipped seam folder");
+    let shipped = linter
+        .parent()
+        .and_then(Path::parent)
+        .must_be("shipped package root");
+    assert!(shipped.join("package.json").is_file());
+    assert!(shipped.join("src/linter/cli.bend").is_file());
+    // Bend accepts an absolute import only as a `/`-rooted path of plain names,
+    // so the Unix project lives in a plain absolute folder; bare imports need no
+    // such spelling.
+    #[cfg(unix)]
+    let directory = tempfile::Builder::new()
+        .prefix("bend-lint-cache-")
+        .tempdir_in("/tmp")
+        .must_be("plain absolute custom-rule workspace");
+    #[cfg(not(unix))]
+    let directory = tempdir().must_be("custom-rule workspace");
+    let project = directory.path().join("project");
+    fs::create_dir(&project).must_be("create custom-rule project");
+    let installed = project.join("node_modules/bend-lint");
+    copy_shipped_package(shipped, &installed).must_be("copy the shipped package into the project");
+    let seam = installed.join("src/linter/seam.ts");
+    let arguments = vec![seam.to_string_lossy().into_owned()];
+
+    let rules = project.join("bend-lint-rules");
+    fs::create_dir(&rules).must_be("create the project rules folder");
+    let entry = project.join("main.bend");
+    fs::write(&entry, "import Base\n\ndef main() -> U32:\n  1\n").must_be("write the linted entry");
+    fs::write(
+        rules.join("bare_probe.bend"),
+        probe_rule("import bare_helper.bend as Helper"),
+    )
+    .must_be("write the bare-import probe rule");
+    #[cfg(unix)]
+    {
+        let absolute_helper = rules.join("absolute_helper.bend");
+        let written = absolute_helper.to_string_lossy().replace('\\', "/");
+        assert!(
+            !written.chars().any(char::is_whitespace),
+            "Bend import paths cannot contain whitespace: {written}"
+        );
+        fs::write(
+            rules.join("absolute_probe.bend"),
+            probe_rule(&format!("import {written} as Helper")),
+        )
+        .must_be("write the absolute-import probe rule");
+    }
+    let mut configured = serde_json::Map::new();
+    configured.insert("bare_probe".to_owned(), json!("warning"));
+    #[cfg(unix)]
+    {
+        configured.insert("absolute_probe".to_owned(), json!("warning"));
+    }
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({"rules": Value::Object(configured)}))
+            .must_be("serialize custom-rule config"),
+    )
+    .must_be("write custom-rule config");
+    (directory, project, arguments)
+}
+
 fn copy_shipped_package(source: &Path, destination: &Path) -> std::io::Result<()> {
     fs::create_dir_all(destination)?;
     for entry in fs::read_dir(source)? {
@@ -781,7 +784,10 @@ fn prepare_custom_rules(
     let report: Value =
         serde_json::from_slice(&fs::read(report_path).must_be("read the custom-rule report"))
             .must_be("parse the custom-rule report");
-    assert_eq!(report["bendLint"], "0.3.0", "genuine 0.3.0 report: {report}");
+    assert_eq!(
+        report["bendLint"], "0.3.0",
+        "genuine 0.3.0 report: {report}"
+    );
     assert_eq!(report["exitCode"], 0);
     if env::var("BEND2_LINT_REQUIRE_NATIVE").is_ok_and(|value| value == "1" || value == "true") {
         assert_eq!(
@@ -835,10 +841,7 @@ fn assert_lsp_probes(diagnostics: &Value, bare: u32, absolute: Option<u32>) {
             let absolute_finding = finding(diagnostics, "absolute_probe");
             assert_eq!(absolute_finding["source"], "bend-lint");
             assert_eq!(absolute_finding["message"], format!("helper v{version}"));
-            assert_eq!(
-                absolute_finding["severity"], 2,
-                "Warning stays LSP Warning"
-            );
+            assert_eq!(absolute_finding["severity"], 2, "Warning stays LSP Warning");
             assert_eq!(absolute_finding["range"], probe_range());
         }
         None => assert!(

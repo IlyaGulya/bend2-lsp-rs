@@ -120,9 +120,13 @@ package-manager discovery, or download dependencies itself. Prepare the external
 tool and its caches outside the LSP if you require offline operation.
 
 Install the tool yourself in each trusted project. The inspected standalone
-release is `bend-lint@0.2.1`, requiring Bun 1.4.4. Clang is optional: upstream
+release is `bend-lint@0.3.0`, requiring Bun 1.4.4. Clang is optional: upstream
 otherwise builds rules as JavaScript. Its native backend accepts clang 14 or
 newer, but **Windows ARM64 requires a compatible version**, not just that minimum.
+
+These instructions target the development build. Released LSP v0.7.0 requires
+`bend-lint@0.2.1`; use its
+[versioned setup guide](https://github.com/IlyaGulya/bend2-lsp-rs/blob/v0.7.0/README.md#optional-bend-lint-disabled-by-default).
 
 For native rule builds on Windows ARM64, use the verified
 [Clang 18.1.8 ARM64 installer](https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/LLVM-18.1.8-woa64.exe).
@@ -132,22 +136,28 @@ The native CI details below explain the LLVM 19–22 incompatibilities.
 
 ```sh
 # These are explicit installation commands for you, never commands run by the LSP.
-bun add -D --trust bend-lint@0.2.1
+bun add -D --trust bend-lint@0.3.0
 ```
 
 The upstream installer can create `bend-lint.json` and build its configured rules.
 Review that configuration before enabling the provider. The server never creates lint
 configuration or replaces its existing formatter. The older tool bundled with
 Bend 2.0.37 / PR #1389 uses a different CLI/JSON contract and is not supported.
-The machine-readable contract targets standalone upstream 0.2.1, reviewed at
-[`8eaa9b84a74b8e1c54c55d396a585d26bd1d41e0`](https://github.com/MattCozendey/bend-lint/tree/8eaa9b84a74b8e1c54c55d396a585d26bd1d41e0).
+The machine-readable contract targets standalone upstream 0.3.0, reviewed at
+[`c6f31c0c2ef4587368dd6a5443a6d42e22e975fc`](https://github.com/MattCozendey/bend-lint/tree/c6f31c0c2ef4587368dd6a5443a6d42e22e975fc).
 Use the installed npm package, not a raw development checkout: upstream's
 packaging rewrites its rule API imports to match published BendHub packages.
 
 When upgrading, update the `bend-lint-rules` package in `bend-lint.json` to
-`0.2.1.0`, and custom rule API imports to
-`bend-lint-api@0.2.1.0/linter/lint.bend`. The rule and CLI API versions must
-match. Existing project configuration and custom rules are not rewritten for you.
+`0.3.0.0`. Custom rules must use the matching API's specification and implementation:
+
+```bend
+import bend-lint-api@0.3.0.0/linter/api/impl.bend as LintImpl
+import bend-lint-api@0.3.0.0/linter/api/spec.bend as Lint
+```
+
+The rule and CLI API versions must match. Existing project configuration and
+custom rules are not rewritten for you.
 
 After explicit opt-in, the server runs the installed analyzer's `prepare` command
 before checking. Preparation has a separate ten-minute deadline; ordinary typing
@@ -260,29 +270,23 @@ so their creation or retargeting cannot make an old result current. Lint
 configuration and executed rules remain saved inputs; editing a buffer does not
 implicitly execute new rule code.
 
-Upstream 0.2.1 supports named virtual files but still rejects an overlay-only path
-listed in `bend-lint.json`'s `entries` ([upstream issue #5](https://github.com/MattCozendey/bend-lint/issues/5)).
-That is reported as an operational configuration failure; the server does not write
-buffers to disk, remove configured entries, or fall back to checking stale contents.
+Named files listed in `bend-lint.json`'s `entries` can also be checked before
+their first save. The server does not write buffers to disk or remove configured
+entries to make a check succeed.
 
-In local custom-rule implementations, use `./` or `../` for helper imports.
-Upstream 0.2.1's build cache omits compiler-valid bare/absolute helper imports,
-which can retain an older compiled rule after a helper changes
-([upstream issue #7](https://github.com/MattCozendey/bend-lint/issues/7)).
-The LSP classifies these helpers as trusted saved code, but cannot repair the
-producer's cache key by rerunning preparation. Ordinary application-source
-imports are unaffected.
+Saved helpers imported by custom rules participate in the analyzer's build-cache
+key, including bare local paths and compiler-valid absolute paths. Use relative
+helper imports on Windows: drive-letter absolute paths are not valid Bend imports.
 
 Findings keep the upstream rule code, severity, message, path, verified zero-based
 UTF-16 range, and optional documentation link under source `bend-lint`; suppressed
 findings are ignored. Structured `skipped` reasons distinguish partial checking from
 a clean complete result without inventing diagnostic locations or error-count banners.
 Structured configuration/setup errors become attributable editor warnings and logs.
-Upstream 0.2.1 counts the CR in one CRLF separator position. Diagnostic-only
-projection maps that position to the LSP line end; edit boundaries remain strict
-([upstream issue #6](https://github.com/MattCozendey/bend-lint/issues/6)).
+Diagnostics and fixes use UTF-16 positions for LF and CRLF text; invalid edit
+ranges are rejected.
 The analyzer does **not** emit Bend's own compiler errors. Its pinned compiler is
-independent of `compilerPath`: standalone 0.2.1 uses Bend 2.0.39 on Unix and an
+independent of `compilerPath`: standalone 0.3.0 uses Bend 2.0.39 on Unix and an
 upstream fork on Windows. Logs include the analyzer's preparation report and stderr
 notes. These are reported identities, not executable attestation.
 
@@ -658,13 +662,16 @@ operations produce a clear compatibility warning. Unknown version output is not
 a numeric-version rejection. Installing or replacing an executable allows a new probe.
 
 Enhanced checks report multiple independent compiler errors in one check,
-including imported-source errors, with the exact registered Bend 2.0.37 builds
-for macOS, Linux, and Windows on ARM64 and x86_64. Earlier verified Bend
+including imported-source errors, with the exact registered Bend 2.0.37–2.0.40
+builds for macOS, Linux, and Windows on ARM64 and x86_64. Earlier verified Bend
 2.0.32–2.0.36 builds retain Apple Silicon macOS support. The adapter runs the
 installed compiler's own parser and checker; it does not introduce a separate
 type checker or require a separately installed JavaScript runtime. Executable
 bundle, target, and embedded runtime identities must match the verified registry
 before recovery is enabled.
+
+The 2.0.38–2.0.40 identities are new in this development build. Released LSP
+v0.7.0 uses ordinary CLI checks for those versions instead of enhanced recovery.
 
 Windows has no official upstream Bend binary. Enhanced Windows checks require
 the checksum-pinned native upstream source build reproduced by
@@ -755,6 +762,22 @@ They check direct and transitive import locations, links to original errors,
 independent source errors, unsaved corrections, exact declaration spans, and
 compiler-owned versus user-owned `Base`, and spaces/non-ASCII workspace and
 temporary paths. A separate macOS ARM64 job retains Bend 2.0.36 coverage.
+
+The same native CI jobs also check every newer release listed by
+`python3 scripts/bootstrap_bend.py --list-compatibility-versions`: currently
+2.0.38, 2.0.39, and 2.0.40. They reuse the already-built Rust server and test
+executables. Provisioning and tests independently verify the requested compiler
+version, so running an older executable cannot pass as a newer release.
+
+To exercise one newer version locally:
+
+```sh
+python3 scripts/bootstrap_bend.py --version 2.0.40 --destination /tmp/bend-native-e2e-2.0.40
+BEND_NO_TELEMETRY=1 \
+BEND2_COMPILER_TEST_PATH=/tmp/bend-native-e2e-2.0.40/bin/bend \
+BEND2_COMPILER_TEST_VERSION=2.0.40 \
+cargo test --locked --test native_compiler_diagnostics --test native_law_ranges --test compiler_multi_error
+```
 
 Real Neovim E2E coverage runs the native server through Neovim's built-in LSP
 client with default and explicit configurations:
