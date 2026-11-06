@@ -1,31 +1,36 @@
 # Changelog
 
-## Unreleased
+## [0.7.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.7.0...v0.7.1) (2026-11-06)
 
-### Compatibility fixes
+### Newer Bend versions
 
-- Support enhanced compiler diagnostics with verified Bend 2.0.38, 2.0.39 and
-  2.0.40 builds. Keep existing verified compiler support.
-- Support standalone bend-lint **0.3.0** with matching **0.3.0.0** rule packages.
-  See the [upgrade instructions](README.md#optional-bend-lint-disabled-by-default).
-- Check configured new lint entries before their first save. Preserve correct
-  CRLF ranges and update custom-rule findings after saved helper changes.
-- Accept newer bend-lint releases when they keep the supported CLI and JSON
-  format. A package-version change alone no longer disables lint.
+- Keep enhanced compiler diagnostics when using verified **Bend 2.0.38**,
+  **2.0.39** or **2.0.40** builds on macOS, Linux and Windows, both x86_64
+  and ARM64.
+
+Other compiler builds can still use standard CLI diagnostics.
+
+### More reliable bend-lint warnings
+
+- Support standalone **bend-lint 0.3.0** and its matching **0.3.0.0** rule packages.
+- Check new files listed in `bend-lint.json` before their first save.
+- Keep warning underlines and manual fixes accurate in files with emoji or
+  Windows-style (CRLF) line endings.
+- Refresh custom-rule warnings after saving changes to imported helpers.
+- Accept compatible bend-lint updates without requiring a new LSP release just
+  to recognize the version number. Invalid reports and stale fixes are still
+  rejected.
+
+When upgrading to bend-lint 0.3.0, use Bun 1.4.4 and update the rule packages and
+any custom-rule API imports together. See the
+[setup and upgrade guide](README.md#optional-bend-lint-disabled-by-default).
+Lint remains opt-in, and fixes require an explicit user action.
 
 ### Under the hood
 
-- Run genuine compiler E2Es for all three newer Bend releases on the six native
-  platforms, reusing Rust builds and checking the actual compiler identity.
-- Exercise bend-lint 0.3.0 with real unsaved-source, fix, configured-entry and
-  custom-helper cache scenarios.
-
-## [0.7.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.7.0...v0.7.1) (2026-11-06)
-
-
-### Bug Fixes
-
-* support Bend 2.0.38–2.0.40 and bend-lint 0.3.0 ([#84](https://github.com/IlyaGulya/bend2-lsp-rs/issues/84)) ([3d05f5e](https://github.com/IlyaGulya/bend2-lsp-rs/commit/3d05f5e2ebf67981c3dc8ff27bd9330a7f45164f))
+- Real compiler and linter E2E tests cover these changes on all six supported
+  OS/CPU targets, including newer compiler versions, unsaved text and explicit
+  fixes.
 
 ## [0.7.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.2...v0.7.0) (2026-11-05)
 
