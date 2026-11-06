@@ -20,6 +20,13 @@
 - Exercise bend-lint 0.3.0 with real unsaved-source, fix, configured-entry and
   custom-helper cache scenarios.
 
+## [0.7.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.7.0...v0.7.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* support Bend 2.0.38–2.0.40 and bend-lint 0.3.0 ([#84](https://github.com/IlyaGulya/bend2-lsp-rs/issues/84)) ([3d05f5e](https://github.com/IlyaGulya/bend2-lsp-rs/commit/3d05f5e2ebf67981c3dc8ff27bd9330a7f45164f))
+
 ## [0.7.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.2...v0.7.0) (2026-11-05)
 
 ### Lint warnings while you edit
