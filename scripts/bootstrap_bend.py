@@ -298,12 +298,12 @@ def main() -> None:
     parser.add_argument("--target", choices=TARGETS)
     parser.add_argument("--version", choices=SUPPORTED_VERSIONS, default=PINS["version"])
     parser.add_argument("--list-compatibility-versions", action="store_true",
-                        help="print the pinned newer release matrix and exit")
+                        help="print the pinned newer release matrix as one line and exit")
     parser.add_argument("--github-env", type=Path)
     parser.add_argument("--github-output", type=Path)
     arguments = parser.parse_args()
     if arguments.list_compatibility_versions:
-        print("\n".join(COMPATIBILITY_VERSIONS))
+        print(" ".join(COMPATIBILITY_VERSIONS))
         return
     if arguments.destination is None:
         parser.error("--destination is required")
