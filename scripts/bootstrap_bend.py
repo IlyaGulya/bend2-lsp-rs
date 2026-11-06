@@ -19,7 +19,29 @@ import urllib.request
 # Reviewed against the primary release APIs and downloaded bytes. Upstream
 # releases are mutable; fixed asset IDs plus these digests bind their identity.
 PINS = json.loads(Path(__file__).with_name("bend_compiler_pins.json").read_text())
-TARGETS = (*PINS["archives"], *PINS["bun"]["archives"])
+COMPATIBILITY = PINS.get("compatibility", {})
+COMPATIBILITY_VERSIONS = tuple(COMPATIBILITY.get("versions", ()))
+SUPPORTED_VERSIONS = (PINS["legacy"]["version"], PINS["version"], *COMPATIBILITY_VERSIONS)
+TARGETS = (
+    *PINS["archives"], *PINS["bun"]["archives"],
+    *(target for runtime in COMPATIBILITY.get("bun", {}).values() for target in runtime["archives"]),
+)
+
+
+def release_pin(version: str) -> dict:
+    if version == PINS["version"]:
+        return PINS
+    return COMPATIBILITY["releases"][version]
+
+
+def pinned_runtime(version: str) -> dict:
+    # The runtime the official release embeds is also the runtime used to
+    # compile the native Windows build from its exact source.
+    name = release_pin(version).get("windows", {}).get("bun", PINS["bun"]["version"])
+    if name == PINS["bun"]["version"]:
+        return PINS["bun"]
+    return COMPATIBILITY["bun"][name]
+
 
 
 def native_target() -> str:
@@ -189,6 +211,19 @@ def probe_compiler_identity(output: Path, staging: Path, environment: dict) -> d
     return observed
 
 
+def verify_compiler_version(executable: Path, version: str) -> str:
+    # A requested pin must be the release the executable actually reports.
+    completed = subprocess.run(
+        [str(executable), "version"], env=compiler_environment(),
+        capture_output=True, text=True, timeout=30,
+    )
+    completed.check_returncode()
+    observed = completed.stdout.strip()
+    if observed != f"bend {version}":
+        raise ValueError(f"provisioned compiler reports {observed!r}, expected bend {version!r}")
+    return observed
+
+
 def install(destination: Path, target: str, version: str) -> Path:
     if destination.exists() or destination.is_symlink():
         raise ValueError(f"installation destination must not exist: {destination}")
@@ -196,33 +231,43 @@ def install(destination: Path, target: str, version: str) -> Path:
         pin = PINS["legacy"]
         if target != pin["target"]:
             raise ValueError("legacy Bend verification is macOS ARM64 only")
+        archive = pin
         required = pin["files"]
-    elif target in PINS["archives"]:
-        pin = PINS["archives"][target]
-        required = {**PINS["resources"], "bin/bend": pin["executable"]}
     else:
-        from bootstrap_bend_source import build_windows
-        return build_windows(destination, target)
-    extract_tar(download_asset("bendlang/bend", pin), destination, "bend", required)
+        pin = release_pin(version)
+        if target in pin["archives"]:
+            archive = pin["archives"][target]
+            required = {**pin["resources"], "bin/bend": archive["executable"]}
+        else:
+            from bootstrap_bend_source import build_windows
+            return build_windows(destination, target, version)
+    extract_tar(download_asset("bendlang/bend", archive), destination, "bend", required)
     executable = destination / "bin/bend"
+    reported = verify_compiler_version(executable, version)
     try:
         with tempfile.TemporaryDirectory(prefix="bend-identity-", dir=destination.parent) as temporary:
             observed = probe_compiler_identity(executable, Path(temporary), compiler_environment())
         host = "darwin" if target.endswith("apple-darwin") else "linux"
         architecture = "arm64" if target.startswith("aarch64-") else "x64"
-        runtime = pin.get("runtime", PINS["bun"])
+        runtime = pin["runtime"] if "runtime" in pin else pinned_runtime(version)
         if (
             observed["host"] != f"{host}:{architecture}"
             or observed["bun"] != runtime["version"]
             or observed["revision"] != runtime["revision"]
         ):
             raise ValueError(f"unexpected official compiler embedded runtime: {observed}")
+        expected_fingerprint = archive.get("fingerprint")
+        if expected_fingerprint is not None and observed["fingerprint"] != expected_fingerprint:
+            raise ValueError(
+                f"embedded compiler source differs from its pinned fingerprint: {observed['fingerprint']}"
+            )
         identity = {
             "bend_version": version,
+            "reported_version": reported,
             "source_commit": pin.get("source_commit", PINS["source_commit"]),
-            "release_asset": pin["asset"],
-            "archive_size": pin["size"],
-            "archive_sha256": pin["sha256"],
+            "release_asset": archive["asset"],
+            "archive_size": archive["size"],
+            "archive_sha256": archive["sha256"],
             "target": target,
             "executable_size": required["bin/bend"][0],
             "executable_sha256": required["bin/bend"][1],
@@ -241,20 +286,27 @@ def install(destination: Path, target: str, version: str) -> Path:
     except BaseException:
         shutil.rmtree(destination)
         raise
-    print(f"Installed official Bend {version} ({target}, {pin['sha256']}): {executable}")
+    print(f"Installed official Bend {version} ({target}, {archive['sha256']}): {executable}")
     return executable
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--destination", type=Path, required=True)
+    parser.add_argument("--destination", type=Path)
     # Explicit target comes from the workflow's verified native Rust host;
     # Python itself can otherwise be emulated on Windows ARM64.
     parser.add_argument("--target", choices=TARGETS)
-    parser.add_argument("--version", choices=(PINS["version"], PINS["legacy"]["version"]), default=PINS["version"])
+    parser.add_argument("--version", choices=SUPPORTED_VERSIONS, default=PINS["version"])
+    parser.add_argument("--list-compatibility-versions", action="store_true",
+                        help="print the pinned newer release matrix and exit")
     parser.add_argument("--github-env", type=Path)
     parser.add_argument("--github-output", type=Path)
     arguments = parser.parse_args()
+    if arguments.list_compatibility_versions:
+        print("\n".join(COMPATIBILITY_VERSIONS))
+        return
+    if arguments.destination is None:
+        parser.error("--destination is required")
     destination = arguments.destination.absolute()
     try:
         executable = install(destination, arguments.target or native_target(), arguments.version)

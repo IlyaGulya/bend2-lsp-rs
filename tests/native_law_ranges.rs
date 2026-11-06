@@ -14,25 +14,42 @@ use support::Must;
 use tempfile::tempdir;
 use url::Url;
 
-fn assert_unfilled_law_range(source: &str, expected_range: &Value) {
-    let compiler = PathBuf::from(
+fn compiler() -> PathBuf {
+    let path = PathBuf::from(
         env::var_os("BEND2_COMPILER_TEST_PATH")
             .must_be("set BEND2_COMPILER_TEST_PATH to the genuine pinned Bend compiler"),
     );
-    let version = Command::new(&compiler)
+    let version = Command::new(&path)
         .arg("version")
         .output()
         .must_be("probe real compiler");
     assert!(version.status.success());
+    let reported = String::from_utf8(version.stdout)
+        .must_be("compiler version UTF-8")
+        .trim()
+        .to_owned();
     assert!(
         matches!(
-            String::from_utf8(version.stdout)
-                .must_be("compiler version UTF-8")
-                .trim(),
-            "bend 2.0.36" | "bend 2.0.37"
+            reported.as_str(),
+            "bend 2.0.36" | "bend 2.0.37" | "bend 2.0.38" | "bend 2.0.39" | "bend 2.0.40"
         ),
         "use a genuine compiler from the E2E provisioning pins"
     );
+    if let Some(expected) = env::var_os("BEND2_COMPILER_TEST_VERSION") {
+        let expected = expected
+            .into_string()
+            .must_be("BEND2_COMPILER_TEST_VERSION must be UTF-8");
+        assert_eq!(
+            reported,
+            format!("bend {expected}"),
+            "the provisioned compiler must be the release the matrix selected"
+        );
+    }
+    path
+}
+
+fn assert_unfilled_law_range(source: &str, expected_range: &Value) {
+    let compiler = compiler();
 
     let directory = tempdir().must_be("native law workspace");
     let root = directory.path().join("main.bend");

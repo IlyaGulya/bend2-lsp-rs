@@ -20,25 +20,41 @@ fn uri(path: &Path) -> String {
         .to_string()
 }
 
+fn compiler_version(compiler: &Path) -> String {
+    let version = Command::new(compiler)
+        .arg("version")
+        .output()
+        .must_be("probe real compiler");
+    assert!(version.status.success());
+    String::from_utf8(version.stdout)
+        .must_be("compiler version UTF-8")
+        .trim()
+        .to_owned()
+}
+
 fn compiler() -> PathBuf {
     let path = PathBuf::from(
         env::var_os("BEND2_COMPILER_TEST_PATH")
             .must_be("set BEND2_COMPILER_TEST_PATH to the genuine pinned Bend compiler"),
     );
-    let version = Command::new(&path)
-        .arg("version")
-        .output()
-        .must_be("probe real compiler");
-    assert!(version.status.success());
+    let reported = compiler_version(&path);
     assert!(
         matches!(
-            String::from_utf8(version.stdout)
-                .must_be("compiler version UTF-8")
-                .trim(),
-            "bend 2.0.36" | "bend 2.0.37"
+            reported.as_str(),
+            "bend 2.0.36" | "bend 2.0.37" | "bend 2.0.38" | "bend 2.0.39" | "bend 2.0.40"
         ),
         "use a genuine compiler from the E2E provisioning pins"
     );
+    if let Some(expected) = env::var_os("BEND2_COMPILER_TEST_VERSION") {
+        let expected = expected
+            .into_string()
+            .must_be("BEND2_COMPILER_TEST_VERSION must be UTF-8");
+        assert_eq!(
+            reported,
+            format!("bend {expected}"),
+            "the provisioned compiler must be the release the matrix selected"
+        );
+    }
     path
 }
 
@@ -558,6 +574,70 @@ fn compiler_rejected_editor_imports_stay_uncertain_without_native_entities() {
             &target_uri,
             alias,
             version,
+        );
+    }
+    client.finish();
+}
+
+#[test]
+fn newer_release_base_symbols_navigate_to_the_selected_compiler_base() {
+    let compiler = compiler();
+    let reported = compiler_version(&compiler);
+    if reported != "bend 2.0.40" {
+        eprintln!(
+            "skip selected-Base navigation for {reported}: U32.popcount and U32.ctz are 2.0.40 Base definitions"
+        );
+        return;
+    }
+    let directory = tempdir().must_be("newer Base navigation workspace");
+    let root = directory.path().join("main.bend");
+    let source = "import Base\n\ndef count(x: U32) -> Nat:\n  U32.popcount(x)\n\ndef trailing(x: U32) -> Nat:\n  U32.ctz(x)\n";
+    fs::write(&root, source).must_be("write selected-Base consumer before discovery");
+    let mut command = server_command();
+    command.stderr(Stdio::null()).env("PATH", directory.path());
+    let mut client = LspClient::spawn(command);
+    client.initialize(directory.path());
+    client.notify(
+        "workspace/didChangeConfiguration",
+        json!({"settings":{"bend2-lsp":{"compilerPath":compiler}}}),
+    );
+    let root_uri = uri(&root);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{"uri":root_uri,"languageId":"bend","version":1,"text":source}}),
+    );
+    assert_eq!(
+        diagnostics(&mut client, &root_uri, Some(1)),
+        Vec::<Value>::new(),
+        "the selected 2.0.40 Base must accept its new symbols"
+    );
+    for (line, member) in [(3_u64, "U32.popcount"), (6_u64, "U32.ctz")] {
+        let definition = client.request(
+            "textDocument/definition",
+            json!({"textDocument":{"uri":root_uri},"position":{"line":line,"character":6}}),
+        );
+        let target = definition["result"]["uri"]
+            .as_str()
+            .must_be("selected Base definition URI");
+        let path = Url::parse(target)
+            .must_be("selected Base URL")
+            .to_file_path()
+            .must_be("selected Base file");
+        assert!(
+            path.ends_with("bend2/base.bend"),
+            "definition must resolve in the selected compiler's own Base: {path:?}"
+        );
+        let located = definition["result"]["range"]["start"]["line"]
+            .as_u64()
+            .must_be("selected Base definition line") as usize;
+        assert!(
+            fs::read_to_string(&path)
+                .must_be("read selected compiler Base")
+                .lines()
+                .nth(located)
+                .must_be("selected Base definition line")
+                .contains(member),
+            "definition must name {member} in the selected compiler Base"
         );
     }
     client.finish();
