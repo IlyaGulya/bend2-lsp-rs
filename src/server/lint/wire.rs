@@ -24,7 +24,7 @@ struct Report {
     errors: Option<Vec<ReportError>>,
 }
 
-// A fatal 0.2.1 JSON response: what the analyzer rejected, about which file if
+// A fatal analyzer JSON response: what was rejected, about which file if
 // one. It carries no ranges and must never be turned into diagnostics.
 #[derive(Deserialize)]
 struct ReportError {
@@ -191,14 +191,9 @@ fn position_offset(snapshot: &DocumentSnapshot, position: Position) -> Option<us
         .then_some(offset)
 }
 
-// bend-lint 0.2.1 places offsets with Text.Walk, which starts a new line only
-// at `\n`; a `\r` before it therefore counts as one UTF-16 line unit. LSP CRLF
-// line content excludes that `\r`, so its line length is one unit shorter. The
-// only representable equivalent of the upstream position at the LF is the
-// line's content end; every other unmatched position stays invalid. Edits keep
-// the strict rule below because moving an edit boundary off the CR would change
-// what bytes the user applies. (Minimal upstream fix: do not add a column for
-// `\r` when the next character is `\n`.)
+// A diagnostic at the CRLF separator has the same visible position as the
+// line's content end. Every other unmatched position stays invalid. Edits keep
+// strict boundaries because projecting them could change the bytes applied.
 fn diagnostic_offset(snapshot: &DocumentSnapshot, position: Position) -> Option<usize> {
     if let Some(offset) = position_offset(snapshot, position) {
         return Some(offset);
@@ -387,19 +382,19 @@ fn accepted_report(
     let findings = report.findings.ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            "bend-lint 0.2.1 response omits its findings array",
+            "bend-lint response omits its findings array",
         )
     })?;
     let suppressed = report.suppressed.ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            "bend-lint 0.2.1 response omits its suppressed array",
+            "bend-lint response omits its suppressed array",
         )
     })?;
     let skipped = report.skipped.ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            "bend-lint 0.2.1 response omits its skipped array",
+            "bend-lint response omits its skipped array",
         )
     })?;
     if findings.len() > MAX_ENTRIES || suppressed.len() > MAX_ENTRIES || skipped.len() > MAX_ENTRIES

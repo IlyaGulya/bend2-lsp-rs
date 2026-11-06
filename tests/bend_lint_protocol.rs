@@ -59,8 +59,8 @@ fn range(line: u32, start: u32, end: u32) -> Value {
     json!({"start":{"line":line,"character":start},"end":{"line":line,"character":end}})
 }
 
-// Verified against standalone 0.2.1 cli.bend Object.finding/Object.fix/end at
-// 8eaa9b84a74b8e1c54c55d396a585d26bd1d41e0, not an LSP-shaped invented payload.
+// Verified against standalone 0.3.0 cli.bend Object.finding/Object.fix/end at
+// c6f31c0c2ef4587368dd6a5443a6d42e22e975fc, not an LSP-shaped invented payload.
 fn finding(path: &Path, code: &str, span: Value) -> Value {
     let mut finding = json!({"code":code,"severity":"warning","message":"remove unneeded plus",
         "path":path,"fixes":[]});
@@ -624,7 +624,7 @@ fn an_old_preparation_report_is_rejected_before_any_check() {
             .as_str()
             .must_be("version rejection")
             .contains("unsupported bend-lint 0.1.1"),
-        "the 0.2.1 contract gate is explicit: {failure}"
+        "the verified CLI contract gate is explicit: {failure}"
     );
     assert_eq!(session.calls(), 0, "no disk-only fallback check");
     session.no_lint();

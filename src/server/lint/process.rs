@@ -26,7 +26,7 @@ const DETAIL_LIMIT: usize = 16 * 1024;
 // A cold native build is not a document query: it gets its own bounded deadline
 // and never inherits or raises the ordinary per-check timeout.
 const PREPARATION_TIMEOUT: Duration = Duration::from_secs(600);
-const SUPPORTED_ANALYZER_VERSION: &str = "0.2.1";
+const SUPPORTED_ANALYZER_VERSION: &str = "0.3.0";
 
 // Like compiler checks, cancelled jobs retain their concurrency lease until
 // the child has actually been killed and reaped. Containment includes the
@@ -540,14 +540,14 @@ pub(super) async fn prepare(
     if !output.stdout.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "bend-lint prepare returned unexpected stdout; the 0.2.1 contract writes only its report",
+            "bend-lint prepare returned unexpected stdout; the 0.3.0 contract writes only its report",
         ));
     }
     let bytes = read_report(&report)?;
     let report: PrepareReport = serde_json::from_slice(&bytes).map_err(|error| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("bend-lint preparation report does not match the 0.2.1 contract: {error}"),
+            format!("bend-lint preparation report does not match the 0.3.0 contract: {error}"),
         )
     })?;
     report.validate()?;

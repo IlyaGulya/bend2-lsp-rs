@@ -45,11 +45,9 @@ pub(super) fn trusted_input(
 // capture the closure cold from disk with the existing snapshot budgets; warm
 // queries only reuse it.
 //
-// This closure is the LSP's trusted read-set and tool-role classification, not
-// an extension of the analyzer's own build-cache key. Upstream's `getClosure`
-// key only follows `./`/`../` spellings, so a saved bare or absolute helper
-// still restarts our preparation and invalidates retained results, but whether
-// the producer rebuilds that spelling is its cache-key gap, tracked separately.
+// This closure is the LSP's trusted read-set and tool-role classification.
+// The analyzer maintains its own build-cache key; both must observe saved
+// helper changes before a prepared runner or retained result can be reused.
 pub(super) fn rule_closure(rule_paths: &HashSet<PathBuf>) -> io::Result<RuleClosure> {
     let mut closure = RuleClosure::default();
     let mut pending: Vec<PathBuf> = rule_paths
