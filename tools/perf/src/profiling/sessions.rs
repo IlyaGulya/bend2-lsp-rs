@@ -1716,17 +1716,32 @@ mod tests {
     fn collector_interrupt_reaches_a_console_ignoring_ctrl_c() -> super::ToolResult<()> {
         // Exercise the actual console APIs with an owned waiting process, not
         // a fabricated profiler trace or an assertion about a command string.
-        const SCRIPT: &str = r#"$ErrorActionPreference='Stop'
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; using System.Threading; public static class IgnoringConsole { public delegate bool HandlerRoutine(uint ctrl); public static readonly ManualResetEvent Stopped = new ManualResetEvent(false); public static readonly HandlerRoutine Stop = delegate(uint ctrl) { if (ctrl != 1) return false; Stopped.Set(); return true; }; [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Ignore(IntPtr handler, bool add); [DllImport("kernel32.dll", EntryPoint="SetConsoleCtrlHandler", SetLastError=true)] public static extern bool Register(HandlerRoutine handler, bool add); }'
-if (![IgnoringConsole]::Ignore([IntPtr]::Zero,$true)) { throw 'Could not ignore CTRL_C' }
-if (![IgnoringConsole]::Register([IgnoringConsole]::Stop,$true)) { throw 'Could not register CTRL_BREAK handler' }
-[Console]::Error.WriteLine('console.fixture.ready')
-[void][IgnoringConsole]::Stopped.WaitOne()
-"#;
+        // Compile the fixture during preparation, not inside its 60s readiness
+        // window. The process under test runs only the real console contract.
+        const COMPILE: &str = r"$ErrorActionPreference='Stop'
+Add-Type -LiteralPath $env:BEND_PERF_CONSOLE_SOURCE -OutputAssembly $env:BEND_PERF_CONSOLE_EXECUTABLE -OutputType ConsoleApplication
+";
         let directory = tempfile::tempdir()?;
+        let source = directory.path().join("console-fixture.cs");
+        let executable = directory.path().join("console-fixture.exe");
+        std::fs::write(&source, include_str!("fixtures/ignoring-console.cs"))?;
+        let source = source
+            .to_str()
+            .ok_or("Non-Unicode console fixture source")?;
+        let executable = executable
+            .to_str()
+            .ok_or("Non-Unicode console fixture executable")?;
         let mut session = super::Session::new("samply", "cpu", directory.path());
-        let args = ["-NoProfile", "-NonInteractive", "-Command", SCRIPT].map(str::to_owned);
-        session.spawn("powershell.exe", &args)?;
+        let args = ["-NoProfile", "-NonInteractive", "-Command", COMPILE].map(str::to_owned);
+        session.command_env(
+            "powershell.exe",
+            &args,
+            &[
+                ("BEND_PERF_CONSOLE_SOURCE", source),
+                ("BEND_PERF_CONSOLE_EXECUTABLE", executable),
+            ],
+        )?;
+        session.spawn(executable, &[])?;
         session.wait_ready_text("console.fixture.ready\n")?;
         let pid = session
             .child
