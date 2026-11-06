@@ -6,8 +6,7 @@ export function recoveryPatches({ version, resources, helpers }) {
   const adtEnd = '      continue;\n    }\n    if (i >= done) {';
   const defEnd = '    if (fin) {\n      book.tlds[k] = tld;\n    }\n  }\n}';
   const trivia = 'function parse_skip(p) {\n  const s = p.str;\n  while (p.pos < s.length) {\n    const n = s.charCodeAt(p.pos);\n    if (n === 32 || n === 10 || n === 13 || n === 9) {\n      p.pos += 1;\n      continue;\n    }\n    if (n === 35) {\n      while (p.pos < s.length && s.charCodeAt(p.pos) !== 10) {\n        p.pos += 1;\n      }\n      continue;\n    }\n    return;\n  }\n}';
-  const nameFetch = '  const res = await fetch(BEND_HUB + "/name/" + nv' +
-    (version === '2.0.37' ? ', { signal: AbortSignal.timeout(30000) }' : '') + ').catch(() => null);';
+  const nameFetch = '  const res = await fetch(BEND_HUB + "/name/" + nv, { signal: AbortSignal.timeout(30000) })';
   return [
     once('runtime.utf8-source', '#!/usr/bin/env bun\n// @bun\n',
       '#!/usr/bin/env bun\n// Generated UTF-8 recovery module.\n'),
@@ -44,8 +43,11 @@ export function recoveryPatches({ version, resources, helpers }) {
       '        p.book.hols += 1;\n        (p.book.recovery_todos ??= []).push({ file: p.recovery_path, begin: beg, end: p.pos });'),
     once('parser.declaration', '    p.frs = 0;',
       '    p.frs = 0;\n    recovery_parser_current = p;\n    p.recovery_begin = p.pos; p.recovery_name = null; p.recovery_constructor = null; p.recovery_collision = null; p.recovery_law = false; p.recovery_datatype = false;'),
-    once('parser.fresh-name', 'function parse_fresh(p, nm, tab = p.book.tlds, what = "a fresh name") {',
-      'function parse_fresh(p, nm, tab = p.book.tlds, what = "a fresh name") {\n  if (tab === p.book.tlds) p.recovery_name = parse_qual(p, nm);\n  else if (tab === p.book.ctrs) p.recovery_constructor = parse_qual(p, nm);'),
+    version === '2.0.40'
+      ? once('parser.fresh-name', 'function parse_fresh(p, nm, t = "tlds", what = "a fresh name") {',
+          'function parse_fresh(p, nm, t = "tlds", what = "a fresh name") {\n  if (t === "tlds") p.recovery_name = parse_qual(p, nm);\n  else if (t === "ctrs") p.recovery_constructor = parse_qual(p, nm);')
+      : once('parser.fresh-name', 'function parse_fresh(p, nm, tab = p.book.tlds, what = "a fresh name") {',
+          'function parse_fresh(p, nm, tab = p.book.tlds, what = "a fresh name") {\n  if (tab === p.book.tlds) p.recovery_name = parse_qual(p, nm);\n  else if (tab === p.book.ctrs) p.recovery_constructor = parse_qual(p, nm);'),
     once('parser.collision', '  if (k in tab || nm in tab || a in p.al) {',
       '  if (k in tab || nm in tab || a in p.al) {\n    p.recovery_collision = tab === p.book.ctrs ? Object.keys(p.book.tlds).filter(owner => { const t = Object.getOwnPropertyDescriptor(p.book.tlds, owner).value; return t.$ === "ADT" && t.c.some(c => c.k === k || c.k === nm); }) : [...new Set([k, nm].filter(key => key in tab))];'),
     once('parser.resolution', '  const q = parse_reso(p, nm);',
