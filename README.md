@@ -124,8 +124,8 @@ release is `bend-lint@0.3.0`, requiring Bun 1.4.4. Clang is optional: upstream
 otherwise builds rules as JavaScript. Its native backend accepts clang 14 or
 newer, but **Windows ARM64 requires a compatible version**, not just that minimum.
 
-These instructions target the development build. Released LSP v0.7.0 requires
-`bend-lint@0.2.1`; use its
+These instructions cover **LSP v0.7.1**. If you still use **v0.7.0**, install
+`bend-lint@0.2.1` and follow its
 [versioned setup guide](https://github.com/IlyaGulya/bend2-lsp-rs/blob/v0.7.0/README.md#optional-bend-lint-disabled-by-default).
 
 For native rule builds on Windows ARM64, use the verified

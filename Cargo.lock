@@ -121,7 +121,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bend2-lsp"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "base64",
  "dhat",
@@ -145,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "bend2-perf"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bincode",
  "clap",
@@ -165,7 +165,7 @@ dependencies = [
 
 [[package]]
 name = "bend2-semantic-probe"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bend2-lsp",
  "serde_json",

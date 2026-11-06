@@ -1033,7 +1033,7 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
             json!({"command":"bend2.lint.status","arguments":[{"uri":document}]}),
         );
         let status = response["result"].clone();
-        if status["partial"] == true {
+        if status["state"] == "ready" && status["partial"] == true {
             break status;
         }
         assert!(
