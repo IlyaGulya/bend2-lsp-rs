@@ -6,7 +6,12 @@ export function recoveryPatches({ version, resources, helpers }) {
   const adtEnd = '      continue;\n    }\n    if (i >= done) {';
   const defEnd = '    if (fin) {\n      book.tlds[k] = tld;\n    }\n  }\n}';
   const trivia = 'function parse_skip(p) {\n  const s = p.str;\n  while (p.pos < s.length) {\n    const n = s.charCodeAt(p.pos);\n    if (n === 32 || n === 10 || n === 13 || n === 9) {\n      p.pos += 1;\n      continue;\n    }\n    if (n === 35) {\n      while (p.pos < s.length && s.charCodeAt(p.pos) !== 10) {\n        p.pos += 1;\n      }\n      continue;\n    }\n    return;\n  }\n}';
-  const nameFetch = '  const res = await fetch(BEND_HUB + "/name/" + nv, { signal: AbortSignal.timeout(30000) })';
+  // The fetch timeout is absent in 2.0.32–2.0.36 and present from 2.0.37 on.
+  const timedNameFetch = ['2.0.37', '2.0.38', '2.0.39', '2.0.40'].includes(version);
+  const nameFetch = '  const res = await fetch(BEND_HUB + "/name/" + nv' +
+    (timedNameFetch
+      ? ', { signal: AbortSignal.timeout(30000) }).catch(() => null);'
+      : ').catch(() => null);');
   return [
     once('runtime.utf8-source', '#!/usr/bin/env bun\n// @bun\n',
       '#!/usr/bin/env bun\n// Generated UTF-8 recovery module.\n'),
