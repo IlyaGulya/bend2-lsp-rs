@@ -34,8 +34,9 @@ static GENUINE_ANALYZER: LazyLock<Result<(PathBuf, Vec<String>), String>> =
 // For Bun, BEND2_LINT_TEST_ARGUMENTS is a JSON string array containing the
 // installed or officially shipped src/linter/seam.ts path, not the raw checkout,
 // bunx or a package manager. Shipping preserves the published rule API identity.
-// The tested upstream schema is standalone 0.2.1 at revision
-// 8eaa9b84a74b8e1c54c55d396a585d26bd1d41e0, with rule API 0.2.1.0.
+// The tested upstream schema is standalone 0.3.0 at revision
+// c6f31c0c2ef4587368dd6a5443a6d42e22e975fc, with rule API 0.3.0.0. Its npm
+// tarball is pinned by bootstrap_bend_lint and matches the published SRI.
 #[test]
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
@@ -50,7 +51,7 @@ fn genuine_analyzer_matches_its_cli_report_through_saved_stdio_document() {
     fs::write(&root, source).must_be("write genuine Bend source");
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
     )
     .must_be("enable genuine upstream rules");
     let report = match std::panic::catch_unwind(|| genuine_report(&executable, &arguments, &root)) {
@@ -137,7 +138,7 @@ fn genuine_entry_through_utf8_alias_of_non_utf8_filename_matches_cli() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNNEEDED_PLUS:{},FORMAT:{}}
         }))
         .must_be("serialize genuine alias-rule config"),
@@ -240,7 +241,7 @@ fn organize_imports_satisfies_genuine_analyzer_and_preserves_other_findings() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{IMPORTS:{},CANONICAL_PATH:{}}
         }))
         .must_be("serialize real import rules"),
@@ -346,7 +347,7 @@ fn unsaved_imported_types_change_genuine_semantic_findings_without_disk() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{},FORMAT:{}}
         }))
         .must_be("serialize genuine semantic rule config"),
@@ -432,7 +433,7 @@ fn virtual_nonexistent_import_analyses_without_creating_disk_files() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNUSED_RESULT:{},UNNEEDED_PLUS:{}}
         }))
         .must_be("serialize genuine virtual rule config"),
@@ -480,7 +481,7 @@ fn virtual_nonexistent_entry_analyses_without_creating_disk_files() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNNEEDED_PLUS:{}}
         }))
         .must_be("serialize genuine virtual entry config"),
@@ -511,6 +512,56 @@ fn virtual_nonexistent_entry_analyses_without_creating_disk_files() {
     client.finish();
 }
 
+// 0.3.0 validates configured `entries` against the overlay view (upstream #5),
+// so an unsaved entry named in bend-lint.json is analyzed without a disk copy.
+#[test]
+#[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
+fn configured_overlay_only_entry_is_analyzed_without_a_disk_file() {
+    let (executable, arguments) = configured_analyzer();
+    let directory = tempdir().must_be("configured virtual entry workspace");
+    let project = directory.path().join("configured virtual entry 🦀");
+    fs::create_dir_all(project.join("src")).must_be("create the entry folder");
+    fs::write(
+        project.join("bend-lint.json"),
+        serde_json::to_vec(&json!({
+            "entries":["src/main.bend"],
+            "packages":{"bend-lint-rules":"0.3.0.0"},
+            "rules":{UNNEEDED_PLUS:{}}
+        }))
+        .must_be("serialize configured virtual entry config"),
+    )
+    .must_be("enable genuine rule");
+    let entry = project.join("src/main.bend");
+    let source = "import Base\n\ndef main(+x: U32) -> U32:\n  x\n";
+    assert!(!entry.exists(), "the configured entry starts virtual");
+    let mut overlays = BTreeMap::new();
+    overlays.insert(entry.clone(), source.to_owned());
+    let report = genuine_overlay_report(&executable, &arguments, &project, &entry, &overlays);
+    finding(&report["findings"], UNNEEDED_PLUS);
+    let started = Instant::now();
+    let mut client = configured_client(&project, &executable, &arguments);
+    let document = uri(&entry);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{
+            "uri":document,"languageId":"bend","version":1,"text":source
+        }}),
+    );
+    let packet = wait_for_lint_diagnostics(&mut client, &document, started, 1);
+    assert_eq!(
+        finding(&packet["params"]["diagnostics"], UNNEEDED_PLUS)["range"],
+        json!({
+            "start":{"line":2,"character":10},
+            "end":{"line":2,"character":11}
+        })
+    );
+    assert!(
+        !entry.exists(),
+        "a configured overlay-only entry never creates a disk file"
+    );
+    client.finish();
+}
+
 #[test]
 #[ignore = "requires explicit BEND2_LINT_TEST_PATH and genuine installed bend-lint"]
 fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
@@ -525,7 +576,7 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{FORMAT:{"endOfLine":"crlf"}}
         }))
         .must_be("serialize genuine format config"),
@@ -535,6 +586,13 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
     overlays.insert(canonical(&main), unsaved.to_owned());
     let report = genuine_overlay_report(&executable, &arguments, &project, &main, &overlays);
     let reported = finding(&report["findings"], FORMAT);
+    // 0.3.0 skips the CR column before an LF (upstream #6), so the genuine JSON
+    // range ends at the last editable unit instead of between CR and LF.
+    assert_eq!(
+        reported["range"]["end"],
+        json!({"line":3,"character":11}),
+        "the genuine CRLF boundary is already LSP-representable"
+    );
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&main);
@@ -560,7 +618,7 @@ fn unsaved_crlf_non_bmp_range_and_versioned_fix_match_the_genuine_cli() {
     assert_eq!(
         format["range"]["end"],
         json!({"line":3,"character":11}),
-        "diagnostics project the raw CRLF boundary; edits below remain byte-exact"
+        "the provider publishes the same representable CRLF boundary; edits below remain byte-exact"
     );
     assert_eq!(format["message"], reported["message"]);
     assert_eq!(reported["docs"], rule_docs(FORMAT));
@@ -633,7 +691,7 @@ fn genuine_partial_checks_expose_skips_without_fake_diagnostics() {
     fs::write(
         project.join("bend-lint.json"),
         serde_json::to_vec(&json!({
-            "packages":{"bend-lint-rules":"0.2.1.0"},
+            "packages":{"bend-lint-rules":"0.3.0.0"},
             "rules":{UNNEEDED_PLUS:{}}
         }))
         .must_be("serialize genuine skip rule config"),
@@ -716,7 +774,7 @@ fn genuine_structured_project_errors_are_attributable_without_diagnostics() {
     fs::write(&main, "import Base\n\ndef main() -> U32:\n  1\n").must_be("write saved entry");
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":42}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":42}",
     )
     .must_be("write genuinely invalid rule settings");
     let mut client = configured_client(&project, &executable, &arguments);
@@ -766,7 +824,7 @@ fn genuine_structured_project_errors_are_attributable_without_diagnostics() {
     client.finish();
 }
 
-// The analyzer is the published 0.2.1 CLI with its matching 0.2.1.0 rule
+// The analyzer is the published 0.3.0 CLI with its matching 0.3.0.0 rule
 // package, so an unsaved buffer must reach analysis instead of the saved copy.
 // The saved source is formatted and still carries an unneeded unary plus; only
 // the unsaved buffer removes the plus and introduces four-space indentation.
@@ -785,9 +843,9 @@ fn unsaved_change_republishes_genuine_findings_without_touching_disk() {
     fs::write(&root, saved).must_be("write genuine saved source");
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{},\"bend-lint-rules/layout/format\":{}}}",
     )
-    .must_be("enable matching 0.2.1 genuine upstream rules");
+    .must_be("enable matching 0.3.0 genuine upstream rules");
     let started = Instant::now();
     let mut client = configured_client(&project, &executable, &arguments);
     let document = uri(&root);
@@ -915,7 +973,7 @@ fn setup_genuine_analyzer() -> Result<(PathBuf, Vec<String>), String> {
     Ok((executable, arguments))
 }
 
-// A trusted temporary project with a standard 0.2.1 rule selects the one shared
+// A trusted temporary project with a standard 0.3.0 rule selects the one shared
 // standard-rule program; preparation builds/downloads it at most once here.
 const PREPARE_TIMEOUT: Duration = Duration::from_secs(600);
 
@@ -925,7 +983,7 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
     let project = directory.path();
     fs::write(
         project.join("bend-lint.json"),
-        "{\"packages\":{\"bend-lint-rules\":\"0.2.1.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{}}}",
+        "{\"packages\":{\"bend-lint-rules\":\"0.3.0.0\"},\"rules\":{\"bend-lint-rules/language/unneeded_plus\":{}}}",
     )
     .map_err(|error| format!("could not write the preparation config: {error}"))?;
     let report_path = project.join("report.json");
@@ -944,7 +1002,7 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
         ));
     }
     if !stdout.is_empty() {
-        return Err("genuine analyzer prepare wrote unexpected stdout; the 0.2.1 contract writes only its report".to_owned());
+        return Err("genuine analyzer prepare wrote unexpected stdout; the 0.3.0 contract writes only its report".to_owned());
     }
     let metadata = fs::metadata(&report_path)
         .map_err(|error| format!("genuine analyzer prepare did not write its report: {error}"))?;
@@ -955,7 +1013,7 @@ fn prepare_genuine_analyzer(executable: &Path, arguments: &[String]) -> Result<(
         .map_err(|error| format!("could not read the preparation report: {error}"))?;
     let report: Value = serde_json::from_slice(&bytes)
         .map_err(|error| format!("preparation report is not JSON: {error}"))?;
-    if report["bendLint"] != "0.2.1" || report["exitCode"] != 0 {
+    if report["bendLint"] != "0.3.0" || report["exitCode"] != 0 {
         return Err(format!("unsupported preparation report identity: {report}"));
     }
     let backend = report["backend"]
@@ -1135,7 +1193,7 @@ fn genuine_overlay_report(
 }
 
 fn rule_docs(code: &str) -> String {
-    format!("https://github.com/MattCozendey/bend-lint/blob/main/{code}.bend")
+    format!("https://github.com/MattCozendey/bend-lint/blob/main/src/{code}.bend")
 }
 
 fn canonical(path: &Path) -> PathBuf {

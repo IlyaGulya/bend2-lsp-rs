@@ -25,14 +25,15 @@ BUN = {
     "aarch64-pc-windows-msvc": ("bun-windows-aarch64", 665259874, 49392935, "2d57a0eec0cb44d95c918c3f9734f60455a1306ae5085d76fc68f44e3ee30d09"),
     "x86_64-pc-windows-msvc": ("bun-windows-x64", 665265163, 54731706, "cd2c0fccc78f3ede1f50ca827a15f063eda13d4d150a3d0674f4f6e323d864a5"),
 }
-NPM_URL = "https://registry.npmjs.org/bend-lint/-/bend-lint-0.2.1.tgz"
-NPM_SIZE = 86153
-NPM_SHA256 = "9681def8595d09e19e13a385dd16e990b3320a22c54d3e3180dab4585124bb74"
+NPM_URL = "https://registry.npmjs.org/bend-lint/-/bend-lint-0.3.0.tgz"
+NPM_SIZE = 88742
+NPM_SHA256 = "90f200477e665601073ea6d5b613c16bde5cbd08559016353475d1907c5775fb"
 # Registry SRI for that tarball; the SHA256 above was derived from the same bytes.
-NPM_INTEGRITY = "sha512-Lf0/LXe/L8N2oVKrs6/foWBhlplJjNb3EV6g5NtfTgdF20p4mLLgEGFWlARc0DKvord0bRgDPuGtwqBvfOrAtA=="
+# npm provenance binds it to refs/tags/v0.3.0 at c6f31c0c2ef4587368dd6a5443a6d42e22e975fc.
+NPM_INTEGRITY = "sha512-+K7l1xzigfldOJoa1N6hHGRAHCZe99W4yBm6lbO5vDvt1WBfb3qHiOWdtbJf4DkMXsYk5fqqcRw3RkfutRQ7jQ=="
 # The published package imports exactly this rule API, and its config pin is
-# bend-lint-rules 0.2.1.0. Both are verified below before provisioning succeeds.
-RULE_API = "0.2.1.0"
+# bend-lint-rules 0.3.0.0. Both are verified below before provisioning succeeds.
+RULE_API = "0.3.0.0"
 
 
 def install_windows_clang(destination: Path) -> dict:
@@ -130,7 +131,7 @@ def package_identity(package: Path) -> dict:
     metadata = json.loads((package / "package.json").read_text(encoding="utf-8"))
     if not isinstance(metadata, dict):
         raise ValueError("unexpected standalone linter metadata")
-    if metadata.get("name") != "bend-lint" or metadata.get("version") != "0.2.1":
+    if metadata.get("name") != "bend-lint" or metadata.get("version") != "0.3.0":
         raise ValueError("unexpected standalone linter identity")
     if (
         metadata.get("engines", {}).get("bun") != "1.4.4"
@@ -206,7 +207,7 @@ def install(destination: Path, target: str) -> tuple[Path, Path]:
     except BaseException:
         shutil.rmtree(destination)
         raise
-    print(f"Provisioned standalone bend-lint 0.2.1 and native Bun 1.4.4 ({target})")
+    print(f"Provisioned standalone bend-lint 0.3.0 and native Bun 1.4.4 ({target})")
     return executable, script
 
 

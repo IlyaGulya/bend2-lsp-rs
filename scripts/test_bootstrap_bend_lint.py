@@ -98,7 +98,7 @@ class BootstrapTests(unittest.TestCase):
 
 def write_metadata(
     package: Path,
-    version: str = "0.2.1",
+    version: str = "0.3.0",
     bun: str = "1.4.4",
     bend_release: str = "bendlang/bend/v2.0.39",
 ):
@@ -124,7 +124,7 @@ def package_at(root: Path, rules):
     (package / "src/linter/seam.ts").write_text("entry\n", encoding="utf-8")
     (package / "src/linter/defaults.json").write_text(json.dumps(rules), encoding="utf-8")
     (package / "src/linter/cli.bend").write_text(
-        "import bend-lint-api@0.2.1.0/linter/lint.bend as Lint\n", encoding="utf-8"
+        "import bend-lint-api@0.3.0.0/linter/lint.bend as Lint\n", encoding="utf-8"
     )
     return package
 
