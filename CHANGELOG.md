@@ -2,129 +2,75 @@
 
 ## [0.7.0](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.2...v0.7.0) (2026-11-05)
 
-### Lint checks while you edit
+### Lint warnings while you edit
 
-- Get style and performance warnings from optional `bend-lint` as you type.
-  This feature is off by default.
-- Check unsaved files, unsaved imports, and named files before their first save.
-  The server does not save your buffers to run lint.
-- See lint warnings together with compiler errors. One check does not remove
-  another check's diagnostics.
-- Open rule documentation from a warning. Use Run and Status actions to check
-  lint progress and setup problems. Partial checks are not reported as clean.
-- Enable lint for files that are already open. Saved changes to
-  `bend-lint.json`, imports, and rule helpers trigger new checks.
+Get style and performance warnings from optional `bend-lint` while you type,
+including unsaved changes in the current file and imported files.
+**Lint is off by default.** [Install and enable lint](README.md#optional-bend-lint-disabled-by-default).
+
+- See lint warnings alongside compiler errors. Open a rule's documentation from
+  its warning.
+- Use Code Actions to run checks or see progress and setup problems. Saved
+  changes to lint configuration and custom rules trigger new checks.
+- Check named new files before their first save. Files listed in
+  `bend-lint.json`'s `entries` must be saved once before lint can check them.
 
 ### Manual lint fixes
 
-- Enable dangerous Code Actions separately to use lint fixes. Each fix requires
-  an explicit action and can change program behavior.
-- Apply fixes to the current unsaved text. Every file changed by a fix must be
-  open and must still match the text that was checked.
-- Refuse the whole fix if a target is stale, edits overlap, or a file has more
-  than one open view. Close extra views of the same file before applying a fix.
-- Keep manual fixes available in editors that omit optional request metadata.
-  Never apply lint fixes automatically or replace the existing formatter.
+- Enable `bend.lint.dangerousCodeActions` separately to request lint fixes.
+  **Fixes can change program behavior.** They are never applied automatically.
+- Fixes work with unsaved text. Every file they change must be open;
+  outdated or conflicting fixes are rejected.
 
-### Better navigation and completion
+The existing formatter is unchanged.
 
-- Go to Definition finds local parameters and bindings, including tuple
-  destructuring and `do` bindings. It does not confuse them with globals that
-  have the same name.
-- Navigation, hover, references, and Rename use the complete Bend name.
-  For example, a local `D` does not hide the separate name `D.member`.
-- Use the selected compiler's `Base` module after a compiler settings change.
-  Navigation no longer uses a stale or missing copy.
-- Keep local navigation and completion useful in unfinished code. Errors from
-  the selected Bend compiler remain visible.
-- Accept completion in the middle of a name without leaving its old suffix.
-- Get constructor suggestions in expressions as well as case patterns.
-  Constructors remain available when a function or local value has the same
-  name, including `Pair` from `Base`.
-- Reject invalid Rename names and changes that would capture another binding.
-  Valid dotted names can still contain keyword or underscore parts.
-- Handle existential types followed by `{...}` equality expressions without
-  confusing their source ranges.
-- Hover and type navigation use written declarations and annotations.
-  This update does not add type inference for arbitrary expressions.
+### Better navigation and autocomplete
 
-### More accurate Call Hierarchy
-
-- Follow calls in the correct import context. Keep different implementations
-  separate when different files resolve a name differently.
-- Include multi-line `!(` calls and the implementation bodies of laws.
-  Use the implementation's file when the law is declared in another file.
-  As in Bend itself, `!(` must stay together; `! (` is not treated as a call.
-- Show one Incoming Calls entry for a shared caller when it resolves to the
-  same target.
-- Reject a hierarchy item if an edit makes its target invalid. Do not silently
-  select another declaration with the same name.
+- Go to Definition finds local variables and function parameters, including
+  tuple patterns and `do` bindings, instead of jumping to a global with the same name.
+- Navigation, hover, references, and Rename distinguish names such as `D` and
+  `D.member`. Invalid or conflicting renames are rejected.
+- Completion replaces partially typed names without leaving an old suffix,
+  and suggests constructors in expressions as well as patterns.
+- Call Hierarchy finds multi-line `!(` calls and calls inside law implementations.
+  It also keeps different imported implementations separate.
 
 ### More reliable editing
 
-- Show expected and observed values in inline compiler errors instead of only
-  `Error:`. Keep the compiler's detailed explanation below the summary.
-- Keep lint results current when edits, saves, and settings changes overlap.
-  Canceling a manual Run no longer loses pending automatic checks.
-- Keep checks and rule builds separate for each project. Typing in one project
-  does not cancel another project's work.
-- Start lint without waiting for the compiler's first `Base` load. Typing does
-  not restart a rule build, and loading `Base` does not discard valid lint fixes.
-- Keep editing and navigation in other projects available while a lint check
-  or a lint fix request waits.
-- Keep open views of the same file independent, including their text and
-  document versions. Closing one view no longer replaces another view's text
-  with saved contents.
-- Update workspace symbols after closing a view or changing a symlink target.
-  Restore saved imports after their last open view closes.
-- Put `import Base` first when you run Organize Imports, matching bend-lint's
-  import order.
-- Stop pending lint work when you disable it or close the server. A timed-out
-  analyzer does not leave its child processes running.
+- Compiler errors show a useful inline message instead of just `Error:`.
+  The compiler's full explanation remains below it.
+- Typing in one project no longer cancels lint in another. Waiting for lint
+  checks or fixes does not block editing and navigation in other projects.
+- Changing compiler settings refreshes navigation to `Base`.
+- Closing one view of a file no longer overwrites unsaved text in another view.
+- Organize Imports puts `import Base` first, matching bend-lint.
 
-### Setup and current limitations
+### Setup and current limits
 
-- Install standalone `bend-lint` **0.2.1** and Bun **1.4.4** yourself.
-  Use `bend-lint-rules` **0.2.1.0** and the matching rule API. The older linter
-  bundled with Bend 2.0.37 is not supported.
-- Enable lint only in projects you trust. It runs an external program and
-  executable project rules. The external tool can download dependencies and
-  build rules; the LSP does not install it or rewrite your configuration.
-- Lint uses its own compiler, not the compiler selected for LSP diagnostics.
-  Configuration and rule code must be saved; editing a rule buffer does not
-  execute its unsaved contents.
-- On Windows ARM64, native rule builds need a compatible Clang version.
-  See the [setup instructions](README.md#optional-bend-lint-disabled-by-default).
-- A new file listed in `bend-lint.json`'s `entries` must be saved before lint
-  can check it ([upstream issue #5](https://github.com/MattCozendey/bend-lint/issues/5)).
-  Other named files and imports can be checked before their first save.
-- Map upstream CRLF diagnostic endpoints to the editor's line end, but reject
-  fix ranges that cannot be verified
-  ([upstream issue #6](https://github.com/MattCozendey/bend-lint/issues/6)).
-- Use `./` or `../` for imports in local custom rule helpers. Upstream cache
-  keys can miss changes reached through bare or absolute helper imports
-  ([upstream issue #7](https://github.com/MattCozendey/bend-lint/issues/7)).
-  This limitation does not affect ordinary application imports.
+- Use standalone **bend-lint 0.2.1** with **Bun 1.4.4**. Follow the
+  [setup guide](README.md#optional-bend-lint-disabled-by-default) to update existing
+  rule packages too. The linter bundled with Bend 2.0.37 is not supported.
+- Only enable lint in trusted projects. The analyzer runs project code and can
+  download dependencies or build rules. The LSP does not install the tool.
+- Lint uses its own compiler. Changes to lint configuration and rule code take
+  effect only after you save them.
+- See the [setup guide and known limits](README.md#optional-bend-lint-disabled-by-default)
+  for Windows ARM64 native builds, Windows line endings, and custom-rule imports.
 
 ### Security
 
-- Update Tokio to 1.53.3 to fix a Unix I/O-safety issue
-  ([RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)).
+- Fix a Unix I/O-safety issue by updating Tokio
+  ([security advisory](https://rustsec.org/advisories/RUSTSEC-2026-0386)).
 
 ### Under the hood
 
-- Reuse document data so editor features and lint checks use the same unsaved
-  text. Keep the formatter separate.
-- Add compiler comparison tests and real compiler/linter E2E coverage on Linux,
+- Expand compiler-comparison tests and real compiler/linter E2E coverage on Linux,
   macOS, and Windows, on both x64 and ARM64.
 - Add an experimental [declaration details API](docs/semantic-api.md) for editor
-  integrations. It exposes written documentation, signatures, bodies, and
-  reference targets.
-- Add repeatable Zed demo tools with visible keyboard and mouse input.
-  These are developer tools, not new editor features.
+  integrations.
 
-Engineering details and measured trade-offs remain in the
-[performance policy](docs/performance-policy.md) and linked PR reports.
+Engineering details remain in the [performance policy](docs/performance-policy.md)
+and linked PR reports.
 
 ## [0.6.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.6.1...v0.6.2) (2026-10-15)
 
