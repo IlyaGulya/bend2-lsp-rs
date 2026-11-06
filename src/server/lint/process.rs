@@ -26,7 +26,6 @@ const DETAIL_LIMIT: usize = 16 * 1024;
 // A cold native build is not a document query: it gets its own bounded deadline
 // and never inherits or raises the ordinary per-check timeout.
 const PREPARATION_TIMEOUT: Duration = Duration::from_secs(600);
-const SUPPORTED_ANALYZER_VERSION: &str = "0.3.0";
 
 // Like compiler checks, cancelled jobs retain their concurrency lease until
 // the child has actually been killed and reaped. Containment includes the
@@ -380,25 +379,16 @@ struct PrepareTimings {
 impl PrepareReport {
     fn validate(&self) -> io::Result<()> {
         let invalid = |message: String| io::Error::new(io::ErrorKind::InvalidData, message);
-        let version = &self.bend_lint;
-        let supported = SUPPORTED_ANALYZER_VERSION;
-        if version != supported {
-            return Err(invalid(format!(
-                "unsupported bend-lint {version} preparation report; this editor requires the {supported} CLI contract"
-            )));
-        }
-        let backend = &self.backend;
-        if !matches!(backend.as_str(), "javascript" | "native") {
-            return Err(invalid(format!(
-                "bend-lint preparation report names an unknown backend '{backend}'"
-            )));
-        }
-        if self.runtime.trim().is_empty()
+        // Package and backend names identify the analyzer, not a protocol
+        // version. The analyzer owns execution of its backend.
+        if self.bend_lint.trim().is_empty()
+            || self.backend.trim().is_empty()
+            || self.runtime.trim().is_empty()
             || self.platform.trim().is_empty()
             || self.program.trim().is_empty()
         {
             return Err(invalid(
-                "bend-lint preparation report omits its runtime, platform or program identity"
+                "bend-lint preparation report omits its analyzer, backend, runtime, platform or program identity"
                     .into(),
             ));
         }
@@ -540,14 +530,14 @@ pub(super) async fn prepare(
     if !output.stdout.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "bend-lint prepare returned unexpected stdout; the 0.3.0 contract writes only its report",
+            "bend-lint prepare returned unexpected stdout; preparation writes its JSON report to --report",
         ));
     }
     let bytes = read_report(&report)?;
     let report: PrepareReport = serde_json::from_slice(&bytes).map_err(|error| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("bend-lint preparation report does not match the 0.3.0 contract: {error}"),
+            format!("bend-lint preparation report is incompatible with the required CLI contract: {error}"),
         )
     })?;
     report.validate()?;

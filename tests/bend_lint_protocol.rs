@@ -597,38 +597,85 @@ fn preparation_failures_are_reported_without_running_a_check() {
     }
 }
 
-#[test]
-fn an_old_preparation_report_is_rejected_before_any_check() {
-    let mut session = Session::new(SOURCE, &[]);
-    let report = json!({
-        "bendLint":"0.1.1",
+fn future_preparation_report() -> Value {
+    json!({
+        "bendLint":"99.0.0-preview+compatible",
         "notes":[],
-        "runtime":"bun 1.4.3",
+        "runtime":"future runtime",
         "platform":"fixture",
-        "backend":"native",
-        "program":"/fixture/rules.js",
+        "backend":"future-engine",
+        "program":"/fixture/rules",
         "cache":{"dir":"/fixture/cache","built":true,"checks":{"cached":0,"checked":0}},
         "timings":{"setupMs":1,"checkerMs":0,"runMs":2},
-        "exitCode":0
-    });
+        "exitCode":0,
+        "additionalMetadata":{"newField":true}
+    })
+}
+
+#[test]
+fn compatible_future_analyzer_metadata_preserves_diagnostics_and_explicit_fixes() {
+    let mut session = Session::new(SOURCE, &[]);
     fs::write(
         session.control.join("prepare-report.json"),
-        serde_json::to_vec(&report).must_be("serialize old report"),
+        serde_json::to_vec(&future_preparation_report()).must_be("serialize compatible report"),
     )
-    .must_be("write old preparation report");
-    session.configure(true, false, 10_000);
+    .must_be("write compatible preparation report");
+    let mut item = finding(&session.root, "language/unneeded_plus", range(0, 9, 10));
+    item["fixes"] = json!([fix(&session.root, range(0, 9, 10), "")]);
+    session.response(vec![item], vec![], true);
+    session.configure(true, true, 10_000);
     session.open(SOURCE);
-    let failure = session.failure();
-    assert!(
-        failure["params"]["message"]
-            .as_str()
-            .must_be("version rejection")
-            .contains("unsupported bend-lint 0.1.1"),
-        "the verified CLI contract gate is explicit: {failure}"
+    let packet = session.lint();
+    let diagnostics = packet["params"]["diagnostics"].clone();
+    let diagnostic = diagnostics
+        .as_array()
+        .must_be("published diagnostics")
+        .iter()
+        .find(|item| item["source"] == "bend-lint")
+        .must_be("compatible analyzer finding");
+    assert_eq!(diagnostic["code"], "language/unneeded_plus");
+    assert_eq!(diagnostic["range"], range(0, 9, 10));
+    let actions = session.actions(diagnostics, 1);
+    assert_eq!(actions.len(), 1);
+    assert_eq!(
+        actions[0]["edit"]["documentChanges"],
+        json!([{
+            "textDocument":{"uri":session.document,"version":1},
+            "edits":[{"range":range(0, 9, 10),"newText":""}]
+        }])
     );
-    assert_eq!(session.calls(), 0, "no disk-only fallback check");
-    session.no_lint();
+    assert_eq!(
+        fs::read_to_string(&session.root).must_be("unchanged saved source"),
+        SOURCE,
+        "forward-compatible metadata never authorizes automatic fixes"
+    );
     session.finish();
+}
+
+#[test]
+fn incompatible_preparation_contracts_are_rejected_before_any_check() {
+    for (field, value) in [
+        ("runtime", Value::Null),
+        ("bendLint", json!(" ")),
+        ("backend", json!(" ")),
+        ("exitCode", json!(9)),
+    ] {
+        let mut session = Session::new(SOURCE, &[]);
+        let mut report = future_preparation_report();
+        report[field] = value;
+        fs::write(
+            session.control.join("prepare-report.json"),
+            serde_json::to_vec(&report).must_be("serialize incompatible report"),
+        )
+        .must_be("write incompatible preparation report");
+        session.configure(true, false, 10_000);
+        session.open(SOURCE);
+        session.failure();
+        assert_eq!(session.status()["state"], "failed", "{field}");
+        assert_eq!(session.calls(), 0, "no check after invalid {field}");
+        session.no_lint();
+        session.finish();
+    }
 }
 
 #[test]

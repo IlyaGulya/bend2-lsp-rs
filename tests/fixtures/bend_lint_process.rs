@@ -19,8 +19,8 @@ fn hold_socket(path: &Path) -> io::Result<TcpListener> {
     Ok(listener)
 }
 
-// The report a successful `prepare` leaves: the 0.3.0 identity and shape the
-// server validates, with no source text.
+// The report a successful `prepare` leaves: the required machine-readable
+// fields, with version/backend identity labels and no source text.
 fn prepare_report() -> &'static str {
     concat!(
         "{\"bendLint\":\"0.3.0\",\"notes\":[],\"runtime\":\"bun 1.4.4\",",

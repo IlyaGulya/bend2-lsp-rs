@@ -143,13 +143,25 @@ The upstream installer can create `bend-lint.json` and build its configured rule
 Review that configuration before enabling the provider. The server never creates lint
 configuration or replaces its existing formatter. The older tool bundled with
 Bend 2.0.37 / PR #1389 uses a different CLI/JSON contract and is not supported.
-The machine-readable contract targets standalone upstream 0.3.0, reviewed at
+The machine-readable contract is tested against standalone upstream 0.3.0,
+reviewed at
 [`c6f31c0c2ef4587368dd6a5443a6d42e22e975fc`](https://github.com/MattCozendey/bend-lint/tree/c6f31c0c2ef4587368dd6a5443a6d42e22e975fc).
+The installation command and CI pin that release for reproducibility; they are
+not a runtime version whitelist. Other releases are accepted when they preserve
+the supported CLI and JSON contract. Package versions and backend names are
+informational. Required report fields, successful preparation, diagnostic ranges
+and versioned fixes are still validated.
+
+Upstream does not currently provide separate protocol-version negotiation.
+An incompatible report produces a lint-provider error, not a source diagnostic
+or a block on compiler checks and editor features.
+
 Use the installed npm package, not a raw development checkout: upstream's
 packaging rewrites its rule API imports to match published BendHub packages.
 
-When upgrading, update the `bend-lint-rules` package in `bend-lint.json` to
-`0.3.0.0`. Custom rules must use the matching API's specification and implementation:
+When upgrading to bend-lint 0.3.0, update the `bend-lint-rules` package in
+`bend-lint.json` to `0.3.0.0`. Custom rules must use the matching API's
+specification and implementation:
 
 ```bend
 import bend-lint-api@0.3.0.0/linter/api/impl.bend as LintImpl

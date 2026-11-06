@@ -10,6 +10,8 @@
   See the [upgrade instructions](README.md#optional-bend-lint-disabled-by-default).
 - Check configured new lint entries before their first save. Preserve correct
   CRLF ranges and update custom-rule findings after saved helper changes.
+- Accept newer bend-lint releases when they keep the supported CLI and JSON
+  format. A package-version change alone no longer disables lint.
 
 ### Under the hood
 
