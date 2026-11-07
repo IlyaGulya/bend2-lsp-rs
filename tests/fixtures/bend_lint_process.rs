@@ -178,7 +178,11 @@ fn run() -> io::Result<ExitCode> {
     // both records the real transport and proves the write side was closed.
     let mut overlays = Vec::new();
     io::stdin().read_to_end(&mut overlays)?;
-    fs::write(control.join("stdin"), &overlays)?;
+    // Readers can inspect the previous capture while another invocation starts.
+    // Publish the completed transport atomically, just like the socket address.
+    let pending = control.join(format!("stdin.{}.pending", std::process::id()));
+    fs::write(&pending, &overlays)?;
+    fs::rename(pending, control.join("stdin"))?;
     fs::write(control.join("stdin-eof"), b"eof")?;
     // Capture the response when this invocation starts: a test that changes the
     // response while a check is blocked must affect the next invocation only.
