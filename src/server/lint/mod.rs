@@ -958,7 +958,7 @@ mod tests {
             Arc::clone(&reached),
             Arc::clone(&release),
         );
-        tokio::time::timeout(std::time::Duration::from_secs(5), reached.notified()).await?;
+        tokio::time::timeout(Duration::from_secs(5), reached.notified()).await?;
         // The close is committed and the older plan is paused before its
         // cleanup. Reopen through the real workspace callback, then complete a
         // newer revision over the current open view.
@@ -1066,7 +1066,7 @@ mod tests {
                     .await
             })
         };
-        tokio::time::timeout(std::time::Duration::from_secs(5), reached.notified()).await?;
+        tokio::time::timeout(Duration::from_secs(5), reached.notified()).await?;
         // Only the fence has run: this plan's cleanup is still awaiting.
         assert!(
             backend.current_lint_result(&project.main_uri).is_none(),
@@ -1205,9 +1205,9 @@ mod tests {
             tokio::spawn(async move { backend.ensure_prepared(&project, 0, key).await })
         };
         // The real worker fails while this attempt's registration is held.
-        tokio::time::timeout(std::time::Duration::from_secs(5), changed.changed()).await??;
+        tokio::time::timeout(Duration::from_secs(5), changed.changed()).await??;
         PREPARATION_GATE.disarm();
-        let Ok(settled) = tokio::time::timeout(std::time::Duration::from_secs(5), waiting).await
+        let Ok(settled) = tokio::time::timeout(Duration::from_secs(5), waiting).await
         else {
             panic!("the waiting check settles instead of waiting for a worker that cannot publish");
         };
