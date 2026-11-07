@@ -186,7 +186,8 @@ mod tests {
         Backend, DANGEROUS_KIND, LintChange, LintConfig, LintResult,
         control::LintPhase,
         project::{Preparation, PreparationKey, PreparationPhase, PreparationToken, ProjectState},
-        scheduler::PREPARATION_GATE,
+        scheduler::{CAPTURE_GATE, CaptureGate, PREPARATION_GATE},
+        process::{REAP_GATE, ReapGate},
         snapshot, wire,
     };
     use crate::server::{
@@ -194,11 +195,12 @@ mod tests {
         workspace_service::WorkspaceService,
     };
     use std::{
-        collections::HashMap,
+        collections::{BTreeSet, HashMap},
         error::Error,
         fs, io,
         path::PathBuf,
-        sync::{Arc, atomic::Ordering},
+        sync::{Arc, atomic::Ordering, mpsc},
+        time::Duration,
     };
     use tokio::sync::{Notify, Semaphore};
     use tower_lsp::{
@@ -1292,4 +1294,145 @@ mod tests {
         );
         Ok(())
     }
+    // The scheduler may be aborted while a captured project is still being
+    // read on a blocking thread. The work gauge must describe that worker,
+    // not merely the lifetime of the async parent that requested it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cancelled_lint_capture_remains_counted_until_the_worker_exits()
+    -> Result<(), Box<dyn Error>> {
+        let project = project()?;
+        let backend = backend()?;
+        open(&backend, &project.main_uri, 1, MAIN, project.main.clone()).await?;
+        let key = Backend::project_key(&project.main_uri);
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        *CAPTURE_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(CaptureGate {
+            file: project.main.clone(),
+            entered: entered_tx,
+            release: release_rx,
+        });
+        backend.enqueue_project(key.clone(), BTreeSet::from([project.main_uri.clone()]), false);
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            tokio::task::spawn_blocking(move || entered_rx.recv_timeout(Duration::from_secs(5))),
+        )
+        .await???;
+
+        let scheduler = backend
+            .diagnostics
+            .lint
+            .projects
+            .write()
+            .get_mut(&key)
+            .and_then(|state| state.task.take())
+            .ok_or_else(|| io::Error::other("running lint scheduler"))?
+            .1;
+        scheduler.abort();
+        assert!(scheduler.await.is_err_and(|error| error.is_cancelled()));
+        let pending = backend.workspace.observability.work.snapshot();
+        let lint = pending
+            .by_kind
+            .iter()
+            .find(|kind| kind.kind == "lint")
+            .ok_or_else(|| io::Error::other("lint work bucket"))?;
+        let _ = release_tx.send(());
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while backend.workspace.observability.work.totals().executing != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        assert_eq!(lint.executing, 1, "the blocked capture still owns running lint work");
+        assert_eq!(lint.cancelled_still_running, 1);
+        assert_eq!(lint.cancelled, 1);
+        assert_eq!(lint.completed, 0);
+        let settled = backend.workspace.observability.work.snapshot();
+        let lint = settled
+            .by_kind
+            .iter()
+            .find(|kind| kind.kind == "lint")
+            .ok_or_else(|| io::Error::other("lint work bucket"))?;
+        assert_eq!(lint.executing, 0);
+        assert_eq!(lint.cancelled_still_running, 0);
+        assert_eq!(lint.cancelled, 1);
+        assert_eq!(lint.completed, 0);
+        Ok(())
+    }
+
+    // Once preparation has spawned a real, contained analyzer, cancelling its
+    // owner cannot clear running work while the child remains owned by its reaper.
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cancelled_preparation_child_remains_counted_until_reaped()
+    -> Result<(), Box<dyn Error>> {
+        let backend = backend()?;
+        let directory = tempfile::tempdir()?;
+        let key = PreparationKey {
+            root: directory.path().to_path_buf(),
+            config: LintConfig {
+                path: "/bin/sh".into(),
+                arguments: vec!["-c".into(), "exec sleep 60".into()],
+                ..lint_config()?
+            },
+            inputs: [0; 32],
+        };
+        let project = Backend::root_key(directory.path());
+        backend
+            .diagnostics
+            .lint
+            .projects
+            .write()
+            .insert(project.clone(), ProjectState::default());
+        let (child_tx, child_rx) = tokio::sync::oneshot::channel();
+        let (reaper_tx, reaper_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
+        *REAP_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(ReapGate {
+            directory: key.root.clone(),
+            child_started: Some(child_tx),
+            reaper_started: reaper_tx,
+            release: release_rx,
+        });
+        let owner = tokio::spawn({
+            let backend = backend.clone();
+            async move { backend.run_preparation(project, key, PreparationToken::new(1)).await }
+        });
+        tokio::time::timeout(Duration::from_secs(5), child_rx).await??;
+        owner.abort();
+        assert!(owner.await.is_err_and(|error| error.is_cancelled()));
+        tokio::time::timeout(Duration::from_secs(5), reaper_rx).await??;
+        let pending = backend.workspace.observability.work.snapshot();
+        let preparation = pending
+            .by_kind
+            .iter()
+            .find(|kind| kind.kind == "preparation")
+            .ok_or_else(|| io::Error::other("preparation work bucket"))?;
+        let compiler = pending
+            .by_kind
+            .iter()
+            .find(|kind| kind.kind == "compiler")
+            .ok_or_else(|| io::Error::other("compiler work bucket"))?;
+        let _ = release_tx.send(());
+        tokio::time::timeout(Duration::from_secs(5), backend.compiler.reapers.wait()).await?;
+        assert_eq!(preparation.executing, 1, "the unreaped child still owns preparation work");
+        assert_eq!(preparation.cancelled_still_running, 1);
+        assert_eq!(preparation.cancelled, 1);
+        assert_eq!(preparation.completed, 0);
+        assert_eq!(compiler.executing, 0, "a lint child is not compiler work");
+        let settled = backend.workspace.observability.work.snapshot();
+        let preparation = settled
+            .by_kind
+            .iter()
+            .find(|kind| kind.kind == "preparation")
+            .ok_or_else(|| io::Error::other("preparation work bucket"))?;
+        assert_eq!(preparation.executing, 0);
+        assert_eq!(preparation.cancelled_still_running, 0);
+        assert_eq!(preparation.cancelled, 1);
+        assert_eq!(preparation.completed, 0);
+        Ok(())
+    }
+
 }

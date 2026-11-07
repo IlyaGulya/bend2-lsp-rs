@@ -27,6 +27,19 @@ const DETAIL_LIMIT: usize = 16 * 1024;
 // and never inherits or raises the ordinary per-check timeout.
 const PREPARATION_TIMEOUT: Duration = Duration::from_secs(600);
 
+// Scoped to the requested working directory: unrelated concurrent tests cannot
+// consume the one-shot child/reaper handshake.
+#[cfg(test)]
+pub(super) static REAP_GATE: std::sync::Mutex<Option<ReapGate>> = std::sync::Mutex::new(None);
+
+#[cfg(test)]
+pub(super) struct ReapGate {
+    pub(super) directory: PathBuf,
+    pub(super) child_started: Option<tokio::sync::oneshot::Sender<()>>,
+    pub(super) reaper_started: tokio::sync::oneshot::Sender<()>,
+    pub(super) release: tokio::sync::oneshot::Receiver<()>,
+}
+
 // Like compiler checks, cancelled jobs retain their concurrency lease until
 // the child has actually been killed and reaped. Containment includes the
 // analyzer's compiler, rule workers and JavaScript runtime children.
@@ -34,6 +47,8 @@ struct ChildGuard {
     child: Option<Box<dyn ChildWrapper>>,
     lease: Option<CompilerLease>,
     permit: Option<OwnedSemaphorePermit>,
+    #[cfg(test)]
+    reap_gate: Option<ReapGate>,
 }
 
 impl Drop for ChildGuard {
@@ -41,8 +56,15 @@ impl Drop for ChildGuard {
         if let Some(mut child) = self.child.take() {
             let lease = self.lease.take();
             let permit = self.permit.take();
+            #[cfg(test)]
+            let gate = self.reap_gate.take();
             let _ = child.start_kill();
             tokio::spawn(async move {
+                #[cfg(test)]
+                if let Some(gate) = gate {
+                    let _ = gate.reaper_started.send(());
+                    let _ = tokio::time::timeout(Duration::from_secs(5), gate.release).await;
+                }
                 let _ = child.wait().await;
                 drop((lease, permit));
             });
@@ -283,11 +305,31 @@ async fn execute(
     let wants_stdin = input.is_some();
     let lease = reapers.track()?;
     let child = spawn_analyzer(config, directory, &arguments, wants_stdin)?;
+    #[cfg(test)]
+    let gate = {
+        let mut armed = REAP_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if armed.as_ref().is_some_and(|gate| gate.directory == directory) {
+            armed.take()
+        } else {
+            None
+        }
+    };
     let mut guard = ChildGuard {
         child: Some(child),
         lease: Some(lease),
         permit: Some(permit),
+        #[cfg(test)]
+        reap_gate: gate,
     };
+    #[cfg(test)]
+    if let Some(gate) = guard.reap_gate.as_mut() {
+        // The child is owned by the guard before the parent is allowed to abort.
+        if let Some(started) = gate.child_started.take() {
+            let _ = started.send(());
+        }
+    }
     let child = guard
         .child
         .as_mut()

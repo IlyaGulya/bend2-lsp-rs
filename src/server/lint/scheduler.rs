@@ -239,6 +239,37 @@ pub(in crate::server) struct LintDiagnosticUsage {
 pub(super) static PREPARATION_GATE: PreparationRegistrationGate =
     PreparationRegistrationGate::new();
 
+// Hold one real capture closure after it has started, so cancellation can be
+// observed before its blocking filesystem work has finished.
+#[cfg(test)]
+pub(super) static CAPTURE_GATE: std::sync::Mutex<Option<CaptureGate>> =
+    std::sync::Mutex::new(None);
+
+#[cfg(test)]
+pub(super) struct CaptureGate {
+    pub(super) file: std::path::PathBuf,
+    pub(super) entered: std::sync::mpsc::Sender<()>,
+    pub(super) release: std::sync::mpsc::Receiver<()>,
+}
+
+#[cfg(test)]
+fn hold_capture(file: &Path) {
+    let gate = {
+        let mut armed = CAPTURE_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if armed.as_ref().is_some_and(|gate| gate.file == file) {
+            armed.take()
+        } else {
+            None
+        }
+    };
+    if let Some(gate) = gate {
+        let _ = gate.entered.send(());
+        let _ = gate.release.recv_timeout(Duration::from_secs(5));
+    }
+}
+
 #[cfg(test)]
 pub(super) struct PreparationRegistrationGate {
     armed: std::sync::Mutex<Option<ProjectKey>>,
@@ -542,6 +573,8 @@ impl Backend {
             blocking_result(
                 tokio::task::spawn_blocking(move || {
                     let _permit = permit;
+                    #[cfg(test)]
+                    hold_capture(&capture_file);
                     let snapshot = if let Some(view) = frozen {
                         if !view.refreshable(&capture_file)
                             || !view.open_documents_current(&documents)
