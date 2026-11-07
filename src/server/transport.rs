@@ -9,8 +9,9 @@ use std::{
 };
 
 use super::{
-    compiler::CompilerReapers, diagnostics::DiagnosticsService, lsp::Backend, telemetry,
-    workspace_service::WorkspaceService,
+    compiler::CompilerReapers, diagnostics::DiagnosticsService, lsp::Backend,
+    observability::requests::{RequestFuture, RequestMetrics, RequestMethod},
+    telemetry, workspace_service::WorkspaceService,
 };
 use tokio::{
     io::{AsyncRead, AsyncWrite, ReadBuf},
@@ -24,20 +25,6 @@ use tower_lsp::{
 use tracing::Instrument;
 
 static NEXT_REQUEST_CORRELATION: AtomicU64 = AtomicU64::new(1);
-
-fn method_label(method: &str) -> &'static str {
-    match method {
-        "initialize" => "initialize",
-        "shutdown" => "shutdown",
-        "exit" => "exit",
-        "$/cancelRequest" => "cancel",
-        "textDocument/hover" => "hover",
-        "textDocument/definition" => "definition",
-        "textDocument/typeDefinition" => "type_definition",
-        "textDocument/references" => "references",
-        _ => "other",
-    }
-}
 
 struct TracedStdout<W>(W);
 
@@ -64,15 +51,17 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for TracedStdout<W> {
 struct ExitAwareService<S> {
     inner: S,
     exit: tokio::sync::watch::Sender<bool>,
+    requests: Arc<RequestMetrics>,
 }
 
 impl<S> Service<Request> for ExitAwareService<S>
 where
     S: Service<Request, Response = Option<Response>> + Send + 'static,
+    S::Future: Unpin,
 {
     type Response = Option<Response>;
     type Error = S::Error;
-    type Future = tracing::instrument::Instrumented<S::Future>;
+    type Future = RequestFuture<tracing::instrument::Instrumented<S::Future>>;
 
     fn poll_ready(&mut self, context: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(context)
@@ -82,19 +71,21 @@ where
         if request.method() == "exit" {
             self.exit.send_replace(true);
         }
+        let method = RequestMethod::from_method(request.method());
+        let notification = request.id().is_none();
         let (call_span, future_span) = if tracing::enabled!(tracing::Level::INFO) {
             let correlation = NEXT_REQUEST_CORRELATION.fetch_add(1, Ordering::Relaxed);
-            let method = method_label(request.method());
+            let trace_method = method.trace_label();
             let call_span = tracing::info_span!(
                 "transport.service_call",
                 correlation,
-                method,
+                method = trace_method,
                 request_id = tracing::field::Empty
             );
             let future_span = tracing::info_span!(
                 "transport.service_future",
                 correlation,
-                method,
+                method = trace_method,
                 request_id = tracing::field::Empty
             );
             if let Some(Id::Number(id)) = request.id() {
@@ -105,9 +96,10 @@ where
         } else {
             (tracing::Span::none(), tracing::Span::none())
         };
-        call_span
+        let future = call_span
             .in_scope(|| self.inner.call(request))
-            .instrument(future_span)
+            .instrument(future_span);
+        self.requests.start(method, notification, future)
     }
 }
 
