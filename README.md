@@ -727,6 +727,10 @@ local copy alongside `import Base` can produce genuine duplicate declarations.
   mapped unambiguously; read the diagnostic message for the compiler error.
 - **A feature is missing from the UI:** check both the support table above and
   your editor's support. Type hierarchy needs dynamic registration in particular.
+- **High memory use or background work that appears stuck:** export a
+  [local diagnostic snapshot](docs/tracing.md#export-a-local-diagnostic-snapshot)
+  before restarting. It records memory, retained snapshots, caches, and work
+  counters without source contents or project paths. Nothing is uploaded.
 
 ## Development
 
@@ -1044,7 +1048,8 @@ Further details:
   presentation style and agent handoff.
 - [Performance policy, Callgrind gates, calibration, and LSP latency reports](docs/performance-policy.md) —
   tracks analysis costs, report-only CI calibration, and paired real-process p50/p95; not editor rendering latency.
-- [Tracing with Chrome/Perfetto](docs/tracing.md) — opt-in through `BEND2_LSP_TRACE`.
+- [Local diagnostic snapshots and Chrome/Perfetto tracing](docs/tracing.md) —
+  export a bounded local report without restarting, or opt into timeline recording.
 - [Release automation and repository setup](docs/releases.md) — ordinary PR
   review plus CI; server-side branch rules must be configured separately.
 

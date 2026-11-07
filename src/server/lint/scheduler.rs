@@ -242,8 +242,7 @@ pub(super) static PREPARATION_GATE: PreparationRegistrationGate =
 // Hold one real capture closure after it has started, so cancellation can be
 // observed before its blocking filesystem work has finished.
 #[cfg(test)]
-pub(super) static CAPTURE_GATE: std::sync::Mutex<Option<CaptureGate>> =
-    std::sync::Mutex::new(None);
+pub(super) static CAPTURE_GATE: std::sync::Mutex<Option<CaptureGate>> = std::sync::Mutex::new(None);
 
 #[cfg(test)]
 pub(super) struct CaptureGate {
@@ -380,7 +379,9 @@ impl Backend {
                 }
                 let running = queued.start();
                 let mut caller = CancelOnDrop::new(running.clone());
-                backend.run_project(spawned_key, revision, task, &running).await;
+                backend
+                    .run_project(spawned_key, revision, task, &running)
+                    .await;
                 caller.disarm();
             };
             supervise(operation, move || reporter.diagnostics.report_fatal()).await;
@@ -418,7 +419,8 @@ impl Backend {
             };
             if let Some(document) = self.lint_open_document(&uri).filter(Self::supported) {
                 let config = self.diagnostics.lint.config.read().clone();
-                self.run_lint(document, config, &key, revision, running).await;
+                self.run_lint(document, config, &key, revision, running)
+                    .await;
             }
             let mut projects = self.diagnostics.lint.projects.write();
             if let Some(state) = projects.get_mut(&key) {
@@ -442,7 +444,10 @@ impl Backend {
     ) {
         let uri = document.uri.clone();
         let progress = self.begin_lint_progress(&uri, project, revision).await;
-        let reason = match self.execute_lint(document, config, project, revision, running).await {
+        let reason = match self
+            .execute_lint(document, config, project, revision, running)
+            .await
+        {
             Ok(reason) => reason,
             Err(error) => {
                 let phase = if matches!(

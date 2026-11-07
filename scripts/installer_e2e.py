@@ -65,12 +65,12 @@ def main():
             if file_sha256(binary) != file_sha256(dist / asset_name(target)):
                 raise ValueError("installed executable differs from the native-tested direct asset")
             # Reuse the portable protocol/lifecycle and genuine compiler suites.
-            # All four binaries must launch this actual installed executable.
+            # These suites must launch this actual installed executable.
             environment["BEND2_LSP_TEST_BINARY"] = str(binary)
             subprocess.run([
                 "cargo", "nextest", "run", "--archive-file", str(test_archive),
                 "--workspace-remap", str(Path.cwd()), "-E",
-                "binary(release_e2e) | binary(native_compiler_diagnostics) | binary(native_law_ranges) | binary(compiler_multi_error)",
+                "binary(release_e2e) | binary(native_compiler_diagnostics) | binary(native_law_ranges) | binary(compiler_multi_error) | binary(production_diagnostics)",
                 "--profile", "ci",
             ], env=environment, check=True, timeout=600)
             print(f"Native generated installer and installed executable E2E passed: {target}")

@@ -185,9 +185,9 @@ mod tests {
     use super::{
         Backend, DANGEROUS_KIND, LintChange, LintConfig, LintResult,
         control::LintPhase,
+        process::{REAP_GATE, ReapGate},
         project::{Preparation, PreparationKey, PreparationPhase, PreparationToken, ProjectState},
         scheduler::{CAPTURE_GATE, CaptureGate, PREPARATION_GATE},
-        process::{REAP_GATE, ReapGate},
         snapshot, wire,
     };
     use crate::server::{
@@ -1207,8 +1207,7 @@ mod tests {
         // The real worker fails while this attempt's registration is held.
         tokio::time::timeout(Duration::from_secs(5), changed.changed()).await??;
         PREPARATION_GATE.disarm();
-        let Ok(settled) = tokio::time::timeout(Duration::from_secs(5), waiting).await
-        else {
+        let Ok(settled) = tokio::time::timeout(Duration::from_secs(5), waiting).await else {
             panic!("the waiting check settles instead of waiting for a worker that cannot publish");
         };
         let prepared = settled?;
@@ -1313,7 +1312,11 @@ mod tests {
             entered: entered_tx,
             release: release_rx,
         });
-        backend.enqueue_project(key.clone(), BTreeSet::from([project.main_uri.clone()]), false);
+        backend.enqueue_project(
+            key.clone(),
+            BTreeSet::from([project.main_uri.clone()]),
+            false,
+        );
         tokio::time::timeout(
             Duration::from_secs(5),
             tokio::task::spawn_blocking(move || entered_rx.recv_timeout(Duration::from_secs(5))),
@@ -1344,7 +1347,10 @@ mod tests {
             }
         })
         .await?;
-        assert_eq!(lint.executing, 1, "the blocked capture still owns running lint work");
+        assert_eq!(
+            lint.executing, 1,
+            "the blocked capture still owns running lint work"
+        );
         assert_eq!(lint.cancelled_still_running, 1);
         assert_eq!(lint.cancelled, 1);
         assert_eq!(lint.completed, 0);
@@ -1365,8 +1371,8 @@ mod tests {
     // owner cannot clear running work while the child remains owned by its reaper.
     #[cfg(unix)]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn cancelled_preparation_child_remains_counted_until_reaped()
-    -> Result<(), Box<dyn Error>> {
+    async fn cancelled_preparation_child_remains_counted_until_reaped() -> Result<(), Box<dyn Error>>
+    {
         let backend = backend()?;
         let directory = tempfile::tempdir()?;
         let key = PreparationKey {
@@ -1398,7 +1404,11 @@ mod tests {
         });
         let owner = tokio::spawn({
             let backend = backend.clone();
-            async move { backend.run_preparation(project, key, PreparationToken::new(1)).await }
+            async move {
+                backend
+                    .run_preparation(project, key, PreparationToken::new(1))
+                    .await
+            }
         });
         tokio::time::timeout(Duration::from_secs(5), child_rx).await??;
         owner.abort();
@@ -1423,7 +1433,10 @@ mod tests {
             }
         })
         .await?;
-        assert_eq!(preparation.executing, 1, "the unreaped child still owns preparation work");
+        assert_eq!(
+            preparation.executing, 1,
+            "the unreaped child still owns preparation work"
+        );
         assert_eq!(preparation.cancelled_still_running, 1);
         assert_eq!(preparation.cancelled, 1);
         assert_eq!(preparation.completed, 0);
@@ -1440,5 +1453,4 @@ mod tests {
         assert_eq!(preparation.completed, 0);
         Ok(())
     }
-
 }

@@ -247,8 +247,8 @@ mod tests {
     }
 
     #[test]
-    fn protected_null_dacl_is_rejected_without_panicking()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn protected_null_dacl_is_rejected_without_panicking() -> Result<(), Box<dyn std::error::Error>>
+    {
         use windows_permissions::wrappers::SetNamedSecurityInfo;
 
         let root = tempfile::tempdir()?;

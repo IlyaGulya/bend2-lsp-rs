@@ -22,9 +22,13 @@ on:
       - src/server/compiler_backend.rs
       - src/server/compiler_backend/**
       - src/server/compiler.rs
+      - src/server/observability/**
+      - src/server/transport.rs
+      - src/storage.rs
       - tests/native_compiler_diagnostics.rs
       - tests/native_law_ranges.rs
       - tests/compiler_multi_error.rs
+      - tests/production_diagnostics.rs
       - tests/support/**
       - Cargo.toml
       - Cargo.lock

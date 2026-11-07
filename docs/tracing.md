@@ -1,8 +1,65 @@
-# Opt-in Chrome/Perfetto timeline tracing
+# Production diagnostic snapshots and opt-in timeline tracing
 
 `bend2-lsp` can emit a Chrome trace-event JSON file for timeline analysis. Tracing is disabled by default. It does not create a default trace file or activate the separate compiler-metrics writer.
 
-## Build and enable
+## Export a local diagnostic snapshot
+
+Normal builds keep bounded counters and a small memory-sample history in memory.
+You do not need a profiling build, environment variable, or server restart.
+Nothing is uploaded, and no report file is written until you request an export.
+
+The server offers a manual **Export LSP diagnostic snapshot** source action.
+Clients can also send `workspace/executeCommand` with these parameters:
+
+```json
+{
+  "command": "bend2.diagnostics.export",
+  "arguments": []
+}
+```
+
+The response contains the local `uri`, `bytesWritten`, and `schemaVersion`.
+With no arguments, the server creates a private temporary directory and a new
+`snapshot.json`. To choose a destination, pass one argument such as
+`{"uri":"file:///absolute/existing-directory/new-report.json"}`. Use an absolute
+local file URI without a query or fragment. The parent directory must exist.
+Existing files and symlinks are never overwritten.
+
+Exports are limited to 8 MiB. Unix files are owner-only and inherited access
+control entries are removed. Windows exports require a protected, owner-only
+DACL. If privacy checks or safe publication fail, the command returns an error
+instead of publishing a report. Review any report before sharing it.
+
+The report includes:
+
+- Server version, OS, architecture, PID, and uptime.
+- OS memory observations for the server and compiler processes it still owns.
+  Pending or unavailable observations are labelled, not reported as zero.
+- Open/indexed document counts, source bytes, and source/index capacity estimates,
+  including old snapshots still retained by running work.
+- Semantic and compiler cache entries, retained-byte estimates, hits, misses,
+  and evictions; lint state and retained project snapshots.
+- Fixed-category request/work counts, durations, queue waits, and cancelled work
+  that has not actually stopped yet.
+- Up to 60 periodic samples, normally one minute apart. Delayed samples are not
+  backfilled, and manual exports do not add history rows.
+
+It excludes source contents, identifiers, document/project paths and URIs,
+diagnostic messages, request payloads, and compiler arguments/output. Counters
+come from existing indexes and ownership metadata, not a new semantic scan.
+
+Capacity estimates are not exact allocated bytes, RSS, or proof of a leak.
+Some fields describe overlapping subsets; do not add every byte field together.
+OS memory observations are platform-specific and are not an atomic measurement
+of all processes. Request queue wait measures dispatch waiting, not every lock
+or asynchronous wait inside a handler.
+
+The source-action protocol is covered by an actual stdio server test. Editor
+menu exposure is client-specific; Zed's menu has not been separately verified.
+Use the explicit command through your client's LSP tooling if its UI does not
+show custom source actions.
+
+## Build and enable timeline tracing
 
 Build the LSP server:
 
@@ -62,7 +119,10 @@ Trace fields are explicitly allowlisted. They contain static span/method names, 
 
 `BEND2_LSP_COMPILER_METRICS_FILE` remains independent. Setting it still writes the existing compiler metrics rows whether or not tracing is enabled; tracing alone does not activate that writer.
 
-## Release size and measured overhead
+## Historical tracing size and overhead measurements
+
+These measurements predate diagnostic snapshots. They qualify the tracing change
+below, not the overhead of the newer snapshot accounting.
 
 The maintainer accepts the release-size increase to keep tracing built into the production executable: `BEND2_LSP_TRACE` enables recording on the exact binary used by the editor. The tracing dependencies remain unconditional; no feature split or separate tracing build is required.
 

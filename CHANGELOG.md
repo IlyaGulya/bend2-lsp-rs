@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Local troubleshooting
+
+- Export a diagnostic report without restarting the server. It helps investigate
+  memory use, retained document snapshots, caches, and unfinished background work.
+- Reports stay on your machine and exclude source contents and project paths.
+  Nothing is uploaded automatically.
+
 ## [0.7.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.7.0...v0.7.1) (2026-11-06)
 
 ### Newer Bend versions

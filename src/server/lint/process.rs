@@ -313,7 +313,10 @@ async fn execute(
         let mut armed = REAP_GATE
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if armed.as_ref().is_some_and(|gate| gate.directory == directory) {
+        if armed
+            .as_ref()
+            .is_some_and(|gate| gate.directory == directory)
+        {
             armed.take()
         } else {
             None
