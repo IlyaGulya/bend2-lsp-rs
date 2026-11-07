@@ -14,7 +14,7 @@ use crate::{
         lsp::Backend,
         observability::{
             buffers::diagnostic_backing_bytes,
-            work::{CancelOnDrop, WorkKind},
+            work::{CancelOnDrop, RunningWork, WorkKind},
         },
         state::{State, blocking_result, supervise},
     },
@@ -378,16 +378,17 @@ impl Backend {
                 if debounce {
                     tokio::time::sleep(LINT_DEBOUNCE).await;
                 }
-                let mut running = CancelOnDrop::new(queued.start());
-                backend.run_project(spawned_key, revision, task).await;
-                running.disarm();
+                let running = queued.start();
+                let mut caller = CancelOnDrop::new(running.clone());
+                backend.run_project(spawned_key, revision, task, &running).await;
+                caller.disarm();
             };
             supervise(operation, move || reporter.diagnostics.report_fatal()).await;
         });
         state.task = Some((task, handle));
     }
 
-    async fn run_project(&self, key: ProjectKey, revision: u64, task: u64) {
+    async fn run_project(&self, key: ProjectKey, revision: u64, task: u64, running: &RunningWork) {
         loop {
             if self.diagnostics.lint.closed.load(Ordering::SeqCst) {
                 return;
@@ -417,7 +418,7 @@ impl Backend {
             };
             if let Some(document) = self.lint_open_document(&uri).filter(Self::supported) {
                 let config = self.diagnostics.lint.config.read().clone();
-                self.run_lint(document, config, &key, revision).await;
+                self.run_lint(document, config, &key, revision, running).await;
             }
             let mut projects = self.diagnostics.lint.projects.write();
             if let Some(state) = projects.get_mut(&key) {
@@ -437,10 +438,11 @@ impl Backend {
         config: LintConfig,
         project: &ProjectKey,
         revision: u64,
+        running: &RunningWork,
     ) {
         let uri = document.uri.clone();
         let progress = self.begin_lint_progress(&uri, project, revision).await;
-        let reason = match self.execute_lint(document, config, project, revision).await {
+        let reason = match self.execute_lint(document, config, project, revision, running).await {
             Ok(reason) => reason,
             Err(error) => {
                 let phase = if matches!(
@@ -466,6 +468,7 @@ impl Backend {
         config: LintConfig,
         project: &ProjectKey,
         revision: u64,
+        running: &RunningWork,
     ) -> std::io::Result<String> {
         let uri = document.uri.clone();
         let Some(file) = uri.to_file_path().ok() else {
@@ -480,7 +483,7 @@ impl Backend {
             return Ok("Analysis skipped; the document has no file path".into());
         };
         let capture = self
-            .capture_lint_view(document, &file, project, revision)
+            .capture_lint_view(document, &file, project, revision, running)
             .await?;
         let snapshot = &capture.snapshot;
         let key = PreparationKey {
@@ -496,8 +499,14 @@ impl Backend {
         );
         let description = self.ensure_prepared(project, revision, key).await?;
         let checked = Arc::clone(snapshot);
-        let current =
-            blocking_result(tokio::task::spawn_blocking(move || checked.unchanged()).await);
+        let worker = running.clone();
+        let current = blocking_result(
+            tokio::task::spawn_blocking(move || {
+                let _worker = worker;
+                checked.unchanged()
+            })
+            .await,
+        );
         if !current || self.diagnostics.lint.project_revision(project) != Some(revision) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::WouldBlock,
@@ -530,9 +539,10 @@ impl Backend {
             &snapshot.overlays,
             self.compiler.reapers.clone(),
             permit,
+            running.clone(),
         )
         .await?;
-        self.finish_lint(capture, config, project, revision, output)
+        self.finish_lint(capture, config, project, revision, output, running)
             .await
     }
 
@@ -542,6 +552,7 @@ impl Backend {
         file: &Path,
         project: &ProjectKey,
         revision: u64,
+        running: &RunningWork,
     ) -> std::io::Result<LintCapture> {
         // A revision never replaces its frozen view with newly read inputs.
         let frozen = {
@@ -570,8 +581,10 @@ impl Backend {
                 .acquire_owned()
                 .await
                 .map_err(std::io::Error::other)?;
+            let worker = running.clone();
             blocking_result(
                 tokio::task::spawn_blocking(move || {
+                    let _worker = worker;
                     let _permit = permit;
                     #[cfg(test)]
                     hold_capture(&capture_file);
@@ -740,18 +753,20 @@ impl Backend {
             .await
         {
             Ok(permit) => {
-                let mut running = CancelOnDrop::new(queued.start());
+                let running = queued.start();
+                let mut caller = CancelOnDrop::new(running.clone());
                 let outcome = process::prepare(
                     &key.config,
                     &key.root,
                     self.compiler.reapers.clone(),
                     permit,
+                    running.clone(),
                 )
                 .await;
                 if outcome.is_err() {
-                    running.fail();
+                    caller.fail();
                 }
-                running.disarm();
+                caller.disarm();
                 outcome
             }
             Err(error) => Err(std::io::Error::other(error)),
@@ -786,6 +801,7 @@ impl Backend {
         project: &ProjectKey,
         revision: u64,
         output: std::process::Output,
+        running: &RunningWork,
     ) -> std::io::Result<String> {
         let uri = &capture.document.uri;
         if !output.stderr.is_empty() {
@@ -809,8 +825,10 @@ impl Backend {
             .acquire_owned()
             .await
             .map_err(std::io::Error::other)?;
+        let worker = running.clone();
         let (findings, unchanged) = blocking_result(
             tokio::task::spawn_blocking(move || {
+                let _worker = worker;
                 let _permit = permit;
                 let findings = wire::parse(&output, &checked)?;
                 let unchanged = checked.unchanged();

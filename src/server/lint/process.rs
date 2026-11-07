@@ -2,7 +2,7 @@ use super::{
     super::compiler::{CompilerLease, CompilerReapers},
     util::bounded,
 };
-use crate::analysis::DocumentSnapshot;
+use crate::{analysis::DocumentSnapshot, server::observability::work::RunningWork};
 use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
 use std::{
     collections::{BTreeMap, btree_map::Entry},
@@ -47,6 +47,7 @@ struct ChildGuard {
     child: Option<Box<dyn ChildWrapper>>,
     lease: Option<CompilerLease>,
     permit: Option<OwnedSemaphorePermit>,
+    running: Option<RunningWork>,
     #[cfg(test)]
     reap_gate: Option<ReapGate>,
 }
@@ -56,6 +57,7 @@ impl Drop for ChildGuard {
         if let Some(mut child) = self.child.take() {
             let lease = self.lease.take();
             let permit = self.permit.take();
+            let running = self.running.take();
             #[cfg(test)]
             let gate = self.reap_gate.take();
             let _ = child.start_kill();
@@ -66,7 +68,7 @@ impl Drop for ChildGuard {
                     let _ = tokio::time::timeout(Duration::from_secs(5), gate.release).await;
                 }
                 let _ = child.wait().await;
-                drop((lease, permit));
+                drop((lease, permit, running));
             });
         }
     }
@@ -301,6 +303,7 @@ async fn execute(
     timeout: Duration,
     reapers: Arc<CompilerReapers>,
     permit: OwnedSemaphorePermit,
+    running: RunningWork,
 ) -> io::Result<std::process::Output> {
     let wants_stdin = input.is_some();
     let lease = reapers.track()?;
@@ -320,6 +323,7 @@ async fn execute(
         child: Some(child),
         lease: Some(lease),
         permit: Some(permit),
+        running: Some(running),
         #[cfg(test)]
         reap_gate: gate,
     };
@@ -350,6 +354,7 @@ pub(super) async fn run(
     overlays: &BTreeMap<PathBuf, Arc<DocumentSnapshot>>,
     reapers: Arc<CompilerReapers>,
     permit: OwnedSemaphorePermit,
+    running: RunningWork,
 ) -> io::Result<std::process::Output> {
     let input = overlay_input(overlays)?;
     // Upstream resolves argv paths and overlay keys through the same resolver.
@@ -373,6 +378,7 @@ pub(super) async fn run(
         Duration::from_millis(config.timeout_ms),
         reapers,
         permit,
+        running,
     )
     .await
 }
@@ -529,6 +535,7 @@ pub(super) async fn prepare(
     directory: &Path,
     reapers: Arc<CompilerReapers>,
     permit: OwnedSemaphorePermit,
+    running: RunningWork,
 ) -> io::Result<Preparation> {
     let temporary = tempfile::tempdir().map_err(|error| {
         io::Error::new(
@@ -551,6 +558,7 @@ pub(super) async fn prepare(
         PREPARATION_TIMEOUT,
         reapers,
         permit,
+        running,
     )
     .await
     .map_err(|error| {
