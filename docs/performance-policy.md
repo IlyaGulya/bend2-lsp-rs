@@ -529,6 +529,19 @@ queue, not source SHAs, and is not a strict current-HEAD arbiter. See
 [GitHub's concurrency contract](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 Source identity and admission checks remain separate.
 
+Verify scheduling changes with hosted runs, not YAML inspection alone:
+
+1. Record an ordinary run's workflow, PR, exact head SHA, run ID, attempt and
+   queued/running jobs. Push a meaningful change that triggers that workflow.
+2. Check that the superseded first attempt is cancelled and the new head is
+   admitted. Distinguish cancelling queued work from stopping a live collector.
+3. Explicitly rerun a completed/cancelled old-head job while the current ordinary
+   run is active. Record the increased attempt and verify that neither cancels
+   the other. Do not approve a protected measurement for this check.
+4. If collection had started, retain its terminal cleanup receipt and incomplete
+   evidence. A run cancelled before collection cannot prove child cleanup, and a
+   missing or force-killed receipt is not a successful measurement.
+
 The measurement deadlines remain 210 minutes for ordinary paired collection
 and 330 minutes for qualification. Their outer steps reserve two additional
 minutes for termination, reaping and report handling, not additional samples
