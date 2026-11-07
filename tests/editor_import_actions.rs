@@ -377,9 +377,12 @@ mod protocol {
         let (root, mut client, uri, dep_uri) = fixture(source);
         fs::write(root.path().join("z.bend"), "def other: U32\n  0\n").must_be("second module");
         let offered = actions(&mut client, &uri, source, "D.value", "source");
-        assert_eq!(offered.len(), 1);
-        assert_eq!(offered[0]["kind"], "source.organizeImports");
-        let edited = apply(source, &offered[0], &uri, 1);
+        let mut organized = offered
+            .iter()
+            .filter(|action| action["kind"] == "source.organizeImports");
+        let action = organized.next().must_be("organize imports action");
+        assert!(organized.next().is_none(), "one organize-imports edit");
+        let edited = apply(source, action, &uri, 1);
         assert!(edited.starts_with("# header 😀\n# duplicate comment\n# dependency comment\nimport ./dep.bend as D # first\n"), "attached comments: {edited}");
         assert_eq!(edited.matches("import ./dep.bend as D").count(), 1);
         assert!(
@@ -416,8 +419,12 @@ mod protocol {
         fs::write(root.path().join("z.bend"), "def value: U32\n  9\n")
             .must_be("first alias target");
         let organized = actions(&mut client, &uri, source, "  (", "source");
-        assert_eq!(organized.len(), 1);
-        let edited = apply(source, &organized[0], &uri, 1);
+        let mut imports = organized
+            .iter()
+            .filter(|action| action["kind"] == "source.organizeImports");
+        let action = imports.next().must_be("organize imports action");
+        assert!(imports.next().is_none(), "one organize-imports edit");
+        let edited = apply(source, action, &uri, 1);
         assert!(edited.starts_with("import ./z.bend as Same\nimport ./dep.bend as Same\ndef main"));
         let position = position(source, "(");
         let diagnostic = json!({"range":{"start":position,"end":position},

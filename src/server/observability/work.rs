@@ -446,6 +446,7 @@ mod tests {
         let _ = started_rx.recv();
 
         caller.cancel();
+        drop(caller);
         let totals = metrics.totals();
         assert_eq!(totals.executing, 1);
         assert_eq!(totals.cancelled_still_running, 1);

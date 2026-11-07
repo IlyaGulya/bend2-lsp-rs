@@ -2384,7 +2384,7 @@ mod protocol {
             response["result"]
                 .as_array()
                 .is_some_and(|actions| actions.iter().any(|action| {
-                    action["title"] == "Insert ')'"
+                    action["kind"] == "quickfix"
                         && action["edit"]["documentChanges"][0]["textDocument"]
                             == json!({"uri":uri,"version":1})
                         && action["edit"]["documentChanges"][0]["edits"][0]["newText"] == ")"
@@ -2404,9 +2404,14 @@ mod protocol {
             }),
             None,
         );
-        assert_eq!(
-            outside_range["result"].as_array().map(Vec::len),
-            Some(0),
+        assert!(
+            outside_range["result"].as_array().is_some_and(|actions| {
+                actions.iter().all(|action| {
+                    action["kind"]
+                        .as_str()
+                        .is_some_and(|kind| kind != "quickfix" && !kind.starts_with("quickfix."))
+                })
+            }),
             "a quick fix must not be offered outside the requested range: {outside_range}"
         );
         let filtered = request_delimiter_action(
@@ -2418,10 +2423,15 @@ mod protocol {
             }),
             Some("source"),
         );
-        assert_eq!(
-            filtered["result"].as_array().map(Vec::len),
-            Some(0),
-            "a non-quickfix kind filter must suppress quick fixes: {filtered}"
+        assert!(
+            filtered["result"].as_array().is_some_and(|actions| {
+                actions.iter().all(|action| {
+                    action["kind"]
+                        .as_str()
+                        .is_some_and(|kind| kind == "source" || kind.starts_with("source."))
+                })
+            }),
+            "a source-kind filter must suppress quick fixes: {filtered}"
         );
         client.finish();
     }
