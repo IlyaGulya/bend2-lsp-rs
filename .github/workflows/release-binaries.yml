@@ -20,6 +20,11 @@ on:
 
 permissions: {}
 
+# No workflow-level concurrency here on purpose. This file is only a reusable
+# callee, and a called workflow inherits the caller's github.workflow value, so
+# any group derived from it could cancel the caller run that is waiting for
+# these jobs. The calling workflow owns the run-level latest-head group.
+
 jobs:
   native:
     permissions:

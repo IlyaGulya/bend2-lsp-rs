@@ -14,7 +14,12 @@ on:
 permissions: {}
 
 concurrency:
-  group: semantic-fuzz-${{ github.ref }}
+  # Preserve active semantic calibration. GitHub's default single pending
+  # slot may replace an older pending PR run with the latest queued run; this
+  # is not a guarantee that every labelled head will execute. Distinct PRs
+  # never share a group. Schedules, dispatches and explicit reruns have unique
+  # run/attempt groups and remain independent.
+  group: semantic-fuzz-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
   cancel-in-progress: false
 
 jobs:
