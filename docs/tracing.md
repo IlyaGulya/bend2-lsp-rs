@@ -25,10 +25,10 @@ With no arguments, the server creates a private temporary directory and a new
 local file URI without a query or fragment. The parent directory must exist.
 Existing files and symlinks are never overwritten.
 
-Exports are limited to 8 MiB. Unix files are owner-only and inherited access
-control entries are removed. Windows exports require a protected, owner-only
-DACL. If privacy checks or safe publication fail, the command returns an error
-instead of publishing a report. Review any report before sharing it.
+Exports are limited to 8 MiB. Unix files use owner-only permissions; macOS
+extended access control entries are removed. Windows exports require a protected,
+owner-only DACL. If privacy checks or safe publication fail, the command returns
+an error instead of publishing a report. Review any report before sharing it.
 
 The report includes:
 
