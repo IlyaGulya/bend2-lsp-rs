@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::BinaryHeap, iter::FusedIterator};
+use std::{cmp::Reverse, collections::BinaryHeap, iter::FusedIterator, mem::size_of};
 
 use super::{BindingId, IndexedBinding, NameId, TextRange, compact_groups};
 
@@ -14,6 +14,16 @@ pub(super) struct LocalIndex {
     source_indices: Box<[usize]>,
     name_spans: Box<[TextRange]>,
     max_end: Box<[usize]>,
+}
+
+impl LocalIndex {
+    /// Owned binding-index capacity, excluding allocator headers.
+    pub(super) fn footprint_bytes(&self) -> usize {
+        size_of::<Visibility>() * self.visibility.len()
+            + size_of::<usize>() * self.source_indices.len()
+            + size_of::<TextRange>() * self.name_spans.len()
+            + size_of::<usize>() * self.max_end.len()
+    }
 }
 
 impl LocalIndex {

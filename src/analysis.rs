@@ -68,6 +68,15 @@ impl LineIndex {
         Self::from_parts(source, line_starts, ascii_lines)
     }
 
+    /// Owned backing-buffer capacity of the line index, excluding allocator
+    /// headers. This reads allocation metadata only and does not scan source.
+    #[must_use]
+    pub(crate) fn footprint_bytes(&self) -> usize {
+        std::mem::size_of::<usize>() * self.line_starts.capacity()
+            + std::mem::size_of::<u64>() * self.ascii_lines.capacity()
+            + std::mem::size_of::<Utf16Checkpoint>() * self.checkpoints.capacity()
+    }
+
     fn from_parts(source: &str, line_starts: Vec<usize>, ascii_lines: Vec<u64>) -> Self {
         let mut index = Self {
             line_starts,

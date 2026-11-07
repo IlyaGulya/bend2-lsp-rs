@@ -21,6 +21,9 @@ use super::{
     compiler_backend::{BackendSource, CompilerIdentity, diagnostic_message, should_probe_native},
     compiler_backend_driver::NativeRun,
     features::diag,
+    observability::{
+        Observability, compiler::{CompilerActivity, CompilerRegistry}, work::CacheMetrics,
+    },
 };
 
 use crate::analysis::{self, DocumentSnapshot};
@@ -39,9 +42,17 @@ pub(super) struct CompilerReapers {
     closed: AtomicBool,
     stopped: Notify,
     idle: Notify,
+    pub(super) observations: CompilerRegistry,
 }
 
 impl CompilerReapers {
+    pub(super) fn observed(observation: Weak<Observability>) -> Self {
+        Self {
+            observations: CompilerRegistry::observed(observation),
+            ..Self::default()
+        }
+    }
+
     pub(super) fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
         self.stopped.notify_waiters();
@@ -51,7 +62,10 @@ impl CompilerReapers {
         // Count admission before observing close, so the final drain cannot miss
         // a child admitted concurrently with shutdown.
         self.active.fetch_add(1, Ordering::SeqCst);
-        let lease = CompilerLease(self.clone());
+        let lease = CompilerLease {
+            reapers: self.clone(),
+            activity: None,
+        };
         if self.closed.load(Ordering::SeqCst) {
             Err(io::Error::new(
                 io::ErrorKind::Interrupted,
@@ -87,12 +101,18 @@ impl CompilerReapers {
     }
 }
 
-pub(super) struct CompilerLease(Arc<CompilerReapers>);
+pub(super) struct CompilerLease {
+    reapers: Arc<CompilerReapers>,
+    activity: Option<CompilerActivity>,
+}
 
 impl Drop for CompilerLease {
     fn drop(&mut self) {
-        if self.0.active.fetch_sub(1, Ordering::SeqCst) == 1 {
-            self.0.idle.notify_waiters();
+        let activity = self.activity.take();
+        self.reapers.observations.finish(activity.as_ref());
+        drop(activity);
+        if self.reapers.active.fetch_sub(1, Ordering::SeqCst) == 1 {
+            self.reapers.idle.notify_waiters();
         }
     }
 }
@@ -123,14 +143,23 @@ impl CompilerChildGuard {
             .as_mut()
             .ok_or_else(|| io::Error::other("compiler child has already been released"))?;
         let output = tokio::select! {
-            output = collect_compiler_output(&mut child.child, output_limit) => output?,
-            () = child.lease.0.stopped() => {
-                return Err(io::Error::new(
+            output = collect_compiler_output(&mut child.child, output_limit) => output,
+            () = child.lease.reapers.stopped() => {
+                Err(io::Error::new(
                     io::ErrorKind::Interrupted,
                     "compiler checks have been stopped",
-                ));
+                ))
             }
         };
+        let output = output.inspect_err(|error| {
+            if let Some(activity) = child.lease.activity.as_mut() {
+                if error.kind() == io::ErrorKind::Interrupted {
+                    activity.cancel();
+                } else {
+                    activity.fail();
+                }
+            }
+        })?;
         Ok((output, self))
     }
 }
@@ -142,6 +171,9 @@ impl Drop for CompilerChildGuard {
         };
         if child.child.id().is_none() {
             return;
+        }
+        if let Some(activity) = &child.lease.activity {
+            activity.cancel();
         }
         // Dispatch cancellation immediately, but retain the child and its resources
         // until wait completes instead of relying on Tokio's best-effort orphan reap.
@@ -289,6 +321,55 @@ impl CompilerSnapshot {
 pub(super) struct CachedCompilerResult {
     snapshot: CompilerSnapshot,
     diagnostics: Vec<(PathBuf, Diagnostic)>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct CompilerCacheUsage {
+    entries: usize,
+    source_bytes: u64,
+    owned_backing_bytes: u64,
+}
+
+pub(super) fn compiler_cache_usage(
+    cache: &RwLock<HashMap<PathBuf, CachedCompilerResult>>,
+) -> CompilerCacheUsage {
+    let results = super::state::read_lock(cache);
+    let mut source_bytes = 0_u64;
+    let mut bytes = results.capacity() * size_of::<(PathBuf, CachedCompilerResult)>();
+    for (path, result) in results.iter() {
+        let snapshot = &result.snapshot;
+        bytes = bytes
+            .saturating_add(path.capacity())
+            .saturating_add(snapshot.compiler_path.capacity())
+            .saturating_add(snapshot.compiler_arguments.capacity() * size_of::<String>())
+            .saturating_add(snapshot.sources.len() * size_of::<CompilerSource>())
+            .saturating_add(result.diagnostics.capacity() * size_of::<(PathBuf, Diagnostic)>());
+        for argument in &snapshot.compiler_arguments {
+            bytes = bytes.saturating_add(argument.capacity());
+        }
+        for source in &snapshot.sources {
+            bytes = bytes
+                .saturating_add(source.path.capacity())
+                .saturating_add(source.imports.len() * size_of::<ImportEdge>());
+            if let Some(text) = &source.text {
+                source_bytes = source_bytes.saturating_add(
+                    u64::try_from(text.len()).unwrap_or(u64::MAX),
+                );
+                bytes = bytes.saturating_add(text.len());
+            }
+        }
+        for (path, diagnostic) in &result.diagnostics {
+            bytes = bytes.saturating_add(path.capacity()).saturating_add(
+                super::observability::buffers::diagnostic_backing_bytes(diagnostic),
+            );
+        }
+    }
+    CompilerCacheUsage {
+        entries: results.len(),
+        source_bytes,
+        owned_backing_bytes: u64::try_from(bytes).unwrap_or(u64::MAX),
+    }
 }
 impl Default for CompilerConfig {
     fn default() -> Self {
@@ -717,21 +798,29 @@ fn cache_compiler_result(
     graph: &SourceGraph,
     cache: &RwLock<HashMap<PathBuf, CachedCompilerResult>>,
     diagnostics: &[(PathBuf, Diagnostic)],
+    accounting: Option<&CacheMetrics>,
 ) {
     let mut results = super::state::write_lock(cache);
     if !results.contains_key(&root)
         && results.len() >= 32
         && let Some(evicted) = results.keys().next().cloned()
     {
-        results.remove(&evicted);
+        if results.remove(&evicted).is_some()
+            && let Some(accounting) = accounting
+        {
+            accounting.eviction();
+        }
     }
-    results.insert(
+    let replaced = results.insert(
         root,
         CachedCompilerResult {
             snapshot: CompilerSnapshot::capture(config, stamp, graph),
             diagnostics: diagnostics.to_vec(),
         },
-    );
+    ).is_some();
+    if replaced && let Some(accounting) = accounting {
+        accounting.eviction();
+    }
 }
 
 async fn compiler_diagnostics_inner(
@@ -744,6 +833,7 @@ async fn compiler_diagnostics_inner(
     mut metrics: Option<&mut CompilerCheckMetrics>,
 ) -> Vec<(PathBuf, Diagnostic)> {
     let span = tracing::Span::current();
+    let observation = reapers.observations.metrics();
     let source_graph = Arc::new(source_graph);
     let context = match CompilerCheckContext::new(&config, &source_graph, backend) {
         Ok(context) => context,
@@ -781,12 +871,22 @@ async fn compiler_diagnostics_inner(
         metrics.cache_hit = Some(false);
     }
     span.record("cache_hit", false);
-    if cacheable && let Some(diagnostics) = context.cached(&source_graph, compiler_stamp, &cache) {
+    if cacheable {
+        let cached = context.cached(&source_graph, compiler_stamp, &cache);
+        if let Some(observation) = &observation {
+            if cached.is_some() {
+                observation.compiler_cache.hit();
+            } else {
+                observation.compiler_cache.miss();
+            }
+        }
+        if let Some(diagnostics) = cached {
         if let Some(metrics) = metrics.as_deref_mut() {
             metrics.cache_hit = Some(true);
         }
         span.record("cache_hit", true);
         return diagnostics;
+    }
     }
     let Some((permit, staging, staged)) = stage_compiler_graph(
         source_graph.clone(),
@@ -816,6 +916,7 @@ async fn compiler_diagnostics_inner(
             &source_graph,
             &cache,
             &diagnostics,
+            observation.as_deref().map(|observation| &observation.compiler_cache),
         );
     }
     diagnostics
@@ -1080,21 +1181,39 @@ async fn run_compiler_command_limited(
     reapers: Arc<CompilerReapers>,
     output_limit: Option<usize>,
 ) -> io::Result<(std::process::Output, CompilerChildGuard)> {
-    let lease = reapers.track()?;
-    let child = command
+    let mut lease = reapers.track()?;
+    // The same drain lease also owns lint children. Only actual compiler
+    // launches enter the compiler counter and memory registry.
+    lease.activity = reapers.observations.enqueue();
+    let child = match command
         .kill_on_drop(true)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
-    CompilerChildGuard {
+        .spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                if let Some(activity) = lease.activity.as_mut() {
+                    activity.fail();
+                }
+                return Err(error);
+            }
+        };
+    let mut guarded = CompilerChildGuard {
         child: Some(CompilerChild {
             child,
             _resources: resources,
             lease,
         }),
+    };
+    // Guard ownership precedes this await: cancellation retains the lease
+    // through kill/reap, including a still-running identity-capture worker.
+    if let Some(child) = guarded.child.as_mut()
+        && let Some(pid) = child.child.id()
+        && let Some(activity) = child.lease.activity.as_mut()
+    {
+        activity.start(&reapers.observations, pid).await;
     }
-    .wait_with_output(output_limit)
-    .await
+    guarded.wait_with_output(output_limit).await
 }
 
 async fn collect_compiler_output(

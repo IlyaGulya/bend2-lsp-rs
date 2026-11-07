@@ -66,12 +66,20 @@ tracing = { version = "0.1.44", features = ["attributes"] }
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["registry"] }
 
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "=1.1.5", features = ["fs", "process"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "=0.31.3", default-features = false, features = ["fs"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
+calcifer-macos-acl = "=0.1.0"
 libproc = "=0.14.11"
 nix = { version = "=0.31.3", default-features = false, features = ["fs"], optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winsafe = { version = "=0.0.29", default-features = false, features = ["psapi", "advapi"] }
+windows-permissions = "=0.2.4"
 
 [dev-dependencies]
 iai-callgrind = "=0.16.1"

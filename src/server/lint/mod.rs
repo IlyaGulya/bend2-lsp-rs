@@ -13,7 +13,7 @@ pub(super) use actions::DANGEROUS_KIND;
 use config::LintConfig;
 pub(in crate::server) use lifecycle::LintChange;
 use project::{PreparationPhase, ProjectKey, ProjectState};
-pub(super) use scheduler::LintService;
+pub(in crate::server) use scheduler::{LintDiagnosticUsage, LintService};
 
 use super::lsp::Backend;
 use crate::workspace::{Document, EditorInputs};

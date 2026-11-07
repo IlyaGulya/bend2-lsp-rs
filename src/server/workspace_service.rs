@@ -1,4 +1,5 @@
 use super::{
+    observability::Observability,
     revision::{DocumentRevisionSync, RevisionStatus, RevisionTicket},
     state::{State, revision_result},
 };
@@ -117,6 +118,9 @@ pub(super) enum WorkspaceOperationGuard<'a> {
 }
 
 pub(super) struct WorkspaceService {
+    /// Shared production diagnostic root: weak storage registry, request/work
+    /// counters and cache accounting. Observability never owns snapshots.
+    pub(in crate::server) observability: Arc<Observability>,
     pub(super) state: State<WorkspaceState>,
     pub(super) update_serial: Mutex<()>,
     pub(super) updates: RwLock<()>,
@@ -133,6 +137,7 @@ pub(super) struct WorkspaceService {
 impl Default for WorkspaceService {
     fn default() -> Self {
         Self {
+            observability: Arc::new(Observability::default()),
             state: State::new(WorkspaceState {
                 database: WorkspaceDb::default(),
                 revisions: HashMap::new(),
@@ -165,6 +170,18 @@ impl WorkspaceService {
     }
     pub(super) fn read(&self) -> WorkspaceRead<'_> {
         WorkspaceRead(self.state.read())
+    }
+    /// Exact semantic cache aggregate for the report: hit/miss counters come
+    /// from actual lookups, while evictions come from the workspace's
+    /// cold-only monotonic counter incremented only when a published view is
+    /// actually removed.
+    pub(in crate::server) fn semantic_cache_totals(
+        &self,
+        evictions: u64,
+    ) -> crate::server::observability::work::CacheTotals {
+        let mut totals = self.observability.semantic_cache.totals();
+        totals.evictions = evictions;
+        totals
     }
     pub(super) fn generation(&self) -> u64 {
         self.state.read().generation

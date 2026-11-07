@@ -4,6 +4,7 @@ use super::{
         CompilerStamp, compiler_base, compiler_compatibility, compiler_stamp,
     },
     lsp::Backend,
+    observability::work::WorkKind,
     orchestration::run_staging,
     state::State,
 };
@@ -143,12 +144,18 @@ impl Backend {
             .and_then(|output| String::from_utf8(output.stdout).ok())
             .filter(|source| !source.is_empty());
         if let Some(source) = source {
-            let loaded = run_staging(self.workspace.staging.clone(), move || {
+            let observation = self.workspace.observability.clone();
+            let loaded = run_staging(
+                self.workspace.observability.work.clone(),
+                WorkKind::Staging,
+                self.workspace.staging.clone(),
+                move || {
                 let directory = Arc::new(tempfile::tempdir().ok()?);
                 let path = directory.path().join("Base.bend");
                 std::fs::write(&path, &source).ok()?;
                 let uri = Url::from_file_path(&path).ok()?;
                 let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source));
+                observation.storage.track_snapshot(&snapshot);
                 let provenance = Arc::from(format!("fnv1a64:{:016x}", snapshot.content_hash()));
                 let physical_path = crate::workspace::canonical_source_path(&path);
                 let imports =

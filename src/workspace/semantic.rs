@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     iter::FusedIterator,
+    mem::size_of,
     ops::Range,
     path::Path,
     sync::{
@@ -21,6 +22,14 @@ mod rename;
 mod watch;
 
 use index::CompactMap;
+
+fn buffer_bytes(count: usize, size: usize) -> u64 {
+    u64::try_from(count.saturating_mul(size)).unwrap_or(u64::MAX)
+}
+
+fn compact_bytes<K, V>(map: &CompactMap<K, V>) -> u64 {
+    u64::try_from(map.capacity_bytes()).unwrap_or(u64::MAX)
+}
 
 #[derive(Default)]
 struct PhysicalCapture<'a> {
@@ -358,6 +367,126 @@ impl SemanticView {
     #[must_use]
     pub const fn root(&self) -> FileId {
         self.capture.root
+    }
+
+    /// Capacity of buffers this view owns.
+    ///
+    /// Document snapshot text and syntax are shared through `Arc` and are
+    /// excluded so they are never recounted beside the snapshot registry.
+    /// Allocator headers and hash-control bytes are also excluded, and URI or
+    /// path lengths are lower-bound proxies for their owned string capacity.
+    #[must_use]
+    pub(crate) fn owned_backing_bytes(&self) -> u64 {
+        self.container_backing_bytes()
+            .saturating_add(self.nested_backing_bytes())
+    }
+
+    fn container_backing_bytes(&self) -> u64 {
+        buffer_bytes(self.documents.capacity(), size_of::<Document>())
+            .saturating_add(buffer_bytes(
+                self.physical_document_uris.capacity(),
+                size_of::<Arc<url::Url>>(),
+            ))
+            .saturating_add(compact_bytes(&self.document_indices))
+            .saturating_add(compact_bytes(&self.by_uri))
+            .saturating_add(compact_bytes(&self.by_physical_uri))
+            .saturating_add(compact_bytes(&self.declaration_indices))
+            .saturating_add(buffer_bytes(
+                self.entities.capacity(),
+                size_of::<SemanticEntity>(),
+            ))
+            .saturating_add(compact_bytes(&self.top_levels))
+            .saturating_add(compact_bytes(&self.constructors))
+            .saturating_add(compact_bytes(&self.namespace_indices))
+            .saturating_add(compact_bytes(&self.contexts))
+            .saturating_add(buffer_bytes(
+                self.declarations.capacity(),
+                size_of::<SemanticDeclaration>(),
+            ))
+            .saturating_add(buffer_bytes(
+                self.occurrences.len(),
+                size_of::<SemanticOccurrence>(),
+            ))
+            .saturating_add(compact_bytes(&self.occurrence_indices))
+            .saturating_add(compact_bytes(&self.reference_ranges))
+            .saturating_add(buffer_bytes(self.call_indices.len(), size_of::<usize>()))
+            .saturating_add(compact_bytes(&self.incoming))
+            .saturating_add(compact_bytes(&self.outgoing))
+            .saturating_add(compact_bytes(&self.bindings))
+            .saturating_add(compact_bytes(&self.parameter_hints))
+            .saturating_add(buffer_bytes(
+                self.issues.capacity(),
+                size_of::<SemanticIssue>(),
+            ))
+            .saturating_add(buffer_bytes(
+                self.capture.files.len(),
+                size_of::<CapturedFileReceipt>(),
+            ))
+            .saturating_add(buffer_bytes(
+                self.capture.physical_generations.len(),
+                size_of::<(Arc<Path>, u64)>(),
+            ))
+    }
+
+    fn nested_backing_bytes(&self) -> u64 {
+        let mut bytes = 0u64;
+        for document in &self.documents {
+            bytes = bytes
+                .saturating_add(buffer_bytes(document.uri.as_str().len(), 1))
+                .saturating_add(buffer_bytes(document.language_id.capacity(), 1));
+        }
+        for file in &self.capture.files {
+            bytes = bytes.saturating_add(buffer_bytes(
+                file.imports.len(),
+                size_of::<ImportEdge>(),
+            ));
+        }
+        for (name, _) in self.top_levels.iter() {
+            bytes = bytes.saturating_add(buffer_bytes(name.capacity(), 1));
+        }
+        for (name, _) in self.constructors.iter() {
+            bytes = bytes.saturating_add(buffer_bytes(name.capacity(), 1));
+        }
+        for (name, indices) in self.namespace_indices.iter() {
+            bytes = bytes
+                .saturating_add(buffer_bytes(name.capacity(), 1))
+                .saturating_add(buffer_bytes(indices.len(), size_of::<usize>()));
+        }
+        for (_, context) in self.contexts.iter() {
+            bytes = bytes.saturating_add(buffer_bytes(context.namespace.capacity(), 1));
+            for (alias, target) in context.aliases.iter() {
+                bytes = bytes
+                    .saturating_add(buffer_bytes(alias.capacity(), 1))
+                    .saturating_add(buffer_bytes(target.capacity(), 1));
+            }
+        }
+        for entity in &self.entities {
+            bytes = bytes.saturating_add(buffer_bytes(entity.name.capacity(), 1));
+        }
+        for (_, hints) in self.parameter_hints.iter() {
+            for (_, text) in hints.iter() {
+                bytes = bytes.saturating_add(buffer_bytes(text.capacity(), 1));
+            }
+        }
+        for (_, indices) in self.occurrence_indices.iter() {
+            bytes = bytes.saturating_add(buffer_bytes(indices.capacity(), size_of::<usize>()));
+        }
+        for (_, indices) in self.incoming.iter() {
+            bytes = bytes.saturating_add(buffer_bytes(indices.capacity(), size_of::<usize>()));
+        }
+        for (_, indices) in self.outgoing.iter() {
+            bytes = bytes.saturating_add(buffer_bytes(indices.capacity(), size_of::<usize>()));
+        }
+        if let Some(base) = &self.capture.base {
+            bytes = bytes
+                .saturating_add(buffer_bytes(1, size_of::<SemanticBase>()))
+                .saturating_add(buffer_bytes(base.document.uri.as_str().len(), 1))
+                .saturating_add(buffer_bytes(base.document.language_id.capacity(), 1));
+        }
+        if let Some(library) = &self.capture.library {
+            bytes = bytes.saturating_add(buffer_bytes(library.as_os_str().len(), 1));
+        }
+        bytes
     }
 
     #[must_use]
@@ -952,6 +1081,7 @@ impl WorkspaceDb {
     pub(super) fn remove_semantic_view(&mut self, root: FileId) {
         self.refresh_semantic_root(root);
         if let Some(view) = self.semantic_views.remove(&root) {
+            self.semantic_evictions = self.semantic_evictions.saturating_add(1);
             for file in &view.capture.files {
                 self.remove_semantic_dependent(file.id, root);
             }

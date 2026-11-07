@@ -2,6 +2,7 @@ use hashbrown::HashTable;
 use std::{
     collections::{HashMap, hash_map::RandomState},
     hash::{BuildHasher, Hasher},
+    mem::size_of,
     ops::Deref,
 };
 
@@ -576,6 +577,36 @@ pub struct SyntaxIndex {
     completion: completion::CompletionIndex,
 }
 
+fn slice_bytes<T>(items: &[T]) -> usize {
+    size_of::<T>() * items.len()
+}
+
+impl NameTable {
+    /// Frozen name-table capacity, excluding hash-control bytes.
+    fn footprint_bytes(&self) -> usize {
+        size_of::<TextRange>() * self.ranges.capacity()
+            + size_of::<NameFacts>() * self.facts.capacity()
+            + size_of::<NameId>() * self.lookup.capacity()
+            + size_of::<IndexSlot>() * self.token_names.capacity()
+    }
+}
+
+impl AuxiliaryIndex {
+    /// Capacity of the optional rare-metadata allocation.
+    fn footprint_bytes(&self) -> usize {
+        self.data.as_ref().map_or(0, |data| {
+            size_of::<AuxiliaryData>()
+                + slice_bytes(&data.diagnostics)
+                + data
+                    .constructors
+                    .as_ref()
+                    .map_or(0, |constructors| {
+                        slice_bytes(&constructors.entries) + slice_bytes(&constructors.name_indices)
+                    })
+        })
+    }
+}
+
 impl SyntaxIndex {
     pub(crate) fn build(source: &str) -> (LineIndex, Self) {
         let mut scan = Scanner::new(source, true).scan();
@@ -701,6 +732,45 @@ impl SyntaxIndex {
     #[must_use]
     pub fn tokens(&self) -> &[Token] {
         &self.tokens
+    }
+
+    /// Owned backing-buffer capacity of the frozen syntax index. The estimate
+    /// uses slice lengths and table capacities only; it excludes allocator
+    /// headers and hash-control bytes, and never rescans source text.
+    #[must_use]
+    pub(crate) fn footprint_bytes(&self) -> usize {
+        slice_bytes(&self.tokens)
+            + slice_bytes(&self.parameter_hints)
+            + self.names.footprint_bytes()
+            + slice_bytes(&self.imports)
+            + slice_bytes(&self.symbols)
+            + slice_bytes(&self.bindings)
+            + slice_bytes(&self.completion_eof_bindings)
+            + slice_bytes(&self.sites)
+            + slice_bytes(&self.scopes)
+            + slice_bytes(&self.segments)
+            + slice_bytes(&self.references)
+            + slice_bytes(&self.reference_source_indices)
+            + slice_bytes(&self.reference_spans)
+            + slice_bytes(&self.name_reference_indices)
+            + slice_bytes(&self.name_reference_spans)
+            + slice_bytes(&self.token_references)
+            + slice_bytes(&self.calls)
+            + slice_bytes(&self.call_arguments)
+            + slice_bytes(&self.call_separators)
+            + slice_bytes(&self.calls_from_indices)
+            + slice_bytes(&self.calls_from_spans)
+            + slice_bytes(&self.calls_to_indices)
+            + slice_bytes(&self.calls_to_spans)
+            + slice_bytes(&self.call_by_open)
+            + slice_bytes(&self.call_by_name_token)
+            + slice_bytes(&self.lines)
+            + self.auxiliary.footprint_bytes()
+            + slice_bytes(&self.delimiter_pairs)
+            + slice_bytes(&self.delimiter_context)
+            + slice_bytes(&self.symbol_by_name)
+            + self.local_index.footprint_bytes()
+            + self.completion.footprint_bytes()
     }
 
     pub(crate) const fn semantic_token_count(&self) -> usize {

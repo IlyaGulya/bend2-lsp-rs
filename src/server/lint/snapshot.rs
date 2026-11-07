@@ -155,6 +155,24 @@ impl ProjectSnapshot {
         })
     }
 
+    /// Unique source snapshots this frozen view reads (open overlays included).
+    pub(super) fn source_snapshots(&self) -> impl Iterator<Item = &Arc<DocumentSnapshot>> {
+        self.sources.values()
+    }
+
+    /// Open editor overlays captured into this view.
+    pub(super) fn overlay_snapshots(&self) -> impl Iterator<Item = &Arc<DocumentSnapshot>> {
+        self.overlays.values()
+    }
+
+    /// Trusted rule/config read-set snapshots already present in `sources`.
+    pub(super) fn trusted_rule_snapshots(&self) -> impl Iterator<Item = &Arc<DocumentSnapshot>> {
+        self.rule_paths
+            .iter()
+            .chain(self.rule_inputs.keys())
+            .filter_map(|path| self.sources.get(path))
+    }
+
     // Rebuild the analysis view for new editor text while reusing captured disk
     // sources. Callers must have verified `unchanged()` first.
     pub(super) fn with_overlays(&self, documents: &[Document]) -> io::Result<Self> {

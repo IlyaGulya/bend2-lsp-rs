@@ -1,4 +1,5 @@
 use super::{CasePatternType, NameId, SyntaxIndex, TextRange, TokenId};
+use std::mem::size_of;
 
 /// Pattern boundaries are emitted by the grammar, including incomplete editor input.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -18,6 +19,15 @@ pub(super) struct CompletionIndex {
     patterns: Box<[PatternContext]>,
     imports: Box<[TextRange]>,
     cases: Box<[(TextRange, TextRange)]>,
+}
+
+impl CompletionIndex {
+    /// Owned completion-index capacity, excluding allocator headers.
+    pub(super) fn footprint_bytes(&self) -> usize {
+        size_of::<PatternContext>() * self.patterns.len()
+            + size_of::<TextRange>() * self.imports.len()
+            + size_of::<(TextRange, TextRange)>() * self.cases.len()
+    }
 }
 
 impl CompletionIndex {

@@ -1,6 +1,12 @@
-use super::super::{adapters, lsp::Backend, orchestration::run_staging};
+use super::super::{
+    adapters,
+    lsp::Backend,
+    observability::work::WorkKind,
+    orchestration::run_staging,
+};
 use crate::{
     analysis::{DocumentSnapshot, Revision},
+    storage::StorageRegistry,
     workspace::{
         Document, FileId, PathRename, PreparedImportTarget, WorkspaceDb, import_rename_edits,
         normalize_path, renamed_path, resolve_import_targets,
@@ -265,14 +271,18 @@ fn will_sources(database: &WorkspaceDb) -> Vec<WillSource> {
         .collect()
 }
 
-fn prepare_will_sources(sources: Vec<WillSource>) -> Result<Vec<WillSource>> {
+fn prepare_will_sources(
+    sources: Vec<WillSource>,
+    storage: &StorageRegistry,
+) -> Result<Vec<WillSource>> {
     let mut prepared = Vec::with_capacity(sources.len());
     for mut source in sources {
         if !source.open {
             match std::fs::read_to_string(&source.path) {
                 Ok(text) => {
-                    source.document.snapshot =
-                        Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text));
+                    let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text));
+                    storage.track_snapshot(&snapshot);
+                    source.document.snapshot = snapshot;
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(error) => {
@@ -416,7 +426,10 @@ fn rename_sources(
     (sources, destinations)
 }
 
-fn prepare_sources(mut sources: Vec<RenameSource>) -> Vec<PreparedSource> {
+fn prepare_sources(
+    mut sources: Vec<RenameSource>,
+    storage: &StorageRegistry,
+) -> Vec<PreparedSource> {
     // Aliases of one moved file share a single disk snapshot. An open overlay
     // wins only when compatibility has established equal open revisions/text.
     sources.sort_by(|left, right| {
@@ -431,9 +444,11 @@ fn prepare_sources(mut sources: Vec<RenameSource>) -> Vec<PreparedSource> {
             if !source.open {
                 source.snapshot = None;
             }
-            let disk_snapshot = std::fs::read_to_string(&source.path)
-                .ok()
-                .map(|text| Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text)));
+            let disk_snapshot = std::fs::read_to_string(&source.path).ok().map(|text| {
+                let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, text));
+                storage.track_snapshot(&snapshot);
+                snapshot
+            });
             let physical_path = crate::workspace::canonical_source_path(&source.path);
             let disk_imports = disk_snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
                 resolve_import_targets(&source.path, &physical_path, snapshot)
@@ -473,10 +488,21 @@ impl Backend {
             };
             drop(read);
             let staging_requested = requested.clone();
-            let Some(prepared) = run_staging(self.workspace.staging.clone(), move || {
-                let (renames, projected_renames) = prepare_rename_paths(&staging_requested, paths)?;
-                Ok::<_, Error>((projected_renames, renames, prepare_will_sources(sources)?))
-            })
+            let observability = self.workspace.observability.clone();
+            let Some(prepared) = run_staging(
+                self.workspace.observability.work.clone(),
+                WorkKind::Staging,
+                self.workspace.staging.clone(),
+                move || {
+                    let (renames, projected_renames) =
+                        prepare_rename_paths(&staging_requested, paths)?;
+                    Ok::<_, Error>((
+                        projected_renames,
+                        renames,
+                        prepare_will_sources(sources, &observability.storage)?,
+                    ))
+                },
+            )
             .await
             else {
                 return Err(Error::internal_error());
@@ -583,11 +609,13 @@ impl Backend {
                 .collect();
             drop(read);
             let staging_requested = requested.to_vec();
-            let (renames, projected_renames) =
-                match run_staging(self.workspace.staging.clone(), move || {
-                    prepare_rename_paths(&staging_requested, paths)
-                })
-                .await?
+            let (renames, projected_renames) = match run_staging(
+                self.workspace.observability.work.clone(),
+                WorkKind::Staging,
+                self.workspace.staging.clone(),
+                move || prepare_rename_paths(&staging_requested, paths),
+            )
+            .await?
                 {
                     Ok(renames) => renames,
                     Err(error) => {
@@ -615,8 +643,12 @@ impl Backend {
                 .map(|source| source.old_uri.clone())
                 .collect();
             drop(read);
-            let (prepared, physical_paths) =
-                run_staging(self.workspace.staging.clone(), move || {
+            let observability = self.workspace.observability.clone();
+            let (prepared, physical_paths) = run_staging(
+                self.workspace.observability.work.clone(),
+                WorkKind::Staging,
+                self.workspace.staging.clone(),
+                move || {
                     let physical_paths: HashMap<_, _> = destinations
                         .into_iter()
                         .map(|path| {
@@ -624,9 +656,13 @@ impl Backend {
                             (path, physical)
                         })
                         .collect();
-                    (prepare_sources(sources), physical_paths)
-                })
-                .await?;
+                    (
+                        prepare_sources(sources, &observability.storage),
+                        physical_paths,
+                    )
+                },
+            )
+            .await?;
             let _update = self.workspace.updates.write().await;
             if let Some(documents) = self.workspace.commit_file_rename(generation, |database| {
                 let merged = database.rename_paths(&renames, &physical_paths);

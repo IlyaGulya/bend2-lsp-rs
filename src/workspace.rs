@@ -1,11 +1,13 @@
 use std::{
     collections::{HashMap, HashSet},
+    mem::size_of,
     ops::Deref,
     path::{Component, Path, PathBuf},
     sync::Arc,
 };
 
 use crate::analysis::{self, DocumentSnapshot, Revision};
+use crate::storage::WorkspaceUsage;
 use url::Url;
 
 mod input;
@@ -16,6 +18,99 @@ pub use semantic::{
     SemanticEntity, SemanticEntityId, SemanticIssue, SemanticOccurrence, SemanticSite,
     SemanticTarget, SemanticView, SemanticViewInput,
 };
+
+fn element_bytes<T>(count: usize) -> u64 {
+    u64::try_from(count.saturating_mul(size_of::<T>())).unwrap_or(u64::MAX)
+}
+
+fn path_bytes(path: &Path) -> u64 {
+    u64::try_from(path.as_os_str().len()).unwrap_or(u64::MAX)
+}
+
+fn prepared_import_bytes(target: &PreparedImportTarget) -> u64 {
+    match target {
+        PreparedImportTarget::Native {
+            path,
+            physical_path,
+            rename_path,
+            ..
+        } => path_bytes(path)
+            .saturating_add(path_bytes(physical_path))
+            .saturating_add(rename_path.as_deref().map_or(0, path_bytes)),
+        PreparedImportTarget::Editor {
+            path, rename_path, ..
+        } => path_bytes(path).saturating_add(rename_path.as_deref().map_or(0, path_bytes)),
+    }
+}
+
+fn path_key_bytes<'a>(paths: impl Iterator<Item = &'a PathBuf>) -> u64 {
+    paths
+        .map(PathBuf::as_path)
+        .map(path_bytes)
+        .fold(0u64, u64::saturating_add)
+}
+
+fn entry_index_bytes(entry: &FileEntry) -> u64 {
+    let mut bytes = element_bytes::<ImportEdge>(entry.imports.len())
+        .saturating_add(element_bytes::<PathBuf>(entry.import_paths.len()))
+        .saturating_add(path_key_bytes(entry.import_paths.iter()))
+        .saturating_add(element_bytes::<Option<PathBuf>>(
+            entry.import_rename_paths.len(),
+        ))
+        .saturating_add(
+            entry
+                .import_rename_paths
+                .iter()
+                .flatten()
+                .map(PathBuf::as_path)
+                .map(path_bytes)
+                .fold(0u64, u64::saturating_add),
+        )
+        .saturating_add(element_bytes::<PathBuf>(entry.import_watch_paths.len()))
+        .saturating_add(path_key_bytes(entry.import_watch_paths.iter()))
+        .saturating_add(element_bytes::<FileId>(entry.reverse_imports.capacity()))
+        .saturating_add(u64::try_from(entry.language_id.capacity()).unwrap_or(u64::MAX));
+    if let Some(editor_paths) = &entry.editor_import_paths {
+        bytes = bytes
+            .saturating_add(element_bytes::<(PathBuf, Option<PathBuf>)>(
+                editor_paths.capacity(),
+            ))
+            .saturating_add(path_key_bytes(editor_paths.keys()))
+            .saturating_add(
+                editor_paths
+                    .values()
+                    .flatten()
+                    .map(PathBuf::as_path)
+                    .map(path_bytes)
+                    .fold(0u64, u64::saturating_add),
+            );
+    }
+    if let Some(path) = &entry.path {
+        bytes = bytes.saturating_add(path_bytes(path));
+    }
+    if let Some(path) = &entry.physical_path {
+        bytes = bytes.saturating_add(path_bytes(path));
+    }
+    bytes
+}
+
+fn compiler_documents_bytes(documents: &HashMap<FileId, CompilerDocument>) -> u64 {
+    let mut bytes = element_bytes::<(FileId, CompilerDocument)>(documents.capacity());
+    for document in documents.values() {
+        bytes = bytes
+            .saturating_add(element_bytes::<PreparedImportTarget>(
+                document.imports.capacity(),
+            ))
+            .saturating_add(
+                document
+                    .imports
+                    .iter()
+                    .map(prepared_import_bytes)
+                    .fold(0u64, u64::saturating_add),
+            );
+    }
+    bytes
+}
 
 #[derive(Clone)]
 pub struct Document {
@@ -419,6 +514,8 @@ pub struct WorkspaceDb {
     semantic_library_path: Option<PathBuf>,
     semantic_base_importers: HashSet<FileId>,
     import_path_dependents: HashMap<PathBuf, ImportWatchDependents>,
+    // Cold-only monotonic cache lifecycle count; never touched by warm queries.
+    semantic_evictions: u64,
 }
 
 impl WorkspaceDb {
@@ -754,6 +851,120 @@ impl WorkspaceDb {
             .filter(|entry| entry.open_snapshot.is_some())
             .filter_map(FileEntry::document)
             .collect()
+    }
+
+    /// Cold diagnostic view of workspace-owned storage.
+    ///
+    /// Reads map/set capacities, per-entry owned buffers and path lengths only:
+    /// it never scans source text, and it excludes allocator headers,
+    /// hash-control bytes and URI text shared through `Arc`. Snapshot and
+    /// semantic-view backing buffers are reported by their own registry.
+    #[must_use]
+    pub(crate) fn diagnostic_usage(&self) -> WorkspaceUsage {
+        let open_documents = self
+            .entries
+            .iter()
+            .filter(|entry| entry.open_snapshot.is_some())
+            .count();
+        let indexed_documents = self.indexed_snapshots().count();
+        let mut snapshots = HashSet::new();
+        for entry in &self.entries {
+            for snapshot in [entry.open_snapshot.as_ref(), entry.disk_snapshot.as_ref()]
+                .into_iter()
+                .flatten()
+            {
+                snapshots.insert(Arc::as_ptr(snapshot) as usize);
+            }
+        }
+        let mut semantic_cache_bytes = 0u64;
+        for view in self.semantic_views.values() {
+            semantic_cache_bytes = semantic_cache_bytes.saturating_add(view.owned_backing_bytes());
+            for document in view.documents() {
+                snapshots.insert(Arc::as_ptr(&document.snapshot) as usize);
+            }
+        }
+        WorkspaceUsage {
+            open_documents,
+            indexed_documents,
+            owned_snapshots: snapshots.len(),
+            semantic_cache_entries: self.semantic_views.len(),
+            semantic_cache_bytes,
+            workspace_index_bytes: self.workspace_index_bytes(),
+            semantic_evictions: self.semantic_evictions,
+        }
+    }
+
+    fn workspace_index_bytes(&self) -> u64 {
+        let mut bytes = element_bytes::<FileEntry>(self.entries.capacity())
+            .saturating_add(element_bytes::<(Arc<Url>, FileId)>(self.by_uri.capacity()))
+            .saturating_add(element_bytes::<(PathBuf, FileId)>(self.by_path.capacity()))
+            .saturating_add(path_key_bytes(self.by_path.keys()));
+        for entry in &self.entries {
+            bytes = bytes.saturating_add(entry_index_bytes(entry));
+        }
+        if let Some(documents) = &self.compiler_documents {
+            bytes = bytes.saturating_add(compiler_documents_bytes(documents));
+        }
+        bytes = bytes
+            .saturating_add(element_bytes::<FileId>(self.reachable.capacity()))
+            .saturating_add(element_bytes::<FileId>(self.discovered.capacity()))
+            .saturating_add(element_bytes::<FileId>(self.retired.capacity()))
+            .saturating_add(element_bytes::<(FileId, Arc<SemanticView>)>(
+                self.semantic_views.capacity(),
+            ))
+            .saturating_add(element_bytes::<(FileId, HashSet<FileId>)>(
+                self.semantic_dependents.capacity(),
+            ))
+            .saturating_add(element_bytes::<FileId>(self.dirty_semantic_roots.capacity()))
+            .saturating_add(element_bytes::<(PathBuf, PhysicalAliases)>(
+                self.physical_files.capacity(),
+            ))
+            .saturating_add(element_bytes::<(PathBuf, u64)>(self.physical_generations.capacity()))
+            .saturating_add(element_bytes::<(PathBuf, HashSet<FileId>)>(
+                self.semantic_physical_dependents.capacity(),
+            ))
+            .saturating_add(element_bytes::<FileId>(self.semantic_base_importers.capacity()))
+            .saturating_add(element_bytes::<(PathBuf, ImportWatchDependents)>(
+                self.import_path_dependents.capacity(),
+            ))
+            .saturating_add(
+                self.semantic_dependents
+                    .values()
+                    .map(|dependents| element_bytes::<FileId>(dependents.capacity()))
+                    .fold(0u64, u64::saturating_add),
+            )
+            .saturating_add(
+                self.physical_files
+                    .iter()
+                    .map(|(path, aliases)| {
+                        path_bytes(path)
+                            .saturating_add(element_bytes::<FileId>(aliases.others.capacity()))
+                    })
+                    .fold(0u64, u64::saturating_add),
+            )
+            .saturating_add(path_key_bytes(self.physical_generations.keys()))
+            .saturating_add(
+                self.semantic_physical_dependents
+                    .iter()
+                    .map(|(path, roots)| {
+                        path_bytes(path)
+                            .saturating_add(element_bytes::<FileId>(roots.capacity()))
+                    })
+                    .fold(0u64, u64::saturating_add),
+            )
+            .saturating_add(
+                self.import_path_dependents
+                    .iter()
+                    .map(|(path, dependents)| {
+                        path_bytes(path)
+                            .saturating_add(element_bytes::<FileId>(dependents.others.capacity()))
+                    })
+                    .fold(0u64, u64::saturating_add),
+            );
+        if let Some(library) = &self.semantic_library_path {
+            bytes = bytes.saturating_add(path_bytes(library));
+        }
+        bytes
     }
 
     pub(crate) fn loaded_documents(&self) -> Vec<Document> {

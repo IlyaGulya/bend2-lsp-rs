@@ -24,7 +24,11 @@ use crate::{
 };
 
 use super::Backend;
-use crate::server::{features, orchestration::run_staging};
+use crate::server::{
+    features,
+    observability::work::WorkKind,
+    orchestration::run_staging,
+};
 use url::Url;
 
 pub(in crate::server) struct Selection {
@@ -126,13 +130,23 @@ impl Backend {
                     }
                 }
                 let staging = self.workspace.staging.clone();
-                let Some(views) = run_staging(staging.clone(), move || {
-                    inputs
-                        .into_iter()
-                        .take_while(|_| !staging.is_closed())
-                        .map(|input| Arc::new(input.build()))
-                        .collect::<Vec<_>>()
-                })
+                let observability = self.workspace.observability.clone();
+                let Some(views) = run_staging(
+                    observability.work.clone(),
+                    WorkKind::Preparation,
+                    staging.clone(),
+                    move || {
+                        inputs
+                            .into_iter()
+                            .take_while(|_| !staging.is_closed())
+                            .map(|input| {
+                                let view = Arc::new(input.build());
+                                observability.storage.track_view(&view);
+                                view
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                )
                 .await
                 else {
                     return;
@@ -244,7 +258,19 @@ impl Backend {
 
     pub(in crate::server) fn semantic_view(&self, uri: &Url) -> Option<Arc<SemanticView>> {
         let database = self.workspace.read();
-        database.semantic_view(database.file_id_by_uri(uri)?)
+        let Some(root) = database.file_id_by_uri(uri) else {
+            return None;
+        };
+        match database.semantic_view(root) {
+            Some(view) => {
+                self.workspace.observability.semantic_cache.hit();
+                Some(view)
+            }
+            None => {
+                self.workspace.observability.semantic_cache.miss();
+                None
+            }
+        }
     }
 
     pub(in crate::server) fn semantic_selection(

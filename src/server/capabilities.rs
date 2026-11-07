@@ -52,7 +52,7 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
         call_hierarchy_provider: Some(CallHierarchyServerCapability::Simple(true)),
         workspace_symbol_provider: Some(OneOf::Left(true)),
         code_action_provider: Some(code_action_options()),
-        execute_command_provider: Some(lint_commands()),
+        execute_command_provider: Some(execute_commands()),
         code_lens_provider: Some(CodeLensOptions {
             resolve_provider: Some(false),
         }),
@@ -89,12 +89,13 @@ pub(super) fn server_capabilities() -> ServerCapabilities {
     }
 }
 
-fn lint_commands() -> ExecuteCommandOptions {
+fn execute_commands() -> ExecuteCommandOptions {
     ExecuteCommandOptions {
         commands: vec![
             super::lint::control::RUN_COMMAND.into(),
             super::lint::control::STATUS_COMMAND.into(),
             super::lint::control::EXPLAIN_COMMAND.into(),
+            super::observability::EXPORT_COMMAND.into(),
         ],
         ..Default::default()
     }
@@ -137,6 +138,7 @@ fn code_action_options() -> CodeActionProviderCapability {
             CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
             CodeActionKind::new(super::lint::control::RUN_KIND),
             CodeActionKind::new(super::lint::control::STATUS_KIND),
+            CodeActionKind::new(super::observability::EXPORT_KIND),
         ]),
         resolve_provider: Some(false),
         ..Default::default()

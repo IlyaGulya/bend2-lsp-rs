@@ -225,6 +225,8 @@ impl LanguageServer for Backend {
             let _operation = self.workspace.file_operations.write().await;
             let (config, warnings) = CompilerConfig::from_settings(&params.settings);
             let Some(library_path) = run_staging(
+                self.workspace.observability.work.clone(),
+                super::observability::work::WorkKind::Staging,
                 self.workspace.staging.clone(),
                 crate::workspace::canonical_library_path,
             )
@@ -272,7 +274,11 @@ impl LanguageServer for Backend {
         &self,
         params: ExecuteCommandParams,
     ) -> Result<Option<serde_json::Value>> {
-        self.handle_lint_command(params).await
+        if params.command == super::observability::EXPORT_COMMAND {
+            self.handle_diagnostic_export(params).await
+        } else {
+            self.handle_lint_command(params).await
+        }
     }
     #[tracing::instrument(name = "document.update", skip_all, fields(method = "did_open", file_id = tracing::field::Empty, revision = tracing::field::Empty))]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
@@ -818,20 +824,27 @@ mod staging_tests {
     -> Result<(), Box<dyn std::error::Error>> {
         const LIMIT: usize = 4;
         let semaphore = Arc::new(Semaphore::new(LIMIT));
+        let metrics = Arc::new(crate::server::observability::work::WorkMetrics::new());
         let active = Arc::new(AtomicUsize::new(0));
         let maximum = Arc::new(AtomicUsize::new(0));
         let tasks: Vec<_> = (0..16)
             .map(|_| {
                 let semaphore = semaphore.clone();
+                let metrics = metrics.clone();
                 let active = active.clone();
                 let maximum = maximum.clone();
                 tokio::spawn(async move {
-                    run_staging(semaphore, move || {
-                        let running = active.fetch_add(1, Ordering::Relaxed) + 1;
-                        maximum.fetch_max(running, Ordering::Relaxed);
-                        std::thread::sleep(Duration::from_millis(10));
-                        active.fetch_sub(1, Ordering::Relaxed);
-                    })
+                    run_staging(
+                        metrics,
+                        crate::server::observability::work::WorkKind::Staging,
+                        semaphore,
+                        move || {
+                            let running = active.fetch_add(1, Ordering::Relaxed) + 1;
+                            maximum.fetch_max(running, Ordering::Relaxed);
+                            std::thread::sleep(Duration::from_millis(10));
+                            active.fetch_sub(1, Ordering::Relaxed);
+                        },
+                    )
                     .await
                     .ok_or_else(|| std::io::Error::other("staging task should complete"))?;
                     Ok::<(), std::io::Error>(())

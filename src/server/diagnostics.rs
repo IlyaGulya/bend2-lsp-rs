@@ -1,5 +1,10 @@
 use super::{
-    compiler::compiler_diagnostics, features::lexical_diagnostics, lsp::Backend, state::State,
+    compiler::compiler_diagnostics,
+    features::lexical_diagnostics,
+    lsp::Backend,
+    observability::work::{CancelOnDrop, WorkKind},
+    orchestration::run_staging,
+    state::State,
 };
 use crate::{
     analysis::Revision,
@@ -17,11 +22,14 @@ use std::{
 use tokio::{
     sync::{Mutex, Semaphore, watch},
     task::{JoinError, JoinHandle},
-    time::sleep,
 };
 use tower_lsp::lsp_types::{Diagnostic, NumberOrString};
 use tracing::Instrument;
 use url::Url;
+
+/// Keystroke debounce is admission, not execution: a cancelled task waiting
+/// here is reported as cancelled queued work.
+const DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(250);
 
 #[derive(Clone)]
 pub(super) struct ImportedDiagnostics {
@@ -229,6 +237,7 @@ impl Backend {
     pub(super) async fn schedule_diagnostics(&self, uri: Url, version: i32) {
         let backend = self.clone();
         let task_uri = uri.clone();
+        let queued = self.workspace.observability.work.enqueue(WorkKind::Diagnostics);
         let span = tracing::info_span!(
             parent: None, "diagnostics.run", revision = version,
             diagnostic_count = tracing::field::Empty, outcome = tracing::field::Empty,
@@ -238,8 +247,11 @@ impl Backend {
                 tokio::spawn(
                     async move {
                         let operation = async {
+                            tokio::time::sleep(DIAGNOSTICS_DEBOUNCE).await;
+                            let mut running = CancelOnDrop::new(queued.start());
                             backend.run_diagnostics(task_uri.clone(), version).await;
                             backend.diagnostics.finish(&task_uri, generation).await;
+                            running.disarm();
                         };
                         super::state::supervise(operation, || backend.diagnostics.report_fatal())
                             .await;
@@ -269,7 +281,6 @@ impl Backend {
     }
     pub(super) async fn run_diagnostics(&self, uri: Url, version: i32) {
         let span = tracing::Span::current();
-        sleep(Duration::from_millis(250)).await;
         let Some(doc) = self.workspace.read().open_document(&uri) else {
             span.record("outcome", "document_missing");
             return;
@@ -405,22 +416,13 @@ impl Backend {
         document: Document,
         span: tracing::Span,
     ) -> Option<Vec<Diagnostic>> {
-        let permit = self
-            .diagnostics
-            .analysis
-            .clone()
-            .acquire_owned()
-            .await
-            .ok()?;
-        Some(super::state::blocking_result(
-            tokio::task::spawn_blocking(move || {
-                span.in_scope(|| {
-                    let _permit = permit;
-                    lexical_diagnostics(&document)
-                })
-            })
-            .await,
-        ))
+        run_staging(
+            self.workspace.observability.work.clone(),
+            WorkKind::Diagnostics,
+            self.diagnostics.analysis.clone(),
+            move || span.in_scope(|| lexical_diagnostics(&document)),
+        )
+        .await
     }
 
     async fn compiler_errors(

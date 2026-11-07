@@ -9,12 +9,18 @@ use super::{
     snapshot, wire,
 };
 use crate::{
+    analysis::DocumentSnapshot,
     server::{
         lsp::Backend,
+        observability::{
+            buffers::diagnostic_backing_bytes,
+            work::{CancelOnDrop, WorkKind},
+        },
         state::{State, blocking_result, supervise},
     },
     workspace::Document,
 };
+use serde::Serialize;
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     path::Path,
@@ -110,6 +116,118 @@ impl LintService {
     pub(super) fn project_revision(&self, key: &ProjectKey) -> Option<u64> {
         self.projects.read().get(key).map(|state| state.revision)
     }
+
+    /// Retained lint-owned read-set accounting. Every byte figure counts each
+    /// unique `DocumentSnapshot` `Arc` once across all retained project views
+    /// and results: `source_bytes` is the logical text length and
+    /// `source_capacity_bytes` the allocated text buffer. `overlay_bytes` and
+    /// `trusted_rule_bytes` are labeled subsets already included in
+    /// `source_bytes` when the capture shares those `Arc`s; they are never
+    /// added twice. Line-index and syntax buffers are not accessible from this
+    /// module and are intentionally omitted rather than estimated.
+    pub(in crate::server) fn diagnostic_usage(&self) -> LintDiagnosticUsage {
+        let mut usage = LintDiagnosticUsage::default();
+        let mut seen_views = HashSet::new();
+        let mut seen_sources = HashSet::new();
+        let mut seen_overlays = HashSet::new();
+        let mut seen_rules = HashSet::new();
+        {
+            let results = self.results.read();
+            usage.retained_results = results.retained_count();
+            usage.retained_contributors = results.contributor_count();
+            for result in results.retained() {
+                for diagnostic in result.findings.by_uri.values().flatten() {
+                    usage.retained_diagnostic_backing_bytes +=
+                        u64::try_from(diagnostic_backing_bytes(diagnostic)).unwrap_or(u64::MAX);
+                }
+                account_project_view(
+                    &result.snapshot,
+                    &mut seen_views,
+                    &mut seen_sources,
+                    &mut seen_overlays,
+                    &mut seen_rules,
+                    &mut usage,
+                );
+            }
+        }
+        {
+            let projects = self.projects.read();
+            usage.project_states = projects.len();
+            for state in projects.values() {
+                if let Some((_, view)) = &state.view {
+                    usage.project_views += 1;
+                    account_project_view(
+                        view,
+                        &mut seen_views,
+                        &mut seen_sources,
+                        &mut seen_overlays,
+                        &mut seen_rules,
+                        &mut usage,
+                    );
+                }
+                if state.preparation.is_some() {
+                    usage.preparations += 1;
+                }
+            }
+        }
+        usage
+    }
+}
+
+fn account_project_view(
+    view: &Arc<snapshot::ProjectSnapshot>,
+    seen_views: &mut HashSet<*const snapshot::ProjectSnapshot>,
+    seen_sources: &mut HashSet<*const DocumentSnapshot>,
+    seen_overlays: &mut HashSet<*const DocumentSnapshot>,
+    seen_rules: &mut HashSet<*const DocumentSnapshot>,
+    usage: &mut LintDiagnosticUsage,
+) {
+    if !seen_views.insert(Arc::as_ptr(view)) {
+        return;
+    }
+    usage.project_snapshots += 1;
+    for snapshot in view.source_snapshots() {
+        if seen_sources.insert(Arc::as_ptr(snapshot)) {
+            usage.source_snapshots += 1;
+            usage.source_bytes += u64::try_from(snapshot.text.len()).unwrap_or(u64::MAX);
+            usage.source_capacity_bytes +=
+                u64::try_from(snapshot.text.capacity()).unwrap_or(u64::MAX);
+        }
+    }
+    for snapshot in view.overlay_snapshots() {
+        if seen_overlays.insert(Arc::as_ptr(snapshot)) {
+            usage.overlay_snapshots += 1;
+            usage.overlay_bytes += u64::try_from(snapshot.text.len()).unwrap_or(u64::MAX);
+        }
+    }
+    for snapshot in view.trusted_rule_snapshots() {
+        if seen_rules.insert(Arc::as_ptr(snapshot)) {
+            usage.trusted_rule_snapshots += 1;
+            usage.trusted_rule_bytes += u64::try_from(snapshot.text.len()).unwrap_or(u64::MAX);
+        }
+    }
+}
+
+/// Retained lint-owned buffers, exposed for the local diagnostics report.
+/// Counts are entries; byte fields are logical text or allocated text buffers
+/// as named. No paths, rule text or diagnostic payloads are retained here.
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(in crate::server) struct LintDiagnosticUsage {
+    pub(in crate::server) project_snapshots: usize,
+    pub(in crate::server) source_snapshots: usize,
+    pub(in crate::server) source_bytes: u64,
+    pub(in crate::server) source_capacity_bytes: u64,
+    pub(in crate::server) overlay_snapshots: usize,
+    pub(in crate::server) overlay_bytes: u64,
+    pub(in crate::server) trusted_rule_snapshots: usize,
+    pub(in crate::server) trusted_rule_bytes: u64,
+    pub(in crate::server) retained_results: usize,
+    pub(in crate::server) retained_contributors: usize,
+    pub(in crate::server) retained_diagnostic_backing_bytes: u64,
+    pub(in crate::server) project_views: usize,
+    pub(in crate::server) preparations: usize,
+    pub(in crate::server) project_states: usize,
 }
 
 // Test-only ordering gate on the preparation waiting path. A regression arms it
@@ -222,13 +340,16 @@ impl Backend {
             return;
         }
         let revision = state.revision;
+        let queued = self.workspace.observability.work.enqueue(WorkKind::Lint);
         let handle = tokio::spawn(async move {
             let reporter = backend.clone();
             let operation = async move {
                 if debounce {
                     tokio::time::sleep(LINT_DEBOUNCE).await;
                 }
+                let mut running = CancelOnDrop::new(queued.start());
                 backend.run_project(spawned_key, revision, task).await;
+                running.disarm();
             };
             supervise(operation, move || reporter.diagnostics.report_fatal()).await;
         });
@@ -408,6 +529,7 @@ impl Backend {
         let inputs = self.lint_inputs();
         let capture_file = file.to_path_buf();
         let documents = inputs.documents.clone();
+        let observation = self.workspace.observability.clone();
         let (snapshot, document) = {
             let permit = self
                 .diagnostics
@@ -431,13 +553,20 @@ impl Backend {
                         }
                         view
                     } else {
-                        match reusable.filter(|snapshot| snapshot.refreshable(&capture_file)) {
+                        let snapshot = match reusable.filter(|snapshot| snapshot.refreshable(&capture_file)) {
                             Some(snapshot) => Arc::new(snapshot.with_overlays(&documents)?),
                             None => Arc::new(snapshot::ProjectSnapshot::capture(
                                 &capture_file,
                                 &documents,
                             )?),
+                        };
+                        for source in snapshot.source_snapshots()
+                            .chain(snapshot.overlay_snapshots())
+                            .chain(snapshot.trusted_rule_snapshots())
+                        {
+                            observation.storage.track_snapshot(source);
                         }
+                        snapshot
                     };
                     Ok::<_, std::io::Error>((snapshot, document))
                 })
@@ -562,6 +691,7 @@ impl Backend {
         key: PreparationKey,
         token: PreparationToken,
     ) {
+        let queued = self.workspace.observability.work.enqueue(WorkKind::Preparation);
         let outcome = match self
             .diagnostics
             .lint
@@ -571,13 +701,19 @@ impl Backend {
             .await
         {
             Ok(permit) => {
-                process::prepare(
+                let mut running = CancelOnDrop::new(queued.start());
+                let outcome = process::prepare(
                     &key.config,
                     &key.root,
                     self.compiler.reapers.clone(),
                     permit,
                 )
-                .await
+                .await;
+                if outcome.is_err() {
+                    running.fail();
+                }
+                running.disarm();
+                outcome
             }
             Err(error) => Err(std::io::Error::other(error)),
         };

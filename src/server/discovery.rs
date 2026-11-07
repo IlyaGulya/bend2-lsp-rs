@@ -1,4 +1,5 @@
 use super::{
+    observability::work::{CancelOnDrop, WorkKind},
     orchestration::{run_staging, trace_document_snapshot},
     state::{blocking_result, supervise},
     workspace_service::WorkspaceService,
@@ -143,6 +144,9 @@ impl WorkspaceService {
             .wrapping_add(1);
         let roots = self.roots.read().clone();
         let mut task = self.discovery.lock().await;
+        // Queued across the previous worker join and the current-epoch check:
+        // a superseded caller never reached a walker.
+        let queued = self.observability.work.enqueue(WorkKind::Discovery);
         // Borrow the owned handle across await: cancellation of this caller must
         // not detach the worker or let another query observe an unfinished index.
         if let Some(previous) = task.as_mut() {
@@ -154,10 +158,12 @@ impl WorkspaceService {
         }
         let workspace = self.clone();
         *task = Some(tokio::spawn(async move {
+            let mut running = CancelOnDrop::new(queued.start());
             supervise(workspace.run_discovery(epoch, roots), || {
                 workspace.discovery_failure.send_replace(true);
             })
             .await;
+            running.disarm();
         }));
     }
 
@@ -173,7 +179,11 @@ impl WorkspaceService {
             return None;
         }
         let text = std::fs::read_to_string(&path).ok()?;
-        let snapshot = Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text));
+        let snapshot = trace_document_snapshot(
+            &self.observability.storage,
+            Revision::UNVERSIONED,
+            text,
+        );
         let physical_path = canonical_source_path(&path);
         let imports = crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
         Some(PreparedSource {
@@ -223,10 +233,15 @@ impl WorkspaceService {
 
     async fn run_discovery(self: &Arc<Self>, epoch: u64, roots: Vec<PathBuf>) {
         let workspace = self.clone();
-        let Some((roots, mut prepared)) = run_staging(self.staging.clone(), move || {
-            let sources = workspace.prepare_discovery(epoch, &roots);
-            (roots, sources)
-        })
+        let Some((roots, mut prepared)) = run_staging(
+            self.observability.work.clone(),
+            WorkKind::Discovery,
+            self.staging.clone(),
+            move || {
+                let sources = workspace.prepare_discovery(epoch, &roots);
+                (roots, sources)
+            },
+        )
         .await
         else {
             return;
@@ -337,35 +352,46 @@ impl WorkspaceService {
                 break;
             }
             let discovery = discovery_epoch.map(|epoch| (self.clone(), epoch));
-            let Some(prepared) = run_staging(self.staging.clone(), move || {
-                inputs
-                    .into_iter()
-                    .take_while(|_| {
-                        discovery
-                            .as_ref()
-                            .is_none_or(|(workspace, epoch)| workspace.discovery_is_current(*epoch))
-                    })
-                    .map(|(id, generation, path)| {
-                        let regular = discovery.is_none()
-                            || std::fs::metadata(&path).is_ok_and(|metadata| metadata.is_file());
-                        let snapshot = regular
-                            .then(|| std::fs::read_to_string(&path).ok())
-                            .flatten()
-                            .map(|text| {
-                                Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text))
+            let observability = self.observability.clone();
+            let Some(prepared) = run_staging(
+                self.observability.work.clone(),
+                WorkKind::Staging,
+                self.staging.clone(),
+                move || {
+                    inputs
+                        .into_iter()
+                        .take_while(|_| {
+                            discovery.as_ref().is_none_or(|(workspace, epoch)| {
+                                workspace.discovery_is_current(*epoch)
+                            })
+                        })
+                        .map(|(id, generation, path)| {
+                            let regular = discovery.is_none()
+                                || std::fs::metadata(&path)
+                                    .is_ok_and(|metadata| metadata.is_file());
+                            let snapshot = regular
+                                .then(|| std::fs::read_to_string(&path).ok())
+                                .flatten()
+                                .map(|text| {
+                                    trace_document_snapshot(
+                                        &observability.storage,
+                                        Revision::UNVERSIONED,
+                                        text,
+                                    )
+                                });
+                            let physical_path = canonical_source_path(&path);
+                            let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
+                                crate::workspace::resolve_import_targets(
+                                    &path,
+                                    &physical_path,
+                                    snapshot,
+                                )
                             });
-                        let physical_path = canonical_source_path(&path);
-                        let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                            crate::workspace::resolve_import_targets(
-                                &path,
-                                &physical_path,
-                                snapshot,
-                            )
-                        });
-                        (id, generation, path, physical_path, snapshot, imports)
-                    })
-                    .collect::<Vec<_>>()
-            })
+                            (id, generation, path, physical_path, snapshot, imports)
+                        })
+                        .collect::<Vec<_>>()
+                },
+            )
             .await
             else {
                 break;

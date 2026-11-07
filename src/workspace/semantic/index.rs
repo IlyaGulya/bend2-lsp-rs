@@ -3,6 +3,7 @@ use std::{
     collections::{HashMap, hash_map},
     hash::Hash,
     iter::FusedIterator,
+    mem::size_of,
     slice,
 };
 
@@ -55,6 +56,14 @@ impl<K, V> CompactMap<K, V> {
         match self {
             Self::Hashed(map) => map,
             Self::Small(_) => unreachable!("published semantic indexes are immutable"),
+        }
+    }
+
+    /// Inline key/value slot capacity. Hash-control bytes are excluded.
+    pub(super) fn capacity_bytes(&self) -> usize {
+        match self {
+            Self::Small(entries) => size_of::<(K, V)>() * entries.len(),
+            Self::Hashed(map) => size_of::<(K, V)>() * map.capacity(),
         }
     }
 }

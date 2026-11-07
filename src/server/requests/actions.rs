@@ -10,7 +10,7 @@ use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
         CodeAction, CodeActionKind, CodeActionOrCommand, CodeActionParams, CodeActionResponse,
-        NumberOrString, Position, Range, TextEdit,
+        CodeActionTriggerKind, Command, NumberOrString, Position, Range, TextEdit,
     },
 };
 
@@ -28,6 +28,21 @@ impl Backend {
         let _workspace_read = self.document_read(&params.text_document.uri).await;
         let mut actions = self.finalize_lint_code_actions(&params, prepared);
         actions.extend(self.lint_control_actions(&params));
+        let export_kind = CodeActionKind::new(super::super::observability::EXPORT_KIND);
+        if params.context.trigger_kind != Some(CodeActionTriggerKind::AUTOMATIC)
+            && kind_requested(params.context.only.as_deref(), &export_kind)
+        {
+            actions.push(CodeActionOrCommand::CodeAction(CodeAction {
+                title: "Export LSP diagnostic snapshot".into(),
+                kind: Some(export_kind),
+                command: Some(Command {
+                    title: "Export LSP diagnostic snapshot".into(),
+                    command: super::super::observability::EXPORT_COMMAND.into(),
+                    arguments: None,
+                }),
+                ..Default::default()
+            }));
+        }
         let uri = params.text_document.uri;
         let Some(doc) = self.document(&uri) else {
             return Ok(None);

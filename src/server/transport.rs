@@ -191,7 +191,9 @@ pub(super) async fn run() -> io::Result<()> {
     let stdout = tokio::io::stdout();
     let diagnostics = Arc::new(DiagnosticsService::default());
     let workspace = Arc::new(WorkspaceService::default());
-    let compiler_reapers = Arc::new(CompilerReapers::default());
+    let compiler_reapers = Arc::new(CompilerReapers::observed(Arc::downgrade(
+        &workspace.observability,
+    )));
     let server_diagnostics = diagnostics.clone();
     let server_reapers = compiler_reapers.clone();
     let server_workspace = workspace.clone();
@@ -211,7 +213,9 @@ pub(super) async fn run() -> io::Result<()> {
     let service = ExitAwareService {
         inner: service,
         exit,
+        requests: workspace.observability.requests.clone(),
     };
+    workspace.observability.start_sampler().await;
     let stdin_reapers = compiler_reapers.clone();
     let mut server = tokio::spawn(async move {
         Server::new(
@@ -245,6 +249,7 @@ pub(super) async fn run() -> io::Result<()> {
         tracing::error!(%error, "LSP transport failed; draining owned work");
     }
     compiler_reapers.close();
+    workspace.observability.shutdown_sampler().await;
     workspace.shutdown_discovery().await;
     diagnostics.shutdown().await;
     compiler_reapers.wait().await;

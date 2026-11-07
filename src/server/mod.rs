@@ -11,6 +11,7 @@ mod features;
 mod formatter;
 mod lint;
 mod lsp;
+mod observability;
 mod orchestration;
 mod reference_locations;
 mod requests;

@@ -36,6 +36,21 @@ impl LintResults {
             })
     }
 
+    /// Retained entry count for bounded diagnostic accounting.
+    pub(super) fn retained_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Number of retained per-document contributor edges.
+    pub(super) fn contributor_count(&self) -> usize {
+        self.contributors.values().map(Vec::len).sum()
+    }
+
+    /// Every retained result entry, without cloning its `Arc`.
+    pub(super) fn retained(&self) -> impl Iterator<Item = &Arc<LintResult>> {
+        self.entries.values()
+    }
+
     pub(super) fn snapshot_for(&self, path: &Path) -> Option<Arc<snapshot::ProjectSnapshot>> {
         self.entries
             .values()

@@ -2,11 +2,16 @@ use super::{
     compiler::CompilerReapers,
     compiler_service::BaseModule,
     lsp::Backend,
+    observability::{
+        Observability,
+        work::{CancelOnDrop, WorkKind, WorkMetrics},
+    },
     revision::{RevisionStatus, RevisionTicket, wait_for_captured_revision},
     state::revision_result,
 };
 use crate::{
     analysis::{self, DocumentSnapshot, LineIndex, Revision},
+    storage::StorageRegistry,
     workspace::{Document, FileId, PreparedImportTarget, SourceGraph},
 };
 use std::{
@@ -47,25 +52,44 @@ struct PreparedImporter {
     imports: Vec<PreparedImportTarget>,
 }
 
-pub(super) async fn run_staging<T, F>(semaphore: Arc<Semaphore>, operation: F) -> Option<T>
+pub(super) async fn run_staging<T, F>(
+    metrics: Arc<WorkMetrics>,
+    kind: WorkKind,
+    semaphore: Arc<Semaphore>,
+    operation: F,
+) -> Option<T>
 where
     T: Send + 'static,
     F: FnOnce() -> T + Send + 'static,
 {
     let span = tracing::Span::current();
+    let queued = metrics.enqueue(kind);
+    // Admission is queued work: a caller cancelled here never reached a worker.
     let permit = semaphore.acquire_owned().await.ok()?;
-    Some(super::state::blocking_result(
+    let running = queued.start();
+    // The caller-side clone is disarmed on normal completion. Dropping this
+    // future early cancels the logical item while the blocking worker's clone
+    // keeps `executing`/`cancelled_still_running` counted until the body ends.
+    let mut caller = CancelOnDrop::new(running.clone());
+    let result = super::state::blocking_result(
         tokio::task::spawn_blocking(move || {
-            span.in_scope(|| {
+            span.in_scope(move || {
+                let _running = running;
                 let _permit = permit;
                 operation()
             })
         })
         .await,
-    ))
+    );
+    caller.disarm();
+    Some(result)
 }
 
-pub(super) fn trace_document_snapshot(revision: Revision, text: String) -> DocumentSnapshot {
+pub(super) fn trace_document_snapshot(
+    storage: &StorageRegistry,
+    revision: Revision,
+    text: String,
+) -> Arc<DocumentSnapshot> {
     let source_bytes = text.len();
     let span = tracing::info_span!(
         "snapshot.build",
@@ -76,16 +100,18 @@ pub(super) fn trace_document_snapshot(revision: Revision, text: String) -> Docum
         symbol_count = tracing::field::Empty,
         call_count = tracing::field::Empty,
     );
-    let snapshot = span.in_scope(|| DocumentSnapshot::new(revision, text));
+    let snapshot = Arc::new(span.in_scope(|| DocumentSnapshot::new(revision, text)));
     record_snapshot_counts(&span, &snapshot);
+    storage.track_snapshot(&snapshot);
     snapshot
 }
 
 pub(super) fn trace_document_snapshot_with_line_index(
+    storage: &StorageRegistry,
     revision: Revision,
     text: String,
     line_index: LineIndex,
-) -> DocumentSnapshot {
+) -> Arc<DocumentSnapshot> {
     let source_bytes = text.len();
     let span = tracing::info_span!(
         "snapshot.build",
@@ -96,8 +122,11 @@ pub(super) fn trace_document_snapshot_with_line_index(
         symbol_count = tracing::field::Empty,
         call_count = tracing::field::Empty,
     );
-    let snapshot = span.in_scope(|| DocumentSnapshot::with_line_index(revision, text, line_index));
+    let snapshot = Arc::new(
+        span.in_scope(|| DocumentSnapshot::with_line_index(revision, text, line_index)),
+    );
     record_snapshot_counts(&span, &snapshot);
+    storage.track_snapshot(&snapshot);
     snapshot
 }
 
@@ -118,7 +147,7 @@ impl Backend {
         diagnostics: Arc<super::diagnostics::DiagnosticsService>,
         compiler_reapers: Arc<CompilerReapers>,
     ) -> Self {
-        Self {
+        let backend = Self {
             client,
             workspace,
             compiler: Arc::new(super::compiler_service::CompilerService::new(
@@ -128,7 +157,13 @@ impl Backend {
             registration: Arc::new(super::state::State::new(
                 super::workspace_service::RegistrationState::default(),
             )),
-        }
+        };
+        backend.workspace.observability.attach_sources(
+            &backend.workspace,
+            &backend.compiler,
+            &backend.diagnostics,
+        );
+        backend
     }
     pub(super) fn begin_revision(
         &self,
@@ -162,25 +197,35 @@ impl Backend {
             return None;
         }
         let build_path = path.clone();
-        let opened = run_staging(self.workspace.staging.clone(), move || {
-            let snapshot = Arc::new(trace_document_snapshot(Revision(version), text));
-            let document = Document::with_snapshot(uri, language_id, snapshot);
-            let physical_path = build_path
-                .as_deref()
-                .map(crate::workspace::canonical_source_path);
-            let imports = build_path
-                .as_deref()
-                .zip(physical_path.as_deref())
-                .map_or_else(Vec::new, |(path, physical_path)| {
-                    crate::workspace::resolve_import_targets(
-                        path,
-                        physical_path,
-                        &document.snapshot,
-                    )
-                });
-            let library_path = crate::workspace::canonical_library_path();
-            (document, imports, physical_path, library_path)
-        })
+        let observability = self.workspace.observability.clone();
+        let opened = run_staging(
+            observability.work.clone(),
+            WorkKind::Staging,
+            self.workspace.staging.clone(),
+            move || {
+                let snapshot = trace_document_snapshot(
+                    &observability.storage,
+                    Revision(version),
+                    text,
+                );
+                let document = Document::with_snapshot(uri, language_id, snapshot);
+                let physical_path = build_path
+                    .as_deref()
+                    .map(crate::workspace::canonical_source_path);
+                let imports = build_path
+                    .as_deref()
+                    .zip(physical_path.as_deref())
+                    .map_or_else(Vec::new, |(path, physical_path)| {
+                        crate::workspace::resolve_import_targets(
+                            path,
+                            physical_path,
+                            &document.snapshot,
+                        )
+                    });
+                let library_path = crate::workspace::canonical_library_path();
+                (document, imports, physical_path, library_path)
+            },
+        )
         .await?;
         let (document, imports, physical_path, library_path) = opened;
         revision_result(ticket.store_staged_document(document.clone()));
@@ -441,10 +486,15 @@ impl Backend {
         let Some((file, snapshot, path)) = captured else {
             return;
         };
-        let Some((snapshot, paths)) = run_staging(self.workspace.staging.clone(), move || {
-            let paths = crate::workspace::resolve_editor_import_paths(&path, &snapshot);
-            (snapshot, paths)
-        })
+        let Some((snapshot, paths)) = run_staging(
+            self.workspace.observability.work.clone(),
+            WorkKind::Staging,
+            self.workspace.staging.clone(),
+            move || {
+                let paths = crate::workspace::resolve_editor_import_paths(&path, &snapshot);
+                (snapshot, paths)
+            },
+        )
         .await
         else {
             return;
@@ -470,8 +520,11 @@ impl Backend {
         }
         let _serial = self.workspace.update_serial.lock().await;
         let generation = self.workspace.generation();
-        let Some((document, path, physical_path, library_path, imports)) =
-            run_staging(self.workspace.staging.clone(), move || {
+        let Some((document, path, physical_path, library_path, imports)) = run_staging(
+            self.workspace.observability.work.clone(),
+            WorkKind::Staging,
+            self.workspace.staging.clone(),
+            move || {
                 let physical_path = path.as_deref().map(crate::workspace::canonical_source_path);
                 let imports = path.as_deref().zip(physical_path.as_deref()).map_or_else(
                     Vec::new,
@@ -485,8 +538,9 @@ impl Backend {
                 );
                 let library_path = crate::workspace::canonical_library_path();
                 (document, path, physical_path, library_path, imports)
-            })
-            .await
+            },
+        )
+        .await
         else {
             return;
         };
@@ -549,16 +603,21 @@ impl Backend {
             return false;
         };
         let changes = params.content_changes;
-        let Some((updated_document, physical_path, library_path, imports)) =
-            run_staging(self.workspace.staging.clone(), move || {
+        let observability = self.workspace.observability.clone();
+        let Some((updated_document, physical_path, library_path, imports)) = run_staging(
+            observability.work.clone(),
+            WorkKind::Staging,
+            self.workspace.staging.clone(),
+            move || {
                 let (text, line_index) =
                     super::document_text::DocumentText::apply_changes(&document, changes)
                         .into_parts();
-                let snapshot = Arc::new(trace_document_snapshot_with_line_index(
+                let snapshot = trace_document_snapshot_with_line_index(
+                    &observability.storage,
                     Revision(version),
                     text,
                     line_index,
-                ));
+                );
                 let updated_document = Document::with_snapshot(
                     document.uri.clone(),
                     document.language_id.clone(),
@@ -573,8 +632,9 @@ impl Backend {
                 );
                 let library_path = crate::workspace::canonical_library_path();
                 (updated_document, physical_path, library_path, imports)
-            })
-            .await
+            },
+        )
+        .await
         else {
             return false;
         };
@@ -700,26 +760,22 @@ impl Backend {
     #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "source_graph", file_id = tracing::field::Empty))]
     pub(super) async fn compiler_source_graph(&self, uri: Url) -> Option<SourceGraph> {
         let span = tracing::Span::current();
-        let permit = self
-            .diagnostics
-            .analysis
-            .clone()
-            .acquire_owned()
-            .await
-            .ok()?;
         let workspace_db = self.workspace.clone();
-        super::state::blocking_result(
-            tokio::task::spawn_blocking(move || {
+        run_staging(
+            self.workspace.observability.work.clone(),
+            WorkKind::Diagnostics,
+            self.diagnostics.analysis.clone(),
+            move || {
                 span.in_scope(|| {
-                    let _permit = permit;
                     let database = workspace_db.read();
                     let root = database.file_id_by_uri(&uri)?;
                     tracing::Span::current().record("file_id", tracing::field::debug(&root));
                     database.source_graph(root)
                 })
-            })
-            .await,
+            },
         )
+        .await
+        .flatten()
     }
 
     /// Dependents that can publish diagnostics: only open overlays own a
@@ -728,16 +784,15 @@ impl Backend {
     #[tracing::instrument(name = "workspace.query", skip_all, fields(kind = "dependents", file_id = tracing::field::Empty, result_count = tracing::field::Empty))]
     pub(super) async fn dependent_documents(&self, changed: &Url) -> Vec<Document> {
         let span = tracing::Span::current();
-        let Ok(permit) = self.diagnostics.analysis.clone().acquire_owned().await else {
-            return Vec::new();
-        };
         let workspace_db = self.workspace.clone();
         let uri = changed.clone();
         let path = self.document_path(changed);
-        super::state::blocking_result(
-            tokio::task::spawn_blocking(move || {
+        run_staging(
+            self.workspace.observability.work.clone(),
+            WorkKind::Diagnostics,
+            self.diagnostics.analysis.clone(),
+            move || {
                 span.in_scope(|| {
-                    let _permit = permit;
                     let database = workspace_db.read();
                     let documents = if let Some(id) = database.file_id_by_uri(&uri) {
                         tracing::Span::current().record("file_id", tracing::field::debug(&id));
@@ -756,9 +811,10 @@ impl Backend {
                     tracing::Span::current().record("result_count", documents.len());
                     documents
                 })
-            })
-            .await,
+            },
         )
+        .await
+        .unwrap_or_default()
     }
 
     fn watched_snapshot_context(
@@ -820,6 +876,7 @@ impl Backend {
     }
 
     async fn prepare_watched_updates(
+        observability: Arc<Observability>,
         semaphore: Arc<Semaphore>,
         events: Vec<WatchedFile>,
         importers: Vec<WatchedImporter>,
@@ -828,52 +885,58 @@ impl Backend {
         Vec<PreparedImporter>,
         Option<PathBuf>,
     )> {
-        run_staging(semaphore, move || {
-            let updates = events
-                .into_iter()
-                .map(|file| {
-                    let snapshot = std::fs::read_to_string(&file.path)
-                        .ok()
-                        .map(|text| Arc::new(trace_document_snapshot(Revision::UNVERSIONED, text)));
-                    let physical_path = crate::workspace::canonical_source_path(&file.path);
-                    let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
-                        crate::workspace::resolve_import_targets(
-                            &file.path,
-                            &physical_path,
+        run_staging(
+            observability.work.clone(),
+            WorkKind::Staging,
+            semaphore,
+            move || {
+                let storage = &observability.storage;
+                let updates = events
+                    .into_iter()
+                    .map(|file| {
+                        let snapshot = std::fs::read_to_string(&file.path).ok().map(|text| {
+                            trace_document_snapshot(storage, Revision::UNVERSIONED, text)
+                        });
+                        let physical_path = crate::workspace::canonical_source_path(&file.path);
+                        let imports = snapshot.as_ref().map_or_else(Vec::new, |snapshot| {
+                            crate::workspace::resolve_import_targets(
+                                &file.path,
+                                &physical_path,
+                                snapshot,
+                            )
+                        });
+                        PreparedDiskUpdate {
+                            file,
                             snapshot,
-                        )
-                    });
-                    PreparedDiskUpdate {
-                        file,
-                        snapshot,
-                        physical_path,
-                        imports,
-                    }
-                })
-                .collect();
-            let importers = importers
-                .into_iter()
-                .map(|importer| {
-                    let physical_path = crate::workspace::canonical_source_path(&importer.path);
-                    let imports = crate::workspace::resolve_import_targets(
-                        &importer.path,
-                        &physical_path,
-                        &importer.snapshot,
-                    );
-                    PreparedImporter {
-                        id: importer.id,
-                        physical_path,
-                        imports,
-                        snapshot: importer.snapshot,
-                    }
-                })
-                .collect();
-            (
-                updates,
-                importers,
-                crate::workspace::canonical_library_path(),
-            )
-        })
+                            physical_path,
+                            imports,
+                        }
+                    })
+                    .collect();
+                let importers = importers
+                    .into_iter()
+                    .map(|importer| {
+                        let physical_path = crate::workspace::canonical_source_path(&importer.path);
+                        let imports = crate::workspace::resolve_import_targets(
+                            &importer.path,
+                            &physical_path,
+                            &importer.snapshot,
+                        );
+                        PreparedImporter {
+                            id: importer.id,
+                            physical_path,
+                            imports,
+                            snapshot: importer.snapshot,
+                        }
+                    })
+                    .collect();
+                (
+                    updates,
+                    importers,
+                    crate::workspace::canonical_library_path(),
+                )
+            },
+        )
         .await
     }
 
@@ -895,8 +958,13 @@ impl Backend {
         if events.is_empty() && importers.is_empty() {
             return HashMap::new();
         }
-        let Some((prepared, importers, library_path)) =
-            Self::prepare_watched_updates(self.workspace.staging.clone(), events, importers).await
+        let Some((prepared, importers, library_path)) = Self::prepare_watched_updates(
+            self.workspace.observability.clone(),
+            self.workspace.staging.clone(),
+            events,
+            importers,
+        )
+        .await
         else {
             return HashMap::new();
         };
@@ -960,27 +1028,157 @@ impl Backend {
             }
         }
         let workspace_db = self.workspace.clone();
-        let Some(affected) = run_staging(self.workspace.staging.clone(), move || {
-            let database = workspace_db.read();
-            for (id, _) in updates {
-                for document in database.dependents(id) {
-                    affected.insert(document.uri.clone(), document.revision.0);
+        let Some(affected) = run_staging(
+            self.workspace.observability.work.clone(),
+            WorkKind::Staging,
+            self.workspace.staging.clone(),
+            move || {
+                let database = workspace_db.read();
+                for (id, _) in updates {
+                    for document in database.dependents(id) {
+                        affected.insert(document.uri.clone(), document.revision.0);
+                    }
                 }
-            }
-            affected.retain(|uri, version| {
-                let Some(document) = database.open_document(uri) else {
-                    return false;
-                };
-                *version = document.revision.0;
-                true
-            });
-            affected
-        })
+                affected.retain(|uri, version| {
+                    let Some(document) = database.open_document(uri) else {
+                        return false;
+                    };
+                    *version = document.revision.0;
+                    true
+                });
+                affected
+            },
+        )
         .await
         else {
             return HashMap::new();
         };
         tracing::Span::current().record("outcome", "committed");
         affected
+    }
+}
+
+#[cfg(test)]
+mod staging_lifecycle_tests {
+    use super::run_staging;
+    use crate::server::observability::work::{WorkKind, WorkMetrics};
+    use std::{
+        sync::{Arc, mpsc},
+        time::Duration,
+    };
+    use tokio::sync::Semaphore;
+
+    fn metrics() -> Arc<WorkMetrics> {
+        Arc::new(WorkMetrics::new())
+    }
+
+    #[tokio::test]
+    async fn closed_admission_cancels_before_a_worker_starts() {
+        let metrics = metrics();
+        let semaphore = Arc::new(Semaphore::new(0));
+        semaphore.close();
+        let result = run_staging(metrics.clone(), WorkKind::Staging, semaphore, || 1).await;
+        assert!(result.is_none());
+        let totals = metrics.totals();
+        assert_eq!(totals.queued, 0);
+        assert_eq!(totals.executing, 0);
+        assert_eq!(totals.cancelled, 1);
+        assert_eq!(totals.completed, 0);
+    }
+
+    #[tokio::test]
+    async fn abandoning_queued_admission_records_one_cancellation() {
+        let metrics = metrics();
+        let semaphore = Arc::new(Semaphore::new(0));
+        let mut future = Box::pin(run_staging(
+            metrics.clone(),
+            WorkKind::Staging,
+            semaphore,
+            || (),
+        ));
+        let waited = tokio::time::timeout(Duration::from_millis(50), future.as_mut()).await;
+        assert!(waited.is_err());
+        drop(future);
+        let totals = metrics.totals();
+        assert_eq!(totals.queued, 0);
+        assert_eq!(totals.executing, 0);
+        assert_eq!(totals.cancelled, 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cancellation_after_worker_start_counts_until_the_body_ends() {
+        let metrics = metrics();
+        let semaphore = Arc::new(Semaphore::new(1));
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let handle = tokio::spawn(run_staging(
+            metrics.clone(),
+            WorkKind::Staging,
+            semaphore,
+            move || {
+                let _ = started_tx.send(());
+                let _ = release_rx.recv();
+                7
+            },
+        ));
+        let _ = tokio::task::spawn_blocking(move || started_rx.recv()).await;
+
+        handle.abort();
+        let _ = handle.await;
+        let totals = metrics.totals();
+        assert_eq!(totals.executing, 1);
+        assert_eq!(totals.cancelled_still_running, 1);
+        assert_eq!(totals.cancelled, 1);
+        assert_eq!(totals.completed, 0);
+
+        let _ = release_tx.send(());
+        let waited = tokio::time::timeout(Duration::from_secs(5), async {
+            while metrics.totals().executing != 0 {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await;
+        assert!(waited.is_ok());
+        let totals = metrics.totals();
+        assert_eq!(totals.executing, 0);
+        assert_eq!(totals.cancelled_still_running, 0);
+        assert_eq!(totals.cancelled, 1);
+        assert_eq!(totals.completed, 0);
+    }
+
+    #[tokio::test]
+    async fn normal_completion_settles_exactly_once() {
+        let metrics = metrics();
+        let result = run_staging(
+            metrics.clone(),
+            WorkKind::Staging,
+            Arc::new(Semaphore::new(1)),
+            || 7,
+        )
+        .await;
+        assert_eq!(result, Some(7));
+        let totals = metrics.totals();
+        assert_eq!(totals.queued, 0);
+        assert_eq!(totals.executing, 0);
+        assert_eq!(totals.completed, 1);
+        assert_eq!(totals.cancelled, 0);
+        assert_eq!(totals.failed, 0);
+    }
+
+    #[tokio::test]
+    async fn panicking_worker_is_failed_not_completed() {
+        let metrics = metrics();
+        let handle = tokio::spawn(run_staging(
+            metrics.clone(),
+            WorkKind::Staging,
+            Arc::new(Semaphore::new(1)),
+            || panic!("staging body failed"),
+        ));
+        assert!(handle.await.is_err());
+        let totals = metrics.totals();
+        assert_eq!(totals.executing, 0);
+        assert_eq!(totals.failed, 1);
+        assert_eq!(totals.completed, 0);
+        assert_eq!(totals.cancelled, 0);
     }
 }
