@@ -246,6 +246,54 @@ mod tests {
     }
 
     #[test]
+    fn protected_null_dacl_is_rejected_without_panicking()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use windows_permissions::wrappers::SetNamedSecurityInfo;
+
+        let root = tempfile::tempdir()?;
+        // Keep the permissive fixture inaccessible through its owner-only parent.
+        let stage = PrivateDirectory::new(root.path(), "null-dacl-")?;
+        let fixture = stage.path.join("fixture");
+        std::fs::write(&fixture, b"")?;
+        SetNamedSecurityInfo(
+            &fixture,
+            SeObjectType::SE_FILE_OBJECT,
+            SecurityInformation::Dacl | SecurityInformation::ProtectedDacl,
+            None,
+            None,
+            None,
+            None,
+        )?;
+
+        let observed = GetNamedSecurityInfo(
+            &fixture,
+            SeObjectType::SE_FILE_OBJECT,
+            SecurityInformation::Dacl,
+        )
+        .and_then(|descriptor| {
+            ConvertSecurityDescriptorToStringSecurityDescriptor(
+                &descriptor,
+                SecurityInformation::Dacl,
+            )
+        });
+        let verified = std::panic::catch_unwind(|| verify_owner_acl(&fixture));
+        // Remove the empty, permissive file before checking either outcome.
+        std::fs::remove_file(&fixture)?;
+
+        let sddl = observed?;
+        assert!(
+            sddl.to_string_lossy().contains("D:P")
+                && sddl.to_string_lossy().contains("NO_ACCESS_CONTROL"),
+            "fixture must have a protected, present NULL DACL: {sddl:?}"
+        );
+        assert_eq!(
+            verified.expect("valid NULL DACL must not panic"),
+            Err(ExportError::PermissionRestriction)
+        );
+        Ok(())
+    }
+
+    #[test]
     fn new_file_has_protected_owner_dacl_while_handle_is_open_before_first_write()
     -> Result<(), Box<dyn std::error::Error>> {
         let parent = tempfile::tempdir()?;
