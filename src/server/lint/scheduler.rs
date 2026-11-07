@@ -553,14 +553,16 @@ impl Backend {
                         }
                         view
                     } else {
-                        let snapshot = match reusable.filter(|snapshot| snapshot.refreshable(&capture_file)) {
-                            Some(snapshot) => Arc::new(snapshot.with_overlays(&documents)?),
-                            None => Arc::new(snapshot::ProjectSnapshot::capture(
-                                &capture_file,
-                                &documents,
-                            )?),
-                        };
-                        for source in snapshot.source_snapshots()
+                        let snapshot =
+                            match reusable.filter(|snapshot| snapshot.refreshable(&capture_file)) {
+                                Some(snapshot) => Arc::new(snapshot.with_overlays(&documents)?),
+                                None => Arc::new(snapshot::ProjectSnapshot::capture(
+                                    &capture_file,
+                                    &documents,
+                                )?),
+                            };
+                        for source in snapshot
+                            .source_snapshots()
                             .chain(snapshot.overlay_snapshots())
                             .chain(snapshot.trusted_rule_snapshots())
                         {
@@ -691,7 +693,11 @@ impl Backend {
         key: PreparationKey,
         token: PreparationToken,
     ) {
-        let queued = self.workspace.observability.work.enqueue(WorkKind::Preparation);
+        let queued = self
+            .workspace
+            .observability
+            .work
+            .enqueue(WorkKind::Preparation);
         let outcome = match self
             .diagnostics
             .lint

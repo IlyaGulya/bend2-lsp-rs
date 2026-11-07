@@ -6,7 +6,11 @@
 
 use super::{ExportError, stage_name};
 use rustix::fs::{self, AtFlags, Mode, OFlags};
-use std::{fs::File, io::{self, Write}, path::{Path, PathBuf}};
+use std::{
+    fs::File,
+    io::{self, Write},
+    path::{Path, PathBuf},
+};
 
 const STAGED_FILE: &str = "report";
 
@@ -20,10 +24,6 @@ struct PrivateDirectory {
 }
 
 impl PrivateDirectory {
-    fn new(parent: &Path, prefix: &str) -> Result<Self, ExportError> {
-        Self::new_with_created(parent, prefix, |_| {})
-    }
-
     // Test seam: a parent-entry writer may move the new directory after
     // mkdirat and before we acquire its descriptor.
     fn new_with_created(
@@ -50,7 +50,8 @@ impl PrivateDirectory {
             }
             on_created(&parent.join(&name));
             let descriptor = fs::openat(
-                &parent_fd, name.as_str(),
+                &parent_fd,
+                name.as_str(),
                 OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
                 Mode::empty(),
             );
@@ -79,12 +80,12 @@ impl PrivateDirectory {
 
     fn restrict_directory(&self) -> Result<(), ExportError> {
         let stat = fs::fstat(&self.directory).map_err(|error| io_error(error.into()))?;
-        if stat.st_uid != rustix::process::geteuid().as_raw() ||
-            (stat.st_mode & 0o170000) != 0o040000 {
+        if stat.st_uid != rustix::process::geteuid().as_raw()
+            || (stat.st_mode & 0o170000) != 0o040000
+        {
             return Err(ExportError::PermissionRestriction);
         }
-        fs::fchmod(&self.directory, Mode::RWXU)
-            .map_err(|error| io_error(error.into()))?;
+        fs::fchmod(&self.directory, Mode::RWXU).map_err(|error| io_error(error.into()))?;
         #[cfg(target_os = "macos")]
         restrict_extended_acl(&self.directory)?;
         let stat = fs::fstat(&self.directory).map_err(|error| io_error(error.into()))?;
@@ -124,7 +125,7 @@ pub(super) fn private_directory(parent: &Path, prefix: &str) -> Result<PathBuf, 
         return Ok(PrivateDirectory::new_from_parent(parent, parent_fd, prefix, |_| {})?.keep());
     }
     #[cfg(not(target_os = "macos"))]
-    Ok(PrivateDirectory::new(parent, prefix)?.keep())
+    Ok(PrivateDirectory::new_with_created(parent, prefix, |_| {})?.keep())
 }
 
 #[cfg(target_os = "macos")]
@@ -134,9 +135,10 @@ fn verify_noarg_parent(parent: &File) -> Result<(), ExportError> {
     // The noarg directory itself must be private from the moment it is
     // created. A foreign-inheritable ACE on TMPDIR cannot be removed before
     // mkdirat, unlike the empty staging directory used by explicit exports.
-    if (stat.st_mode & 0o170000) != 0o040000 ||
-        (stat.st_uid != rustix::process::geteuid().as_raw() && stat.st_uid != 0) ||
-        stat.st_mode & 0o022 != 0 {
+    if (stat.st_mode & 0o170000) != 0o040000
+        || (stat.st_uid != rustix::process::geteuid().as_raw() && stat.st_uid != 0)
+        || stat.st_mode & 0o022 != 0
+    {
         return Err(ExportError::PermissionRestriction);
     }
     let acl = calcifer_macos_acl::read_acl(parent.as_fd())
@@ -156,23 +158,29 @@ fn publish_report_with_created(
     payload: &[u8],
     on_created: impl FnOnce(&Path),
 ) -> Result<(), ExportError> {
-    let parent = destination.parent().ok_or(ExportError::ParentNotDirectory)?;
+    let parent = destination
+        .parent()
+        .ok_or(ExportError::ParentNotDirectory)?;
     let name = destination.file_name().ok_or(ExportError::InvalidUri)?;
-    let mut stage = PrivateDirectory::new_with_created(parent, ".bend2-diagnostic-report-", on_created)?;
+    let mut stage =
+        PrivateDirectory::new_with_created(parent, ".bend2-diagnostic-report-", on_created)?;
     let fd = fs::openat(
-        &stage.directory, STAGED_FILE,
+        &stage.directory,
+        STAGED_FILE,
         OFlags::CREATE | OFlags::EXCL | OFlags::WRONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
         Mode::RUSR | Mode::WUSR,
-    ).map_err(|error| io_error(error.into()))?;
+    )
+    .map_err(|error| io_error(error.into()))?;
     stage.created_report = true;
     let mut file = File::from(fd);
-    fs::fchmod(&file, Mode::RUSR | Mode::WUSR)
-        .map_err(|error| io_error(error.into()))?;
+    fs::fchmod(&file, Mode::RUSR | Mode::WUSR).map_err(|error| io_error(error.into()))?;
     #[cfg(target_os = "macos")]
     restrict_extended_acl(&file)?;
     let stat = fs::fstat(&file).map_err(|error| io_error(error.into()))?;
-    if stat.st_mode & 0o777 != 0o600 || stat.st_uid != rustix::process::geteuid().as_raw() ||
-        (stat.st_mode & 0o170000) != 0o100000 {
+    if stat.st_mode & 0o777 != 0o600
+        || stat.st_uid != rustix::process::geteuid().as_raw()
+        || (stat.st_mode & 0o170000) != 0o100000
+    {
         return Err(ExportError::PermissionRestriction);
     }
     file.write_all(payload).map_err(io_error)?;
@@ -183,11 +191,19 @@ fn publish_report_with_created(
     // not support multiple links to the same file.
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     let publication = fs::renameat_with(
-        &stage.directory, STAGED_FILE, &stage.parent, name, fs::RenameFlags::NOREPLACE,
+        &stage.directory,
+        STAGED_FILE,
+        &stage.parent,
+        name,
+        fs::RenameFlags::NOREPLACE,
     );
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     let publication = fs::linkat(
-        &stage.directory, STAGED_FILE, &stage.parent, name, AtFlags::empty(),
+        &stage.directory,
+        STAGED_FILE,
+        &stage.parent,
+        name,
+        AtFlags::empty(),
     );
     publication.map_err(|error| {
         let error: io::Error = error.into();
@@ -209,8 +225,7 @@ fn restrict_extended_acl(file: &File) -> Result<(), ExportError> {
     use std::os::fd::AsFd;
     // Operate on the held vnode, never on a pathname that another process
     // could substitute between clearing and checking the ACL.
-    calcifer_macos_acl::clear_acl(file.as_fd())
-        .map_err(|_| ExportError::PermissionRestriction)?;
+    calcifer_macos_acl::clear_acl(file.as_fd()).map_err(|_| ExportError::PermissionRestriction)?;
     let acl = calcifer_macos_acl::read_acl(file.as_fd())
         .map_err(|_| ExportError::PermissionRestriction)?;
     if !acl.is_empty() {
@@ -218,7 +233,6 @@ fn restrict_extended_acl(file: &File) -> Result<(), ExportError> {
     }
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -231,7 +245,9 @@ mod tests {
 
         let parent = tempfile::tempdir()?;
         let replacement = parent.path().join("private-replacement");
-        std::fs::DirBuilder::new().mode(0o700).create(&replacement)?;
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&replacement)?;
         let original = replacement.join(STAGED_FILE);
         std::fs::write(&original, b"unrelated report")?;
         let destination = parent.path().join("destination.json");
@@ -247,7 +263,10 @@ mod tests {
         assert_eq!(result, Err(ExportError::Io(io::ErrorKind::AlreadyExists)));
         let stage_path = staged.borrow();
         let stage_path = stage_path.as_ref().expect("stage entry was created");
-        assert_eq!(std::fs::read(stage_path.join(STAGED_FILE))?, b"unrelated report");
+        assert_eq!(
+            std::fs::read(stage_path.join(STAGED_FILE))?,
+            b"unrelated report"
+        );
         assert!(!destination.exists());
         Ok(())
     }

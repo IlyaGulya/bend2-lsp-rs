@@ -34,7 +34,9 @@ impl Write for BoundedReport {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         if bytes.len() > MAX_REPORT_BYTES.saturating_sub(self.bytes.len()) {
             self.rejected = true;
-            return Err(io::Error::other("diagnostic snapshot exceeds its size limit"));
+            return Err(io::Error::other(
+                "diagnostic snapshot exceeds its size limit",
+            ));
         }
         self.bytes.extend_from_slice(bytes);
         Ok(bytes.len())
@@ -45,8 +47,14 @@ impl Write for BoundedReport {
     }
 }
 
-fn write_report(destination: Option<String>, report: &impl Serialize) -> std::result::Result<WrittenReport, ExportError> {
-    let mut payload = BoundedReport { bytes: Vec::new(), rejected: false };
+fn write_report(
+    destination: Option<String>,
+    report: &impl Serialize,
+) -> std::result::Result<WrittenReport, ExportError> {
+    let mut payload = BoundedReport {
+        bytes: Vec::new(),
+        rejected: false,
+    };
     if serde_json::to_writer_pretty(&mut payload, report).is_err() {
         return Err(if payload.rejected {
             ExportError::PayloadTooLarge
@@ -81,7 +89,11 @@ fn write_report(destination: Option<String>, report: &impl Serialize) -> std::re
         let _ = std::fs::remove_dir(directory);
     }
     let outcome = outcome?;
-    Ok(WrittenReport { uri, bytes_written: outcome.bytes_written, schema_version: 1 })
+    Ok(WrittenReport {
+        uri,
+        bytes_written: outcome.bytes_written,
+        schema_version: 1,
+    })
 }
 
 impl Backend {
@@ -95,23 +107,39 @@ impl Backend {
             None => None,
             Some(argument) if arguments.is_empty() => Some(
                 serde_json::from_value::<ExportArguments>(argument)
-                    .map_err(|_| Error::invalid_params("Expected one object containing a file URI."))?
+                    .map_err(|_| {
+                        Error::invalid_params("Expected one object containing a file URI.")
+                    })?
                     .uri,
             ),
-            Some(_) => return Err(Error::invalid_params("Expected no arguments or one destination object.")),
+            Some(_) => {
+                return Err(Error::invalid_params(
+                    "Expected no arguments or one destination object.",
+                ));
+            }
         };
-        let report = self.workspace.observability.collect_report().await
+        let report = self
+            .workspace
+            .observability
+            .collect_report()
+            .await
             .map_err(|_| Error::internal_error())?;
-        let written = self.workspace.observability.blocking(
-            WorkKind::SnapshotExport,
-            move || write_report(destination, &report),
-        ).await.ok_or_else(Error::internal_error)?
+        let written = self
+            .workspace
+            .observability
+            .blocking(WorkKind::SnapshotExport, move || {
+                write_report(destination, &report)
+            })
+            .await
+            .ok_or_else(Error::internal_error)?
             .map_err(|error| Error::invalid_params(error.to_string()))?;
         self.client.show_message(
             MessageType::INFO,
             format!("Diagnostic snapshot saved to {}. The local report excludes source text and source paths.", written.uri),
         ).await;
-        serde_json::to_value(written).map(Some).map_err(|_| Error::internal_error())
+        serde_json::to_value(written)
+            .map(Some)
+            .map_err(|_| Error::internal_error())
     }
 }
 
@@ -125,12 +153,20 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let written = write_report(None, &serde_json::json!({"schemaVersion": 1}))
             .expect("no-argument export");
-        let file = Url::parse(&written.uri).expect("result URI")
-            .to_file_path().expect("local report path");
+        let file = Url::parse(&written.uri)
+            .expect("result URI")
+            .to_file_path()
+            .expect("local report path");
         let parent = file.parent().expect("report parent");
-        let mode = std::fs::metadata(parent).expect("report directory")
-            .permissions().mode() & 0o777;
-        assert_eq!(mode, 0o700, "report directory must not be readable by others");
+        let mode = std::fs::metadata(parent)
+            .expect("report directory")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(
+            mode, 0o700,
+            "report directory must not be readable by others"
+        );
         assert!(file.is_file());
         std::fs::remove_file(&file).expect("remove test report");
         std::fs::remove_dir(parent).expect("remove test directory");
@@ -141,21 +177,41 @@ mod tests {
     fn no_argument_export_does_not_grant_everyone_directory_read() {
         let written = write_report(None, &serde_json::json!({"schemaVersion": 1}))
             .expect("no-argument export");
-        let file = Url::parse(&written.uri).expect("result URI")
-            .to_file_path().expect("local report path");
+        let file = Url::parse(&written.uri)
+            .expect("result URI")
+            .to_file_path()
+            .expect("local report path");
         let parent = file.parent().expect("report parent");
-        use windows_permissions::{constants::{SeObjectType, SecurityInformation}, wrappers::GetNamedSecurityInfo};
-        let descriptor = GetNamedSecurityInfo(parent, SeObjectType::SE_FILE_OBJECT,
-            SecurityInformation::Dacl).expect("inspect directory DACL");
+        use windows_permissions::{
+            constants::{SeObjectType, SecurityInformation},
+            wrappers::GetNamedSecurityInfo,
+        };
+        let descriptor = GetNamedSecurityInfo(
+            parent,
+            SeObjectType::SE_FILE_OBJECT,
+            SecurityInformation::Dacl,
+        )
+        .expect("inspect directory DACL");
         let acl = descriptor.dacl().expect("non-NULL directory DACL");
         assert_eq!(acl.len(), 1, "directory must grant only its owner");
-        let owner = acl.get_ace(0).and_then(windows_permissions::Ace::sid)
+        let owner = acl
+            .get_ace(0)
+            .and_then(windows_permissions::Ace::sid)
             .expect("directory owner SID");
-        assert_eq!(owner.to_string(), super::super::export::current_user_sid()
-            .expect("current user SID"));
-        let sddl = windows_permissions::wrappers::ConvertSecurityDescriptorToStringSecurityDescriptor(
-            &descriptor, SecurityInformation::Dacl).expect("directory DACL SDDL");
-        assert!(sddl.to_string_lossy().contains("D:P"), "directory DACL unprotected: {sddl:?}");
+        assert_eq!(
+            owner.to_string(),
+            super::super::export::current_user_sid().expect("current user SID")
+        );
+        let sddl =
+            windows_permissions::wrappers::ConvertSecurityDescriptorToStringSecurityDescriptor(
+                &descriptor,
+                SecurityInformation::Dacl,
+            )
+            .expect("directory DACL SDDL");
+        assert!(
+            sddl.to_string_lossy().contains("D:P"),
+            "directory DACL unprotected: {sddl:?}"
+        );
         std::fs::remove_file(&file).expect("remove test report");
         std::fs::remove_dir(parent).expect("remove test directory");
     }

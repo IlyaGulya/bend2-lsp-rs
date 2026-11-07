@@ -122,9 +122,8 @@ pub(super) fn trace_document_snapshot_with_line_index(
         symbol_count = tracing::field::Empty,
         call_count = tracing::field::Empty,
     );
-    let snapshot = Arc::new(
-        span.in_scope(|| DocumentSnapshot::with_line_index(revision, text, line_index)),
-    );
+    let snapshot =
+        Arc::new(span.in_scope(|| DocumentSnapshot::with_line_index(revision, text, line_index)));
     record_snapshot_counts(&span, &snapshot);
     storage.track_snapshot(&snapshot);
     snapshot
@@ -203,11 +202,8 @@ impl Backend {
             WorkKind::Staging,
             self.workspace.staging.clone(),
             move || {
-                let snapshot = trace_document_snapshot(
-                    &observability.storage,
-                    Revision(version),
-                    text,
-                );
+                let snapshot =
+                    trace_document_snapshot(&observability.storage, Revision(version), text);
                 let document = Document::with_snapshot(uri, language_id, snapshot);
                 let physical_path = build_path
                     .as_deref()

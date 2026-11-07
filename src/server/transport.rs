@@ -9,9 +9,12 @@ use std::{
 };
 
 use super::{
-    compiler::CompilerReapers, diagnostics::DiagnosticsService, lsp::Backend,
-    observability::requests::{RequestFuture, RequestMetrics, RequestMethod},
-    telemetry, workspace_service::WorkspaceService,
+    compiler::CompilerReapers,
+    diagnostics::DiagnosticsService,
+    lsp::Backend,
+    observability::requests::{RequestFuture, RequestMethod, RequestMetrics},
+    telemetry,
+    workspace_service::WorkspaceService,
 };
 use tokio::{
     io::{AsyncRead, AsyncWrite, ReadBuf},

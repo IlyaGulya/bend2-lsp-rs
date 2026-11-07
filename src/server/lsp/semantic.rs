@@ -24,11 +24,7 @@ use crate::{
 };
 
 use super::Backend;
-use crate::server::{
-    features,
-    observability::work::WorkKind,
-    orchestration::run_staging,
-};
+use crate::server::{features, observability::work::WorkKind, orchestration::run_staging};
 use url::Url;
 
 pub(in crate::server) struct Selection {

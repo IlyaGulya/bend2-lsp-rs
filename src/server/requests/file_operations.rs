@@ -1,8 +1,5 @@
 use super::super::{
-    adapters,
-    lsp::Backend,
-    observability::work::WorkKind,
-    orchestration::run_staging,
+    adapters, lsp::Backend, observability::work::WorkKind, orchestration::run_staging,
 };
 use crate::{
     analysis::{DocumentSnapshot, Revision},
@@ -616,13 +613,13 @@ impl Backend {
                 move || prepare_rename_paths(&staging_requested, paths),
             )
             .await?
-                {
-                    Ok(renames) => renames,
-                    Err(error) => {
-                        tracing::warn!(%error, "Ignoring conflicting filesystem rename aliases");
-                        return None;
-                    }
-                };
+            {
+                Ok(renames) => renames,
+                Err(error) => {
+                    tracing::warn!(%error, "Ignoring conflicting filesystem rename aliases");
+                    return None;
+                }
+            };
             let read = self.file_rename_ready_read().await;
             if generation != self.workspace.generation() {
                 continue;

@@ -915,15 +915,21 @@ impl WorkspaceDb {
             .saturating_add(element_bytes::<(FileId, HashSet<FileId>)>(
                 self.semantic_dependents.capacity(),
             ))
-            .saturating_add(element_bytes::<FileId>(self.dirty_semantic_roots.capacity()))
+            .saturating_add(element_bytes::<FileId>(
+                self.dirty_semantic_roots.capacity(),
+            ))
             .saturating_add(element_bytes::<(PathBuf, PhysicalAliases)>(
                 self.physical_files.capacity(),
             ))
-            .saturating_add(element_bytes::<(PathBuf, u64)>(self.physical_generations.capacity()))
+            .saturating_add(element_bytes::<(PathBuf, u64)>(
+                self.physical_generations.capacity(),
+            ))
             .saturating_add(element_bytes::<(PathBuf, HashSet<FileId>)>(
                 self.semantic_physical_dependents.capacity(),
             ))
-            .saturating_add(element_bytes::<FileId>(self.semantic_base_importers.capacity()))
+            .saturating_add(element_bytes::<FileId>(
+                self.semantic_base_importers.capacity(),
+            ))
             .saturating_add(element_bytes::<(PathBuf, ImportWatchDependents)>(
                 self.import_path_dependents.capacity(),
             ))
@@ -947,8 +953,7 @@ impl WorkspaceDb {
                 self.semantic_physical_dependents
                     .iter()
                     .map(|(path, roots)| {
-                        path_bytes(path)
-                            .saturating_add(element_bytes::<FileId>(roots.capacity()))
+                        path_bytes(path).saturating_add(element_bytes::<FileId>(roots.capacity()))
                     })
                     .fold(0u64, u64::saturating_add),
             )

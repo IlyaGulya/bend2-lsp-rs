@@ -13,7 +13,7 @@
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex, MutexGuard, PoisonError, Weak},
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
 use serde::Serialize;
@@ -117,10 +117,12 @@ impl RegistryState {
             let Some((key, generation)) = self.snapshot_order.pop_front() else {
                 break;
             };
-            let tracked = self
-                .snapshots
-                .get(&key)
-                .map(|entry| (entry.generation == generation, entry.handle.strong_count() == 0));
+            let tracked = self.snapshots.get(&key).map(|entry| {
+                (
+                    entry.generation == generation,
+                    entry.handle.strong_count() == 0,
+                )
+            });
             match tracked {
                 Some((true, true)) => {
                     self.snapshots.remove(&key);
@@ -136,10 +138,12 @@ impl RegistryState {
             let Some((key, generation)) = self.view_order.pop_front() else {
                 break;
             };
-            let tracked = self
-                .views
-                .get(&key)
-                .map(|entry| (entry.generation == generation, entry.handle.strong_count() == 0));
+            let tracked = self.views.get(&key).map(|entry| {
+                (
+                    entry.generation == generation,
+                    entry.handle.strong_count() == 0,
+                )
+            });
             match tracked {
                 Some((true, true)) => {
                     self.views.remove(&key);
@@ -164,7 +168,10 @@ pub(crate) struct StorageRegistry {
 
 impl StorageRegistry {
     fn lock(&self) -> MutexGuard<'_, RegistryState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        match self.state.lock() {
+            Ok(state) => state,
+            Err(error) => panic!("snapshot accounting invariant failed: {error}"),
+        }
     }
 
     /// Track one actual snapshot allocation. Repeated calls for the same
@@ -358,7 +365,10 @@ mod tests {
 
         let summary = registry.snapshot();
         assert_eq!(summary.snapshots.live_snapshots, 2);
-        assert_eq!(summary.snapshots.source_bytes, saturating_u64(source.len() * 2));
+        assert_eq!(
+            summary.snapshots.source_bytes,
+            saturating_u64(source.len() * 2)
+        );
         Ok(())
     }
 

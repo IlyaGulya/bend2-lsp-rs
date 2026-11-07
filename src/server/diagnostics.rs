@@ -237,7 +237,11 @@ impl Backend {
     pub(super) async fn schedule_diagnostics(&self, uri: Url, version: i32) {
         let backend = self.clone();
         let task_uri = uri.clone();
-        let queued = self.workspace.observability.work.enqueue(WorkKind::Diagnostics);
+        let queued = self
+            .workspace
+            .observability
+            .work
+            .enqueue(WorkKind::Diagnostics);
         let span = tracing::info_span!(
             parent: None, "diagnostics.run", revision = version,
             diagnostic_count = tracing::field::Empty, outcome = tracing::field::Empty,

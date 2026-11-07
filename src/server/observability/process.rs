@@ -6,14 +6,14 @@
 //! Every function blocks on ordinary OS reads and is intended to be called
 //! from `spawn_blocking`, never from the LSP async hot path.
 
-use serde::Serialize;
-use std::{error::Error, fmt};
 #[cfg(target_os = "linux")]
 use nix::fcntl::{OFlag, open, openat};
 #[cfg(target_os = "linux")]
 use nix::sys::stat::Mode;
+use serde::Serialize;
 #[cfg(target_os = "linux")]
 use std::io::Read;
+use std::{error::Error, fmt};
 
 pub(crate) const MEMORY_SCOPE: &str = "single process only: the LSP server or one compiler child owned by it; excludes descendant processes, unrelated processes, system memory, heap-live bytes and allocator overhead; OS figures are kernel-approximate";
 
@@ -23,11 +23,7 @@ pub(crate) enum ProcessMemoryError {
     ProcessExited,
     IdentityChanged,
     SamplingFailed,
-    #[cfg(not(any(
-        target_os = "linux",
-        target_os = "macos",
-        target_os = "windows"
-    )))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     PlatformUnsupported,
 }
 
@@ -35,18 +31,16 @@ impl fmt::Display for ProcessMemoryError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidPid => formatter.write_str("process memory requires a nonzero PID"),
-            Self::ProcessExited => formatter.write_str("process memory target is no longer running"),
+            Self::ProcessExited => {
+                formatter.write_str("process memory target is no longer running")
+            }
             Self::IdentityChanged => {
                 formatter.write_str("process identity changed; refusing a reused PID")
             }
             Self::SamplingFailed => {
                 formatter.write_str("operating system process-memory query failed")
             }
-            #[cfg(not(any(
-                target_os = "linux",
-                target_os = "macos",
-                target_os = "windows"
-            )))]
+            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
             Self::PlatformUnsupported => {
                 formatter.write_str("process memory is unsupported on this operating system")
             }
@@ -98,12 +92,12 @@ struct ProcessIdentity {
 }
 
 impl ProcessIdentity {
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "macos",
-        target_os = "windows"
-    ))]
-    fn verify(self, observed_pid: u32, observed_start_marker: u64) -> Result<(), ProcessMemoryError> {
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+    fn verify(
+        self,
+        observed_pid: u32,
+        observed_start_marker: u64,
+    ) -> Result<(), ProcessMemoryError> {
         if observed_pid != self.pid || observed_start_marker != self.start_marker {
             return Err(ProcessMemoryError::IdentityChanged);
         }
@@ -195,18 +189,10 @@ const METRIC_DEFINITIONS: &[MemoryMetricDefinition] = &[
     },
 ];
 
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "windows"
-)))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 const METRIC_DEFINITIONS: &[MemoryMetricDefinition] = &[];
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "windows"
-))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 struct RawMemory {
     resident_bytes: u64,
     peak_resident_bytes: Option<u64>,
@@ -214,11 +200,7 @@ struct RawMemory {
     physical_footprint_bytes: Option<u64>,
 }
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "windows"
-))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 fn finish_sample(identity: ProcessIdentity, raw: RawMemory) -> ProcessMemorySample {
     ProcessMemorySample {
         pid: identity.pid,
@@ -232,11 +214,7 @@ fn finish_sample(identity: ProcessIdentity, raw: RawMemory) -> ProcessMemorySamp
     }
 }
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "windows"
-))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 fn build_unavailable(raw: &RawMemory) -> Vec<MemoryMetricUnavailable> {
     let mut unavailable = Vec::new();
     if raw.peak_resident_bytes.is_none() {
@@ -337,8 +315,7 @@ impl ProcessMemoryObserver {
             )
             .map_err(|error| io_failure(&std::io::Error::from(error)))?,
         );
-        let stat = linux_read_proc_file(&directory, "stat")
-            .map_err(|error| io_failure(&error))?;
+        let stat = linux_read_proc_file(&directory, "stat").map_err(|error| io_failure(&error))?;
         let (observed_pid, start_marker) = linux_live_identity(&stat)?;
         if observed_pid != pid {
             return Err(ProcessMemoryError::IdentityChanged);
@@ -350,7 +327,9 @@ impl ProcessMemoryObserver {
     }
 
     pub(crate) fn sample(&self) -> Result<ProcessMemorySample, ProcessMemoryError> {
-        linux_sample_with(self.identity, |name| linux_read_proc_file(&self.directory, name))
+        linux_sample_with(self.identity, |name| {
+            linux_read_proc_file(&self.directory, name)
+        })
     }
 }
 
@@ -501,11 +480,7 @@ impl ProcessMemoryObserver {
     }
 }
 
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "windows"
-)))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 impl ProcessMemoryObserver {
     pub(crate) fn capture(pid: u32) -> Result<Self, ProcessMemoryError> {
         let identity = ProcessIdentity {
@@ -599,9 +574,7 @@ fn io_failure(error: &std::io::Error) -> ProcessMemoryError {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_usage(
-    pid: u32,
-) -> Result<libproc::pid_rusage::RUsageInfoV2, ProcessMemoryError> {
+fn macos_usage(pid: u32) -> Result<libproc::pid_rusage::RUsageInfoV2, ProcessMemoryError> {
     let signed_pid = i32::try_from(pid).map_err(|_| ProcessMemoryError::InvalidPid)?;
     libproc::pid_rusage::pidrusage::<libproc::pid_rusage::RUsageInfoV2>(signed_pid)
         .map_err(|_| ProcessMemoryError::SamplingFailed)
@@ -650,7 +623,8 @@ mod tests {
     #[cfg(any(target_os = "linux", test))]
     #[test]
     fn proc_stat_start_time_handles_command_names_with_spaces_and_parentheses() {
-        let line = "4242 (bend lint (worker)) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 12345 21 22";
+        let line =
+            "4242 (bend lint (worker)) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 12345 21 22";
         assert_eq!(linux_start_time(line), Some((4242, 12345, "S")));
     }
 
@@ -659,9 +633,7 @@ mod tests {
     fn proc_stat_rejects_truncated_or_non_numeric_start_time() {
         assert_eq!(linux_start_time("4242 (worker) S 1 2"), None);
         assert_eq!(
-            linux_start_time(
-                "4242 (worker) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 nope"
-            ),
+            linux_start_time("4242 (worker) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 nope"),
             None
         );
     }
@@ -695,18 +667,26 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     fn fixture_stat(start_marker: u64) -> String {
-        format!("4242 (owned compiler) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 {start_marker} 20 21\n")
+        format!(
+            "4242 (owned compiler) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 {start_marker} 20 21\n"
+        )
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn linux_sample_rejects_reused_pid_after_reading_other_process_memory()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         let proc = tempfile::tempdir()?;
         let stat = proc.path().join("stat");
         std::fs::write(&stat, fixture_stat(101))?;
-        std::fs::write(proc.path().join("status"), "VmRSS: 900 kB\nVmHWM: 1200 kB\n")?;
-        let identity = ProcessIdentity { pid: 4242, start_marker: 101 };
+        std::fs::write(
+            proc.path().join("status"),
+            "VmRSS: 900 kB\nVmHWM: 1200 kB\n",
+        )?;
+        let identity = ProcessIdentity {
+            pid: 4242,
+            start_marker: 101,
+        };
         let result = linux_sample_with(identity, |name| {
             let text = std::fs::read_to_string(proc.path().join(name))?;
             if name == "status" {
@@ -720,13 +700,15 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn linux_sample_rejects_exit_after_reading_memory()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn linux_sample_rejects_exit_after_reading_memory() -> Result<(), Box<dyn Error>> {
         let proc = tempfile::tempdir()?;
         let stat = proc.path().join("stat");
         std::fs::write(&stat, fixture_stat(101))?;
         std::fs::write(proc.path().join("status"), "VmRSS: 900 kB\n")?;
-        let identity = ProcessIdentity { pid: 4242, start_marker: 101 };
+        let identity = ProcessIdentity {
+            pid: 4242,
+            start_marker: 101,
+        };
         let result = linux_sample_with(identity, |name| {
             let text = std::fs::read_to_string(proc.path().join(name))?;
             if name == "status" {
@@ -740,13 +722,15 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn linux_sample_rejects_zombie_after_reading_memory()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn linux_sample_rejects_zombie_after_reading_memory() -> Result<(), Box<dyn Error>> {
         let proc = tempfile::tempdir()?;
         let stat = proc.path().join("stat");
         std::fs::write(&stat, fixture_stat(101))?;
         std::fs::write(proc.path().join("status"), "VmRSS: 900 kB\n")?;
-        let identity = ProcessIdentity { pid: 4242, start_marker: 101 };
+        let identity = ProcessIdentity {
+            pid: 4242,
+            start_marker: 101,
+        };
         let result = linux_sample_with(identity, |name| {
             let text = std::fs::read_to_string(proc.path().join(name))?;
             if name == "status" {
@@ -761,7 +745,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn linux_sample_retains_original_proc_directory_after_pid_path_replaced()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         let proc = tempfile::tempdir()?;
         let original = proc.path().join("4242");
         std::fs::create_dir(&original)?;
@@ -778,14 +762,18 @@ mod tests {
         assert_eq!(sample.resident_bytes, Some(13 * 1024));
         assert_eq!(sample.peak_resident_bytes, Some(21 * 1024));
         assert_eq!(sample.private_bytes, None);
-        assert!(sample.unavailable.iter().any(|field| field.metric == "privateBytes"));
+        assert!(
+            sample
+                .unavailable
+                .iter()
+                .any(|field| field.metric == "privateBytes")
+        );
         Ok(())
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     #[test]
-    fn samples_owned_process_identity_and_resident_memory()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn samples_owned_process_identity_and_resident_memory() -> Result<(), Box<dyn Error>> {
         let pid = std::process::id();
         let observer = ProcessMemoryObserver::capture(pid)?;
         let first = observer.sample()?;
@@ -803,7 +791,7 @@ mod tests {
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     #[test]
     fn unavailable_metrics_are_explicit_and_never_replace_resident_memory()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         let observer = ProcessMemoryObserver::capture(std::process::id())?;
         let sample = observer.sample()?;
         for metric in &sample.unavailable {
@@ -868,8 +856,7 @@ mod tests {
 
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     #[test]
-    fn sample_serializes_camel_case_fields_and_definitions()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn sample_serializes_camel_case_fields_and_definitions() -> Result<(), Box<dyn Error>> {
         let observer = ProcessMemoryObserver::capture(std::process::id())?;
         let sample = observer.sample()?;
         let value = serde_json::to_value(&sample)?;

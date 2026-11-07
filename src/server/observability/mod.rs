@@ -1,7 +1,7 @@
 //! Bounded, local-only accounting. No source, request payload or path is stored
 //! in the report. Detailed tracing retains its separate opt-in lifecycle.
 
-mod buffers;
+pub(super) mod buffers;
 mod commands;
 pub(super) mod compiler;
 mod export;
@@ -12,8 +12,8 @@ pub(super) mod requests;
 pub(super) mod work;
 
 use super::{
-    compiler_service::CompilerService, diagnostics::DiagnosticsService,
-    orchestration::run_staging, state::State, workspace_service::WorkspaceService,
+    compiler_service::CompilerService, diagnostics::DiagnosticsService, orchestration::run_staging,
+    state::State, workspace_service::WorkspaceService,
 };
 use crate::storage::StorageRegistry;
 use history::{History, HistorySample, SAMPLE_INTERVAL_SECONDS};
@@ -61,9 +61,9 @@ impl Default for Observability {
         Self {
             storage: StorageRegistry::default(),
             requests: Arc::new(RequestMetrics::default()),
-            work: Arc::new(WorkMetrics::default()),
-            semantic_cache: CacheMetrics::default(),
-            compiler_cache: CacheMetrics::default(),
+            work: Arc::new(WorkMetrics::new()),
+            semantic_cache: CacheMetrics::new(),
+            compiler_cache: CacheMetrics::new(),
             started: Instant::now(),
             sources: State::new(None),
             history: State::new(History::default()),
@@ -104,13 +104,7 @@ impl Observability {
         } else {
             self.observation_slots.clone()
         };
-        run_staging(
-            self.work.clone(),
-            kind,
-            slots,
-            operation,
-        )
-        .await
+        run_staging(self.work.clone(), kind, slots, operation).await
     }
 
     fn uptime_ms(&self) -> u64 {
@@ -179,7 +173,11 @@ impl Observability {
         }
         let observation = Arc::downgrade(self);
         let mut stopped = self.stop.subscribe();
-        let diagnostics = self.sources.read().as_ref().map(|sources| sources.diagnostics.clone());
+        let diagnostics = self
+            .sources
+            .read()
+            .as_ref()
+            .map(|sources| sources.diagnostics.clone());
         let operation = async move {
             let mut interval = tokio::time::interval(Duration::from_secs(SAMPLE_INTERVAL_SECONDS));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -204,11 +202,14 @@ impl Observability {
                 }
             }
         };
-        *sampler = Some(tokio::spawn(super::state::supervise(operation, move || {
-            if let Some(diagnostics) = diagnostics.as_ref().and_then(Weak::upgrade) {
-                diagnostics.report_fatal();
-            }
-        })));
+        *sampler = Some(tokio::spawn(super::state::supervise(
+            operation,
+            move || {
+                if let Some(diagnostics) = diagnostics.as_ref().and_then(Weak::upgrade) {
+                    diagnostics.report_fatal();
+                }
+            },
+        )));
     }
 
     pub(super) async fn shutdown_sampler(&self) {

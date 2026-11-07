@@ -22,7 +22,9 @@ use super::{
     compiler_backend_driver::NativeRun,
     features::diag,
     observability::{
-        Observability, compiler::{CompilerActivity, CompilerRegistry}, work::CacheMetrics,
+        Observability,
+        compiler::{CompilerActivity, CompilerRegistry},
+        work::CacheMetrics,
     },
 };
 
@@ -353,9 +355,8 @@ pub(super) fn compiler_cache_usage(
                 .saturating_add(source.path.capacity())
                 .saturating_add(source.imports.len() * size_of::<ImportEdge>());
             if let Some(text) = &source.text {
-                source_bytes = source_bytes.saturating_add(
-                    u64::try_from(text.len()).unwrap_or(u64::MAX),
-                );
+                source_bytes =
+                    source_bytes.saturating_add(u64::try_from(text.len()).unwrap_or(u64::MAX));
                 bytes = bytes.saturating_add(text.len());
             }
         }
@@ -811,13 +812,15 @@ fn cache_compiler_result(
             accounting.eviction();
         }
     }
-    let replaced = results.insert(
-        root,
-        CachedCompilerResult {
-            snapshot: CompilerSnapshot::capture(config, stamp, graph),
-            diagnostics: diagnostics.to_vec(),
-        },
-    ).is_some();
+    let replaced = results
+        .insert(
+            root,
+            CachedCompilerResult {
+                snapshot: CompilerSnapshot::capture(config, stamp, graph),
+                diagnostics: diagnostics.to_vec(),
+            },
+        )
+        .is_some();
     if replaced && let Some(accounting) = accounting {
         accounting.eviction();
     }
@@ -881,12 +884,12 @@ async fn compiler_diagnostics_inner(
             }
         }
         if let Some(diagnostics) = cached {
-        if let Some(metrics) = metrics.as_deref_mut() {
-            metrics.cache_hit = Some(true);
+            if let Some(metrics) = metrics.as_deref_mut() {
+                metrics.cache_hit = Some(true);
+            }
+            span.record("cache_hit", true);
+            return diagnostics;
         }
-        span.record("cache_hit", true);
-        return diagnostics;
-    }
     }
     let Some((permit, staging, staged)) = stage_compiler_graph(
         source_graph.clone(),
@@ -916,7 +919,9 @@ async fn compiler_diagnostics_inner(
             &source_graph,
             &cache,
             &diagnostics,
-            observation.as_deref().map(|observation| &observation.compiler_cache),
+            observation
+                .as_deref()
+                .map(|observation| &observation.compiler_cache),
         );
     }
     diagnostics
@@ -1189,15 +1194,16 @@ async fn run_compiler_command_limited(
         .kill_on_drop(true)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn() {
-            Ok(child) => child,
-            Err(error) => {
-                if let Some(activity) = lease.activity.as_mut() {
-                    activity.fail();
-                }
-                return Err(error);
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) => {
+            if let Some(activity) = lease.activity.as_mut() {
+                activity.fail();
             }
-        };
+            return Err(error);
+        }
+    };
     let mut guarded = CompilerChildGuard {
         child: Some(CompilerChild {
             child,

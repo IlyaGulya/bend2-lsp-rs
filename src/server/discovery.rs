@@ -179,11 +179,8 @@ impl WorkspaceService {
             return None;
         }
         let text = std::fs::read_to_string(&path).ok()?;
-        let snapshot = trace_document_snapshot(
-            &self.observability.storage,
-            Revision::UNVERSIONED,
-            text,
-        );
+        let snapshot =
+            trace_document_snapshot(&self.observability.storage, Revision::UNVERSIONED, text);
         let physical_path = canonical_source_path(&path);
         let imports = crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
         Some(PreparedSource {

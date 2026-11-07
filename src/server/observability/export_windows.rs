@@ -4,7 +4,10 @@
 //! sharing so an entry-writable parent cannot replace the source pathname.
 
 use super::{ExportError, current_user_sid, stage_name};
-use std::{io, path::{Path, PathBuf}};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 use windows_permissions::{
     constants::{AccessRights, AceFlags, AceType, SeObjectType, SecurityInformation},
     wrappers::{ConvertSecurityDescriptorToStringSecurityDescriptor, GetNamedSecurityInfo},
@@ -61,7 +64,12 @@ impl PrivateDirectory {
                     return Err(win_error(error));
                 }
             };
-            let directory = Self { path, handle: Some(handle), cleanup: true, created_report: false };
+            let directory = Self {
+                path,
+                handle: Some(handle),
+                cleanup: true,
+                created_report: false,
+            };
             verify_owner_acl(&directory.path)?;
             return Ok(directory);
         }
@@ -104,8 +112,11 @@ fn publish_report_with_created(
     payload: &[u8],
     on_created: impl FnOnce(&Path),
 ) -> Result<(), ExportError> {
-    let parent = destination.parent().ok_or(ExportError::ParentNotDirectory)?;
-    let mut stage = PrivateDirectory::new_with_created(parent, ".bend2-diagnostic-report-", on_created)?;
+    let parent = destination
+        .parent()
+        .ok_or(ExportError::ParentNotDirectory)?;
+    let mut stage =
+        PrivateDirectory::new_with_created(parent, ".bend2-diagnostic-report-", on_created)?;
     let staged_path = stage.path.join("report");
     let staged_text = staged_path.to_str().ok_or(ExportError::InvalidUri)?;
     let (file, _) = with_owner_acl(|attributes| {
@@ -119,7 +130,8 @@ fn publish_report_with_created(
             None,
             None,
             None,
-        ).map_err(win_error)
+        )
+        .map_err(win_error)
     })?;
     stage.created_report = true;
     verify_owner_acl(&staged_path)?;
@@ -147,15 +159,17 @@ fn publish_report_with_created(
     Ok(())
 }
 
-fn with_owner_acl<R>(action: impl FnOnce(&winsafe::SECURITY_ATTRIBUTES<'_>) -> Result<R, ExportError>)
-    -> Result<R, ExportError> {
+fn with_owner_acl<R>(
+    action: impl FnOnce(&winsafe::SECURITY_ATTRIBUTES<'_>) -> Result<R, ExportError>,
+) -> Result<R, ExportError> {
     let sid = current_user_sid()?;
     let sddl = format!("D:P(A;;FA;;;{sid})");
     let parsed: windows_permissions::LocalBox<windows_permissions::SecurityDescriptor> = sddl
-        .parse().map_err(|_| ExportError::PermissionRestriction)?;
-    let acl = parsed.dacl().ok_or(ExportError::PermissionRestriction)?;
-    let mut descriptor = winsafe::InitializeSecurityDescriptor()
+        .parse()
         .map_err(|_| ExportError::PermissionRestriction)?;
+    let acl = parsed.dacl().ok_or(ExportError::PermissionRestriction)?;
+    let mut descriptor =
+        winsafe::InitializeSecurityDescriptor().map_err(|_| ExportError::PermissionRestriction)?;
     // Both libraries describe the Win32 ACL pointer. The parsed descriptor
     // owns the ACL for the entire create syscall; neither pointer is
     // dereferenced in this module.
@@ -171,23 +185,29 @@ fn with_owner_acl<R>(action: impl FnOnce(&winsafe::SECURITY_ATTRIBUTES<'_>) -> R
 
 pub(super) fn verify_owner_acl(path: &Path) -> Result<(), ExportError> {
     let descriptor = GetNamedSecurityInfo(
-        path, SeObjectType::SE_FILE_OBJECT, SecurityInformation::Dacl,
-    ).map_err(|_| ExportError::PermissionRestriction)?;
-    let acl = descriptor.dacl().ok_or(ExportError::PermissionRestriction)?;
+        path,
+        SeObjectType::SE_FILE_OBJECT,
+        SecurityInformation::Dacl,
+    )
+    .map_err(|_| ExportError::PermissionRestriction)?;
+    let acl = descriptor
+        .dacl()
+        .ok_or(ExportError::PermissionRestriction)?;
     if acl.len() != 1 {
         return Err(ExportError::PermissionRestriction);
     }
     let ace = acl.get_ace(0).ok_or(ExportError::PermissionRestriction)?;
     let owner = ace.sid().ok_or(ExportError::PermissionRestriction)?;
-    if owner.to_string() != current_user_sid()? ||
-        ace.ace_type() != AceType::ACCESS_ALLOWED_ACE_TYPE ||
-        !ace.mask().contains(AccessRights::FileAllAccess) ||
-        ace.flags().contains(AceFlags::Inherited) {
+    if owner.to_string() != current_user_sid()?
+        || ace.ace_type() != AceType::ACCESS_ALLOWED_ACE_TYPE
+        || !ace.mask().contains(AccessRights::FileAllAccess)
+        || ace.flags().contains(AceFlags::Inherited)
+    {
         return Err(ExportError::PermissionRestriction);
     }
-    let sddl = ConvertSecurityDescriptorToStringSecurityDescriptor(
-        &descriptor, SecurityInformation::Dacl,
-    ).map_err(|_| ExportError::PermissionRestriction)?;
+    let sddl =
+        ConvertSecurityDescriptorToStringSecurityDescriptor(&descriptor, SecurityInformation::Dacl)
+            .map_err(|_| ExportError::PermissionRestriction)?;
     if !sddl.to_string_lossy().contains("D:P") {
         return Err(ExportError::PermissionRestriction);
     }
@@ -231,17 +251,28 @@ mod tests {
         let parent = tempfile::tempdir()?;
         let helper = winsafe::GetSystemDirectory()?;
         let grant = std::process::Command::new(Path::new(&helper).join("icacls.exe"))
-            .arg(parent.path()).args(["/grant", "*S-1-1-0:(OI)(CI)R"]).status()?;
-        assert!(grant.success(), "cannot apply inheritable foreign read fixture");
+            .arg(parent.path())
+            .args(["/grant", "*S-1-1-0:(OI)(CI)R"])
+            .status()?;
+        assert!(
+            grant.success(),
+            "cannot apply inheritable foreign read fixture"
+        );
         let destination = parent.path().join("held-open.json");
         let path = destination.to_str().expect("native test path is Unicode");
         let (file, _) = with_owner_acl(|attributes| {
             winsafe::HFILE::CreateFile(
-                path, co::GENERIC::WRITE,
+                path,
+                co::GENERIC::WRITE,
                 Some(co::FILE_SHARE::READ | co::FILE_SHARE::WRITE),
-                Some(attributes), co::DISPOSITION::CREATE_NEW,
-                co::FILE_ATTRIBUTE::NORMAL, None, None, None,
-            ).map_err(win_error)
+                Some(attributes),
+                co::DISPOSITION::CREATE_NEW,
+                co::FILE_ATTRIBUTE::NORMAL,
+                None,
+                None,
+                None,
+            )
+            .map_err(win_error)
         })?;
         verify_owner_acl(&destination)?;
         assert_eq!(file.WriteFile(b"private")?, 7);

@@ -83,7 +83,9 @@ impl WorkMetrics {
     /// records a cancellation that never reached a worker.
     #[must_use]
     pub(in crate::server) fn enqueue(self: &Arc<Self>, kind: WorkKind) -> QueuedWork {
-        self.kinds[kind.index()].queued.fetch_add(1, Ordering::AcqRel);
+        self.kinds[kind.index()]
+            .queued
+            .fetch_add(1, Ordering::AcqRel);
         QueuedWork {
             metrics: Arc::clone(self),
             kind,
@@ -117,9 +119,7 @@ impl WorkMetrics {
                 kind: kind_by_index(index).label(),
                 queued: counters.queued.load(Ordering::Acquire),
                 executing: counters.executing.load(Ordering::Acquire),
-                cancelled_still_running: counters
-                    .cancelled_still_running
-                    .load(Ordering::Acquire),
+                cancelled_still_running: counters.cancelled_still_running.load(Ordering::Acquire),
                 completed: counters.completed.load(Ordering::Acquire),
                 failed: counters.failed.load(Ordering::Acquire),
                 cancelled: counters.cancelled.load(Ordering::Acquire),
@@ -315,6 +315,13 @@ impl CancelOnDrop {
 
     /// Record a normal completion so the drop is not a cancellation.
     pub(in crate::server) fn disarm(&mut self) {
+        self.armed = false;
+    }
+
+    /// Preserve a failed operation instead of classifying its guard drop as
+    /// cancellation. Independent workers remain counted until they exit.
+    pub(in crate::server) fn fail(&mut self) {
+        self.work.fail();
         self.armed = false;
     }
 }

@@ -134,7 +134,7 @@ impl RequestMethod {
 
     /// Resolves a JSON-RPC wire method to its static bucket.
     #[must_use]
-    pub(crate) const fn from_method(method: &str) -> Self {
+    pub(crate) fn from_method(method: &str) -> Self {
         match method {
             "initialize" => Self::Initialize,
             "initialized" => Self::Initialized,
@@ -412,9 +412,7 @@ impl MethodMetrics {
             awaiting_first_poll: self.awaiting_first_poll.load(Ordering::Relaxed),
             total_duration_micros: self.total_duration_micros.load(Ordering::Relaxed),
             max_duration_micros: self.max_duration_micros.load(Ordering::Relaxed),
-            total_scheduling_wait_micros: self
-                .total_scheduling_wait_micros
-                .load(Ordering::Relaxed),
+            total_scheduling_wait_micros: self.total_scheduling_wait_micros.load(Ordering::Relaxed),
             max_scheduling_wait_micros: self.max_scheduling_wait_micros.load(Ordering::Relaxed),
         }
     }
@@ -660,7 +658,10 @@ mod tests {
         assert_eq!(completion.cancelled, 0);
         assert_eq!(completion.abandoned, 0);
         assert_eq!(completion.active, 0);
-        assert_eq!(completion.total_duration_micros, completion.max_duration_micros);
+        assert_eq!(
+            completion.total_duration_micros,
+            completion.max_duration_micros
+        );
     }
 
     #[test]
@@ -745,7 +746,10 @@ mod tests {
         assert_eq!(completion.active, 0);
         assert_eq!(completion.awaiting_first_poll, 0);
         assert_eq!(completion.total_scheduling_wait_micros, 0);
-        assert_eq!(completion.total_duration_micros, completion.max_duration_micros);
+        assert_eq!(
+            completion.total_duration_micros,
+            completion.max_duration_micros
+        );
         assert_eq!(metrics.active_requests(), 0);
         assert_eq!(metrics.requests_awaiting_first_poll(), 0);
     }
@@ -816,12 +820,11 @@ mod tests {
         assert_eq!(other.completed, 512);
         let total_calls: u64 = snapshot.methods.iter().map(|row| row.calls).sum();
         assert_eq!(total_calls, 512);
-        assert!(
-            snapshot
-                .methods
+        assert!(snapshot.methods.iter().all(|row| {
+            RequestMethod::ALL
                 .iter()
-                .all(|row| RequestMethod::ALL.iter().any(|kind| kind.label() == row.method))
-        );
+                .any(|kind| kind.label() == row.method)
+        }));
     }
 
     #[test]
@@ -873,9 +876,16 @@ mod tests {
             "totalSchedulingWaitMicros",
             "maxSchedulingWaitMicros",
         ] {
-            assert!(hover.get(field).is_some(), "missing serialized field {field}");
+            assert!(
+                hover.get(field).is_some(),
+                "missing serialized field {field}"
+            );
         }
-        assert!(!hover.as_object().is_some_and(|row| row.contains_key("requestId")));
+        assert!(
+            !hover
+                .as_object()
+                .is_some_and(|row| row.contains_key("requestId"))
+        );
     }
 
     #[test]
@@ -931,26 +941,17 @@ mod tests {
             ),
             ("workspace/didRenameFiles", RequestMethod::DidRenameFiles),
             ("workspace/willRenameFiles", RequestMethod::WillRenameFiles),
-            (
-                "workspace/executeCommand",
-                RequestMethod::ExecuteCommand,
-            ),
+            ("workspace/executeCommand", RequestMethod::ExecuteCommand),
             ("textDocument/completion", RequestMethod::Completion),
             ("textDocument/hover", RequestMethod::Hover),
             ("textDocument/definition", RequestMethod::Definition),
-            (
-                "textDocument/typeDefinition",
-                RequestMethod::TypeDefinition,
-            ),
+            ("textDocument/typeDefinition", RequestMethod::TypeDefinition),
             ("textDocument/references", RequestMethod::References),
             (
                 "textDocument/documentHighlight",
                 RequestMethod::DocumentHighlight,
             ),
-            (
-                "textDocument/documentSymbol",
-                RequestMethod::DocumentSymbol,
-            ),
+            ("textDocument/documentSymbol", RequestMethod::DocumentSymbol),
             ("workspace/symbol", RequestMethod::WorkspaceSymbol),
             ("textDocument/codeAction", RequestMethod::CodeAction),
             ("textDocument/codeLens", RequestMethod::CodeLens),
@@ -967,10 +968,7 @@ mod tests {
                 "textDocument/onTypeFormatting",
                 RequestMethod::OnTypeFormatting,
             ),
-            (
-                "textDocument/signatureHelp",
-                RequestMethod::SignatureHelp,
-            ),
+            ("textDocument/signatureHelp", RequestMethod::SignatureHelp),
             ("textDocument/prepareRename", RequestMethod::PrepareRename),
             ("textDocument/rename", RequestMethod::Rename),
             (
@@ -982,14 +980,8 @@ mod tests {
                 "textDocument/prepareCallHierarchy",
                 RequestMethod::PrepareCallHierarchy,
             ),
-            (
-                "callHierarchy/incomingCalls",
-                RequestMethod::IncomingCalls,
-            ),
-            (
-                "callHierarchy/outgoingCalls",
-                RequestMethod::OutgoingCalls,
-            ),
+            ("callHierarchy/incomingCalls", RequestMethod::IncomingCalls),
+            ("callHierarchy/outgoingCalls", RequestMethod::OutgoingCalls),
             (
                 "textDocument/prepareTypeHierarchy",
                 RequestMethod::PrepareTypeHierarchy,
@@ -998,7 +990,11 @@ mod tests {
             ("typeHierarchy/subtypes", RequestMethod::Subtypes),
         ];
         for (wire, expected) in WIRE_METHODS {
-            assert_eq!(RequestMethod::from_method(wire), *expected, "wire method {wire}");
+            assert_eq!(
+                RequestMethod::from_method(wire),
+                *expected,
+                "wire method {wire}"
+            );
         }
         assert_eq!(WIRE_METHODS.len(), RequestMethod::COUNT - 1);
         let mut labels: Vec<&str> = RequestMethod::ALL.iter().map(|kind| kind.label()).collect();

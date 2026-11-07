@@ -78,12 +78,23 @@ mod tests {
         assert_eq!(captured.samples.len(), SAMPLE_CAPACITY);
         assert_eq!(captured.dropped_samples, 13);
         let expected: Vec<_> = (13_u16..73)
-            .map(|minute| (u64::from(minute) * SAMPLE_INTERVAL_SECONDS * 1000, u64::from(minute)))
+            .map(|minute| {
+                (
+                    u64::from(minute) * SAMPLE_INTERVAL_SECONDS * 1000,
+                    u64::from(minute),
+                )
+            })
             .collect();
-        let actual: Vec<_> = captured.samples.iter()
+        let actual: Vec<_> = captured
+            .samples
+            .iter()
             .map(|sample| (sample.uptime_ms, sample.source_bytes))
             .collect();
         assert_eq!(actual, expected);
-        assert_eq!(history.snapshot().dropped_samples, 13, "exporting history does not add samples");
+        assert_eq!(
+            history.snapshot().dropped_samples,
+            13,
+            "exporting history does not add samples"
+        );
     }
 }

@@ -9,8 +9,7 @@
 use serde::Serialize;
 use std::{
     error::Error,
-    fmt,
-    io,
+    fmt, io,
     path::{Path, PathBuf},
 };
 
@@ -133,14 +132,15 @@ fn report_path(uri: &str) -> Result<PathBuf, ExportError> {
         .syntax_violation_callback(Some(&|kind| {
             if kind == url::SyntaxViolation::ExpectedFileDoubleSlash {
                 missing_double_slash.set(true);
-            } else if matches!(kind,
-                url::SyntaxViolation::PercentDecode |
-                url::SyntaxViolation::C0SpaceIgnored |
-                url::SyntaxViolation::TabOrNewlineIgnored |
-                url::SyntaxViolation::NullInFragment |
-                url::SyntaxViolation::Backslash |
-                url::SyntaxViolation::EmbeddedCredentials |
-                url::SyntaxViolation::FileWithHostAndWindowsDrive
+            } else if matches!(
+                kind,
+                url::SyntaxViolation::PercentDecode
+                    | url::SyntaxViolation::C0SpaceIgnored
+                    | url::SyntaxViolation::TabOrNewlineIgnored
+                    | url::SyntaxViolation::NullInFragment
+                    | url::SyntaxViolation::Backslash
+                    | url::SyntaxViolation::EmbeddedCredentials
+                    | url::SyntaxViolation::FileWithHostAndWindowsDrive
             ) {
                 malformed.set(true);
             }
@@ -171,7 +171,10 @@ fn report_path(uri: &str) -> Result<PathBuf, ExportError> {
 }
 
 fn stage_name(prefix: &str) -> String {
-    use std::{hash::BuildHasher, sync::atomic::{AtomicU64, Ordering}};
+    use std::{
+        hash::BuildHasher,
+        sync::atomic::{AtomicU64, Ordering},
+    };
     static NEXT: AtomicU64 = AtomicU64::new(0);
     // Exclusivity, not secrecy of this name, is the security boundary. The
     // randomized name keeps collisions rare; create_new/mkdirat decide them.
@@ -193,8 +196,8 @@ fn ensure_absent(destination: &Path) -> Result<(), ExportError> {
 // explicit foreign ACE. Production creation never launches a helper.
 #[cfg(all(windows, test))]
 fn icacls_path() -> Result<PathBuf, ExportError> {
-    let directory = winsafe::GetSystemDirectory()
-        .map_err(|_| ExportError::PermissionRestriction)?;
+    let directory =
+        winsafe::GetSystemDirectory().map_err(|_| ExportError::PermissionRestriction)?;
     Ok(PathBuf::from(directory).join("icacls.exe"))
 }
 
@@ -217,7 +220,7 @@ pub(super) fn current_user_sid() -> Result<String, ExportError> {
 mod tests {
     use super::*;
 
-    fn file_uri(path: &std::path::Path) -> String {
+    fn file_uri(path: &Path) -> String {
         url::Url::from_file_path(path)
             .expect("absolute temporary path has a file URI")
             .to_string()
@@ -258,7 +261,10 @@ mod tests {
         let directory = tempfile::tempdir().expect("temporary directory");
         let destination = directory.path().join("report%GG.json");
         let uri = format!("file:{}", destination.display());
-        assert_eq!(create_private_report(&uri, b"{}"), Err(ExportError::RelativePath));
+        assert_eq!(
+            create_private_report(&uri, b"{}"),
+            Err(ExportError::RelativePath)
+        );
         assert!(!destination.exists());
     }
 
@@ -266,8 +272,14 @@ mod tests {
     fn rejects_malformed_percent_escape_even_with_an_absolute_file_uri() {
         let directory = tempfile::tempdir().expect("temporary directory");
         let destination = directory.path().join("report%GG.json");
-        let uri = format!("{}/report%GG.json", file_uri(directory.path()).trim_end_matches('/'));
-        assert_eq!(create_private_report(&uri, b"{}"), Err(ExportError::InvalidUri));
+        let uri = format!(
+            "{}/report%GG.json",
+            file_uri(directory.path()).trim_end_matches('/')
+        );
+        assert_eq!(
+            create_private_report(&uri, b"{}"),
+            Err(ExportError::InvalidUri)
+        );
         assert!(!destination.exists());
     }
 
@@ -277,7 +289,10 @@ mod tests {
         let destination = directory.path().join("report.json");
         for suffix in ["?download=1", "#section", "?download=1#section"] {
             let uri = format!("{}{}", file_uri(&destination), suffix);
-            assert_eq!(create_private_report(&uri, b"{}"), Err(ExportError::InvalidUri));
+            assert_eq!(
+                create_private_report(&uri, b"{}"),
+                Err(ExportError::InvalidUri)
+            );
         }
         assert!(!destination.exists());
     }
@@ -288,7 +303,10 @@ mod tests {
         let destination = directory.path().join("diagnostic ? # résumé.json");
         let uri = file_uri(&destination);
         assert!(uri.contains("%3F") && uri.contains("%23"));
-        assert_eq!(create_private_report(&uri, b"{}"), Ok(ReportOutcome { bytes_written: 2 }));
+        assert_eq!(
+            create_private_report(&uri, b"{}"),
+            Ok(ReportOutcome { bytes_written: 2 })
+        );
         assert_eq!(std::fs::read(&destination).expect("read report"), b"{}");
     }
 
@@ -336,7 +354,7 @@ mod tests {
 
     #[test]
     fn creates_exact_report_without_leftover_temporary_and_never_overwrites()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         let directory = tempfile::tempdir()?;
         let destination = directory.path().join("report.json");
         let uri = file_uri(&destination);
@@ -345,8 +363,7 @@ mod tests {
         let outcome = create_private_report(&uri, payload)?;
         assert_eq!(outcome.bytes_written, payload.len() as u64);
         assert_eq!(std::fs::read(&destination)?, payload);
-        let entries = std::fs::read_dir(directory.path())?
-            .collect::<Result<Vec<_>, _>>()?;
+        let entries = std::fs::read_dir(directory.path())?.collect::<Result<Vec<_>, _>>()?;
         assert_eq!(entries.len(), 1, "temporary file was not cleaned up");
 
         assert_eq!(
@@ -400,7 +417,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn report_mode_is_owner_only() -> Result<(), Box<dyn std::error::Error>> {
+    fn report_mode_is_owner_only() -> Result<(), Box<dyn Error>> {
         use std::os::unix::fs::PermissionsExt;
 
         let directory = tempfile::tempdir()?;
@@ -414,46 +431,66 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn generated_private_directory_refuses_inheritable_foreign_parent_acl()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         let root = tempfile::tempdir()?;
         let grant = std::process::Command::new("/bin/chmod")
-            .args(["+a", "everyone allow read,readattr,readextattr,file_inherit,directory_inherit"])
-            .arg(root.path()).status()?;
+            .args([
+                "+a",
+                "everyone allow read,readattr,readextattr,file_inherit,directory_inherit",
+            ])
+            .arg(root.path())
+            .status()?;
         assert!(grant.success(), "cannot create inheritable ACL fixture");
-        assert_eq!(platform::private_directory(root.path(), "generated-private-"),
-            Err(ExportError::PermissionRestriction));
-        assert_eq!(std::fs::read_dir(root.path())?.count(), 0,
-            "private directory was exposed before its ACL was restricted");
+        assert_eq!(
+            platform::private_directory(root.path(), "generated-private-"),
+            Err(ExportError::PermissionRestriction)
+        );
+        assert_eq!(
+            std::fs::read_dir(root.path())?.count(),
+            0,
+            "private directory was exposed before its ACL was restricted"
+        );
         Ok(())
     }
 
     #[cfg(target_os = "macos")]
     #[test]
-    fn inherited_read_acl_is_absent_from_published_report()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn inherited_read_acl_is_absent_from_published_report() -> Result<(), Box<dyn Error>> {
         let directory = tempfile::tempdir()?;
         let acl = "everyone allow read,readattr,readextattr,file_inherit,directory_inherit";
         let chmod = std::process::Command::new("/bin/chmod")
-            .args(["+a", acl]).arg(directory.path()).status()?;
+            .args(["+a", acl])
+            .arg(directory.path())
+            .status()?;
         assert!(chmod.success(), "failed to add inheritable read ACL");
         let inherited_probe = directory.path().join("inherited-probe");
         std::fs::write(&inherited_probe, b"")?;
         let probe = std::process::Command::new("/bin/ls")
             .env("LC_ALL", "C")
-            .arg("-le").arg(&inherited_probe).output()?;
-        assert!(probe.status.success(), "cannot inspect inherited ACL fixture");
+            .arg("-le")
+            .arg(&inherited_probe)
+            .output()?;
+        assert!(
+            probe.status.success(),
+            "cannot inspect inherited ACL fixture"
+        );
         let inherited_acl = String::from_utf8(probe.stdout)?;
-        let grants_everyone = |acl: &str| acl.lines().any(|line| {
-            line.contains("group:everyone") && line.contains("allow")
-        });
-        assert!(grants_everyone(&inherited_acl),
-            "inheritable ACL fixture failed to grant foreign read: {inherited_acl}");
+        let grants_everyone = |acl: &str| {
+            acl.lines()
+                .any(|line| line.contains("group:everyone") && line.contains("allow"))
+        };
+        assert!(
+            grants_everyone(&inherited_acl),
+            "inheritable ACL fixture failed to grant foreign read: {inherited_acl}"
+        );
         std::fs::remove_file(&inherited_probe)?;
         let destination = directory.path().join("report.json");
         create_private_report(&file_uri(&destination), b"private")?;
         let output = std::process::Command::new("/bin/ls")
             .env("LC_ALL", "C")
-            .arg("-le").arg(&destination).output()?;
+            .arg("-le")
+            .arg(&destination)
+            .output()?;
         assert!(output.status.success(), "cannot inspect report ACL");
         let acl = String::from_utf8(output.stdout)?;
         assert!(!grants_everyone(&acl), "foreign read ACL survived: {acl}");
@@ -461,57 +498,97 @@ mod tests {
     }
 
     #[cfg(windows)]
-    fn file_acl(path: &std::path::Path) -> Result<windows_permissions::LocalBox<windows_permissions::SecurityDescriptor>, Box<dyn std::error::Error>> {
-        use windows_permissions::{constants::{SeObjectType, SecurityInformation}, wrappers::GetNamedSecurityInfo};
-        Ok(GetNamedSecurityInfo(path, SeObjectType::SE_FILE_OBJECT, SecurityInformation::Dacl)?)
+    fn file_acl(
+        path: &Path,
+    ) -> Result<
+        windows_permissions::LocalBox<windows_permissions::SecurityDescriptor>,
+        Box<dyn Error>,
+    > {
+        use windows_permissions::{
+            constants::{SeObjectType, SecurityInformation},
+            wrappers::GetNamedSecurityInfo,
+        };
+        Ok(GetNamedSecurityInfo(
+            path,
+            SeObjectType::SE_FILE_OBJECT,
+            SecurityInformation::Dacl,
+        )?)
     }
 
     #[cfg(windows)]
-    fn assert_protected_owner_acl(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    fn assert_protected_owner_acl(path: &Path) -> Result<(), Box<dyn Error>> {
         use windows_permissions::constants::{AccessRights, AceFlags, AceType};
         let descriptor = file_acl(path)?;
         let dacl = descriptor.dacl().expect("DACL must not be absent or NULL");
         assert_eq!(dacl.len(), 1, "exactly one owner ACE is required");
         let ace = dacl.get_ace(0).expect("owner ACE");
-        assert_eq!(ace.sid().expect("owner SID").to_string(), current_user_sid()?);
-        assert_eq!(ace.ace_type(), AceType::ACCESS_ALLOWED_ACE_TYPE,
-            "owner ACE must grant rather than deny access");
-        assert!(ace.mask().contains(AccessRights::FileAllAccess), "owner lacks full control");
-        assert!(!ace.flags().contains(AceFlags::Inherited), "inherited ACE survives");
-        let sddl = windows_permissions::wrappers::ConvertSecurityDescriptorToStringSecurityDescriptor(
-            &descriptor, windows_permissions::constants::SecurityInformation::Dacl)?;
-        assert!(sddl.to_string_lossy().contains("D:P"), "DACL is not protected: {sddl:?}");
+        assert_eq!(
+            ace.sid().expect("owner SID").to_string(),
+            current_user_sid()?
+        );
+        assert_eq!(
+            ace.ace_type(),
+            AceType::ACCESS_ALLOWED_ACE_TYPE,
+            "owner ACE must grant rather than deny access"
+        );
+        assert!(
+            ace.mask().contains(AccessRights::FileAllAccess),
+            "owner lacks full control"
+        );
+        assert!(
+            !ace.flags().contains(AceFlags::Inherited),
+            "inherited ACE survives"
+        );
+        let sddl =
+            windows_permissions::wrappers::ConvertSecurityDescriptorToStringSecurityDescriptor(
+                &descriptor,
+                windows_permissions::constants::SecurityInformation::Dacl,
+            )?;
+        assert!(
+            sddl.to_string_lossy().contains("D:P"),
+            "DACL is not protected: {sddl:?}"
+        );
         Ok(())
     }
 
     #[cfg(windows)]
     #[test]
     fn refuses_explicit_foreign_read_ace_in_a_report_security_descriptor()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         let directory = tempfile::tempdir()?;
         let destination = directory.path().join("foreign-grant.json");
         std::fs::write(&destination, b"")?;
         let grant = std::process::Command::new(icacls_path()?)
-            .arg(&destination).args(["/grant", "*S-1-1-0:R"]).status()?;
+            .arg(&destination)
+            .args(["/grant", "*S-1-1-0:R"])
+            .status()?;
         assert!(grant.success(), "cannot add explicit foreign read ACE");
-        assert!(file_acl(&destination)?.dacl().expect("DACL").len() > 1,
-            "fixture must include explicit foreign ACE");
-        assert_eq!(platform::verify_owner_acl(&destination),
-            Err(ExportError::PermissionRestriction));
+        assert!(
+            file_acl(&destination)?.dacl().expect("DACL").len() > 1,
+            "fixture must include explicit foreign ACE"
+        );
+        assert_eq!(
+            platform::verify_owner_acl(&destination),
+            Err(ExportError::PermissionRestriction)
+        );
         Ok(())
     }
 
     #[cfg(windows)]
     #[test]
     fn explicit_foreign_parent_read_grant_does_not_open_published_report()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         let directory = tempfile::tempdir()?;
         let grant = std::process::Command::new(icacls_path()?)
-            .arg(directory.path()).args(["/grant", "*S-1-1-0:R"]).status()?;
+            .arg(directory.path())
+            .args(["/grant", "*S-1-1-0:R"])
+            .status()?;
         assert!(grant.success(), "cannot add explicit foreign read ACE");
         let before = file_acl(directory.path())?;
-        assert!(before.dacl().expect("parent DACL").len() > 1,
-            "explicit foreign read fixture was not applied");
+        assert!(
+            before.dacl().expect("parent DACL").len() > 1,
+            "explicit foreign read fixture was not applied"
+        );
         let destination = directory.path().join("report.json");
         create_private_report(&file_uri(&destination), b"private")?;
         assert_protected_owner_acl(&destination)?;
@@ -520,17 +597,20 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn inherited_read_grant_is_absent_from_new_report()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn inherited_read_grant_is_absent_from_new_report() -> Result<(), Box<dyn Error>> {
         let directory = tempfile::tempdir()?;
         let grant = std::process::Command::new(icacls_path()?)
-            .arg(directory.path()).args(["/grant", "*S-1-1-0:(OI)(CI)R"]).status()?;
+            .arg(directory.path())
+            .args(["/grant", "*S-1-1-0:(OI)(CI)R"])
+            .status()?;
         assert!(grant.success(), "cannot add inheritable foreign ACE");
         let probe = directory.path().join("inherited-probe");
         std::fs::write(&probe, b"")?;
         let inherited = file_acl(&probe)?;
-        assert!(inherited.dacl().expect("probe DACL").len() > 1,
-            "inheritable foreign ACE did not propagate to a child");
+        assert!(
+            inherited.dacl().expect("probe DACL").len() > 1,
+            "inheritable foreign ACE did not propagate to a child"
+        );
         std::fs::remove_file(&probe)?;
         let destination = directory.path().join("report.json");
         create_private_report(&file_uri(&destination), b"private")?;
@@ -540,8 +620,7 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn report_acl_is_owner_only_without_inherited_entries()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn report_acl_is_owner_only_without_inherited_entries() -> Result<(), Box<dyn Error>> {
         let directory = tempfile::tempdir()?;
         let destination = directory.path().join("report.json");
         create_private_report(&file_uri(&destination), b"{}")?;

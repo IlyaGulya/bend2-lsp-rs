@@ -150,29 +150,30 @@ impl Backend {
                 WorkKind::Staging,
                 self.workspace.staging.clone(),
                 move || {
-                let directory = Arc::new(tempfile::tempdir().ok()?);
-                let path = directory.path().join("Base.bend");
-                std::fs::write(&path, &source).ok()?;
-                let uri = Url::from_file_path(&path).ok()?;
-                let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source));
-                observation.storage.track_snapshot(&snapshot);
-                let provenance = Arc::from(format!("fnv1a64:{:016x}", snapshot.content_hash()));
-                let physical_path = crate::workspace::canonical_source_path(&path);
-                let imports =
-                    crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
-                Some((
-                    BaseModule {
-                        uri,
-                        snapshot,
-                        provenance,
-                        source_directory: directory.clone(),
-                    },
-                    path,
-                    physical_path,
-                    imports,
-                    directory,
-                ))
-            })
+                    let directory = Arc::new(tempfile::tempdir().ok()?);
+                    let path = directory.path().join("Base.bend");
+                    std::fs::write(&path, &source).ok()?;
+                    let uri = Url::from_file_path(&path).ok()?;
+                    let snapshot = Arc::new(DocumentSnapshot::new(Revision::UNVERSIONED, source));
+                    observation.storage.track_snapshot(&snapshot);
+                    let provenance = Arc::from(format!("fnv1a64:{:016x}", snapshot.content_hash()));
+                    let physical_path = crate::workspace::canonical_source_path(&path);
+                    let imports =
+                        crate::workspace::resolve_import_targets(&path, &physical_path, &snapshot);
+                    Some((
+                        BaseModule {
+                            uri,
+                            snapshot,
+                            provenance,
+                            source_directory: directory.clone(),
+                        },
+                        path,
+                        physical_path,
+                        imports,
+                        directory,
+                    ))
+                },
+            )
             .await
             .flatten();
             if let Some((module, path, physical_path, imports, directory)) = loaded {

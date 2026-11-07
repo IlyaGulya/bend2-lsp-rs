@@ -1,11 +1,15 @@
 use super::{
-    Observability, history::HistorySnapshot,
+    Observability,
+    history::HistorySnapshot,
     process::{MEMORY_SCOPE, ProcessMemoryError, ProcessMemorySample},
     requests::RequestMetricsSnapshot,
     work::{CacheTotals, WorkSummary},
 };
 use crate::{
-    server::{compiler::{CompilerCacheUsage, compiler_cache_usage}, lint::LintDiagnosticUsage},
+    server::{
+        compiler::{CompilerCacheUsage, compiler_cache_usage},
+        lint::LintDiagnosticUsage,
+    },
     storage::{StorageSummary, WorkspaceUsage},
 };
 use serde::{Serialize, Serializer};
@@ -121,9 +125,18 @@ pub(super) fn capture(observation: &Observability) -> io::Result<DiagnosticRepor
         .read()
         .clone()
         .ok_or_else(super::unavailable_state)?;
-    let workspace = sources.workspace.upgrade().ok_or_else(super::unavailable_state)?;
-    let compiler = sources.compiler.upgrade().ok_or_else(super::unavailable_state)?;
-    let diagnostics = sources.diagnostics.upgrade().ok_or_else(super::unavailable_state)?;
+    let workspace = sources
+        .workspace
+        .upgrade()
+        .ok_or_else(super::unavailable_state)?;
+    let compiler = sources
+        .compiler
+        .upgrade()
+        .ok_or_else(super::unavailable_state)?;
+    let diagnostics = sources
+        .diagnostics
+        .upgrade()
+        .ok_or_else(super::unavailable_state)?;
     let workspace_usage = workspace.read().diagnostic_usage();
     let storage = observation.storage.snapshot();
     let caches = Caches {
@@ -148,7 +161,10 @@ pub(super) fn capture(observation: &Observability) -> io::Result<DiagnosticRepor
                 .and_then(|observer| observer.sample());
             MemoryObservation::from_result(target.pid, result)
         } else if let Some(reason) = target.error {
-            MemoryObservation::Unavailable { pid: target.pid, reason }
+            MemoryObservation::Unavailable {
+                pid: target.pid,
+                reason,
+            }
         } else {
             // Never sample an uncaptured reusable PID merely to fill a row.
             MemoryObservation::Pending { pid: target.pid }

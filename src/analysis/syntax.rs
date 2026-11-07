@@ -597,12 +597,9 @@ impl AuxiliaryIndex {
         self.data.as_ref().map_or(0, |data| {
             size_of::<AuxiliaryData>()
                 + slice_bytes(&data.diagnostics)
-                + data
-                    .constructors
-                    .as_ref()
-                    .map_or(0, |constructors| {
-                        slice_bytes(&constructors.entries) + slice_bytes(&constructors.name_indices)
-                    })
+                + data.constructors.as_ref().map_or(0, |constructors| {
+                    slice_bytes(&constructors.entries) + slice_bytes(&constructors.name_indices)
+                })
         })
     }
 }

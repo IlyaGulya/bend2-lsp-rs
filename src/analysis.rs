@@ -72,9 +72,9 @@ impl LineIndex {
     /// headers. This reads allocation metadata only and does not scan source.
     #[must_use]
     pub(crate) fn footprint_bytes(&self) -> usize {
-        std::mem::size_of::<usize>() * self.line_starts.capacity()
-            + std::mem::size_of::<u64>() * self.ascii_lines.capacity()
-            + std::mem::size_of::<Utf16Checkpoint>() * self.checkpoints.capacity()
+        size_of::<usize>() * self.line_starts.capacity()
+            + size_of::<u64>() * self.ascii_lines.capacity()
+            + size_of::<Utf16Checkpoint>() * self.checkpoints.capacity()
     }
 
     fn from_parts(source: &str, line_starts: Vec<usize>, ascii_lines: Vec<u64>) -> Self {

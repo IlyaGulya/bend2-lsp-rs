@@ -436,10 +436,7 @@ impl SemanticView {
                 .saturating_add(buffer_bytes(document.language_id.capacity(), 1));
         }
         for file in &self.capture.files {
-            bytes = bytes.saturating_add(buffer_bytes(
-                file.imports.len(),
-                size_of::<ImportEdge>(),
-            ));
+            bytes = bytes.saturating_add(buffer_bytes(file.imports.len(), size_of::<ImportEdge>()));
         }
         for (name, _) in self.top_levels.iter() {
             bytes = bytes.saturating_add(buffer_bytes(name.capacity(), 1));

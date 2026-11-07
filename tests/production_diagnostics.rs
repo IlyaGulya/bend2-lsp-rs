@@ -4,7 +4,11 @@ mod support;
 
 use lsp_client::LspClient;
 use serde_json::{Value, json};
-use std::{fs, path::Path, process::{Command, Stdio}};
+use std::{
+    fs,
+    path::Path,
+    process::{Command, Stdio},
+};
 use support::Must;
 use tempfile::tempdir;
 use url::Url;
@@ -35,8 +39,8 @@ fn client(root: &Path) -> LspClient {
 fn local_export_counts_open_source_without_disclosing_it_or_interrupting_queries() {
     let root = tempdir().must_be("private diagnostics workspace");
     let source = "def SECRET_CONTENT_MARKER() -> U32:\n  41\n";
-    let document = Url::from_file_path(root.path().join("private-document.bend"))
-        .must_be("source URI");
+    let document =
+        Url::from_file_path(root.path().join("private-document.bend")).must_be("source URI");
     let destination = root.path().join("diagnostics.json");
     let destination_uri = Url::from_file_path(&destination).must_be("export URI");
     let mut client = client(root.path());
@@ -62,13 +66,26 @@ fn local_export_counts_open_source_without_disclosing_it_or_interrupting_queries
     assert_eq!(report["server"]["pid"], client.process_id());
     assert_eq!(report["workspace"]["openDocuments"], 1);
     assert_eq!(report["storage"]["snapshots"]["sourceBytes"], source.len());
-    assert!(!raw.contains("SECRET_CONTENT_MARKER"), "source leaked: {raw}");
-    assert!(!raw.contains(root.path().to_str().must_be("workspace path")), "absolute path leaked: {raw}");
+    assert!(
+        !raw.contains("SECRET_CONTENT_MARKER"),
+        "source leaked: {raw}"
+    );
+    assert!(
+        !raw.contains(root.path().to_str().must_be("workspace path")),
+        "absolute path leaked: {raw}"
+    );
     assert!(!raw.contains(document.as_str()), "source URI leaked: {raw}");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        assert_eq!(fs::metadata(&destination).must_be("export metadata").permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&destination)
+                .must_be("export metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
     }
     let after = client.request(
         "textDocument/documentSymbol",
@@ -82,8 +99,8 @@ fn local_export_counts_open_source_without_disclosing_it_or_interrupting_queries
 #[test]
 fn diagnostic_sampling_stops_on_sigterm() {
     let root = tempdir().must_be("diagnostics termination workspace");
-    let destination = Url::from_file_path(root.path().join("diagnostics.json"))
-        .must_be("export URI");
+    let destination =
+        Url::from_file_path(root.path().join("diagnostics.json")).must_be("export URI");
     let mut client = client(root.path());
     client.request(
         "workspace/executeCommand",
@@ -113,12 +130,22 @@ fn manual_source_action_exports_the_running_server_without_enabling_lint() {
         "context":{"diagnostics":[],"only":["source.bend2Diagnostics.export"],"triggerKind":1}
     });
     let manual = client.request("textDocument/codeAction", params.clone());
-    let action = manual["result"].as_array()
-        .and_then(|actions| actions.iter().find(|action| action["kind"] == "source.bend2Diagnostics.export"))
+    let action = manual["result"]
+        .as_array()
+        .and_then(|actions| {
+            actions
+                .iter()
+                .find(|action| action["kind"] == "source.bend2Diagnostics.export")
+        })
         .must_be("a manual source action must expose production diagnostics without lint");
     let exported = client.request("workspace/executeCommand", action["command"].clone());
-    let uri = exported["result"]["uri"].as_str().must_be("generated snapshot URI");
-    let path = Url::parse(uri).must_be("generated file URI").to_file_path().must_be("generated local path");
+    let uri = exported["result"]["uri"]
+        .as_str()
+        .must_be("generated snapshot URI");
+    let path = Url::parse(uri)
+        .must_be("generated file URI")
+        .to_file_path()
+        .must_be("generated local path");
     let report: Value = serde_json::from_slice(&fs::read(&path).must_be("generated report"))
         .must_be("generated report JSON");
     assert_eq!(report["server"]["pid"], client.process_id());
@@ -126,7 +153,11 @@ fn manual_source_action_exports_the_running_server_without_enabling_lint() {
     let mut automatic_params = params;
     automatic_params["context"]["triggerKind"] = json!(2);
     let automatic = client.request("textDocument/codeAction", automatic_params);
-    assert_eq!(automatic["result"], json!([]), "export is an explicit action, never automatic");
+    assert_eq!(
+        automatic["result"],
+        json!([]),
+        "export is an explicit action, never automatic"
+    );
     fs::remove_file(&path).must_be("remove generated diagnostic report");
     fs::remove_dir(path.parent().must_be("generated report directory"))
         .must_be("remove generated private report directory");
