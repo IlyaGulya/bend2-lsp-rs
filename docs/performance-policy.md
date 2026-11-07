@@ -538,12 +538,20 @@ Keep required admission unconditional rather than replacing it with
 successful. See [required-check semantics](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 Collector cancellation must still lead to failed admission, not a policy pass.
 
+Hosted PR #88 reproduced this lock on 2026-11-07: the collectors in
+[performance run 42366929964](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/42366929964)
+and [calibration run 42366929903](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/42366929903)
+were cancelled, but their final jobs stayed queued and held the next workflows.
+Those obsolete first attempts needed exact-source-guarded forced cancellation.
+These were unstarted queued collectors, not evidence of live child cleanup.
+
 Verify scheduling changes with hosted runs, not YAML inspection alone:
 
 1. Record an ordinary run's workflow, PR, exact head SHA, run ID, attempt and
    queued/running jobs. Push a meaningful change that triggers that workflow.
-2. Check that the superseded first attempt is cancelled and the new head is
-   admitted. Distinguish cancelling queued work from stopping a live collector.
+2. Check that the superseded first-attempt workflow or collector jobs are
+   cancelled, and newer collectors are not pending behind old finalization.
+   Distinguish cancelling queued work from stopping a live collector.
 3. Explicitly rerun a completed/cancelled old-head job while the current ordinary
    run is active. Record the increased attempt and verify that neither cancels
    the other. Do not approve a protected measurement for this check.
