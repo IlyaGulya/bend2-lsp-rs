@@ -697,6 +697,26 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
+    fn linux_sample_rejects_zombie_after_reading_memory()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let proc = tempfile::tempdir()?;
+        let stat = proc.path().join("stat");
+        std::fs::write(&stat, fixture_stat(101))?;
+        std::fs::write(proc.path().join("status"), "VmRSS: 900 kB\n")?;
+        let identity = ProcessIdentity { pid: 4242, start_marker: 101 };
+        let result = linux_sample_with(identity, |name| {
+            let text = std::fs::read_to_string(proc.path().join(name))?;
+            if name == "status" {
+                std::fs::write(&stat, fixture_stat(101).replacen(") S ", ") Z ", 1))?;
+            }
+            Ok(text)
+        });
+        assert_eq!(result, Err(ProcessMemoryError::ProcessExited));
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
     fn linux_sample_retains_original_proc_directory_after_pid_path_replaced()
     -> Result<(), Box<dyn std::error::Error>> {
         let proc = tempfile::tempdir()?;
