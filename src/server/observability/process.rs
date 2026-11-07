@@ -644,6 +644,75 @@ mod tests {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    fn fixture_stat(start_marker: u64) -> String {
+        format!("4242 (owned compiler) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 {start_marker} 20 21\n")
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_sample_rejects_reused_pid_after_reading_other_process_memory()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let proc = tempfile::tempdir()?;
+        let stat = proc.path().join("stat");
+        std::fs::write(&stat, fixture_stat(101))?;
+        std::fs::write(proc.path().join("status"), "VmRSS: 900 kB\nVmHWM: 1200 kB\n")?;
+        let identity = ProcessIdentity { pid: 4242, start_marker: 101 };
+        let result = linux_sample_with(identity, |name| {
+            let text = std::fs::read_to_string(proc.path().join(name))?;
+            if name == "status" {
+                std::fs::write(&stat, fixture_stat(202))?;
+            }
+            Ok(text)
+        });
+        assert_eq!(result, Err(ProcessMemoryError::IdentityChanged));
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_sample_rejects_exit_after_reading_memory()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let proc = tempfile::tempdir()?;
+        let stat = proc.path().join("stat");
+        std::fs::write(&stat, fixture_stat(101))?;
+        std::fs::write(proc.path().join("status"), "VmRSS: 900 kB\n")?;
+        let identity = ProcessIdentity { pid: 4242, start_marker: 101 };
+        let result = linux_sample_with(identity, |name| {
+            let text = std::fs::read_to_string(proc.path().join(name))?;
+            if name == "status" {
+                std::fs::remove_file(&stat)?;
+            }
+            Ok(text)
+        });
+        assert_eq!(result, Err(ProcessMemoryError::ProcessExited));
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_sample_retains_original_proc_directory_after_pid_path_replaced()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let proc = tempfile::tempdir()?;
+        let original = proc.path().join("4242");
+        std::fs::create_dir(&original)?;
+        std::fs::write(original.join("stat"), fixture_stat(101))?;
+        std::fs::write(original.join("status"), "VmRSS: 13 kB\nVmHWM: 21 kB\n")?;
+        let observer = ProcessMemoryObserver::capture_linux_at(proc.path(), 4242)?;
+        std::fs::rename(&original, proc.path().join("old-process"))?;
+        std::fs::create_dir(&original)?;
+        std::fs::write(original.join("stat"), fixture_stat(202))?;
+        std::fs::write(original.join("status"), "VmRSS: 900 kB\nVmHWM: 1200 kB\n")?;
+
+        let sample = observer.sample()?;
+        assert_eq!(sample.pid, 4242);
+        assert_eq!(sample.resident_bytes, Some(13 * 1024));
+        assert_eq!(sample.peak_resident_bytes, Some(21 * 1024));
+        assert_eq!(sample.private_bytes, None);
+        assert!(sample.unavailable.iter().any(|field| field.metric == "privateBytes"));
+        Ok(())
+    }
+
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     #[test]
     fn samples_owned_process_identity_and_resident_memory()
