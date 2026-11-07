@@ -51,6 +51,7 @@ pub(super) struct Observability {
     history: State<History>,
     process: Mutex<Option<ProcessMemoryObserver>>,
     observation_slots: Arc<Semaphore>,
+    export_slots: Arc<Semaphore>,
     stop: watch::Sender<bool>,
     sampler: AsyncMutex<Option<JoinHandle<()>>>,
 }
@@ -68,6 +69,7 @@ impl Default for Observability {
             history: State::new(History::default()),
             process: Mutex::new(None),
             observation_slots: Arc::new(Semaphore::new(1)),
+            export_slots: Arc::new(Semaphore::new(1)),
             stop: watch::channel(false).0,
             sampler: AsyncMutex::new(None),
         }
@@ -95,10 +97,17 @@ impl Observability {
         T: Send + 'static,
         F: FnOnce() -> T + Send + 'static,
     {
+        // A slow user-chosen filesystem must not block compiler identity
+        // capture or periodic observation behind an export write.
+        let slots = if matches!(kind, WorkKind::SnapshotExport) {
+            self.export_slots.clone()
+        } else {
+            self.observation_slots.clone()
+        };
         run_staging(
             self.work.clone(),
             kind,
-            self.observation_slots.clone(),
+            slots,
             operation,
         )
         .await
@@ -211,6 +220,7 @@ impl Observability {
             super::state::blocking_result(sampler.await);
         }
         self.observation_slots.close();
+        self.export_slots.close();
     }
 
     pub(super) async fn collect_report(self: &Arc<Self>) -> io::Result<report::DiagnosticReport> {

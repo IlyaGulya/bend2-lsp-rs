@@ -326,6 +326,26 @@ mod tests {
     }
 
     #[test]
+    fn poisoned_registry_never_presents_partial_ownership_as_zero_storage() {
+        use std::panic::{AssertUnwindSafe, catch_unwind};
+
+        let registry = StorageRegistry::default();
+        let document = snapshot(1, "def value() -> U32:\n  0\n");
+        registry.track_snapshot(&document);
+        assert_eq!(registry.snapshot().snapshots.live_snapshots, 1);
+        let failed = catch_unwind(AssertUnwindSafe(|| {
+            let mut state = registry.lock();
+            state.snapshots.clear();
+            panic!("ownership update failed before commit");
+        }));
+        assert!(failed.is_err());
+        assert!(
+            catch_unwind(AssertUnwindSafe(|| registry.snapshot())).is_err(),
+            "poisoned accounting must fail instead of exporting partial zero totals"
+        );
+    }
+
+    #[test]
     fn registry_counts_equal_text_as_distinct_allocations() -> io::Result<()> {
         let registry = StorageRegistry::default();
         let source = "def value() -> U32:\n  0\n";
