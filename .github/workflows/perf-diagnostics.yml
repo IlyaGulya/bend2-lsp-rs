@@ -114,6 +114,7 @@ jobs:
       SELECTED_TARGET: ${{ inputs.target || 'all' }}
       NATIVE_KIND: ${{ inputs.native_kind || 'cpu' }}
       WORKFLOW_SHA: ${{ github.workflow_sha }}
+      WORKFLOW_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PULL_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
