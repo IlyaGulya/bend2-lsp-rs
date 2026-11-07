@@ -41,6 +41,7 @@ jobs:
       SELECTED_TARGET: all
       WORKFLOW_SHA: ${{ github.workflow_sha }}
       WORKFLOW_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PULL_NUMBER: ${{ github.event.pull_request.number }}
       BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_sha }}
       CANDIDATE_SHA: ${{ github.sha }}
       PERF_TARGET: x86_64-unknown-linux-gnu
@@ -114,6 +115,16 @@ jobs:
           cp "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" "$RUNNER_TEMP/bend2-perf"
       - name: Prepare durable Callgrind evidence inventory
         run: '"$RUNNER_TEMP/bend2-perf" workflow prepare'
+      - name: Validate immutable comparison source
+        id: source_validation
+        run: |
+          source_status=0
+          "$RUNNER_TEMP/bend2-perf" workflow validate || source_status=$?
+          cp target/perf-request/validation.json "$PERF_ROOT/source-validation.json"
+          if [[ -f target/perf-request/request.json ]]; then
+            cp target/perf-request/request.json "$PERF_ROOT/source-request.json"
+          fi
+          exit "$source_status"
       - name: Prepare exact main source
         id: baseline
         run: |

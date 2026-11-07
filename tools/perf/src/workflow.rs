@@ -109,7 +109,7 @@ impl CollectionRequest {
     }
 }
 
-fn git(arguments: &[&str]) -> ToolResult<String> {
+fn git_bytes(arguments: &[&str]) -> ToolResult<Vec<u8>> {
     let output = Command::new("git").args(arguments).output()?;
     if !output.status.success() {
         return Err(format!(
@@ -119,9 +119,59 @@ fn git(arguments: &[&str]) -> ToolResult<String> {
         )
         .into());
     }
-    let mut text = String::from_utf8(output.stdout)?;
+    Ok(output.stdout)
+}
+
+fn git(arguments: &[&str]) -> ToolResult<String> {
+    let mut text = String::from_utf8(git_bytes(arguments)?)?;
     text.truncate(text.trim_end().len());
     Ok(text)
+}
+
+fn validate_source_sha(name: &str, sha: &str) -> ToolResult<()> {
+    if sha.len() != 40
+        || !sha
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(format!("{name} must be an exact lowercase 40-character source SHA").into());
+    }
+    Ok(())
+}
+
+fn validate_pull_merge(request: &CollectionRequest) -> ToolResult<()> {
+    let head = variable("WORKFLOW_HEAD_SHA")?;
+    validate_source_sha("WORKFLOW_HEAD_SHA", &head)?;
+    // Read commit headers, not graph traversal: shallow boundaries hide parents.
+    // Message lines must not count as headers, and a moved base is never adopted.
+    let commit = git_bytes(&["cat-file", "-p", &request.candidate_sha])?;
+    let mut parents = commit
+        .split(|byte| *byte == b'\n')
+        .take_while(|line| !line.is_empty())
+        .filter_map(|line| line.strip_prefix(b"parent "));
+    let base_parent = parents.next();
+    let head_parent = parents.next();
+    let extra_parent = parents.next();
+    if base_parent != Some(request.base_sha.as_bytes())
+        || head_parent != Some(head.as_bytes())
+        || extra_parent.is_some()
+    {
+        return Err(format!(
+            "PR comparison requires exactly two merge parents matching the requested source: \
+             candidate {}; actual base {}, head {}, extra parent {}; \
+             requested BASE_SHA {}, WORKFLOW_HEAD_SHA {}. \
+             Use a fresh pull_request event or explicitly dispatch the intended exact comparison; \
+             rerunning the same event does not refresh its source.",
+            request.candidate_sha,
+            String::from_utf8_lossy(base_parent.unwrap_or(b"<missing>")),
+            String::from_utf8_lossy(head_parent.unwrap_or(b"<missing>")),
+            String::from_utf8_lossy(extra_parent.unwrap_or(b"<none>")),
+            request.base_sha,
+            head,
+        )
+        .into());
+    }
+    Ok(())
 }
 
 fn validate_source(request: &CollectionRequest) -> ToolResult<()> {
@@ -142,23 +192,19 @@ fn validate_source(request: &CollectionRequest) -> ToolResult<()> {
         ("BASE_SHA", &request.base_sha),
         ("CANDIDATE_SHA", &request.candidate_sha),
     ] {
-        if sha.len() != 40
-            || !sha
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        {
-            return Err(
-                format!("{name} must be an exact lowercase 40-character source SHA").into(),
-            );
-        }
+        validate_source_sha(name, sha)?;
     }
     let event = variable("GITHUB_EVENT_NAME")?;
-    if !(matches!(
-        request.mode.as_str(),
-        "compare" | "cpu" | "heap" | "native" | "full"
-    ) || (event == "pull_request" && request.mode == "verification"))
-        || !SCENARIOS.contains(&request.scenario.as_str())
-    {
+    let supported = if request.mode == "callgrind" {
+        request.scenario == "analysis-hot-paths"
+    } else {
+        (matches!(
+            request.mode.as_str(),
+            "compare" | "cpu" | "heap" | "native" | "full"
+        ) || (event == "pull_request" && request.mode == "verification"))
+            && SCENARIOS.contains(&request.scenario.as_str())
+    };
+    if !supported {
         return Err("Unknown mode or scenario".into());
     }
     if request.targets().next().is_none() {
@@ -233,6 +279,7 @@ fn validate_source(request: &CollectionRequest) -> ToolResult<()> {
         if git(&["rev-parse", reference])? != request.candidate_sha {
             return Err("Pull request source moved; redispatch on the new exact SHA".into());
         }
+        validate_pull_merge(request)?;
         Some(reference)
     } else {
         None
