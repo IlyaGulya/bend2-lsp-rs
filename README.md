@@ -562,6 +562,8 @@ representation, cross-file query implementation, and LSP framework.
 Formatting normalizes indentation and token spacing while preserving tokens,
 comments, line endings, and whether the file ends with a newline. It honors
 `tabSize` and `insertSpaces` and declines unsafe rewrites.
+Inline bodies keep their parser-significant continuation columns, including
+`do`, `match`, `case`, and lambda bodies with tabs or Unicode text.
 
 ### Organize imports in Zed
 
@@ -682,8 +684,8 @@ type checker or require a separately installed JavaScript runtime. Executable
 bundle, target, and embedded runtime identities must match the verified registry
 before recovery is enabled.
 
-The 2.0.38–2.0.40 identities are new in this development build. Released LSP
-v0.7.0 uses ordinary CLI checks for those versions instead of enhanced recovery.
+Support for the 2.0.38–2.0.40 builds was added in LSP v0.7.1. LSP v0.7.0 uses
+ordinary CLI checks for those versions instead of enhanced recovery.
 
 Windows has no official upstream Bend binary. Enhanced Windows checks require
 the checksum-pinned native upstream source build reproduced by
