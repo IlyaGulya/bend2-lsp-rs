@@ -775,6 +775,10 @@ independent source errors, unsaved corrections, exact declaration spans, and
 compiler-owned versus user-owned `Base`, and spaces/non-ASCII workspace and
 temporary paths. A separate macOS ARM64 job retains Bend 2.0.36 coverage.
 
+Portable analyzer fixtures atomically publish completed stdin captures.
+Process-start counters are not input-readiness barriers; tests that need a
+specific invocation must also wait for its completion signal.
+
 The same native CI jobs also check every newer release listed by
 `python3 scripts/bootstrap_bend.py --list-compatibility-versions`: currently
 2.0.38, 2.0.39, and 2.0.40. They reuse the already-built Rust server and test
