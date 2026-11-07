@@ -304,6 +304,8 @@ fn physical_footprint_unavailable() -> &'static str {
 /// this server owns, or with `std::process::id()` for the server itself.
 pub(crate) struct ProcessMemoryObserver {
     identity: ProcessIdentity,
+    #[cfg(target_os = "linux")]
+    proc_path: std::path::PathBuf,
     #[cfg(target_os = "windows")]
     process: winsafe::guard::CloseHandleGuard<winsafe::HPROCESS>,
 }
@@ -311,10 +313,15 @@ pub(crate) struct ProcessMemoryObserver {
 #[cfg(target_os = "linux")]
 impl ProcessMemoryObserver {
     pub(crate) fn capture(pid: u32) -> Result<Self, ProcessMemoryError> {
+        Self::capture_linux_at(std::path::Path::new("/proc"), pid)
+    }
+
+    fn capture_linux_at(root: &std::path::Path, pid: u32) -> Result<Self, ProcessMemoryError> {
         if pid == 0 {
             return Err(ProcessMemoryError::InvalidPid);
         }
-        let stat = std::fs::read_to_string(linux_stat_path(pid))
+        let proc_path = root.join(pid.to_string());
+        let stat = std::fs::read_to_string(proc_path.join("stat"))
             .map_err(|error| io_failure(&error))?;
         let (observed_pid, start_marker) =
             linux_start_time(&stat).ok_or(ProcessMemoryError::SamplingFailed)?;
@@ -323,29 +330,38 @@ impl ProcessMemoryObserver {
         }
         Ok(Self {
             identity: ProcessIdentity { pid, start_marker },
+            proc_path,
         })
     }
 
     pub(crate) fn sample(&self) -> Result<ProcessMemorySample, ProcessMemoryError> {
-        let stat = std::fs::read_to_string(linux_stat_path(self.identity.pid))
-            .map_err(|error| io_failure(&error))?;
-        let (observed_pid, start_marker) =
-            linux_start_time(&stat).ok_or(ProcessMemoryError::SamplingFailed)?;
-        self.identity.verify(observed_pid, start_marker)?;
-
-        let text = std::fs::read_to_string(linux_status_path(self.identity.pid))
-            .map_err(|error| io_failure(&error))?;
-        let status = linux_memory_status(&text)?;
-        Ok(finish_sample(
-            self.identity,
-            RawMemory {
-                resident_bytes: status.resident_bytes,
-                peak_resident_bytes: status.peak_resident_bytes,
-                private_bytes: None,
-                physical_footprint_bytes: None,
-            },
-        ))
+        linux_sample_with(self.identity, |name| {
+            std::fs::read_to_string(self.proc_path.join(name))
+        })
     }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_sample_with(
+    identity: ProcessIdentity,
+    mut read: impl FnMut(&str) -> std::io::Result<String>,
+) -> Result<ProcessMemorySample, ProcessMemoryError> {
+    let stat = read("stat").map_err(|error| io_failure(&error))?;
+    let (observed_pid, start_marker) =
+        linux_start_time(&stat).ok_or(ProcessMemoryError::SamplingFailed)?;
+    identity.verify(observed_pid, start_marker)?;
+
+    let text = read("status").map_err(|error| io_failure(&error))?;
+    let status = linux_memory_status(&text)?;
+    Ok(finish_sample(
+        identity,
+        RawMemory {
+            resident_bytes: status.resident_bytes,
+            peak_resident_bytes: status.peak_resident_bytes,
+            private_bytes: None,
+            physical_footprint_bytes: None,
+        },
+    ))
 }
 
 #[cfg(target_os = "macos")]
@@ -476,16 +492,6 @@ impl ProcessMemoryObserver {
         let _ = self.identity;
         Err(ProcessMemoryError::PlatformUnsupported)
     }
-}
-
-#[cfg(target_os = "linux")]
-fn linux_stat_path(pid: u32) -> String {
-    format!("/proc/{pid}/stat")
-}
-
-#[cfg(target_os = "linux")]
-fn linux_status_path(pid: u32) -> String {
-    format!("/proc/{pid}/status")
 }
 
 #[cfg(any(target_os = "linux", test))]
