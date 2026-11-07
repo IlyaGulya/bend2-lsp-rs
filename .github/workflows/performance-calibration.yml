@@ -19,17 +19,14 @@ on:
 
 permissions: {}
 
-concurrency:
-  # Latest-head policy for ordinary pull-request work only: at most one run of
-  # this workflow per pull request, so a superseded calibration stops instead of
-  # queueing ahead of the current head. Distinct pull requests never share a
-  # group. An explicitly requested manual calibration falls back to a unique
-  # per-run group and is never cancelled by a new head.
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
 
+# Shard-specific cancellation never makes sibling shards cancel each other.
+# Final failure reporting stays outside the collector concurrency groups.
 jobs:
   collect:
+    concurrency:
+      group: ${{ github.workflow }}-collect-${{ matrix.job }}-${{ matrix.shard }}-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
     permissions:
       contents: read
     runs-on: ubuntu-24.04

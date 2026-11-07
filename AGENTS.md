@@ -20,22 +20,23 @@ jobs must never execute PR code or consume PR artifacts.
 
 ## Pull-request run lifecycle
 
-Ordinary `pull_request` runs are latest-head work. Each pull-request workflow
-declares one workflow-level concurrency group per pull request with
-`cancel-in-progress: true`, so a superseded head stops instead of queueing ahead
-of the current head. Distinct pull requests never share a group. The opt-in
-labelled semantic calibration keeps `cancel-in-progress: false`, so a deliberate
-calibration is never stopped by a newer head. Explicit `workflow_dispatch` and
-calibration/diagnostic requests, scheduled runs, and trusted `push`/`workflow_run`
-main and release runs use a unique per-run group and are never cancelled by a
-new head.
+Ordinary first-attempt `pull_request` validation is latest-head work. Quality,
+installer and diagnostic workflows use workflow/PR concurrency groups.
+Performance collectors use job/PR groups with target or shard identity: sibling
+jobs must not cancel each other. Keep unconditional admission/report jobs outside
+those groups so they cannot hold up the next head. Never make a required
+admission conditionally skipped to release a cancellation lock.
 
-A reusable callee must not declare a group derived from `github.workflow`: a
-called workflow inherits the caller's value, so that group would cancel the
-caller run waiting for it. The caller owns the run-level group. Cancellation
-never yields admission: measurements stop through their owning supervisor, which
-reaps its process group and checkpoints a terminal lifecycle receipt, and
-partial evidence stays labelled incomplete. Mandatory checks, permissions,
+Explicit reruns (`github.run_attempt > 1`), manual dispatches, schedules and
+trusted main/release runs use independent run/attempt groups. Active opt-in
+labelled semantic calibration is not cancelled by a new head; GitHub's default
+single pending slot can replace older pending work. Concurrency follows event
+arrival, not a custom strict-HEAD arbiter.
+
+A reusable callee must not share its caller's key: `github.workflow` is inherited.
+Use a literal callee prefix when a separate group is needed. Cancellation never
+yields admission: owned supervisors reap their groups and checkpoint terminal
+receipts; partial evidence stays incomplete. Mandatory checks, permissions,
 action pins, thresholds, sample counts and resource bounds are unchanged.
 
 ## Editor demo videos

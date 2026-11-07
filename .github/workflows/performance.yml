@@ -17,18 +17,15 @@ on:
 
 permissions: {}
 
-concurrency:
-  # Latest-head policy for ordinary pull-request work only: at most one run of
-  # this workflow per pull request, so a superseded Callgrind collection stops
-  # instead of queueing ahead of the current head. Distinct pull requests never
-  # share a group. An explicitly requested manual comparison falls back to a
-  # unique per-run group and is never cancelled by a new head.
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
 
+# Collection jobs own latest-head cancellation. Required admission must still
+# judge failed/cancelled collection without holding a workflow concurrency lock.
 jobs:
   compare:
     name: Callgrind measurement
+    concurrency:
+      group: ${{ github.workflow }}-compare-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
     outputs:
       status: ${{ steps.classify.outputs.status }}
       base_sha: ${{ steps.classify.outputs.base_sha }}
@@ -335,6 +332,8 @@ jobs:
   admission:
     name: performance admission
     needs: [compare, review-exception]
+    # A skipped required check may count as successful. Keep admission fail-closed;
+    # collector-scoped concurrency lets this job finish without blocking a new head.
     if: always()
     permissions: {}
     runs-on: ubuntu-24.04
@@ -373,6 +372,9 @@ jobs:
     permissions:
       contents: read
     name: native performance (${{ matrix.target }})
+    concurrency:
+      group: ${{ github.workflow }}-latency-${{ matrix.target }}-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:

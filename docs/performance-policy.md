@@ -513,12 +513,14 @@ owned group, never unrelated children. A leader exiting does not prove its
 writers have stopped. Unexpected surviving descendants make collection fail,
 even when their leader returned zero and subsequent cleanup succeeds.
 
-Ordinary first-attempt `pull_request` runs share a workflow/PR concurrency
-group. New arrivals may cancel superseded ordinary quality, installer,
-performance, calibration and diagnostic work. Explicit reruns
-(`github.run_attempt > 1`), manual dispatches, schedules and trusted pushes
-use independent run/attempt groups: an intentional old-head rerun cannot
-cancel the current head's ordinary checks, or vice versa.
+Ordinary first-attempt `pull_request` quality, installer and diagnostic runs use
+workflow/PR concurrency groups. Performance comparison/native collectors and
+calibration shards use job/PR groups, including target or shard identity so
+siblings never cancel each other. New arrivals cancel superseded collection;
+final admission/report jobs do not hold the next head's collector group.
+Explicit reruns (`github.run_attempt > 1`), manual dispatches, schedules and
+trusted pushes use independent run/attempt groups: an intentional old-head rerun
+cannot cancel the current head's ordinary work, or vice versa.
 
 The reusable `perf-diagnostics` workflow has a literal callee prefix rather
 than its caller's inherited workflow name, preventing caller/callee
@@ -528,6 +530,13 @@ replace an older pending run. Native concurrency orders arrivals to its
 queue, not source SHAs, and is not a strict current-HEAD arbiter. See
 [GitHub's concurrency contract](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 Source identity and admission checks remain separate.
+
+Do not put `always()` admission/report jobs behind a workflow-level latest-head
+lock: they can remain queued after collector cancellation and hold the next run.
+Keep required admission unconditional rather than replacing it with
+`!cancelled()`: GitHub can treat a conditionally skipped required check as
+successful. See [required-check semantics](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
+Collector cancellation must still lead to failed admission, not a policy pass.
 
 Verify scheduling changes with hosted runs, not YAML inspection alone:
 
