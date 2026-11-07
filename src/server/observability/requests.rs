@@ -544,10 +544,7 @@ mod tests {
         Pin::new(future).poll(&mut context)
     }
 
-    fn bucket(
-        snapshot: &RequestMetricsSnapshot,
-        method: RequestMethod,
-    ) -> &RequestMethodSnapshot {
+    fn bucket(snapshot: &RequestMetricsSnapshot, method: RequestMethod) -> &RequestMethodSnapshot {
         snapshot
             .methods
             .iter()
@@ -784,7 +781,11 @@ mod tests {
     #[test]
     fn completion_followed_by_drop_does_not_count_abandoned_or_decrement_twice() {
         let metrics = Arc::new(RequestMetrics::default());
-        let future = metrics.start(RequestMethod::Definition, false, ready(TestOutput::Ok(None)));
+        let future = metrics.start(
+            RequestMethod::Definition,
+            false,
+            ready(TestOutput::Ok(None)),
+        );
         let mut future = future;
         assert!(poll_once(&mut future).is_ready());
 

@@ -335,9 +335,7 @@ impl WorkspaceService {
         self.commit(None, None, |database| {
             let mut committed = false;
             for (id, generation, path, physical_path, snapshot, imports) in prepared {
-                if !database.is_needed(id)
-                    || database.disk_generation(id) != Some(generation)
-                {
+                if !database.is_needed(id) || database.disk_generation(id) != Some(generation) {
                     continue;
                 }
                 let missing = snapshot.is_none();

@@ -69,7 +69,12 @@ impl Backend {
             return Ok(Some(actions));
         }
         self.append_auto_import_actions(&doc, requested_range.start, &mut actions);
-        Self::append_parsing_actions(&doc, requested_range, params.context.diagnostics, &mut actions);
+        Self::append_parsing_actions(
+            &doc,
+            requested_range,
+            params.context.diagnostics,
+            &mut actions,
+        );
         Ok(Some(actions))
     }
 
