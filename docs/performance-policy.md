@@ -513,6 +513,22 @@ owned group, never unrelated children. A leader exiting does not prove its
 writers have stopped. Unexpected surviving descendants make collection fail,
 even when their leader returned zero and subsequent cleanup succeeds.
 
+Ordinary first-attempt `pull_request` runs share a workflow/PR concurrency
+group. New arrivals may cancel superseded ordinary quality, installer,
+performance, calibration and diagnostic work. Explicit reruns
+(`github.run_attempt > 1`), manual dispatches, schedules and trusted pushes
+use independent run/attempt groups: an intentional old-head rerun cannot
+cancel the current head's ordinary checks, or vice versa.
+
+The reusable `perf-diagnostics` workflow has a literal callee prefix rather
+than its caller's inherited workflow name, preventing caller/callee
+self-cancellation. Active labelled semantic calibration is preserved with
+`cancel-in-progress: false`; GitHub's default single pending slot can still
+replace an older pending run. Native concurrency orders arrivals to its
+queue, not source SHAs, and is not a strict current-HEAD arbiter. See
+[GitHub's concurrency contract](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+Source identity and admission checks remain separate.
+
 The measurement deadlines remain 210 minutes for ordinary paired collection
 and 330 minutes for qualification. Their outer steps reserve two additional
 minutes for termination, reaping and report handling, not additional samples

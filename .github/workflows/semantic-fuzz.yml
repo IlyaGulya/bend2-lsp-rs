@@ -14,13 +14,12 @@ on:
 permissions: {}
 
 concurrency:
-  # Deliberate semantic calibration is never cancelled: a labelled pull request
-  # uses one group per pull request with cancel-in-progress false, so a newer
-  # head queues behind an in-progress calibration instead of stopping it, while
-  # distinct pull requests never share a group. Scheduled and manually
-  # dispatched runs fall back to a unique per-run group so each deliberate run
-  # stays independent of every other run.
-  group: semantic-fuzz-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  # Preserve active semantic calibration. GitHub's default single pending
+  # slot may replace an older pending PR run with the latest queued run; this
+  # is not a guarantee that every labelled head will execute. Distinct PRs
+  # never share a group. Schedules, dispatches and explicit reruns have unique
+  # run/attempt groups and remain independent.
+  group: semantic-fuzz-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
   cancel-in-progress: false
 
 jobs:

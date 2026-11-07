@@ -87,8 +87,8 @@ concurrency:
   # inherits the caller's github.workflow value, so a shared value would let
   # this callee cancel the caller that is waiting for it. Manual and called runs
   # fall back to the run ID, so each one stays independent and uncancelled.
-  group: perf-diagnostics-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: perf-diagnostics-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
 
 jobs:
   validate:
