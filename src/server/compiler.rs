@@ -805,12 +805,10 @@ fn cache_compiler_result(
     if !results.contains_key(&root)
         && results.len() >= 32
         && let Some(evicted) = results.keys().next().cloned()
+        && results.remove(&evicted).is_some()
+        && let Some(accounting) = accounting
     {
-        if results.remove(&evicted).is_some()
-            && let Some(accounting) = accounting
-        {
-            accounting.eviction();
-        }
+        accounting.eviction();
     }
     let replaced = results
         .insert(

@@ -936,6 +936,63 @@ impl Backend {
         .await
     }
 
+    fn commit_watched_updates(
+        &self,
+        prepared: Vec<PreparedDiskUpdate>,
+        importers: Vec<PreparedImporter>,
+        library_path: Option<PathBuf>,
+        affected: &mut HashMap<Url, i32>,
+    ) -> Option<Vec<(FileId, bool)>> {
+        let commit_span = tracing::info_span!(
+            "workspace.commit",
+            kind = "watched_files",
+            file_count = prepared.len(),
+            outcome = tracing::field::Empty,
+        );
+        let updates = commit_span.in_scope(|| {
+            self.workspace.commit(None, None, |database| {
+                database.set_semantic_library_path(library_path);
+                let mut updates = Vec::with_capacity(prepared.len());
+                for update in prepared {
+                    if !database.is_needed(update.file.id)
+                        || database.disk_generation(update.file.id)
+                            != Some(update.file.disk_generation)
+                    {
+                        continue;
+                    }
+                    let Some((id, imports_changed)) = database.sync_disk_snapshot_prepared(
+                        update.file.id,
+                        &update.file.path,
+                        &update.physical_path,
+                        update.snapshot,
+                        update.imports,
+                    ) else {
+                        continue;
+                    };
+                    if let Some(document) = database.open_document(&update.file.uri) {
+                        affected.insert(document.uri.clone(), document.revision.0);
+                    }
+                    updates.push((id, imports_changed));
+                }
+                for importer in importers {
+                    if let Some(changed) = database.refresh_imports_prepared(
+                        importer.id,
+                        &importer.snapshot,
+                        &importer.physical_path,
+                        importer.imports,
+                    ) {
+                        updates.push((importer.id, changed));
+                    }
+                }
+                Some(updates)
+            })
+        });
+        if updates.is_some() {
+            commit_span.record("outcome", "committed");
+        }
+        updates
+    }
+
     #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "watched_files", event_count = events.len(), outcome = tracing::field::Empty))]
     pub(super) async fn sync_watched_files(
         &self,
@@ -966,54 +1023,11 @@ impl Backend {
         };
         let updates = {
             let _workspace_update = self.workspace.updates.write().await;
-            let commit_span = tracing::info_span!(
-                "workspace.commit",
-                kind = "watched_files",
-                file_count = prepared.len(),
-                outcome = tracing::field::Empty,
-            );
-            let updates = commit_span.in_scope(|| {
-                self.workspace.commit(None, None, |database| {
-                    database.set_semantic_library_path(library_path);
-                    let mut updates = Vec::with_capacity(prepared.len());
-                    for update in prepared {
-                        if !database.is_needed(update.file.id)
-                            || database.disk_generation(update.file.id)
-                                != Some(update.file.disk_generation)
-                        {
-                            continue;
-                        }
-                        let Some((id, imports_changed)) = database.sync_disk_snapshot_prepared(
-                            update.file.id,
-                            &update.file.path,
-                            &update.physical_path,
-                            update.snapshot,
-                            update.imports,
-                        ) else {
-                            continue;
-                        };
-                        if let Some(document) = database.open_document(&update.file.uri) {
-                            affected.insert(document.uri.clone(), document.revision.0);
-                        }
-                        updates.push((id, imports_changed));
-                    }
-                    for importer in importers {
-                        if let Some(changed) = database.refresh_imports_prepared(
-                            importer.id,
-                            &importer.snapshot,
-                            &importer.physical_path,
-                            importer.imports,
-                        ) {
-                            updates.push((importer.id, changed));
-                        }
-                    }
-                    Some(updates)
-                })
-            });
-            let Some(updates) = updates else {
+            let Some(updates) =
+                self.commit_watched_updates(prepared, importers, library_path, &mut affected)
+            else {
                 return HashMap::new();
             };
-            commit_span.record("outcome", "committed");
             updates
         };
         for (id, imports_changed) in &updates {

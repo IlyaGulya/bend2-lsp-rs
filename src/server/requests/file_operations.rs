@@ -464,6 +464,46 @@ fn prepare_sources(
         .collect()
 }
 
+fn apply_prepared_renames(
+    database: &mut WorkspaceDb,
+    renames: &[PathRename],
+    physical_paths: &HashMap<PathBuf, PathBuf>,
+    prepared: Vec<PreparedSource>,
+) -> Vec<(FileId, FileId)> {
+    let merged = database.rename_paths(renames, physical_paths);
+    for PreparedSource {
+        source,
+        physical_path,
+        imports,
+        disk_snapshot,
+        disk_imports,
+    } in prepared
+    {
+        let id = merged
+            .iter()
+            .find(|(retired, _)| *retired == source.id)
+            .map_or(source.id, |(_, canonical)| *canonical);
+        database.sync_disk_snapshot_prepared(
+            id,
+            &source.path,
+            &physical_path,
+            disk_snapshot,
+            disk_imports,
+        );
+        if source.open
+            && let Some(snapshot) = source.snapshot
+        {
+            database.update_open_snapshot_prepared(
+                &source.uri,
+                snapshot,
+                Some(physical_path),
+                imports,
+            );
+        }
+    }
+    merged
+}
+
 impl Backend {
     pub(in crate::server) async fn handle_will_rename_files(
         &self,
@@ -662,37 +702,7 @@ impl Backend {
             .await?;
             let _update = self.workspace.updates.write().await;
             if let Some(documents) = self.workspace.commit_file_rename(generation, |database| {
-                let merged = database.rename_paths(&renames, &physical_paths);
-                for PreparedSource {
-                    source,
-                    physical_path,
-                    imports,
-                    disk_snapshot,
-                    disk_imports,
-                } in prepared
-                {
-                    let id = merged
-                        .iter()
-                        .find(|(retired, _)| *retired == source.id)
-                        .map_or(source.id, |(_, canonical)| *canonical);
-                    database.sync_disk_snapshot_prepared(
-                        id,
-                        &source.path,
-                        &physical_path,
-                        disk_snapshot,
-                        disk_imports,
-                    );
-                    if source.open
-                        && let Some(snapshot) = source.snapshot
-                    {
-                        database.update_open_snapshot_prepared(
-                            &source.uri,
-                            snapshot,
-                            Some(physical_path),
-                            imports,
-                        );
-                    }
-                }
+                let merged = apply_prepared_renames(database, &renames, &physical_paths, prepared);
                 Some((merged, (database.open_documents(), retired_uris)))
             }) {
                 return Some(documents);

@@ -10,7 +10,7 @@ use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
         CodeAction, CodeActionKind, CodeActionOrCommand, CodeActionParams, CodeActionResponse,
-        CodeActionTriggerKind, Command, NumberOrString, Position, Range, TextEdit,
+        CodeActionTriggerKind, Command, Diagnostic, NumberOrString, Position, Range, TextEdit,
     },
 };
 
@@ -69,7 +69,17 @@ impl Backend {
             return Ok(Some(actions));
         }
         self.append_auto_import_actions(&doc, requested_range.start, &mut actions);
-        for diagnostic in params.context.diagnostics {
+        Self::append_parsing_actions(&doc, requested_range, params.context.diagnostics, &mut actions);
+        Ok(Some(actions))
+    }
+
+    fn append_parsing_actions(
+        doc: &Document,
+        requested_range: Range,
+        diagnostics: Vec<Diagnostic>,
+        actions: &mut Vec<CodeActionOrCommand>,
+    ) {
+        for diagnostic in diagnostics {
             if diagnostic.source.as_deref() == Some("bend-lint") {
                 continue;
             }
@@ -102,11 +112,11 @@ impl Backend {
                 continue;
             };
             let insertion = adapters::position_at(
-                &doc,
-                code_end_offset(&doc, adapters::offset_at(&doc, diagnostic.range.start)),
+                doc,
+                code_end_offset(doc, adapters::offset_at(doc, diagnostic.range.start)),
             );
             let edit = versioned_edit(
-                &doc,
+                doc,
                 vec![TextEdit {
                     range: Range::new(insertion, insertion),
                     new_text: close.to_string(),
@@ -121,7 +131,6 @@ impl Backend {
                 ..Default::default()
             }));
         }
-        Ok(Some(actions))
     }
 
     fn append_auto_import_actions(

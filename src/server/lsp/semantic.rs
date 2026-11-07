@@ -254,18 +254,13 @@ impl Backend {
 
     pub(in crate::server) fn semantic_view(&self, uri: &Url) -> Option<Arc<SemanticView>> {
         let database = self.workspace.read();
-        let Some(root) = database.file_id_by_uri(uri) else {
-            return None;
-        };
-        match database.semantic_view(root) {
-            Some(view) => {
-                self.workspace.observability.semantic_cache.hit();
-                Some(view)
-            }
-            None => {
-                self.workspace.observability.semantic_cache.miss();
-                None
-            }
+        let root = database.file_id_by_uri(uri)?;
+        if let Some(view) = database.semantic_view(root) {
+            self.workspace.observability.semantic_cache.hit();
+            Some(view)
+        } else {
+            self.workspace.observability.semantic_cache.miss();
+            None
         }
     }
 

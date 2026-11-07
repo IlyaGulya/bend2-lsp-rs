@@ -578,7 +578,7 @@ pub struct SyntaxIndex {
 }
 
 fn slice_bytes<T>(items: &[T]) -> usize {
-    size_of::<T>() * items.len()
+    std::mem::size_of_val(items)
 }
 
 impl NameTable {

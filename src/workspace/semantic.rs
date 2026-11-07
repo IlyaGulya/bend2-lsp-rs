@@ -451,7 +451,7 @@ impl SemanticView {
         }
         for (_, context) in self.contexts.iter() {
             bytes = bytes.saturating_add(buffer_bytes(context.namespace.capacity(), 1));
-            for (alias, target) in context.aliases.iter() {
+            for (alias, target) in &context.aliases {
                 bytes = bytes
                     .saturating_add(buffer_bytes(alias.capacity(), 1))
                     .saturating_add(buffer_bytes(target.capacity(), 1));
@@ -461,7 +461,7 @@ impl SemanticView {
             bytes = bytes.saturating_add(buffer_bytes(entity.name.capacity(), 1));
         }
         for (_, hints) in self.parameter_hints.iter() {
-            for (_, text) in hints.iter() {
+            for (_, text) in hints {
                 bytes = bytes.saturating_add(buffer_bytes(text.capacity(), 1));
             }
         }

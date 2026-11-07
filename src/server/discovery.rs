@@ -24,6 +24,15 @@ struct PreparedSource {
     accepted: bool,
 }
 
+type PreparedReachable = (
+    FileId,
+    u64,
+    PathBuf,
+    PathBuf,
+    Option<Arc<DocumentSnapshot>>,
+    Vec<PreparedImportTarget>,
+);
+
 pub(super) fn walk_builder(roots: &[PathBuf]) -> ignore::WalkBuilder {
     let mut builder = ignore::WalkBuilder::from_iter(roots);
     builder
@@ -318,6 +327,36 @@ impl WorkspaceService {
         }
         task.take();
     }
+    fn commit_reachable_prepared(
+        &self,
+        prepared: Vec<PreparedReachable>,
+        attempted: &mut HashSet<(FileId, PathBuf)>,
+    ) {
+        self.commit(None, None, |database| {
+            let mut committed = false;
+            for (id, generation, path, physical_path, snapshot, imports) in prepared {
+                if !database.is_needed(id)
+                    || database.disk_generation(id) != Some(generation)
+                {
+                    continue;
+                }
+                let missing = snapshot.is_none();
+                let synced = database.sync_disk_snapshot_prepared(
+                    id,
+                    &path,
+                    &physical_path,
+                    snapshot,
+                    imports,
+                );
+                committed |= synced.is_some();
+                if missing || synced.is_none() {
+                    attempted.insert((id, path));
+                }
+            }
+            committed.then_some(())
+        });
+    }
+
     #[tracing::instrument(name = "workspace.update", skip_all, fields(kind = "load_reachable", root_count = roots.len(), outcome = tracing::field::Empty))]
     pub(super) async fn load_reachable_async(
         self: &Arc<Self>,
@@ -403,31 +442,7 @@ impl WorkspaceService {
                 file_count = prepared.len(),
                 outcome = tracing::field::Empty,
             );
-            commit_span.in_scope(|| {
-                self.commit(None, None, |database| {
-                    let mut committed = false;
-                    for (id, generation, path, physical_path, snapshot, imports) in prepared {
-                        if !database.is_needed(id)
-                            || database.disk_generation(id) != Some(generation)
-                        {
-                            continue;
-                        }
-                        let missing = snapshot.is_none();
-                        let synced = database.sync_disk_snapshot_prepared(
-                            id,
-                            &path,
-                            &physical_path,
-                            snapshot,
-                            imports,
-                        );
-                        committed |= synced.is_some();
-                        if missing || synced.is_none() {
-                            attempted.insert((id, path));
-                        }
-                    }
-                    committed.then_some(())
-                })
-            });
+            commit_span.in_scope(|| self.commit_reachable_prepared(prepared, &mut attempted));
             commit_span.record("outcome", "committed");
         }
         self.finish_load_reachable(roots.len()).await;

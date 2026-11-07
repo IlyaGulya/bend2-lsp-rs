@@ -292,6 +292,13 @@ async fn communicate(
     }
 }
 
+// Admission and accounting stay owned together until the child reaper finishes.
+struct ExecutionResources {
+    reapers: Arc<CompilerReapers>,
+    permit: OwnedSemaphorePermit,
+    running: RunningWork,
+}
+
 // Runs one analyzer invocation with a contained process tree. stdout, stderr
 // and stdin are all drained concurrently, so a child that writes while reading
 // its overlay cannot deadlock against us.
@@ -301,12 +308,10 @@ async fn execute(
     arguments: Vec<OsString>,
     input: Option<Vec<u8>>,
     timeout: Duration,
-    reapers: Arc<CompilerReapers>,
-    permit: OwnedSemaphorePermit,
-    running: RunningWork,
+    resources: ExecutionResources,
 ) -> io::Result<std::process::Output> {
     let wants_stdin = input.is_some();
-    let lease = reapers.track()?;
+    let lease = resources.reapers.track()?;
     let child = spawn_analyzer(config, directory, &arguments, wants_stdin)?;
     #[cfg(test)]
     let gate = {
@@ -325,8 +330,8 @@ async fn execute(
     let mut guard = ChildGuard {
         child: Some(child),
         lease: Some(lease),
-        permit: Some(permit),
-        running: Some(running),
+        permit: Some(resources.permit),
+        running: Some(resources.running),
         #[cfg(test)]
         reap_gate: gate,
     };
@@ -346,7 +351,7 @@ async fn execute(
         result = tokio::time::timeout(timeout, communicate(child.as_mut(), stdin, input)) => {
             result.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "bend-lint timed out; process tree is being killed and reaped"))?
         }
-        () = reapers.stopped() => Err(io::Error::new(io::ErrorKind::Interrupted, "bend-lint stopped")),
+        () = resources.reapers.stopped() => Err(io::Error::new(io::ErrorKind::Interrupted, "bend-lint stopped")),
     }
 }
 
@@ -379,9 +384,11 @@ pub(super) async fn run(
         arguments,
         Some(input),
         Duration::from_millis(config.timeout_ms),
-        reapers,
-        permit,
-        running,
+        ExecutionResources {
+            reapers,
+            permit,
+            running,
+        },
     )
     .await
 }
@@ -559,9 +566,11 @@ pub(super) async fn prepare(
         arguments,
         None,
         PREPARATION_TIMEOUT,
-        reapers,
-        permit,
-        running,
+        ExecutionResources {
+            reapers,
+            permit,
+            running,
+        },
     )
     .await
     .map_err(|error| {
