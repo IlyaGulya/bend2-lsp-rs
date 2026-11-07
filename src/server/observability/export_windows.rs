@@ -190,6 +190,13 @@ pub(super) fn verify_owner_acl(path: &Path) -> Result<(), ExportError> {
         SecurityInformation::Dacl,
     )
     .map_err(|_| ExportError::PermissionRestriction)?;
+    let sddl =
+        ConvertSecurityDescriptorToStringSecurityDescriptor(&descriptor, SecurityInformation::Dacl)
+            .map_err(|_| ExportError::PermissionRestriction)?;
+    let sddl = sddl.to_string_lossy();
+    if !sddl.contains("D:P") || sddl.contains("NO_ACCESS_CONTROL") {
+        return Err(ExportError::PermissionRestriction);
+    }
     let acl = descriptor
         .dacl()
         .ok_or(ExportError::PermissionRestriction)?;
@@ -203,12 +210,6 @@ pub(super) fn verify_owner_acl(path: &Path) -> Result<(), ExportError> {
         || !ace.mask().contains(AccessRights::FileAllAccess)
         || ace.flags().contains(AceFlags::Inherited)
     {
-        return Err(ExportError::PermissionRestriction);
-    }
-    let sddl =
-        ConvertSecurityDescriptorToStringSecurityDescriptor(&descriptor, SecurityInformation::Dacl)
-            .map_err(|_| ExportError::PermissionRestriction)?;
-    if !sddl.to_string_lossy().contains("D:P") {
         return Err(ExportError::PermissionRestriction);
     }
     Ok(())
