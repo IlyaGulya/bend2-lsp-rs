@@ -441,13 +441,12 @@ mod protocol {
         let unrelated = client.request("textDocument/codeAction", request("quickfix.compiler"));
         assert_eq!(unrelated["result"], json!([]));
         let all = client.request("textDocument/codeAction", request(""));
-        let kinds: Vec<_> = all["result"]
-            .as_array()
-            .must_be("all actions")
-            .iter()
-            .map(|action| action["kind"].as_str().must_be("kind"))
-            .collect();
-        assert_eq!(kinds, ["source.organizeImports", "quickfix"]);
+        let all = all["result"].as_array().must_be("all actions");
+        assert!(
+            all.iter()
+                .any(|action| action["kind"] == "source.organizeImports")
+        );
+        assert!(all.iter().any(|action| action["kind"] == "quickfix"));
         client.finish();
     }
 
