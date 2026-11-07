@@ -19,6 +19,15 @@ on:
 
 permissions: {}
 
+concurrency:
+  # Latest-head policy for ordinary pull-request work only: at most one run of
+  # this workflow per pull request, so a superseded calibration stops instead of
+  # queueing ahead of the current head. Distinct pull requests never share a
+  # group. An explicitly requested manual calibration falls back to a unique
+  # per-run group and is never cancelled by a new head.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   collect:
     permissions:
@@ -122,7 +131,11 @@ jobs:
           CALIBRATION_SHARD_COUNT: 4
           CALIBRATION_PHYSICAL_JOB: ${{ matrix.job }}-shard-${{ matrix.shard }}
         run: |
-          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow supervise \
+          # A superseded pull-request run may be cancelled by the newer head. The
+          # runner signals the step's entry process, so replace this shell with
+          # the supervisor: it then reaps its owned process group and checkpoints
+          # a terminal lifecycle receipt before the always-run sealing step.
+          exec "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow supervise \
             --timeout-seconds 19800 \
             --receipt "$RUNNER_TEMP/calibration-collection-lifecycle.json" -- \
             "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \

@@ -18,6 +18,26 @@ pull-request code. Trusted `workflow_run` jobs must validate repository identity
 event, branch, and exact source SHA before privileged operations. Privileged
 jobs must never execute PR code or consume PR artifacts.
 
+## Pull-request run lifecycle
+
+Ordinary `pull_request` runs are latest-head work. Each pull-request workflow
+declares one workflow-level concurrency group per pull request with
+`cancel-in-progress: true`, so a superseded head stops instead of queueing ahead
+of the current head. Distinct pull requests never share a group. The opt-in
+labelled semantic calibration keeps `cancel-in-progress: false`, so a deliberate
+calibration is never stopped by a newer head. Explicit `workflow_dispatch` and
+calibration/diagnostic requests, scheduled runs, and trusted `push`/`workflow_run`
+main and release runs use a unique per-run group and are never cancelled by a
+new head.
+
+A reusable callee must not declare a group derived from `github.workflow`: a
+called workflow inherits the caller's value, so that group would cancel the
+caller run waiting for it. The caller owns the run-level group. Cancellation
+never yields admission: measurements stop through their owning supervisor, which
+reaps its process group and checkpoints a terminal lifecycle receipt, and
+partial evidence stays labelled incomplete. Mandatory checks, permissions,
+action pins, thresholds, sample counts and resource bounds are unchanged.
+
 ## Editor demo videos
 
 For requests to record, improve, review, or publish an editor-feature demo/video,

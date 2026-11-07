@@ -31,6 +31,15 @@ on:
 
 permissions: {}
 
+concurrency:
+  # Latest-head policy for ordinary pull-request work: at most one run of this
+  # workflow per pull request, so a superseded head stops instead of queueing
+  # ahead of the current head. Distinct pull requests never share a group. Any
+  # future non-pull-request trigger falls back to a unique per-run group and is
+  # never cancelled by a new head.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04

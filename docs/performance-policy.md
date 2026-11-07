@@ -529,6 +529,14 @@ can permit evidence retention, never a successful measurement verdict.
 Sealing independently checks that the recorded group is absent, including
 zombies, before walking the raw tree and again before publication.
 
+Cancellation of a superseded ordinary pull-request run is delivered to the
+supervising process itself: the qualification step replaces its shell with the
+supervisor and the ordinary step forwards the runner's stop signal to it. An
+interrupted collection therefore still reaps its owned process group and
+checkpoints a terminal receipt before the always-run publication step. A run
+stopped this way retains only lifecycle-labelled incomplete evidence and can
+never satisfy admission.
+
 `bend2-perf workflow seal --source ROOT --output DESTINATION` creates an
 independent, write-finished snapshot. Publication currently requires Linux GNU
 and atomic `renameat2(RENAME_NOREPLACE)`; unsupported platforms fail closed.

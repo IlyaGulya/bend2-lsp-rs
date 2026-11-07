@@ -17,6 +17,15 @@ on:
 
 permissions: {}
 
+concurrency:
+  # Latest-head policy for ordinary pull-request work only: at most one run of
+  # this workflow per pull request, so a superseded Callgrind collection stops
+  # instead of queueing ahead of the current head. Distinct pull requests never
+  # share a group. An explicitly requested manual comparison falls back to a
+  # unique per-run group and is never cancelled by a new head.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   compare:
     name: Callgrind measurement
@@ -129,6 +138,12 @@ jobs:
         timeout-minutes: 212
         run: |
           benchmark_status=0
+          supervisor_pid=''
+          # A superseded pull-request run may be cancelled by the newer head. The
+          # runner signals only this step's shell, so forward the stop to the
+          # supervisor itself: it reaps its owned process group and checkpoints a
+          # terminal lifecycle receipt before the always-run publication steps.
+          trap 'if [[ -n "$supervisor_pid" ]]; then kill -s TERM "$supervisor_pid" 2>/dev/null || true; fi' INT TERM
           "$RUNNER_TEMP/bend2-perf" workflow supervise \
             --timeout-seconds 12600 \
             --receipt "$RUNNER_TEMP/paired-collection-lifecycle.json" -- \
@@ -136,7 +151,13 @@ jobs:
             --baseline-source "$RUNNER_TEMP/paired-main" \
             --candidate-source "$GITHUB_WORKSPACE" \
             --work-dir "$RUNNER_TEMP/paired-work" \
-            --output-dir "$PERF_ROOT" || benchmark_status=$?
+            --output-dir "$PERF_ROOT" &
+          supervisor_pid=$!
+          while :; do
+            wait "$supervisor_pid" || benchmark_status=$?
+            kill -0 "$supervisor_pid" 2>/dev/null || break
+          done
+          trap - INT TERM
           printf 'benchmark_exit_code=%s\n' "$benchmark_status" >> "$GITHUB_OUTPUT"
           policy_status=0
           "$RUNNER_TEMP/bend2-perf" paired report "$PERF_ROOT" \
