@@ -8,6 +8,12 @@
 
 use serde::Serialize;
 use std::{error::Error, fmt};
+#[cfg(target_os = "linux")]
+use nix::fcntl::{OFlag, open, openat};
+#[cfg(target_os = "linux")]
+use nix::sys::stat::Mode;
+#[cfg(target_os = "linux")]
+use std::io::Read;
 
 pub(crate) const MEMORY_SCOPE: &str = "single process only: the LSP server or one compiler child owned by it; excludes descendant processes, unrelated processes, system memory, heap-live bytes and allocator overhead; OS figures are kernel-approximate";
 
@@ -305,7 +311,7 @@ fn physical_footprint_unavailable() -> &'static str {
 pub(crate) struct ProcessMemoryObserver {
     identity: ProcessIdentity,
     #[cfg(target_os = "linux")]
-    proc_path: std::path::PathBuf,
+    directory: std::fs::File,
     #[cfg(target_os = "windows")]
     process: winsafe::guard::CloseHandleGuard<winsafe::HPROCESS>,
 }
@@ -320,25 +326,45 @@ impl ProcessMemoryObserver {
         if pid == 0 {
             return Err(ProcessMemoryError::InvalidPid);
         }
-        let proc_path = root.join(pid.to_string());
-        let stat = std::fs::read_to_string(proc_path.join("stat"))
+        // This directory descriptor stays bound to the original process even if
+        // /proc/PID is reused. All later reads are relative to this descriptor.
+        let path = root.join(pid.to_string());
+        let directory = std::fs::File::from(
+            open(
+                path.as_path(),
+                OFlag::O_RDONLY | OFlag::O_DIRECTORY | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC,
+                Mode::empty(),
+            )
+            .map_err(|error| io_failure(&std::io::Error::from(error)))?,
+        );
+        let stat = linux_read_proc_file(&directory, "stat")
             .map_err(|error| io_failure(&error))?;
-        let (observed_pid, start_marker) =
-            linux_start_time(&stat).ok_or(ProcessMemoryError::SamplingFailed)?;
+        let (observed_pid, start_marker) = linux_live_identity(&stat)?;
         if observed_pid != pid {
             return Err(ProcessMemoryError::IdentityChanged);
         }
         Ok(Self {
             identity: ProcessIdentity { pid, start_marker },
-            proc_path,
+            directory,
         })
     }
 
     pub(crate) fn sample(&self) -> Result<ProcessMemorySample, ProcessMemoryError> {
-        linux_sample_with(self.identity, |name| {
-            std::fs::read_to_string(self.proc_path.join(name))
-        })
+        linux_sample_with(self.identity, |name| linux_read_proc_file(&self.directory, name))
     }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_read_proc_file(directory: &std::fs::File, name: &str) -> std::io::Result<String> {
+    let mut file = std::fs::File::from(openat(
+        directory,
+        name,
+        OFlag::O_RDONLY | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC,
+        Mode::empty(),
+    )?);
+    let mut text = String::new();
+    file.read_to_string(&mut text)?;
+    Ok(text)
 }
 
 #[cfg(target_os = "linux")]
@@ -347,11 +373,15 @@ fn linux_sample_with(
     mut read: impl FnMut(&str) -> std::io::Result<String>,
 ) -> Result<ProcessMemorySample, ProcessMemoryError> {
     let stat = read("stat").map_err(|error| io_failure(&error))?;
-    let (observed_pid, start_marker) =
-        linux_start_time(&stat).ok_or(ProcessMemoryError::SamplingFailed)?;
+    let (observed_pid, start_marker) = linux_live_identity(&stat)?;
     identity.verify(observed_pid, start_marker)?;
 
     let text = read("status").map_err(|error| io_failure(&error))?;
+    // A process can exit or be reaped between the identity and memory reads.
+    // Refuse the metrics if the original process changed state or disappeared.
+    let stat = read("stat").map_err(|error| io_failure(&error))?;
+    let (observed_pid, start_marker) = linux_live_identity(&stat)?;
+    identity.verify(observed_pid, start_marker)?;
     let status = linux_memory_status(&text)?;
     Ok(finish_sample(
         identity,
@@ -495,13 +525,24 @@ impl ProcessMemoryObserver {
 }
 
 #[cfg(any(target_os = "linux", test))]
-fn linux_start_time(stat: &str) -> Option<(u32, u64)> {
+fn linux_start_time(stat: &str) -> Option<(u32, u64, &str)> {
     let pid = stat.split_whitespace().next()?.parse().ok()?;
-    let close = stat.rfind(')')?;
-    let rest = stat.get(close + 1..)?;
-    // Field 3 (state) is the first token after the command; starttime is field 22.
-    let start_marker = rest.split_whitespace().nth(19)?.parse().ok()?;
-    Some((pid, start_marker))
+    let close = stat.rfind(")")?;
+    let mut rest = stat.get(close + 1..)?.split_whitespace();
+    // Field 3 (state) precedes fields 4..22; field 22 is starttime.
+    let state = rest.next()?;
+    let start_marker = rest.nth(18)?.parse().ok()?;
+    Some((pid, start_marker, state))
+}
+
+#[cfg(target_os = "linux")]
+fn linux_live_identity(stat: &str) -> Result<(u32, u64), ProcessMemoryError> {
+    let (pid, start_marker, state) =
+        linux_start_time(stat).ok_or(ProcessMemoryError::SamplingFailed)?;
+    if matches!(state, "Z" | "X" | "x") {
+        return Err(ProcessMemoryError::ProcessExited);
+    }
+    Ok((pid, start_marker))
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -548,7 +589,9 @@ fn linux_memory_status(text: &str) -> Result<LinuxMemoryStatus, ProcessMemoryErr
 
 #[cfg(target_os = "linux")]
 fn io_failure(error: &std::io::Error) -> ProcessMemoryError {
-    if error.kind() == std::io::ErrorKind::NotFound {
+    if error.kind() == std::io::ErrorKind::NotFound
+        || error.raw_os_error() == Some(nix::errno::Errno::ESRCH as i32)
+    {
         ProcessMemoryError::ProcessExited
     } else {
         ProcessMemoryError::SamplingFailed
@@ -608,7 +651,7 @@ mod tests {
     #[test]
     fn proc_stat_start_time_handles_command_names_with_spaces_and_parentheses() {
         let line = "4242 (bend lint (worker)) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 12345 21 22";
-        assert_eq!(linux_start_time(line), Some((4242, 12345)));
+        assert_eq!(linux_start_time(line), Some((4242, 12345, "S")));
     }
 
     #[cfg(any(target_os = "linux", test))]
