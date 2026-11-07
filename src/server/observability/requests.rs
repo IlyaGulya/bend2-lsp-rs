@@ -544,14 +544,10 @@ mod tests {
         Pin::new(future).poll(&mut context)
     }
 
-    fn ok_none() -> TestOutput {
-        Ok(None)
-    }
-
-    fn bucket<'a>(
-        snapshot: &'a RequestMetricsSnapshot,
+    fn bucket(
+        snapshot: &RequestMetricsSnapshot,
         method: RequestMethod,
-    ) -> &'a RequestMethodSnapshot {
+    ) -> &RequestMethodSnapshot {
         snapshot
             .methods
             .iter()
@@ -586,7 +582,7 @@ mod tests {
                     polls = 1;
                     Poll::Pending
                 } else {
-                    Poll::Ready(ok_none())
+                    Poll::Ready(TestOutput::Ok(None))
                 }
             }),
         );
@@ -705,7 +701,7 @@ mod tests {
     #[test]
     fn notifications_are_counted_separately_from_request_completions() {
         let metrics = Arc::new(RequestMetrics::default());
-        let mut future = metrics.start(RequestMethod::DidChange, true, ready(ok_none()));
+        let mut future = metrics.start(RequestMethod::DidChange, true, ready(TestOutput::Ok(None)));
         assert!(poll_once(&mut future).is_ready());
 
         let mut failed = metrics.start(
@@ -788,7 +784,7 @@ mod tests {
     #[test]
     fn completion_followed_by_drop_does_not_count_abandoned_or_decrement_twice() {
         let metrics = Arc::new(RequestMetrics::default());
-        let future = metrics.start(RequestMethod::Definition, false, ready(ok_none()));
+        let future = metrics.start(RequestMethod::Definition, false, ready(TestOutput::Ok(None)));
         let mut future = future;
         assert!(poll_once(&mut future).is_ready());
 
@@ -809,7 +805,7 @@ mod tests {
             let method = format!("custom/unknownMethod{index}");
             let kind = RequestMethod::from_method(&method);
             assert_eq!(kind, RequestMethod::Other);
-            let mut future = metrics.start(kind, false, ready(ok_none()));
+            let mut future = metrics.start(kind, false, ready(TestOutput::Ok(None)));
             assert!(poll_once(&mut future).is_ready());
         }
 
@@ -849,7 +845,7 @@ mod tests {
     #[test]
     fn snapshot_serializes_camel_case_numeric_metrics() {
         let metrics = Arc::new(RequestMetrics::default());
-        let mut future = metrics.start(RequestMethod::Hover, false, ready(ok_none()));
+        let mut future = metrics.start(RequestMethod::Hover, false, ready(TestOutput::Ok(None)));
         assert!(poll_once(&mut future).is_ready());
 
         let value = serde_json::to_value(metrics.snapshot()).must_be("serialize request snapshot");

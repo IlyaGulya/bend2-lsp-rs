@@ -10,7 +10,7 @@
 use nix::fcntl::{OFlag, open, openat};
 #[cfg(target_os = "linux")]
 use nix::sys::stat::Mode;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 #[cfg(target_os = "linux")]
 use std::io::Read;
 use std::{error::Error, fmt};
@@ -49,6 +49,13 @@ impl fmt::Display for ProcessMemoryError {
 }
 
 impl Error for ProcessMemoryError {}
+
+impl Serialize for ProcessMemoryError {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        // The fixed error explanations contain no process or workspace data.
+        serializer.collect_str(self)
+    }
+}
 
 /// Serializable description of one reported memory field. Definitions travel
 /// with every sample so unlike resident, private-commit, peak and physical
@@ -193,43 +200,44 @@ const METRIC_DEFINITIONS: &[MemoryMetricDefinition] = &[
 const METRIC_DEFINITIONS: &[MemoryMetricDefinition] = &[];
 
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-struct RawMemory {
-    resident_bytes: u64,
-    peak_resident_bytes: Option<u64>,
-    private_bytes: Option<u64>,
-    physical_footprint_bytes: Option<u64>,
+#[derive(Clone, Copy)]
+struct RawMemoryBytes {
+    resident: u64,
+    peak_resident: Option<u64>,
+    private: Option<u64>,
+    physical_footprint: Option<u64>,
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-fn finish_sample(identity: ProcessIdentity, raw: RawMemory) -> ProcessMemorySample {
+fn finish_sample(identity: ProcessIdentity, raw: RawMemoryBytes) -> ProcessMemorySample {
     ProcessMemorySample {
         pid: identity.pid,
         scope: MEMORY_SCOPE,
-        resident_bytes: Some(raw.resident_bytes),
-        peak_resident_bytes: raw.peak_resident_bytes,
-        private_bytes: raw.private_bytes,
-        physical_footprint_bytes: raw.physical_footprint_bytes,
+        resident_bytes: Some(raw.resident),
+        peak_resident_bytes: raw.peak_resident,
+        private_bytes: raw.private,
+        physical_footprint_bytes: raw.physical_footprint,
         unavailable: build_unavailable(&raw),
         definitions: METRIC_DEFINITIONS,
     }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-fn build_unavailable(raw: &RawMemory) -> Vec<MemoryMetricUnavailable> {
+fn build_unavailable(raw: &RawMemoryBytes) -> Vec<MemoryMetricUnavailable> {
     let mut unavailable = Vec::new();
-    if raw.peak_resident_bytes.is_none() {
+    if raw.peak_resident.is_none() {
         unavailable.push(MemoryMetricUnavailable {
             metric: "peakResidentBytes",
             reason: peak_resident_unavailable(),
         });
     }
-    if raw.private_bytes.is_none() {
+    if raw.private.is_none() {
         unavailable.push(MemoryMetricUnavailable {
             metric: "privateBytes",
             reason: private_bytes_unavailable(),
         });
     }
-    if raw.physical_footprint_bytes.is_none() {
+    if raw.physical_footprint.is_none() {
         unavailable.push(MemoryMetricUnavailable {
             metric: "physicalFootprintBytes",
             reason: physical_footprint_unavailable(),
@@ -364,11 +372,11 @@ fn linux_sample_with(
     let status = linux_memory_status(&text)?;
     Ok(finish_sample(
         identity,
-        RawMemory {
-            resident_bytes: status.resident_bytes,
-            peak_resident_bytes: status.peak_resident_bytes,
-            private_bytes: None,
-            physical_footprint_bytes: None,
+        RawMemoryBytes {
+            resident: status.resident_bytes,
+            peak_resident: status.peak_resident_bytes,
+            private: None,
+            physical_footprint: None,
         },
     ))
 }
@@ -403,11 +411,11 @@ impl ProcessMemoryObserver {
             .verify(self.identity.pid, info.ri_proc_start_abstime)?;
         Ok(finish_sample(
             self.identity,
-            RawMemory {
-                resident_bytes: info.ri_resident_size,
-                peak_resident_bytes: None,
-                private_bytes: None,
-                physical_footprint_bytes: Some(info.ri_phys_footprint),
+            RawMemoryBytes {
+                resident: info.ri_resident_size,
+                peak_resident: None,
+                private: None,
+                physical_footprint: Some(info.ri_phys_footprint),
             },
         ))
     }
@@ -470,11 +478,11 @@ impl ProcessMemoryObserver {
             .map_err(|_| ProcessMemoryError::SamplingFailed)?;
         Ok(finish_sample(
             self.identity,
-            RawMemory {
-                resident_bytes: usize_to_u64(counters.WorkingSetSize)?,
-                peak_resident_bytes: Some(usize_to_u64(counters.PeakWorkingSetSize)?),
-                private_bytes: Some(usize_to_u64(counters.PrivateUsage)?),
-                physical_footprint_bytes: None,
+            RawMemoryBytes {
+                resident: usize_to_u64(counters.WorkingSetSize)?,
+                peak_resident: Some(usize_to_u64(counters.PeakWorkingSetSize)?),
+                private: Some(usize_to_u64(counters.PrivateUsage)?),
+                physical_footprint: None,
             },
         ))
     }
@@ -502,7 +510,7 @@ impl ProcessMemoryObserver {
 #[cfg(any(target_os = "linux", test))]
 fn linux_start_time(stat: &str) -> Option<(u32, u64, &str)> {
     let pid = stat.split_whitespace().next()?.parse().ok()?;
-    let close = stat.rfind(")")?;
+    let close = stat.rfind(')')?;
     let mut rest = stat.get(close + 1..)?.split_whitespace();
     // Field 3 (state) precedes fields 4..22; field 22 is starttime.
     let state = rest.next()?;

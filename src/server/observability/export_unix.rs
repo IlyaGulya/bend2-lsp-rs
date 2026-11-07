@@ -46,7 +46,7 @@ impl PrivateDirectory {
             match fs::mkdirat(&parent_fd, name.as_str(), Mode::RWXU) {
                 Ok(()) => {}
                 Err(error) if error == rustix::io::Errno::EXIST => continue,
-                Err(error) => return Err(io_error(error.into())),
+                Err(error) => return Err(io_error(error)),
             }
             on_created(&parent.join(&name));
             let descriptor = fs::openat(
@@ -61,7 +61,7 @@ impl PrivateDirectory {
                     // Only an empty entry is removed; never recursively walk
                     // a pathname which another writer might have replaced.
                     let _ = fs::unlinkat(&parent_fd, name.as_str(), AtFlags::REMOVEDIR);
-                    return Err(io_error(error.into()));
+                    return Err(io_error(error));
                 }
             };
             let stage = Self {
@@ -79,16 +79,16 @@ impl PrivateDirectory {
     }
 
     fn restrict_directory(&self) -> Result<(), ExportError> {
-        let stat = fs::fstat(&self.directory).map_err(|error| io_error(error.into()))?;
+        let stat = fs::fstat(&self.directory).map_err(io_error)?;
         if stat.st_uid != rustix::process::geteuid().as_raw()
-            || (stat.st_mode & 0o170000) != 0o040000
+            || (stat.st_mode & 0o170_000) != 0o040_000
         {
             return Err(ExportError::PermissionRestriction);
         }
-        fs::fchmod(&self.directory, Mode::RWXU).map_err(|error| io_error(error.into()))?;
+        fs::fchmod(&self.directory, Mode::RWXU).map_err(io_error)?;
         #[cfg(target_os = "macos")]
         restrict_extended_acl(&self.directory)?;
-        let stat = fs::fstat(&self.directory).map_err(|error| io_error(error.into()))?;
+        let stat = fs::fstat(&self.directory).map_err(io_error)?;
         if stat.st_mode & 0o777 != 0o700 {
             return Err(ExportError::PermissionRestriction);
         }
@@ -122,7 +122,7 @@ pub(super) fn private_directory(parent: &Path, prefix: &str) -> Result<PathBuf, 
     {
         let parent_fd = File::open(parent).map_err(io_error)?;
         verify_noarg_parent(&parent_fd)?;
-        return Ok(PrivateDirectory::new_from_parent(parent, parent_fd, prefix, |_| {})?.keep());
+        Ok(PrivateDirectory::new_from_parent(parent, parent_fd, prefix, |_| {})?.keep())
     }
     #[cfg(not(target_os = "macos"))]
     Ok(PrivateDirectory::new_with_created(parent, prefix, |_| {})?.keep())
@@ -131,11 +131,11 @@ pub(super) fn private_directory(parent: &Path, prefix: &str) -> Result<PathBuf, 
 #[cfg(target_os = "macos")]
 fn verify_noarg_parent(parent: &File) -> Result<(), ExportError> {
     use std::os::fd::AsFd;
-    let stat = fs::fstat(parent).map_err(|error| io_error(error.into()))?;
+    let stat = fs::fstat(parent).map_err(io_error)?;
     // The noarg directory itself must be private from the moment it is
     // created. A foreign-inheritable ACE on TMPDIR cannot be removed before
     // mkdirat, unlike the empty staging directory used by explicit exports.
-    if (stat.st_mode & 0o170000) != 0o040000
+    if (stat.st_mode & 0o170_000) != 0o040_000
         || (stat.st_uid != rustix::process::geteuid().as_raw() && stat.st_uid != 0)
         || stat.st_mode & 0o022 != 0
     {
@@ -170,16 +170,16 @@ fn publish_report_with_created(
         OFlags::CREATE | OFlags::EXCL | OFlags::WRONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
         Mode::RUSR | Mode::WUSR,
     )
-    .map_err(|error| io_error(error.into()))?;
+    .map_err(io_error)?;
     stage.created_report = true;
     let mut file = File::from(fd);
-    fs::fchmod(&file, Mode::RUSR | Mode::WUSR).map_err(|error| io_error(error.into()))?;
+    fs::fchmod(&file, Mode::RUSR | Mode::WUSR).map_err(io_error)?;
     #[cfg(target_os = "macos")]
     restrict_extended_acl(&file)?;
-    let stat = fs::fstat(&file).map_err(|error| io_error(error.into()))?;
+    let stat = fs::fstat(&file).map_err(io_error)?;
     if stat.st_mode & 0o777 != 0o600
         || stat.st_uid != rustix::process::geteuid().as_raw()
-        || (stat.st_mode & 0o170000) != 0o100000
+        || (stat.st_mode & 0o170_000) != 0o100_000
     {
         return Err(ExportError::PermissionRestriction);
     }
@@ -216,8 +216,8 @@ fn publish_report_with_created(
     Ok(())
 }
 
-fn io_error(error: io::Error) -> ExportError {
-    ExportError::Io(error.kind())
+fn io_error(error: impl Into<io::Error>) -> ExportError {
+    ExportError::Io(error.into().kind())
 }
 
 #[cfg(target_os = "macos")]

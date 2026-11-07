@@ -81,7 +81,6 @@ impl WorkMetrics {
     /// Admit one logical work item. The returned guard must be moved into the
     /// future/task that owns the item; dropping it before [`QueuedWork::start`]
     /// records a cancellation that never reached a worker.
-    #[must_use]
     pub(in crate::server) fn enqueue(self: &Arc<Self>, kind: WorkKind) -> QueuedWork {
         self.kinds[kind.index()]
             .queued
@@ -190,7 +189,6 @@ impl QueuedWork {
     /// Move the item from admission to execution. The returned guard must be
     /// retained until the work actually ends; dropping it earlier is a
     /// cancellation, not a completion.
-    #[must_use]
     pub(in crate::server) fn start(mut self) -> RunningWork {
         self.active = false;
         let counters = &self.metrics.kinds[self.kind.index()];
@@ -308,7 +306,6 @@ pub(in crate::server) struct CancelOnDrop {
 }
 
 impl CancelOnDrop {
-    #[must_use]
     pub(in crate::server) fn new(work: RunningWork) -> Self {
         Self { work, armed: true }
     }

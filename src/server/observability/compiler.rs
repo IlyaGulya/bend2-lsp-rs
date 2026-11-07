@@ -93,7 +93,7 @@ impl CompilerActivity {
         // caller is cancelled, it kills/reaps the child and only then drops
         // its activity. A late capture is discarded, never registered under
         // a recycled PID or another lease's generation.
-        let observed = self
+        let capture_result = self
             .observation
             .blocking(WorkKind::Observation, move || {
                 ProcessMemoryObserver::capture(pid)
@@ -104,7 +104,7 @@ impl CompilerActivity {
         let target = children
             .get_mut(&self.generation)
             .unwrap_or_else(|| panic!("compiler activity retired before capture completed"));
-        match observed {
+        match capture_result {
             Ok(observer) => target.observer = Some(Arc::new(Mutex::new(observer))),
             Err(error) => target.error = Some(error),
         }

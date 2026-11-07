@@ -67,19 +67,17 @@ fn write_report(
     } else {
         None
     };
-    let uri = match destination {
-        Some(uri) => uri,
-        None => {
-            let root = directory.as_ref().ok_or(ExportError::MissingParent)?;
-            match Url::from_file_path(root.join("snapshot.json")) {
-                Ok(uri) => uri.to_string(),
-                Err(()) => {
-                    // Only an empty directory is removed. Never recursively
-                    // follow an entry another writer may have substituted.
-                    let _ = std::fs::remove_dir(root);
-                    return Err(ExportError::InvalidUri);
-                }
-            }
+    let uri = if let Some(uri) = destination {
+        uri
+    } else {
+        let root = directory.as_ref().ok_or(ExportError::MissingParent)?;
+        if let Ok(uri) = Url::from_file_path(root.join("snapshot.json")) {
+            uri.to_string()
+        } else {
+            // Only an empty directory is removed. Never recursively
+            // follow an entry another writer may have substituted.
+            let _ = std::fs::remove_dir(root);
+            return Err(ExportError::InvalidUri);
         }
     };
     let outcome = create_private_report(uri.as_str(), &payload.bytes);

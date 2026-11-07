@@ -12,7 +12,7 @@ use crate::{
     },
     storage::{StorageSummary, WorkspaceUsage},
 };
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use std::io;
 
 #[derive(Serialize)]
@@ -58,7 +58,6 @@ pub(super) enum MemoryObservation {
     },
     Unavailable {
         pid: u32,
-        #[serde(serialize_with = "serialize_process_error")]
         reason: ProcessMemoryError,
     },
     Pending {
@@ -83,15 +82,6 @@ impl MemoryObservation {
             Self::Unavailable { .. } | Self::Pending { .. } => None,
         }
     }
-}
-
-fn serialize_process_error<S: Serializer>(
-    error: &ProcessMemoryError,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    // The error formatter contains fixed explanations only. collect_str avoids
-    // allocating an intermediate String for the JSON serializer.
-    serializer.collect_str(error)
 }
 
 #[derive(Serialize)]
