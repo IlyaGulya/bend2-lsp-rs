@@ -49,11 +49,73 @@ fn git(root: &Path, arguments: &[&str]) -> Result<String, Box<dyn Error>> {
     Ok(String::from_utf8(output.stdout)?.trim().to_owned())
 }
 
+#[derive(Clone, Copy)]
 enum Candidate {
     Merge,
     NonUtf8Merge,
     NonMerge,
     Octopus,
+}
+
+impl Candidate {
+    fn create(
+        self,
+        root: &Path,
+        checkout: &Path,
+        tree: &str,
+        old_base: &str,
+        base: &str,
+        head: &str,
+    ) -> Result<String, Box<dyn Error>> {
+        let message = format!("merge candidate\n\nparent {old_base}\n");
+        match self {
+            Self::Merge => git(
+                checkout,
+                &["commit-tree", tree, "-p", base, "-p", head, "-m", &message],
+            ),
+            Self::NonUtf8Merge => {
+                let message_path = root.join("latin1-message");
+                fs::write(&message_path, b"caf\xe9\n")?;
+                git(
+                    checkout,
+                    &[
+                        "-c",
+                        "i18n.commitEncoding=ISO-8859-1",
+                        "commit-tree",
+                        tree,
+                        "-p",
+                        base,
+                        "-p",
+                        head,
+                        "-F",
+                        message_path.to_str().ok_or("non-Unicode message path")?,
+                    ],
+                )
+            }
+            Self::NonMerge => Ok(head.to_owned()),
+            Self::Octopus => {
+                let third = git(
+                    checkout,
+                    &["commit-tree", tree, "-p", old_base, "-m", "third parent"],
+                )?;
+                git(
+                    checkout,
+                    &[
+                        "commit-tree",
+                        tree,
+                        "-p",
+                        base,
+                        "-p",
+                        head,
+                        "-p",
+                        &third,
+                        "-m",
+                        &message,
+                    ],
+                )
+            }
+        }
+    }
 }
 
 struct SourceFixture {
@@ -103,63 +165,7 @@ impl SourceFixture {
                 "pull request head",
             ],
         )?;
-        let message = format!("merge candidate\n\nparent {old_base}\n");
-        let candidate = match kind {
-            Candidate::Merge => git(
-                &checkout,
-                &[
-                    "commit-tree",
-                    &tree,
-                    "-p",
-                    &base,
-                    "-p",
-                    &head,
-                    "-m",
-                    &message,
-                ],
-            )?,
-            Candidate::NonUtf8Merge => {
-                let message_path = root.join("latin1-message");
-                fs::write(&message_path, b"caf\xe9\n")?;
-                git(
-                    &checkout,
-                    &[
-                        "-c",
-                        "i18n.commitEncoding=ISO-8859-1",
-                        "commit-tree",
-                        &tree,
-                        "-p",
-                        &base,
-                        "-p",
-                        &head,
-                        "-F",
-                        message_path.to_str().ok_or("non-Unicode message path")?,
-                    ],
-                )?
-            }
-            Candidate::NonMerge => head.clone(),
-            Candidate::Octopus => {
-                let third = git(
-                    &checkout,
-                    &["commit-tree", &tree, "-p", &old_base, "-m", "third parent"],
-                )?;
-                git(
-                    &checkout,
-                    &[
-                        "commit-tree",
-                        &tree,
-                        "-p",
-                        &base,
-                        "-p",
-                        &head,
-                        "-p",
-                        &third,
-                        "-m",
-                        &message,
-                    ],
-                )?
-            }
-        };
+        let candidate = kind.create(root, &checkout, &tree, &old_base, &base, &head)?;
         git(&checkout, &["update-ref", "refs/heads/main", &base])?;
         git(&checkout, &["update-ref", "refs/heads/topic", &head])?;
         git(&checkout, &["update-ref", "refs/heads/tooling", &candidate])?;
