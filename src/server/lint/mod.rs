@@ -1417,6 +1417,12 @@ mod tests {
             .ok_or_else(|| io::Error::other("compiler work bucket"))?;
         let _ = release_tx.send(());
         tokio::time::timeout(Duration::from_secs(5), backend.compiler.reapers.wait()).await?;
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while backend.workspace.observability.work.totals().executing != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
         assert_eq!(preparation.executing, 1, "the unreaped child still owns preparation work");
         assert_eq!(preparation.cancelled_still_running, 1);
         assert_eq!(preparation.cancelled, 1);
