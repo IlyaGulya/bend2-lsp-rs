@@ -303,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn registry_deduplicates_identity_and_never_extends_lifetime() -> io::Result<()> {
+    fn registry_deduplicates_identity_and_never_extends_lifetime() {
         let registry = StorageRegistry::default();
         let source = "def value() -> U32:\n  0\n";
         let document = snapshot(1, source);
@@ -329,7 +329,6 @@ mod tests {
         assert_eq!(released.snapshots.source_bytes, 0);
         assert_eq!(released.snapshots.line_index_bytes, 0);
         assert_eq!(released.snapshots.syntax_bytes, 0);
-        Ok(())
     }
 
     #[test]
@@ -353,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn registry_counts_equal_text_as_distinct_allocations() -> io::Result<()> {
+    fn registry_counts_equal_text_as_distinct_allocations() {
         let registry = StorageRegistry::default();
         let source = "def value() -> U32:\n  0\n";
         let first = snapshot(1, source);
@@ -369,7 +368,6 @@ mod tests {
             summary.snapshots.source_bytes,
             saturating_u64(source.len() * 2)
         );
-        Ok(())
     }
 
     #[test]

@@ -1407,7 +1407,7 @@ mod tests {
             async move {
                 backend
                     .run_preparation(project, key, PreparationToken::new(1))
-                    .await
+                    .await;
             }
         });
         tokio::time::timeout(Duration::from_secs(5), child_rx).await??;
