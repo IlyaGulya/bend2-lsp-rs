@@ -135,6 +135,36 @@ separate task, `bend2-lsp-rs-rbt.54`, must compare production-patched and pristi
 compiler diagnostics along real repair chains: after repairing error A, the
 pristine compiler must expose the recovered error B with the correct origin.
 
+## Released-compiler frontend compatibility
+
+The historical differential oracle above remains pinned to Bend 2.0.37. Newer
+native-compiler checks do not turn it into a Bend 2.0.40 oracle.
+
+`tests/native_compiler_diagnostics.rs` separately checks the selected compiler's
+real executable and its own `Base`:
+
+- An imported function named `Done` must not hide the `Result` constructor, and
+  a constructor named `List` must not hide the `List` type. The importer-qualified
+  `bend2/semanticDocument` response must retain the exact constructor/type
+  declaration origins and the independent function-call origin. Bend 2.0.40 must
+  accept the program. If an older compiler rejects it, the test checks editor
+  recovery without claiming compiler acceptance.
+- Formatting an accepted inline `do` program must preserve its acceptance and
+  both IO statements' output. This uses actual LSP edits and executes the
+  resulting program with spaces and tabs.
+
+The existing six-target native compatibility jobs run this suite for every
+version listed by `scripts/bootstrap_bend.py --list-compatibility-versions`.
+These targeted regressions complement, rather than replace, the bounded
+source-byte differential corpus.
+
+The formatter's column pins and body/match scope handling are adapted from
+[Bend 2.0.40's formatter](https://github.com/bendlang/bend/blob/624dd9f4607cd29b0871a9b96d413bfb11e92f52/tools/bend-fmt-lsp/src/formatter.ts),
+retaining its Apache-2.0 attribution. Formatting keeps its independent lexical
+scanner; it does not reuse the analysis scanner or add warm semantic scans.
+Existing colon-spacing normalization stays unchanged; adopting the layout rules
+does not require adopting unrelated upstream style changes.
+
 ## Local commands
 
 From the repository root:

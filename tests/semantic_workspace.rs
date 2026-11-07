@@ -1829,3 +1829,101 @@ fn invalid_real_import_namespace_does_not_pull_in_a_child_or_its_base() {
         bend2_lsp::workspace::SemanticIssue::MissingImport { file, .. } if *file == root
     )));
 }
+
+#[test]
+fn imported_values_and_constructors_do_not_cross_shadow_their_namespaces() {
+    use bend2_lsp::analysis::{DeclarationKind, TextRange};
+
+    let temporary = tempdir().must_be("role-specific workspace");
+    let dependency = temporary.path().join("lib.bend");
+    let library = concat!(
+        "import Base\n\n",
+        "def Done(b: Bool) -> Bool:\n  b\n\n",
+        "type D is Data:\n  List{}\n\n",
+        "def wrap(b: Bool) -> Result<U32, Bool>:\n  Done{b}\n\n",
+        "def get(r: Result<U32, Bool>) -> Bool:\n",
+        "  {\\{Fail: e => False{}; Done: b => Done(b)} : Result<U32, Bool> -> Bool}(r)\n\n",
+        "def keep(xs: List<U32>) -> List<U32>:\n  xs\n",
+    );
+    fs::write(&dependency, library).must_be("imported namespace source");
+    let mut database = WorkspaceDb::default();
+    let root = open(
+        &mut database,
+        &temporary.path().join("main.bend"),
+        "import Base\nimport ./lib.bend as M\n\ndef main() -> Result<U32, Bool>:\n  M.wrap(True{})\n",
+    );
+    let dependency_id = database
+        .file_id_by_path(&dependency)
+        .must_be("dependency ID");
+    let base_uri = uri(&temporary.path().join("Base.bend"));
+    let prelude = SemanticBase {
+        document: Document::new(
+            base_uri.clone(),
+            "bend".into(),
+            Revision::UNVERSIONED,
+            include_str!("fixtures/semantic/compiler/base.bend").into(),
+        ),
+        generation: 1,
+        provenance: Arc::from("role-specific-namespace-fixture"),
+        source_lease: None,
+    };
+    let entry = view(&database, root, Some(prelude));
+    let base_declaration = |name: &str, kind| {
+        entry
+            .declarations()
+            .iter()
+            .find(|declaration| {
+                declaration.kind == kind
+                    && entry
+                        .document(declaration.site.file)
+                        .is_some_and(|document| {
+                            document.uri == base_uri
+                                && document
+                                    .text
+                                    .get(declaration.site.range.start..declaration.site.range.end)
+                                    == Some(name)
+                        })
+            })
+            .must_be("expected Base declaration")
+    };
+    let done_constructor = base_declaration("Done", DeclarationKind::Constructor).target;
+    let constructor_ranges: Vec<_> = ["Done{b}", "Done: b"]
+        .into_iter()
+        .map(|spelling| {
+            let start = library.find(spelling).must_be("constructor spelling");
+            let occurrence = entry
+                .resolve_at(dependency_id, start + 1)
+                .must_be("constructor occurrence");
+            assert_eq!(occurrence.role, ReferenceRole::Constructor);
+            assert_eq!(occurrence.target, done_constructor);
+            TextRange::new(start, start + 4)
+        })
+        .collect();
+    assert_eq!(
+        entry
+            .references(done_constructor)
+            .iter()
+            .filter(|occurrence| occurrence.site.file == dependency_id)
+            .map(|occurrence| occurrence.site.range)
+            .collect::<Vec<_>>(),
+        constructor_ranges,
+    );
+    let value_done = target(&entry, dependency_id, "Done");
+    let value_start = library.find("Done(b:").must_be("value declaration");
+    assert_eq!(
+        entry
+            .target_site(value_done)
+            .map(|site| (site.file, site.range)),
+        Some((dependency_id, TextRange::new(value_start, value_start + 4))),
+    );
+    assert_ne!(value_done, done_constructor);
+    let list_start = library.find("List<U32>").must_be("type application");
+    let list_type = entry
+        .resolve_at(dependency_id, list_start + 1)
+        .must_be("List type use");
+    assert!(list_type.in_type);
+    assert_eq!(
+        list_type.target,
+        base_declaration("List", DeclarationKind::Type).target
+    );
+}

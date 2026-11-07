@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### More reliable navigation and formatting
+
+- Find references in imported code when functions or types share a name with
+  constructors. These names now resolve independently, matching Bend 2.0.40.
+- Keep multi-line inline `do`, `match`, `case`, and lambda bodies valid after
+  formatting, including when using tabs or Unicode text.
+- Format raw apostrophe characters correctly without changing their comments.
+
 ## [0.7.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.7.0...v0.7.1) (2026-11-06)
 
 ### Newer Bend versions

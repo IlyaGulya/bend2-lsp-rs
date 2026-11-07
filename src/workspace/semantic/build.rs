@@ -436,7 +436,13 @@ impl Builder {
         }
     }
 
-    fn resolve(&mut self, context: &FileContext, name: &str, site: SemanticSite) -> PendingTarget {
+    fn resolve(
+        &mut self,
+        context: &FileContext,
+        name: &str,
+        site: SemanticSite,
+        constructor: bool,
+    ) -> PendingTarget {
         let alias = name.split_once('.').and_then(|(prefix, suffix)| {
             context.alias(prefix).map(|namespace| (namespace, suffix))
         });
@@ -445,23 +451,24 @@ impl Builder {
         } else {
             qualify(&context.namespace, name)
         };
+        // Qualification is resolved within the requested namespace, not their union.
+        let names = if constructor {
+            &self.constructors
+        } else {
+            &self.top_levels
+        };
         if alias.is_some()
             && qualified != name
-            && self.registered(&qualified)
-            && self.registered(name)
+            && names.contains_key(&qualified)
+            && names.contains_key(name)
         {
             self.view.issues.push(SemanticIssue::AmbiguousName { site });
             return PendingTarget::Direct(SemanticTarget::Ambiguous);
         }
-        if qualified != name && !self.registered(&qualified) && self.registered(name) {
+        if qualified != name && !names.contains_key(&qualified) && names.contains_key(name) {
             name.clone_into(&mut qualified);
         }
         PendingTarget::Name(qualified)
-    }
-
-    /// Constructor and value tables together are the set of registered names.
-    fn registered(&self, name: &str) -> bool {
-        self.top_levels.contains_key(name) || self.constructors.contains_key(name)
     }
 
     fn register(
@@ -472,7 +479,12 @@ impl Builder {
     ) {
         let name = document.syntax.name_text(&document.text, declaration.name);
         let site = Self::site(context, declaration.name_range);
-        let resolved = self.resolve(context, name, site);
+        let resolved = self.resolve(
+            context,
+            name,
+            site,
+            declaration.kind == DeclarationKind::Constructor,
+        );
         let existing = match &resolved {
             PendingTarget::Name(qualified) => self.top_levels.get(qualified).copied(),
             _ => None,
@@ -649,7 +661,12 @@ impl Builder {
                 let name = document
                     .syntax
                     .name_text(&document.text, reference.full_name);
-                self.resolve(context, name, site)
+                self.resolve(
+                    context,
+                    name,
+                    site,
+                    reference.role == ReferenceRole::Constructor,
+                )
             };
             self.call_count += usize::from(
                 !reference.in_type
