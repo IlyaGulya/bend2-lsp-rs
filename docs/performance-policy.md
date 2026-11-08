@@ -1,5 +1,9 @@
 # Performance regression policy
 
+For immutable comparison requests and the evidence-backed gate review, see
+[Performance source identity and gate review](performance-source-review.md).
+That review does not change the numerical policy below.
+
 ## Scope
 
 The package exposes the `bend2_lsp` library for core analysis and workspace
