@@ -655,3 +655,248 @@ fn newer_release_base_symbols_navigate_to_the_selected_compiler_base() {
     }
     client.finish();
 }
+
+fn apply_format_edits(source: &str, response: &Value) -> String {
+    use bend2_lsp::analysis::LineIndex;
+    use tower_lsp::lsp_types::TextEdit;
+
+    let index = LineIndex::new(source);
+    let edits: Vec<TextEdit> =
+        serde_json::from_value(response["result"].clone()).must_be("formatting edits");
+    let mut replacements: Vec<_> = edits
+        .into_iter()
+        .map(|edit| {
+            let start = index.offset(source, edit.range.start.line, edit.range.start.character);
+            let end = index.offset(source, edit.range.end.line, edit.range.end.character);
+            assert_eq!(
+                index.position(source, start),
+                (edit.range.start.line, edit.range.start.character)
+            );
+            assert_eq!(
+                index.position(source, end),
+                (edit.range.end.line, edit.range.end.character)
+            );
+            assert!(start <= end, "formatting edit must have a forward range");
+            (start..end, edit.new_text)
+        })
+        .collect();
+    replacements.sort_unstable_by_key(|replacement| std::cmp::Reverse(replacement.0.start));
+    assert!(
+        replacements
+            .windows(2)
+            .all(|pair| pair[0].0.start >= pair[1].0.end)
+    );
+    let mut formatted = source.to_owned();
+    for (range, replacement) in replacements {
+        formatted.replace_range(range, &replacement);
+    }
+    formatted
+}
+
+#[test]
+fn released_frontend_formatting_inline_bodies_preserves_execution() {
+    let compiler = compiler();
+    let directory = tempdir().must_be("native inline-body formatting workspace");
+    let root = directory.path().join("main.bend");
+    let source = concat!(
+        "import Base\n",
+        "def main() -> IO(Unit):\n",
+        "    do IO<Unit>: IO.print(\"a\")\n",
+        "                 IO.print(\"b\")\n",
+    );
+    fs::write(&root, source).must_be("write original inline-body program");
+    let original = Command::new(&compiler)
+        .arg(&root)
+        .output()
+        .must_be("execute original program");
+    assert!(
+        original.status.success(),
+        "{}",
+        String::from_utf8_lossy(&original.stderr)
+    );
+    assert_eq!(original.stdout, b"a\nb\n");
+    let mut command = server_command();
+    command.stderr(Stdio::null()).env("PATH", directory.path());
+    let mut client = LspClient::spawn(command);
+    client.initialize(directory.path());
+    client.notify(
+        "workspace/didChangeConfiguration",
+        json!({"settings":{"bend2-lsp":{"compilerPath":compiler}}}),
+    );
+    let root_uri = uri(&root);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{"uri":root_uri,"languageId":"bend","version":1,"text":source}}),
+    );
+    for (size, spaces) in [(2, true), (4, false)] {
+        let response = client.request(
+            "textDocument/formatting",
+            json!({"textDocument":{"uri":root_uri},"options":{"tabSize":size,"insertSpaces":spaces}}),
+        );
+        let formatted = apply_format_edits(source, &response);
+        assert_ne!(
+            formatted, source,
+            "formatting must normalize the requested indentation"
+        );
+        let output = directory.path().join("formatted.bend");
+        fs::write(&output, &formatted).must_be("write the actual protocol edits");
+        let executed = Command::new(&compiler)
+            .arg(&output)
+            .output()
+            .must_be("execute formatted program");
+        assert!(
+            executed.status.success(),
+            "formatting with tabSize={size}, insertSpaces={spaces} must preserve acceptance:\n{}\n{}",
+            formatted,
+            String::from_utf8_lossy(&executed.stderr),
+        );
+        assert_eq!(
+            executed.stdout, original.stdout,
+            "formatting must preserve both IO statements"
+        );
+    }
+    client.finish();
+}
+
+#[test]
+fn released_frontend_imported_constructor_and_value_names_keep_their_origins() {
+    let compiler = compiler();
+    let reported = compiler_version(&compiler);
+    let directory = tempdir().must_be("native role-specific imported namespace");
+    let root = directory.path().join("main.bend");
+    let dependency = directory.path().join("lib.bend");
+    let library = concat!(
+        "import Base\n\n",
+        "def Done(b: Bool) -> Bool:\n  b\n\n",
+        "type D is Data:\n  List{}\n\n",
+        "def wrap(b: Bool) -> Result<U32, Bool>:\n  Done{b}\n\n",
+        "def get(r: Result<U32, Bool>) -> Bool:\n",
+        "  {\\{Fail: e => False{}; Done: b => Done(b)} : Result<U32, Bool> -> Bool}(r)\n\n",
+        "def keep(xs: List<U32>) -> List<U32>:\n  xs\n",
+    );
+    let source =
+        "import Base\nimport ./lib.bend as M\n\ndef main() -> Bool:\n  M.get(M.wrap(True{}))\n";
+    fs::write(&root, source).must_be("write imported-entry root");
+    fs::write(&dependency, library).must_be("write independent value and constructor namespaces");
+    let checked = Command::new(&compiler)
+        .arg(&root)
+        .arg("--check-only")
+        .output()
+        .must_be("check imported namespace");
+    if reported == "bend 2.0.40" {
+        assert!(
+            checked.status.success(),
+            "{}",
+            String::from_utf8_lossy(&checked.stderr)
+        );
+    } else if !checked.status.success() {
+        eprintln!(
+            "{reported} rejects this program; checking editor recovery without claiming compiler acceptance"
+        );
+    }
+    let base = Command::new(&compiler)
+        .arg("base")
+        .output()
+        .must_be("selected compiler Base");
+    assert!(base.status.success());
+    let expected_base = String::from_utf8(base.stdout).must_be("selected compiler Base UTF-8");
+    let mut command = server_command();
+    command.stderr(Stdio::null()).env("PATH", directory.path());
+    let mut client = LspClient::spawn(command);
+    client.initialize(directory.path());
+    client.notify(
+        "workspace/didChangeConfiguration",
+        json!({"settings":{"bend2-lsp":{"compilerPath":compiler}}}),
+    );
+    let root_uri = uri(&root);
+    let library_uri = uri(&dependency);
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument":{"uri":root_uri,"languageId":"bend","version":1,"text":source}}),
+    );
+    let metadata = client.request(
+        "bend2/semanticDocument",
+        json!({"textDocument":{"uri":library_uri},"rootUri":root_uri}),
+    );
+    assert_namespace_origins(&metadata, &root_uri, &library_uri, library, &expected_base);
+    client.finish();
+}
+
+fn assert_namespace_origins(
+    metadata: &Value,
+    root_uri: &str,
+    library_uri: &str,
+    library: &str,
+    expected_base: &str,
+) {
+    use bend2_lsp::analysis::LineIndex;
+
+    let base_index = LineIndex::new(expected_base);
+    let library_index = LineIndex::new(library);
+    assert_eq!(metadata["result"]["rootUri"], root_uri);
+    let occurrences = metadata["result"]["occurrences"]
+        .as_array()
+        .must_be("importer-qualified occurrences");
+    for (spelling, declaration, prefix, constructor) in [
+        ("Done{b}", "\n  Done{", 3, true),
+        ("Done: b", "\n  Done{", 3, true),
+        ("List<U32>", "\ntype List<", 6, false),
+    ] {
+        let start = library.find(spelling).must_be("written reference");
+        let (line, character) = library_index.position(library, start);
+        let occurrence = occurrences
+            .iter()
+            .find(|occurrence| {
+                occurrence["range"]["start"] == json!({"line":line,"character":character})
+            })
+            .must_be("written namespace occurrence");
+        assert_eq!(
+            occurrence["role"] == "constructor",
+            constructor,
+            "{spelling}"
+        );
+        assert_eq!(occurrence["status"], "resolved", "{spelling}: {occurrence}");
+        if !constructor {
+            assert_eq!(occurrence["inType"], true);
+        }
+        let target = &occurrence["target"];
+        let base_uri =
+            Url::parse(target["uri"].as_str().must_be("Base definition URI")).must_be("Base URI");
+        let base_path = base_uri.to_file_path().must_be("Base definition path");
+        assert_eq!(
+            fs::read_to_string(base_path).must_be("navigated Base"),
+            expected_base
+        );
+        let start = expected_base
+            .find(declaration)
+            .must_be("compiler's own declaration")
+            + prefix;
+        let (line, character) = base_index.position(expected_base, start);
+        assert_eq!(
+            target["range"],
+            json!({
+                "start":{"line":line,"character":character},
+                "end":{"line":line,"character":character + 4},
+            })
+        );
+    }
+    let call_start = library
+        .rfind("Done(b)")
+        .must_be("ordinary value call spelling");
+    let (line, character) = library_index.position(library, call_start);
+    let call = occurrences
+        .iter()
+        .find(|occurrence| {
+            occurrence["role"] == "call"
+                && occurrence["range"]["start"] == json!({"line":line,"character":character})
+        })
+        .must_be("ordinary Done call");
+    assert_eq!(
+        call["target"],
+        json!({
+            "uri":library_uri,
+            "range":{"start":{"line":2,"character":4},"end":{"line":2,"character":8}},
+        })
+    );
+    assert_eq!(metadata["result"]["complete"], true);
+}

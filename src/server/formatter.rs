@@ -1,126 +1,76 @@
-#[derive(Clone)]
-struct Token {
-    text: String,
+mod layout;
+
+struct Token<'a> {
+    text: &'a str,
     kind: u8,
     gap: bool,
+    col: usize,
+    width: usize,
 }
+
+struct Line<'a> {
+    indent: &'a str,
+    code: &'a str,
+    comment: &'a str,
+    tokens: Vec<Token<'a>>,
+}
+
+fn split_lines(source: &str) -> Option<Vec<Line<'_>>> {
+    let mut raw: Vec<_> = source.split('\n').collect();
+    if source.ends_with('\n') {
+        raw.pop();
+    }
+    raw.into_iter()
+        .map(|raw_line| {
+            let line = raw_line.strip_suffix('\r').unwrap_or(raw_line);
+            let indent_len = line
+                .bytes()
+                .take_while(|byte| matches!(byte, b' ' | b'\t'))
+                .count();
+            let (code, comment) = split_comment(&line[indent_len..])?;
+            let code = code.trim();
+            Some(Line {
+                indent: &line[..indent_len],
+                code,
+                comment,
+                tokens: lex(code),
+            })
+        })
+        .collect()
+}
+
 pub(super) fn format_bend(source: &str, tab_size: usize, spaces: bool) -> String {
+    let Some(lines) = split_lines(source) else {
+        return source.into();
+    };
     let eol = if source.contains("\r\n") {
         "\r\n"
     } else {
         "\n"
     };
     let final_eol = source.ends_with('\n');
-    let mut raw: Vec<&str> = source.split('\n').collect();
-    if final_eol {
-        raw.pop();
-    }
-    let mut lines = Vec::new();
-    for raw_line in raw {
-        let line = raw_line.strip_suffix('\r').unwrap_or(raw_line);
-        let indent_len = line
-            .bytes()
-            .take_while(|b| *b == b' ' || *b == b'\t')
-            .count();
-        let indent = &line[..indent_len];
-        let body = &line[indent_len..];
-        let Some((code, comment)) = split_comment(body) else {
-            return source.into();
-        };
-        lines.push((
-            indent.to_string(),
-            code.trim().to_string(),
-            comment.to_string(),
-        ));
-    }
-    let mut stack = vec![0usize];
-    let mut depths = Vec::new();
-    for (indent, code, comment) in &lines {
-        if code.is_empty() && comment.is_empty() {
-            depths.push(0);
-            continue;
+    let mut layout = layout::Layout::new(&lines);
+    let mut result = String::with_capacity(source.len());
+    for (row, line) in lines.iter().enumerate() {
+        layout.write_line(row, line, tab_size.max(1), spaces, &mut result);
+        if row + 1 < lines.len() || final_eol {
+            result.push_str(eol);
         }
-        let width = indent
-            .chars()
-            .fold(0, |n, c| if c == '\t' { n + (8 - n % 8) } else { n + 1 });
-        while stack.len() > 1 && width < stack.last().copied().unwrap_or_default() {
-            stack.pop();
-        }
-        let previous_width = stack.last().copied().unwrap_or_default();
-        if width > previous_width {
-            stack.push(width);
-        } else if width != previous_width
-            && let Some(last_width) = stack.last_mut()
-        {
-            *last_width = width;
-        }
-        depths.push(stack.len() - 1);
     }
-    let formatted: Vec<String> = lines
-        .iter()
-        .enumerate()
-        .map(|(i, (_, code, comment))| {
-            if code.is_empty() && comment.is_empty() {
-                return String::new();
-            }
-            let prefix = if spaces {
-                " ".repeat(depths[i] * tab_size.max(1))
-            } else {
-                "\t".repeat(depths[i])
-            };
-            let tokens = lex(code);
-            let code = format_tokens(&tokens);
-            if code.is_empty() {
-                prefix + comment
-            } else if comment.is_empty() {
-                prefix + &code
-            } else {
-                prefix + &code + "  " + comment
-            }
-        })
-        .collect();
-    let result = formatted.join(eol) + if final_eol { eol } else { "" };
-    if fingerprint(source) != fingerprint(&result) {
+    let Some(formatted_lines) = split_lines(&result) else {
+        return source.into();
+    };
+    if layout::fingerprint(&lines) != layout::fingerprint(&formatted_lines) {
         return source.into();
     }
     result
 }
-fn fingerprint(source: &str) -> Option<Vec<(usize, Vec<String>)>> {
-    let mut raw: Vec<&str> = source.split('\n').collect();
-    if source.ends_with('\n') {
-        raw.pop();
-    }
-    let mut stack = vec![0usize];
-    let mut result = Vec::with_capacity(raw.len());
-    for line in raw {
-        let indent_len = line
-            .bytes()
-            .take_while(|b| *b == b' ' || *b == b'\t')
-            .count();
-        let indent = &line[..indent_len];
-        let (code, comment) = split_comment(&line[indent_len..])?;
-        let code = code.trim();
-        let tokens = lex(code);
-        let width = indent
-            .chars()
-            .fold(0, |n, c| if c == '\t' { n + (8 - n % 8) } else { n + 1 });
-        while stack.len() > 1 && width < *stack.last()? {
-            stack.pop();
-        }
-        if width > *stack.last()? {
-            stack.push(width);
-        } else if width != *stack.last()? {
-            *stack.last_mut()? = width;
-        }
-        let depth = if tokens.is_empty() && comment.is_empty() {
-            0
-        } else {
-            stack.len() - 1
-        };
-        result.push((depth, tokens.into_iter().map(|token| token.text).collect()));
-    }
-    Some(result)
+
+#[cfg(test)]
+fn fingerprint(source: &str) -> Option<layout::Fingerprint<'_>> {
+    split_lines(source).map(|lines| layout::fingerprint(&lines))
 }
+
 pub(super) fn opens_indented_body(line: &str) -> Option<bool> {
     let (code, _) = split_comment(line)?;
     if code.trim_end().ends_with(':') {
@@ -140,32 +90,43 @@ pub(super) fn opens_indented_body(line: &str) -> Option<bool> {
     )
 }
 
-fn split_comment(s: &str) -> Option<(&str, &str)> {
-    let mut quote = None;
-    let mut escaped = false;
-    for (i, c) in s.char_indices() {
-        if let Some(q) = quote {
-            if escaped {
-                escaped = false;
-            } else if c == '\\' {
-                escaped = true;
-            } else if c == q {
-                quote = None;
+fn split_comment(source: &str) -> Option<(&str, &str)> {
+    let mut chars = source.char_indices().peekable();
+    while let Some((offset, character)) = chars.next() {
+        if matches!(character, '"' | '\'') {
+            // In ''', the first apostrophe after the opener is the character.
+            if character == '\'' && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                chars.next();
             }
-        } else if c == '"' || c == '\'' {
-            quote = Some(c);
-        } else if c == '#' {
-            return Some((&s[..i], &s[i..]));
+            let mut escaped = false;
+            let mut closed = false;
+            for (_, next) in chars.by_ref() {
+                if escaped {
+                    escaped = false;
+                } else if next == '\\' {
+                    escaped = true;
+                } else if next == character {
+                    closed = true;
+                    break;
+                }
+            }
+            if !closed {
+                return None;
+            }
+        } else if character == '#' {
+            return Some((&source[..offset], &source[offset..]));
         }
     }
-    quote.is_none().then_some((s, ""))
+    Some((source, ""))
 }
-fn lex_import_path(
-    code: &str,
+fn lex_import_path<'a>(
+    code: &'a str,
     chars: &[(usize, char)],
     mut index: usize,
-) -> Option<(Token, usize)> {
+    mut column: usize,
+) -> Option<(Token<'a>, usize)> {
     while index < chars.len() && chars[index].1.is_whitespace() {
+        column += chars[index].1.len_utf16();
         index += 1;
     }
     let start = chars.get(index)?.0;
@@ -173,11 +134,14 @@ fn lex_import_path(
         index += 1;
     }
     let end = chars.get(index).map_or(code.len(), |(offset, _)| *offset);
+    let text = &code[start..end];
     Some((
         Token {
-            text: code[start..end].into(),
+            text,
             kind: 0,
             gap: true,
+            col: column,
+            width: text.encode_utf16().count(),
         },
         index,
     ))
@@ -216,7 +180,28 @@ fn lex_number(chars: &[(usize, char)], mut index: usize) -> usize {
     index
 }
 
-fn lex(code: &str) -> Vec<Token> {
+fn lex_literal(chars: &[(usize, char)], mut index: usize) -> Option<usize> {
+    let quote = chars[index].1;
+    index += 1;
+    if quote == '\'' && chars.get(index).is_some_and(|(_, next)| *next == '\'') {
+        index += 1;
+    }
+    let mut escaped = false;
+    while index < chars.len() {
+        let next = chars[index].1;
+        index += 1;
+        if escaped {
+            escaped = false;
+        } else if next == '\\' {
+            escaped = true;
+        } else if next == quote {
+            return Some(index);
+        }
+    }
+    None
+}
+
+fn lex(code: &str) -> Vec<Token<'_>> {
     const MULTI: [&str; 17] = [
         "<&>", ".|.", ".^.", ".&.", "==", "!=", "->", "<-", "=>", "&&", "||", "++", "<>", "<=",
         ">=", "<<", ">>",
@@ -225,14 +210,22 @@ fn lex(code: &str) -> Vec<Token> {
     let mut i = 0;
     let mut had_gap = false;
     let mut tokens = Vec::new();
+    let mut column = 0;
+    let mut cursor = 0;
     while i < chars.len() {
+        column += code[cursor..chars[i].0].encode_utf16().count();
+        cursor = chars[i].0;
         if tokens
             .last()
-            .is_some_and(|token: &Token| token.text == "import")
+            .is_some_and(|token: &Token<'_>| token.text == "import")
         {
-            let Some((token, next_index)) = lex_import_path(code, &chars, i) else {
+            let Some((token, next_index)) = lex_import_path(code, &chars, i, column) else {
                 break;
             };
+            column = token.col + token.width;
+            cursor = chars
+                .get(next_index)
+                .map_or(code.len(), |(offset, _)| *offset);
             tokens.push(token);
             i = next_index;
             had_gap = false;
@@ -248,22 +241,10 @@ fn lex(code: &str) -> Vec<Token> {
         let mut kind = 3;
         if c == '"' || c == '\'' {
             kind = 2;
-            i += 1;
-            let mut escaped = false;
-            while i < chars.len() {
-                let next = chars[i].1;
-                i += 1;
-                if escaped {
-                    escaped = false;
-                } else if next == '\\' {
-                    escaped = true;
-                } else if next == c {
-                    break;
-                }
-            }
-            if i == chars.len() && chars.last().is_some_and(|item| item.1 != c) {
+            let Some(next) = lex_literal(&chars, i) else {
                 return Vec::new();
-            }
+            };
+            i = next;
         } else if c.is_ascii_alphabetic() || c == '_' {
             kind = 0;
             i += 1;
@@ -287,43 +268,40 @@ fn lex(code: &str) -> Vec<Token> {
             }
         } else {
             let rest = &code[start..];
-            let multi = MULTI.iter().find(|operator| rest.starts_with(**operator));
+            let multi = MULTI.iter().find(|operator| {
+                rest.starts_with(**operator)
+                    && (**operator != ">="
+                        || tokens.is_empty()
+                        || (had_gap && tokens.last().is_none_or(|token| token.text != ",")))
+            });
             i += multi.map_or(1, |operator| operator.chars().count());
         }
-        let end = if i < chars.len() {
-            chars[i].0
-        } else {
-            code.len()
-        };
+        let end = chars.get(i).map_or(code.len(), |(offset, _)| *offset);
+        let text = &code[start..end];
+        let width = text.encode_utf16().count();
         tokens.push(Token {
-            text: code[start..end].into(),
+            text,
             kind,
             gap: had_gap,
+            col: column,
+            width,
         });
+        column += width;
+        cursor = end;
         had_gap = false;
     }
     tokens
-}
-fn format_tokens(tokens: &[Token]) -> String {
-    let mut out = String::new();
-    for i in 0..tokens.len() {
-        if i > 0 && needs_space(tokens, i) {
-            out.push(' ');
-        }
-        out.push_str(&tokens[i].text);
-    }
-    out
 }
 const BINARY: &[&str] = &[
     "=", "==", "!=", "->", "<-", "=>", "+", "-", "*", "/", "%", "&&", "||", "++", "<>", "<&>",
     "<=", ">=", "<<", ">>", ".|.", ".^.", ".&.", "&", "|",
 ];
-fn unary(tokens: &[Token], index: usize) -> bool {
-    let token = tokens[index].text.as_str();
+fn unary(tokens: &[Token<'_>], index: usize) -> bool {
+    let token = tokens[index].text;
     if !["+", "-", "~", "?", "@", "&", "%"].contains(&token) {
         return false;
     }
-    let previous = index.checked_sub(1).map(|i| tokens[i].text.as_str());
+    let previous = index.checked_sub(1).map(|i| tokens[i].text);
     let Some(next) = tokens.get(index + 1) else {
         return false;
     };
@@ -336,16 +314,15 @@ fn unary(tokens: &[Token], index: usize) -> bool {
         _ => (next.kind == 0 || next.kind == 1) && at_prefix,
     }
 }
-fn keep_angle_gap(left: &Token, right: &Token) -> Option<bool> {
+fn keep_angle_gap(left: &Token<'_>, right: &Token<'_>) -> Option<bool> {
     let angles = ["<", ">", "<<", ">>"];
-    (angles.contains(&left.text.as_str()) || angles.contains(&right.text.as_str()))
-        .then_some(right.gap)
+    (angles.contains(&left.text) || angles.contains(&right.text)).then_some(right.gap)
 }
-fn needs_space(t: &[Token], i: usize) -> bool {
+fn needs_space(t: &[Token<'_>], i: usize) -> bool {
     let left = &t[i - 1];
     let right = &t[i];
-    let a = left.text.as_str();
-    let b = right.text.as_str();
+    let a = left.text;
+    let b = right.text;
     if [")", "]", "}", ",", ";"].contains(&b) {
         return false;
     }
@@ -379,7 +356,7 @@ fn needs_space(t: &[Token], i: usize) -> bool {
     if b == "{"
         && ((left.kind == 0 && !["return", "case"].contains(&a)) || [">", ">>", "}"].contains(&a))
     {
-        return false;
+        return left.kind == 0 && right.gap;
     }
     if a == "\\" && b == "{" {
         return false;
@@ -445,5 +422,81 @@ mod tests {
 
         let incomplete = "def broken:\n  \"unterminated";
         assert_eq!(format_bend(incomplete, 2, true), incomplete);
+    }
+
+    #[test]
+    fn formatting_preserves_inline_body_continuation_columns() {
+        let source = concat!(
+            "import Base\n",
+            "def main() -> IO(Unit):\n",
+            "    do IO<Unit>: IO.print(\"a\")\n",
+            "                 IO.print(\"b\")\n",
+        );
+        let formatted = format_bend(source, 2, true);
+        assert_eq!(
+            formatted,
+            concat!(
+                "import Base\n",
+                "def main() -> IO(Unit):\n",
+                "  do IO<Unit>: IO.print(\"a\")\n",
+                "               IO.print(\"b\")\n",
+            ),
+        );
+        assert_eq!(format_bend(&formatted, 2, true), formatted);
+    }
+
+    #[test]
+    fn formatting_keeps_inline_case_anchors_when_using_tabs() {
+        let source = concat!(
+            "import Base\n",
+            "def f(n: Bool) -> U32:\n",
+            "    match n: case True{}: 0\n",
+            "             case False{}: 1\n",
+        );
+        let formatted = format_bend(source, 4, false);
+        assert_eq!(
+            formatted,
+            concat!(
+                "import Base\n",
+                "def f(n: Bool) -> U32:\n",
+                "\tmatch n: case True{}: 0\n",
+                "\t         case False{}: 1\n",
+            ),
+        );
+        assert_eq!(format_bend(&formatted, 4, false), formatted);
+    }
+
+    #[test]
+    fn formatting_pins_count_non_bmp_literals_as_utf16_columns() {
+        let source = concat!(
+            "import Base\n",
+            "def main()->String & Array<U32>:\n",
+            "  a = [0 : U32 * 2n]\n",
+            "  (\"😀\",a[0]<-3\n",
+            "        a[1]<-5)\n",
+        );
+        let formatted = format_bend(source, 2, true);
+        assert_eq!(
+            formatted,
+            concat!(
+                "import Base\n",
+                "def main() -> String & Array<U32>:\n",
+                "  a = [0: U32 * 2n]\n",
+                "  (\"😀\", a[0] <- 3\n",
+                "         a[1] <- 5)\n",
+            ),
+        );
+        assert_eq!(format_bend(&formatted, 2, true), formatted);
+    }
+
+    #[test]
+    fn formatting_preserves_raw_apostrophes_and_their_following_comments() {
+        let source = "import Base\ndef main()->Char:\n    '''# quote\n";
+        let formatted = format_bend(source, 2, true);
+        assert_eq!(
+            formatted,
+            "import Base\ndef main() -> Char:\n  '''  # quote\n"
+        );
+        assert_eq!(format_bend(&formatted, 2, true), formatted);
     }
 }
