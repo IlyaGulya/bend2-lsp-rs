@@ -748,6 +748,13 @@ Installing the helpers requires Rust/Cargo and Go. The gate covers formatting,
 rustc, Clippy, tests, feature combinations, dependency policy, and GitHub Actions
 security checks (`actionlint`, `ghalint`, `zizmor`).
 
+Dependency license exceptions in [`deny.toml`](deny.toml) apply only to the exact
+reviewed package versions, not to other packages with the same license. The
+`bindgen` and `libloading` exceptions cover the macOS process-metrics build-tool
+chain; they do not expand the general license allowlist or waive license notices.
+Package upgrades or runtime use require another dependency review: `cargo-deny`
+matches package/version identities, not build-versus-runtime dependency kinds.
+
 The full gate automatically provisions genuine checksum-pinned Bend 2.0.37 when
 `BEND2_COMPILER_TEST_PATH` is unset. To provision it explicitly on macOS/Linux:
 
