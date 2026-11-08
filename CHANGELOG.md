@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.7.1...v0.7.2) (2026-11-08)
+
+
+### Bug Fixes
+
+* **ci:** reject stale performance comparison sources ([#87](https://github.com/IlyaGulya/bend2-lsp-rs/issues/87)) ([3f1b5c9](https://github.com/IlyaGulya/bend2-lsp-rs/commit/3f1b5c9b616696699a1459a8bdbe178bc4fc1b06))
+
 ## [0.7.1](https://github.com/IlyaGulya/bend2-lsp-rs/compare/v0.7.0...v0.7.1) (2026-11-06)
 
 ### Newer Bend versions
