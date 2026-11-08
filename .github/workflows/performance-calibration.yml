@@ -19,8 +19,14 @@ on:
 
 permissions: {}
 
+
+# Shard-specific cancellation never makes sibling shards cancel each other.
+# Final failure reporting stays outside the collector concurrency groups.
 jobs:
   collect:
+    concurrency:
+      group: ${{ github.workflow }}-collect-${{ matrix.job }}-${{ matrix.shard }}-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
     permissions:
       contents: read
     runs-on: ubuntu-24.04
@@ -122,7 +128,11 @@ jobs:
           CALIBRATION_SHARD_COUNT: 4
           CALIBRATION_PHYSICAL_JOB: ${{ matrix.job }}-shard-${{ matrix.shard }}
         run: |
-          "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow supervise \
+          # A superseded pull-request run may be cancelled by the newer head. The
+          # runner signals the step's entry process, so replace this shell with
+          # the supervisor: it then reaps its owned process group and checkpoints
+          # a terminal lifecycle receipt before the always-run sealing step.
+          exec "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" workflow supervise \
             --timeout-seconds 19800 \
             --receipt "$RUNNER_TEMP/calibration-collection-lifecycle.json" -- \
             "$RUNNER_TEMP/perf-tools-target/release/bend2-perf" calibration collect \

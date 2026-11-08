@@ -513,6 +513,52 @@ owned group, never unrelated children. A leader exiting does not prove its
 writers have stopped. Unexpected surviving descendants make collection fail,
 even when their leader returned zero and subsequent cleanup succeeds.
 
+Ordinary first-attempt `pull_request` quality, installer and diagnostic runs use
+workflow/PR concurrency groups. Performance comparison/native collectors and
+calibration shards use job/PR groups, including target or shard identity so
+siblings never cancel each other. New arrivals cancel superseded collection;
+final admission/report jobs do not hold the next head's collector group.
+Explicit reruns (`github.run_attempt > 1`), manual dispatches, schedules and
+trusted pushes use independent run/attempt groups: an intentional old-head rerun
+cannot cancel the current head's ordinary work, or vice versa.
+
+The reusable `perf-diagnostics` workflow has a literal callee prefix rather
+than its caller's inherited workflow name, preventing caller/callee
+self-cancellation. Active labelled semantic calibration is preserved with
+`cancel-in-progress: false`; GitHub's default single pending slot can still
+replace an older pending run. Native concurrency orders arrivals to its
+queue, not source SHAs, and is not a strict current-HEAD arbiter. See
+[GitHub's concurrency contract](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+Source identity and admission checks remain separate.
+
+Do not put `always()` admission/report jobs behind a workflow-level latest-head
+lock: they can remain queued after collector cancellation and hold the next run.
+Keep required admission unconditional rather than replacing it with
+`!cancelled()`: GitHub can treat a conditionally skipped required check as
+successful. See [required-check semantics](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
+Collector cancellation must still lead to failed admission, not a policy pass.
+
+Hosted PR #88 reproduced this lock on 2026-11-07: the collectors in
+[performance run 42366929964](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/42366929964)
+and [calibration run 42366929903](https://github.com/IlyaGulya/bend2-lsp-rs/actions/runs/42366929903)
+were cancelled, but their final jobs stayed queued and held the next workflows.
+Those obsolete first attempts needed exact-source-guarded forced cancellation.
+These were unstarted queued collectors, not evidence of live child cleanup.
+
+Verify scheduling changes with hosted runs, not YAML inspection alone:
+
+1. Record an ordinary run's workflow, PR, exact head SHA, run ID, attempt and
+   queued/running jobs. Push a meaningful change that triggers that workflow.
+2. Check that the superseded first-attempt workflow or collector jobs are
+   cancelled, and newer collectors are not pending behind old finalization.
+   Distinguish cancelling queued work from stopping a live collector.
+3. Explicitly rerun a completed/cancelled old-head job while the current ordinary
+   run is active. Record the increased attempt and verify that neither cancels
+   the other. Do not approve a protected measurement for this check.
+4. If collection had started, retain its terminal cleanup receipt and incomplete
+   evidence. A run cancelled before collection cannot prove child cleanup, and a
+   missing or force-killed receipt is not a successful measurement.
+
 The measurement deadlines remain 210 minutes for ordinary paired collection
 and 330 minutes for qualification. Their outer steps reserve two additional
 minutes for termination, reaping and report handling, not additional samples
@@ -528,6 +574,14 @@ authorize raw publication. Completed cleanup after a timeout or interruption
 can permit evidence retention, never a successful measurement verdict.
 Sealing independently checks that the recorded group is absent, including
 zombies, before walking the raw tree and again before publication.
+
+Cancellation of a superseded ordinary pull-request run is delivered to the
+supervising process itself: the qualification step replaces its shell with the
+supervisor and the ordinary step forwards the runner's stop signal to it. An
+interrupted collection therefore still reaps its owned process group and
+checkpoints a terminal receipt before the always-run publication step. A run
+stopped this way retains only lifecycle-labelled incomplete evidence and can
+never satisfy admission.
 
 `bend2-perf workflow seal --source ROOT --output DESTINATION` creates an
 independent, write-finished snapshot. Publication currently requires Linux GNU

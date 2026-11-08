@@ -18,6 +18,27 @@ pull-request code. Trusted `workflow_run` jobs must validate repository identity
 event, branch, and exact source SHA before privileged operations. Privileged
 jobs must never execute PR code or consume PR artifacts.
 
+## Pull-request run lifecycle
+
+Ordinary first-attempt `pull_request` validation is latest-head work. Quality,
+installer and diagnostic workflows use workflow/PR concurrency groups.
+Performance collectors use job/PR groups with target or shard identity: sibling
+jobs must not cancel each other. Keep unconditional admission/report jobs outside
+those groups so they cannot hold up the next head. Never make a required
+admission conditionally skipped to release a cancellation lock.
+
+Explicit reruns (`github.run_attempt > 1`), manual dispatches, schedules and
+trusted main/release runs use independent run/attempt groups. Active opt-in
+labelled semantic calibration is not cancelled by a new head; GitHub's default
+single pending slot can replace older pending work. Concurrency follows event
+arrival, not a custom strict-HEAD arbiter.
+
+A reusable callee must not share its caller's key: `github.workflow` is inherited.
+Use a literal callee prefix when a separate group is needed. Cancellation never
+yields admission: owned supervisors reap their groups and checkpoint terminal
+receipts; partial evidence stays incomplete. Mandatory checks, permissions,
+action pins, thresholds, sample counts and resource bounds are unchanged.
+
 ## Editor demo videos
 
 For requests to record, improve, review, or publish an editor-feature demo/video,

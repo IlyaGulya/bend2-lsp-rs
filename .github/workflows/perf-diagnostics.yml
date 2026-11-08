@@ -79,6 +79,17 @@ on:
 
 permissions: {}
 
+concurrency:
+  # Latest-head policy for this workflow's own pull-request runs only: a
+  # superseded diagnostics run stops instead of queueing ahead of the current
+  # head, and distinct pull requests never share a group. The group is keyed by
+  # this file's literal name, never by github.workflow: a called workflow
+  # inherits the caller's github.workflow value, so a shared value would let
+  # this callee cancel the caller that is waiting for it. Manual and called runs
+  # fall back to the run ID, so each one stays independent and uncancelled.
+  group: perf-diagnostics-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
+
 jobs:
   validate:
     permissions:
@@ -103,6 +114,7 @@ jobs:
       SELECTED_TARGET: ${{ inputs.target || 'all' }}
       NATIVE_KIND: ${{ inputs.native_kind || 'cpu' }}
       WORKFLOW_SHA: ${{ github.workflow_sha }}
+      WORKFLOW_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PULL_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

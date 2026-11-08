@@ -13,6 +13,17 @@ on:
 
 permissions: {}
 
+concurrency:
+  # Latest-head policy for ordinary pull-request work only: at most one run of
+  # this workflow per pull request, and a superseded head stops instead of
+  # queueing ahead of the current head. Distinct pull requests never share a
+  # group. Trusted main-push and explicit workflow_dispatch runs fall back to a
+  # unique per-run group, so they are never cancelled or queued behind anything.
+  # Explicit re-runs also stay independent: re-running an old head must not
+  # cancel the current head's ordinary checks.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.run_attempt == 1 && format('pr-{0}', github.event.pull_request.number) || format('run-{0}-{1}', github.run_id, github.run_attempt) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
+
 jobs:
   quality:
     permissions:
